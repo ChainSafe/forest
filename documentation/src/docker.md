@@ -59,6 +59,7 @@ docker volume create forest-data
 Now, whenever you create a new Forest container, attach the volume to where the data is stored `/home/forest/.local/share/forest`.
 ```shell
 ❯ docker run --init -it --rm \
+             --ulimit nofile=8192 \
              --volume forest-data:/home/forest/.local/share/forest \
              --name forest ghcr.io/chainsafe/forest:latest --chain calibnet 
                                                            --auto-download-snapshot
