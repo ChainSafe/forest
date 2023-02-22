@@ -19,15 +19,15 @@ pub struct Cli {
 }
 
 pub fn set_sigint_handler() -> anyhow::Result<()> {
-    tokio::task::Builder::new()
-        .name("ctrl-c")
-        .spawn(async {
-            let _ = signal::ctrl_c().await;
+    tokio::task::Builder::new().name("ctrl-c").spawn(async {
+        let _ = signal::ctrl_c().await;
 
-            let mut stdout = std::io::stdout();
-            #[allow(clippy::question_mark)]
-            execute!(&mut stdout, anes::ShowCursor).unwrap();
-        })?;
+        // the cursor can go missing if we hit ctrl-c during a prompt, so we always
+        // restore it
+        let mut stdout = std::io::stdout();
+        #[allow(clippy::question_mark)]
+        execute!(&mut stdout, anes::ShowCursor).unwrap();
+    })?;
 
     Ok(())
 }
