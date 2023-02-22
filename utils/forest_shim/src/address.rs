@@ -120,9 +120,9 @@ impl From<Address> for Address_v2 {
             other.0.protocol(),
         ));
         set_current_network(prev_network);
-        if matches!(prev_network, Network::Testnet) {
-            addr.set_network(fvm_shared::address::Network::Testnet);
-        }
+        // if matches!(prev_network, Network::Testnet) {
+        //     addr.set_network(fvm_shared::address::Network::Testnet);
+        // }
         addr
     }
 }
