@@ -3299,6 +3299,7 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
+ "fvm_shared 3.0.0-alpha.20",
  "libipld",
  "log",
  "lru 0.9.0",

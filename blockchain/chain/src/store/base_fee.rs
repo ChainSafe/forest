@@ -7,7 +7,8 @@ use forest_message::Message;
 use forest_shim::econ::TokenAmount;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared3::BLOCK_GAS_LIMIT;
 
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT as u64 / 2;
