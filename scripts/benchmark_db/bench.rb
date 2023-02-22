@@ -257,20 +257,18 @@ class Benchmark
   private :build_substitution_hash
 
   def build_artefacts(dry_run)
-    puts "(I) Building artefacts..."
-    if !Dir.exist?(repository_name) then
-      puts "(I) Cloning repository"
-      clone_command(dry_run)
-      if dry_run then
-        Dir.mkdir(repository_name)
-      end
-    else
+    puts '(I) Building artefacts...'
+    if Dir.exist?(repository_name)
       puts "(W) Directory #{repository_name} is already present"
+    else
+      puts '(I) Cloning repository'
+      clone_command(dry_run)
+      Dir.mkdir(repository_name) if dry_run
     end
     Dir.chdir(repository_name) do
       checkout_command(dry_run)
     end
-    puts "(I) Clean and build client"
+    puts '(I) Clean and build client'
     Dir.chdir(repository_name) do
       clean_command(dry_run)
       build_command(dry_run)
@@ -330,14 +328,12 @@ class Benchmark
   end
 
   def repository_name
-    raise 'repository_name method should be implemented' 
+    raise 'repository_name method should be implemented'
   end
 
   def data_dir
     path = "#{TEMP_DIR}/#{repository_name}"
-    if !Dir.exist?(path) then
-      FileUtils.mkdir_p path
-    end
+    FileUtils.mkdir_p path
     path
   end
 end
@@ -382,8 +378,7 @@ class ForestBenchmark < Benchmark
     exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name], dry_run)
   end
 
-  def checkout_command(_dry_run)
-  end
+  def checkout_command(_dry_run); end
 
   def clean_command(dry_run)
     exec_command(%w[cargo clean], dry_run)
@@ -436,21 +431,28 @@ end
 # Benchmark class for Forest with ParityDb backend
 class ParityDbBenchmark < ForestBenchmark
   def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'],
+                 dry_run)
   end
 end
 
 # Benchmark class for Forest with ParityDb backend and Jemalloc allocator
 class JemallocBenchmark < ForestBenchmark
   def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
+    exec_command(
+      ['cargo', 'build', '--release', '--no-default-features', '--features',
+       'forest_fil_cns,paritydb,jemalloc'], dry_run
+    )
   end
 end
 
 # Benchmark class for Forest with ParityDb backend and Mimalloc allocator
 class MimallocBenchmark < ForestBenchmark
   def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
+    exec_command(
+      ['cargo', 'build', '--release', '--no-default-features', '--features',
+       'forest_fil_cns,paritydb,mimalloc'], dry_run
+    )
   end
 end
 
@@ -488,7 +490,7 @@ class LotusBenchmark < Benchmark
   end
 
   def checkout_command(dry_run)
-    exec_command(['git', 'checkout', 'releases'], dry_run)
+    exec_command(%w[git checkout releases], dry_run)
   end
 
   def clean_command(dry_run)
@@ -547,9 +549,9 @@ def run_benchmarks(benchmarks, options)
       bench.heights = options[:heights]
       bench.chain = options[:chain]
       bench.run(options[:dry_run], options[:daily])
-  
+
       bench_metrics[bench.name] = bench.metrics
-  
+
       puts "\n"
     end
   end
