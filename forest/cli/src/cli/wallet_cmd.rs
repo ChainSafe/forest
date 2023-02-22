@@ -213,7 +213,7 @@ impl WalletCommands {
                     let balance_string = format_balance_string(
                         balance_dec,
                         bool_pair_to_mode(*exact_balance, *fixed_unit),
-                    );
+                    )?;
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_string}",);
                 }
@@ -275,7 +275,7 @@ impl WalletCommands {
     }
 }
 
-fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
+fn format_balance_string(num: Decimal, mode: FormattingMode) -> anyhow::Result<String> {
     let units = ["atto", "femto", "pico", "nano", "micro", "milli", ""];
     let orig = num;
 
@@ -286,17 +286,19 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         unit_index += 1;
     }
 
-    match mode {
+    let res = match mode {
         FormattingMode::ExactFixed => {
             let fil = orig / dec!(1e18);
             format!("{fil} FIL")
         }
         FormattingMode::NotExactFixed => {
             let fil_orig = orig / dec!(1e18);
-            let fil = fil_orig.round_dp_with_strategy(
-                NUM_SIGNIFICANT_DIGITS,
-                RoundingStrategy::MidpointAwayFromZero,
-            );
+            let fil = fil_orig
+                .round_sf_with_strategy(
+                    NUM_SIGNIFICANT_DIGITS,
+                    RoundingStrategy::MidpointAwayFromZero,
+                )
+                .ok_or(anyhow::Error::msg("cannot represent"))?;
             let mut res = format!("{} FIL", fil.trunc());
             if fil != fil_orig {
                 res.insert(0, '~');
@@ -305,10 +307,12 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         }
         FormattingMode::ExactNotFixed => format!("{num:0} {} FIL", units[unit_index]),
         FormattingMode::NotExactNotFixed => {
-            let mut fil = num.round_dp_with_strategy(
-                NUM_SIGNIFICANT_DIGITS,
-                RoundingStrategy::MidpointAwayFromZero,
-            );
+            let mut fil = num
+                .round_sf_with_strategy(
+                    NUM_SIGNIFICANT_DIGITS,
+                    RoundingStrategy::MidpointAwayFromZero,
+                )
+                .ok_or(anyhow::Error::msg("cannot represent"))?;
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
@@ -320,7 +324,8 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
 
             res
         }
-    }
+    };
+    Ok(res)
 }
 
 fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
@@ -356,7 +361,7 @@ mod test {
     #[test]
     fn not_exact_balance_fixed_unit() {
         let cases_vec = vec![
-            (100, "~0 FIL"),
+            (100, "0 FIL"),
             (999999999999999999, "~1 FIL"),
             (1000005000, "~0 FIL"),
             (1508900000000005000, "~1 FIL"),
@@ -387,12 +392,12 @@ mod test {
     fn not_exact_balance_not_fixed_unit() {
         let cases_vec = vec![
             (100, "100 atto FIL"),
-            (120005, "120.005 femto FIL"),
+            (120005, "~120 femto FIL"),
             (200000045, "~200 pico FIL"),
             (1000000123, "~1 nano FIL"),
             (450000008000000, "~450 micro FIL"),
             (90000002750000000, "~90 milli FIL"),
-            (500236779800000000, "~500.2368 milli FIL"),
+            (500236779800000000, "~500.2 milli FIL"),
         ];
 
         for (atto, result) in cases_vec {
@@ -406,7 +411,8 @@ mod test {
             format_balance_string(
                 token_string.parse::<Decimal>().unwrap(),
                 bool_pair_to_mode(exact, fixed)
-            ),
+            )
+            .unwrap(),
             result
         );
     }
