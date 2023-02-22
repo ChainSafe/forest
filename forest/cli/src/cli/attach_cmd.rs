@@ -19,8 +19,9 @@ use directories::BaseDirs;
 use forest_json::message::json::MessageJson;
 use forest_rpc_api::mpool_api::MpoolPushMessageResult;
 use forest_rpc_client::*;
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
-use num::{BigInt, Zero};
+use forest_shim::{address::Address, econ::TokenAmount, message::Message_v3};
+use fvm_shared::METHOD_SEND;
+use num::BigInt;
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -221,18 +222,16 @@ async fn send_message(
 ) -> Result<MpoolPushMessageResult, jsonrpc_v2::Error> {
     let (from, to, value) = params;
 
-    let message = Message {
-        from: Address::from_str(&from)?,
-        to: Address::from_str(&to)?,
-        value: TokenAmount::from_atto(BigInt::from_str(&value)?),
+    let message = Message_v3 {
+        from: Address::from_str(&from)?.into(),
+        to: Address::from_str(&to)?.into(),
+        value: TokenAmount::from_atto(BigInt::from_str(&value)?).into(),
         method_num: METHOD_SEND,
         gas_limit: 0,
-        gas_fee_cap: TokenAmount::from_atto(BigInt::zero()),
-        gas_premium: TokenAmount::from_atto(BigInt::zero()),
         ..Default::default()
     };
 
-    let json_message = MessageJson(message);
+    let json_message = MessageJson(message.into());
     mpool_push_message((json_message, None), auth_token).await
 }
 
