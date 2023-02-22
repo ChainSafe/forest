@@ -213,7 +213,7 @@ impl WalletCommands {
                     let balance_string = format_balance_string(
                         balance_dec,
                         bool_pair_to_mode(*exact_balance, *fixed_unit),
-                    );
+                    )?;
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_string}",);
                 }
@@ -275,7 +275,7 @@ impl WalletCommands {
     }
 }
 
-fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
+fn format_balance_string(num: Decimal, mode: FormattingMode) -> Result<String> {
     let units = ["atto", "femto", "pico", "nano", "micro", "milli", ""];
     let orig = num;
 
@@ -286,7 +286,7 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         unit_index += 1;
     }
 
-    match mode {
+    let res = match mode {
         FormattingMode::ExactFixed => {
             let fil = orig / dec!(1e18);
             format!("{fil} FIL")
@@ -305,10 +305,12 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         }
         FormattingMode::ExactNotFixed => format!("{num:0} {} FIL", units[unit_index]),
         FormattingMode::NotExactNotFixed => {
-            let mut fil = num.round_dp_with_strategy(
-                NUM_SIGNIFICANT_DIGITS,
-                RoundingStrategy::MidpointAwayFromZero,
-            );
+            let mut fil = num
+                .round_sf_with_strategy(
+                    NUM_SIGNIFICANT_DIGITS,
+                    RoundingStrategy::MidpointAwayFromZero,
+                )
+                .ok_or(anyhow::bail!("unable to be represented"))?;
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
@@ -320,7 +322,8 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
 
             res
         }
-    }
+    };
+    Ok(res)
 }
 
 fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
@@ -406,7 +409,8 @@ mod test {
             format_balance_string(
                 token_string.parse::<Decimal>().unwrap(),
                 bool_pair_to_mode(exact, fixed)
-            ),
+            )
+            .unwrap(),
             result
         );
     }
