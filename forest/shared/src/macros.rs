@@ -1,11 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
-
-pub const DEFAULT_RETRIES: i32 = 3;
-pub const DEFAULT_DELAY: Duration = Duration::from_secs(60);
-
 #[macro_export]
 macro_rules! retry {
     ($func:ident, $max_retries:expr, $delay:expr $(, $arg:expr)*) => {{

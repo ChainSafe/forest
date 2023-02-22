@@ -72,10 +72,10 @@ pub enum SnapshotCommands {
         aria2: bool,
         /// Maximum number of times to retry the fetch
         #[arg(short, long, default_value = "3")]
-        max_retries: Option<i32>,
+        max_retries: i32,
         /// Duration to wait between the retries in seconds
         #[arg(short, long, default_value = "60", value_parser = parse_duration)]
-        delay: Option<Duration>,
+        delay: Duration,
     },
 
     /// Shows default snapshot dir
@@ -217,8 +217,8 @@ impl SnapshotCommands {
                     .unwrap_or_else(|| default_snapshot_dir(&config));
                 match retry!(
                     snapshot_fetch,
-                    max_retries.unwrap(),
-                    delay.unwrap(),
+                    *max_retries,
+                    *delay,
                     &snapshot_dir,
                     &config,
                     provider,
