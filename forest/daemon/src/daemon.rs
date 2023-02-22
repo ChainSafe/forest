@@ -65,6 +65,8 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 
 /// Starts daemon process
 pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
+    // XXX: Dirty hack
+    forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(

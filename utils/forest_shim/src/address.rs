@@ -11,7 +11,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
-    set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
 };
 use serde::{Deserialize, Serialize};
 
@@ -111,8 +111,19 @@ impl From<Address> for Address_v3 {
 
 impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
-        Address_v2::from_bytes(&other.to_bytes())
-            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+        let prev_network = current_network();
+        set_current_network(Network::Mainnet);
+        let mut addr = Address_v2::from_bytes(&other.to_bytes()).expect(&format!(
+            "Couldn't convert between FVM2 and FVM3 addresses: {} {:?} {}",
+            &other,
+            current_network(),
+            other.0.protocol(),
+        ));
+        set_current_network(prev_network);
+        if matches!(prev_network, Network::Testnet) {
+            addr.set_network(fvm_shared::address::Network::Testnet);
+        }
+        addr
     }
 }
 
