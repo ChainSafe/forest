@@ -25,7 +25,7 @@ use fvm_shared::{
 
 use crate::resolve_to_key_addr;
 
-pub struct ForestExterns<DB> {
+pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
@@ -34,7 +34,7 @@ pub struct ForestExterns<DB> {
     chain_config: Arc<ChainConfig>,
 }
 
-impl<DB: Blockstore> ForestExterns<DB> {
+impl<DB: Blockstore> ForestExternsV2<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
@@ -43,7 +43,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
-        ForestExterns {
+        ForestExternsV2 {
             rand: Box::new(rand),
             epoch,
             root,
@@ -99,9 +99,9 @@ impl<DB: Blockstore> ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore> Externs for ForestExterns<DB> {}
+impl<DB: Blockstore> Externs for ForestExternsV2<DB> {}
 
-impl<DB> Rand for ForestExterns<DB> {
+impl<DB> Rand for ForestExternsV2<DB> {
     fn get_chain_randomness(
         &self,
         pers: i64,
@@ -121,7 +121,7 @@ impl<DB> Rand for ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore> Consensus for ForestExterns<DB> {
+impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
     // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,

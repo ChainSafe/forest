@@ -11,10 +11,10 @@ use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_chain::ChainStore;
 use forest_legacy_ipld_amt::{Amt, Error as IpldAmtError};
 use forest_message::SignedMessage;
+use forest_shim::message::Message;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
-use fvm_shared::message::Message;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;

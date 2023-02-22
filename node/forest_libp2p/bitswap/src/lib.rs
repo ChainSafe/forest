@@ -30,6 +30,7 @@ mod pb {
     include!(concat!(env!("OUT_DIR"), "/proto/mod.rs"));
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod task {
     //! Re-exports API(s) from the chosen task library
 

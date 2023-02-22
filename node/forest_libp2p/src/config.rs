@@ -8,8 +8,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct Libp2pConfig {
-    /// Local address.
-    pub listening_multiaddr: Multiaddr,
+    /// Local addresses. Tcp and websocket with dns are supported. By making it
+    /// empty, the libp2p node will not be capable of working as a dialee but
+    /// can still work as a dialer
+    pub listening_multiaddrs: Vec<Multiaddr>,
     /// Bootstrap peer list.
     pub bootstrap_peers: Vec<Multiaddr>,
     /// MDNS discovery enabled.
@@ -23,7 +25,7 @@ pub struct Libp2pConfig {
 impl Default for Libp2pConfig {
     fn default() -> Self {
         Self {
-            listening_multiaddr: "/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+            listening_multiaddrs: vec!["/ip4/0.0.0.0/tcp/0".parse().expect("Infallible")],
             bootstrap_peers: vec![],
             mdns: false,
             kademlia: true,

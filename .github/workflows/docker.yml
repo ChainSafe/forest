@@ -47,7 +47,7 @@ jobs:
             type=ref,event=tag
 
       - name: Build image and push to GitHub Container Registry
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}

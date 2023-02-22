@@ -37,12 +37,23 @@ pub fn is_v9_init_cid(cid: &Cid) -> bool {
     known_cids.contains(cid)
 }
 
+pub fn is_v10_init_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v10
+        Cid::try_from("bafk2bzacedhxbcglnonzruxf2jpczara73eh735wf2kznatx2u4gsuhgqwffq").unwrap(),
+        // mainnet v10
+        Cid::try_from("bafk2bzacebb3l4gw6hfszizw5zwho3pfpnmgrmxqm4ie42dgn62325lo4vwc2").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
 /// Init actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_init_v8::State),
     V9(fil_actor_init_v9::State),
+    V10(fil_actor_init_v10::State),
 }
 
 impl State {
@@ -62,6 +73,12 @@ impl State {
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
+        if is_v10_init_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V10)
+                .context("Actor state doesn't exist in store");
+        }
         Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
     }
 
@@ -69,6 +86,7 @@ impl State {
         match self {
             State::V8(st) => st.network_name,
             State::V9(st) => st.network_name,
+            State::V10(st) => st.network_name,
         }
     }
 }

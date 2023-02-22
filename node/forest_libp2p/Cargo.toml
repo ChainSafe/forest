@@ -39,6 +39,7 @@ libp2p = { workspace = true, default-features = false, features = [
   "noise",
   "yamux",
   "tcp",
+  "websocket",
   "dns",
   "request-response",
   "metrics",
