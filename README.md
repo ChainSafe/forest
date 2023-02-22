@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="380" height="269" src="./.github/forest_logo.png">
+  <img width="380" height="269" src="documentation/src/img/forest_logo.png">
 </p>
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/rust.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
@@ -35,7 +35,7 @@ Have questions? Feel free to post them in [Forest Q&A](https://github.com/ChainS
 
 ## Run with Docker
 
-No need to install Rust toolchain or other dependencies, you will need only Docker.
+No need to install Rust toolchain or other dependencies, you will need only Docker - works on Linux, macOS and Windows.
 ```
 # daemon
 ❯ docker run --init -it --rm ghcr.io/chainsafe/forest:latest --help
@@ -43,14 +43,7 @@ No need to install Rust toolchain or other dependencies, you will need only Dock
 ❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
-Follow other instructions for proper `forest` usage. You may need to mount a volume to import a snapshot, e.g.
-```
-❯ docker run --init -it -v $HOME/Downloads:/downloads ghcr.io/chainsafe/forest:latest --import-snapshot /downloads/minimal_finality_stateroots_latest.car
-```
-Use dockerized Forest with host database:
-```
-❯ docker run --init -it -v $HOME/.forest:/home/forest/.local/share/forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
-```
+For more in-depth usage and sample use cases, please refer to the Forest Docker documentation in the [Forest Book](https://chainsafe.github.io/forest/).
 
 ## Dependencies
 
@@ -179,7 +172,7 @@ make test-all
 Chain synchronization checks are run after every merge to `main`. This code is maintained in a separate repository - [Forest IaC](https://github.com/ChainSafe/forest-iac).
 
 ### Linters
-The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will has them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
+The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will have them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
 ```bash
 # You can install those linters also with other package managers or by manually grabbing the binaries from the projects' repositories.
 
