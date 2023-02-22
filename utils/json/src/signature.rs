@@ -42,7 +42,7 @@ pub mod json {
     {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
         Ok(Signature::new(
-            sig_type.into(),
+            sig_type,
             BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
         ))
     }
@@ -88,9 +88,9 @@ pub mod json {
         where
             S: Serializer,
         {
-            let json = match m {
-                &SignatureType::BLS => JsonHelperEnum::Bls,
-                &SignatureType::SECP256K1 => JsonHelperEnum::Secp256k1,
+            let json = match *m {
+                SignatureType::BLS => JsonHelperEnum::Bls,
+                SignatureType::SECP256K1 => JsonHelperEnum::Secp256k1,
             };
             json.serialize(serializer)
         }
@@ -131,10 +131,7 @@ mod tests {
     impl quickcheck::Arbitrary for SignatureWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = SignatureTypeWrapper::arbitrary(g);
-            let signature = Signature {
-                bytes: Vec::arbitrary(g),
-                sig_type: sigtype.sigtype,
-            };
+            let signature = Signature::new(sigtype.sigtype, Vec::arbitrary(g));
             SignatureWrapper { signature }
         }
     }

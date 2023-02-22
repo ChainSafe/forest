@@ -3,7 +3,6 @@
 use std::time;
 
 use cid::Cid;
-use forest_shim::crypto::SignatureType;
 use fvm::{
     call_manager::CallManager,
     gas::{Gas, PriceList},
@@ -14,8 +13,9 @@ use fvm::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{
-    address::Address, clock::ChainEpoch, consensus::ConsensusFault, econ::TokenAmount,
-    piece::PieceInfo, randomness::RANDOMNESS_LENGTH, sector::*, ActorID, MethodNum,
+    address::Address, clock::ChainEpoch, consensus::ConsensusFault,
+    crypto::signature::SignatureType, econ::TokenAmount, piece::PieceInfo,
+    randomness::RANDOMNESS_LENGTH, sector::*, ActorID, MethodNum,
 };
 use stdext::function_name;
 
