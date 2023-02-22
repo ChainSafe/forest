@@ -121,14 +121,14 @@ mod tests {
             ),
             (
                 100_000_000,
-                BLOCK_GAS_LIMIT as u64 * 2,
+                BLOCK_GAS_LIMIT * 2,
                 2,
                 112_500_000,
                 112_500_000,
             ),
             (
                 100_000_000,
-                BLOCK_GAS_LIMIT as u64 * 15 / 10,
+                BLOCK_GAS_LIMIT * 15 / 10,
                 2,
                 110_937_500,
                 106_250_000,
