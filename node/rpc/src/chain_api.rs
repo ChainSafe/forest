@@ -19,9 +19,9 @@ use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use forest_shim::message::Message;
 use forest_utils::{db::BlockstoreExt, io::AsyncWriterWithChecksum};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::message::Message;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};

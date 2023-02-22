@@ -13,8 +13,8 @@ pub mod system;
 
 use cid::Cid;
 pub use fil_actor_reward_v8::AwardBlockRewardParams;
-use fil_actors_runtime::builtin::network;
-pub use fil_actors_runtime::builtin::singletons::{BURNT_FUNDS_ACTOR_ADDR, CHAOS_ACTOR_ADDR};
+use fil_actors_runtime_v9::builtin::network;
+pub use fil_actors_runtime_v9::builtin::singletons::{BURNT_FUNDS_ACTOR_ADDR, CHAOS_ACTOR_ADDR};
 use fvm_shared::address::Address;
 pub use fvm_shared::{clock::EPOCH_DURATION_SECONDS, smooth::FilterEstimate};
 pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;

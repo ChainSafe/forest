@@ -53,9 +53,12 @@ impl SendCommand {
             ..Default::default()
         };
 
-        mpool_push_message((MessageJson(message), None), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+        mpool_push_message(
+            (MessageJson(message.into()), None),
+            &config.client.rpc_token,
+        )
+        .await
+        .map_err(handle_rpc_err)?;
 
         Ok(())
     }

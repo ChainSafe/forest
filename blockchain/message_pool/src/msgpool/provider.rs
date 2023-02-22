@@ -13,12 +13,12 @@ use forest_networks::Height;
 use forest_shim::{
     address::Address,
     econ::TokenAmount,
+    message::Message,
     state_tree::{ActorState, StateTree},
 };
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::message::Message;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 use crate::errors::Error;
