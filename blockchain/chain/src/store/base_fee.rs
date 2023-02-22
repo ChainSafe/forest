@@ -11,7 +11,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared3::BLOCK_GAS_LIMIT;
 
 /// Used in calculating the base fee change.
-pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT as u64 / 2;
+pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT / 2;
 
 /// Limits gas base fee change to 12.5% of the change.
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8;
