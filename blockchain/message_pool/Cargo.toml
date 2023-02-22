@@ -27,6 +27,7 @@ fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+fvm_shared3 = { workspace = true, default-features = false }
 log.workspace = true
 lru.workspace = true
 num-rational.workspace = true
