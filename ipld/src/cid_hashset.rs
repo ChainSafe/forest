@@ -9,7 +9,7 @@ pub struct CidHashSet(HashSet<u64>);
 
 impl CidHashSet {
     pub fn insert(&mut self, cid: &Cid) -> bool {
-        let hash = self.0.hasher().hash_one(cid.to_bytes());
+        let hash = self.0.hasher().hash_one(cid);
         self.0.insert(hash)
     }
 }
