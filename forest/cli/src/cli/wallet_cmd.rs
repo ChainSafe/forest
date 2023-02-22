@@ -293,7 +293,10 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         }
         FormattingMode::NotExactFixed => {
             let fil_orig = orig / dec!(1e18);
-            let fil = fil_orig.round_dp_with_strategy(NUM_SIGNIFICANT_DIGITS, RoundingStrategy::MidpointAwayFromZero);
+            let fil = fil_orig.round_dp_with_strategy(
+                NUM_SIGNIFICANT_DIGITS,
+                RoundingStrategy::MidpointAwayFromZero,
+            );
             let mut res = format!("{} FIL", fil.trunc());
             if fil != fil_orig {
                 res.insert(0, '~');
@@ -302,7 +305,10 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         }
         FormattingMode::ExactNotFixed => format!("{num:0} {} FIL", units[unit_index]),
         FormattingMode::NotExactNotFixed => {
-            let mut fil = num.round_dp_with_strategy(NUM_SIGNIFICANT_DIGITS, RoundingStrategy::MidpointAwayFromZero);
+            let mut fil = num.round_dp_with_strategy(
+                NUM_SIGNIFICANT_DIGITS,
+                RoundingStrategy::MidpointAwayFromZero,
+            );
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
