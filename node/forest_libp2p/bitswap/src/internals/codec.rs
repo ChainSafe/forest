@@ -32,10 +32,6 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
         let pb_msg = bitswap_pb::Message::parse_from_bytes(data.as_slice()).map_err(map_io_err)?;
         let mut parts = vec![];
         for entry in pb_msg.wantlist.unwrap_or_default().entries {
-            // TODO: Implement cancellation
-            if entry.cancel {
-                continue;
-            }
             let cid = Cid::try_from(entry.block).map_err(map_io_err)?;
             let ty = match entry.wantType.try_into() {
                 Ok(ty) => ty,
@@ -48,6 +44,7 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
                 ty,
                 cid,
                 send_dont_have: entry.sendDontHave,
+                cancel: entry.cancel,
             }));
         }
         for payload in pb_msg.payload {

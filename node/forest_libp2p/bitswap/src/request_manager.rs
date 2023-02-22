@@ -189,7 +189,7 @@ impl BitswapRequestManager {
                     warn!("Failed to construct block: {e}, cid: {cid}");
                     false
                 }
-            }
+            };
         }
 
         // Cleanup
@@ -227,6 +227,17 @@ impl BitswapRequestManager {
                     }
                 } else {
                     metrics::message_counter_inbound_response_block_not_requested().inc();
+                }
+
+                // Broadcast cancellation
+                let cancel_request = BitswapRequest::new_cancel(cid);
+                for &peer in self.peers.read().iter() {
+                    if let Err(e) = self
+                        .outbound_request_tx
+                        .send((peer, cancel_request.clone()))
+                    {
+                        warn!("{e}");
+                    }
                 }
             }
         }

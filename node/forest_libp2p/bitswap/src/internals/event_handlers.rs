@@ -72,25 +72,29 @@ fn handle_inbound_request<S: BitswapStoreRead>(
     store: &S,
     request: &BitswapRequest,
 ) -> Option<BitswapResponse> {
-    match request.ty {
-        RequestType::Have => {
-            metrics::message_counter_inbound_request_have().inc();
-            let have = store.contains(&request.cid).ok().unwrap_or_default();
-            if have || request.send_dont_have {
-                Some(BitswapResponse::Have(have))
-            } else {
-                None
+    if request.cancel {
+        None
+    } else {
+        match request.ty {
+            RequestType::Have => {
+                metrics::message_counter_inbound_request_have().inc();
+                let have = store.contains(&request.cid).ok().unwrap_or_default();
+                if have || request.send_dont_have {
+                    Some(BitswapResponse::Have(have))
+                } else {
+                    None
+                }
             }
-        }
-        RequestType::Block => {
-            metrics::message_counter_inbound_request_block().inc();
-            let block = store.get(&request.cid).ok().unwrap_or_default();
-            if let Some(data) = block {
-                Some(BitswapResponse::Block(data))
-            } else if request.send_dont_have {
-                Some(BitswapResponse::Have(false))
-            } else {
-                None
+            RequestType::Block => {
+                metrics::message_counter_inbound_request_block().inc();
+                let block = store.get(&request.cid).ok().unwrap_or_default();
+                if let Some(data) = block {
+                    Some(BitswapResponse::Block(data))
+                } else if request.send_dont_have {
+                    Some(BitswapResponse::Have(false))
+                } else {
+                    None
+                }
             }
         }
     }
