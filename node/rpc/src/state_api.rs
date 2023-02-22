@@ -81,7 +81,6 @@ pub(crate) async fn state_start_time<
 >(
     data: Data<RPCState<DB, B>>,
 ) -> Result<StateNetworkNameResult, JsonRpcError> {
-    // TODO: change return type alias to StateUptime
     let uptime = &data.start_time.to_string();
     Ok(uptime.clone())
 }

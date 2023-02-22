@@ -17,10 +17,19 @@ pub enum InfoCommand {
     Show,
 }
 
+#[derive(Debug)]
+enum SyncStatus {
+    Ok,
+    Slow,
+    Behind,
+}
+
 pub struct NodeStatusInfo {
     behind: u64,
     health: usize,
     epoch: i64,
+    base_fee: String,
+    sync_status: SyncStatus,
 }
 
 const CHAIN_FINALITY: i64 = 900;
@@ -36,6 +45,23 @@ pub async fn node_status(config: &Config) -> NodeStatusInfo {
     let now = Instant::now().elapsed().as_secs();
     let delta = now - ts;
     let behind = delta / 30;
+
+    let sync_status = if delta < 30 * 3 / 2 {
+        SyncStatus::Ok
+    } else if delta < 30 * 5 {
+        SyncStatus::Slow
+    } else {
+        SyncStatus::Behind
+    };
+
+    let base_fee = chain_head.min_ticket_block().parent_base_fee();
+    // if base_fee > 7000_000_000 { // 7 nFIL
+
+    // } else if base_fee > 3000_000_000 {
+
+    // }
+
+    let base_fee = base_fee.to_string();
 
     // chain health
     let blocks_per_tipset_last_finality = if epoch > CHAIN_FINALITY {
@@ -71,6 +97,8 @@ pub async fn node_status(config: &Config) -> NodeStatusInfo {
         behind,
         health,
         epoch,
+        base_fee,
+        sync_status,
     }
 }
 
@@ -98,9 +126,14 @@ impl InfoCommand {
 
         let behind = node_status.behind;
         let health = node_status.health;
+        let base_fee = node_status.base_fee;
+        let sync_status = node_status.sync_status;
 
-        let chain_status =
-            format!("[sync behind! ({behind} behind)] [basefee 100 pFIL] [epoch {epoch}]").blue();
+        let chain_status = format!(
+            "[sync {:?}! ({behind} behind)] [basefee {base_fee} pFIL] [epoch {epoch}]",
+            sync_status
+        )
+        .blue();
 
         println!("Network: {}", network.green());
         println!("Start time: {}", start_time);
@@ -121,3 +154,4 @@ impl InfoCommand {
         Ok(())
     }
 }
+
