@@ -166,6 +166,8 @@ jobs:
         run: |
           forest-cli snapshot export
           sha256sum -c *.sha256sum
+      - name: js console
+        run: forest-cli --attach --exec 'showPeers()'
       - name: validate snapshot
         run: |
           forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
