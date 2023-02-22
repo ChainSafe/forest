@@ -12,8 +12,7 @@ use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_crypto::VRFProof;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use forest_shim::{econ::TokenAmount, state_tree::ActorState};
-use fvm_shared::{address::Address, message::Message};
+use forest_shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -128,7 +127,7 @@ impl Provider for TestApi {
         for b in ts.blocks() {
             if let Some(ms) = inner.bmsgs.get(b.cid()) {
                 for m in ms {
-                    if m.from() == addr {
+                    if &m.from() == addr {
                         msgs.push(m.clone());
                     }
                 }

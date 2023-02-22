@@ -4,9 +4,10 @@
 use std::borrow::Borrow;
 
 use cid::Cid;
-use forest_shim::econ::TokenAmount;
-use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::{address::Address, message::Message, MethodNum};
+use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use fvm_ipld_encoding::{Cbor, Error};
+use fvm_ipld_encoding3::RawBytes;
+use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
@@ -31,16 +32,16 @@ impl ChainMessage {
 }
 
 impl MessageTrait for ChainMessage {
-    fn from(&self) -> &Address {
+    fn from(&self) -> Address {
         match self {
             Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => &t.from,
+            Self::Unsigned(t) => Address::from(t.from),
         }
     }
-    fn to(&self) -> &Address {
+    fn to(&self) -> Address {
         match self {
             Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => &t.to,
+            Self::Unsigned(t) => Address::from(t.to),
         }
     }
     fn sequence(&self) -> u64 {
@@ -64,25 +65,25 @@ impl MessageTrait for ChainMessage {
     fn params(&self) -> &RawBytes {
         match self {
             Self::Signed(t) => t.params(),
-            Self::Unsigned(t) => &t.params,
+            Self::Unsigned(t) => t.params(),
         }
     }
     fn gas_limit(&self) -> i64 {
         match self {
             Self::Signed(t) => t.gas_limit(),
-            Self::Unsigned(t) => t.gas_limit,
+            Self::Unsigned(t) => t.gas_limit(),
         }
     }
     fn set_gas_limit(&mut self, token_amount: i64) {
         match self {
             Self::Signed(t) => t.set_gas_limit(token_amount),
-            Self::Unsigned(t) => t.gas_limit = token_amount,
+            Self::Unsigned(t) => t.set_gas_limit(token_amount),
         }
     }
     fn set_sequence(&mut self, new_sequence: u64) {
         match self {
             Self::Signed(t) => t.set_sequence(new_sequence),
-            Self::Unsigned(t) => t.sequence = new_sequence,
+            Self::Unsigned(t) => t.set_sequence(new_sequence),
         }
     }
     fn required_funds(&self) -> TokenAmount {
@@ -107,14 +108,14 @@ impl MessageTrait for ChainMessage {
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_fee_cap(cap),
-            Self::Unsigned(t) => t.gas_fee_cap = cap.into(),
+            Self::Unsigned(t) => t.set_gas_fee_cap(cap),
         }
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
-            Self::Unsigned(t) => t.gas_premium = prem.into(),
+            Self::Unsigned(t) => t.set_gas_premium(prem),
         }
     }
 }

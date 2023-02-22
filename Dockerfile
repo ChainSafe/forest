@@ -17,13 +17,26 @@
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ## 
-FROM buildpack-deps:bullseye AS build-env
 
-# Install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev protobuf-compiler cmake curl
+# Cross-compilation helpers
+# https://github.com/tonistiigi/xx
+FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.2.1 AS xx
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+FROM --platform=$BUILDPLATFORM buildpack-deps:bullseye AS build-env
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Copy the cross-compilation scripts 
+COPY --from=xx / /
+
+# install dependencies
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang protobuf-compiler cmake
+
+# export TARGETPLATFORM
+ARG TARGETPLATFORM
+
+# Install those packages for the target architecture
+RUN xx-apt-get update && xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
 
 WORKDIR /forest
 COPY . .
@@ -32,7 +45,7 @@ COPY . .
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \
     --mount=type=cache,sharing=private,target=/forest/target \
-    make install && \
+    make install-xx && \
     mkdir /forest_out && \
     cp /root/.cargo/bin/forest* /forest_out
 
@@ -47,6 +60,7 @@ FROM ubuntu:22.04
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 ARG SERVICE_USER=forest
 ARG SERVICE_GROUP=forest
+ARG DATA_DIR=/home/forest/.local/share/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
@@ -58,6 +72,9 @@ RUN addgroup --gid 1000 ${SERVICE_GROUP} && adduser --uid 1000 --ingroup ${SERVI
 
 # Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /usr/local/bin/
+
+# Initialize data directory with proper permissions
+RUN mkdir -p ${DATA_DIR} && chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
 
 USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}

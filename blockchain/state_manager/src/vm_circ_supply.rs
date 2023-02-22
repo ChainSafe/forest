@@ -9,9 +9,12 @@ use forest_actor_interface::{
 use forest_chain::*;
 use forest_db::Store;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::state_tree::{ActorState, StateTree};
+use forest_shim::{
+    econ::TokenAmount,
+    state_tree::{ActorState, StateTree},
+};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
+use fvm_shared::{address::Address, clock::ChainEpoch};
 use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
@@ -106,13 +109,12 @@ impl GenesisInfoVesting {
     }
 }
 
-fn get_actor_state<DB: Blockstore>(
+fn get_actor_state<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
     state_tree
-        .get_actor(addr)?
-        .map(|v| v.into())
+        .get_actor(&addr.into())?
         .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {addr}"))
 }
 
@@ -153,7 +155,7 @@ fn get_fil_mined<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
         .context("Reward actor address could not be resolved")?;
-    let state = reward::State::load(state_tree.store(), &actor.into())?;
+    let state = reward::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_storage_power_reward())
 }
@@ -164,7 +166,7 @@ fn get_fil_market_locked<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&market::ADDRESS)?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
-    let state = market::State::load(state_tree.store(), &actor.into())?;
+    let state = market::State::load(state_tree.store(), &actor)?;
 
     Ok(state.total_locked())
 }
@@ -175,7 +177,7 @@ fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-    let state = power::State::load(state_tree.store(), &actor.into())?;
+    let state = power::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_locked())
 }
@@ -187,8 +189,7 @@ fn get_fil_reserve_disbursed<DB: Blockstore + Store + Clone>(
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
-    let value = forest_shim::econ::TokenAmount::from(fil_reserved);
-    Ok(forest_shim::econ::TokenAmount::from(&*value - &reserve_actor.balance).into())
+    Ok(TokenAmount::from(&*fil_reserved - &reserve_actor.balance))
 }
 
 fn get_fil_locked<DB: Blockstore + Store + Clone>(
@@ -204,7 +205,7 @@ fn get_fil_burnt<DB: Blockstore + Store + Clone>(
 ) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, &BURNT_FUNDS_ACTOR_ADDR)?;
 
-    Ok(forest_shim::econ::TokenAmount::from(&burnt_actor.balance).into())
+    Ok(TokenAmount::from(&burnt_actor.balance))
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {

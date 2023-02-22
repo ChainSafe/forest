@@ -7,7 +7,10 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::{
+    multihash::{Code, Code::Blake2b256},
+    Cid,
+};
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -21,18 +24,17 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
-use forest_shim::{econ::TokenAmount, state_tree::StateTree};
+use forest_shim::{
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
+};
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::{
-    address::Address,
     clock::ChainEpoch,
     crypto::signature::{Signature, SignatureType},
-    message::Message,
-    receipt::Receipt,
 };
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -471,7 +473,7 @@ where
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
             // the block isn't valid otherwise.
-            let entry = applied.entry(*m.from()).or_insert_with(|| m.sequence());
+            let entry = applied.entry(m.from()).or_insert_with(|| m.sequence());
 
             if *entry != m.sequence() {
                 return None;
@@ -565,7 +567,15 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                tx_clone.send_async((cid, block.clone())).await?;
+                // Don't include identity CIDs.
+                // We only include raw and dagcbor, for now.
+                // Raw for "code" CIDs.
+                if u64::from(Code::Identity) != cid.hash().code()
+                    && (cid.codec() == fvm_shared::IPLD_RAW
+                        || cid.codec() == fvm_ipld_encoding::DAG_CBOR)
+                {
+                    tx_clone.send_async((cid, block.clone())).await?;
+                }
                 Ok(block)
             }
         })
@@ -801,14 +811,14 @@ where
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
         for message in unsigned_box.chain(signed_box) {
-            let from_address = message.from();
+            let from_address = &message.from();
             if applied.contains_key(from_address) {
                 let actor_state = state
                     .get_actor(from_address)
                     .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
-                balances.insert(*from_address, actor_state.balance.into());
+                balances.insert(*from_address, actor_state.balance.clone().into());
             }
             if let Some(seq) = applied.get_mut(from_address) {
                 if *seq != message.sequence() {
@@ -982,8 +992,8 @@ mod tests {
         },
         Cid,
     };
+    use forest_shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_shared::address::Address;
 
     use super::*;
 

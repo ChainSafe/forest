@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_encoding::tuple::*;
-use forest_shim::econ::TokenAmount;
-use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
+use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
+use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::{
-    address::Address,
     crypto::signature::{Signature, SignatureType},
-    message::Message,
     MethodNum,
 };
 
@@ -25,7 +24,7 @@ impl SignedMessage {
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
         signature
-            .verify(&message.cid()?.to_bytes(), &message.from)
+            .verify(&message.cid()?.to_bytes(), &message.from().into())
             .map_err(anyhow::Error::msg)?;
         Ok(SignedMessage { message, signature })
     }
@@ -64,54 +63,54 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.cid().unwrap().to_bytes(), self.from())
+            .verify(&self.message.cid().unwrap().to_bytes(), &self.from().into())
     }
 }
 
 impl MessageTrait for SignedMessage {
-    fn from(&self) -> &Address {
-        &self.message.from
+    fn from(&self) -> Address {
+        self.message.from()
     }
-    fn to(&self) -> &Address {
-        &self.message.to
+    fn to(&self) -> Address {
+        self.message.to()
     }
     fn sequence(&self) -> u64 {
-        self.message.sequence
+        self.message.sequence()
     }
     fn value(&self) -> TokenAmount {
-        TokenAmount::from(&self.message.value)
+        self.message.value()
     }
     fn method_num(&self) -> MethodNum {
         self.message.method_num
     }
     fn params(&self) -> &RawBytes {
-        &self.message.params
+        self.message.params()
     }
     fn gas_limit(&self) -> i64 {
-        self.message.gas_limit
+        self.message.gas_limit()
     }
     fn set_gas_limit(&mut self, token_amount: i64) {
-        self.message.gas_limit = token_amount;
+        self.message.set_gas_limit(token_amount);
     }
     fn set_sequence(&mut self, new_sequence: u64) {
-        self.message.sequence = new_sequence;
+        self.message.set_sequence(new_sequence);
     }
     fn required_funds(&self) -> TokenAmount {
-        TokenAmount::from(&self.message.gas_fee_cap * self.message.gas_limit + &self.message.value)
+        self.message.required_funds()
     }
     fn gas_fee_cap(&self) -> TokenAmount {
-        TokenAmount::from(&self.message.gas_fee_cap)
+        self.message.gas_fee_cap()
     }
     fn gas_premium(&self) -> TokenAmount {
-        TokenAmount::from(&self.message.gas_premium)
+        self.message.gas_premium()
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.message.gas_fee_cap = cap.into();
+        self.message.set_gas_fee_cap(cap)
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.message.gas_premium = prem.into();
+        self.message.set_gas_premium(prem)
     }
 }
 

@@ -25,7 +25,7 @@ use fvm_shared::{
 
 use crate::resolve_to_key_addr;
 
-pub struct ForestExterns<DB> {
+pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
@@ -34,7 +34,7 @@ pub struct ForestExterns<DB> {
     chain_config: Arc<ChainConfig>,
 }
 
-impl<DB: Blockstore> ForestExterns<DB> {
+impl<DB: Blockstore> ForestExternsV2<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
@@ -43,7 +43,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
-        ForestExterns {
+        ForestExternsV2 {
             rand: Box::new(rand),
             epoch,
             root,
@@ -70,12 +70,12 @@ impl<DB: Blockstore> ForestExterns<DB> {
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
-            .get_actor(miner_addr)?
+            .get_actor(&miner_addr.into())?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tbs = TrackingBlockstore::new(&self.db);
 
-        let ms = forest_actor_interface::miner::State::load(&tbs, &actor.into())?;
+        let ms = forest_actor_interface::miner::State::load(&tbs, &actor)?;
 
         let worker = ms.info(&tbs)?.worker;
 
@@ -86,22 +86,22 @@ impl<DB: Blockstore> ForestExterns<DB> {
         let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;
 
-        Ok((addr, gas_used.round_up()))
+        Ok((addr.into(), gas_used.round_up()))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
         let (worker_addr, gas_used) =
-            self.worker_key_at_lookback(bh.miner_address(), bh.epoch())?;
+            self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch())?;
 
-        bh.check_block_signature(&worker_addr)?;
+        bh.check_block_signature(&worker_addr.into())?;
 
         Ok(gas_used)
     }
 }
 
-impl<DB: Blockstore> Externs for ForestExterns<DB> {}
+impl<DB: Blockstore> Externs for ForestExternsV2<DB> {}
 
-impl<DB> Rand for ForestExterns<DB> {
+impl<DB> Rand for ForestExternsV2<DB> {
     fn get_chain_randomness(
         &self,
         pers: i64,
@@ -121,7 +121,7 @@ impl<DB> Rand for ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore> Consensus for ForestExterns<DB> {
+impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
     // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,
@@ -222,7 +222,7 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                     if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
                         total_gas += gas_used;
                         let ret = Some(ConsensusFault {
-                            target: *bh_1.miner_address(),
+                            target: bh_1.miner_address().into(),
                             epoch: bh_2.epoch(),
                             fault_type,
                         });

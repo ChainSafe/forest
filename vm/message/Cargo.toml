@@ -14,7 +14,9 @@ forest_encoding.workspace = true
 forest_shim.workspace = true
 fvm.workspace = true
 fvm_ipld_encoding.workspace = true
+fvm_ipld_encoding3.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
+fvm_shared3 = { workspace = true, default-features = false, features = ["testing"] }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
