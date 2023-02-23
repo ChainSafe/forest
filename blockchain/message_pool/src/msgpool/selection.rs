@@ -162,7 +162,12 @@ where
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
                 partitions[i].push(chain_key);
-                gas_limit -= chains.get(chain_key).unwrap().gas_limit;
+                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                if gas_limit < chain_gas_limit {
+                    break;
+                } else {
+                    gas_limit -= chain_gas_limit;
+                }
                 if gas_limit < MIN_GAS {
                     break;
                 }
