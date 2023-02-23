@@ -71,16 +71,15 @@ pub enum WalletCommands {
         /// E.g. 500.2367798 `milli FIL` instead of 500.2 `milli FIL`
         /// In combination with `--fixed-unit` flag
         /// it will show exact data in `FIL` units
-        /// E.g. 0.0000002367798 `FIL` instead of 0 `FIL`
+        /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
         #[arg(short, long)]
         exact_balance: bool,
         /// flag to force the balance to be in `FIL`
-        /// meaning one won't balance in `atto` or `micro`
-        /// form even if it is appropriate
+        /// without SI unit prefixes (like `atto` or `micro`)
         /// E.g. 0.5002 `FIL` instead of 500.2367 `milli FIL`
         /// In combination with `--exact-balance` flag
         /// it will show exact data in `FIL` units
-        /// E.g. 0.0000002367798 `FIL` instead of 0 `FIL`
+        /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
         #[arg(short, long)]
         fixed_unit: bool,
     },
@@ -351,6 +350,7 @@ mod test {
         let cases_vec = vec![
             (100, "0.0000000000000001 FIL"),
             (12465, "0.000000000000012465 FIL"),
+            (1508900000000005000, "1.508900000000005 FIL"),
         ];
 
         for (atto, result) in cases_vec {
@@ -366,6 +366,7 @@ mod test {
             (1000005000, "~0.000000001000 FIL"),
             (508900000000005000, "~0.5089 FIL"),
             (1508900000000005000, "~1.509 FIL"),
+            (2508900009000005000, "~2.509 FIL"),
         ];
 
         for (atto, result) in cases_vec {
@@ -382,6 +383,8 @@ mod test {
             (1000000123, "1.000000123 nano FIL"),
             (450000008000000, "450.000008 micro FIL"),
             (90000002750000000, "90.00000275 milli FIL"),
+            (1508900000000005000, "1.508900000000005  FIL"),
+            (2508900009000005000, "2.508900009000005  FIL"),
         ];
 
         for (atto, result) in cases_vec {
@@ -399,6 +402,8 @@ mod test {
             (450000008000000, "~450 micro FIL"),
             (90000002750000000, "~90 milli FIL"),
             (500236779800000000, "~500.2 milli FIL"),
+            (1508900000000005000, "~1.509  FIL"),
+            (2508900009000005000, "~2.509  FIL"),
         ];
 
         for (atto, result) in cases_vec {
