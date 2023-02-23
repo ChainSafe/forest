@@ -67,7 +67,7 @@ impl Message for ShimMessage {
         self.gas_limit
     }
     fn set_gas_limit(&mut self, token_amount: u64) {
-        self.gas_limit = token_amount as u64;
+        self.gas_limit = token_amount;
     }
     fn set_sequence(&mut self, new_sequence: u64) {
         self.sequence = new_sequence;
