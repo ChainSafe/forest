@@ -28,16 +28,21 @@ use forest_rpc_api::{
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use log::info;
+use tokio::sync::mpsc::Sender;
 
 use crate::{
-    beacon_api::beacon_get_entry, common_api::version, rpc_http_handler::rpc_http_handler,
-    rpc_ws_handler::rpc_ws_handler, state_api::*,
+    beacon_api::beacon_get_entry,
+    common_api::{shutdown, version},
+    rpc_http_handler::rpc_http_handler,
+    rpc_ws_handler::rpc_ws_handler,
+    state_api::*,
 };
 
 pub async fn start_rpc<DB, B, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
+    shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
@@ -116,6 +121,7 @@ where
             .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB, B>)
             // Common API
             .with_method(VERSION, move || version(block_delay, forest_version))
+            .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)
