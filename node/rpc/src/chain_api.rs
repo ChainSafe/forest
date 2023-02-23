@@ -22,7 +22,7 @@ use forest_rpc_api::{
 use forest_shim::message::Message;
 use forest_utils::{
     db::BlockstoreExt,
-    io::{AsyncWriterWithChecksum, VoidAsyncWriterWithVoidChecksum},
+    io::{AsyncWriterWithChecksum, VoidAsyncWriterWithNoChecksum},
 };
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
@@ -95,7 +95,7 @@ where
             .export(
                 &start_ts,
                 recent_roots,
-                VoidAsyncWriterWithVoidChecksum::<Sha256>::default(),
+                VoidAsyncWriterWithNoChecksum::<Sha256>::default(),
             )
             .await
     } else {

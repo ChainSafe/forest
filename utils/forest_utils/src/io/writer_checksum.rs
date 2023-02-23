@@ -69,11 +69,11 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
 
 /// A void writer that does nothing but implements [AsyncWrite] and [Checksum]
 #[derive(Debug, Clone, Default)]
-pub struct VoidAsyncWriterWithVoidChecksum<D> {
+pub struct VoidAsyncWriterWithNoChecksum<D> {
     _d: PhantomData<D>,
 }
 
-impl<D: Digest> AsyncWrite for VoidAsyncWriterWithVoidChecksum<D> {
+impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
     fn poll_write(
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
@@ -97,7 +97,7 @@ impl<D: Digest> AsyncWrite for VoidAsyncWriterWithVoidChecksum<D> {
     }
 }
 
-impl<D: Digest> Checksum<D> for VoidAsyncWriterWithVoidChecksum<D> {
+impl<D: Digest> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
     fn finalize(&mut self) -> Output<D> {
         Default::default()
     }
