@@ -81,6 +81,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Common API
     access.insert(common_api::VERSION, Access::Read);
+    access.insert(common_api::SHUTDOWN, Access::Admin);
 
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
@@ -373,6 +374,10 @@ pub mod common_api {
     pub const VERSION: &str = "Filecoin.Version";
     pub type VersionParams = ();
     pub type VersionResult = APIVersion;
+
+    pub const SHUTDOWN: &str = "Filecoin.Shutdown";
+    pub type ShutdownParams = ();
+    pub type ShutdownResult = ();
 }
 
 /// Net API

@@ -105,7 +105,7 @@ pub struct PeerID {
 }
 
 /// Represents the current version of the API.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIVersion {
     pub version: String,
@@ -115,7 +115,7 @@ pub struct APIVersion {
 
 /// Integer based value on version information. Highest order bits for Major,
 /// Mid order for Minor and lowest for Patch.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Version(u32);
 
 impl Version {

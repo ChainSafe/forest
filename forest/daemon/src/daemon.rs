@@ -38,7 +38,11 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use tokio::{sync::RwLock, task::JoinSet};
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::RwLock,
+    task::JoinSet,
+};
 
 use super::cli::set_sigint_handler;
 
@@ -65,7 +69,9 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 
 /// Starts daemon process
 pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
-    let mut ctrlc_oneshot = set_sigint_handler();
+    set_sigint_handler();
+    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
+    let mut terminate = signal(SignalKind::terminate())?;
 
     info!(
         "Starting Forest daemon, version {}",
@@ -291,6 +297,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
+                shutdown_send,
             )
             .await
             .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
@@ -314,10 +321,17 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    select! {
+    tokio::select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
-        _ = ctrlc_oneshot => {
-            // Cancel all async services
+        _ = tokio::signal::ctrl_c() => {
+            services.shutdown().await;
+            return Ok(db);
+        },
+        _ = terminate.recv() => {
+            services.shutdown().await;
+            return Ok(db);
+        },
+        _ = shutdown_recv.recv() => {
             services.shutdown().await;
             return Ok(db);
         },
@@ -334,12 +348,13 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
 
     // blocking until any of the services returns an error,
     // or CTRL-C is pressed
-    select! {
+    tokio::select! {
         err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
-        _ = ctrlc_oneshot => {}
+        _ = tokio::signal::ctrl_c() => {},
+        _ = terminate.recv() => {},
+        _ = shutdown_recv.recv() => {},
     }
 
-    // Cancel all async services
     services.shutdown().await;
 
     Ok(db)
@@ -428,7 +443,7 @@ async fn prompt_snapshot_or_die(
     if should_download {
         Ok(true)
     } else {
-        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically");
+        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
     }
 }
 
