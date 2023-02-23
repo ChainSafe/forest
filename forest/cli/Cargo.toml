@@ -11,11 +11,11 @@ edition.workspace = true
 ahash.workspace = true
 anyhow.workspace = true
 atty = "0.2"
-colored = "2"
 base64.workspace = true
 boa_engine = { version = "0.16.0", features = ["console"] }
 cid.workspace = true
 clap.workspace = true
+colored = "2"
 convert_case = "0.6.0"
 dialoguer.workspace = true
 directories.workspace = true

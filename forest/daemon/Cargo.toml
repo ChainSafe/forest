@@ -49,8 +49,8 @@ rpassword.workspace = true
 serde_json.workspace = true
 shared_memory = "0.12"
 tempfile.workspace = true
+time = { workspace = true, feature = ["local-offset"] }
 tokio = { workspace = true, features = ["sync", "macros", "rt", "signal"] }
-time = { workspace = true, feature=["local-offset"] }
 
 [dev-dependencies]
 assert_cmd.workspace = true
