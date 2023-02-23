@@ -3,11 +3,14 @@
 
 use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::{
+    multihash::{Code, Code::Blake2b256},
+    Cid,
+};
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -15,13 +18,15 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
-use forest_ipld::{recurse_links_hash, InsertHash};
+use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
+use forest_shim::{
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
+};
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
@@ -30,8 +35,6 @@ use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::{
     clock::ChainEpoch,
     crypto::signature::{Signature, SignatureType},
-    message::Message,
-    receipt::Receipt,
 };
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -496,7 +499,7 @@ where
                 );
 
                 Ok(BlockMessages {
-                    miner: b.miner_address().into(),
+                    miner: *b.miner_address(),
                     messages,
                     win_count: b
                         .election_proof()
@@ -564,7 +567,15 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                tx_clone.send_async((cid, block.clone())).await?;
+                // Don't include identity CIDs.
+                // We only include raw and dagcbor, for now.
+                // Raw for "code" CIDs.
+                if u64::from(Code::Identity) != cid.hash().code()
+                    && (cid.codec() == fvm_shared::IPLD_RAW
+                        || cid.codec() == fvm_ipld_encoding::DAG_CBOR)
+                {
+                    tx_clone.send_async((cid, block.clone())).await?;
+                }
                 Ok(block)
             }
         })
@@ -602,13 +613,13 @@ where
         F: FnMut(Cid) -> T + Send,
         T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
     {
-        let mut seen = HashSet::<blake3::Hash>::new();
+        let mut seen = CidHashSet::default();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
         let mut current_min_height = tipset.epoch();
         let incl_roots_epoch = tipset.epoch() - recent_roots;
 
         while let Some(next) = blocks_to_walk.pop_front() {
-            if !seen.hash_and_insert(&next.to_bytes()) {
+            if !seen.insert(&next) {
                 continue;
             }
 

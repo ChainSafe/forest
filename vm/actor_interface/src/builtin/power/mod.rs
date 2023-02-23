@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Borrow;
+
 use anyhow::Context;
 use cid::Cid;
-use fil_actors_runtime::runtime::Policy;
+use fil_actors_runtime_v9::runtime::Policy;
 use forest_json::bigint::json;
-use forest_shim::{address::Address, state_tree::ActorState};
+use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{econ::TokenAmount, sector::StoragePower};
+use fvm_shared::sector::StoragePower;
 use serde::{Deserialize, Serialize};
 
 use crate::FilterEstimate;
@@ -43,12 +45,23 @@ pub fn is_v9_power_cid(cid: &Cid) -> bool {
     known_cids.contains(cid)
 }
 
+pub fn is_v10_power_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v10
+        Cid::try_from("bafk2bzacedu3c67spbf2dmwo77ymkjel6i2o5gpzyksgu2iuwu2xvcnxgfdjg").unwrap(),
+        // mainnet v10
+        Cid::try_from("bafk2bzacedfxlpyj5uxlh5uuhl55lazmhm7q6pr3qoywxb25qrytbptpy7zb6").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
 /// Power actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_power_v8::State),
     V9(fil_actor_power_v9::State),
+    V10(fil_actor_power_v10::State),
 }
 
 impl State {
@@ -68,6 +81,12 @@ impl State {
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
+        if is_v10_power_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V10)
+                .context("Actor state doesn't exist in store");
+        }
         Err(anyhow::anyhow!("Unknown power actor code {}", actor.code))
     }
 
@@ -76,6 +95,7 @@ impl State {
         match self {
             State::V8(st) => st.total_quality_adj_power,
             State::V9(st) => st.total_quality_adj_power,
+            State::V10(st) => st.total_quality_adj_power,
         }
     }
 
@@ -90,14 +110,19 @@ impl State {
                 raw_byte_power: st.total_raw_byte_power.clone(),
                 quality_adj_power: st.total_quality_adj_power.clone(),
             },
+            State::V10(st) => Claim {
+                raw_byte_power: st.total_raw_byte_power.clone(),
+                quality_adj_power: st.total_quality_adj_power.clone(),
+            },
         }
     }
 
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
         match self {
-            State::V8(st) => st.into_total_locked(),
-            State::V9(st) => st.into_total_locked(),
+            State::V8(st) => st.into_total_locked().into(),
+            State::V9(st) => st.into_total_locked().into(),
+            State::V10(st) => st.into_total_locked().into(),
         }
     }
 
@@ -110,6 +135,7 @@ impl State {
         match self {
             State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
             State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V10(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
         }
     }
 
@@ -132,6 +158,10 @@ impl State {
             State::V9(st) => {
                 st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
             }
+            State::V10(st) => st
+                .miner_nominal_power_meets_consensus_minimum(policy, &s, miner.id()?)
+                .map(|(_, bool_val)| bool_val)
+                .map_err(|e| anyhow::anyhow!("{}", e)),
         }
     }
 
@@ -140,14 +170,16 @@ impl State {
         match self {
             State::V8(st) => st.this_epoch_qa_power_smoothed.clone(),
             State::V9(st) => st.this_epoch_qa_power_smoothed.clone(),
+            State::V10(st) => st.this_epoch_qa_power_smoothed.clone(),
         }
     }
 
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_pledge_collateral.clone(),
-            State::V9(st) => st.total_pledge_collateral.clone(),
+            State::V8(st) => st.total_pledge_collateral.borrow().into(),
+            State::V9(st) => st.total_pledge_collateral.borrow().into(),
+            State::V10(st) => st.total_pledge_collateral.borrow().into(),
         }
     }
 }
@@ -173,6 +205,15 @@ impl From<fil_actor_power_v8::Claim> for Claim {
 
 impl From<fil_actor_power_v9::Claim> for Claim {
     fn from(cl: fil_actor_power_v9::Claim) -> Self {
+        Self {
+            raw_byte_power: cl.raw_byte_power,
+            quality_adj_power: cl.quality_adj_power,
+        }
+    }
+}
+
+impl From<fil_actor_power_v10::Claim> for Claim {
+    fn from(cl: fil_actor_power_v10::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,

@@ -25,6 +25,15 @@ The syntax for the `FULLNODE_API_INFO` variable is as follows:
 This will use IPv4, TCP, and HTTP when communicating with the RPC API. The admin token can be found when starting
 the Forest daemon. This will be needed to create tokens with certain permissions such as read, write, sign, or admin.
 
+## Token flag
+
+For nodes running on default port and when you are interacting locally, the admin token can also be set using `--token` flag:
+```
+forest-cli --token eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjczMjEwMTkzfQ.xxhmqtG9O3XNTIrOEB2_TWnVkq0JkqzRdw63BdosV0c <subcommand>
+```
+
+When the Forest daemon is started, an admin token will be displayed (alternatively, use `--save-token <token>` flag to save it on disk).
+
 ## Wallet
 
 All wallet commands require write permissions to interact with the keystore

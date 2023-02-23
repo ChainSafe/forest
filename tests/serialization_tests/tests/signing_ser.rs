@@ -11,9 +11,12 @@ use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use forest_json::{message, signature};
 use forest_message::signed_message::SignedMessage;
-use forest_shim::address::{set_current_network, Network};
+use forest_shim::{
+    address::{set_current_network, Network},
+    message::Message,
+};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{crypto::signature::Signature, message::Message};
+use fvm_shared::crypto::signature::Signature;
 use serde::Deserialize;
 
 #[derive(Deserialize)]

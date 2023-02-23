@@ -8,30 +8,52 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::{error::ExitCode, Inner};
+use forest_shim::{
+    address::Address,
+    econ::TokenAmount,
+    error::ExitCode,
+    executor::{ApplyRet, Receipt},
+    message::{Message, Message_v3},
+    state_tree::ActorState,
+    version::NetworkVersion,
+    Inner,
+};
 use fvm::{
-    executor::{ApplyRet, DefaultExecutor},
+    executor::{DefaultExecutor, Executor},
     externs::Rand,
-    machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig},
+    machine::{DefaultMachine, Machine, MultiEngine as MultiEngine_v2, NetworkConfig},
+};
+use fvm3::{
+    engine::MultiEngine as MultiEngine_v3,
+    executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
+    externs::Rand as Rand_v3,
+    machine::{
+        DefaultMachine as DefaultMachine_v3, Machine as Machine_v3,
+        NetworkConfig as NetworkConfig_v3,
+    },
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{Cbor, RawBytes};
-use fvm_shared::{
-    address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt,
-    BLOCK_GAS_LIMIT, METHOD_SEND,
-};
+use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding3::RawBytes;
+use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
 
-use crate::fvm::ForestExterns;
+use crate::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
 
-pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
+pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
+pub(crate) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
 
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>;
 
+type ForestKernelV3<DB> =
+    fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
+
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
+
+type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 
 #[cfg(feature = "instrumented_kernel")]
 type ForestExecutor<DB> = DefaultExecutor<crate::instrumented_kernel::ForestInstrumentedKernel<DB>>;
@@ -63,9 +85,15 @@ pub trait RewardCalc: Send + Sync + 'static {
 
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
-pub struct VM<DB: Blockstore + 'static> {
-    fvm_executor: ForestExecutor<DB>,
-    reward_calc: Arc<dyn RewardCalc>,
+pub enum VM<DB: Blockstore + 'static> {
+    VM2 {
+        fvm_executor: ForestExecutor<DB>,
+        reward_calc: Arc<dyn RewardCalc>,
+    },
+    VM3 {
+        fvm_executor: ForestExecutorV3<DB>,
+        reward_calc: Arc<dyn RewardCalc>,
+    },
 }
 
 impl<DB> VM<DB>
@@ -77,45 +105,81 @@ where
         root: Cid,
         store: DB,
         epoch: ChainEpoch,
-        rand: impl Rand + 'static,
+        rand: impl Rand + Rand_v3 + 'static,
         base_fee: TokenAmount,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-        multi_engine: &MultiEngine,
+        multi_engine_v2: &MultiEngine_v2,
+        multi_engine_v3: &MultiEngine_v3,
         chain_config: Arc<ChainConfig>,
+        timestamp: u64,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
-        let config = NetworkConfig::new(network_version.into());
-        let engine = multi_engine.get(&config)?;
-        let mut context = config.for_epoch(epoch, root);
-        context.set_base_fee(base_fee);
-        context.set_circulating_supply(circ_supply);
-        let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
-            fvm::machine::DefaultMachine::new(
-                &engine,
-                &context,
-                store.clone(),
-                ForestExterns::new(rand, epoch, root, lb_fn, store, chain_config),
-            )?;
-        let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
-        Ok(VM {
-            fvm_executor: exec,
-            reward_calc,
-        })
+        if network_version >= NetworkVersion::V18 {
+            let config = NetworkConfig_v3::new(network_version.into());
+            let engine = multi_engine_v3.get(&config)?;
+            let mut context = config.for_epoch(epoch, timestamp, root);
+            context.set_base_fee(base_fee.into());
+            context.set_circulating_supply(circ_supply.into());
+            let fvm: fvm3::machine::DefaultMachine<DB, ForestExterns_v3<DB>> =
+                fvm3::machine::DefaultMachine::new(
+                    &context,
+                    store.clone(),
+                    ForestExterns_v3::new(rand, epoch, root, lb_fn, store, chain_config),
+                )?;
+            let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
+            Ok(VM::VM3 {
+                fvm_executor: exec,
+                reward_calc,
+            })
+        } else {
+            let config = NetworkConfig::new(network_version.into());
+            let engine = multi_engine_v2.get(&config)?;
+            let mut context = config.for_epoch(epoch, root);
+            context.set_base_fee(base_fee.into());
+            context.set_circulating_supply(circ_supply.into());
+            let fvm: fvm::machine::DefaultMachine<DB, ForestExternsV2<DB>> =
+                fvm::machine::DefaultMachine::new(
+                    &engine,
+                    &context,
+                    store.clone(),
+                    ForestExternsV2::new(rand, epoch, root, lb_fn, store, chain_config),
+                )?;
+            let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
+            Ok(VM::VM2 {
+                fvm_executor: exec,
+                reward_calc,
+            })
+        }
     }
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        Ok(self.fvm_executor.flush()?)
+        match self {
+            VM::VM2 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
+            VM::VM3 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
+        }
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(
-        &self,
-        addr: &Address,
-    ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
-        Ok(self.fvm_executor.state_tree().get_actor(addr)?)
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
+        match self {
+            VM::VM2 { fvm_executor, .. } => Ok(fvm_executor
+                .state_tree()
+                .get_actor(&addr.into())?
+                .map(ActorState::from)),
+            VM::VM3 { fvm_executor, .. } => {
+                if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
+                    Ok(fvm_executor
+                        .state_tree()
+                        .get_actor(id)?
+                        .map(ActorState::from))
+                } else {
+                    Ok(None)
+                }
+            }
+        }
     }
 
     pub fn run_cron(
@@ -125,23 +189,24 @@ where
             &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
     ) -> Result<(), anyhow::Error> {
-        let cron_msg = Message {
-            from: system::ADDRESS,
-            to: cron::ADDRESS,
+        let cron_msg: Message = Message_v3 {
+            from: system::ADDRESS.into(),
+            to: cron::ADDRESS.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
-            gas_limit: BLOCK_GAS_LIMIT * 10000,
+            gas_limit: BLOCK_GAS_LIMIT as u64 * 10000,
             method_num: cron::Method::EpochTick as u64,
             params: Default::default(),
             value: Default::default(),
             version: Default::default(),
             gas_fee_cap: Default::default(),
             gas_premium: Default::default(),
-        };
+        }
+        .into();
 
         let ret = self.apply_implicit_message(&cron_msg)?;
-        if let Some(err) = ret.failure_info {
+        if let Some(err) = ret.failure_info() {
             anyhow::bail!("failed to apply block cron message: {}", err);
         }
 
@@ -181,9 +246,9 @@ where
                 }
 
                 // Update totals
-                gas_reward += &ret.miner_tip;
-                penalty += &ret.penalty;
-                receipts.push(ret.msg_receipt);
+                gas_reward += ret.miner_tip();
+                penalty += ret.penalty();
+                receipts.push(ret.msg_receipt());
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -195,15 +260,11 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            if let Some(rew_msg) = self.reward_calc.reward_message(
-                epoch,
-                block.miner,
-                block.win_count,
-                penalty,
-                gas_reward,
-            )? {
+            if let Some(rew_msg) =
+                self.reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
+            {
                 let ret = self.apply_implicit_message(&rew_msg)?;
-                if let Some(err) = ret.failure_info {
+                if let Some(err) = ret.failure_info() {
                     anyhow::bail!(
                         "failed to apply reward message for miner {}: {}",
                         block.miner,
@@ -211,10 +272,10 @@ where
                     );
                 }
                 // This is more of a sanity check, this should not be able to be hit.
-                if !ret.msg_receipt.exit_code.is_success() {
+                if !ret.msg_receipt().exit_code().is_success() {
                     anyhow::bail!(
                         "reward application message failed (exit: {:?})",
-                        ret.msg_receipt.exit_code
+                        ret.msg_receipt().exit_code()
                     );
                 }
                 if let Some(callback) = &mut callback {
@@ -231,33 +292,56 @@ where
 
     /// Applies single message through VM and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
-        use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = self.fvm_executor.execute_message(
-            msg.clone(),
-            fvm::executor::ApplyKind::Implicit,
-            raw_length,
-        )?;
-        Ok(ret)
+
+        match self {
+            VM::VM2 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
+                    msg.into(),
+                    fvm::executor::ApplyKind::Implicit,
+                    raw_length,
+                )?;
+                Ok(ret.into())
+            }
+            VM::VM3 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
+                    msg.into(),
+                    fvm3::executor::ApplyKind::Implicit,
+                    raw_length,
+                )?;
+                Ok(ret.into())
+            }
+        }
     }
 
     /// Applies the state transition for a single message.
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
-        check_message(msg.message())?;
+        // Basic validity check
+        msg.message().check()?;
 
-        use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = self.fvm_executor.execute_message(
-            unsigned,
-            fvm::executor::ApplyKind::Explicit,
-            raw_length,
-        )?;
+        let ret: ApplyRet = match self {
+            VM::VM2 { fvm_executor, .. } => fvm_executor
+                .execute_message(
+                    unsigned.into(),
+                    fvm::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?
+                .into(),
+            VM::VM3 { fvm_executor, .. } => fvm_executor
+                .execute_message(
+                    unsigned.into(),
+                    fvm3::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?
+                .into(),
+        };
 
-        let exit_code = ret.msg_receipt.exit_code;
+        let exit_code = ret.msg_receipt().exit_code();
 
         if !exit_code.is_success() {
             match exit_code.value() {
@@ -275,18 +359,24 @@ where
 
         Ok(ret)
     }
-}
 
-/// Does some basic checks on the Message to see if the fields are valid.
-fn check_message(msg: &Message) -> Result<(), anyhow::Error> {
-    if msg.gas_limit == 0 {
-        anyhow::bail!("Message has no gas limit set");
+    fn reward_message(
+        &self,
+        epoch: ChainEpoch,
+        miner: Address,
+        win_count: i64,
+        penalty: TokenAmount,
+        gas_reward: TokenAmount,
+    ) -> Result<Option<Message>, anyhow::Error> {
+        match self {
+            VM::VM2 { reward_calc, .. } => {
+                reward_calc.reward_message(epoch, miner, win_count, penalty, gas_reward)
+            }
+            VM::VM3 { reward_calc, .. } => {
+                reward_calc.reward_message(epoch, miner, win_count, penalty, gas_reward)
+            }
+        }
     }
-    if msg.gas_limit < 0 {
-        anyhow::bail!("Message has negative gas limit");
-    }
-
-    Ok(())
 }
 
 /// Default reward working with the Filecoin Reward Actor.
@@ -302,14 +392,14 @@ impl RewardCalc for RewardActorMessageCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
-            miner,
-            penalty,
-            gas_reward,
+            miner: miner.into(),
+            penalty: penalty.into(),
+            gas_reward: gas_reward.into(),
             win_count,
         })?;
 
-        let rew_msg = Message {
-            from: system::ADDRESS,
+        let rew_msg = Message_v3 {
+            from: system::ADDRESS.into(),
             to: reward::ADDRESS.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
@@ -322,7 +412,7 @@ impl RewardCalc for RewardActorMessageCalc {
             gas_premium: Default::default(),
         };
 
-        Ok(Some(rew_msg))
+        Ok(Some(rew_msg.into()))
     }
 }
 
@@ -358,20 +448,20 @@ impl RewardCalc for FixedRewardCalc {
         _penalty: TokenAmount,
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
-        let msg = Message {
+        let msg = Message_v3 {
             from: reward::ADDRESS.into(),
-            to: miner,
+            to: miner.into(),
             method_num: METHOD_SEND,
             params: Default::default(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             gas_limit: 1 << 30,
-            value: gas_reward + self.reward.clone(),
+            value: (gas_reward + &self.reward).into(),
             version: Default::default(),
             gas_fee_cap: Default::default(),
             gas_premium: Default::default(),
         };
 
-        Ok(Some(msg))
+        Ok(Some(msg.into()))
     }
 }

@@ -30,3 +30,11 @@ jobs:
         run: |
           gem install rubocop --no-document
           rubocop scripts/
+  run-js-linters:
+    name: Run linters
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - run: |
+        lerna bootstrap
+        lerna run lint

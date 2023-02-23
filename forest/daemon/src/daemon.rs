@@ -13,7 +13,7 @@ use forest_cli_shared::{
     chain_path,
     cli::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
-        to_size_string, Client, Config, FOREST_VERSION_STRING,
+        to_size_string, CliOpts, Client, Config, FOREST_VERSION_STRING,
     },
 };
 use forest_db::{
@@ -38,7 +38,11 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use tokio::{sync::RwLock, task::JoinSet};
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::RwLock,
+    task::JoinSet,
+};
 
 use super::cli::set_sigint_handler;
 
@@ -64,8 +68,10 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> {
-    let mut ctrlc_oneshot = set_sigint_handler();
+pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
+    set_sigint_handler();
+    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
+    let mut terminate = signal(SignalKind::terminate())?;
 
     info!(
         "Starting Forest daemon, version {}",
@@ -97,11 +103,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
     }
 
-    // Print admin token
-    let ki = keystore.get(JWT_IDENTIFIER)?;
-    let token_exp = config.client.token_exp;
-    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
-    info!("Admin token: {}", token);
+    handle_admin_token(&opts, &config, &keystore)?;
 
     let keystore = Arc::new(RwLock::new(keystore));
 
@@ -148,18 +150,6 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let publisher = chain_store.publisher();
 
-    // XXX: This code has to be run before starting the background services.
-    //      If it isn't, several threads will be competing for access to stdout.
-    // Terminate if no snapshot is provided or DB isn't recent enough
-
-    let epoch = chain_store.heaviest_tipset().epoch();
-    let nv = config.chain.network_version(epoch);
-    let should_fetch_snapshot = if nv < NetworkVersion::V16 {
-        prompt_snapshot_or_die(&config).await?
-    } else {
-        false
-    };
-
     // Reward calculation is needed by the VM to calculate state, which can happen
     // essentially anywhere the `StateManager` is called. It is consensus
     // specific, but threading it through the type system would be a nightmare,
@@ -198,6 +188,22 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         }
     } else {
         config
+    };
+
+    if opts.exit_after_init {
+        return Ok(db);
+    }
+
+    // XXX: This code has to be run before starting the background services.
+    //      If it isn't, several threads will be competing for access to stdout.
+    // Terminate if no snapshot is provided or DB isn't recent enough
+
+    let epoch = chain_store.heaviest_tipset().epoch();
+    let nv = config.chain.network_version(epoch);
+    let should_fetch_snapshot = if nv < NetworkVersion::V16 {
+        prompt_snapshot_or_die(opts.auto_download_snapshot, &config).await?
+    } else {
+        false
     };
 
     let peer_manager = Arc::new(PeerManager::default());
@@ -291,6 +297,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
+                shutdown_send,
             )
             .await
             .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
@@ -298,7 +305,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     } else {
         debug!("RPC disabled.");
     };
-    if detached {
+    if opts.detach {
         unblock_parent_process()?;
     }
 
@@ -314,17 +321,24 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    select! {
+    tokio::select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
-        _ = ctrlc_oneshot => {
-            // Cancel all async services
+        _ = tokio::signal::ctrl_c() => {
+            services.shutdown().await;
+            return Ok(db);
+        },
+        _ = terminate.recv() => {
+            services.shutdown().await;
+            return Ok(db);
+        },
+        _ = shutdown_recv.recv() => {
             services.shutdown().await;
             return Ok(db);
         },
     }
 
     // Halt
-    if config.client.halt_after_import {
+    if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
         return Ok(db);
@@ -334,15 +348,30 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     // blocking until any of the services returns an error,
     // or CTRL-C is pressed
-    select! {
+    tokio::select! {
         err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
-        _ = ctrlc_oneshot => {}
+        _ = tokio::signal::ctrl_c() => {},
+        _ = terminate.recv() => {},
+        _ = shutdown_recv.recv() => {},
     }
 
-    // Cancel all async services
     services.shutdown().await;
 
     Ok(db)
+}
+
+/// Generates, prints and optionally writes to a file the administrator JWT
+/// token.
+fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> anyhow::Result<()> {
+    let ki = keystore.get(JWT_IDENTIFIER)?;
+    let token_exp = config.client.token_exp;
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
+    info!("Admin token: {token}");
+    if let Some(path) = opts.save_token.as_ref() {
+        std::fs::write(path, token)?;
+    }
+
+    Ok(())
 }
 
 // returns the first error with which any of the services end
@@ -390,12 +419,14 @@ async fn maybe_fetch_snapshot(
 
 /// Last resort in case a snapshot is needed. If it is not to be downloaded,
 /// this method fails and exits the process.
-async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
+async fn prompt_snapshot_or_die(
+    auto_download_snapshot: bool,
+    config: &Config,
+) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
-    let should_download = if !config.client.auto_download_snapshot && atty::is(atty::Stream::Stdin)
-    {
+    let should_download = if !auto_download_snapshot && atty::is(atty::Stream::Stdin) {
         let required_size: u64 = snapshot_fetch_size(config).await?;
         let required_size = to_size_string(&required_size.into())?;
         Confirm::with_theme(&ColorfulTheme::default())
@@ -406,13 +437,13 @@ async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
                 .interact()
                 .unwrap_or_default()
     } else {
-        config.client.auto_download_snapshot
+        auto_download_snapshot
     };
 
     if should_download {
         Ok(true)
     } else {
-        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically");
+        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
     }
 }
 
