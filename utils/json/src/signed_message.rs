@@ -113,25 +113,25 @@ mod tests {
     use crate::{
         message,
         message::json::{MessageJson, MessageJsonRef},
+        signed_message::json,
     };
 
-    #[derive(Clone, Debug, PartialEq)]
-    struct SignedMessageWrapper(SignedMessage);
-
-    impl quickcheck::Arbitrary for SignedMessageWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            SignedMessageWrapper(SignedMessage::new_unchecked(
-                crate::message::tests::MessageWrapper::arbitrary(g).message,
-                Signature::new_secp256k1(vec![0]),
-            ))
-        }
-    }
-
     #[quickcheck]
-    fn signed_message_roundtrip(message: SignedMessageWrapper) {
-        let serialized = serde_json::to_string(&SignedMessageJsonRef(&message.0)).unwrap();
-        let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(message.0, parsed.0);
+    fn signed_message_roundtrip(id: u64) {
+        let unsigned_message_v3 = Message_v3 {
+            to: Address::new_id(id).into(),
+            from: Address::new_id(id).into(),
+            ..Message_v3::default()
+        };
+        let unsigned_message = Message::from(unsigned_message_v3);
+        let signed_message = SignedMessage::new_unchecked(
+            unsigned_message.clone(),
+            Signature::new_secp256k1(vec![0]),
+        );
+        let serialized: String =
+            forest_test_utils::to_string_with!(&signed_message, json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(signed_message, parsed);
     }
 
     #[test]

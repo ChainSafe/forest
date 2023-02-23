@@ -131,43 +131,22 @@ pub mod json {
 pub mod tests {
     use forest_shim::{
         address::Address,
-        econ::TokenAmount,
         message::{Message, Message_v3},
     };
     use quickcheck_macros::quickcheck;
-    use serde_json;
 
-    use super::json::{MessageJson, MessageJsonRef};
-
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub struct MessageWrapper {
-        pub message: Message,
-    }
-
-    impl quickcheck::Arbitrary for MessageWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let msg = Message_v3 {
-                to: Address::new_id(u64::arbitrary(g)).into(),
-                from: Address::new_id(u64::arbitrary(g)).into(),
-                version: u64::arbitrary(g),
-                sequence: u64::arbitrary(g),
-                value: TokenAmount::from_atto(u64::arbitrary(g)).into(),
-                method_num: u64::arbitrary(g),
-                params: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
-                gas_limit: u64::arbitrary(g),
-                gas_fee_cap: TokenAmount::from_atto(u64::arbitrary(g)).into(),
-                gas_premium: TokenAmount::from_atto(u64::arbitrary(g)).into(),
-            };
-            MessageWrapper {
-                message: msg.into(),
-            }
-        }
-    }
+    use crate::message::json;
 
     #[quickcheck]
-    fn message_roundtrip(message: MessageWrapper) {
-        let serialized = serde_json::to_string(&MessageJsonRef(&message.message)).unwrap();
-        let parsed: MessageJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(message.message, parsed.0);
+    fn message_roundtrip(id: u64) {
+        let message_v3 = Message_v3 {
+            to: Address::new_id(id).into(),
+            from: Address::new_id(id).into(),
+            ..Message_v3::default()
+        };
+        let message = Message::from(message_v3);
+        let serialized: String = forest_test_utils::to_string_with!(&message, json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(message, parsed);
     }
 }
