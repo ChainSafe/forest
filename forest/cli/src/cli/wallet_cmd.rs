@@ -291,7 +291,7 @@ fn format_balance_string(
             // currently the amount cannot be more than 2B x 10^18 tokens
             // the limit here is 20B
             .ok_or(anyhow::Error::msg("value is too big"))?,
-        28,
+        0,
     )?;
 
     let orig = num;
