@@ -31,8 +31,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
     clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate, ALLOWABLE_CLOCK_DRIFT,
-    BLOCK_GAS_LIMIT,
 };
+use fvm_shared3::BLOCK_GAS_LIMIT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -1490,7 +1490,7 @@ async fn check_block_messages<
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;
-        if sum_gas_limit > BLOCK_GAS_LIMIT as u64 {
+        if sum_gas_limit > BLOCK_GAS_LIMIT {
             anyhow::bail!("block gas limit exceeded");
         }
 

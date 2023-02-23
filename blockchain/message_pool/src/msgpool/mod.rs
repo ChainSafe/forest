@@ -150,7 +150,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT as u64;
+    let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];

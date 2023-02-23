@@ -14,7 +14,7 @@ use forest_rpc_api::{
 };
 use forest_shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::BLOCK_GAS_LIMIT;
+use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
@@ -245,7 +245,7 @@ where
     let mut msg = msg;
     if msg.gas_limit == 0 {
         let gl = estimate_gas_limit::<DB, B>(data, msg.clone(), tsk.clone()).await?;
-        msg.set_gas_limit(gl);
+        msg.set_gas_limit(gl as u64);
     }
     if msg.gas_premium.is_zero() {
         let gp = estimate_gas_premium(data, 10).await?;

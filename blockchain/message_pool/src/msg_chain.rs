@@ -401,7 +401,7 @@ where
             break;
         }
         gas_limit += m.gas_limit();
-        if gas_limit > fvm_shared::BLOCK_GAS_LIMIT as u64 {
+        if gas_limit > fvm_shared3::BLOCK_GAS_LIMIT {
             break;
         }
 
