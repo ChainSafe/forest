@@ -284,13 +284,16 @@ fn format_balance_string(
     mode: FormattingMode,
 ) -> anyhow::Result<String> {
     let units = ["atto", "femto", "pico", "nano", "micro", "milli", ""];
-    let num: Decimal = token_amount
-        .atto()
-        .to_i128()
-        // currently the amount cannot be more than 2B x 10^18 tokens
-        // the limit here is 20B
-        .ok_or(anyhow::Error::msg("value is too big"))?
-        .into();
+    let num: Decimal = Decimal::try_from_i128_with_scale(
+        token_amount
+            .atto()
+            .to_i128()
+            // currently the amount cannot be more than 2B x 10^18 tokens
+            // the limit here is 20B
+            .ok_or(anyhow::Error::msg("value is too big"))?,
+        28,
+    )?;
+
     let orig = num;
 
     let mut num = num;
@@ -447,6 +450,19 @@ mod test {
             .unwrap_err()
             .to_string(),
             "value is too big"
+        );
+    }
+
+    #[test]
+    fn test_2_96_value() {
+        assert_eq!(
+            format_balance_string(
+                TokenAmount::from_atto(79228162514264337593543950336i128),
+                bool_pair_to_mode(true, true)
+            )
+            .unwrap_err()
+            .to_string(),
+            "Number exceeds maximum value that can be represented."
         );
     }
 }
