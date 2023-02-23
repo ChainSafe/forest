@@ -4028,7 +4028,6 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.20",
  "hex",
  "http",
