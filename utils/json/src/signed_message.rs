@@ -124,10 +124,8 @@ mod tests {
             ..Message_v3::default()
         };
         let unsigned_message = Message::from(unsigned_message_v3);
-        let signed_message = SignedMessage::new_unchecked(
-            unsigned_message.clone(),
-            Signature::new_secp256k1(vec![0]),
-        );
+        let signed_message =
+            SignedMessage::new_unchecked(unsigned_message, Signature::new_secp256k1(vec![0]));
         let serialized: String =
             forest_test_utils::to_string_with!(&signed_message, json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
