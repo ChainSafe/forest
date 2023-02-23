@@ -165,9 +165,8 @@ where
                 let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
                 if gas_limit < chain_gas_limit {
                     break;
-                } else {
-                    gas_limit -= chain_gas_limit;
                 }
+                gas_limit -= chain_gas_limit;
                 if gas_limit < MIN_GAS {
                     break;
                 }
