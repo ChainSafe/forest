@@ -8,6 +8,7 @@ use forest_rpc_api::{
 };
 use jsonrpc_v2::Error as JsonRpcError;
 use semver::Version as SemVer;
+use tokio::sync::mpsc::Sender;
 
 pub(crate) async fn version(
     block_delay: u64,
@@ -19,4 +20,12 @@ pub(crate) async fn version(
         api_version: Version::new(v.major, v.minor, v.patch),
         block_delay,
     })
+}
+
+pub(crate) async fn shutdown(shutdown_send: Sender<()>) -> Result<ShutdownResult, JsonRpcError> {
+    // Trigger graceful shutdown
+    if let Err(err) = shutdown_send.send(()).await {
+        return Err(JsonRpcError::from(err));
+    }
+    Ok(())
 }
