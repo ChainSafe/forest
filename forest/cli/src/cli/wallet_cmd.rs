@@ -17,7 +17,11 @@ use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
 use forest_shim::address::{Address, Protocol};
 use forest_utils::io::read_file_to_string;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::{
+    crypto::signature::{Signature, SignatureType},
+    econ::TokenAmount,
+};
+use num::BigInt;
 use rpassword::read_password;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
@@ -208,9 +212,10 @@ impl WalletCommands {
                         .await
                         .map_err(handle_rpc_err)?;
 
-                    let balance_dec = balance_string.parse::<Decimal>()?;
+                    let balance_token_amount =
+                        TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
                     let balance_string = format_balance_string(
-                        balance_dec,
+                        balance_token_amount,
                         bool_pair_to_mode(*exact_balance, *fixed_unit),
                     )?;
 
@@ -274,8 +279,12 @@ impl WalletCommands {
     }
 }
 
-fn format_balance_string(num: Decimal, mode: FormattingMode) -> anyhow::Result<String> {
+fn format_balance_string(
+    token_amount: TokenAmount,
+    mode: FormattingMode,
+) -> anyhow::Result<String> {
     let units = ["atto", "femto", "pico", "nano", "micro", "milli", ""];
+    let num = token_amount.atto().to_string().parse::<Decimal>()?;
     let orig = num;
 
     let mut num = num;
@@ -412,10 +421,9 @@ mod test {
     }
 
     fn test_call(atto: i64, result: &str, exact: bool, fixed: bool) {
-        let token_string = TokenAmount::from_atto(atto).atto().to_string();
         assert_eq!(
             format_balance_string(
-                token_string.parse::<Decimal>().unwrap(),
+                TokenAmount::from_atto(atto),
                 bool_pair_to_mode(exact, fixed)
             )
             .unwrap(),
