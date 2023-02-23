@@ -443,7 +443,9 @@ mod test {
             format_balance_string(
                 TokenAmount::from_whole(2508900009000005000000000000i128),
                 bool_pair_to_mode(true, true)
-            ).unwrap_err().to_string(),
+            )
+            .unwrap_err()
+            .to_string(),
             "value is too big"
         );
     }
