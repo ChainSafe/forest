@@ -69,6 +69,7 @@ derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
+colored = "2"
 filecoin-proofs-api = { version = "12.0", default-features = false }
 flume = "0.10"
 fs_extra = "1.2"
