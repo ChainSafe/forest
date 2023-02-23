@@ -3750,7 +3750,6 @@ name = "forest_json"
 version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
- "arbitrary",
  "base64 0.21.0",
  "cid",
  "data-encoding",
