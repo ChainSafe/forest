@@ -956,7 +956,7 @@ mod test_selection {
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
-        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT);
+        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT as u64);
     }
 
     #[tokio::test]
