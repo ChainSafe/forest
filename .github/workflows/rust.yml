@@ -163,7 +163,7 @@ jobs:
           forest-cli --chain calibnet db stats
       - name: export snapshot
         run: |
-          forest-cli snapshot export
+          forest-cli --chain calibnet snapshot export
           sha256sum -c *.sha256sum
       - name: js console
         run: forest-cli --attach --exec 'showPeers()'
