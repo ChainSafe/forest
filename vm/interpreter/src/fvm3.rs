@@ -315,7 +315,7 @@ mod tests {
         read_count: usize,
         write_bytes: &[usize],
     ) -> anyhow::Result<()> {
-        let network_version = NetworkVersion::V8;
+        let network_version = NetworkVersion::V18;
         let stats = BSStats {
             r: read_count,
             w: write_bytes.len(),
