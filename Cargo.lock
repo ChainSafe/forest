@@ -4533,7 +4533,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "3.0.0-rc.1"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#c88abc4dbfa5905a21bcff4a353d1dd9a09bdd1d"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#4bc36ea0268be894e2103c8791b75f5542b9326a"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -4808,7 +4808,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "3.0.0-alpha.20"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#c88abc4dbfa5905a21bcff4a353d1dd9a09bdd1d"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#4bc36ea0268be894e2103c8791b75f5542b9326a"
 dependencies = [
  "anyhow",
  "bitflags",
