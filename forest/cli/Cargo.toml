@@ -45,6 +45,8 @@ log.workspace = true
 multibase.workspace = true
 num.workspace = true
 rpassword.workspace = true
+rust_decimal = "1.28.1"
+rust_decimal_macros = "1.28.1"
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
