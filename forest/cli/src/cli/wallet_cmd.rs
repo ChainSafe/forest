@@ -295,7 +295,9 @@ fn format_balance_string(
     token_amount: TokenAmount,
     mode: FormattingMode,
 ) -> anyhow::Result<String> {
+    // all SI prefixes we support currently
     let units = ["atto ", "femto ", "pico ", "nano ", "micro ", "milli ", ""];
+    // get `TokenAmount`.atto() as a `Decimal` for further formatting
     let num: Decimal = Decimal::try_from_i128_with_scale(
         token_amount
             .atto()
@@ -312,6 +314,7 @@ fn format_balance_string(
 
     let mut num = num;
     let mut unit_index = 0;
+    // find the right SI prefix and divide the amount of tokens accordingly
     while num >= dec!(1000.0) && unit_index < units.len() - 1 {
         num /= dec!(1000.0);
         unit_index += 1;
@@ -320,6 +323,7 @@ fn format_balance_string(
     let res = match mode {
         FormattingMode::ExactFixed => {
             let fil = orig / dec!(1e18);
+            // format the data in full accuracy in `FIL`
             format!("{fil} FIL")
         }
         FormattingMode::NotExactFixed => {
@@ -330,7 +334,9 @@ fn format_balance_string(
                     RoundingStrategy::MidpointAwayFromZero,
                 )
                 .ok_or(anyhow::Error::msg("cannot represent"))?;
+            // format the data with 4 significant digits in `FIL``
             let mut res = format!("{fil} FIL");
+            // if the rounding actually loses any information we need to indicate it
             if fil != fil_orig {
                 res.insert(0, '~');
             }
@@ -347,8 +353,10 @@ fn format_balance_string(
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
+            // format the data with 4 significant digits in SI units
             let mut res = format!("{} {}FIL", fil, units[unit_index]);
 
+            // if the rounding actually loses any information we need to indicate it
             if fil != num {
                 res.insert(0, '~');
             }
