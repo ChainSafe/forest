@@ -4,7 +4,7 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use forest_encoding::de;
-    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use forest_shim::crypto::{Signature, SignatureType};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.
@@ -30,7 +30,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: m.sig_type,
+            sig_type: m.signature_type(),
             bytes: BASE64_STANDARD.encode(&m.bytes),
         }
         .serialize(serializer)
@@ -41,10 +41,10 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
-        Ok(Signature {
+        Ok(Signature::new(
             sig_type,
-            bytes: BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
-        })
+            BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
+        ))
     }
 
     pub mod opt {
@@ -88,7 +88,7 @@ pub mod json {
         where
             S: Serializer,
         {
-            let json = match m {
+            let json = match *m {
                 SignatureType::BLS => JsonHelperEnum::Bls,
                 SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
             };
@@ -112,7 +112,7 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use forest_shim::crypto::{Signature, SignatureType};
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -131,10 +131,7 @@ mod tests {
     impl quickcheck::Arbitrary for SignatureWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = SignatureTypeWrapper::arbitrary(g);
-            let signature = Signature {
-                bytes: Vec::arbitrary(g),
-                sig_type: sigtype.sigtype,
-            };
+            let signature = Signature::new(sigtype.sigtype, Vec::arbitrary(g));
             SignatureWrapper { signature }
         }
     }

@@ -7,6 +7,7 @@ Notable updates:
 * [api|cli] Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand. [#2538](https://github.com/ChainSafe/forest/pull/2538)
 * [cli] A JavaScript console to interact with Filecoin API. [#2492](https://github.com/ChainSafe/forest/pull/2492)
 * [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
+* [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 * [forest daemon] Added `--exit-after-init` and `--save-token` flags. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 ### Changed
@@ -29,6 +30,7 @@ Notable updates:
 * [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [#2403](https://github.com/ChainSafe/forest/pull/2403)
 * [forest daemon] forest daeamon crashes on sending bitswap requests. [#2419](https://github.com/ChainSafe/forest/pull/2419)
 * [version] The version shown in `--help` was stuck at `0.4.1`. Now all binaries and crates in the project will follow a standard version, based on the release tag. [#2487](https://github.com/ChainSafe/forest/pull/2487)
+* [forest] Failing snapshot fetch resulting in daemon crash in one attempt. [#2571](https://github.com/ChainSafe/forest/pull/2571)
 
 ## Forest v0.6.0 (2023-01-06)
 

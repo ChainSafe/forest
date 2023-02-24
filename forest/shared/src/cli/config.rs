@@ -142,6 +142,8 @@ pub struct DaemonConfig {
     pub stderr: PathBuf,
     pub work_dir: PathBuf,
     pub pid_file: Option<PathBuf>,
+    pub default_retry: i32,
+    pub default_delay: Duration,
 }
 
 impl Default for DaemonConfig {
@@ -154,6 +156,8 @@ impl Default for DaemonConfig {
             stderr: "forest.err".into(),
             work_dir: ".".into(),
             pid_file: None,
+            default_retry: 3,
+            default_delay: Duration::from_secs(60),
         }
     }
 }
