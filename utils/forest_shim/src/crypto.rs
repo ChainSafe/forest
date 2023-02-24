@@ -25,18 +25,12 @@ impl Signature {
 
     /// Creates a BLS Signature given the raw bytes.
     pub fn new_bls(bytes: Vec<u8>) -> Self {
-        Signature(Signature_v3 {
-            sig_type: SignatureType_v3::BLS,
-            bytes,
-        })
+        Signature(Signature_v3::new_bls(bytes))
     }
 
     /// Creates a SECP Signature given the raw bytes.
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
-        Signature(Signature_v3 {
-            sig_type: SignatureType_v3::Secp256k1,
-            bytes,
-        })
+        Signature(Signature_v3::new_secp256k1(bytes))
     }
 
     pub fn signature_type(&self) -> SignatureType {
