@@ -92,7 +92,7 @@ impl WalletCommands {
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
-                    "secp256k1" => SignatureType::SECP256K1,
+                    "secp256k1" => SignatureType::Secp256k1,
                     _ => SignatureType::BLS,
                 };
 

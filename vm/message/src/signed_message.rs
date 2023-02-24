@@ -59,7 +59,7 @@ impl SignedMessage {
 
     /// Checks if the signed message is a SECP message.
     pub fn is_secp256k1(&self) -> bool {
-        self.signature.signature_type() == SignatureType::SECP256K1.into()
+        self.signature.signature_type() == SignatureType::Secp256k1.into()
     }
 
     /// Verifies that the from address of the message generated the signature.

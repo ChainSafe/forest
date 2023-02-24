@@ -97,7 +97,8 @@ pub struct SignatureType(pub SignatureType_v3);
 
 impl SignatureType {
     pub const BLS: Self = Self(SignatureType_v3::BLS);
-    pub const SECP256K1: Self = Self(SignatureType_v3::Secp256k1);
+    #[allow(non_upper_case_globals)]
+    pub const Secp256k1: Self = Self(SignatureType_v3::Secp256k1);
 }
 
 impl Deref for SignatureType {

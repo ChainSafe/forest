@@ -377,8 +377,8 @@ pub mod tests {
     async fn test_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
-        let target = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
@@ -546,8 +546,8 @@ pub mod tests {
     async fn test_async_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
-        let sender = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
-        let target = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
@@ -595,8 +595,8 @@ pub mod tests {
     async fn test_msg_chains() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
-        let a1 = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
-        let a2 = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
+        let a1 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         let gas_limit = 6955002;
 

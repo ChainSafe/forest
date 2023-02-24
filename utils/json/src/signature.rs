@@ -90,7 +90,7 @@ pub mod json {
         {
             let json = match *m {
                 SignatureType::BLS => JsonHelperEnum::Bls,
-                SignatureType::SECP256K1 => JsonHelperEnum::Secp256k1,
+                SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
             };
             json.serialize(serializer)
         }
@@ -103,7 +103,7 @@ pub mod json {
 
             let signature_type = match json_enum {
                 JsonHelperEnum::Bls => SignatureType::BLS,
-                JsonHelperEnum::Secp256k1 => SignatureType::SECP256K1,
+                JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
             };
             Ok(signature_type)
         }
@@ -139,7 +139,7 @@ mod tests {
     impl quickcheck::Arbitrary for SignatureTypeWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
-                .choose(&[SignatureType::SECP256K1, SignatureType::BLS])
+                .choose(&[SignatureType::Secp256k1, SignatureType::BLS])
                 .unwrap();
             SignatureTypeWrapper { sigtype: *sigtype }
         }

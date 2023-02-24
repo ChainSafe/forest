@@ -611,7 +611,7 @@ mod test {
             let sigtype = g
                 .choose(&[
                     forest_shim::crypto::SignatureType::BLS,
-                    forest_shim::crypto::SignatureType::SECP256K1,
+                    forest_shim::crypto::SignatureType::Secp256k1,
                 ])
                 .unwrap();
             KeyInfo {
