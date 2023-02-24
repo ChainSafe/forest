@@ -326,14 +326,18 @@ mod tests {
 
         // Simulates logic in old GasBlockStore
         let price_list = price_list_by_network_version(network_version.into());
-        let mut tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
+        let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
         repeat(()).take(read_count).for_each(|_| {
             tracker
                 .apply_charge(price_list.on_block_open_base())
-                .unwrap();
+                .unwrap()
+                .stop();
         });
         for &bytes in write_bytes {
-            tracker.apply_charge(price_list.on_block_link(bytes))?
+            let supported_hashes = SupportedHashes::Blake2b256;
+            tracker
+                .apply_charge(price_list.on_block_link(supported_hashes, bytes))?
+                .stop()
         }
         let expected = tracker.gas_used();
 
