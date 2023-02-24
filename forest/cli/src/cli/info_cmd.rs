@@ -54,7 +54,6 @@ pub async fn node_status(config: &Config) -> NodeStatusInfo {
     let epoch = chain_head.epoch();
     let ts = chain_head.min_timestamp();
     let now = Instant::now().elapsed().as_secs();
-    dbg!(now, ts);
     let delta = ts - now;
     let behind = delta / 30;
 
@@ -117,8 +116,6 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
-        dbg!(&start_time);
-
         let network = chain_get_name((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
@@ -129,8 +126,6 @@ impl InfoCommand {
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
-        // let dur = Duration::from_secs(node_status.behind);
-        // dbg!(dur);
         let chain_status = format!(
             "[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee} pFIL] [epoch: {epoch}]"
         )
