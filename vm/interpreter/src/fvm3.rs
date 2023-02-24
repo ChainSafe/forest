@@ -7,11 +7,12 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
-use forest_shim::{state_tree::StateTree, version::NetworkVersion};
+use forest_shim::{
+    gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
+};
 use fvm3::{
     externs::{Chain, Consensus, Externs, Rand},
-    gas::{price_list_by_network_version, Gas, GasTracker},
-    kernel::SupportedHashes,
+    gas::{Gas, GasTracker},
 };
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
@@ -248,25 +249,24 @@ fn cal_gas_used_from_stats(
     stats: Ref<BSStats>,
     network_version: NetworkVersion,
 ) -> anyhow::Result<Gas> {
-    let price_list = price_list_by_network_version(network_version.into());
+    let price_list = price_list_by_network_version(network_version);
     let gas_tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
     // num of reads
     for _ in 0..stats.r {
         gas_tracker
-            .apply_charge(price_list.on_block_open_base())?
+            .apply_charge(price_list.on_block_open_base().into())?
             .stop();
     }
 
-    let supported_hashes = SupportedHashes::Blake2b256;
     // num of writes
     if stats.w > 0 {
         // total bytes written
         gas_tracker
-            .apply_charge(price_list.on_block_link(supported_hashes, stats.bw))?
+            .apply_charge(price_list.on_block_link(stats.bw).into())?
             .stop();
         for _ in 1..stats.w {
             gas_tracker
-                .apply_charge(price_list.on_block_link(supported_hashes, 0))?
+                .apply_charge(price_list.on_block_link(0).into())?
                 .stop();
         }
     }
@@ -325,18 +325,17 @@ mod tests {
         let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version)?;
 
         // Simulates logic in old GasBlockStore
-        let price_list = price_list_by_network_version(network_version.into());
+        let price_list = price_list_by_network_version(network_version);
         let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
         repeat(()).take(read_count).for_each(|_| {
             tracker
-                .apply_charge(price_list.on_block_open_base())
+                .apply_charge(price_list.on_block_open_base().into())
                 .unwrap()
                 .stop();
         });
         for &bytes in write_bytes {
-            let supported_hashes = SupportedHashes::Blake2b256;
             tracker
-                .apply_charge(price_list.on_block_link(supported_hashes, bytes))?
+                .apply_charge(price_list.on_block_link(bytes).into())?
                 .stop()
         }
         let expected = tracker.gas_used();

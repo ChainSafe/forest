@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_shim::{message::Message, version::NetworkVersion};
-use fvm3::gas::Gas;
+use forest_shim::{gas::Gas, message::Message, version::NetworkVersion};
 
 /// Semantic validation and validates the message has enough gas.
 pub fn valid_for_block_inclusion(
