@@ -31,7 +31,7 @@ pub(crate) fn get_gas_reward(msg: &SignedMessage, base_fee: &TokenAmount) -> Tok
     max_prem * msg.gas_limit()
 }
 
-pub(crate) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: i64) -> f64 {
+pub(crate) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: u64) -> f64 {
     let a = BigRational::new(
         gas_reward.atto() * fvm_shared::BLOCK_GAS_LIMIT,
         gas_limit.into(),

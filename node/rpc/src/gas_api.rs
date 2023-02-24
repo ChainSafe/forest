@@ -14,7 +14,7 @@ use forest_rpc_api::{
 };
 use forest_shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::BLOCK_GAS_LIMIT;
+use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
@@ -89,7 +89,7 @@ where
 
     struct GasMeta {
         pub price: TokenAmount,
-        pub limit: i64,
+        pub limit: u64,
     }
 
     let mut prices: Vec<GasMeta> = Vec::new();
@@ -122,7 +122,7 @@ where
 
     prices.sort_by(|a, b| b.price.cmp(&a.price));
     // TODO: From lotus, account for how full blocks are
-    let mut at = BLOCK_GAS_TARGET * blocks as i64 / 2;
+    let mut at = BLOCK_GAS_TARGET * blocks as u64 / 2;
     let mut prev = TokenAmount::zero();
     let mut premium = TokenAmount::zero();
 
@@ -245,7 +245,7 @@ where
     let mut msg = msg;
     if msg.gas_limit == 0 {
         let gl = estimate_gas_limit::<DB, B>(data, msg.clone(), tsk.clone()).await?;
-        msg.set_gas_limit(gl);
+        msg.set_gas_limit(gl as u64);
     }
     if msg.gas_premium.is_zero() {
         let gp = estimate_gas_premium(data, 10).await?;
