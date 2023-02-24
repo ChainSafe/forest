@@ -590,10 +590,13 @@ where
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))??;
 
-        let time = SystemTime::now()
-            .duration_since(global_pre_time)
-            .expect("time cannot go backwards");
-        info!("export finished, took {} seconds", time.as_secs());
+        info!(
+            "export finished, took {} seconds",
+            global_pre_time
+                .elapsed()
+                .expect("time cannot go backwards")
+                .as_secs()
+        );
 
         let digest = writer.lock().await.get_mut().finalize();
         Ok(digest)
