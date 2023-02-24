@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_encoding::tuple::*;
-use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use forest_shim::{
+    address::Address,
+    crypto::{Signature, SignatureType},
+    econ::TokenAmount,
+    message::Message,
+};
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
 use fvm_ipld_encoding3::RawBytes;
-use fvm_shared::{
-    crypto::signature::{Signature, SignatureType},
-    MethodNum,
-};
+use fvm_shared::MethodNum;
 
 use super::Message as MessageTrait;
 
@@ -52,12 +54,12 @@ impl SignedMessage {
 
     /// Checks if the signed message is a BLS message.
     pub fn is_bls(&self) -> bool {
-        self.signature.signature_type() == SignatureType::BLS
+        self.signature.signature_type() == SignatureType::BLS.into()
     }
 
     /// Checks if the signed message is a SECP message.
     pub fn is_secp256k1(&self) -> bool {
-        self.signature.signature_type() == SignatureType::Secp256k1
+        self.signature.signature_type() == SignatureType::SECP256K1.into()
     }
 
     /// Verifies that the from address of the message generated the signature.

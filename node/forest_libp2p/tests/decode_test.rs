@@ -82,10 +82,10 @@ fn tipset_bundle_to_full_tipset() {
         ..Message_v3::default()
     }
     .into();
-    let sa = SignedMessage::new_unchecked(ua.clone(), (&Signature::new_secp256k1(vec![0])).into());
-    let sb = SignedMessage::new_unchecked(ub.clone(), (&Signature::new_secp256k1(vec![0])).into());
-    let sc = SignedMessage::new_unchecked(uc.clone(), (&Signature::new_secp256k1(vec![0])).into());
-    let sd = SignedMessage::new_unchecked(ud.clone(), (&Signature::new_secp256k1(vec![0])).into());
+    let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
+    let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
+    let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));
+    let sd = SignedMessage::new_unchecked(ud.clone(), Signature::new_secp256k1(vec![0]));
 
     let b0 = Block {
         header: h0.clone(),

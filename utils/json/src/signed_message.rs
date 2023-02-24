@@ -47,7 +47,7 @@ pub mod json {
         }
         SignedMessageSer {
             message: &m.message,
-            signature: &m.signature.clone().into(),
+            signature: &m.signature.clone(),
             cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
@@ -66,10 +66,7 @@ pub mod json {
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
-        Ok(SignedMessage {
-            message,
-            signature: (&signature).into(),
-        })
+        Ok(SignedMessage { message, signature })
     }
 
     pub mod vec {
@@ -124,7 +121,7 @@ mod tests {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             SignedMessageWrapper(SignedMessage::new_unchecked(
                 crate::message::tests::MessageWrapper::arbitrary(g).message,
-                (&Signature::new_secp256k1(vec![0])).into(),
+                Signature::new_secp256k1(vec![0]),
             ))
         }
     }
@@ -176,8 +173,7 @@ mod tests {
         }
         .into();
 
-        let signed =
-            SignedMessage::new_unchecked(message.clone(), (&Signature::new_bls(vec![0, 1])).into());
+        let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct TestStruct {

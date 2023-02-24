@@ -20,15 +20,10 @@ fn generate_signed_message() {
 
     let mut dummy_sig = vec![0];
     OsRng.fill_bytes(&mut dummy_sig);
-    let signed_msg = SignedMessage::new_unchecked(
-        msg.clone(),
-        (&Signature::new_secp256k1(dummy_sig.clone())).into(),
-    );
+    let signed_msg =
+        SignedMessage::new_unchecked(msg.clone(), Signature::new_secp256k1(dummy_sig.clone()));
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &msg);
-    assert_eq!(
-        *signed_msg.signature(),
-        (&Signature::new_secp256k1(dummy_sig)).into()
-    );
+    assert_eq!(*signed_msg.signature(), Signature::new_secp256k1(dummy_sig));
 }

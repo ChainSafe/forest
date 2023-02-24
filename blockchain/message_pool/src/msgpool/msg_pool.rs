@@ -596,7 +596,7 @@ where
     if msg.signature().signature_type() == SignatureType::BLS.into() {
         bls_sig_cache
             .lock()
-            .put(msg.cid()?, msg.signature().clone().into());
+            .put(msg.cid()?, msg.signature().clone());
     }
 
     if msg.message().gas_limit > 100_000_000 {

@@ -370,7 +370,7 @@ pub mod tests {
         .into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
-        SignedMessage::new_from_parts(umsg, (&sig).into()).unwrap()
+        SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
 
     #[tokio::test]
