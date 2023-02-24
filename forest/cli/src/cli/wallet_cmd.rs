@@ -291,6 +291,15 @@ impl WalletCommands {
     }
 }
 
+/// Function to format `TokenAmount` accoding to `FormattingMode`:
+/// mode to show data in `FIL` units
+/// in full accuracy for `ExactFixed` mode,
+/// mode to show data in `FIL` units
+/// with 4 significant digits for `NotExactFixed` mode,
+/// mode to show data in SI units
+/// in full accuracy for `ExactNotFixed` mode,
+/// mode to show data in SI units
+/// with 4 significant digits for `NotExactNotFixed` mode
 fn format_balance_string(
     token_amount: TokenAmount,
     mode: FormattingMode,
