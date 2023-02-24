@@ -72,6 +72,10 @@ fn handle_inbound_request<S: BitswapStoreRead>(
     store: &S,
     request: &BitswapRequest,
 ) -> Option<BitswapResponse> {
+    if request.cancel {
+        return None;
+    }
+
     match request.ty {
         RequestType::Have => {
             metrics::message_counter_inbound_request_have().inc();
