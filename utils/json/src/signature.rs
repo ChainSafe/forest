@@ -78,6 +78,7 @@ pub mod json {
         enum JsonHelperEnum {
             Bls,
             Secp256k1,
+            Delegated,
         }
 
         #[derive(Debug, Serialize, Deserialize)]
@@ -91,6 +92,7 @@ pub mod json {
             let json = match *m {
                 SignatureType::BLS => JsonHelperEnum::Bls,
                 SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
+                SignatureType::Delegated => JsonHelperEnum::Delegated,
             };
             json.serialize(serializer)
         }
@@ -104,6 +106,7 @@ pub mod json {
             let signature_type = match json_enum {
                 JsonHelperEnum::Bls => SignatureType::BLS,
                 JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
+                JsonHelperEnum::Delegated => SignatureType::Delegated,
             };
             Ok(signature_type)
         }
