@@ -559,9 +559,9 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.6.7"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fb79c228270dcf2426e74864cabc94babb5dbab01a4314e702d2f16540e1591"
+checksum = "2bd379e511536bad07447f899300aa526e9bae8e6f66dc5e5ca45d7587b7c1ec"
 dependencies = [
  "async-trait",
  "axum-core",
@@ -4530,7 +4530,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "3.0.0-rc.1"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#3e4a07c6e6d1cfd9ea3da82e661b2af012d5eca9"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#c88abc4dbfa5905a21bcff4a353d1dd9a09bdd1d"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -4805,7 +4805,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "3.0.0-alpha.20"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#3e4a07c6e6d1cfd9ea3da82e661b2af012d5eca9"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#c88abc4dbfa5905a21bcff4a353d1dd9a09bdd1d"
 dependencies = [
  "anyhow",
  "bitflags",
