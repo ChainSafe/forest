@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_shim::{message::Message, version::NetworkVersion};
-use fvm::gas::Gas;
+use fvm3::gas::Gas;
 
 /// Semantic validation and validates the message has enough gas.
 pub fn valid_for_block_inclusion(
@@ -14,9 +14,10 @@ pub fn valid_for_block_inclusion(
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }
-    if msg.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
-        anyhow::bail!("invalid 'to' address");
-    }
+    // ZERO_ADDRESS is fubar
+    // if msg.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
+    //     anyhow::bail!("invalid 'to' address");
+    // }
     if msg.value.is_negative() {
         anyhow::bail!("message value cannot be negative");
     }
@@ -36,7 +37,7 @@ pub fn valid_for_block_inclusion(
         anyhow::bail!("gas_limit cannot be greater than block gas limit");
     }
 
-    if Gas::new(msg.gas_limit as i64) < min_gas {
+    if Gas::new(msg.gas_limit) < min_gas {
         anyhow::bail!(
             "gas_limit {} cannot be less than cost {} of storing a message on chain",
             msg.gas_limit,

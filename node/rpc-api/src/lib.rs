@@ -149,6 +149,7 @@ pub mod chain_api {
     };
     use forest_json::{cid::CidJson, message::json::MessageJson};
     use fvm_shared::clock::ChainEpoch;
+    use serde::{Deserialize, Serialize};
 
     use crate::data_types::BlockMessages;
 
@@ -157,7 +158,17 @@ pub mod chain_api {
     pub type ChainGetMessageResult = MessageJson;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
-    pub type ChainExportParams = (ChainEpoch, i64, PathBuf, TipsetKeysJson, bool);
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ChainExportParams {
+        pub epoch: ChainEpoch,
+        pub recent_roots: i64,
+        pub output_path: PathBuf,
+        pub tipset_keys: TipsetKeysJson,
+        pub skip_checksum: bool,
+        pub dry_run: bool,
+    }
+
     pub type ChainExportResult = PathBuf;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
