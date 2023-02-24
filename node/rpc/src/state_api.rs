@@ -81,8 +81,8 @@ pub(crate) async fn state_start_time<
 >(
     data: Data<RPCState<DB, B>>,
 ) -> Result<StateNetworkNameResult, JsonRpcError> {
-    let uptime = &data.start_time.to_string();
-    Ok(uptime.clone())
+    let uptime = &data.start_time.to_hms();
+    Ok(format!("{}h {}m {}s", uptime.0, uptime.1, uptime.2))
 }
 
 pub(crate) async fn state_get_network_version<

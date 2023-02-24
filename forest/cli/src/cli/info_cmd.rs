@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use clap::Subcommand;
 use colored::*;
@@ -54,7 +54,8 @@ pub async fn node_status(config: &Config) -> NodeStatusInfo {
     let epoch = chain_head.epoch();
     let ts = chain_head.min_timestamp();
     let now = Instant::now().elapsed().as_secs();
-    let delta = now - ts;
+    dbg!(now, ts);
+    let delta = ts - now;
     let behind = delta / 30;
 
     let sync_status = if delta < 30 * 3 / 2 {
@@ -116,6 +117,8 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
+        dbg!(&start_time);
+
         let network = chain_get_name((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
@@ -126,14 +129,16 @@ impl InfoCommand {
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
+        // let dur = Duration::from_secs(node_status.behind);
+        // dbg!(dur);
         let chain_status = format!(
-            "[sync {sync_status}! ({behind} behind)] [basefee {base_fee} pFIL] [epoch {epoch}]"
+            "[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee} pFIL] [epoch: {epoch}]"
         )
         .blue();
 
         println!("Network: {}", network.green());
-        println!("Start time: {start_time}");
-        println!("Chain state: {chain_status}");
+        println!("Uptime: {start_time}");
+        println!("Chain: {chain_status}");
 
         match health {
             0..=85 => {
@@ -146,9 +151,6 @@ impl InfoCommand {
             }
             _ => {}
         }
-        // if health > 85 {
-        // } else if health < 85 {
-        // }
 
         // Wallet info
         let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
