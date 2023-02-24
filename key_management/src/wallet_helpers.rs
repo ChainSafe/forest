@@ -54,7 +54,7 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
             // this returns a signature from bls-signatures, so we need to convert this to a
             // crypto signature
             let sig = priv_key.sign(msg);
-            let crypto_sig = Signature::new(SignatureType::BLS, sig.as_bytes());
+            let crypto_sig = Signature::new_bls(sig.as_bytes());
             Ok(crypto_sig)
         }
         SignatureType::Secp256k1 => {
@@ -66,7 +66,7 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
             let mut new_bytes = [0; 65];
             new_bytes[..64].copy_from_slice(&sig.serialize());
             new_bytes[64] = recovery_id.serialize();
-            let crypto_sig = Signature::new(SignatureType::Secp256k1, new_bytes.to_vec());
+            let crypto_sig = Signature::new_secp256k1(new_bytes.to_vec());
             Ok(crypto_sig)
         }
     }

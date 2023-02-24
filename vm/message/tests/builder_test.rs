@@ -25,5 +25,5 @@ fn generate_signed_message() {
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &msg);
-    assert_eq!(*signed_msg.signature(), Signature::new_secp256k1(dummy_sig));
+    assert_eq!(signed_msg.signature(), &Signature::new_secp256k1(dummy_sig));
 }
