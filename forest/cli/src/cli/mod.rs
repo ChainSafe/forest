@@ -15,6 +15,7 @@ mod fetch_params_cmd;
 mod mpool_cmd;
 mod net_cmd;
 mod send_cmd;
+mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
@@ -35,8 +36,8 @@ pub(super) use self::{
     attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
     config_cmd::ConfigCommands, db_cmd::DBCommands, fetch_params_cmd::FetchCommands,
     mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
-    wallet_cmd::WalletCommands,
+    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
 
 /// CLI structure generated when interacting with Forest binary
@@ -102,6 +103,9 @@ pub enum Subcommand {
 
     /// Attach to daemon via a JavaScript console
     Attach(AttachCommand),
+
+    /// Shutdown Forest
+    Shutdown(ShutdownCommand),
 }
 
 /// Pretty-print a JSON-RPC error and exit
@@ -183,7 +187,8 @@ pub(super) fn print_stdout(out: String) {
 }
 
 fn prompt_confirm() -> bool {
-    println!("Do you want to continue? [y/n]");
+    print!("Do you want to continue? [y/n] ");
+    std::io::stdout().flush().unwrap();
     let mut line = String::new();
     std::io::stdin().read_line(&mut line).unwrap();
     let line = line.trim().to_lowercase();

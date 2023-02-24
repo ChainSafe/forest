@@ -45,9 +45,13 @@ impl BitswapBehaviour {
 
     /// Sends a [BitswapRequest] to a peer
     pub fn send_request(&mut self, peer: &PeerId, request: BitswapRequest) -> RequestId {
-        match request.ty {
-            RequestType::Have => metrics::message_counter_outbound_request_have().inc(),
-            RequestType::Block => metrics::message_counter_outbound_request_block().inc(),
+        if request.cancel {
+            metrics::message_counter_outbound_request_cancel().inc();
+        } else {
+            match request.ty {
+                RequestType::Have => metrics::message_counter_outbound_request_have().inc(),
+                RequestType::Block => metrics::message_counter_outbound_request_block().inc(),
+            }
         }
         self.inner
             .send_request(peer, vec![BitswapMessage::Request(request)])

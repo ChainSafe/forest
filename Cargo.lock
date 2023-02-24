@@ -1909,16 +1909,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctrlc"
-version = "3.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbcf33c2a618cbe41ee43ae6e9f2e48368cd9f9db2896f10167d8d762679f639"
-dependencies = [
- "nix 0.26.2",
- "windows-sys 0.45.0",
-]
-
-[[package]]
 name = "curve25519-dalek"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3338,7 +3328,6 @@ dependencies = [
  "assert_cmd",
  "atty",
  "clap",
- "ctrlc",
  "daemonize-me",
  "dialoguer",
  "flume",
@@ -3421,7 +3410,7 @@ version = "0.6.0"
 dependencies = [
  "chrono",
  "forest_key_management",
- "fvm_shared 2.0.0",
+ "forest_shim",
  "jsonrpc-v2",
  "jsonwebtoken",
  "once_cell",
@@ -3516,6 +3505,7 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
+ "fvm_shared 3.0.0-alpha.20",
  "libipld",
  "log",
  "lru 0.9.0",
@@ -3559,6 +3549,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
+ "fvm_shared 3.0.0-alpha.20",
  "lazy_static",
  "log",
  "lru 0.9.0",
@@ -3632,6 +3623,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.0",
  "forest_encoding",
+ "forest_shim",
  "fvm_shared 2.0.0",
  "serde",
 ]
@@ -3865,7 +3857,6 @@ dependencies = [
  "forest_json",
  "forest_shim",
  "forest_utils",
- "fvm_shared 2.0.0",
  "libsecp256k1",
  "log",
  "quickcheck",
@@ -4010,6 +4001,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
+ "fvm_shared 3.0.0-alpha.20",
  "log",
  "lru 0.9.0",
  "num",
@@ -4104,7 +4096,7 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
+ "fvm_shared 3.0.0-alpha.20",
  "hex",
  "http",
  "jsonrpc-v2",
@@ -4297,7 +4289,6 @@ dependencies = [
  "forest_message",
  "forest_shim",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
  "num",
 ]
 
@@ -8981,7 +8972,6 @@ dependencies = [
  "forest_message",
  "forest_shim",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
  "hex",
  "serde",
  "serde_json",

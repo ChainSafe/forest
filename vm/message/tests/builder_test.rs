@@ -4,9 +4,9 @@
 use forest_message::SignedMessage;
 use forest_shim::{
     address::Address,
+    crypto::Signature,
     message::{Message, Message_v3},
 };
-use fvm_shared::crypto::signature::Signature;
 use rand::{rngs::OsRng, RngCore};
 
 #[test]

@@ -15,9 +15,8 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
-use forest_shim::address::Address;
+use forest_shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
@@ -39,7 +38,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
 // TODO: Implement guess gas module
-const MIN_GAS: i64 = 1298450;
+const MIN_GAS: u64 = 1298450;
 
 /// Get the state of the `base_sequence` for a given address in the current
 /// Tipset
@@ -150,7 +149,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+    let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
@@ -337,10 +336,10 @@ pub mod tests {
     use forest_networks::ChainConfig;
     use forest_shim::{
         address::Address,
+        crypto::SignatureType,
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
-    use fvm_shared::crypto::signature::SignatureType;
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;
