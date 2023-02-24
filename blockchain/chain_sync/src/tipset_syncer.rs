@@ -1546,6 +1546,9 @@ async fn check_block_messages<
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        if msg.is_delegated() {
+            continue;
+        }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::<C>::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"
