@@ -79,7 +79,7 @@ RUN mkdir -p ${DATA_DIR} && chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR
 USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
 
-# Basic verification of dymamially linked dependencies
+# Basic verification of dynamically linked dependencies
 RUN forest -V
 RUN forest-cli -V
 

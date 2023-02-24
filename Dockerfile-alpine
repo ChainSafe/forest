@@ -64,7 +64,7 @@ COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /us
 USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
 
-# Basic verification of dymamially linked dependencies
+# Basic verification of dynamically linked dependencies
 RUN forest -V
 RUN forest-cli -V
 
