@@ -4172,6 +4172,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "tempfile",
+ "time 0.3.20",
  "tokio",
 ]
 
@@ -4206,7 +4207,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "syn",
- "time 0.3.18",
+ "time 0.3.20",
  "tokio",
 ]
 

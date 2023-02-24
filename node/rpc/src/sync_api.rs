@@ -75,6 +75,7 @@ mod tests {
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;
     use tempfile::TempDir;
+    use time::OffsetDateTime;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -151,6 +152,7 @@ mod tests {
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
+        let start_time = OffsetDateTime::now_utc();
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
@@ -159,6 +161,7 @@ mod tests {
             sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
+            start_time,
             chain_store: cs_for_chain,
             beacon,
             new_mined_block_tx,
