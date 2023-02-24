@@ -249,19 +249,25 @@ fn cal_gas_used_from_stats(
     network_version: NetworkVersion,
 ) -> anyhow::Result<Gas> {
     let price_list = price_list_by_network_version(network_version.into());
-    let mut gas_tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
+    let gas_tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
     // num of reads
     for _ in 0..stats.r {
-        gas_tracker.apply_charge(price_list.on_block_open_base())?;
+        gas_tracker
+            .apply_charge(price_list.on_block_open_base())?
+            .stop();
     }
 
     let supported_hashes = SupportedHashes::Blake2b256;
     // num of writes
     if stats.w > 0 {
         // total bytes written
-        gas_tracker.apply_charge(price_list.on_block_link(supported_hashes, stats.bw))?;
+        gas_tracker
+            .apply_charge(price_list.on_block_link(supported_hashes, stats.bw))?
+            .stop();
         for _ in 1..stats.w {
-            gas_tracker.apply_charge(price_list.on_block_link(supported_hashes, 0))?;
+            gas_tracker
+                .apply_charge(price_list.on_block_link(supported_hashes, 0))?
+                .stop();
         }
     }
     Ok(gas_tracker.gas_used())
