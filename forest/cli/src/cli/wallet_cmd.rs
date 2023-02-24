@@ -32,9 +32,21 @@ const NUM_SIGNIFICANT_DIGITS: u32 = 4;
 
 #[allow(clippy::enum_variant_names)]
 enum FormattingMode {
+    /// mode to show data in `FIL` units
+    /// in full accuracy
+    /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
     ExactFixed,
+    /// mode to show data in `FIL` units
+    /// with 4 significant digits
+    /// E.g. 0.5002 `FIL` instead of 500.2367 `milli FIL`
     NotExactFixed,
+    /// mode to show data in SI units 
+    /// in full accuracy
+    /// E.g. 500.2367798 `milli FIL` instead of 500.2 `milli FIL`
     ExactNotFixed,
+    /// mode to show data in SI units 
+    /// with 4 significant digits
+    /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
     NotExactNotFixed,
 }
 
@@ -283,13 +295,13 @@ fn format_balance_string(
     token_amount: TokenAmount,
     mode: FormattingMode,
 ) -> anyhow::Result<String> {
-    let units = ["atto", "femto", "pico", "nano", "micro", "milli", ""];
+    let units = ["atto ", "femto ", "pico ", "nano ", "micro ", "milli ", ""];
     let num: Decimal = Decimal::try_from_i128_with_scale(
         token_amount
             .atto()
             .to_i128()
-            // currently the amount cannot be more than 2B x 10^18 tokens
-            // the limit here is 20B
+            // currently the amount cannot be more than 2B x 10^18 atto FIL
+            // the limit here is 2^96 atto FIL
             .ok_or(anyhow::Error::msg("value is too big"))?,
         0,
     )?;
@@ -322,7 +334,7 @@ fn format_balance_string(
             }
             res
         }
-        FormattingMode::ExactNotFixed => format!("{num:0} {} FIL", units[unit_index]),
+        FormattingMode::ExactNotFixed => format!("{num:0} {}FIL", units[unit_index]),
         FormattingMode::NotExactNotFixed => {
             let mut fil = num
                 .round_sf_with_strategy(
@@ -333,7 +345,7 @@ fn format_balance_string(
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
-            let mut res = format!("{} {} FIL", fil, units[unit_index]);
+            let mut res = format!("{} {}FIL", fil, units[unit_index]);
 
             if fil != num {
                 res.insert(0, '~');
@@ -401,8 +413,8 @@ mod test {
             (1000000123, "1.000000123 nano FIL"),
             (450000008000000, "450.000008 micro FIL"),
             (90000002750000000, "90.00000275 milli FIL"),
-            (1508900000000005000, "1.508900000000005  FIL"),
-            (2508900009000005000, "2.508900009000005  FIL"),
+            (1508900000000005000, "1.508900000000005 FIL"),
+            (2508900009000005000, "2.508900009000005 FIL"),
         ];
 
         for (atto, result) in cases_vec {
@@ -420,8 +432,8 @@ mod test {
             (450000008000000, "~450 micro FIL"),
             (90000002750000000, "~90 milli FIL"),
             (500236779800000000, "~500.2 milli FIL"),
-            (1508900000000005000, "~1.509  FIL"),
-            (2508900009000005000, "~2.509  FIL"),
+            (1508900000000005000, "~1.509 FIL"),
+            (2508900009000005000, "~2.509 FIL"),
         ];
 
         for (atto, result) in cases_vec {
