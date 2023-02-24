@@ -38,6 +38,10 @@ impl Signature {
             bytes,
         })
     }
+
+    pub fn signature_type(&self) -> SignatureType {
+        self.0.signature_type().into()
+    }
 }
 
 impl Deref for Signature {
@@ -73,7 +77,7 @@ impl From<Signature_v3> for Signature {
 impl From<Signature> for Signature_v3 {
     fn from(other: Signature) -> Self {
         Signature_v3 {
-            sig_type: other.signature_type(),
+            sig_type: other.signature_type().into(),
             bytes: other.bytes().into(),
         }
     }
