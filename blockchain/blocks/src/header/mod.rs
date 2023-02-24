@@ -13,12 +13,13 @@ use forest_encoding::blake2b_256;
 use forest_shim::{
     address::Address,
     bigint::{BigIntDe, BigIntSer},
+    crypto::Signature,
     econ::TokenAmount,
     sector::PoStProof,
     version::NetworkVersion,
 };
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
-use fvm_shared::{clock::ChainEpoch, crypto::signature::Signature};
+use fvm_shared::clock::ChainEpoch;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -36,7 +37,7 @@ pub mod json;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;
-/// use fvm_shared::crypto::signature::Signature;
+/// use forest_shim::crypto::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
 ///

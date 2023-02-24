@@ -17,12 +17,15 @@ use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
-use forest_shim::{address::Address, econ::TokenAmount};
+use forest_shim::{
+    address::Address,
+    crypto::{Signature, SignatureType},
+    econ::TokenAmount,
+};
 use forest_utils::const_option;
 use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use num::BigInt;

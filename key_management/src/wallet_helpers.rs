@@ -3,8 +3,10 @@
 
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use forest_encoding::blake2b_256;
-use forest_shim::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use forest_shim::{
+    address::Address,
+    crypto::{Signature, SignatureType},
+};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 

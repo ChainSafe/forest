@@ -1466,7 +1466,7 @@ async fn check_block_messages<
                 .map(|x| &x[..])
                 .collect::<Vec<&[u8]>>()
                 .as_slice(),
-            sig,
+            &sig.into(),
         ) {
             return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(
                 format!("{sig:?}"),
