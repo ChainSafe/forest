@@ -72,6 +72,10 @@ pub(crate) fn message_counter_inbound_request_block() -> GenericCounter<AtomicU6
     MESSAGE_COUNTER.with_label_values(&["inbound_request_block"])
 }
 
+pub(crate) fn message_counter_outbound_request_cancel() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["outbound_request_cancel"])
+}
+
 pub(crate) fn message_counter_outbound_request_block() -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["outbound_request_block"])
 }

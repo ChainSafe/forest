@@ -39,7 +39,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
 // TODO: Implement guess gas module
-const MIN_GAS: i64 = 1298450;
+const MIN_GAS: u64 = 1298450;
 
 /// Get the state of the `base_sequence` for a given address in the current
 /// Tipset
@@ -150,7 +150,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+    let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
