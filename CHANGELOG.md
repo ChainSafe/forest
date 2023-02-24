@@ -16,6 +16,11 @@ Notable updates:
 * [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h. [#2396](https://github.com/ChainSafe/forest/pull/2396)
 * [libp2p] Support multiple listen addr. [#2570](https://github.com/ChainSafe/forest/pull/2570)
 * [config] `stats` and `compression` keys in `parity_db` section were renamed to `enable_statistics` and `compression_type` respectively. [#2444](https://github.com/ChainSafe/forest/pull/2444)
+* [forest cli] changed how balances are displayed, defaulting to
+  - adding metric prefix when it's appropriate to do so, consequently CLI flag `--fixed-unit` added to force to show in original `FIL` unit
+  - 4 significant digits, consequently CLI flag `--exact-balance` added to force full accuracy.
+  [#2385](https://github.com/ChainSafe/forest/pull/2385)
+
 * [config] `download-snapshot` flag was renamed to `auto-download-snapshot`. `download_snapshot` key in `client` section in configuration renamed to `auto_download_snapshot`. [#257](https://github.com/ChainSafe/forest/pull/2457)
 * [docker|security] the Forest image is no longer running on a root user but a dedicated one. [#2463](https://github.com/ChainSafe/forest/pull/2463)
 * [keystore] Allow specifying the encryption passphrase via environmental variable. [#2514](https://github.com/ChainSafe/forest/pull/2514)
