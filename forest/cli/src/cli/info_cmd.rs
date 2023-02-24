@@ -26,6 +26,16 @@ enum SyncStatus {
     Behind,
 }
 
+impl std::fmt::Display for SyncStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyncStatus::Ok => write!(f, "ok"),
+            SyncStatus::Behind => write!(f, "behind"),
+            SyncStatus::Slow => write!(f, "slow"),
+        }
+    }
+}
+
 pub struct NodeStatusInfo {
     behind: u64,
     health: usize,
@@ -117,15 +127,13 @@ impl InfoCommand {
         let epoch = node_status.epoch;
 
         let chain_status = format!(
-            "[sync {:?}! ({behind} behind)] [basefee {base_fee} pFIL] [epoch {epoch}]",
-            sync_status
+            "[sync {sync_status}! ({behind} behind)] [basefee {base_fee} pFIL] [epoch {epoch}]"
         )
         .blue();
 
         println!("Network: {}", network.green());
         println!("Start time: {start_time}");
         println!("Chain state: {chain_status}");
-
 
         match health {
             0..=85 => {

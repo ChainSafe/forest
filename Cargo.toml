@@ -64,12 +64,12 @@ cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = [] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
+colored = "2"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
 derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
-colored = "2"
 filecoin-proofs-api = { version = "12.0", default-features = false }
 flume = "0.10"
 fs_extra = "1.2"
