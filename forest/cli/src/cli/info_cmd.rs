@@ -123,23 +123,31 @@ impl InfoCommand {
         .blue();
 
         println!("Network: {}", network.green());
-        println!("Start time: {}", start_time);
-        println!("Chain state: {}", chain_status);
+        println!("Start time: {start_time}");
+        println!("Chain state: {chain_status}");
 
-        if health > 85 {
-            let chain_health = format!("{}%\n\n", health).green();
-            println!("Chain health: {chain_health}");
-        } else if health < 85 {
-            let chain_health = format!("{}%\n\n", health).red();
-            println!("Chain health: {chain_health}");
+
+        match health {
+            0..=85 => {
+                let chain_health = format!("{health}%\n\n").red();
+                println!("Chain health: {chain_health}");
+            }
+            (86..) => {
+                let chain_health = format!("{health}%\n\n").green();
+                println!("Chain health: {chain_health}");
+            }
+            _ => {}
         }
+        // if health > 85 {
+        // } else if health < 85 {
+        // }
 
         // Wallet info
         let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
-        let default_wallet_address = format!("{default_wallet_address}").bold();
-        println!("Default wallet address: {}", default_wallet_address);
+        let default_wallet_address = default_wallet_address.bold();
+        println!("Default wallet address: {default_wallet_address}");
 
         Ok(())
     }
