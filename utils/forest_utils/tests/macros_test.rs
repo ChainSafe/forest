@@ -7,18 +7,18 @@ use forest_utils::retry;
 use log::info;
 use tokio::time::sleep;
 
+#[allow(clippy::unused_async)]
 async fn failing_function() -> Result<(), ()> {
-    sleep(Duration::from_nanos(0)).await;
     Err(())
 }
 
+#[allow(clippy::unused_async)]
 async fn successful_function() -> Result<(), ()> {
-    sleep(Duration::from_nanos(0)).await;
     Ok(())
 }
 
+#[allow(clippy::unused_async)]
 async fn retryable_function(counter: &mut i32) -> Result<(), ()> {
-    sleep(Duration::from_nanos(0)).await;
     if *counter > 0 {
         *counter -= 1;
         Err(())
