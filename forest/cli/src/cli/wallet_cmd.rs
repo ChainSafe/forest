@@ -302,7 +302,7 @@ fn format_balance_string(
             .to_i128()
             // currently the amount cannot be more than 2B x 10^18 atto FIL
             // the limit here is 2^96 atto FIL
-            .ok_or(anyhow::Error::msg("value is too big"))?,
+            .ok_or(anyhow::Error::msg("Number exceeds maximum value that can be represented."))?,
         0,
     )?;
 
@@ -461,7 +461,7 @@ mod test {
             )
             .unwrap_err()
             .to_string(),
-            "value is too big"
+            "Number exceeds maximum value that can be represented."
         );
     }
 
