@@ -30,7 +30,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: m.signature_type().into(),
+            sig_type: m.signature_type(),
             bytes: BASE64_STANDARD.encode(&m.bytes),
         }
         .serialize(serializer)

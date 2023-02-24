@@ -54,12 +54,12 @@ impl SignedMessage {
 
     /// Checks if the signed message is a BLS message.
     pub fn is_bls(&self) -> bool {
-        self.signature.signature_type() == SignatureType::BLS.into()
+        self.signature.signature_type() == SignatureType::BLS
     }
 
     /// Checks if the signed message is a SECP message.
     pub fn is_secp256k1(&self) -> bool {
-        self.signature.signature_type() == SignatureType::Secp256k1.into()
+        self.signature.signature_type() == SignatureType::Secp256k1
     }
 
     /// Verifies that the from address of the message generated the signature.
