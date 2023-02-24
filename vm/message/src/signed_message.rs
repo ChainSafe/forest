@@ -86,10 +86,10 @@ impl MessageTrait for SignedMessage {
     fn params(&self) -> &RawBytes {
         self.message.params()
     }
-    fn gas_limit(&self) -> i64 {
+    fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
     }
-    fn set_gas_limit(&mut self, token_amount: i64) {
+    fn set_gas_limit(&mut self, token_amount: u64) {
         self.message.set_gas_limit(token_amount);
     }
     fn set_sequence(&mut self, new_sequence: u64) {

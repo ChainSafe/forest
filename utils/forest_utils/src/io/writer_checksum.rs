@@ -1,6 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{pin::Pin, task::Poll};
+use std::{marker::PhantomData, pin::Pin, task::Poll};
 
 use digest::{Digest, Output};
 use pin_project_lite::pin_project;
@@ -64,6 +64,42 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
             inner: writer,
             hasher: Digest::new(),
         }
+    }
+}
+
+/// A void writer that does nothing but implements [AsyncWrite] and [Checksum]
+#[derive(Debug, Clone, Default)]
+pub struct VoidAsyncWriterWithNoChecksum<D> {
+    _d: PhantomData<D>,
+}
+
+impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::task::Poll::Ready(Ok(buf.len()))
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+}
+
+impl<D: Digest> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
+    fn finalize(&mut self) -> Output<D> {
+        Default::default()
     }
 }
 

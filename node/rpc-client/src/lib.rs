@@ -4,6 +4,7 @@
 /// Filecoin RPC client interface methods
 pub mod auth_ops;
 pub mod chain_ops;
+pub mod common_ops;
 pub mod mpool_ops;
 pub mod net_ops;
 pub mod state_ops;
@@ -29,7 +30,8 @@ pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 pub const RPC_ENDPOINT: &str = "rpc/v0";
 
 pub use self::{
-    auth_ops::*, chain_ops::*, mpool_ops::*, net_ops::*, state_ops::*, sync_ops::*, wallet_ops::*,
+    auth_ops::*, chain_ops::*, common_ops::*, mpool_ops::*, net_ops::*, state_ops::*, sync_ops::*,
+    wallet_ops::*,
 };
 
 pub struct ApiInfo {

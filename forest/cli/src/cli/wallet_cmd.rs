@@ -112,7 +112,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Default => {
-                let response = wallet_default_address(&config.client.rpc_token)
+                let response = wallet_default_address((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("{response}");
@@ -160,11 +160,11 @@ impl WalletCommands {
                 Ok(())
             }
             Self::List => {
-                let response = wallet_list(&config.client.rpc_token)
+                let response = wallet_list((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let default = wallet_default_address(&config.client.rpc_token)
+                let default = wallet_default_address((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
