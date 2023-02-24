@@ -7,6 +7,7 @@ Notable updates:
 * [api|cli] Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand. [#2538](https://github.com/ChainSafe/forest/pull/2538)
 * [cli] A JavaScript console to interact with Filecoin API. [#2492](https://github.com/ChainSafe/forest/pull/2492)
 * [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
+* [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 * [forest daemon] Added `--exit-after-init` and `--save-token` flags. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 ### Changed
