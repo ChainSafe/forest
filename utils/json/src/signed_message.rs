@@ -47,7 +47,7 @@ pub mod json {
         }
         SignedMessageSer {
             message: &m.message,
-            signature: &m.signature.clone(),
+            signature: &m.signature,
             cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
