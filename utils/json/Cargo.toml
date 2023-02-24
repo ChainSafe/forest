@@ -34,6 +34,7 @@ serde = { workspace = true, features = ["derive"] }
 ahash.workspace = true
 forest_test_utils.workspace = true
 fvm_shared = { workspace = true, features = ["arb"] }
+fvm_shared3 = { workspace = true, features = ["arb"] }
 num-bigint = { workspace = true, features = ["quickcheck"] }
 quickcheck.workspace = true
 quickcheck_macros.workspace = true

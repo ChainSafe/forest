@@ -4805,6 +4805,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b594b4d4c1393f03e3430f106c09874fcac565e68a560686de37ca2982a61d1a"
 dependencies = [
  "anyhow",
+ "arbitrary",
  "bitflags",
  "blake2b_simd",
  "bls-signatures",
@@ -4823,6 +4824,7 @@ dependencies = [
  "num-derive",
  "num-integer",
  "num-traits",
+ "quickcheck",
  "serde",
  "serde_repr",
  "serde_tuple",

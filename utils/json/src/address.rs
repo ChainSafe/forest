@@ -119,14 +119,15 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
+    use forest_shim::address::Address_v3;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
     use super::*;
 
     #[quickcheck]
-    fn address_roundtrip(id: u64) {
-        let address = Address::new_id(id);
+    fn address_roundtrip(address: Address_v3) {
+        let address = address.into();
         let serialized = forest_test_utils::to_string_with!(&address, json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
         assert_eq!(address, parsed);

@@ -9,9 +9,8 @@ use std::{
 
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
-use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
-    set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    set_current_network, Address as Address_v3, Error, Network, Payload, Protocol, BLS_PUB_LEN,
 };
 use serde::{Deserialize, Serialize};
 
