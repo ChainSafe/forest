@@ -40,11 +40,11 @@ enum FormattingMode {
     /// with 4 significant digits
     /// E.g. 0.5002 `FIL` instead of 500.2367 `milli FIL`
     NotExactFixed,
-    /// mode to show data in SI units 
+    /// mode to show data in SI units
     /// in full accuracy
     /// E.g. 500.2367798 `milli FIL` instead of 500.2 `milli FIL`
     ExactNotFixed,
-    /// mode to show data in SI units 
+    /// mode to show data in SI units
     /// with 4 significant digits
     /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
     NotExactNotFixed,
@@ -302,7 +302,9 @@ fn format_balance_string(
             .to_i128()
             // currently the amount cannot be more than 2B x 10^18 atto FIL
             // the limit here is 2^96 atto FIL
-            .ok_or(anyhow::Error::msg("Number exceeds maximum value that can be represented."))?,
+            .ok_or(anyhow::Error::msg(
+                "Number exceeds maximum value that can be represented.",
+            ))?,
         0,
     )?;
 
