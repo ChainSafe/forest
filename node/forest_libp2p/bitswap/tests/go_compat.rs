@@ -67,6 +67,10 @@ mod tests {
                                 for message in request {
                                     match message {
                                         BitswapMessage::Request(r) => {
+                                            if r.cancel {
+                                                continue;
+                                            }
+
                                             // Send a response to the go app
                                             bitswap.send_response(
                                                 &peer,
