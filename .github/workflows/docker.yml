@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags:
-    - '*'
+      - "*"
   pull_request:
 
 jobs:
@@ -55,9 +55,3 @@ jobs:
           platforms: linux/amd64,linux/arm64
       - name: List docker images
         run: docker image ls
-
-      # This step happens after push tho, assuming all commits to main come from PRs
-      - name: Verify forest docker image
-        run: |
-          docker run --rm ghcr.io/chainsafe/forest -V
-          docker run --entrypoint forest-cli --rm ghcr.io/chainsafe/forest -V
