@@ -32,7 +32,7 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::io::write_to_file;
+use forest_utils::{io::write_to_file, retry};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
@@ -42,6 +42,7 @@ use tokio::{
     signal::unix::{signal, SignalKind},
     sync::RwLock,
     task::JoinSet,
+    time::sleep,
 };
 
 use super::cli::set_sigint_handler;
@@ -403,7 +404,15 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = snapshot_fetch(&snapshot_path, &config, &None, is_aria2_installed()).await?;
+        let path = retry!(
+            snapshot_fetch,
+            config.daemon.default_retry,
+            config.daemon.default_delay,
+            &snapshot_path,
+            &config,
+            &None,
+            is_aria2_installed()
+        )?;
         Ok(Config {
             client: Client {
                 snapshot_path: Some(path),

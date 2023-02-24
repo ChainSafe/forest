@@ -157,12 +157,16 @@ where
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+            let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
                 partitions[i].push(chain_key);
-                gas_limit -= chains.get(chain_key).unwrap().gas_limit;
+                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                if gas_limit < chain_gas_limit {
+                    break;
+                }
+                gas_limit -= chain_gas_limit;
                 if gas_limit < MIN_GAS {
                     break;
                 }
@@ -489,9 +493,9 @@ where
         pending: &mut Pending,
         base_fee: &TokenAmount,
         ts: &Tipset,
-    ) -> Result<(Vec<SignedMessage>, i64), Error> {
+    ) -> Result<(Vec<SignedMessage>, u64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+        let gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains
@@ -532,9 +536,9 @@ fn merge_and_trim(
     chains: &mut Chains,
     mut result: Vec<SignedMessage>,
     base_fee: &TokenAmount,
-    gas_limit: i64,
-    min_gas: i64,
-) -> (Vec<SignedMessage>, i64) {
+    gas_limit: u64,
+    min_gas: u64,
+) -> (Vec<SignedMessage>, u64) {
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
@@ -956,7 +960,7 @@ mod test_selection {
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
-        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT);
+        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT as u64);
     }
 
     #[tokio::test]
