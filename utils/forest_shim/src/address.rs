@@ -111,19 +111,8 @@ impl From<Address> for Address_v3 {
 
 impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
-        let prev_network = current_network();
-        set_current_network(Network::Mainnet);
-        let mut addr = Address_v2::from_bytes(&other.to_bytes()).expect(&format!(
-            "Couldn't convert between FVM2 and FVM3 addresses: {} {:?} {}",
-            &other,
-            current_network(),
-            other.0.protocol(),
-        ));
-        set_current_network(prev_network);
-        // if matches!(prev_network, Network::Testnet) {
-        //     addr.set_network(fvm_shared::address::Network::Testnet);
-        // }
-        addr
+        Address_v2::from_bytes(&other.to_bytes())
+            .expect("Couldn't convert between FVM2 and FVM3 addresses")
     }
 }
 
