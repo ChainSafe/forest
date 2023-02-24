@@ -79,7 +79,7 @@ impl From<Signature> for Signature_v3 {
 
 impl From<&Signature> for Signature_v2 {
     fn from(other: &Signature) -> Signature_v2 {
-        let sig_type: SignatureType = other.signature_type().into();
+        let sig_type: SignatureType = other.signature_type();
         let sig: Signature_v2 = Signature_v2 {
             sig_type: sig_type.into(),
             bytes: other.bytes().into(),
