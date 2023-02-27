@@ -47,7 +47,7 @@ impl Address {
 
 impl quickcheck::Arbitrary for Address {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Address(Address_v3::new_id(u64::arbitrary(g)))
+        Address(Address_v3::arbitrary(g))
     }
 }
 
