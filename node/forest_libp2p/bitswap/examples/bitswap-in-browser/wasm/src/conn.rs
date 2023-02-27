@@ -5,9 +5,7 @@ use std::fmt::Display;
 
 use cid::Cid;
 use forest_libp2p_bitswap::*;
-use libp2p::{
-    futures::StreamExt, request_response::RequestResponseMessage, swarm::SwarmEvent, PeerId, Swarm,
-};
+use libp2p::{futures::StreamExt, request_response, swarm::SwarmEvent, PeerId, Swarm};
 use serde::{Deserialize, Serialize};
 use tokio::{select, sync::Mutex};
 
@@ -125,47 +123,45 @@ fn handle_swarm_event<Err: Display>(
         SwarmEvent::ConnectionEstablished { peer_id, .. } => {
             log::info!("[WASM] Connected to {}", peer_id);
         }
-        SwarmEvent::Behaviour(DemoBehaviourEvent::Bitswap(e)) => match e {
-            BitswapBehaviourEvent::Message { peer: _, message } => {
-                log::info!("{message:?}");
-                match message {
-                    RequestResponseMessage::Request {
-                        request, channel, ..
-                    } => {
-                        _ = swarm
-                            .behaviour_mut()
-                            .bitswap
-                            .inner_mut()
-                            .send_response(channel, ());
-                        for message in request {
-                            match message {
-                                BitswapMessage::Response(cid, response) => {
-                                    log::info!(
-                                        "bitswap response {cid}:\n{}",
-                                        serde_json::to_string_pretty(&response)?
-                                    );
-                                    event_emitter.emit_str(
-                                        "bitswap",
-                                        &serde_json::to_string(&BitswapResponseJson {
-                                            cid: cid.to_string(),
-                                            response: serde_json::to_string(&response)?,
-                                        })?,
-                                    )
-                                }
-                                BitswapMessage::Request(request) => {
-                                    log::info!(
-                                        "bitswap request:\n{}",
-                                        serde_json::to_string_pretty(&request)?,
-                                    );
-                                }
-                            }
+        SwarmEvent::Behaviour(DemoBehaviourEvent::Bitswap(BitswapBehaviourEvent::Message {
+            peer: _,
+            message,
+        })) => {
+            log::info!("{message:?}");
+            if let request_response::Message::Request {
+                request, channel, ..
+            } = message
+            {
+                _ = swarm
+                    .behaviour_mut()
+                    .bitswap
+                    .inner_mut()
+                    .send_response(channel, ());
+                for message in request {
+                    match message {
+                        BitswapMessage::Response(cid, response) => {
+                            log::info!(
+                                "bitswap response {cid}:\n{}",
+                                serde_json::to_string_pretty(&response)?
+                            );
+                            event_emitter.emit_str(
+                                "bitswap",
+                                &serde_json::to_string(&BitswapResponseJson {
+                                    cid: cid.to_string(),
+                                    response: serde_json::to_string(&response)?,
+                                })?,
+                            )
+                        }
+                        BitswapMessage::Request(request) => {
+                            log::info!(
+                                "bitswap request:\n{}",
+                                serde_json::to_string_pretty(&request)?,
+                            );
                         }
                     }
-                    _ => {}
                 }
             }
-            _ => {}
-        },
+        }
         _ => {}
     }
     Ok(())
