@@ -35,10 +35,6 @@ forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &
 echo "Validating as calibnet snapshot"
 forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
 
-echo "Fetching metrics"
-wget -O metrics.log http://localhost:6116/metrics
-echo "Killing forest"
-pkill forest
 # echo "--- Forest STDOUT ---"; cat forest.out
 # echo "--- Forest STDERR ---"; cat forest.err
 # echo "--- Forest Prometheus metrics ---"; cat metrics.log
@@ -64,6 +60,8 @@ ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
 echo "Wallet import key"
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import scripts/preloaded_wallet.key
 sleep 10s
+echo "Fetching metrics"
+wget -O metrics.log http://localhost:6116/metrics
 pkill -15 forest && sleep 20s
 
 echo "Restart forest"
