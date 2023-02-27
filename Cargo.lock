@@ -3494,7 +3494,6 @@ dependencies = [
  "forest_encoding",
  "forest_interpreter",
  "forest_ipld",
- "forest_legacy_ipld_amt",
  "forest_libp2p_bitswap",
  "forest_message",
  "forest_metrics",
@@ -3502,6 +3501,7 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "futures",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
@@ -3536,7 +3536,6 @@ dependencies = [
  "forest_crypto",
  "forest_db",
  "forest_encoding",
- "forest_legacy_ipld_amt",
  "forest_libp2p",
  "forest_message",
  "forest_message_pool",
@@ -3546,6 +3545,7 @@ dependencies = [
  "forest_test_utils",
  "forest_utils",
  "futures",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3871,24 +3871,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_legacy_ipld_amt"
-version = "0.6.0"
-dependencies = [
- "ahash 0.8.3",
- "anyhow",
- "cid",
- "forest_db",
- "forest_encoding",
- "forest_utils",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.3",
- "itertools 0.10.5",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "forest_libp2p"
 version = "0.6.0"
 dependencies = [
@@ -4202,7 +4184,6 @@ dependencies = [
  "forest_fil_types",
  "forest_interpreter",
  "forest_json",
- "forest_legacy_ipld_amt",
  "forest_message",
  "forest_metrics",
  "forest_networks",
@@ -4211,6 +4192,7 @@ dependencies = [
  "futures",
  "fvm 2.2.0",
  "fvm 3.0.0-rc.1",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",

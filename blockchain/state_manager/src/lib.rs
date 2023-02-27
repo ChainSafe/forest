@@ -20,7 +20,6 @@ use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
-use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
@@ -35,6 +34,7 @@ use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::externs::Rand;
 use fvm3::externs::Rand as Rand_v3;
+use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;

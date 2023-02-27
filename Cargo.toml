@@ -32,7 +32,6 @@ members = [
   "node/forest_libp2p/bitswap/examples/*",
   "crypto",
   "encoding",
-  "ipld/legacy_amt",
   "ipld",
   "key_management",
   "tests/serialization_tests",
@@ -81,6 +80,7 @@ futures = "0.3"
 futures-util = "0.3"
 fvm = "~2.2"
 fvm3 = { package = "fvm", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
+fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
@@ -96,7 +96,6 @@ human-repr = "1.0"
 hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23"
 indexmap = { version = "1.9", features = ["serde-1"] }
-itertools = "0.10"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static = "1.4"
 libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
@@ -195,7 +194,6 @@ forest_interpreter = { path = "./vm/interpreter" }
 forest_ipld = { path = "./ipld" }
 forest_json = { path = "./utils/json" }
 forest_key_management = { path = "./key_management" }
-forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
 forest_libp2p = { path = "./node/forest_libp2p" }
 forest_libp2p_bitswap = { path = "./node/forest_libp2p/bitswap" }
 forest_message = { path = "./vm/message", default-features = false }
