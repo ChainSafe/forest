@@ -9,10 +9,10 @@ use std::{
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_chain::ChainStore;
-use forest_legacy_ipld_amt::{Amt, Error as IpldAmtError};
 use forest_message::SignedMessage;
 use forest_shim::message::Message;
 use forest_utils::db::BlockstoreExt;
+use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
 use thiserror::Error;
