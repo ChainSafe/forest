@@ -1547,6 +1547,7 @@ async fn check_block_messages<
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        // https://github.com/ChainSafe/forest/issues/2601
         if msg.is_delegated() {
             continue;
         }
