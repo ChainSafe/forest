@@ -4581,7 +4581,6 @@ version = "3.0.0-rc.1"
 source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#4bc36ea0268be894e2103c8791b75f5542b9326a"
 dependencies = [
  "anyhow",
- "arbitrary",
  "blake2b_simd",
  "byteorder",
  "cid",
@@ -4603,7 +4602,6 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "once_cell",
- "quickcheck",
  "rand 0.8.5",
  "rayon",
  "replace_with",

@@ -11,12 +11,12 @@ anyhow.workspace = true
 cid.workspace = true
 filecoin-proofs-api.workspace = true
 fvm.workspace = true
-fvm3 = { workspace = true, features = ["arb"] }
+fvm3.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
 fvm_shared.workspace = true
-fvm_shared3 = { workspace = true, features = ["proofs"] }
+fvm_shared3 = { workspace = true, features = ["proofs", "arb"] }
 num-bigint.workspace = true
 num-traits.workspace = true
 quickcheck.workspace = true
