@@ -11,8 +11,11 @@ use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
-use forest_shim::{address::Address, econ::TokenAmount};
-use fvm::gas::{price_list_by_network_version, Gas};
+use forest_shim::{
+    address::Address,
+    econ::TokenAmount,
+    gas::{price_list_by_network_version, Gas},
+};
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use num_traits::Zero;
@@ -393,11 +396,11 @@ where
 
         let network_version = chain_config.network_version(ts.epoch());
 
-        let min_gas = price_list_by_network_version(network_version.into())
+        let min_gas = price_list_by_network_version(network_version)
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 
-        if Gas::new(m.gas_limit() as i64) < min_gas {
+        if Gas::new(m.gas_limit()) < min_gas {
             break;
         }
         gas_limit += m.gas_limit();

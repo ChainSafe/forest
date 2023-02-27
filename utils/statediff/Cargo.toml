@@ -41,4 +41,4 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 [features]
 paritydb = ["forest_db/paritydb"]
 rocksdb = ["forest_db/rocksdb"]
-default = ["rocksdb"]
+default = ["paritydb"]

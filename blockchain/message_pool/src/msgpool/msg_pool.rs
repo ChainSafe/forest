@@ -21,10 +21,11 @@ use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
+    gas::price_list_by_network_version,
 };
 use forest_utils::const_option;
 use futures::StreamExt;
-use fvm::gas::{price_list_by_network_version, Gas};
+use fvm3::gas::Gas;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use lru::LruCache;
@@ -322,7 +323,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
+        valid_for_block_inclusion(msg.message(), Gas::new(0).into(), NEWEST_NETWORK_VERSION)?;
         if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
@@ -630,7 +631,7 @@ fn verify_msg_before_add(
     chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = price_list_by_network_version(chain_config.network_version(epoch).into())
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(m.marshal_cbor()?.len());
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {

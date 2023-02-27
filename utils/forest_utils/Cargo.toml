@@ -21,6 +21,7 @@ hyper-rustls.workspace = true
 hyper.workspace = true
 libc = "0.2"
 log.workspace = true
+parking_lot.workspace = true
 pbr = "1.1"
 pin-project-lite.workspace = true
 quickcheck.workspace = true

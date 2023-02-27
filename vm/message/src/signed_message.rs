@@ -62,6 +62,11 @@ impl SignedMessage {
         self.signature.signature_type() == SignatureType::Secp256k1
     }
 
+    /// Checks if the signed message is a delegated message.
+    pub fn is_delegated(&self) -> bool {
+        self.signature.signature_type() == SignatureType::Delegated
+    }
+
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature

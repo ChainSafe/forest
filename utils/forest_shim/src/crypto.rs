@@ -97,6 +97,8 @@ impl SignatureType {
     pub const BLS: Self = Self(SignatureType_v3::BLS);
     #[allow(non_upper_case_globals)]
     pub const Secp256k1: Self = Self(SignatureType_v3::Secp256k1);
+    #[allow(non_upper_case_globals)]
+    pub const Delegated: Self = Self(SignatureType_v3::Delegated);
 }
 
 impl Deref for SignatureType {
@@ -138,6 +140,7 @@ impl From<SignatureType> for SignatureType_v2 {
         match other.0 {
             SignatureType_v3::Secp256k1 => SignatureType_v2::Secp256k1,
             SignatureType_v3::BLS => SignatureType_v2::BLS,
+            SignatureType_v3::Delegated => panic!("Delegated signature type not possible in fvm2"),
         }
     }
 }

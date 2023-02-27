@@ -27,7 +27,6 @@ forest_shim.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
-fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
