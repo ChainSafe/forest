@@ -15,7 +15,7 @@ use crate::{codec::*, protocol::*, request_manager::*, *};
 pub type BitswapBehaviourEvent = request_response::Event<Vec<BitswapMessage>, ()>;
 
 /// A `go-bitswap` compatible protocol that is built on top of
-/// [RequestResponse].
+/// [request_response::Behaviour].
 pub struct BitswapBehaviour {
     inner: request_response::Behaviour<BitswapRequestResponseCodec>,
     request_manager: Arc<BitswapRequestManager>,
@@ -36,7 +36,7 @@ impl BitswapBehaviour {
         }
     }
 
-    /// Gets mutable borrow of the inner [RequestResponse]
+    /// Gets mutable borrow of the inner [request_response::Behaviour]
     pub fn inner_mut(&mut self) -> &mut request_response::Behaviour<BitswapRequestResponseCodec> {
         &mut self.inner
     }
