@@ -13,7 +13,7 @@ forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-2
 echo "Checking DB stats"
 forest-cli --chain calibnet db stats
 echo "Running forest in detached mode"
-forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
+forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach --save-token ./admin_token
 
 echo "Validating checkpoint tipset hashes"
 forest-cli chain validate-tipset-checkpoints
@@ -47,29 +47,29 @@ echo "Wallet tests"
 
 # The following steps does basic wallet handling tests.
 
-set -x
-
 # Amount to send to
 FIL_AMT=500
 # Admin token used when interacting with wallet
-ADMIN_TOKEN=$(grep "Admin token" forest.out | cut -d ' ' -f 7)
+ADMIN_TOKEN=$(cat admin_token)
 # Wallet addresses: 
 # A preloaded address
 ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
 
-echo "Wallet import key"
+echo "Importing preloaded wallet key"
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import scripts/preloaded_wallet.key
 sleep 10s
+
 echo "Fetching metrics"
 wget -O metrics.log http://localhost:6116/metrics
-pkill -15 forest && sleep 20s
+# pkill -15 forest && sleep 20s
 
-echo "Restart forest"
-forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
+# echo "Restart forest"
+# forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
 
-sleep 60s
+# sleep 60s
 
 # Show balances
+echo "Listing wallet balances"
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet list
 
 # # # create a new address to send FIL to.
