@@ -70,6 +70,10 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 
 /// Starts daemon process
 pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
+    if config.chain.name == "calibnet" {
+        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
+    }
+
     set_sigint_handler();
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
