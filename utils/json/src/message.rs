@@ -129,14 +129,13 @@ pub mod json {
 
 #[cfg(test)]
 pub mod tests {
-    use forest_shim::message::{Message, Message_v3};
+    use forest_shim::message::Message;
     use quickcheck_macros::quickcheck;
 
     use crate::message::json;
 
     #[quickcheck]
-    fn message_roundtrip(message: Message_v3) {
-        let message: Message = message.into();
+    fn message_roundtrip(message: Message) {
         let serialized: String = forest_test_utils::to_string_with!(&message, json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
         assert_eq!(message, parsed);

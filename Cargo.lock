@@ -4179,6 +4179,7 @@ dependencies = [
  "fvm_shared 3.0.0-alpha.20",
  "num-bigint",
  "num-traits",
+ "quickcheck",
  "serde",
  "serde_json",
 ]
