@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{cell::RefCell, io::Stdout, str::FromStr, sync::RwLock, time::Duration};
+use std::{cell::RefCell, io::Stdout, str::FromStr, time::Duration};
 
+use parking_lot::RwLock;
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
 
@@ -95,17 +96,12 @@ impl ProgressBar {
 
     /// Sets the visibility of progress bars (globally).
     pub fn set_progress_bars_visibility(visibility: ProgressBarVisibility) {
-        *PROGRESS_BAR_VISIBILITY
-            .write()
-            .expect("write must not fail") = visibility;
+        *PROGRESS_BAR_VISIBILITY.write() = visibility;
     }
 
     /// Checks the global variable if progress bar should be shown.
     fn should_display() -> bool {
-        match *PROGRESS_BAR_VISIBILITY
-            .read()
-            .expect("read should not fail")
-        {
+        match *PROGRESS_BAR_VISIBILITY.read() {
             ProgressBarVisibility::Always => true,
             ProgressBarVisibility::Auto => atty::is(atty::Stream::Stdout),
             ProgressBarVisibility::Never => false,
