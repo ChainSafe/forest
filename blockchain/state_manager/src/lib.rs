@@ -7,10 +7,7 @@ mod metrics;
 mod utils;
 mod vm_circ_supply;
 
-use std::{
-    num::NonZeroUsize,
-    sync::{Arc, Mutex as StdMutex},
-};
+use std::{num::NonZeroUsize, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
@@ -44,6 +41,7 @@ use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
+use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -74,7 +72,7 @@ impl Default for TipsetStateCacheInner {
 }
 
 struct TipsetStateCache {
-    cache: Arc<StdMutex<TipsetStateCacheInner>>,
+    cache: Arc<SyncMutex<TipsetStateCacheInner>>,
 }
 
 enum Status {
@@ -85,7 +83,7 @@ enum Status {
 impl TipsetStateCache {
     pub fn new() -> Self {
         Self {
-            cache: Arc::new(StdMutex::new(TipsetStateCacheInner::default())),
+            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
         }
     }
 
@@ -93,7 +91,7 @@ impl TipsetStateCache {
     where
         F: FnOnce(&mut TipsetStateCacheInner) -> T,
     {
-        let mut lock = self.cache.lock().unwrap();
+        let mut lock = self.cache.lock();
         func(&mut lock)
     }
 
