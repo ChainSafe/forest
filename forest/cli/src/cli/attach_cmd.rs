@@ -32,7 +32,6 @@ use tokio::time;
 use super::Config;
 
 #[derive(Debug, clap::Args)]
-#[command(name = "completion-derive")]
 pub struct AttachCommand {
     /// Set a library directory for the Javascript scripts
     #[arg(long, value_hint = ValueHint::AnyPath)]

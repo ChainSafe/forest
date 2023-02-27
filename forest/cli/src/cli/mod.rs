@@ -44,7 +44,6 @@ pub(super) use self::{
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
 #[command(help_template(HELP_MESSAGE))]
-#[command(name = "completion-derive")]
 pub struct Cli {
     #[command(flatten)]
     pub opts: CliOpts,
