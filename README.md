@@ -1,15 +1,15 @@
 <p align="center">
-  <img width="380" height="269" src="./.github/forest_logo.png">
+  <img width="380" height="269" src="documentation/src/img/forest_logo.png">
 </p>
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/rust.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
 [![Codecov](https://img.shields.io/codecov/c/gh/ChainSafe/forest?style=for-the-badge&token=1OHO2CSD17)](https://codecov.io/gh/ChainSafe/forest)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
-[![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest)
+<!-- [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest) -->
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
-[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
-[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE)
+[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT)
 [![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
 
@@ -35,7 +35,7 @@ Have questions? Feel free to post them in [Forest Q&A](https://github.com/ChainS
 
 ## Run with Docker
 
-No need to install Rust toolchain or other dependencies, you will need only Docker.
+No need to install Rust toolchain or other dependencies, you will need only Docker - works on Linux, macOS and Windows.
 ```
 # daemon
 ❯ docker run --init -it --rm ghcr.io/chainsafe/forest:latest --help
@@ -43,14 +43,7 @@ No need to install Rust toolchain or other dependencies, you will need only Dock
 ❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
-Follow other instructions for proper `forest` usage. You may need to mount a volume to import a snapshot, e.g.
-```
-❯ docker run --init -it -v $HOME/Downloads:/downloads ghcr.io/chainsafe/forest:latest --import-snapshot /downloads/minimal_finality_stateroots_latest.car
-```
-Use dockerized Forest with host database:
-```
-❯ docker run --init -it -v $HOME/.forest:/home/forest/.local/share/forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
-```
+For more in-depth usage and sample use cases, please refer to the Forest Docker documentation in the [Forest Book](https://chainsafe.github.io/forest/).
 
 ## Dependencies
 
@@ -79,6 +72,10 @@ NOTE: protobuf needs to be installed manually, and protoc needs to present in PA
 ### Fedora (36)
 ```
 sudo dnf install -y clang-devel ocl-icd-devel protobuf-compiler cmake
+```
+### Alpine
+```
+apk add git curl protobuf make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
 ```
 
 ## Installation
@@ -175,7 +172,7 @@ make test-all
 Chain synchronization checks are run after every merge to `main`. This code is maintained in a separate repository - [Forest IaC](https://github.com/ChainSafe/forest-iac).
 
 ### Linters
-The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will has them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
+The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will have them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
 ```bash
 # You can install those linters also with other package managers or by manually grabbing the binaries from the projects' repositories.
 
@@ -209,7 +206,7 @@ Select the builtin calibnet configuration with the `--chain` option. The `--auto
 
 ### Interacting with Forest via CLI
 
-When the Forest daemon is started, an admin token will be displayed. You will need this for commands that require a higher level of authorization (like a password). Forest, as mentioned above, uses multiaddresses for networking. This is no different in the CLI. To set the host and the port to use, if not using the default port or using a remote host, set the `FULLNODE_API_INFO` environment variable. This is also where you can set a token for authentication.
+When the Forest daemon is started, an admin token will be displayed (alternatively, use `--save-token <token>` flag to save it on disk). You will need this for commands that require a higher level of authorization (like a password). Forest, as mentioned above, uses multiaddresses for networking. This is no different in the CLI. To set the host and the port to use, if not using the default port or using a remote host, set the `FULLNODE_API_INFO` environment variable. This is also where you can set a token for authentication.
 
 ```
 FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http

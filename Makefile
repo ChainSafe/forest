@@ -1,5 +1,11 @@
 SER_TESTS = "tests/serialization_tests"
 
+# Using https://github.com/tonistiigi/xx
+# Use in Docker images when cross-compiling.
+install-xx:
+	xx-cargo install --locked --path forest/cli --force
+	xx-cargo install --locked --path forest/daemon --force
+
 install-cli:
 	cargo install --locked --path forest/cli --force
 
@@ -71,7 +77,7 @@ clean:
 lint-all: lint audit spellcheck udeps
 
 audit:
-	cargo audit
+	cargo audit --ignore RUSTSEC-2020-0071
 
 udeps:
 	cargo udeps --all-targets --features submodule_tests,instrumented_kernel

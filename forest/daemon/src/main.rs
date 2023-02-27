@@ -170,7 +170,7 @@ fn main() -> anyhow::Result<()> {
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let db: Db = rt.block_on(daemon::start(cfg, opts.detach))?;
+            let db: Db = rt.block_on(daemon::start(opts, cfg))?;
 
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs(10));

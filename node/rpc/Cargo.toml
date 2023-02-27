@@ -36,7 +36,7 @@ forest_utils.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared = { workspace = true, default-features = false }
+fvm_shared3 = { workspace = true, default-features = false }
 hex.workspace = true
 http.workspace = true
 jsonrpc-v2.workspace = true

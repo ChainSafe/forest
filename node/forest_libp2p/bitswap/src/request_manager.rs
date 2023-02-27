@@ -71,6 +71,7 @@ impl BitswapRequestManager {
     /// Gets a block, writing it to the given block store that implements
     /// [BitswapStoreReadWrite] and respond to the channel. Note: this
     /// method is a non-blocking, it is intended to return immediately.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_block(
         self: Arc<Self>,
         store: Arc<impl BitswapStoreReadWrite>,
@@ -188,7 +189,7 @@ impl BitswapRequestManager {
                     warn!("Failed to construct block: {e}, cid: {cid}");
                     false
                 }
-            }
+            };
         }
 
         // Cleanup
@@ -223,6 +224,20 @@ impl BitswapRequestManager {
                         _ = chans.block_received.send(None);
                     } else {
                         _ = chans.block_received.send(Some(data));
+                    }
+
+                    // <https://github.com/ipfs/go-libipfs/tree/main/bitswap#background>
+                    // When a node receives blocks that it asked for, the node should send out a
+                    // notification called a 'Cancel' to tell its peers that the
+                    // node no longer wants those blocks.
+                    let cancel_request = BitswapRequest::new_cancel(cid);
+                    for &peer in self.peers.read().iter() {
+                        if let Err(e) = self
+                            .outbound_request_tx
+                            .send((peer, cancel_request.clone()))
+                        {
+                            warn!("{e}");
+                        }
                     }
                 } else {
                     metrics::message_counter_inbound_response_block_not_requested().inc();

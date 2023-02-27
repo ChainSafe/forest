@@ -142,6 +142,8 @@ pub struct DaemonConfig {
     pub stderr: PathBuf,
     pub work_dir: PathBuf,
     pub pid_file: Option<PathBuf>,
+    pub default_retry: i32,
+    pub default_delay: Duration,
 }
 
 impl Default for DaemonConfig {
@@ -154,6 +156,8 @@ impl Default for DaemonConfig {
             stderr: "forest.err".into(),
             work_dir: ".".into(),
             pid_file: None,
+            default_retry: 3,
+            default_delay: Duration::from_secs(60),
         }
     }
 }
@@ -247,21 +251,19 @@ mod test {
                     rpc_port: u16::arbitrary(g),
                     rpc_token: Option::arbitrary(g),
                     snapshot: bool::arbitrary(g),
-                    halt_after_import: bool::arbitrary(g),
                     snapshot_height: Option::arbitrary(g),
                     snapshot_path: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
-                    auto_download_snapshot: bool::arbitrary(g),
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 rocks_db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
-                    write_buffer_size: usize::arbitrary(g),
+                    write_buffer_size: u32::arbitrary(g) as _,
                     max_open_files: i32::arbitrary(g),
                     max_background_jobs: Option::arbitrary(g),
                     compaction_style: String::arbitrary(g),
@@ -277,7 +279,7 @@ mod test {
                     compression_type: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
-                    listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
+                    listening_multiaddrs: vec![Ipv4Addr::arbitrary(g).into()],
                     bootstrap_peers: vec![Ipv4Addr::arbitrary(g).into(); u8::arbitrary(g) as usize],
                     mdns: bool::arbitrary(g),
                     kademlia: bool::arbitrary(g),
@@ -285,7 +287,7 @@ mod test {
                 },
                 sync: SyncConfig {
                     req_window: i64::arbitrary(g),
-                    tipset_sample_size: usize::arbitrary(g),
+                    tipset_sample_size: u32::arbitrary(g) as _,
                 },
             }
         }

@@ -16,9 +16,9 @@ pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use forest_message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
+use forest_shim::{econ::TokenAmount, message::Message};
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{econ::TokenAmount, message::Message};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
@@ -105,7 +105,7 @@ pub struct PeerID {
 }
 
 /// Represents the current version of the API.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIVersion {
     pub version: String,
@@ -115,7 +115,7 @@ pub struct APIVersion {
 
 /// Integer based value on version information. Highest order bits for Major,
 /// Mid order for Minor and lowest for Patch.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Version(u32);
 
 impl Version {

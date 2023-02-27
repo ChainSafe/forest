@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::receipt::Receipt;
+use forest_shim::executor::{Receipt, Receipt_v3};
 
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use forest_shim::error::ExitCode;
-    use fvm_ipld_encoding::RawBytes;
+    use fvm_ipld_encoding3::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
@@ -39,7 +39,7 @@ pub mod json {
         exit_code: u64,
         #[serde(rename = "Return")]
         return_data: String,
-        gas_used: i64,
+        gas_used: u64,
     }
 
     pub fn serialize<S>(m: &Receipt, serializer: S) -> Result<S::Ok, S::Error>
@@ -47,9 +47,9 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            exit_code: m.exit_code.value() as u64,
-            return_data: BASE64_STANDARD.encode(m.return_data.bytes()),
-            gas_used: m.gas_used,
+            exit_code: m.exit_code().value() as u64,
+            return_data: BASE64_STANDARD.encode(m.return_data().bytes()),
+            gas_used: m.gas_used(),
         }
         .serialize(serializer)
     }
@@ -63,7 +63,7 @@ pub mod json {
             return_data,
             gas_used,
         } = Deserialize::deserialize(deserializer)?;
-        Ok(Receipt {
+        Ok(Receipt_v3 {
             exit_code: ExitCode::from(exit_code as u32).into(),
             return_data: RawBytes::new(
                 BASE64_STANDARD
@@ -71,7 +71,9 @@ pub mod json {
                     .map_err(de::Error::custom)?,
             ),
             gas_used,
-        })
+            events_root: None,
+        }
+        .into())
     }
     pub mod vec {
         use forest_utils::json::GoVecVisitor;
@@ -127,12 +129,15 @@ struct MessageReceiptWrapper {
 #[cfg(test)]
 impl quickcheck::Arbitrary for MessageReceiptWrapper {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let message_receipt = Receipt {
+        let message_receipt = Receipt_v3 {
             exit_code: forest_shim::error::ExitCode::from(u32::arbitrary(g)).into(),
-            return_data: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
-            gas_used: i64::arbitrary(g),
+            return_data: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
+            gas_used: u64::arbitrary(g),
+            events_root: None,
         };
-        MessageReceiptWrapper { message_receipt }
+        MessageReceiptWrapper {
+            message_receipt: message_receipt.into(),
+        }
     }
 }
 

@@ -3,6 +3,7 @@
 
 use forest_beacon::beacon_entries;
 use forest_json::{sector, signature};
+use forest_shim::sector::PoStProof;
 use serde::{de, Deserialize, Serialize};
 
 use super::*;
@@ -65,7 +66,7 @@ where
         miner: m.miner_address.to_string(),
         ticket: &m.ticket,
         election_proof: &m.election_proof,
-        winning_post_proof: &m.winning_post_proof,
+        winning_post_proof: m.winning_post_proof.as_slice(),
         parents: &m.parents,
         weight: m.weight.to_string(),
         height: &m.epoch,

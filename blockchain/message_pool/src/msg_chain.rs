@@ -11,9 +11,9 @@ use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
+use forest_shim::{address::Address, econ::TokenAmount};
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, econ::TokenAmount};
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
@@ -107,7 +107,7 @@ impl Chains {
     pub(crate) fn get_mut_with_prev_eff(
         &mut self,
         k: NodeKey,
-    ) -> (Option<&mut MsgChainNode>, Option<(f64, i64)>) {
+    ) -> (Option<&mut MsgChainNode>, Option<(f64, u64)>) {
         let node = self.map.get(k);
         let prev = if let Some(node) = node {
             if let Some(prev_key) = node.prev {
@@ -167,7 +167,7 @@ impl Chains {
     }
 
     /// Removes messages from the given index and resets effective `perfs`
-    pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: i64, base_fee: &TokenAmount) {
+    pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: u64, base_fee: &TokenAmount) {
         let prev = match idx {
             0 => None,
             _ => self
@@ -257,7 +257,7 @@ impl IndexMut<usize> for Chains {
 pub struct MsgChainNode {
     pub msgs: Vec<SignedMessage>,
     pub gas_reward: TokenAmount,
-    pub gas_limit: i64,
+    pub gas_limit: u64,
     pub gas_perf: f64,
     pub eff_perf: f64,
     pub bp: f64,
@@ -304,7 +304,7 @@ impl MsgChainNode {
         }
     }
 
-    pub fn set_eff_perf(&mut self, prev: Option<(f64, i64)>) {
+    pub fn set_eff_perf(&mut self, prev: Option<(f64, u64)>) {
         let mut eff_perf = self.gas_perf * self.bp;
         if let Some(prev) = prev {
             if eff_perf > 0.0 {
@@ -365,8 +365,7 @@ where
     //   that exceed the balance
     let actor_state = api.get_actor_after(actor, ts)?;
     let mut cur_seq = actor_state.sequence;
-    let mut balance: TokenAmount =
-        forest_shim::econ::TokenAmount::from(&actor_state.balance).into();
+    let mut balance: TokenAmount = TokenAmount::from(&actor_state.balance);
 
     let mut gas_limit = 0;
     let mut skip = 0;
@@ -398,11 +397,11 @@ where
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 
-        if Gas::new(m.gas_limit()) < min_gas {
+        if Gas::new(m.gas_limit() as i64) < min_gas {
             break;
         }
         gas_limit += m.gas_limit();
-        if gas_limit > fvm_shared::BLOCK_GAS_LIMIT {
+        if gas_limit > fvm_shared3::BLOCK_GAS_LIMIT {
             break;
         }
 

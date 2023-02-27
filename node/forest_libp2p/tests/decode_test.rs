@@ -8,7 +8,11 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
+use forest_shim::{
+    address::Address,
+    crypto::Signature,
+    message::{Message, Message_v3},
+};
 use num::BigInt;
 
 #[test]
@@ -54,26 +58,30 @@ fn tipset_bundle_to_full_tipset() {
         .miner_address(Address::new_id(1))
         .build()
         .unwrap();
-    let ua = Message {
-        to: Address::new_id(0),
-        from: Address::new_id(0),
-        ..Message::default()
-    };
-    let ub = Message {
-        to: Address::new_id(1),
-        from: Address::new_id(1),
-        ..Message::default()
-    };
-    let uc = Message {
-        to: Address::new_id(2),
-        from: Address::new_id(2),
-        ..Message::default()
-    };
-    let ud = Message {
-        to: Address::new_id(3),
-        from: Address::new_id(3),
-        ..Message::default()
-    };
+    let ua: Message = Message_v3 {
+        to: Address::new_id(0).into(),
+        from: Address::new_id(0).into(),
+        ..Message_v3::default()
+    }
+    .into();
+    let ub: Message = Message_v3 {
+        to: Address::new_id(1).into(),
+        from: Address::new_id(1).into(),
+        ..Message_v3::default()
+    }
+    .into();
+    let uc: Message = Message_v3 {
+        to: Address::new_id(2).into(),
+        from: Address::new_id(2).into(),
+        ..Message_v3::default()
+    }
+    .into();
+    let ud: Message = Message_v3 {
+        to: Address::new_id(3).into(),
+        from: Address::new_id(3).into(),
+        ..Message_v3::default()
+    }
+    .into();
     let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
     let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
     let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));

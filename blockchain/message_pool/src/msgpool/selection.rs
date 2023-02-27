@@ -11,7 +11,7 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use fvm_shared::{address::Address, econ::TokenAmount};
+use forest_shim::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
@@ -157,12 +157,16 @@ where
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+            let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
                 partitions[i].push(chain_key);
-                gas_limit -= chains.get(chain_key).unwrap().gas_limit;
+                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                if gas_limit < chain_gas_limit {
+                    break;
+                }
+                gas_limit -= chain_gas_limit;
                 if gas_limit < MIN_GAS {
                     break;
                 }
@@ -489,9 +493,9 @@ where
         pending: &mut Pending,
         base_fee: &TokenAmount,
         ts: &Tipset,
-    ) -> Result<(Vec<SignedMessage>, i64), Error> {
+    ) -> Result<(Vec<SignedMessage>, u64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+        let gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains
@@ -532,9 +536,9 @@ fn merge_and_trim(
     chains: &mut Chains,
     mut result: Vec<SignedMessage>,
     base_fee: &TokenAmount,
-    gas_limit: i64,
-    min_gas: i64,
-) -> (Vec<SignedMessage>, i64) {
+    gas_limit: u64,
+    min_gas: u64,
+) -> (Vec<SignedMessage>, u64) {
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
@@ -663,10 +667,20 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from(),
+                    pending,
+                    msg.sequence(),
+                    rmsgs.borrow_mut(),
+                )?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from.into(),
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
             }
         }
     }
@@ -680,7 +694,7 @@ mod test_selection {
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
-    use fvm_shared::crypto::signature::SignatureType;
+    use forest_shim::crypto::SignatureType;
     use tokio::task::JoinSet;
 
     use super::*;
@@ -767,7 +781,7 @@ mod test_selection {
         let mut next_nonce = 0;
         for (i, msg) in msgs.iter().enumerate().take(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1 {i}",
             );
@@ -778,7 +792,7 @@ mod test_selection {
         next_nonce = 0;
         for (i, msg) in msgs.iter().enumerate().take(20).skip(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2 {i}",
             );
@@ -853,7 +867,7 @@ mod test_selection {
         let mut next_nonce = 20;
         for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
@@ -863,7 +877,7 @@ mod test_selection {
         next_nonce = 20;
         for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
@@ -946,7 +960,7 @@ mod test_selection {
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
-        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT);
+        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT as u64);
     }
 
     #[tokio::test]
@@ -1026,7 +1040,7 @@ mod test_selection {
         let mut next_nonce = 0;
         for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
@@ -1036,7 +1050,7 @@ mod test_selection {
         next_nonce = 0;
         for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
@@ -1113,7 +1127,7 @@ mod test_selection {
         assert_eq!(msgs.len(), expected_msgs as usize);
 
         for (next_nonce, m) in msgs.into_iter().enumerate() {
-            assert_eq!(m.message().from, a1, "Expected message from a1");
+            assert_eq!(m.from(), a1, "Expected message from a1");
             assert_eq!(
                 m.message().sequence,
                 next_nonce as u64,
@@ -1208,7 +1222,7 @@ mod test_selection {
         let mut next_nonce2 = 0;
 
         for m in msgs {
-            if m.message.from == a1 {
+            if m.from() == a1 {
                 if m.message.sequence != next_nonce1 {
                     panic!(
                         "Expected nonce {}, but got {}",
@@ -1330,7 +1344,7 @@ mod test_selection {
 
         let mut nonces = vec![0; n_actors as usize];
         for m in &msgs {
-            let who = who_is(m.message.from);
+            let who = who_is(m.from());
             if who < 3 {
                 panic!("got message from {who}th actor",);
             }

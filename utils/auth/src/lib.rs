@@ -3,7 +3,7 @@
 
 use chrono::{Duration, Utc};
 use forest_key_management::KeyInfo;
-use fvm_shared::crypto::signature::SignatureType;
+use forest_shim::crypto::SignatureType;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::{decode, encode, errors::Result as JWTResult, DecodingKey, EncodingKey, Header};
 use once_cell::sync::Lazy;

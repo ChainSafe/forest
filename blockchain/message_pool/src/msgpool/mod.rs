@@ -15,8 +15,8 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
+use forest_shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, crypto::signature::Signature};
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
@@ -38,7 +38,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
 // TODO: Implement guess gas module
-const MIN_GAS: i64 = 1298450;
+const MIN_GAS: u64 = 1298450;
 
 /// Get the state of the `base_sequence` for a given address in the current
 /// Tipset
@@ -149,7 +149,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+    let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
@@ -173,7 +173,7 @@ where
             // check the baseFee lower bound -- only republish messages that can be included
             // in the chain within the next 20 blocks.
             for m in chain.msgs.iter() {
-                if m.gas_fee_cap() < &base_fee_lower_bound {
+                if m.gas_fee_cap() < base_fee_lower_bound {
                     let key = chains.get_key_at(i);
                     chains.invalidate(key);
                     continue 'l;
@@ -245,13 +245,23 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from(),
+                    pending,
+                    msg.sequence(),
+                    rmsgs.borrow_mut(),
+                )?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from.into(),
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
@@ -267,7 +277,7 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, msg.from(), &cur_tipset.lock().clone())?;
+            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
@@ -303,12 +313,12 @@ pub(crate) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
-    let s = rmsgs.get_mut(m.from());
+    let s = rmsgs.get_mut(&m.from());
     if let Some(s) = s {
         s.insert(m.sequence(), m);
     } else {
-        rmsgs.insert(*m.from(), HashMap::new());
-        rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
+        rmsgs.insert(m.from(), HashMap::new());
+        rmsgs.get_mut(&m.from()).unwrap().insert(m.sequence(), m);
     }
 }
 
@@ -324,8 +334,11 @@ pub mod tests {
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use fvm_shared::{
-        address::Address, crypto::signature::SignatureType, econ::TokenAmount, message::Message,
+    use forest_shim::{
+        address::Address,
+        crypto::SignatureType,
+        econ::TokenAmount,
+        message::{Message, Message_v3},
     };
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
@@ -345,15 +358,16 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg = Message {
-            to: *to,
-            from: *from,
+        let umsg: Message = Message_v3 {
+            to: to.into(),
+            from: from.into(),
             sequence,
-            gas_limit,
-            gas_fee_cap: TokenAmount::from_atto(gas_price + 100),
-            gas_premium: TokenAmount::from_atto(gas_price),
-            ..Message::default()
-        };
+            gas_limit: gas_limit as u64,
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
+            gas_premium: TokenAmount::from_atto(gas_price).into(),
+            ..Message_v3::default()
+        }
+        .into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()

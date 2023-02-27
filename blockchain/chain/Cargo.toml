@@ -11,7 +11,6 @@ ahash.workspace = true
 anyhow.workspace = true
 async-stream = "0.3.3"
 blake2b_simd.workspace = true
-blake3.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
 digest.workspace = true
@@ -35,6 +34,7 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+fvm_shared3 = { workspace = true, default-features = false }
 libipld.workspace = true
 log.workspace = true
 lru.workspace = true

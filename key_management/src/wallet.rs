@@ -4,9 +4,9 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use ahash::{HashMap, HashMapExt};
-use fvm_shared::{
+use forest_shim::{
     address::Address,
-    crypto::signature::{Signature, SignatureType},
+    crypto::{Signature, SignatureType},
 };
 use serde::{Deserialize, Serialize};
 
@@ -434,11 +434,11 @@ mod tests {
         let msg = [0u8; 64];
 
         let sig = wallet.sign(&addr, &msg).unwrap();
-        sig.verify(&msg, &addr).unwrap();
+        sig.verify(&msg, &addr.into()).unwrap();
 
         // invalid verify check
         let invalid_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        assert!(sig.verify(&msg, &invalid_addr).is_err())
+        assert!(sig.verify(&msg, &invalid_addr.into()).is_err())
     }
 
     #[test]
@@ -453,10 +453,10 @@ mod tests {
         let msg = [0u8; 64];
 
         let sig = wallet.sign(&addr, &msg).unwrap();
-        sig.verify(&msg, &addr).unwrap();
+        sig.verify(&msg, &addr.into()).unwrap();
 
         // invalid verify check
         let invalid_addr = wallet.generate_addr(SignatureType::BLS).unwrap();
-        assert!(sig.verify(&msg, &invalid_addr).is_err())
+        assert!(sig.verify(&msg, &invalid_addr.into()).is_err())
     }
 }

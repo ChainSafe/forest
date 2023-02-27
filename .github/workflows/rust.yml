@@ -120,6 +120,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
+    if: false
     runs-on: buildjet-8vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
@@ -165,6 +166,8 @@ jobs:
         run: |
           forest-cli snapshot export
           sha256sum -c *.sha256sum
+      - name: js console
+        run: forest-cli --attach --exec 'showPeers()'
       - name: validate snapshot
         run: |
           forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&

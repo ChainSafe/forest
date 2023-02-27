@@ -4,7 +4,7 @@
 use cid::Cid;
 use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
-use fvm_shared::message::Message;
+use forest_shim::message::Message;
 
 use super::BlockHeader;
 

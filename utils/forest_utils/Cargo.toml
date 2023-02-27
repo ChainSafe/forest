@@ -21,7 +21,7 @@ hyper-rustls.workspace = true
 hyper.workspace = true
 libc = "0.2"
 log.workspace = true
-pbr = "1.0"
+pbr = "1.1"
 pin-project-lite.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }

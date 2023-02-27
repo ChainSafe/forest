@@ -15,7 +15,7 @@ use std::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actors_runtime::runtime::Policy;
+use fil_actors_runtime_v9::runtime::Policy;
 use forest_actor_interface::*;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -27,21 +27,20 @@ use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
+    address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    econ::TokenAmount,
+    executor::{ApplyRet, Receipt},
+    message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
-use fvm::{executor::ApplyRet, externs::Rand};
+use fvm::externs::Rand;
+use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    address::{Address, Payload, Protocol, BLS_PUB_LEN},
-    clock::ChainEpoch,
-    econ::TokenAmount,
-    message::Message,
-    receipt::Receipt,
-};
+use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
@@ -207,7 +206,8 @@ pub struct StateManager<DB> {
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
-    engine: fvm::machine::MultiEngine,
+    engine_v2: fvm::machine::MultiEngine,
+    engine_v3: fvm3::engine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
@@ -229,7 +229,12 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine: fvm::machine::MultiEngine::new(),
+            engine_v2: fvm::machine::MultiEngine::new(),
+            engine_v3: fvm3::engine::MultiEngine::new(
+                std::thread::available_parallelism()
+                    .map(|x| x.get() as u32)
+                    .unwrap_or(1),
+            ),
             reward_calc,
         })
     }
@@ -250,7 +255,7 @@ where
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
         let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
-        Ok(state.get_actor(addr)?.map(|v| v.into()))
+        state.get_actor(addr)
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -310,7 +315,7 @@ where
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act.into())?;
+        let ms = miner::State::load(self.blockstore(), &act)?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
@@ -367,7 +372,7 @@ where
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
     where
-        R: Rand + Clone + 'static,
+        R: Rand + Rand_v3 + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -386,8 +391,10 @@ where
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-                &self.engine,
+                &self.engine_v2,
+                &self.engine_v3,
                 Arc::clone(self.chain_config()),
+                tipset.min_timestamp(),
             )
         };
 
@@ -475,8 +482,10 @@ where
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-            &self.engine,
+            &self.engine_v2,
+            &self.engine_v3,
             Arc::clone(self.chain_config()),
+            tipset.min_timestamp(),
         )?;
 
         if msg.gas_limit == 0 {
@@ -484,7 +493,7 @@ where
         }
 
         let actor = self
-            .get_actor(&msg.from, *bstate)?
+            .get_actor(&msg.from.into(), *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
         let apply_ret = vm.apply_implicit_message(msg)?;
@@ -494,14 +503,14 @@ where
             msg.gas_premium,
             msg.value
         );
-        if let Some(err) = &apply_ret.failure_info {
+        if let Some(err) = &apply_ret.failure_info() {
             warn!("chain call failed: {:?}", err);
         }
 
         Ok(InvocResult {
             msg: msg.clone(),
-            msg_rct: Some(apply_ret.msg_receipt.clone()),
-            error: apply_ret.failure_info.map(|e| e.to_string()),
+            msg_rct: Some(apply_ret.msg_receipt()),
+            error: apply_ret.failure_info(),
         })
     }
 
@@ -541,20 +550,22 @@ where
             store,
             epoch,
             chain_rand,
-            ts.blocks()[0].parent_base_fee().clone().into(),
+            ts.blocks()[0].parent_base_fee().clone(),
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
-            &self.engine,
+            &self.engine_v2,
+            &self.engine_v3,
             Arc::clone(self.chain_config()),
+            ts.min_timestamp(),
         )?;
 
         for msg in prior_messages {
             vm.apply_message(msg)?;
         }
         let from_actor = vm
-            .get_actor(message.from())
+            .get_actor(&message.from())
             .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
         message.set_sequence(from_actor.sequence);
@@ -563,8 +574,8 @@ where
 
         Ok(InvocResult {
             msg: message.message().clone(),
-            msg_rct: Some(ret.msg_receipt.clone()),
-            error: ret.failure_info.map(|e| e.to_string()),
+            msg_rct: Some(ret.msg_receipt()),
+            error: ret.failure_info(),
         })
     }
 
@@ -776,7 +787,7 @@ where
                 &blocks,
                 epoch,
                 chain_rand,
-                base_fee.into(),
+                base_fee,
                 callback,
                 &ts_cloned,
             )?)
@@ -811,7 +822,7 @@ where
             // reverse iteration intentional
             .rev()
             .filter(|(_, s)| {
-                s.from() == message_from_address
+                &s.from() == message_from_address
             })
             .filter_map(|(index, s)| {
                 if s.sequence() == *message_sequence {
@@ -894,7 +905,7 @@ where
     pub fn get_receipt(&self, tipset: Arc<Tipset>, msg: Cid) -> Result<Receipt, Error> {
         let m = forest_chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
-        let message_var = (m.from(), &m.sequence());
+        let message_var = (&m.from(), &m.sequence());
         let message_receipt = self.tipset_executed_message(&tipset, msg, message_var)?;
 
         if let Some(receipt) = message_receipt {
@@ -903,7 +914,7 @@ where
         let cid = m
             .cid()
             .map_err(|e| Error::Other(format!("Could not convert message to cid {e:?}")))?;
-        let message_var = (m.from(), &cid, &m.sequence());
+        let message_var = (&m.from(), &cid, &m.sequence());
         let maybe_tuple = self.search_back_for_message(tipset, message_var)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
@@ -930,7 +941,7 @@ where
         let message = forest_chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
-        let message_var = (message.from(), &message.sequence());
+        let message_var = (&message.from(), &message.sequence());
         let current_tipset = self.cs.heaviest_tipset();
         let maybe_message_reciept =
             self.tipset_executed_message(&current_tipset, msg_cid, message_var)?;
@@ -947,7 +958,7 @@ where
             .map_err(|e| Error::Other(format!("Could not get cid from message {e:?}")))?;
 
         let cid_for_task = cid;
-        let address_for_task = *message.from();
+        let address_for_task = message.from();
         let sequence_for_task = message.sequence();
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
@@ -992,7 +1003,7 @@ where
                                     .insert(tipset.key().to_owned(), true);
                             }
 
-                            let message_var = (message.from(), &message.sequence());
+                            let message_var = (&message.from(), &message.sequence());
                             let maybe_receipt =
                                 sm_cloned.tipset_executed_message(&tipset, msg_cid, message_var)?;
                             if let Some(receipt) = maybe_receipt {
@@ -1086,17 +1097,16 @@ where
     pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
-        let balance = forest_shim::econ::TokenAmount::from(&actor.balance);
-        Ok(balance.into())
+        let balance = TokenAmount::from(&actor.balance);
+        Ok(balance)
     }
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        let address = forest_shim::address::Address::from(addr);
         Ok(state_tree
-            .lookup_id(&address.into())
+            .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
     }

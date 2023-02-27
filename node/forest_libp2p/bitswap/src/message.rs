@@ -3,11 +3,12 @@
 
 use pb::bitswap_pb;
 use protobuf::{EnumOrUnknown, Message};
+use serde::{Deserialize, Serialize};
 
 use crate::{prefix::Prefix, *};
 
 /// Type of a `bitswap` request
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Deserialize, Serialize)]
 pub enum RequestType {
     Have,
     Block,
@@ -49,11 +50,12 @@ impl From<RequestType> for EnumOrUnknown<bitswap_pb::message::wantlist::WantType
 }
 
 /// `Bitswap` request type
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct BitswapRequest {
     pub ty: RequestType,
     pub cid: Cid,
     pub send_dont_have: bool,
+    pub cancel: bool,
 }
 
 impl BitswapRequest {
@@ -62,6 +64,7 @@ impl BitswapRequest {
             ty: RequestType::Have,
             cid,
             send_dont_have: false,
+            cancel: false,
         }
     }
 
@@ -70,6 +73,7 @@ impl BitswapRequest {
             ty: RequestType::Block,
             cid,
             send_dont_have: false,
+            cancel: false,
         }
     }
 
@@ -77,10 +81,20 @@ impl BitswapRequest {
         self.send_dont_have = b;
         self
     }
+
+    pub fn new_cancel(cid: Cid) -> Self {
+        // Matches `https://github.com/ipfs/go-libipfs/blob/v0.6.0/bitswap/message/message.go#L309`
+        Self {
+            ty: RequestType::Block,
+            cid,
+            send_dont_have: false,
+            cancel: true,
+        }
+    }
 }
 
 /// `Bitswap` response type
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum BitswapResponse {
     Have(bool),
     Block(Vec<u8>),
@@ -88,7 +102,7 @@ pub enum BitswapResponse {
 
 /// `Bitswap` message enum type that is either a [BitswapRequest] or a
 /// [BitswapResponse]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum BitswapMessage {
     Request(BitswapRequest),
     Response(Cid, BitswapResponse),
@@ -102,6 +116,7 @@ impl BitswapMessage {
                 ty,
                 cid,
                 send_dont_have,
+                cancel,
             }) => {
                 let mut wantlist = bitswap_pb::message::Wantlist::new();
 
@@ -110,7 +125,7 @@ impl BitswapMessage {
                     entry.block = cid.to_bytes();
                     entry.wantType = (*ty).into();
                     entry.sendDontHave = *send_dont_have;
-                    entry.cancel = false;
+                    entry.cancel = *cancel;
                     entry.priority = 1;
                     entry
                 });

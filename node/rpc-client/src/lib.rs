@@ -4,6 +4,7 @@
 /// Filecoin RPC client interface methods
 pub mod auth_ops;
 pub mod chain_ops;
+pub mod common_ops;
 pub mod mpool_ops;
 pub mod net_ops;
 pub mod state_ops;
@@ -19,7 +20,6 @@ use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::sync::RwLock;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -30,7 +30,8 @@ pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 pub const RPC_ENDPOINT: &str = "rpc/v0";
 
 pub use self::{
-    auth_ops::*, chain_ops::*, mpool_ops::*, net_ops::*, state_ops::*, sync_ops::*, wallet_ops::*,
+    auth_ops::*, chain_ops::*, common_ops::*, mpool_ops::*, net_ops::*, state_ops::*, sync_ops::*,
+    wallet_ops::*,
 };
 
 pub struct ApiInfo {
@@ -38,7 +39,7 @@ pub struct ApiInfo {
     pub token: Option<String>,
 }
 
-pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
+pub static API_INFO: Lazy<ApiInfo> = Lazy::new(|| {
     // Get API_INFO environment variable if exists, otherwise, use default
     // multiaddress
     let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
@@ -53,7 +54,7 @@ pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
         None => (api_info.parse().expect("Parse multiaddress"), None),
     };
 
-    RwLock::new(ApiInfo { multiaddr, token })
+    ApiInfo { multiaddr, token }
 });
 
 /// Error object in a response
@@ -148,8 +149,7 @@ where
         .with_params(serde_json::to_value(params)?)
         .finish();
 
-    let api_info = API_INFO.read().await;
-    let api_url = multiaddress_to_url(api_info.multiaddr.to_owned());
+    let api_url = multiaddress_to_url(API_INFO.multiaddr.to_owned());
 
     debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -160,7 +160,7 @@ where
         hyper::Request::post(&api_url).body(serde_json::to_string(&rpc_req)?.into())?;
     let headers_mut = request.headers_mut();
     headers_mut.insert("content-type", HeaderValue::from_static("application/json"));
-    match api_info.token.to_owned() {
+    match API_INFO.token.to_owned() {
         Some(jwt) => {
             headers_mut.insert("Authorization", HeaderValue::from_str(&jwt)?);
         }
