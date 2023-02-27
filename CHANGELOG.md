@@ -9,6 +9,7 @@ Notable updates:
 * [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
 * [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 * [forest daemon] Added `--exit-after-init` and `--save-token` flags. [#2577](https://github.com/ChainSafe/forest/pull/2577)
+* [forest daemon] Support for NV18. [#2558](https://github.com/ChainSafe/forest/pull/2558) [#2579](https://github.com/ChainSafe/forest/pull/2579)
 
 ### Changed
 * [cli] Remove Forest ctrl-c hard shutdown behavior on subsequent ctrl-c signals. [#2538](https://github.com/ChainSafe/forest/pull/2538)
@@ -25,6 +26,7 @@ Notable updates:
 * [docker|security] the Forest image is no longer running on a root user but a dedicated one. [#2463](https://github.com/ChainSafe/forest/pull/2463)
 * [keystore] Allow specifying the encryption passphrase via environmental variable. [#2514](https://github.com/ChainSafe/forest/pull/2514)
 * [forest daemon] The `--skip-load` flag must be now called with a boolean indicating its value. [#2577](https://github.com/ChainSafe/forest/pull/2577)
+* [cli] Calibnet network needs to be specified for most commands, including `sync wait` and `snapshot export`. [#2579](https://github.com/ChainSafe/forest/pull/2579)
 
 ### Removed
 * [forest daemon] Removed `--halt-after-import` and `--auto-download-snapshot` from configuration. They are now strictly a CLI option. [#2577](https://github.com/ChainSafe/forest/pull/2577)

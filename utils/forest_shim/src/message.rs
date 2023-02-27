@@ -99,16 +99,4 @@ impl From<&Message> for Message_v2 {
     }
 }
 
-impl Cbor for Message {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, fvm_ipld_encoding::Error> {
-        Message_v2::from(self).marshal_cbor()
-    }
-
-    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, fvm_ipld_encoding::Error> {
-        Message_v2::unmarshal_cbor(bz).map(Message::from)
-    }
-
-    fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
-        Message_v2::from(self).cid()
-    }
-}
+impl Cbor for Message {}

@@ -68,7 +68,9 @@ macro_rules! load_actor_state {
 
 /// Returns true if the code belongs to an account actor.
 pub fn is_account_actor(code: &Cid) -> bool {
-    account::is_v8_account_cid(code) || account::is_v9_account_cid(code)
+    account::is_v8_account_cid(code)
+        || account::is_v9_account_cid(code)
+        || account::is_v10_account_cid(code)
 }
 
 /// Returns true if the code belongs to a miner actor.

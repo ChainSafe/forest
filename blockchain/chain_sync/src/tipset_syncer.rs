@@ -22,11 +22,12 @@ use forest_db::Store;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
-use forest_shim::{address::Address, message::Message, state_tree::StateTree};
+use forest_shim::{
+    address::Address, gas::price_list_by_network_version, message::Message, state_tree::StateTree,
+};
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
-use fvm::gas::price_list_by_network_version;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
@@ -1477,7 +1478,7 @@ async fn check_block_messages<
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
 
-    let price_list = price_list_by_network_version(network_version.into());
+    let price_list = price_list_by_network_version(network_version);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity
@@ -1546,6 +1547,10 @@ async fn check_block_messages<
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        // https://github.com/ChainSafe/forest/issues/2601
+        if msg.is_delegated() {
+            continue;
+        }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::<C>::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"

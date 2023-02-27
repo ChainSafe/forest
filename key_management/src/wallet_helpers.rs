@@ -25,6 +25,9 @@ pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>,
             let public_key = SecpPublic::from_secret_key(&private_key);
             Ok(public_key.serialize().to_vec())
         }
+        SignatureType::Delegated => {
+            unimplemented!()
+        }
     }
 }
 
@@ -40,6 +43,9 @@ pub fn new_address(sig_type: SignatureType, public_key: &[u8]) -> Result<Address
             let addr =
                 Address::new_secp256k1(public_key).map_err(|err| Error::Other(err.to_string()))?;
             Ok(addr)
+        }
+        SignatureType::Delegated => {
+            unimplemented!()
         }
     }
 }
@@ -69,6 +75,9 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
             let crypto_sig = Signature::new_secp256k1(new_bytes.to_vec());
             Ok(crypto_sig)
         }
+        SignatureType::Delegated => {
+            unimplemented!()
+        }
     }
 }
 
@@ -83,6 +92,9 @@ pub fn generate(sig_type: SignatureType) -> Result<Vec<u8>, Error> {
         SignatureType::Secp256k1 => {
             let key = SecpPrivate::random(rng);
             Ok(key.serialize().to_vec())
+        }
+        SignatureType::Delegated => {
+            unimplemented!()
         }
     }
 }
