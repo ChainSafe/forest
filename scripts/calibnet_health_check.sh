@@ -19,9 +19,9 @@ echo "Validating checkpoint tipset hashes"
 forest-cli chain validate-tipset-checkpoints
 
 echo "Waiting for sync and check health"
-timeout 30m forest-cli sync wait && forest-cli --chain calibnet db stats
+timeout 30m forest-cli --chain calibnet sync wait && forest-cli --chain calibnet db stats
 echo "Exporting snapshot"
-forest-cli snapshot export
+forest-cli --chain calibnet snapshot export
 
 echo "Verifing snapshot checksum"
 sha256sum -c *.sha256sum
