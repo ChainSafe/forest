@@ -170,6 +170,10 @@ jobs:
           sha256sum -c *.sha256sum
       - name: js console
         run: forest-cli attach --exec 'showPeers()'
+      - name: net subcommand
+        run: |
+          forest-cli net listen
+          forest-cli net peers
       - name: validate snapshot
         run: |
           forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
