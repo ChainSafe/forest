@@ -76,7 +76,7 @@ impl Store for ParityDb {
         self.db.commit(tx).map_err(Error::from)
     }
 
-    /// [ParityDB::commit] API is doing extra allocations on keys,
+    /// [parity_db::Db::commit] API is doing extra allocations on keys,
     /// See <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
     fn bulk_write(
         &self,

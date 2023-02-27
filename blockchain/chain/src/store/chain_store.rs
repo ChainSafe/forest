@@ -25,17 +25,19 @@ use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
 use forest_shim::{
-    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
+    address::Address,
+    crypto::{Signature, SignatureType},
+    econ::TokenAmount,
+    executor::Receipt,
+    message::Message,
+    state_tree::StateTree,
 };
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
-use fvm_shared::{
-    clock::ChainEpoch,
-    crypto::signature::{Signature, SignatureType},
-};
+use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
@@ -590,10 +592,13 @@ where
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))??;
 
-        let time = SystemTime::now()
-            .duration_since(global_pre_time)
-            .expect("time cannot go backwards");
-        info!("export finished, took {} seconds", time.as_secs());
+        info!(
+            "export finished, took {} seconds",
+            global_pre_time
+                .elapsed()
+                .expect("time cannot go backwards")
+                .as_secs()
+        );
 
         let digest = writer.lock().await.get_mut().finalize();
         Ok(digest)

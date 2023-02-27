@@ -14,20 +14,20 @@ install-daemon:
 
 install: install-cli install-daemon
 
-# Installs Forest binaries with ParityDb backend
-install-with-paritydb:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb
-	cargo install --locked --path forest/cli --force --no-default-features --features paritydb
+# Installs Forest binaries with RocksDb backend
+install-with-rocksdb:
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,rocksdb
+	cargo install --locked --path forest/cli --force --no-default-features --features rocksdb
 
 # Installs Forest binaries with Jemalloc global allocator
 install-with-jemalloc:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,jemalloc
-	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,jemalloc
+	cargo install --locked --path forest/daemon --force --features jemalloc
+	cargo install --locked --path forest/cli --force --features jemalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,mimalloc
-	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,mimalloc
+	cargo install --locked --path forest/daemon --force --features mimalloc
+	cargo install --locked --path forest/cli --force --features mimalloc
 
 install-deps:
 	apt-get update -y
@@ -96,7 +96,7 @@ lint-clippy:
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
 # Formats Rust and TOML files
 fmt:

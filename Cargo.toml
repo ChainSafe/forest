@@ -70,7 +70,7 @@ cid = { version = "0.8", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
 cs_serde_bytes = "0.12.2"
-derive_builder = "0.11"
+derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
@@ -80,14 +80,14 @@ fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = "~2.2"
-fvm3 = { package = "fvm", version = "3.0.0-alpha.19" }
+fvm3 = { package = "fvm", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
 fvm_shared = { version = "2.0", default-features = false }
-fvm_shared3 = { package = "fvm_shared", version = "3.0.0-alpha.16", default-features = false }
+fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
@@ -138,7 +138,7 @@ tokio = "1.24"
 tokio-stream = "0.1"
 tokio-util = "0.7.0"
 toml = "0.7"
-tower-http = "0.3"
+tower-http = "0.4"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
