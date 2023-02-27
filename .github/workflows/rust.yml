@@ -149,7 +149,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Calibnet health check
-        run: bash ${GITHUB_WORKSPACE}/scripts/calibnet_health_check.sh
+        run: ./scripts/calibnet_health_check.sh
 
   dependencies-check:
     name: Check cargo files for duplicates

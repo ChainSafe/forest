@@ -1,48 +1,53 @@
 #!/bin/bash
 
 SNAPSHOT_DIRECTORY="/tmp/snapshots"
+LOG_DIRECTORY="/tmp/log"
 
-# Fetch params
+echo "Fetching params"
 forest-cli fetch-params --keys
-# Download snapshot
+echo "Downloading snapshot"
 forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
 
-# Import snapshot and run Forest
-forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
+echo "Importing snapshot and running Forest"
+forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
+echo "Checking DB stats"
 forest-cli --chain calibnet db stats
-forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
+echo "Running forest in detached mode"
+forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
 
-# Validate checkpoint tipset hashes
+echo "Validating checkpoint tipset hashes"
 forest-cli chain validate-tipset-checkpoints
 
-# wait for sync and check health
+echo "Waiting for sync and check health"
 timeout 30m forest-cli sync wait && forest-cli --chain calibnet db stats
-# Export snapshot
+echo "Exporting snapshot"
 forest-cli snapshot export
 
-# verify snapshot checksum
+echo "Verifing snapshot checksum"
 sha256sum -c *.sha256sum
 
-# js console
+echo "Testing js console"
 forest-cli attach --exec 'showPeers()'
 
-# validate snapshot
-forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
+echo "Validating as mainnet snapshot"
+forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && \
 { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
+echo "Validating as calibnet snapshot"
 forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
 
-# Print forest logs
+echo "Fetching metrics"
 wget -O metrics.log http://localhost:6116/metrics
+echo "Killing forest"
 pkill forest
-echo "--- Forest STDOUT ---"; cat forest.out
-echo "--- Forest STDERR ---"; cat forest.err
-echo "--- Forest Prometheus metrics ---"; cat metrics.log
+# echo "--- Forest STDOUT ---"; cat forest.out
+# echo "--- Forest STDERR ---"; cat forest.err
+# echo "--- Forest Prometheus metrics ---"; cat metrics.log
 
-# print forest log files
-ls -hl log
-cat log/*
+# echo "Print forest log files"
+# ls -hl $LOG_DIRECTORY
+# cat $LOG_DIRECTORY/*
 
-## Wallet tests
+echo "Wallet tests"
 
 # The following steps does basic wallet handling tests.
 
@@ -56,12 +61,13 @@ ADMIN_TOKEN=$(grep "Admin token" forest.out | cut -d ' ' -f 7)
 # A preloaded address
 ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
 
+echo "Wallet import key"
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import scripts/preloaded_wallet.key
 sleep 10s
 pkill -15 forest && sleep 20s
 
-# restart forest
-forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
+echo "Restart forest"
+forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
 
 sleep 60s
 
