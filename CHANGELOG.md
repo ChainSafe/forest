@@ -27,6 +27,7 @@ Notable updates:
 * [keystore] Allow specifying the encryption passphrase via environmental variable. [#2514](https://github.com/ChainSafe/forest/pull/2514)
 * [forest daemon] The `--skip-load` flag must be now called with a boolean indicating its value. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 * [cli] Calibnet network needs to be specified for most commands, including `sync wait` and `snapshot export`. [#2579](https://github.com/ChainSafe/forest/pull/2579)
+* [daemon] Switch to ParityDb as the default backend for the Forest daemon. All clients must re-import the snapshot. The old database must be deleted manually - it is located in `$(forest-cli config dump | grep data_dir | cut -d' ' -f3)/<NETWORK>/rocksdb`. [#2606](https://github.com/ChainSafe/forest/pull/2606)
 
 ### Removed
 * [forest daemon] Removed `--halt-after-import` and `--auto-download-snapshot` from configuration. They are now strictly a CLI option. [#2577](https://github.com/ChainSafe/forest/pull/2577)
