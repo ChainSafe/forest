@@ -559,9 +559,9 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.6.8"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd379e511536bad07447f899300aa526e9bae8e6f66dc5e5ca45d7587b7c1ec"
+checksum = "6137c6234afb339e75e764c866e3594900f0211e1315d33779f269bbe2ec6967"
 dependencies = [
  "async-trait",
  "axum-core",
@@ -588,7 +588,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tower",
- "tower-http 0.3.5",
+ "tower-http",
  "tower-layer",
  "tower-service",
 ]
@@ -3494,7 +3494,6 @@ dependencies = [
  "forest_encoding",
  "forest_interpreter",
  "forest_ipld",
- "forest_legacy_ipld_amt",
  "forest_libp2p_bitswap",
  "forest_message",
  "forest_metrics",
@@ -3502,6 +3501,7 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "futures",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
@@ -3536,7 +3536,6 @@ dependencies = [
  "forest_crypto",
  "forest_db",
  "forest_encoding",
- "forest_legacy_ipld_amt",
  "forest_libp2p",
  "forest_message",
  "forest_message_pool",
@@ -3546,6 +3545,7 @@ dependencies = [
  "forest_test_utils",
  "forest_utils",
  "futures",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3608,7 +3608,7 @@ dependencies = [
  "time 0.3.19",
  "tokio",
  "toml 0.7.2",
- "tower-http 0.4.0",
+ "tower-http",
  "tracing-appender",
  "tracing-loki",
  "tracing-subscriber",
@@ -3868,24 +3868,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "xsalsa20poly1305",
-]
-
-[[package]]
-name = "forest_legacy_ipld_amt"
-version = "0.6.0"
-dependencies = [
- "ahash 0.8.3",
- "anyhow",
- "cid",
- "forest_db",
- "forest_encoding",
- "forest_utils",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.3",
- "itertools 0.10.5",
- "once_cell",
- "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -4202,7 +4184,6 @@ dependencies = [
  "forest_fil_types",
  "forest_interpreter",
  "forest_json",
- "forest_legacy_ipld_amt",
  "forest_message",
  "forest_metrics",
  "forest_networks",
@@ -4211,6 +4192,7 @@ dependencies = [
  "futures",
  "fvm 2.2.0",
  "fvm 3.0.0-rc.1",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
@@ -9886,25 +9868,6 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f873044bf02dd1e8239e9c1293ea39dad76dc594ec16185d0a1bf31d8dc8d858"
-dependencies = [
- "bitflags",
- "bytes 1.4.0",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-range-header",
- "pin-project-lite 0.2.9",
- "tower",
- "tower-layer",
- "tower-service",
-]
-
-[[package]]
-name = "tower-http"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d1d42a9b3f3ec46ba828e8d376aec14592ea199f70a06a548587ecd1c4ab658"
@@ -9923,6 +9886,7 @@ dependencies = [
  "pin-project-lite 0.2.9",
  "tokio",
  "tokio-util",
+ "tower",
  "tower-layer",
  "tower-service",
  "tracing",

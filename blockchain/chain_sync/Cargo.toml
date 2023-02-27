@@ -18,7 +18,6 @@ forest_chain.workspace = true
 forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_encoding.workspace = true
-forest_legacy_ipld_amt.workspace = true
 forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace = true
@@ -27,6 +26,7 @@ forest_shim.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
+fvm_ipld_amt.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }

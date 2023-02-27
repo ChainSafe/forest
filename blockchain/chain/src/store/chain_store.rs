@@ -19,7 +19,6 @@ use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::{recurse_links_hash, CidHashSet};
-use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
@@ -34,6 +33,7 @@ use forest_shim::{
 };
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
+use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
@@ -881,7 +881,7 @@ where
     DB: Blockstore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i)?;
+    let receipts = amt.get(i as u64)?;
     Ok(receipts.cloned())
 }
 
