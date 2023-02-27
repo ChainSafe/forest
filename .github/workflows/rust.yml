@@ -42,7 +42,6 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
-          cache: true
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-all
