@@ -13,7 +13,7 @@ use std::{
 
 use ahash::HashSet;
 use byte_unit::Byte;
-use clap::Parser;
+use clap::{Parser, ValueHint};
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
@@ -49,10 +49,10 @@ OPTIONS:
 #[derive(Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
-    #[arg(short, long)]
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
     pub config: Option<String>,
     /// The genesis CAR file
-    #[arg(short, long)]
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
     pub genesis: Option<String>,
     /// Allow RPC to be active or not (default: true)
     #[arg(short, long)]
@@ -78,13 +78,13 @@ pub struct CliOpts {
     #[arg(long)]
     pub height: Option<i64>,
     /// Import a snapshot from a local CAR file or URL
-    #[arg(long)]
+    #[arg(long, value_hint = ValueHint::FilePath)]
     pub import_snapshot: Option<String>,
     /// Halt with exit code 0 after successfully importing a snapshot
     #[arg(long)]
     pub halt_after_import: bool,
     /// Import a chain from a local CAR file or URL
-    #[arg(long)]
+    #[arg(long, value_hint = ValueHint::FilePath)]
     pub import_chain: Option<String>,
     /// Skips loading CAR file and uses header to index chain. Assumes a
     /// pre-loaded database
@@ -127,16 +127,16 @@ pub struct CliOpts {
     #[arg(long)]
     pub loki: bool,
     /// Endpoint of `grafana loki`
-    #[arg(long, default_value = "http://127.0.0.1:3100")]
+    #[arg(long, default_value = "http://127.0.0.1:3100", value_hint = ValueHint::Url)]
     pub loki_endpoint: String,
     /// Specify a directory into which rolling log files should be appended
-    #[arg(long)]
+    #[arg(long, value_hint = ValueHint::DirPath)]
     pub log_dir: Option<PathBuf>,
     /// Exit after basic daemon initialization
     #[arg(long)]
     pub exit_after_init: bool,
     /// If provided, indicates the file to which to save the admin token.
-    #[arg(long)]
+    #[arg(long, value_hint = ValueHint::FilePath)]
     pub save_token: Option<PathBuf>,
 }
 

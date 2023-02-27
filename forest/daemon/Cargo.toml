@@ -16,6 +16,7 @@ anes = "0.1.6"
 anyhow.workspace = true
 atty.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 daemonize-me = "2.0"
 dialoguer.workspace = true
 flume.workspace = true

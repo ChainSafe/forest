@@ -14,6 +14,7 @@ use boa_engine::{
     syntax::parser::ParseError,
     Context, JsResult, JsValue,
 };
+use clap::ValueHint;
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
 use forest_chain_sync::SyncStage;
@@ -31,13 +32,14 @@ use tokio::time;
 use super::Config;
 
 #[derive(Debug, clap::Args)]
+#[command(name = "completion-derive")]
 pub struct AttachCommand {
     /// Set a library directory for the Javascript scripts
-    #[arg(long)]
+    #[arg(long, value_hint = ValueHint::AnyPath)]
     jspath: Option<PathBuf>,
 
     /// Execute Javascript code non-interactively
-    #[arg(long)]
+    #[arg(long, value_hint = ValueHint::Other)]
     exec: Option<String>,
 }
 

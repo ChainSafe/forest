@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::Context;
 use base64::{prelude::BASE64_STANDARD, Engine};
-use clap::{arg, Subcommand};
+use clap::{arg, Subcommand, ValueHint};
 use forest_json::{
     address::json::AddressJson,
     signature::json::{signature_type::SignatureTypeJson, SignatureJson},
@@ -78,6 +78,7 @@ pub enum WalletCommands {
     /// Import keys from existing wallet
     Import {
         /// The path to the private key
+        #[arg(value_hint = ValueHint::FilePath)]
         path: Option<String>,
     },
     /// List addresses of the wallet

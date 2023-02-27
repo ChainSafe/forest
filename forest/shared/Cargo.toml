@@ -14,6 +14,7 @@ atty.workspace = true
 byte-unit = "4.0"
 chrono.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 console-subscriber.workspace = true
 directories.workspace = true
 forest_chain_sync.workspace = true

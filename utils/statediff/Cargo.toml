@@ -13,6 +13,7 @@ ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 colored = "2.0"
 directories.workspace = true
 fil_actor_account_v9.workspace = true
