@@ -19,6 +19,7 @@ fvm_shared.workspace = true
 fvm_shared3 = { workspace = true, features = ["proofs"] }
 num-bigint.workspace = true
 num-traits.workspace = true
+quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]

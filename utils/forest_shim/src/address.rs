@@ -9,6 +9,7 @@ use std::{
 
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
+use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
     current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
 };
@@ -41,6 +42,12 @@ impl Address {
 
     pub fn into_payload(self) -> Payload {
         self.0.into_payload()
+    }
+}
+
+impl quickcheck::Arbitrary for Address {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Address(Address_v3::new_id(u64::arbitrary(g)))
     }
 }
 
