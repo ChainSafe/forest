@@ -3506,7 +3506,7 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "libipld",
  "log",
  "lru 0.9.0",
@@ -3549,7 +3549,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "lazy_static",
  "log",
  "lru 0.9.0",
@@ -3775,12 +3775,12 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "fvm 2.2.0",
- "fvm 3.0.0-rc.1",
+ "fvm 3.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "lazy_static",
  "log",
  "num",
@@ -3834,7 +3834,7 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "multihash",
  "num",
  "num-bigint",
@@ -3952,7 +3952,7 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "rand 0.8.5",
  "serde",
 ]
@@ -3978,11 +3978,11 @@ dependencies = [
  "forest_state_manager",
  "forest_utils",
  "futures",
- "fvm 3.0.0-rc.1",
+ "fvm 3.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "log",
  "lru 0.9.0",
  "num",
@@ -4077,7 +4077,7 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "hex",
  "http",
  "jsonrpc-v2",
@@ -4153,14 +4153,15 @@ dependencies = [
  "cid",
  "filecoin-proofs-api",
  "fvm 2.2.0",
- "fvm 3.0.0-rc.1",
+ "fvm 3.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "num-bigint",
  "num-traits",
+ "quickcheck",
  "serde",
  "serde_json",
 ]
@@ -4191,7 +4192,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm 2.2.0",
- "fvm 3.0.0-rc.1",
+ "fvm 3.0.0",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -4578,8 +4579,8 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "3.0.0-rc.1"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#4bc36ea0268be894e2103c8791b75f5542b9326a"
+version = "3.0.0"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#2bd2bd557bf0a318ea1b4fa076e6cdaba11fb2e9"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -4594,7 +4595,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
  "fvm_ipld_hamt 0.6.1",
- "fvm_shared 3.0.0-alpha.20",
+ "fvm_shared 3.0.0",
  "lazy_static",
  "log",
  "minstant",
@@ -4853,10 +4854,11 @@ dependencies = [
 
 [[package]]
 name = "fvm_shared"
-version = "3.0.0-alpha.20"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#4bc36ea0268be894e2103c8791b75f5542b9326a"
+version = "3.0.0"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#2bd2bd557bf0a318ea1b4fa076e6cdaba11fb2e9"
 dependencies = [
  "anyhow",
+ "arbitrary",
  "bitflags",
  "blake2b_simd",
  "bls-signatures",
@@ -4875,6 +4877,7 @@ dependencies = [
  "num-derive",
  "num-integer",
  "num-traits",
+ "quickcheck",
  "serde",
  "serde_repr",
  "serde_tuple",
