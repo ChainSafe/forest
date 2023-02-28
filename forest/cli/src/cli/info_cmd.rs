@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::time::Instant;
-
+use std::string::ToString;
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
@@ -19,21 +19,11 @@ pub enum InfoCommand {
     Show,
 }
 
-#[derive(Debug)]
+#[derive(Debug, strum_macros::Display)]
 enum SyncStatus {
     Ok,
     Slow,
     Behind,
-}
-
-impl std::fmt::Display for SyncStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SyncStatus::Ok => write!(f, "ok"),
-            SyncStatus::Behind => write!(f, "behind"),
-            SyncStatus::Slow => write!(f, "slow"),
-        }
-    }
 }
 
 pub struct NodeStatusInfo {
