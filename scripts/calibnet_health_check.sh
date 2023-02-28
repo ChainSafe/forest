@@ -61,12 +61,14 @@ sleep 10s
 
 echo "Fetching metrics"
 wget -O metrics.log http://localhost:6116/metrics
-# pkill -15 forest && sleep 20s
 
-# echo "Restart forest"
-# forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
+echo "Killing forest"
+pkill -15 forest && sleep 20s
 
-# sleep 60s
+echo "Restart forest"
+forest --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach
+
+sleep 60s
 
 # Show balances
 echo "Listing wallet balances"
