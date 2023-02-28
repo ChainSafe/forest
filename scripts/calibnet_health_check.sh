@@ -35,13 +35,13 @@ forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &
 echo "Validating as calibnet snapshot"
 forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
 
-# echo "--- Forest STDOUT ---"; cat forest.out
-# echo "--- Forest STDERR ---"; cat forest.err
-# echo "--- Forest Prometheus metrics ---"; cat metrics.log
+echo "--- Forest STDOUT ---"; cat forest.out
+echo "--- Forest STDERR ---"; cat forest.err
+echo "--- Forest Prometheus metrics ---"; cat metrics.log
 
-# echo "Print forest log files"
-# ls -hl $LOG_DIRECTORY
-# cat $LOG_DIRECTORY/*
+echo "Print forest log files"
+ls -hl $LOG_DIRECTORY
+cat $LOG_DIRECTORY/*
 
 echo "Wallet tests"
 
