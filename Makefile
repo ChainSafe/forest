@@ -97,6 +97,10 @@ lint-clippy:
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
+DOCKERFILES=$(wildcard Dockerfile*)
+lint-docker: $(DOCKERFILES)
+	docker run --rm -i hadolint/hadolint < $<
+
 # Formats Rust and TOML files
 fmt:
 	cargo fmt --all
@@ -173,4 +177,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --no-deps
 
-.PHONY: clean clean-all lint lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
