@@ -6,7 +6,6 @@ use std::borrow::Cow;
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime_v10::runtime::Policy;
-use forest_json::bigint::json;
 use forest_shim::{
     address::Address,
     econ::TokenAmount,
@@ -220,13 +219,9 @@ impl State {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfo {
-    #[serde(with = "forest_json::address::json")]
     pub owner: Address,
-    #[serde(with = "forest_json::address::json")]
     pub worker: Address,
-    #[serde(with = "forest_json::address::json::opt")]
     pub new_worker: Option<Address>,
-    #[serde(with = "forest_json::address::json::vec")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
     #[serde(with = "peer_id_json")]
@@ -435,7 +430,6 @@ pub struct SectorOnChainInfo {
     /// The seal proof type implies the PoSt proofs
     pub seal_proof: RegisteredSealProof,
     /// `CommR`
-    #[serde(with = "forest_json::cid")]
     pub sealed_cid: Cid,
     pub deal_ids: Vec<DealID>,
     /// Epoch during which the sector proof was accepted
@@ -443,21 +437,16 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
     /// Integral of active deals over sector lifetime
-    #[serde(with = "json")]
     pub deal_weight: BigInt,
     /// Integral of active verified deals over sector lifetime
-    #[serde(with = "json")]
     pub verified_deal_weight: BigInt,
     /// Pledge collected to commit this sector
-    #[serde(with = "forest_json::token_amount::json")]
     pub initial_pledge: TokenAmount,
     /// Expected one day projection of reward for sector computed at activation
     /// time
-    #[serde(with = "forest_json::token_amount::json")]
     pub expected_day_reward: TokenAmount,
     /// Expected twenty day projection of reward for sector computed at
     /// activation time
-    #[serde(with = "forest_json::token_amount::json")]
     pub expected_storage_pledge: TokenAmount,
 }
 

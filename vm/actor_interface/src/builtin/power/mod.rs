@@ -6,7 +6,6 @@ use std::borrow::Borrow;
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime_v9::runtime::Policy;
-use forest_json::bigint::json;
 use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::sector::StoragePower;
@@ -186,10 +185,8 @@ impl State {
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
-    #[serde(with = "json")]
     pub raw_byte_power: StoragePower,
     /// Sum of quality adjusted power for a miner's sectors.
-    #[serde(with = "json")]
     pub quality_adj_power: StoragePower,
 }
 

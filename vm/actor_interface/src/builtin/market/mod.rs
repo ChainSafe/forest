@@ -168,13 +168,11 @@ impl<BS> DealProposals<'_, BS> {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposal {
-    #[serde(with = "forest_json::cid", rename = "PieceCID")]
+    #[serde(rename = "PieceCID")]
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-    #[serde(with = "forest_json::address::json")]
     pub client: Address,
-    #[serde(with = "forest_json::address::json")]
     pub provider: Address,
     // ! This is the field that requires unsafe unchecked utf8 deserialization
     pub label: String,
