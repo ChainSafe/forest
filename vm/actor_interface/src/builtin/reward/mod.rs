@@ -4,9 +4,10 @@
 use anyhow::Context;
 use cid::Cid;
 use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use serde::Serialize;
+
+use crate::BlockstoreExt;
 
 /// Reward actor address.
 pub const ADDRESS: Address = Address::new_id(2);

@@ -3326,7 +3326,6 @@ dependencies = [
  "fil_actors_runtime_v9",
  "forest_json",
  "forest_shim",
- "forest_utils",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",

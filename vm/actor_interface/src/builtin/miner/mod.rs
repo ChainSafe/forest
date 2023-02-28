@@ -13,7 +13,6 @@ use forest_shim::{
     sector::{RegisteredPoStProof, RegisteredSealProof, SectorSize},
     state_tree::ActorState,
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
@@ -22,7 +21,7 @@ use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-use crate::power::Claim;
+use crate::{power::Claim, BlockstoreExt};
 /// Miner actor method.
 pub type Method = fil_actor_miner_v8::Method;
 

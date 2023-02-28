@@ -8,12 +8,11 @@ use cid::Cid;
 use fil_actors_runtime_v9::runtime::Policy;
 use forest_json::bigint::json;
 use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::sector::StoragePower;
 use serde::{Deserialize, Serialize};
 
-use crate::FilterEstimate;
+use crate::{BlockstoreExt, FilterEstimate};
 
 /// Power actor address.
 // TODO: Select address based on actors version

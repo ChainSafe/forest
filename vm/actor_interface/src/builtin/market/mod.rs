@@ -6,11 +6,12 @@ use std::marker::PhantomData;
 use anyhow::Context;
 use cid::Cid;
 use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{clock::ChainEpoch, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
+
+use crate::BlockstoreExt;
 
 /// Market actor address.
 pub const ADDRESS: Address = Address::new_id(5);

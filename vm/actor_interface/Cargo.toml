@@ -33,7 +33,6 @@ anyhow.workspace = true
 cid.workspace = true
 forest_json.workspace = true
 forest_shim.workspace = true
-forest_utils.workspace = true
 fvm_ipld_bitfield.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
