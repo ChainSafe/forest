@@ -23,6 +23,7 @@
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.2.1 AS xx
 
 FROM --platform=$BUILDPLATFORM buildpack-deps:bullseye AS build-env
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
@@ -80,7 +81,6 @@ USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
 
 # Basic verification of dynamically linked dependencies
-RUN forest -V
-RUN forest-cli -V
+RUN forest -V && forest-cli -V
 
 ENTRYPOINT ["forest"]
