@@ -62,7 +62,7 @@ impl<'a> DiscoveryConfig<'a> {
         }
     }
 
-    /// Set the number of connecte peers at which we pause discovery.
+    /// Set the number of connected peers at which we pause discovery.
     pub fn target_peer_count(&mut self, limit: u64) -> &mut Self {
         self.target_peer_count = limit;
         self
@@ -150,7 +150,7 @@ impl<'a> DiscoveryConfig<'a> {
             next_kad_random_query: tokio::time::interval(Duration::from_secs(1)),
             duration_to_next_kad: Duration::from_secs(1),
             pending_events: VecDeque::new(),
-            num_connections: 0,
+            n_node_connected: 0,
             mdns: mdns_opt.into(),
             peers,
             peer_addresses,
@@ -177,7 +177,7 @@ pub struct DiscoveryBehaviour {
     /// Events to return in priority when polled.
     pending_events: VecDeque<DiscoveryEvent>,
     /// Number of nodes we're currently connected to.
-    num_connections: u64,
+    n_node_connected: u64,
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
     /// Keeps hash map of peers and their multi-addresses
@@ -278,7 +278,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         match &event {
             FromSwarm::ConnectionEstablished(e) => {
                 if e.other_established == 0 {
-                    self.num_connections += 1;
+                    self.n_node_connected += 1;
                     self.peers.insert(e.peer_id);
                     self.pending_events
                         .push_back(DiscoveryEvent::PeerConnected(e.peer_id));
@@ -286,7 +286,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             }
             FromSwarm::ConnectionClosed(e) => {
                 if e.remaining_established == 0 {
-                    self.num_connections -= 1;
+                    self.n_node_connected -= 1;
                     self.peers.remove(&e.peer_id);
                     self.peer_addresses.remove(&e.peer_id);
                     self.pending_events
@@ -323,7 +323,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         // Poll the stream that fires when we need to start a random Kademlia query.
         while self.next_kad_random_query.poll_tick(cx).is_ready() {
-            if self.num_connections < self.discovery_max {
+            if self.n_node_connected < self.discovery_max {
                 // We still have not hit the discovery max, send random request for peers.
                 let random_peer_id = PeerId::random();
                 debug!(
@@ -397,7 +397,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             match ev {
                 NetworkBehaviourAction::GenerateEvent(event) => match event {
                     MdnsEvent::Discovered(list) => {
-                        if self.num_connections >= self.discovery_max {
+                        if self.n_node_connected >= self.discovery_max {
                             // Already over discovery max, don't add discovered peers.
                             // We could potentially buffer these addresses to be added later,
                             // but mdns is not an important use case and may be removed in future.
