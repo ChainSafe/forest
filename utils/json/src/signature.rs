@@ -119,46 +119,22 @@ mod tests {
     use quickcheck_macros::quickcheck;
     use serde_json;
 
-    use super::json::{signature_type::SignatureTypeJson, SignatureJson, SignatureJsonRef};
-
-    #[derive(Clone, Debug, PartialEq)]
-    struct SignatureWrapper {
-        signature: Signature,
-    }
-
-    #[derive(Clone, Debug, PartialEq)]
-    struct SignatureTypeWrapper {
-        sigtype: SignatureType,
-    }
-
-    impl quickcheck::Arbitrary for SignatureWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let sigtype = SignatureTypeWrapper::arbitrary(g);
-            let signature = Signature::new(sigtype.sigtype, Vec::arbitrary(g));
-            SignatureWrapper { signature }
-        }
-    }
-
-    impl quickcheck::Arbitrary for SignatureTypeWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let sigtype = g
-                .choose(&[SignatureType::Secp256k1, SignatureType::BLS])
-                .unwrap();
-            SignatureTypeWrapper { sigtype: *sigtype }
-        }
+    #[quickcheck]
+    fn signature_roundtrip(signature: Signature) {
+        let serialized: String =
+            forest_test_utils::to_string_with!(&signature, super::json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, super::json::deserialize);
+        assert_eq!(signature, parsed);
     }
 
     #[quickcheck]
-    fn signature_roundtrip(signature: SignatureWrapper) {
-        let serialized = serde_json::to_string(&SignatureJsonRef(&signature.signature)).unwrap();
-        let parsed: SignatureJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(signature.signature, parsed.0);
-    }
-
-    #[quickcheck]
-    fn signaturetype_roundtrip(sigtype: SignatureTypeWrapper) {
-        let serialized = serde_json::to_string(&SignatureTypeJson(sigtype.sigtype)).unwrap();
-        let parsed: SignatureTypeJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(sigtype.sigtype, parsed.0);
+    fn signaturetype_roundtrip(sigtype: SignatureType) {
+        let serialized1: String =
+            forest_test_utils::to_string_with!(&sigtype, super::json::signature_type::serialize);
+        let parsed = forest_test_utils::from_str_with!(
+            &serialized1,
+            super::json::signature_type::deserialize
+        );
+        assert_eq!(sigtype, parsed);
     }
 }
