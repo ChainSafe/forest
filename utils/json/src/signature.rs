@@ -119,21 +119,19 @@ mod tests {
     use quickcheck_macros::quickcheck;
     use serde_json;
 
+    use super::json::{signature_type::SignatureTypeJson, SignatureJson, SignatureJsonRef};
+
     #[quickcheck]
     fn signature_roundtrip(signature: Signature) {
-        let serialized = forest_test_utils::to_string_with!(&signature, super::json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, super::json::deserialize);
-        assert_eq!(signature, parsed);
+        let serialized = serde_json::to_string(&SignatureJsonRef(&signature)).unwrap();
+        let parsed: SignatureJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(signature, parsed.0);
     }
 
     #[quickcheck]
     fn signaturetype_roundtrip(sigtype: SignatureType) {
-        let serialized =
-            forest_test_utils::to_string_with!(&sigtype, super::json::signature_type::serialize);
-        let parsed = forest_test_utils::from_str_with!(
-            &serialized,
-            super::json::signature_type::deserialize
-        );
-        assert_eq!(sigtype, parsed);
+        let serialized = serde_json::to_string(&SignatureTypeJson(sigtype)).unwrap();
+        let parsed: SignatureTypeJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(sigtype, parsed.0);
     }
 }
