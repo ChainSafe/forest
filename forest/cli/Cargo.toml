@@ -52,13 +52,13 @@ rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 strfmt = "0.2.2"
+strum_macros = "0.24"
 tempfile.workspace = true
 ticker = "0.1"
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
-strum_macros = "0.24"
 
 [dev-dependencies]
 assert_cmd.workspace = true
