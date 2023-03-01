@@ -56,7 +56,7 @@ impl ChainExchangeBehaviour {
             self.track_metrics();
             if let Err(err) = channel.send_async(Ok(response)).await {
                 // Demoting log level here because the same request might be sent to multiple
-                // remote peers simultaneously, it'ss expected that responses that arrives late
+                // remote peers simultaneously, it's expected that responses that arrive late
                 // might be sent to a closed channel
                 debug!("{err}");
             }
@@ -69,7 +69,7 @@ impl ChainExchangeBehaviour {
             if let Err(err) = tx.send(Err(error.into())) {
                 // Demoting log level here because the same request might be sent to multiple
                 // remote peers simultaneously, it's expected that outbound failures that happen
-                // after receiving the first succussful response could be sent to a closed
+                // after receiving the first successful response could be sent to a closed
                 // channel.
                 debug!("{err}");
             }
