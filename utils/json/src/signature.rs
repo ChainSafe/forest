@@ -121,18 +121,17 @@ mod tests {
 
     #[quickcheck]
     fn signature_roundtrip(signature: Signature) {
-        let serialized: String =
-            forest_test_utils::to_string_with!(&signature, super::json::serialize);
+        let serialized = forest_test_utils::to_string_with!(&signature, super::json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, super::json::deserialize);
         assert_eq!(signature, parsed);
     }
 
     #[quickcheck]
     fn signaturetype_roundtrip(sigtype: SignatureType) {
-        let serialized1: String =
+        let serialized =
             forest_test_utils::to_string_with!(&sigtype, super::json::signature_type::serialize);
         let parsed = forest_test_utils::from_str_with!(
-            &serialized1,
+            &serialized,
             super::json::signature_type::deserialize
         );
         assert_eq!(sigtype, parsed);
