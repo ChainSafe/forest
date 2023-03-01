@@ -1,0 +1,18 @@
+market:
+  v8:
+    # calibnet
+    - bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6
+    # mainnet
+    - bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q
+    # devnet
+    - bafk2bzacecw57fpkqesfhi5g3nr4csy4oy7oc42wmwjuis6l7ijniolo4rt2k
+  v9:
+    # calibnet
+    - bafk2bzacebkfcnc27d3agm2bhzzbvvtbqahmvy2b2nf5xyj4aoxehow3bules
+    # mainnet
+    - bafk2bzacec3j7p6gklk64stax5px3xxd7hdtejaepnd4nw7s2adihde6emkcu
+  v10:
+    # calibnet
+    - bafk2bzacecclsfboql3iraf3e66pzuh3h7qp3vgmfurqz26qh5g5nrexjgknc
+    # mainnet
+    - bafk2bzacedalaigmokrtimabt7y7bkok5nd2j5gmifdahht3dsz5ulj7vxdgu

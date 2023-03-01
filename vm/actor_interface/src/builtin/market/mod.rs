@@ -12,6 +12,8 @@ use fvm_shared::{clock::ChainEpoch, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
 
+use super::*;
+
 /// Market actor address.
 pub const ADDRESS: Address = Address::new_id(5);
 
@@ -19,35 +21,15 @@ pub const ADDRESS: Address = Address::new_id(5);
 pub type Method = fil_actor_market_v8::Method;
 
 pub fn is_v8_market_cid(cid: &Cid) -> bool {
-    let known_cids = vec![
-        // calibnet v8
-        Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap(),
-        // mainnet
-        Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap(),
-        // devnet
-        Cid::try_from("bafk2bzacecw57fpkqesfhi5g3nr4csy4oy7oc42wmwjuis6l7ijniolo4rt2k").unwrap(),
-    ];
-    known_cids.contains(cid)
+    KNOWN_CIDS.market.v8.contains(cid)
 }
 
 pub fn is_v9_market_cid(cid: &Cid) -> bool {
-    let known_cids = vec![
-        // calibnet v9
-        Cid::try_from("bafk2bzacebkfcnc27d3agm2bhzzbvvtbqahmvy2b2nf5xyj4aoxehow3bules").unwrap(),
-        // mainnet v9
-        Cid::try_from("bafk2bzacec3j7p6gklk64stax5px3xxd7hdtejaepnd4nw7s2adihde6emkcu").unwrap(),
-    ];
-    known_cids.contains(cid)
+    KNOWN_CIDS.market.v9.contains(cid)
 }
 
 pub fn is_v10_market_cid(cid: &Cid) -> bool {
-    let known_cids = vec![
-        // calibnet v10
-        Cid::try_from("bafk2bzacecclsfboql3iraf3e66pzuh3h7qp3vgmfurqz26qh5g5nrexjgknc").unwrap(),
-        // mainnet v10
-        Cid::try_from("bafk2bzacedalaigmokrtimabt7y7bkok5nd2j5gmifdahht3dsz5ulj7vxdgu").unwrap(),
-    ];
-    known_cids.contains(cid)
+    KNOWN_CIDS.market.v10.contains(cid)
 }
 
 /// Market actor state.

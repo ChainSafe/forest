@@ -29,6 +29,7 @@ fil_actor_reward_v9.workspace = true
 fil_actors_runtime_v10.workspace = true
 fil_actors_runtime_v9.workspace = true
 
+ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
 forest_json.workspace = true
@@ -38,6 +39,8 @@ fvm_ipld_bitfield.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+lazy_static.workspace = true
 libp2p = { workspace = true, default-features = false }
 num.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true

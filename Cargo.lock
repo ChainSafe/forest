@@ -3370,6 +3370,7 @@ dependencies = [
 name = "forest_actor_interface"
 version = "0.6.0"
 dependencies = [
+ "ahash 0.8.3",
  "anyhow",
  "cid",
  "fil_actor_account_v10",
@@ -3400,9 +3401,11 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
+ "lazy_static",
  "libp2p",
  "num",
  "serde",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -8929,6 +8932,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fb06d4b6cdaef0e0c51fa881acb721bed3c924cfaa71d9c94a3b771dfdf6567"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "serialization_tests"
 version = "0.6.0"
 dependencies = [
@@ -10213,6 +10229,12 @@ dependencies = [
  "crypto-common",
  "subtle",
 ]
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc7ed8ba44ca06be78ea1ad2c3682a43349126c8818054231ee6f4748012aed2"
 
 [[package]]
 name = "unsigned-varint"
