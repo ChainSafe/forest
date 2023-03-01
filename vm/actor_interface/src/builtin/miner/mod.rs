@@ -6,16 +6,17 @@ use std::borrow::Cow;
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime_v10::runtime::Policy;
-use forest_shim::{
-    address::Address,
-    econ::TokenAmount,
-    sector::{RegisteredPoStProof, RegisteredSealProof, SectorSize},
-    state_tree::ActorState,
-};
+use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::{clock::ChainEpoch, deal::DealID, sector::SectorNumber};
+use fvm_shared::{
+    address::Address,
+    clock::ChainEpoch,
+    deal::DealID,
+    econ::TokenAmount,
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize},
+};
 use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};

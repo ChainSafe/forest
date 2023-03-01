@@ -3,8 +3,9 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::Serialize;
 
 use crate::BlockstoreExt;
