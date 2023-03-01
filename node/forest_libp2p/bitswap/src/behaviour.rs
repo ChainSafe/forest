@@ -4,28 +4,26 @@
 use std::sync::Arc;
 
 use libp2p::{
-    request_response::{
-        ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
-    },
-    swarm::NetworkBehaviour,
+    request_response::{self, ProtocolSupport, RequestId},
+    swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
 
 use crate::{codec::*, protocol::*, request_manager::*, *};
 
 /// `libp2p` swarm network behaviour event of `bitswap`
-pub type BitswapBehaviourEvent = RequestResponseEvent<Vec<BitswapMessage>, ()>;
+pub type BitswapBehaviourEvent = request_response::Event<Vec<BitswapMessage>, ()>;
 
 /// A `go-bitswap` compatible protocol that is built on top of
-/// [RequestResponse].
+/// [request_response::Behaviour].
 pub struct BitswapBehaviour {
-    inner: RequestResponse<BitswapRequestResponseCodec>,
+    inner: request_response::Behaviour<BitswapRequestResponseCodec>,
     request_manager: Arc<BitswapRequestManager>,
 }
 
 impl BitswapBehaviour {
     /// Creates a [BitswapBehaviour] instance
-    pub fn new(protocols: &[&'static [u8]], cfg: RequestResponseConfig) -> Self {
+    pub fn new(protocols: &[&'static [u8]], cfg: request_response::Config) -> Self {
         assert!(!protocols.is_empty(), "protocols cannot be empty");
 
         let protocols: Vec<_> = protocols
@@ -33,13 +31,13 @@ impl BitswapBehaviour {
             .map(|&n| (BitswapProtocol(n), ProtocolSupport::Full))
             .collect();
         BitswapBehaviour {
-            inner: RequestResponse::new(BitswapRequestResponseCodec, protocols, cfg),
+            inner: request_response::Behaviour::new(BitswapRequestResponseCodec, protocols, cfg),
             request_manager: Default::default(),
         }
     }
 
-    /// Gets mutable borrow of the inner [RequestResponse]
-    pub fn inner_mut(&mut self) -> &mut RequestResponse<BitswapRequestResponseCodec> {
+    /// Gets mutable borrow of the inner [request_response::Behaviour]
+    pub fn inner_mut(&mut self) -> &mut request_response::Behaviour<BitswapRequestResponseCodec> {
         &mut self.inner
     }
 
@@ -104,38 +102,82 @@ impl Default for BitswapBehaviour {
 
 impl NetworkBehaviour for BitswapBehaviour {
     type ConnectionHandler =
-        <RequestResponse<BitswapRequestResponseCodec> as NetworkBehaviour>::ConnectionHandler;
+        <request_response::Behaviour<BitswapRequestResponseCodec> as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent = <RequestResponse<BitswapRequestResponseCodec> as NetworkBehaviour>::OutEvent;
+    type OutEvent =
+        <request_response::Behaviour<BitswapRequestResponseCodec> as NetworkBehaviour>::OutEvent;
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.inner_mut().new_handler()
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        peer: PeerId,
+        local_addr: &libp2p::Multiaddr,
+        remote_addr: &libp2p::Multiaddr,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        self.inner_mut().handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
     }
 
-    fn addresses_of_peer(&mut self, peer: &PeerId) -> Vec<libp2p::Multiaddr> {
-        self.inner_mut().addresses_of_peer(peer)
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        peer: PeerId,
+        addr: &libp2p::Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        self.inner_mut().handle_established_outbound_connection(
+            connection_id,
+            peer,
+            addr,
+            role_override,
+        )
+    }
+
+    fn handle_pending_inbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        local_addr: &libp2p::Multiaddr,
+        remote_addr: &libp2p::Multiaddr,
+    ) -> Result<(), ConnectionDenied> {
+        self.inner_mut()
+            .handle_pending_inbound_connection(connection_id, local_addr, remote_addr)
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[libp2p::Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -> Result<Vec<libp2p::Multiaddr>, ConnectionDenied> {
+        self.inner_mut().handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
     }
 
     fn on_connection_handler_event(
         &mut self,
         peer_id: PeerId,
-        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as
-            libp2p::swarm::ConnectionHandler>::OutEvent,
+        connection_id: ConnectionId,
+        event: THandlerOutEvent<Self>,
     ) {
         self.inner_mut()
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn on_swarm_event(
-        &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<Self::ConnectionHandler>,
-    ) {
+    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
         match &event {
-            libp2p::swarm::derive_prelude::FromSwarm::ConnectionEstablished(e) => {
+            FromSwarm::ConnectionEstablished(e) => {
                 self.request_manager.on_peer_connected(e.peer_id);
             }
-            libp2p::swarm::derive_prelude::FromSwarm::ConnectionClosed(e) => {
+            FromSwarm::ConnectionClosed(e) => {
                 self.request_manager.on_peer_disconnected(&e.peer_id);
             }
             _ => {}
@@ -147,10 +189,8 @@ impl NetworkBehaviour for BitswapBehaviour {
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<
-        libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-    > {
+        params: &mut impl PollParameters,
+    ) -> std::task::Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
         self.inner_mut().poll(cx, params)
     }
 }

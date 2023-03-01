@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
@@ -96,7 +97,7 @@ pub struct MessageLookup {
 pub struct AddrInfo {
     #[serde(rename = "ID")]
     pub id: String,
-    pub addrs: Vec<Multiaddr>,
+    pub addrs: HashSet<Multiaddr>,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -37,6 +37,8 @@ cov forest-cli sync status
 cov forest-cli chain validate-tipset-checkpoints
 cov forest-cli snapshot export
 cov forest-cli attach --exec 'showPeers()'
+cov forest-cli net listen
+cov forest-cli net peers
 
 # This is rather ugly. Is there a better way of managing the tokens?
 TOKEN=$(grep "Admin token" forest.out  | cut -d ' ' -f 7)
