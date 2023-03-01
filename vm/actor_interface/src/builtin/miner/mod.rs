@@ -209,9 +209,9 @@ impl State {
     /// Gets fee debt of miner state
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.fee_debt.clone().into(),
-            State::V9(st) => st.fee_debt.clone().into(),
-            State::V10(st) => st.fee_debt.clone().into(),
+            State::V8(st) => st.fee_debt.clone(),
+            State::V9(st) => st.fee_debt.clone(),
+            State::V10(st) => st.fee_debt.clone(),
         }
     }
 }
@@ -240,25 +240,22 @@ impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner.into(),
-            worker: info.worker.into(),
+            owner: info.owner,
+            worker: info.worker,
             control_addresses: info
                 .control_addresses
                 .into_iter()
                 .map(Address::from)
                 .collect(),
-            new_worker: info
-                .pending_worker_key
-                .as_ref()
-                .map(|k| k.new_worker.into()),
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
                 .unwrap_or(-1),
             peer_id,
             multiaddrs: info.multi_address,
-            window_post_proof_type: info.window_post_proof_type.into(),
-            sector_size: info.sector_size.into(),
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }
@@ -271,25 +268,22 @@ impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner.into(),
-            worker: info.worker.into(),
+            owner: info.owner,
+            worker: info.worker,
             control_addresses: info
                 .control_addresses
                 .into_iter()
                 .map(Address::from)
                 .collect(),
-            new_worker: info
-                .pending_worker_key
-                .as_ref()
-                .map(|k| k.new_worker.into()),
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
                 .unwrap_or(-1),
             peer_id,
             multiaddrs: info.multi_address,
-            window_post_proof_type: info.window_post_proof_type.into(),
-            sector_size: info.sector_size.into(),
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }
@@ -302,25 +296,22 @@ impl From<fil_actor_miner_v10::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner.into(),
-            worker: info.worker.into(),
+            owner: info.owner,
+            worker: info.worker,
             control_addresses: info
                 .control_addresses
                 .into_iter()
                 .map(Address::from)
                 .collect(),
-            new_worker: info
-                .pending_worker_key
-                .as_ref()
-                .map(|k| k.new_worker.into()),
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
                 .unwrap_or(-1),
             peer_id,
             multiaddrs: info.multi_address,
-            window_post_proof_type: info.window_post_proof_type.into(),
-            sector_size: info.sector_size.into(),
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }
@@ -455,16 +446,16 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_v8::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
-            seal_proof: info.seal_proof.into(),
+            seal_proof: info.seal_proof,
             sealed_cid: info.sealed_cid,
             deal_ids: info.deal_ids,
             activation: info.activation,
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
+            initial_pledge: info.initial_pledge,
+            expected_day_reward: info.expected_day_reward,
+            expected_storage_pledge: info.expected_storage_pledge,
         }
     }
 }
@@ -473,16 +464,16 @@ impl From<fil_actor_miner_v9::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_v9::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
-            seal_proof: info.seal_proof.into(),
+            seal_proof: info.seal_proof,
             sealed_cid: info.sealed_cid,
             deal_ids: info.deal_ids,
             activation: info.activation,
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
+            initial_pledge: info.initial_pledge,
+            expected_day_reward: info.expected_day_reward,
+            expected_storage_pledge: info.expected_storage_pledge,
         }
     }
 }
@@ -491,16 +482,16 @@ impl From<fil_actor_miner_v10::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_v10::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
-            seal_proof: info.seal_proof.into(),
+            seal_proof: info.seal_proof,
             sealed_cid: info.sealed_cid,
             deal_ids: info.deal_ids,
             activation: info.activation,
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
+            initial_pledge: info.initial_pledge,
+            expected_day_reward: info.expected_day_reward,
+            expected_storage_pledge: info.expected_storage_pledge,
         }
     }
 }

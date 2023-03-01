@@ -121,9 +121,9 @@ impl State {
     /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_locked().into(),
-            State::V9(st) => st.total_locked().into(),
-            State::V10(st) => st.get_total_locked().into(),
+            State::V8(st) => st.total_locked(),
+            State::V9(st) => st.total_locked(),
+            State::V10(st) => st.get_total_locked(),
         }
     }
 
