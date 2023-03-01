@@ -153,33 +153,33 @@ fn get_fil_mined<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(&reward::ADDRESS)?
+        .get_actor(&Address::new_id(2).into())?
         .context("Reward actor address could not be resolved")?;
-    let state = reward::State::load(state_tree.store(), &actor)?;
+    let state = reward::State::load(state_tree.store(), &actor.into())?;
 
-    Ok(state.into_total_storage_power_reward())
+    Ok(state.into_total_storage_power_reward().into())
 }
 
 fn get_fil_market_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(&market::ADDRESS)?
+        .get_actor(&Address::new_id(5).into())?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
-    let state = market::State::load(state_tree.store(), &actor)?;
+    let state = market::State::load(state_tree.store(), &actor.into())?;
 
-    Ok(state.total_locked())
+    Ok(state.total_locked().into())
 }
 
 fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(&power::ADDRESS)?
+        .get_actor(&Address::new_id(4).into())?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-    let state = power::State::load(state_tree.store(), &actor)?;
+    let state = power::State::load(state_tree.store(), &actor.into())?;
 
-    Ok(state.into_total_locked())
+    Ok(state.into_total_locked().into())
 }
 
 fn get_fil_reserve_disbursed<DB: Blockstore + Store + Clone>(

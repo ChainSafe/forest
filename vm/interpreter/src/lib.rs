@@ -37,7 +37,7 @@ where
         .get_actor(addr)?
         .ok_or_else(|| anyhow::anyhow!("Failed to retrieve actor: {}", addr))?;
 
-    let acc_st = account::State::load(store, &act)?;
+    let acc_st = account::State::load(store, &act.into())?;
 
     Ok(acc_st.pubkey_address().into())
 }
