@@ -57,33 +57,40 @@ ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
 
 echo "Importing preloaded wallet key"
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import scripts/preloaded_wallet.key
-sleep 10s
+sleep 5s
 
 echo "Fetching metrics"
 wget -O metrics.log http://localhost:6116/metrics
 
-sleep 20s
+sleep 5s
 
 # Show balances
 echo "Listing wallet balances"
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet list
 
-# # # create a new address to send FIL to.
-# ADDR_TWO=`forest-cli --chain calibnet --token $ADMIN_TOKEN wallet new`
+echo "Creating a new address to send FIL to"
+ADDR_TWO=$(forest-cli --chain calibnet --token $ADMIN_TOKEN wallet new)
 
-# # send FIL to the above address
-# forest-cli --token $ADMIN_TOKEN send $ADDR_TWO $FIL_AMT
+echo "Send FIL to the above address"
+forest-cli --token $ADMIN_TOKEN send $ADDR_TWO $FIL_AMT
 
-# # Check balance of addr_two
-# timeout 5m && forest-cli --chain calibnet --token $ADMIN_TOKEN wallet balance $ADDR_TWO
-# # Export wallet
-# forest-cli --chain calibnet --token $ADMIN_TOKEN wallet export $ADDR_ONE > addr_two_pkey.key
-# # Import wallet
-# forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import addr_two_pkey.key || true
+echo "Check balance of $ADDR_TWO"
 
-# Get and print metrics and logs and kill forest
-# wget -O metrics.log http://localhost:6116/metrics
-# pkill forest
-# echo "--- Forest STDOUT ---"; cat forest.out
-# echo "--- Forest STDERR ---"; cat forest.err
-# echo "--- Forest Prometheus metrics ---"; cat metrics.log
+sleep 3m
+
+forest-cli --chain calibnet --token $ADMIN_TOKEN wallet balance $ADDR_TWO
+
+echo "Exporting wallet with "
+forest-cli --chain calibnet --token $ADMIN_TOKEN wallet export $ADDR_ONE > addr_two_pkey.test.key
+echo "Importing wallet"
+forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import addr_two_pkey.test.key || true
+
+# wallet list should contain address two will transfered FIL amount
+forest-cli --chain calibnet --token $ADMIN_TOKEN wallet list
+
+Get and print metrics and logs and kill forest
+wget -O metrics.log http://localhost:6116/metrics
+pkill forest
+echo "--- Forest STDOUT ---"; cat forest.out
+echo "--- Forest STDERR ---"; cat forest.err
+echo "--- Forest Prometheus metrics ---"; cat metrics.log
