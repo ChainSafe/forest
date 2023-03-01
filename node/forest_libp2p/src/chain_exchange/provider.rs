@@ -36,7 +36,7 @@ where
                 return ChainExchangeResponse {
                     chain: vec![],
                     status: ChainExchangeResponseStatus::InternalError,
-                    message: "Tipset was not found in the database".to_owned(),
+                    message: "Tipset was not found in the database".into(),
                 };
             }
         };
@@ -50,7 +50,7 @@ where
                     return ChainExchangeResponse {
                         chain: vec![],
                         status: ChainExchangeResponseStatus::InternalError,
-                        message: "Can not fulfil the request".to_owned(),
+                        message: "Can not fulfil the request".into(),
                     };
                 }
             }
@@ -82,7 +82,7 @@ where
         } else {
             ChainExchangeResponseStatus::Success
         },
-        message: "Success".to_owned(),
+        message: "Success".into(),
     }
 }
 

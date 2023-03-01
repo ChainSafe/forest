@@ -14,8 +14,8 @@ mod tests {
         Cid,
     };
     use libp2p::{
-        core, futures::StreamExt, identity, noise, request_response::RequestResponseMessage,
-        swarm::SwarmEvent, tcp, yamux, PeerId, Swarm, Transport,
+        core, futures::StreamExt, identity, noise, request_response, swarm::SwarmEvent, tcp, yamux,
+        PeerId, Swarm, Transport,
     };
 
     const TIMEOUT: Duration = Duration::from_secs(60);
@@ -55,7 +55,7 @@ mod tests {
                     SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message }) => {
                         let bitswap = &mut swarm.behaviour_mut();
                         match message {
-                            RequestResponseMessage::Request {
+                            request_response::Message::Request {
                                 request_id: _,
                                 request,
                                 channel,
@@ -96,7 +96,7 @@ mod tests {
                                     }
                                 }
                             }
-                            RequestResponseMessage::Response { .. } => {}
+                            request_response::Message::Response { .. } => {}
                         }
                     }
                     SwarmEvent::NewListenAddr {
