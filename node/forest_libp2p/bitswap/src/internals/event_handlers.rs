@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use libp2p::{request_response::RequestResponseMessage, PeerId};
+use libp2p::{request_response, PeerId};
 
 use crate::{request_manager::*, *};
 
@@ -22,7 +22,7 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
 ) -> anyhow::Result<()> {
     if let BitswapBehaviourEvent::Message { peer, message } = event {
         match message {
-            RequestResponseMessage::Request {
+            request_response::Message::Request {
                 request_id: _, // `request_id` is useless here for pairing request and response
                 request,
                 channel,
@@ -59,7 +59,7 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
                     }
                 }
             }
-            RequestResponseMessage::Response { .. } => {
+            request_response::Message::Response { .. } => {
                 // Left empty by design
             }
         }
