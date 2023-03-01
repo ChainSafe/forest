@@ -93,7 +93,6 @@ impl ForestBehaviour {
             .with_mdns(config.mdns)
             .with_kademlia(config.kademlia)
             .with_user_defined(config.bootstrap_peers.clone())
-            // TODO allow configuring this through config.
             .target_peer_count(config.target_peer_count as u64);
 
         ForestBehaviour {
