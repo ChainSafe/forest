@@ -104,7 +104,7 @@ impl<'a> DiscoveryConfig<'a> {
         let DiscoveryConfig {
             local_peer_id,
             user_defined,
-            target_peer_count: discovery_max,
+            target_peer_count,
             enable_mdns,
             enable_kademlia,
             network_name,
@@ -154,7 +154,7 @@ impl<'a> DiscoveryConfig<'a> {
             mdns: mdns_opt.into(),
             peers,
             peer_addresses,
-            discovery_max,
+            target_peer_count,
         }
     }
 }
@@ -182,8 +182,8 @@ pub struct DiscoveryBehaviour {
     peers: HashSet<PeerId>,
     /// Keeps hash map of peers and their multi-addresses
     peer_addresses: HashMap<PeerId, HashSet<Multiaddr>>,
-    /// Number of active connections to pause discovery on.
-    discovery_max: u64,
+    /// Number of connected peers to pause discovery on.
+    target_peer_count: u64,
 }
 
 impl DiscoveryBehaviour {
@@ -323,7 +323,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         // Poll the stream that fires when we need to start a random Kademlia query.
         while self.next_kad_random_query.poll_tick(cx).is_ready() {
-            if self.n_node_connected < self.discovery_max {
+            if self.n_node_connected < self.target_peer_count {
                 // We still have not hit the discovery max, send random request for peers.
                 let random_peer_id = PeerId::random();
                 debug!(
@@ -397,7 +397,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             match ev {
                 NetworkBehaviourAction::GenerateEvent(event) => match event {
                     MdnsEvent::Discovered(list) => {
-                        if self.n_node_connected >= self.discovery_max {
+                        if self.n_node_connected >= self.target_peer_count {
                             // Already over discovery max, don't add discovered peers.
                             // We could potentially buffer these addresses to be added later,
                             // but mdns is not an important use case and may be removed in future.
