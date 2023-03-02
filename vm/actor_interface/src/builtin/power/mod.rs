@@ -6,10 +6,11 @@ use cid::Cid;
 use fil_actors_runtime_v9::runtime::Policy;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::from_slice;
 use fvm_shared::{address::Address, econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
-use crate::{BlockstoreExt, FilterEstimate};
+use crate::FilterEstimate;
 
 /// Power actor address.
 // TODO: Select address based on actors version
@@ -67,19 +68,25 @@ impl State {
     {
         if is_v8_power_cid(&actor.code) {
             return store
-                .get_obj(&actor.state)?
+                .get(&actor.state)?
+                .map(|bz| from_slice(&bz))
+                .transpose()?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_power_cid(&actor.code) {
             return store
-                .get_obj(&actor.state)?
+                .get(&actor.state)?
+                .map(|bz| from_slice(&bz))
+                .transpose()?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_power_cid(&actor.code) {
             return store
-                .get_obj(&actor.state)?
+                .get(&actor.state)?
+                .map(|bz| from_slice(&bz))
+                .transpose()?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }

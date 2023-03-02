@@ -5,10 +5,9 @@ use anyhow::Context;
 use cid::Cid;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::from_slice;
 use fvm_shared::address::Address;
 use serde::Serialize;
-
-use crate::BlockstoreExt;
 
 /// Init actor address.
 pub const ADDRESS: Address = Address::new_id(1);
@@ -64,19 +63,25 @@ impl State {
     {
         if is_v8_init_cid(&actor.code) {
             return store
-                .get_obj(&actor.state)?
+                .get(&actor.state)?
+                .map(|bz| from_slice(&bz))
+                .transpose()?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_init_cid(&actor.code) {
             return store
-                .get_obj(&actor.state)?
+                .get(&actor.state)?
+                .map(|bz| from_slice(&bz))
+                .transpose()?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_init_cid(&actor.code) {
             return store
-                .get_obj(&actor.state)?
+                .get(&actor.state)?
+                .map(|bz| from_slice(&bz))
+                .transpose()?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
