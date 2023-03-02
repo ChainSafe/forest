@@ -10,7 +10,6 @@ use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use forest_shim::{
     address::Address,
-    consts::*,
     econ::TokenAmount,
     error::ExitCode,
     executor::{ApplyRet, Receipt},
@@ -191,8 +190,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg: Message = Message_v3 {
-            from: SYSTEM_ADDR.into(),
-            to: CRON_ADDR.into(),
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::CRON_ACTOR.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -400,8 +399,8 @@ impl RewardCalc for RewardActorMessageCalc {
         })?;
 
         let rew_msg = Message_v3 {
-            from: SYSTEM_ADDR.into(),
-            to: REWARD_ADDR.into(),
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::REWARD_ACTOR.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
             // Epoch as sequence is intentional
@@ -450,7 +449,7 @@ impl RewardCalc for FixedRewardCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message_v3 {
-            from: REWARD_ADDR.into(),
+            from: Address::REWARD_ACTOR.into(),
             to: miner.into(),
             method_num: METHOD_SEND,
             params: Default::default(),

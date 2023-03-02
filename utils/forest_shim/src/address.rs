@@ -20,6 +20,13 @@ use serde::{Deserialize, Serialize};
 pub struct Address(Address_v3);
 
 impl Address {
+    pub const SYSTEM_ACTOR: Address = Address::new_id(0);
+    pub const INIT_ACTOR: Address = Address::new_id(1);
+    pub const REWARD_ACTOR: Address = Address::new_id(2);
+    pub const CRON_ACTOR: Address = Address::new_id(3);
+    pub const POWER_ACTOR: Address = Address::new_id(4);
+    pub const MARKET_ACTOR: Address = Address::new_id(5);
+
     pub const fn new_id(id: u64) -> Self {
         Address(Address_v3::new_id(id))
     }
