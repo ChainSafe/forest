@@ -6,7 +6,6 @@ use std::{string::ToString, time::Instant};
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_cli_shared::cli::cli_error_and_die;
 use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, state_start_time, wallet_default_address,
 };
@@ -34,11 +33,8 @@ pub struct NodeStatusInfo {
     sync_status: SyncStatus,
 }
 
-pub async fn node_status(config: &Config) -> NodeStatusInfo {
-    let chain_head = match chain_head(&config.client.rpc_token).await {
-        Ok(head) => head.0,
-        Err(_) => cli_error_and_die("Could not get network head. Is the node running?", 1),
-    };
+pub async fn node_status(config: &Config) -> Result<NodeStatusInfo, anyhow::Error> {
+    let chain_head = chain_head(&config.client.rpc_token).await.map(|tp| tp.0)?;
 
     let chain_finality = config.chain.policy.chain_finality;
     let epoch = chain_head.epoch();
@@ -63,16 +59,7 @@ pub async fn node_status(config: &Config) -> NodeStatusInfo {
         let mut block_count = 0;
         let mut ts = chain_head;
 
-        for _ in 0..100 {
-            block_count += ts.blocks().len();
-            let tsk = ts.parents();
-            let tsk = TipsetKeysJson(tsk.clone());
-            if let Ok(tsjson) = chain_get_tipset((tsk,), &config.client.rpc_token).await {
-                ts = tsjson.0;
-            }
-        }
-
-        for _ in 100..chain_finality {
+        for _ in 0..chain_finality {
             block_count += ts.blocks().len();
             let tsk = ts.parents();
             let tsk = TipsetKeysJson(tsk.clone());
@@ -88,18 +75,18 @@ pub async fn node_status(config: &Config) -> NodeStatusInfo {
 
     let health = 100 * (900 * blocks_per_tipset_last_finality) / (900 * 5);
 
-    NodeStatusInfo {
+    Ok(NodeStatusInfo {
         behind,
         health,
         epoch,
         base_fee,
         sync_status,
-    }
+    })
 }
 
 impl InfoCommand {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
-        let node_status = node_status(&config).await;
+        let node_status = node_status(&config).await?;
 
         // uptime
         let start_time = state_start_time(&config.client.rpc_token)
