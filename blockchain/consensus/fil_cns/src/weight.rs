@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use forest_actor_interface::power;
 use forest_blocks::Tipset;
-use forest_shim::{address::Address, state_tree::StateTree};
+use forest_shim::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
 use num_traits::Zero;
@@ -25,7 +25,7 @@ where
     let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
 
     let act = state
-        .get_actor(&Address::new_id(4))
+        .get_actor(&power::ADDRESS.into())
         .map_err(|e| e.to_string())?
         .ok_or("Failed to load power actor for calculating weight")?;
 

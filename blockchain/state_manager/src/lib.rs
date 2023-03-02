@@ -293,14 +293,12 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
-            .get_actor(&Address::new_id(4), *state_cid)?
+            .get_actor(&forest_actor_interface::power::ADDRESS.into(), *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor.into())?;
 
-        Ok(spas
-            .miner_power(self.blockstore(), &(*addr).into())?
-            .is_none())
+        Ok(spas.miner_power(self.blockstore(), &addr.into())?.is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
@@ -333,7 +331,7 @@ where
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(&Address::new_id(4), *state_cid)?
+            .get_actor(&forest_actor_interface::power::ADDRESS.into(), *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor.into())?;
@@ -342,13 +340,13 @@ where
 
         if let Some(maddr) = addr {
             let m_pow = spas
-                .miner_power(self.blockstore(), &(*maddr).into())?
+                .miner_power(self.blockstore(), &maddr.into())?
                 .ok_or_else(|| Error::State(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config.policy,
                 self.blockstore(),
-                &(*maddr).into(),
+                &maddr.into(),
             )?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
@@ -690,7 +688,10 @@ where
         }
 
         let actor = self
-            .get_actor(&Address::new_id(4), *base_tipset.parent_state())?
+            .get_actor(
+                &forest_actor_interface::power::ADDRESS.into(),
+                *base_tipset.parent_state(),
+            )?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let power_state = power::State::load(self.blockstore(), &actor.into())?;
@@ -703,7 +704,7 @@ where
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), &(*address).into())?
+            .miner_power(self.blockstore(), &address.into())?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -1117,7 +1118,10 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(&Address::new_id(5), *ts.parent_state())?
+            .get_actor(
+                &forest_actor_interface::market::ADDRESS.into(),
+                *ts.parent_state(),
+            )?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
@@ -1177,11 +1181,14 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
         let actor = self
-            .get_actor(&Address::new_id(4), *ts.parent_state())?
+            .get_actor(
+                &forest_actor_interface::power::ADDRESS.into(),
+                *ts.parent_state(),
+            )?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor.into())?;
 
-        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &(*addr).into())
+        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
     }
 
     pub async fn validate_chain(
