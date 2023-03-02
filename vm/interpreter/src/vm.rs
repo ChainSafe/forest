@@ -43,6 +43,10 @@ use crate::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
 pub(crate) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
 
+const SYSTEM_ADDR: Address = Address::new_id(0);
+const CRON_ADDR: Address = Address::new_id(3);
+const REWARD_ADDR: Address = Address::new_id(2);
+
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>;
@@ -190,8 +194,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg: Message = Message_v3 {
-            from: Address::new_id(0).into(),
-            to: Address::new_id(3).into(),
+            from: SYSTEM_ADDR.into(),
+            to: CRON_ADDR.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -399,8 +403,8 @@ impl RewardCalc for RewardActorMessageCalc {
         })?;
 
         let rew_msg = Message_v3 {
-            from: Address::new_id(0).into(),
-            to: Address::new_id(2).into(),
+            from: SYSTEM_ADDR.into(),
+            to: REWARD_ADDR.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
             // Epoch as sequence is intentional
@@ -449,7 +453,7 @@ impl RewardCalc for FixedRewardCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message_v3 {
-            from: Address::new_id(2).into(),
+            from: REWARD_ADDR.into(),
             to: miner.into(),
             method_num: METHOD_SEND,
             params: Default::default(),
