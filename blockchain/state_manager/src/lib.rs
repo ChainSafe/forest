@@ -291,7 +291,7 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
-            .get_actor(&forest_actor_interface::power::ADDRESS.into(), *state_cid)?
+            .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor.into())?;
@@ -329,7 +329,7 @@ where
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(&forest_actor_interface::power::ADDRESS.into(), *state_cid)?
+            .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor.into())?;
@@ -686,10 +686,7 @@ where
         }
 
         let actor = self
-            .get_actor(
-                &forest_actor_interface::power::ADDRESS.into(),
-                *base_tipset.parent_state(),
-            )?
+            .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let power_state = power::State::load(self.blockstore(), &actor.into())?;
@@ -1116,10 +1113,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(
-                &forest_actor_interface::market::ADDRESS.into(),
-                *ts.parent_state(),
-            )?
+            .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
@@ -1179,10 +1173,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
         let actor = self
-            .get_actor(
-                &forest_actor_interface::power::ADDRESS.into(),
-                *ts.parent_state(),
-            )?
+            .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor.into())?;
 

@@ -26,6 +26,11 @@ impl Address {
     pub const CRON_ACTOR: Address = Address::new_id(3);
     pub const POWER_ACTOR: Address = Address::new_id(4);
     pub const MARKET_ACTOR: Address = Address::new_id(5);
+    pub const VERIFIED_REGISTRY_ACTOR: Address = Address::new_id(6);
+    pub const DATACAP_TOKEN_ACTOR: Address = Address::new_id(7);
+    pub const RESERVE_ACTOR: Address = Address::new_id(90);
+    pub const CHAOS_ACTOR: Address = Address::new_id(98);
+    pub const BURNT_FUNDS_ACTOR: Address = Address::new_id(99);
 
     pub const fn new_id(id: u64) -> Self {
         Address(Address_v3::new_id(id))

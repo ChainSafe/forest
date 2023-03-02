@@ -210,7 +210,7 @@ fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
         .start_timer();
 
     let actor = state_manager
-        .get_actor(&power::ADDRESS.into(), *tipset_state)
+        .get_actor(&Address::POWER_ACTOR, *tipset_state)
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
         .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
 
