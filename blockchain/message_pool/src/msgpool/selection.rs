@@ -694,7 +694,7 @@ mod test_selection {
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
-    use fvm_shared::crypto::signature::SignatureType;
+    use forest_shim::crypto::SignatureType;
     use tokio::task::JoinSet;
 
     use super::*;

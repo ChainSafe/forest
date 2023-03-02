@@ -18,7 +18,7 @@
         "vue": "^3.2.47"
     },
     "devDependencies": {
-        "@babel/core": "^7.20.12",
+        "@babel/core": "^7.21.0",
         "@parcel/config-default": "^2.8.3",
         "@parcel/core": "^2.8.3",
         "@parcel/transformer-inline-string": "^2.8.3",

@@ -106,46 +106,15 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use forest_shim::{
-        sector::{PoStProof, RegisteredPoStProof},
-        Inner,
-    };
+    use forest_shim::sector::PoStProof;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
-    #[derive(Clone, Debug, PartialEq)]
-    struct PoStProofWrapper {
-        postproof: PoStProof,
-    }
-
-    type RegisteredPoStProofFVM = <RegisteredPoStProof as Inner>::FVM;
-
-    impl quickcheck::Arbitrary for PoStProofWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let registered_postproof = g
-                .choose(&[
-                    RegisteredPoStProofFVM::StackedDRGWinning2KiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWinning8MiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWinning512MiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWinning32GiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWinning64GiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWindow2KiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWindow8MiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWindow512MiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWindow32GiBV1,
-                    RegisteredPoStProofFVM::StackedDRGWindow64GiBV1,
-                ])
-                .unwrap();
-            let postproof = PoStProof::new((*registered_postproof).into(), Vec::arbitrary(g));
-            PoStProofWrapper { postproof }
-        }
-    }
-
     #[quickcheck]
-    fn postproof_roundtrip(postproof: PoStProofWrapper) {
+    fn postproof_roundtrip(postproof: PoStProof) {
         let serialized: String =
-            forest_test_utils::to_string_with!(&postproof.postproof, super::json::serialize);
+            forest_test_utils::to_string_with!(&postproof, super::json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, super::json::deserialize);
-        assert_eq!(postproof.postproof, parsed);
+        assert_eq!(postproof, parsed);
     }
 }

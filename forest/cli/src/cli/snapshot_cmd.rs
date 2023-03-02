@@ -14,6 +14,7 @@ use forest_cli_shared::cli::{
 use forest_db::{db_engine::open_db, Store};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
+use forest_rpc_api::chain_api::ChainExportParams;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
 use fvm_shared::clock::ChainEpoch;
@@ -54,6 +55,10 @@ pub enum SnapshotCommands {
         /// Skip creating the checksum file.
         #[arg(long)]
         skip_checksum: bool,
+        /// Skip writing to the snapshot `.car` file specified by
+        /// `--output-path`.
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
@@ -149,6 +154,7 @@ impl SnapshotCommands {
                 recent_stateroots,
                 output_path,
                 skip_checksum,
+                dry_run,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
@@ -188,13 +194,14 @@ impl SnapshotCommands {
                     }
                 };
 
-                let params = (
+                let params = ChainExportParams {
                     epoch,
-                    *recent_stateroots,
+                    recent_roots: *recent_stateroots,
                     output_path,
-                    TipsetKeysJson(chain_head.key().clone()),
-                    *skip_checksum,
-                );
+                    tipset_keys: TipsetKeysJson(chain_head.key().clone()),
+                    skip_checksum: *skip_checksum,
+                    dry_run: *dry_run,
+                };
 
                 let out = chain_export(params, &config.client.rpc_token)
                     .await

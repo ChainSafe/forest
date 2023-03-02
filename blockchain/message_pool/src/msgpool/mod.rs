@@ -15,9 +15,8 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
-use forest_shim::address::Address;
+use forest_shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
@@ -337,10 +336,10 @@ pub mod tests {
     use forest_networks::ChainConfig;
     use forest_shim::{
         address::Address,
+        crypto::SignatureType,
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
-    use fvm_shared::crypto::signature::SignatureType;
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;

@@ -11,7 +11,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
-    set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
 };
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +45,12 @@ impl Address {
     }
 }
 
+impl quickcheck::Arbitrary for Address {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Address(Address_v3::arbitrary(g))
+    }
+}
+
 impl FromStr for Address {
     type Err = <Address_v3 as FromStr>::Err;
 
@@ -53,19 +59,7 @@ impl FromStr for Address {
     }
 }
 
-impl Cbor for Address {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, fvm_ipld_encoding::Error> {
-        Address_v2::from(self).marshal_cbor()
-    }
-
-    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, fvm_ipld_encoding::Error> {
-        Address_v2::unmarshal_cbor(bz).map(Address::from)
-    }
-
-    fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
-        Address_v2::from(self).cid()
-    }
-}
+impl Cbor for Address {}
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

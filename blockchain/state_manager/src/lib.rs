@@ -7,10 +7,7 @@ mod metrics;
 mod utils;
 mod vm_circ_supply;
 
-use std::{
-    num::NonZeroUsize,
-    sync::{Arc, Mutex as StdMutex},
-};
+use std::{num::NonZeroUsize, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
@@ -23,7 +20,6 @@ use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
-use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
@@ -38,12 +34,14 @@ use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::externs::Rand;
 use fvm3::externs::Rand as Rand_v3;
+use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
+use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -74,7 +72,7 @@ impl Default for TipsetStateCacheInner {
 }
 
 struct TipsetStateCache {
-    cache: Arc<StdMutex<TipsetStateCacheInner>>,
+    cache: Arc<SyncMutex<TipsetStateCacheInner>>,
 }
 
 enum Status {
@@ -85,7 +83,7 @@ enum Status {
 impl TipsetStateCache {
     pub fn new() -> Self {
         Self {
-            cache: Arc::new(StdMutex::new(TipsetStateCacheInner::default())),
+            cache: Arc::new(SyncMutex::new(TipsetStateCacheInner::default())),
         }
     }
 
@@ -93,7 +91,7 @@ impl TipsetStateCache {
     where
         F: FnOnce(&mut TipsetStateCacheInner) -> T,
     {
-        let mut lock = self.cache.lock().unwrap();
+        let mut lock = self.cache.lock();
         func(&mut lock)
     }
 
