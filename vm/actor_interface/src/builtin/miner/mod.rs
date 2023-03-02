@@ -9,7 +9,7 @@ use fil_actors_runtime_v10::runtime::Policy;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{from_slice, BytesDe};
+use fvm_ipld_encoding::BytesDe;
 use fvm_shared::{
     address::Address,
     clock::ChainEpoch,
@@ -21,7 +21,7 @@ use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-use crate::power::Claim;
+use crate::{io::get_obj, power::Claim};
 /// Miner actor method.
 pub type Method = fil_actor_miner_v8::Method;
 
@@ -73,26 +73,17 @@ impl State {
         BS: Blockstore,
     {
         if is_v8_miner_cid(&actor.code) {
-            return store
-                .get(&actor.state)?
-                .map(|bz| from_slice(&bz))
-                .transpose()?
+            return get_obj(store, &actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_miner_cid(&actor.code) {
-            return store
-                .get(&actor.state)?
-                .map(|bz| from_slice(&bz))
-                .transpose()?
+            return get_obj(store, &actor.state)?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_miner_cid(&actor.code) {
-            return store
-                .get(&actor.state)?
-                .map(|bz| from_slice(&bz))
-                .transpose()?
+            return get_obj(store, &actor.state)?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }

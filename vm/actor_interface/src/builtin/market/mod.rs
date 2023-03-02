@@ -7,10 +7,11 @@ use anyhow::Context;
 use cid::Cid;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::from_slice;
 use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
+
+use crate::io::get_obj;
 
 /// Market actor address.
 pub const ADDRESS: Address = Address::new_id(5);
@@ -65,26 +66,17 @@ impl State {
         BS: Blockstore,
     {
         if is_v8_market_cid(&actor.code) {
-            return store
-                .get(&actor.state)?
-                .map(|bz| from_slice(&bz))
-                .transpose()?
+            return get_obj(store, &actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_market_cid(&actor.code) {
-            return store
-                .get(&actor.state)?
-                .map(|bz| from_slice(&bz))
-                .transpose()?
+            return get_obj(store, &actor.state)?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_market_cid(&actor.code) {
-            return store
-                .get(&actor.state)?
-                .map(|bz| from_slice(&bz))
-                .transpose()?
+            return get_obj(store, &actor.state)?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
