@@ -10,6 +10,7 @@ use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use forest_shim::{
     address::Address,
+    consts::*,
     econ::TokenAmount,
     error::ExitCode,
     executor::{ApplyRet, Receipt},
@@ -42,10 +43,6 @@ use crate::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
 pub(crate) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
-
-const SYSTEM_ADDR: Address = Address::new_id(0);
-const CRON_ADDR: Address = Address::new_id(3);
-const REWARD_ADDR: Address = Address::new_id(2);
 
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
