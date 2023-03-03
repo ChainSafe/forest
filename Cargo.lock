@@ -1309,7 +1309,7 @@ dependencies = [
  "multihash 0.16.3",
  "serde",
  "serde_bytes",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -1427,15 +1427,6 @@ dependencies = [
  "error-code",
  "str-buf",
  "winapi",
-]
-
-[[package]]
-name = "cmake"
-version = "0.1.49"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db34956e100b30725f2eb215f90d4871051239535632f84fea3bc92722c66b7c"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -2561,28 +2552,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
-]
-
-[[package]]
 name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3077,7 +3046,7 @@ dependencies = [
  "serde_repr",
  "sha2 0.10.6",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -3106,7 +3075,7 @@ dependencies = [
  "serde_repr",
  "sha2 0.10.6",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -3135,7 +3104,7 @@ dependencies = [
  "serde_repr",
  "sha2 0.10.6",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -3918,7 +3887,7 @@ dependencies = [
  "serde",
  "tokio",
  "tracing",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "walkdir",
 ]
 
@@ -4638,7 +4607,7 @@ dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "serde",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -4788,7 +4757,7 @@ dependencies = [
  "serde_repr",
  "serde_tuple",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -4817,7 +4786,7 @@ dependencies = [
  "serde_repr",
  "serde_tuple",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -4850,7 +4819,7 @@ dependencies = [
  "serde_repr",
  "serde_tuple",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -5614,7 +5583,6 @@ dependencies = [
  "libipld-core 0.14.0",
  "libipld-json",
  "libipld-macro",
- "libipld-pb",
  "log",
  "multihash 0.16.3",
  "parking_lot 0.12.1",
@@ -5694,18 +5662,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "852c011562ae5059b67c3a917f9f5945af5a68df8e39ede4444fff33274d25e2"
 dependencies = [
  "libipld-core 0.14.0",
-]
-
-[[package]]
-name = "libipld-pb"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c003be513496578115256a1b4ac7b80d4ece2462c9869dfb736fd30d8bb1d1c0"
-dependencies = [
- "libipld-core 0.14.0",
- "prost 0.10.4",
- "prost-build 0.10.4",
- "thiserror",
 ]
 
 [[package]]
@@ -5796,14 +5752,14 @@ dependencies = [
  "parking_lot 0.12.1",
  "pin-project",
  "prost 0.11.8",
- "prost-build 0.11.8",
+ "prost-build",
  "rand 0.8.5",
  "rw-stream-sink",
  "sec1",
  "sha2 0.10.6",
  "smallvec",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "void",
  "zeroize",
 ]
@@ -5841,14 +5797,14 @@ dependencies = [
  "log",
  "prometheus-client",
  "prost 0.11.8",
- "prost-build 0.11.8",
+ "prost-build",
  "prost-codec",
  "rand 0.8.5",
  "regex",
  "sha2 0.10.6",
  "smallvec",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "wasm-timer",
 ]
 
@@ -5867,7 +5823,7 @@ dependencies = [
  "log",
  "lru",
  "prost 0.11.8",
- "prost-build 0.11.8",
+ "prost-build",
  "prost-codec",
  "smallvec",
  "thiserror",
@@ -5892,13 +5848,13 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prost 0.11.8",
- "prost-build 0.11.8",
+ "prost-build",
  "rand 0.8.5",
  "sha2 0.10.6",
  "smallvec",
  "thiserror",
  "uint",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "void",
 ]
 
@@ -5950,7 +5906,7 @@ dependencies = [
  "log",
  "once_cell",
  "prost 0.11.8",
- "prost-build 0.11.8",
+ "prost-build",
  "rand 0.8.5",
  "sha2 0.10.6",
  "snow",
@@ -6013,7 +5969,7 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "smallvec",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -6117,7 +6073,7 @@ dependencies = [
  "log",
  "multihash 0.17.0",
  "prost 0.11.8",
- "prost-build 0.11.8",
+ "prost-build",
  "prost-codec",
  "rand 0.8.5",
  "rcgen 0.9.3",
@@ -6579,7 +6535,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "static_assertions",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "url",
 ]
 
@@ -6592,17 +6548,6 @@ dependencies = [
  "base-x",
  "data-encoding",
  "data-encoding-macro",
-]
-
-[[package]]
-name = "multicodec"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f287a558ce2cac6f63944876d2f76ae2254a17fbe174c82967e76e0aab3379ed"
-dependencies = [
- "failure",
- "serde",
- "unsigned-varint 0.2.3",
 ]
 
 [[package]]
@@ -6622,7 +6567,7 @@ dependencies = [
  "serde-big-array",
  "sha2 0.10.6",
  "sha3",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -6631,11 +6576,12 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
 dependencies = [
+ "blake2b_simd",
  "core2",
  "digest 0.10.6",
  "multihash-derive",
  "sha2 0.10.6",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -6669,7 +6615,7 @@ dependencies = [
  "log",
  "pin-project",
  "smallvec",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -7674,44 +7620,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71adf41db68aa0daaefc69bb30bcd68ded9b9abaad5d1fbb6304c4fb390e083e"
-dependencies = [
- "bytes 1.4.0",
- "prost-derive 0.10.1",
-]
-
-[[package]]
-name = "prost"
 version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e48e50df39172a3e7eb17e14642445da64996989bc212b583015435d39a58537"
 dependencies = [
  "bytes 1.4.0",
  "prost-derive 0.11.8",
-]
-
-[[package]]
-name = "prost-build"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ae5a4388762d5815a9fc0dea33c56b021cdc8dde0c55e0c9ca57197254b0cab"
-dependencies = [
- "bytes 1.4.0",
- "cfg-if 1.0.0",
- "cmake",
- "heck",
- "itertools 0.10.5",
- "lazy_static",
- "log",
- "multimap",
- "petgraph",
- "prost 0.10.4",
- "prost-types 0.10.1",
- "regex",
- "tempfile",
- "which",
 ]
 
 [[package]]
@@ -7746,7 +7660,7 @@ dependencies = [
  "bytes 1.4.0",
  "prost 0.11.8",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -7754,19 +7668,6 @@ name = "prost-derive"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b670f45da57fb8542ebdbb6105a925fe571b67f9e7ed9f47a06a84e72b4e7cc"
 dependencies = [
  "anyhow",
  "itertools 0.10.5",
@@ -7796,16 +7697,6 @@ checksum = "534b7a0e836e3c482d2693070f982e39e7611da9695d4d1f5a4b186b51faef0a"
 dependencies = [
  "bytes 1.4.0",
  "prost 0.9.0",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0a014229361011dc8e69c8a1ec6c2e8d0f2af7c91e3ea3f5b2170298461e68"
-dependencies = [
- "bytes 1.4.0",
- "prost 0.10.4",
 ]
 
 [[package]]
@@ -8364,27 +8255,20 @@ dependencies = [
 
 [[package]]
 name = "rs-car"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b84e44d4f4b77a57c099f83b12f8f659fd19725edc524edc0bb19c1d3d34584"
+checksum = "5443e6cae0998fb43ded048de275fa67d2a5046ab07562120b8b71ab71ad7387"
 dependencies = [
- "blake2b_simd",
- "cid",
  "futures",
- "hex",
  "libipld",
- "libipld-cbor",
- "multibase",
- "multicodec",
- "multihash 0.16.3",
- "sha2 0.10.6",
+ "multihash 0.17.0",
 ]
 
 [[package]]
 name = "rs-car-ipfs"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4177bc55a54edae39cf7553e727abd51ee4d3a9a82bbd2d48fd7deb7140ffee6"
+checksum = "1ced3977ca80da31daaf6a0530b0e4536eb704be5a5b8ed9de1368be43d44524"
 dependencies = [
  "futures",
  "quick-protobuf",
@@ -10285,12 +10169,6 @@ dependencies = [
  "crypto-common",
  "subtle",
 ]
-
-[[package]]
-name = "unsigned-varint"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7f0023a96687fe169081e8adce3f65e3874426b7886e9234d490af2dc077959"
 
 [[package]]
 name = "unsigned-varint"
