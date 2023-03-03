@@ -8254,13 +8254,14 @@ dependencies = [
 
 [[package]]
 name = "rs-car"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5443e6cae0998fb43ded048de275fa67d2a5046ab07562120b8b71ab71ad7387"
+checksum = "cf69c4017006c0101362b5df74ee230331703e9938f970468dc1e429afe12998"
 dependencies = [
+ "blake2b_simd",
  "futures",
  "libipld",
- "multihash 0.16.3",
+ "sha2 0.10.6",
 ]
 
 [[package]]
