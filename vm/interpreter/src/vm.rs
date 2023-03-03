@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ahash::HashSet;
 use cid::Cid;
-use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
+use forest_actor_interface::{cron, reward, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use forest_shim::{
@@ -190,8 +190,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg: Message = Message_v3 {
-            from: system::ADDRESS.into(),
-            to: cron::ADDRESS.into(),
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::CRON_ACTOR.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -399,8 +399,8 @@ impl RewardCalc for RewardActorMessageCalc {
         })?;
 
         let rew_msg = Message_v3 {
-            from: system::ADDRESS.into(),
-            to: reward::ADDRESS.into(),
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::REWARD_ACTOR.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
             // Epoch as sequence is intentional
@@ -449,7 +449,7 @@ impl RewardCalc for FixedRewardCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message_v3 {
-            from: reward::ADDRESS.into(),
+            from: Address::REWARD_ACTOR.into(),
             to: miner.into(),
             method_num: METHOD_SEND,
             params: Default::default(),
