@@ -6576,7 +6576,6 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
 dependencies = [
- "blake2b_simd",
  "core2",
  "digest 0.10.6",
  "multihash-derive",
@@ -8261,7 +8260,7 @@ checksum = "5443e6cae0998fb43ded048de275fa67d2a5046ab07562120b8b71ab71ad7387"
 dependencies = [
  "futures",
  "libipld",
- "multihash 0.17.0",
+ "multihash 0.16.3",
 ]
 
 [[package]]
