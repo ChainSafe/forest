@@ -152,7 +152,7 @@ mod tests {
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
-        let start_time = OffsetDateTime::now_utc();
+        let start_time = OffsetDateTime::now_local();
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),

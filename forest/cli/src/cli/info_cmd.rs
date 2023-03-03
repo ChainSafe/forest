@@ -33,12 +33,14 @@ pub struct NodeStatusInfo {
     sync_status: SyncStatus,
 }
 
-pub async fn node_status(config: &Config) -> Result<NodeStatusInfo, anyhow::Error> {
-    let chain_head = chain_head(&config.client.rpc_token).await.map(|tp| tp.0)?;
+pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyhow::Error> {
+    let chain_head = chain_head(&config.client.rpc_token)
+        .await
+        .map_err(|_| anyhow::Error::msg("couldn't fetch chain head, is the node running?"))?;
 
     let chain_finality = config.chain.policy.chain_finality;
-    let epoch = chain_head.epoch();
-    let ts = chain_head.min_timestamp();
+    let epoch = chain_head.0.epoch();
+    let ts = chain_head.0.min_timestamp();
     let now = Instant::now().elapsed().as_secs();
     let delta = ts - now;
     let behind = delta / 30;
@@ -51,13 +53,13 @@ pub async fn node_status(config: &Config) -> Result<NodeStatusInfo, anyhow::Erro
         SyncStatus::Behind
     };
 
-    let base_fee = chain_head.min_ticket_block().parent_base_fee();
+    let base_fee = chain_head.0.min_ticket_block().parent_base_fee();
     let base_fee = base_fee.to_string();
 
     // chain health
     let blocks_per_tipset_last_finality = if epoch > chain_finality {
         let mut block_count = 0;
-        let mut ts = chain_head;
+        let mut ts = chain_head.0;
 
         for _ in 0..chain_finality {
             block_count += ts.blocks().len();
