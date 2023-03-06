@@ -73,7 +73,7 @@ $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
 
 echo "Creating a new address to send FIL to:"
 ADDR_TWO=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet new)
-echo $ADDR_TWO
+echo "$ADDR_TWO"
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet set-default "t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y"
 
 echo "Listing wallet balances"
