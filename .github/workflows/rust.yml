@@ -152,11 +152,6 @@ jobs:
         run: forest-cli fetch-params --keys
       - name: download snapshot
         run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
-      - name: validate snapshot
-        run: |
-          forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
-          { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
-          forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
       - name: import snapshot and run Forest
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
@@ -179,6 +174,11 @@ jobs:
         run: |
           forest-cli net listen
           forest-cli net peers
+      - name: validate snapshot
+        run: |
+          forest-cli --chain mainnet --rpc false snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
+          { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
+          forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
       - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
