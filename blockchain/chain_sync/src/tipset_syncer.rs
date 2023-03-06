@@ -13,7 +13,9 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use forest_actor_interface::is_account_actor;
+use forest_actor_interface::{
+    is_account_actor, is_eth_account_actor, is_placeholder_actor, ETHEREUM_ADDRESS_MANAGER_ACTOR_ID,
+};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -23,7 +25,11 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
 use forest_shim::{
-    address::Address, gas::price_list_by_network_version, message::Message, state_tree::StateTree,
+    address::Address,
+    gas::price_list_by_network_version,
+    message::Message,
+    state_tree::{ActorState, StateTree},
+    version::NetworkVersion,
 };
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
@@ -33,7 +39,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
     clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate, ALLOWABLE_CLOCK_DRIFT,
 };
-use fvm_shared3::BLOCK_GAS_LIMIT;
+use fvm_shared3::{address::Payload, BLOCK_GAS_LIMIT};
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -1505,8 +1511,11 @@ async fn check_block_messages<
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )
                 })?;
-                if !is_account_actor(&actor.code) {
-                    anyhow::bail!("Sending must be an account actor");
+                let network_version = state_manager
+                    .chain_config()
+                    .network_version(block.header.epoch());
+                if !is_valid_for_sending(network_version, &actor) {
+                    anyhow::bail!("not valid for sending!");
                 }
                 actor.sequence
             }
@@ -1547,10 +1556,6 @@ async fn check_block_messages<
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
-        // https://github.com/ChainSafe/forest/issues/2601
-        if msg.is_delegated() {
-            continue;
-        }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::<C>::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"
@@ -1579,6 +1584,51 @@ async fn check_block_messages<
     }
 
     Ok(())
+}
+
+fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState) -> bool {
+    // Comments from Lotus:
+    // Before nv18 (Hygge), we only supported built-in account actors as senders.
+    //
+    // Note: this gate is probably superfluous, since:
+    // 1. Placeholder actors cannot be created before nv18.
+    // 2. EthAccount actors cannot be created before nv18.
+    // 3. Delegated addresses cannot be created before nv18.
+    //
+    // But it's a safeguard.
+    //
+    // Note 2: ad-hoc checks for network versions like this across the codebase
+    // will be problematic with networks with diverging version lineages
+    // (e.g. Hyperspace). We need to revisit this strategy entirely.
+    if network_version < NetworkVersion::V18 {
+        return is_account_actor(&actor.code);
+    }
+
+    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
+        return true;
+    }
+
+    // Allow placeholder actors with a delegated address and nonce 0 to send a
+    // message. These will be converted to an EthAccount actor on first send.
+    if !is_placeholder_actor(&actor.code)
+        || actor.sequence != 0
+        || actor.delegated_address.is_none()
+    {
+        return false;
+    }
+
+    // Only allow such actors to send if their delegated address is in the EAM's
+    // namespace.
+    return if let Payload::Delegated(address) = actor
+        .delegated_address
+        .as_ref()
+        .expect("unfallible")
+        .payload()
+    {
+        address.namespace() == ETHEREUM_ADDRESS_MANAGER_ACTOR_ID
+    } else {
+        false
+    };
 }
 
 /// Checks optional values in header.

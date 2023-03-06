@@ -3,10 +3,12 @@
 
 pub mod account;
 pub mod cron;
+pub mod ethaccount;
 pub mod init;
 pub mod market;
 pub mod miner;
 pub mod multisig;
+pub mod placeholder;
 pub mod power;
 pub mod reward;
 pub mod system;
@@ -20,6 +22,7 @@ pub use fvm_shared::{clock::EPOCH_DURATION_SECONDS, smooth::FilterEstimate};
 pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
 
 pub const RESERVE_ADDRESS: Address = Address::new_id(90);
+pub const ETHEREUM_ADDRESS_MANAGER_ACTOR_ID: u64 = 10;
 
 #[macro_export]
 macro_rules! load_actor_state {
@@ -71,6 +74,16 @@ pub fn is_account_actor(code: &Cid) -> bool {
     account::is_v8_account_cid(code)
         || account::is_v9_account_cid(code)
         || account::is_v10_account_cid(code)
+}
+
+/// Returns true if the code belongs to a placeholder actor.
+pub fn is_placeholder_actor(code: &Cid) -> bool {
+    placeholder::is_v10_placeholder_cid(code)
+}
+
+/// Returns true if the code belongs to a ethereum account actor.
+pub fn is_eth_account_actor(code: &Cid) -> bool {
+    ethaccount::is_v10_ethaccount_cid(code)
 }
 
 /// Returns true if the code belongs to a miner actor.
