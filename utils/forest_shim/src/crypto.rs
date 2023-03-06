@@ -38,6 +38,12 @@ impl Signature {
     }
 }
 
+impl quickcheck::Arbitrary for Signature {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Signature(Signature_v3::arbitrary(g))
+    }
+}
+
 impl Deref for Signature {
     type Target = Signature_v3;
     fn deref(&self) -> &Self::Target {
@@ -99,6 +105,12 @@ impl SignatureType {
     pub const Secp256k1: Self = Self(SignatureType_v3::Secp256k1);
     #[allow(non_upper_case_globals)]
     pub const Delegated: Self = Self(SignatureType_v3::Delegated);
+}
+
+impl quickcheck::Arbitrary for SignatureType {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        SignatureType(SignatureType_v3::arbitrary(g))
+    }
 }
 
 impl Deref for SignatureType {
