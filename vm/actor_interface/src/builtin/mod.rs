@@ -22,7 +22,6 @@ pub use fvm_shared::{clock::EPOCH_DURATION_SECONDS, smooth::FilterEstimate};
 pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
 
 pub const RESERVE_ADDRESS: Address = Address::new_id(90);
-pub const ETHEREUM_ADDRESS_MANAGER_ACTOR_ID: u64 = 10;
 
 #[macro_export]
 macro_rules! load_actor_state {

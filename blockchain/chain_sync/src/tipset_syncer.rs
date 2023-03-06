@@ -13,9 +13,7 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use forest_actor_interface::{
-    is_account_actor, is_eth_account_actor, is_placeholder_actor, ETHEREUM_ADDRESS_MANAGER_ACTOR_ID,
-};
+use forest_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -1625,7 +1623,7 @@ fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState) -> 
         .expect("unfallible")
         .payload()
     {
-        address.namespace() == ETHEREUM_ADDRESS_MANAGER_ACTOR_ID
+        address.namespace() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
     } else {
         false
     };
@@ -1695,7 +1693,7 @@ mod test {
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_crypto::VRFProof;
-    use forest_shim::address::Address;
+    use forest_shim::{address::Address, econ::TokenAmount};
     use num_bigint::BigInt;
 
     use super::*;
@@ -1744,5 +1742,65 @@ mod test {
         let (index, weight) = tsg.heaviest_weight();
         assert_eq!(index, 2);
         assert_eq!(weight, &BigInt::from(10));
+    }
+
+    #[test]
+    fn is_valid_for_sending_test() {
+        let create_actor = |code: &Cid, sequence: u64, delegated_address: Option<Address>| {
+            ActorState::new(
+                code.to_owned(),
+                // changing this cid will unleash unthinkable horrors upon the world
+                Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wgcthulhu")
+                    .unwrap(),
+                TokenAmount::default(),
+                sequence,
+                delegated_address,
+            )
+        };
+
+        // calibnet actor version 10
+        let account_actor_cid =
+            Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw")
+                .unwrap();
+        let ethaccount_actor_cid =
+            Cid::try_from("bafk2bzacebiyrhz32xwxi6xql67aaq5nrzeelzas472kuwjqmdmgwotpkj35e")
+                .unwrap();
+        let placeholder_actor_cid =
+            Cid::try_from("bafk2bzacedfvut2myeleyq67fljcrw4kkmn5pb5dpyozovj7jpoez5irnc3ro")
+                .unwrap();
+
+        // happy path for account actor
+        let actor = create_actor(&account_actor_cid, 0, None);
+        assert!(is_valid_for_sending(NetworkVersion::V17, &actor));
+
+        // eth account not allowed before v18, should fail
+        let actor = create_actor(&ethaccount_actor_cid, 0, None);
+        assert!(!is_valid_for_sending(NetworkVersion::V17, &actor));
+
+        // happy path for eth account
+        assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // no delegated address for placeholder actor, should fail
+        let actor = create_actor(&placeholder_actor_cid, 0, None);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // happy path for the placeholder actor
+        let delegated_address = Address::new_delegated(
+            Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap(),
+            &[0; 20],
+        )
+        .ok();
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
+        assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // sequence not 0, should fail
+        let actor = create_actor(&placeholder_actor_cid, 1, delegated_address);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // delegated address not in EAM namespace, should fail
+        let delegated_address =
+            Address::new_delegated(Address::CHAOS_ACTOR.id().unwrap(), &[0; 20]).ok();
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
     }
 }
