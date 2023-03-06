@@ -210,15 +210,15 @@ fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
         .start_timer();
 
     let actor = state_manager
-        .get_actor(&power::ADDRESS, *tipset_state)
+        .get_actor(&Address::POWER_ACTOR, *tipset_state)
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
         .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
 
-    let state = power::State::load(state_manager.blockstore(), &actor)
+    let state = power::State::load(state_manager.blockstore(), &actor.into())
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     state
-        .miner_power(state_manager.blockstore(), miner_addr)
+        .miner_power(state_manager.blockstore(), &miner_addr.into())
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     Ok(())
