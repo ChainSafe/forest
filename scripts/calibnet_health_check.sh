@@ -72,7 +72,7 @@ echo "Creating a new address to send FIL to"
 ADDR_TWO=$(forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet new)
 
 echo "Send FIL to the above address"
-forest-cli --token "$ADMIN_TOKEN" send $ADDR_TWO $FIL_AMT
+forest-cli --token "$ADMIN_TOKEN" send "$ADDR_TWO" "$FIL_AMT"
 
 echo "Check balance of $ADDR_TWO"
 
