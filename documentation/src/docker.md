@@ -26,7 +26,7 @@ Currently, the following tags are produced:
 ## Performance recommendations
 - We recommend lowering the swappiness kernel parameter on linux to 1-10 for long running forest node by doing `sudo sysctl -w vm.swappiness=[n]`. 
 
-References: [[1]](https://en.wikipedia.org/wiki/Memory_paging#Swappiness)  [[2]](https://linuxhint.com/understanding_vm_swappiness/)
+References: [1](https://en.wikipedia.org/wiki/Memory_paging#Swappiness)  [2](https://linuxhint.com/understanding_vm_swappiness/)
 
 ## Usage
 
