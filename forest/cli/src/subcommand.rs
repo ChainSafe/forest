@@ -10,16 +10,17 @@ use super::cli::{Config, Subcommand};
 
 /// Process CLI sub-command
 pub(super) async fn process(command: Subcommand, mut config: Config) -> anyhow::Result<()> {
-    if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
-        if name == "calibnet" {
-            // override the chain configuration
-            config.chain = Arc::new(ChainConfig::calibnet());
+    if config.client.enable_rpc {
+        if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
+            if name == "calibnet" {
+                // override the chain configuration
+                config.chain = Arc::new(ChainConfig::calibnet());
+            }
         }
     }
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
-
     // Run command
     match command {
         Subcommand::Fetch(cmd) => cmd.run(config).await,
