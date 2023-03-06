@@ -14,8 +14,10 @@ pub(super) async fn process(command: Subcommand, mut config: Config) -> anyhow::
         if name == "calibnet" {
             // override the chain configuration
             config.chain = Arc::new(ChainConfig::calibnet());
-            forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
         }
+    }
+    if config.chain.name == "calibnet" {
+        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
 
     // Run command
