@@ -24,7 +24,7 @@ echo "Exporting snapshot"
 forest-cli --chain calibnet snapshot export
 
 echo "Verifing snapshot checksum"
-sha256sum -c *.sha256sum
+sha256sum -c ./*.sha256sum
 
 echo "Testing js console"
 forest-cli attach --exec 'showPeers()'
@@ -56,7 +56,7 @@ ADMIN_TOKEN=$(cat admin_token)
 ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
 
 echo "Importing preloaded wallet key"
-forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import scripts/preloaded_wallet.key
+forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet import scripts/preloaded_wallet.key
 sleep 5s
 
 echo "Fetching metrics"
@@ -66,27 +66,27 @@ sleep 5s
 
 # Show balances
 echo "Listing wallet balances"
-forest-cli --chain calibnet --token $ADMIN_TOKEN wallet list
+forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet list
 
 echo "Creating a new address to send FIL to"
-ADDR_TWO=$(forest-cli --chain calibnet --token $ADMIN_TOKEN wallet new)
+ADDR_TWO=$(forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet new)
 
 echo "Send FIL to the above address"
-forest-cli --token $ADMIN_TOKEN send $ADDR_TWO $FIL_AMT
+forest-cli --token "$ADMIN_TOKEN" send $ADDR_TWO $FIL_AMT
 
 echo "Check balance of $ADDR_TWO"
 
 sleep 3m
 
-forest-cli --chain calibnet --token $ADMIN_TOKEN wallet balance $ADDR_TWO
+forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO"
 
 echo "Exporting wallet with "
-forest-cli --chain calibnet --token $ADMIN_TOKEN wallet export $ADDR_ONE > addr_two_pkey.test.key
+forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_ONE" > addr_two_pkey.test.key
 echo "Importing wallet"
-forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import addr_two_pkey.test.key || true
+forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet import addr_two_pkey.test.key || true
 
 # wallet list should contain address two will transfered FIL amount
-forest-cli --chain calibnet --token $ADMIN_TOKEN wallet list
+forest-cli --chain calibnet --token "$ADMIN_TOKEN" wallet list
 
 Get and print metrics and logs and kill forest
 wget -O metrics.log http://localhost:6116/metrics
