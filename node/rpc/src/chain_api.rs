@@ -86,7 +86,7 @@ where
         ))?;
     }
 
-    let file = NamedTempFile::new()?;
+    let tmp_file = NamedTempFile::new()?;
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
@@ -99,9 +99,7 @@ where
             )
             .await
     } else {
-        let file = File::create(&file.path())
-            .await
-            .map_err(JsonRpcError::from)?;
+        let file = File::from_std(tmp_file.reopen()?);
         data.chain_store
             .export(
                 &start_ts,
@@ -111,6 +109,7 @@ where
             .await
     } {
         Ok(checksum) if !dry_run => {
+            tmp_file.persist(&output_path)?;
             if !skip_checksum {
                 save_checksum(&output_path, checksum).await?;
             }
