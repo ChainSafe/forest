@@ -14,7 +14,9 @@ mod drand;
 pub mod mainnet;
 
 // As per https://github.com/ethereum-lists/chains
+// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314.json
 const MAINNET_ETH_CHAIN_ID: u64 = 314;
+// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
 const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 
 /// Newest network version for all networks
