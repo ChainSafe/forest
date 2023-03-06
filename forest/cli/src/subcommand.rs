@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use forest_networks::ChainConfig;
-use forest_rpc_client::chain_ops::*;
+use forest_rpc_client::chain_get_name;
 
 use super::cli::{Config, Subcommand};
 
