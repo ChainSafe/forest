@@ -89,7 +89,7 @@ $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" send "$ADDR_TWO" "$FIL_
 
 echo "Checking balance of $ADDR_TWO..."
 
-sleep 4m
+sleep 5m
 
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
@@ -99,7 +99,6 @@ if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
   echo "token amount should match"
   exit 1
 fi
-
 
 echo "Exporting wallet with "
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_TWO" > addr_two_pkey.test.key
