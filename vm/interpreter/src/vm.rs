@@ -117,7 +117,10 @@ where
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
-            let config = NetworkConfig_v3::new(network_version.into());
+            let mut config = NetworkConfig_v3::new(network_version.into());
+            // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
+            config.chain_id(chain_config.eth_chain_id.into());
+
             let engine = multi_engine_v3.get(&config)?;
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
