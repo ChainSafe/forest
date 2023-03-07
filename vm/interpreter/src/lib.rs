@@ -29,7 +29,10 @@ where
     BS: Blockstore,
     S: Blockstore + Clone,
 {
-    if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
+    if addr.protocol() == Protocol::BLS
+        || addr.protocol() == Protocol::Secp256k1
+        || addr.protocol() == Protocol::Delegated
+    {
         return Ok(*addr);
     }
 
