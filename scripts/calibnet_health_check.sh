@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -e
 
 SNAPSHOT_DIRECTORY="/tmp/snapshots"
 LOG_DIRECTORY="/tmp/log"
@@ -33,14 +35,17 @@ echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
 
 echo "Validating as mainnet snapshot"
+set +e
 $FOREST_CLI_PATH --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && \
 { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
+set -e
+
 echo "Validating as calibnet snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
 
-echo "--- Forest STDOUT ---"; cat forest.out
-echo "--- Forest STDERR ---"; cat forest.err
-echo "--- Forest Prometheus metrics ---"; cat metrics.log
+# echo "--- Forest STDOUT ---"; cat forest.out
+# echo "--- Forest STDERR ---"; cat forest.err
+# echo "--- Forest Prometheus metrics ---"; cat metrics.log
 
 echo "Print forest log files"
 ls -hl $LOG_DIRECTORY
@@ -89,18 +94,20 @@ sleep 4m
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO"
 
 echo "Exporting wallet with "
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_ONE" > addr_two_pkey.test.key
+$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_TWO" > addr_two_pkey.test.key
 echo "Importing wallet"
+# TODO: wipe wallet and import back with preloaded key
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import addr_two_pkey.test.key || true
 
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
+# TODO: check against numeric value instead
 
 echo "Get and print metrics and logs and stop forest"
 wget -O metrics.log http://localhost:6116/metrics
 
 $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
 
-echo "--- Forest STDOUT ---"; cat forest.out
-echo "--- Forest STDERR ---"; cat forest.err
-echo "--- Forest Prometheus metrics ---"; cat metrics.log
+# echo "--- Forest STDOUT ---"; cat forest.out
+# echo "--- Forest STDERR ---"; cat forest.err
+# echo "--- Forest Prometheus metrics ---"; cat metrics.log
