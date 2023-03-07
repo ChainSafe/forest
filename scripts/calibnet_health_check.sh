@@ -91,17 +91,21 @@ echo "Checking balance of $ADDR_TWO..."
 
 sleep 4m
 
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO"
+# wallet list should contain address two with transfered FIL amount
+$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
+
+ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO")
+if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
+  echo "token amount should match"
+  exit 1
+fi
+
 
 echo "Exporting wallet with "
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_TWO" > addr_two_pkey.test.key
 echo "Importing wallet"
 # TODO: wipe wallet and import back with preloaded key
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import addr_two_pkey.test.key || true
-
-# wallet list should contain address two with transfered FIL amount
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
-# TODO: check against numeric value instead
 
 echo "Get and print metrics and logs and stop forest"
 wget -O metrics.log http://localhost:6116/metrics
