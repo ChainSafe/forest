@@ -28,6 +28,7 @@ impl Address {
     pub const MARKET_ACTOR: Address = Address::new_id(5);
     pub const VERIFIED_REGISTRY_ACTOR: Address = Address::new_id(6);
     pub const DATACAP_TOKEN_ACTOR: Address = Address::new_id(7);
+    pub const ETHEREUM_ACCOUNT_MANAGER_ACTOR: Address = Address::new_id(10);
     pub const RESERVE_ACTOR: Address = Address::new_id(90);
     pub const CHAOS_ACTOR: Address = Address::new_id(98);
     pub const BURNT_FUNDS_ACTOR: Address = Address::new_id(99);
@@ -46,6 +47,10 @@ impl Address {
 
     pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
         Address_v3::new_secp256k1(pubkey).map(Address::from)
+    }
+
+    pub fn new_delegated(ns: u64, subaddress: &[u8]) -> Result<Self, Error> {
+        Ok(Self(Address_v3::new_delegated(ns, subaddress)?))
     }
 
     pub fn protocol(&self) -> Protocol {
