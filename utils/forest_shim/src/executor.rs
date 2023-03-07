@@ -12,22 +12,21 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::econ::TokenAmount;
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
-    V2(ApplyRet_v2),
-    V3(ApplyRet_v3),
+    V2(Box<ApplyRet_v2>),
+    V3(Box<ApplyRet_v3>),
 }
 
 impl From<ApplyRet_v2> for ApplyRet {
     fn from(other: ApplyRet_v2) -> Self {
-        ApplyRet::V2(other)
+        ApplyRet::V2(Box::new(other))
     }
 }
 
 impl From<ApplyRet_v3> for ApplyRet {
     fn from(other: ApplyRet_v3) -> Self {
-        ApplyRet::V3(other)
+        ApplyRet::V3(Box::new(other))
     }
 }
 
