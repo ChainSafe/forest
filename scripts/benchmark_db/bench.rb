@@ -314,7 +314,8 @@ class Benchmark
   end
 
   def online_validation_secs
-    @chain == 'mainnet' ? 120.0 : 60.0
+    #@chain == 'mainnet' ? 120.0 : 60.0
+    @chain == 'mainnet' ? 120.0 : 10.0
   end
 
   def start_online_validation_command
