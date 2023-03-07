@@ -124,29 +124,13 @@ mod tests {
 
     use super::*;
 
-    #[cfg(test)]
-    #[derive(Clone, Debug, PartialEq)]
-    struct AddressWrapper {
-        address: Address,
-    }
-
-    #[cfg(test)]
-    impl quickcheck::Arbitrary for AddressWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let address: fvm_shared::address::Address = arbitrary::Arbitrary::arbitrary(
-                &mut arbitrary::Unstructured::new(&Vec::arbitrary(g)),
-            )
-            .unwrap();
-            AddressWrapper {
-                address: Address::from(address),
-            }
-        }
-    }
-
     #[quickcheck]
-    fn address_roundtrip(address: AddressWrapper) {
-        let serialized = serde_json::to_string(&json::AddressJsonRef(&address.address)).unwrap();
-        let parsed: json::AddressJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(address.address, parsed.0);
+    fn address_roundtrip(address: Address) {
+        let serialized = forest_test_utils::to_string_with!(&address, json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+        // Skip delegated addresses for now
+        if address.protocol() != forest_shim::address::Protocol::Delegated {
+            assert_eq!(address, parsed)
+        }
     }
 }

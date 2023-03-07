@@ -34,11 +34,10 @@ async fn connect_async(addr: Multiaddr, event_emitter: EventEmitter) -> anyhow::
     };
     swarm.dial(addr)?;
     let peer_id = loop {
-        match swarm.select_next_some().await {
-            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                break peer_id;
-            }
-            _ => {}
+        if let libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } =
+            swarm.select_next_some().await
+        {
+            break peer_id;
         }
     };
     Ok(ConnectionImpl::new(swarm, peer_id, event_emitter).into())

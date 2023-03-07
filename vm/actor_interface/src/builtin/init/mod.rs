@@ -3,11 +3,12 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::state_tree::ActorState;
-use forest_utils::db::BlockstoreExt;
+use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use serde::Serialize;
+
+use crate::io::get_obj;
 
 /// Init actor address.
 pub const ADDRESS: Address = Address::new_id(1);
@@ -62,20 +63,17 @@ impl State {
         BS: Blockstore,
     {
         if is_v8_init_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_init_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_init_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }

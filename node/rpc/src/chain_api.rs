@@ -27,8 +27,8 @@ use forest_utils::{
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use log::{debug, error};
 use sha2::{digest::Output, Sha256};
+use tempfile::NamedTempFile;
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
@@ -86,7 +86,7 @@ where
         ))?;
     }
 
-    let out_tmp = output_path.with_extension("car.tmp");
+    let tmp_file = NamedTempFile::new()?;
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
@@ -99,7 +99,7 @@ where
             )
             .await
     } else {
-        let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
+        let file = File::from_std(tmp_file.reopen()?);
         data.chain_store
             .export(
                 &start_ts,
@@ -109,24 +109,13 @@ where
             .await
     } {
         Ok(checksum) if !dry_run => {
-            std::fs::rename(&out_tmp, &output_path)?;
+            tmp_file.persist(&output_path)?;
             if !skip_checksum {
                 save_checksum(&output_path, checksum).await?;
             }
         }
         Ok(_) => {}
         Err(e) => {
-            if out_tmp.exists() {
-                if let Err(e) = std::fs::remove_file(&out_tmp) {
-                    error!(
-                        "failed to remove incomplete export file at {}: {e}",
-                        out_tmp.display()
-                    );
-                } else {
-                    debug!("incomplete export file at {} removed", out_tmp.display());
-                }
-            }
-
             return Err(JsonRpcError::from(e));
         }
     };

@@ -91,7 +91,7 @@ impl From<GasChargeV2> for GasCharge {
     fn from(value: GasChargeV2) -> Self {
         GasChargeV3 {
             name: value.name,
-            compute_gas: GasV3::from_milligas(value.storage_gas.as_milligas() as u64),
+            compute_gas: GasV3::from_milligas(value.compute_gas.as_milligas() as u64),
             other_gas: GasV3::from_milligas(value.storage_gas.as_milligas() as u64),
             elapsed: Default::default(),
         }

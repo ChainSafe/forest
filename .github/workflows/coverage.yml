@@ -23,6 +23,9 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
+      - uses: actions/setup-go@v3
+        with:
+          go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use libp2p::{core::upgrade, request_response::RequestResponseCodec};
+use libp2p::{core::upgrade, request_response};
 use pb::bitswap_pb;
 use protobuf::Message;
 
@@ -15,7 +15,7 @@ const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
 pub struct BitswapRequestResponseCodec;
 
 #[async_trait]
-impl RequestResponseCodec for BitswapRequestResponseCodec {
+impl request_response::Codec for BitswapRequestResponseCodec {
     type Protocol = BitswapProtocol;
     type Request = Vec<BitswapMessage>;
     type Response = ();
