@@ -87,3 +87,36 @@ impl FileBackedObject for TipsetKeys {
         Ok(fvm_ipld_encoding::from_slice(bytes)?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use anyhow::*;
+
+    use super::*;
+
+    #[test]
+    fn block_header_round_trip() -> Result<()> {
+        let path = Path::new("tests/calibnet/GENESIS");
+        let obj1: FileBacked<BlockHeader> = FileBacked::load_from_file_or_new(path.into())?;
+        ensure!(obj1.inner().is_some());
+        obj1.flush_to_file()?;
+        let obj2: FileBacked<BlockHeader> = FileBacked::load_from_file_or_new(path.into())?;
+        ensure!(obj1.inner() == obj2.inner());
+
+        Ok(())
+    }
+
+    #[test]
+    fn tipset_keys_round_trip() -> Result<()> {
+        let path = Path::new("tests/calibnet/HEAD");
+        let obj1: FileBacked<TipsetKeys> = FileBacked::load_from_file_or_new(path.into())?;
+        ensure!(obj1.inner().is_some());
+        obj1.flush_to_file()?;
+        let obj2: FileBacked<TipsetKeys> = FileBacked::load_from_file_or_new(path.into())?;
+        ensure!(obj1.inner() == obj2.inner());
+
+        Ok(())
+    }
+}
