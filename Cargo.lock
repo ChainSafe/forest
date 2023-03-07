@@ -3398,6 +3398,7 @@ name = "forest_blocks"
 version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
+ "anyhow",
  "base64 0.21.0",
  "cid",
  "derive_builder 0.12.0",
@@ -3464,6 +3465,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "serde",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -3858,6 +3860,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "tokio-util",
