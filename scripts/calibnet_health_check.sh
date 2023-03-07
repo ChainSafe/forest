@@ -37,7 +37,11 @@ $FOREST_CLI_PATH attach --exec 'showPeers()'
 echo "Validating as mainnet snapshot"
 set +e
 $FOREST_CLI_PATH --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && \
-{ echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
+{
+    echo "mainnet snapshot validation with calibnet snapshot should fail";
+    $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
+    exit 1;
+}
 set -e
 
 echo "Validating as calibnet snapshot"
@@ -97,6 +101,7 @@ $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
 ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO")
 if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
   echo "token amount should match"
+  $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
   exit 1
 fi
 
