@@ -28,8 +28,6 @@ HOUR = MINUTE * MINUTE
 
 BENCHMARK_DIR = Dir.mktmpdir('benchmark-')
 
-TEMP_DIR = Dir.mktmpdir('benchmark-data-')
-
 # Provides human readable formatting to Numeric class
 class Numeric
   def to_bibyte
@@ -301,7 +299,11 @@ class Benchmark
     if daily
       validate_online_command = splice_args(@validate_online_command, args)
       new_metrics = exec_command(validate_online_command, dry_run, self)
-      new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+      if new_metrics[:num_epochs] then
+        new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+      else
+        new_metrics[:tpm] = 'n/a'
+      end
       metrics[:validate_online] = new_metrics
     end
 
@@ -332,7 +334,7 @@ class Benchmark
   end
 
   def data_dir
-    path = "#{TEMP_DIR}/#{repository_name}"
+    path = "#{BENCHMARK_DIR}/.#{repository_name}"
     FileUtils.mkdir_p path
     path
   end
@@ -459,7 +461,7 @@ end
 # Lotus benchmark class
 class LotusBenchmark < Benchmark
   def db_dir
-    lotus_path = ENV['LOTUS_PATH'] || "#{Dir.home}/.lotus"
+    lotus_path = ENV['LOTUS_PATH']# || "#{Dir.home}/.lotus"
     "#{lotus_path}/datastore/chain"
   end
 
@@ -490,7 +492,11 @@ class LotusBenchmark < Benchmark
   end
 
   def checkout_command(dry_run)
-    exec_command(%w[git checkout releases], dry_run)
+    if @chain == 'mainnet' then
+      exec_command(%w[git checkout releases], dry_run)
+    else
+      exec_command(%w[git checkout master], dry_run)
+    end
   end
 
   def clean_command(dry_run)
@@ -522,6 +528,7 @@ class LotusBenchmark < Benchmark
 
   def initialize(name:, config: {})
     super(name: name, config: config)
+    ENV['LOTUS_PATH'] = File.join(BENCHMARK_DIR, ".#{repository_name}")
     @name = name
     @config = config
     @import_command = [
@@ -598,7 +605,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    ForestBenchmark.new(name: 'forest'),
+    #ForestBenchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
