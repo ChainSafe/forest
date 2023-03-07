@@ -187,17 +187,18 @@ def snapshot_height(snapshot)
   raise 'unsupported snapshot name'
 end
 
-def get_url(chain: 'calibnet', url: nil)
+def get_url(chain, url)
   value = chain == 'mainnet' ? 'mainnet' : 'calibrationnet'
   output = syscall('aria2c', '--dry-run', "https://snapshots.#{value}.filops.net/minimal/latest.zst")
   url || output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
 end
 
-def download_and_move(url, filename, checksum_url, checksum_filename, output_dir)
+def download_and_move(url, filename, checksum_url, checksum_filename, output_dir, decompressed_filename)
   Dir.mktmpdir do |dir|
     # Download, decompress and verify checksums
-    puts 'Downloading...'
+    puts 'Downloading checksum...'
     syscall('aria2c', checksum_url, chdir: dir)
+    puts 'Downloading snapshot...'
     syscall('aria2c', '-x5', url, chdir: dir)
     puts 'Decompressing...'
     syscall('zstd', '-d', filename, chdir: dir)
@@ -219,7 +220,7 @@ def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
   checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
   decompressed_filename = filename.sub(/\.car\.zst/, '.car')
 
-  download_and_move(url, filename, checksum_url, checksum_filename, output_dir)
+  download_and_move(url, filename, checksum_url, checksum_filename, output_dir, decompressed_filename)
   "#{output_dir}/#{decompressed_filename}"
 end
 
@@ -493,7 +494,7 @@ class LotusBenchmark < Benchmark
   end
 
   def checkout_command(dry_run)
-    if @chain == 'mainnet' then
+    if @chain == 'mainnet'
       exec_command(%w[git checkout releases], dry_run)
     else
       exec_command(%w[git checkout master], dry_run)
