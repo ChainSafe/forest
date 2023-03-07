@@ -16,15 +16,17 @@ use boa_engine::{
 };
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
+use forest_chain_sync::SyncStage;
 use forest_json::message::json::MessageJson;
 use forest_rpc_api::mpool_api::MpoolPushMessageResult;
 use forest_rpc_client::*;
 use forest_shim::{address::Address, econ::TokenAmount, message::Message_v3};
-use fvm_shared::METHOD_SEND;
+use fvm_shared::{clock::ChainEpoch, METHOD_SEND};
 use num::BigInt;
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
+use tokio::time;
 
 use super::Config;
 
@@ -113,7 +115,6 @@ fn require(
     let result = if path.exists() {
         read_to_string(path.clone())
     } else if path == PathBuf::from("prelude.js") {
-        //println!("load builtin prelude");
         Ok(PRELUDE_PATH.into())
     } else {
         return context.throw_error("expecting valid module path");
@@ -235,6 +236,42 @@ async fn send_message(
     mpool_push_message((json_message, None), auth_token).await
 }
 
+type SleepParams = (u64,);
+type SleepResult = ();
+
+async fn sleep(
+    params: SleepParams,
+    _auth_token: &Option<String>,
+) -> Result<SleepResult, jsonrpc_v2::Error> {
+    let secs = params.0;
+    time::sleep(time::Duration::from_secs(secs)).await;
+    Ok(())
+}
+
+type SleepTipsetsParams = (ChainEpoch,);
+type SleepTipsetsResult = ();
+
+async fn sleep_tipsets(
+    params: SleepTipsetsParams,
+    auth_token: &Option<String>,
+) -> Result<SleepTipsetsResult, jsonrpc_v2::Error> {
+    let mut epoch = None;
+    loop {
+        let state = sync_status((), auth_token).await?;
+        if state.active_syncs[0].stage() == SyncStage::Complete {
+            if let Some(prev) = epoch {
+                let curr = state.active_syncs[0].epoch();
+                if (curr - prev) >= params.0 {
+                    return Ok(());
+                }
+            } else {
+                epoch = Some(state.active_syncs[0].epoch());
+            }
+        }
+        time::sleep(time::Duration::from_secs(1)).await;
+    }
+}
+
 impl AttachCommand {
     fn setup_context(&self, context: &mut Context, token: &Option<String>) {
         // Disable tracing
@@ -283,8 +320,14 @@ impl AttachCommand {
         // Message Pool API
         bind_func!(context, token, mpool_push_message);
 
-        // Bind send_message
+        // Common API
+        bind_func!(context, token, version);
+        bind_func!(context, token, shutdown);
+
+        // Bind send_message, sleep, sleep_tipsets
         bind_func!(context, token, send_message);
+        bind_func!(context, token, sleep);
+        bind_func!(context, token, sleep_tipsets);
     }
 
     fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
@@ -368,7 +411,6 @@ impl AttachCommand {
                 }
                 match context.parse(buffer.trim_end()) {
                     Ok(_v) => {
-                        // println!("Parse tree:\n{:#?}", v);
                         editor.add_history_entry(&buffer);
                         eval(buffer.trim_end(), &mut context);
                         break;

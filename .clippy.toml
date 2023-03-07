@@ -2,4 +2,6 @@
 disallowed-types = [
   { path = "std::collections::HashMap", reason = "use ahash::HashMap instead" },
   { path = "std::collections::HashSet", reason = "use ahash::HashSet instead" },
+  { path = "std::sync::RwLock", reason = "use parking_lot::RwLock instead" },
+  { path = "std::sync::Mutex", reason = "use parking_lot::Mutex instead" },
 ]

@@ -27,11 +27,11 @@ pub trait Message {
     /// Returns the encoded parameters for the method call.
     fn params(&self) -> &RawBytes;
     /// sets the gas limit for the message.
-    fn set_gas_limit(&mut self, amount: i64);
+    fn set_gas_limit(&mut self, amount: u64);
     /// sets a new sequence to the message.
     fn set_sequence(&mut self, sequence: u64);
     /// Returns the gas limit for the message.
-    fn gas_limit(&self) -> i64;
+    fn gas_limit(&self) -> u64;
     /// Returns the required funds for the message.
     fn required_funds(&self) -> TokenAmount;
     /// gets gas fee cap for the message.
@@ -63,11 +63,11 @@ impl Message for ShimMessage {
     fn params(&self) -> &RawBytes {
         &self.params
     }
-    fn gas_limit(&self) -> i64 {
-        self.gas_limit as i64
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
-    fn set_gas_limit(&mut self, token_amount: i64) {
-        self.gas_limit = token_amount as u64;
+    fn set_gas_limit(&mut self, token_amount: u64) {
+        self.gas_limit = token_amount;
     }
     fn set_sequence(&mut self, new_sequence: u64) {
         self.sequence = new_sequence;

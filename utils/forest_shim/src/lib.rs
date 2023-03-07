@@ -3,9 +3,11 @@
 
 pub mod address;
 pub mod bigint;
+pub mod crypto;
 pub mod econ;
 pub mod error;
 pub mod executor;
+pub mod gas;
 pub mod message;
 pub mod randomness;
 pub mod sector;

@@ -11,7 +11,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
-    set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,19 @@ use serde::{Deserialize, Serialize};
 pub struct Address(Address_v3);
 
 impl Address {
+    pub const SYSTEM_ACTOR: Address = Address::new_id(0);
+    pub const INIT_ACTOR: Address = Address::new_id(1);
+    pub const REWARD_ACTOR: Address = Address::new_id(2);
+    pub const CRON_ACTOR: Address = Address::new_id(3);
+    pub const POWER_ACTOR: Address = Address::new_id(4);
+    pub const MARKET_ACTOR: Address = Address::new_id(5);
+    pub const VERIFIED_REGISTRY_ACTOR: Address = Address::new_id(6);
+    pub const DATACAP_TOKEN_ACTOR: Address = Address::new_id(7);
+    pub const ETHEREUM_ACCOUNT_MANAGER_ACTOR: Address = Address::new_id(10);
+    pub const RESERVE_ACTOR: Address = Address::new_id(90);
+    pub const CHAOS_ACTOR: Address = Address::new_id(98);
+    pub const BURNT_FUNDS_ACTOR: Address = Address::new_id(99);
+
     pub const fn new_id(id: u64) -> Self {
         Address(Address_v3::new_id(id))
     }
@@ -36,12 +49,22 @@ impl Address {
         Address_v3::new_secp256k1(pubkey).map(Address::from)
     }
 
+    pub fn new_delegated(ns: u64, subaddress: &[u8]) -> Result<Self, Error> {
+        Ok(Self(Address_v3::new_delegated(ns, subaddress)?))
+    }
+
     pub fn protocol(&self) -> Protocol {
         self.0.protocol()
     }
 
     pub fn into_payload(self) -> Payload {
         self.0.into_payload()
+    }
+}
+
+impl quickcheck::Arbitrary for Address {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Address(Address_v3::arbitrary(g))
     }
 }
 
@@ -53,19 +76,7 @@ impl FromStr for Address {
     }
 }
 
-impl Cbor for Address {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, fvm_ipld_encoding::Error> {
-        Address_v2::from(self).marshal_cbor()
-    }
-
-    fn unmarshal_cbor(bz: &[u8]) -> Result<Self, fvm_ipld_encoding::Error> {
-        Address_v2::unmarshal_cbor(bz).map(Address::from)
-    }
-
-    fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
-        Address_v2::from(self).cid()
-    }
-}
+impl Cbor for Address {}
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -5,6 +5,9 @@ use super::cli::{Config, Subcommand};
 
 /// Process CLI sub-command
 pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Result<()> {
+    if config.chain.name == "calibnet" {
+        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
+    }
     // Run command
     match command {
         Subcommand::Fetch(cmd) => cmd.run(config).await,
@@ -20,5 +23,6 @@ pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Resu
         Subcommand::DB(cmd) => cmd.run(&config),
         Subcommand::Snapshot(cmd) => cmd.run(config).await,
         Subcommand::Attach(cmd) => cmd.run(config),
+        Subcommand::Shutdown(cmd) => cmd.run(config).await,
     }
 }

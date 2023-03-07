@@ -55,6 +55,7 @@ pub struct BitswapRequest {
     pub ty: RequestType,
     pub cid: Cid,
     pub send_dont_have: bool,
+    pub cancel: bool,
 }
 
 impl BitswapRequest {
@@ -63,6 +64,7 @@ impl BitswapRequest {
             ty: RequestType::Have,
             cid,
             send_dont_have: false,
+            cancel: false,
         }
     }
 
@@ -71,12 +73,23 @@ impl BitswapRequest {
             ty: RequestType::Block,
             cid,
             send_dont_have: false,
+            cancel: false,
         }
     }
 
     pub fn send_dont_have(mut self, b: bool) -> Self {
         self.send_dont_have = b;
         self
+    }
+
+    pub fn new_cancel(cid: Cid) -> Self {
+        // Matches `https://github.com/ipfs/go-libipfs/blob/v0.6.0/bitswap/message/message.go#L309`
+        Self {
+            ty: RequestType::Block,
+            cid,
+            send_dont_have: false,
+            cancel: true,
+        }
     }
 }
 
@@ -103,6 +116,7 @@ impl BitswapMessage {
                 ty,
                 cid,
                 send_dont_have,
+                cancel,
             }) => {
                 let mut wantlist = bitswap_pb::message::Wantlist::new();
 
@@ -111,7 +125,7 @@ impl BitswapMessage {
                     entry.block = cid.to_bytes();
                     entry.wantType = (*ty).into();
                     entry.sendDontHave = *send_dont_have;
-                    entry.cancel = false;
+                    entry.cancel = *cancel;
                     entry.priority = 1;
                     entry
                 });

@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
@@ -96,7 +97,7 @@ pub struct MessageLookup {
 pub struct AddrInfo {
     #[serde(rename = "ID")]
     pub id: String,
-    pub addrs: Vec<Multiaddr>,
+    pub addrs: HashSet<Multiaddr>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -105,7 +106,7 @@ pub struct PeerID {
 }
 
 /// Represents the current version of the API.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIVersion {
     pub version: String,
@@ -115,7 +116,7 @@ pub struct APIVersion {
 
 /// Integer based value on version information. Highest order bits for Major,
 /// Mid order for Minor and lowest for Patch.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Version(u32);
 
 impl Version {

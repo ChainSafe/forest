@@ -13,7 +13,7 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use forest_actor_interface::is_account_actor;
+use forest_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -22,17 +22,22 @@ use forest_db::Store;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
-use forest_shim::{address::Address, message::Message, state_tree::StateTree};
+use forest_shim::{
+    address::Address,
+    gas::price_list_by_network_version,
+    message::Message,
+    state_tree::{ActorState, StateTree},
+    version::NetworkVersion,
+};
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
-use fvm::gas::price_list_by_network_version;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
     clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate, ALLOWABLE_CLOCK_DRIFT,
-    BLOCK_GAS_LIMIT,
 };
+use fvm_shared3::{address::Payload, BLOCK_GAS_LIMIT};
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -1466,7 +1471,7 @@ async fn check_block_messages<
                 .map(|x| &x[..])
                 .collect::<Vec<&[u8]>>()
                 .as_slice(),
-            sig,
+            &sig.into(),
         ) {
             return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(
                 format!("{sig:?}"),
@@ -1477,7 +1482,7 @@ async fn check_block_messages<
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
 
-    let price_list = price_list_by_network_version(network_version.into());
+    let price_list = price_list_by_network_version(network_version);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity
@@ -1490,7 +1495,7 @@ async fn check_block_messages<
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;
-        if sum_gas_limit > BLOCK_GAS_LIMIT as u64 {
+        if sum_gas_limit > BLOCK_GAS_LIMIT {
             anyhow::bail!("block gas limit exceeded");
         }
 
@@ -1504,8 +1509,11 @@ async fn check_block_messages<
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )
                 })?;
-                if !is_account_actor(&actor.code) {
-                    anyhow::bail!("Sending must be an account actor");
+                let network_version = state_manager
+                    .chain_config()
+                    .network_version(block.header.epoch());
+                if !is_valid_for_sending(network_version, &actor) {
+                    anyhow::bail!("not valid for sending!");
                 }
                 actor.sequence
             }
@@ -1576,6 +1584,51 @@ async fn check_block_messages<
     Ok(())
 }
 
+fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState) -> bool {
+    // Comments from Lotus:
+    // Before nv18 (Hygge), we only supported built-in account actors as senders.
+    //
+    // Note: this gate is probably superfluous, since:
+    // 1. Placeholder actors cannot be created before nv18.
+    // 2. EthAccount actors cannot be created before nv18.
+    // 3. Delegated addresses cannot be created before nv18.
+    //
+    // But it's a safeguard.
+    //
+    // Note 2: ad-hoc checks for network versions like this across the codebase
+    // will be problematic with networks with diverging version lineages
+    // (e.g. Hyperspace). We need to revisit this strategy entirely.
+    if network_version < NetworkVersion::V18 {
+        return is_account_actor(&actor.code);
+    }
+
+    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
+        return true;
+    }
+
+    // Allow placeholder actors with a delegated address and nonce 0 to send a
+    // message. These will be converted to an EthAccount actor on first send.
+    if !is_placeholder_actor(&actor.code)
+        || actor.sequence != 0
+        || actor.delegated_address.is_none()
+    {
+        return false;
+    }
+
+    // Only allow such actors to send if their delegated address is in the EAM's
+    // namespace.
+    return if let Payload::Delegated(address) = actor
+        .delegated_address
+        .as_ref()
+        .expect("unfallible")
+        .payload()
+    {
+        address.namespace() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+    } else {
+        false
+    };
+}
+
 /// Checks optional values in header.
 ///
 /// It only looks for fields which are common to all consensus types.
@@ -1640,7 +1693,7 @@ mod test {
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_crypto::VRFProof;
-    use forest_shim::address::Address;
+    use forest_shim::{address::Address, econ::TokenAmount};
     use num_bigint::BigInt;
 
     use super::*;
@@ -1689,5 +1742,65 @@ mod test {
         let (index, weight) = tsg.heaviest_weight();
         assert_eq!(index, 2);
         assert_eq!(weight, &BigInt::from(10));
+    }
+
+    #[test]
+    fn is_valid_for_sending_test() {
+        let create_actor = |code: &Cid, sequence: u64, delegated_address: Option<Address>| {
+            ActorState::new(
+                code.to_owned(),
+                // changing this cid will unleash unthinkable horrors upon the world
+                Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wgcthulhu")
+                    .unwrap(),
+                TokenAmount::default(),
+                sequence,
+                delegated_address,
+            )
+        };
+
+        // calibnet actor version 10
+        let account_actor_cid =
+            Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw")
+                .unwrap();
+        let ethaccount_actor_cid =
+            Cid::try_from("bafk2bzacebiyrhz32xwxi6xql67aaq5nrzeelzas472kuwjqmdmgwotpkj35e")
+                .unwrap();
+        let placeholder_actor_cid =
+            Cid::try_from("bafk2bzacedfvut2myeleyq67fljcrw4kkmn5pb5dpyozovj7jpoez5irnc3ro")
+                .unwrap();
+
+        // happy path for account actor
+        let actor = create_actor(&account_actor_cid, 0, None);
+        assert!(is_valid_for_sending(NetworkVersion::V17, &actor));
+
+        // eth account not allowed before v18, should fail
+        let actor = create_actor(&ethaccount_actor_cid, 0, None);
+        assert!(!is_valid_for_sending(NetworkVersion::V17, &actor));
+
+        // happy path for eth account
+        assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // no delegated address for placeholder actor, should fail
+        let actor = create_actor(&placeholder_actor_cid, 0, None);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // happy path for the placeholder actor
+        let delegated_address = Address::new_delegated(
+            Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap(),
+            &[0; 20],
+        )
+        .ok();
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
+        assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // sequence not 0, should fail
+        let actor = create_actor(&placeholder_actor_cid, 1, delegated_address);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // delegated address not in EAM namespace, should fail
+        let delegated_address =
+            Address::new_delegated(Address::CHAOS_ACTOR.id().unwrap(), &[0; 20]).ok();
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
     }
 }

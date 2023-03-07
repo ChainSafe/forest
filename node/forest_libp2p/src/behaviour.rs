@@ -7,9 +7,8 @@ use forest_libp2p_bitswap::BitswapBehaviour;
 use libp2p::{
     core::{identity::Keypair, PeerId},
     gossipsub::{
-        error::{PublishError, SubscriptionError},
-        Gossipsub, GossipsubConfigBuilder, GossipsubMessage, IdentTopic as Topic,
-        MessageAuthenticity, MessageId, ValidationMode,
+        self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
+        ValidationMode,
     },
     identify,
     kad::QueryId,
@@ -32,7 +31,7 @@ use crate::{
 /// for a Filecoin node.
 #[derive(NetworkBehaviour)]
 pub(crate) struct ForestBehaviour {
-    gossipsub: Gossipsub,
+    gossipsub: gossipsub::Behaviour,
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
     identify: identify::Behaviour,
@@ -54,16 +53,16 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
 
 impl ForestBehaviour {
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
-        let mut gs_config_builder = GossipsubConfigBuilder::default();
+        let mut gs_config_builder = gossipsub::ConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
-        gs_config_builder.message_id_fn(|msg: &GossipsubMessage| {
+        gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
             let s = blake2b_256(&msg.data);
             MessageId::from(s)
         });
 
         let gossipsub_config = gs_config_builder.build().unwrap();
-        let mut gossipsub = Gossipsub::new(
+        let mut gossipsub = gossipsub::Behaviour::new(
             MessageAuthenticity::Signed(local_key.clone()),
             gossipsub_config,
         )
@@ -94,8 +93,7 @@ impl ForestBehaviour {
             .with_mdns(config.mdns)
             .with_kademlia(config.kademlia)
             .with_user_defined(config.bootstrap_peers.clone())
-            // TODO allow configuring this through config.
-            .discovery_limit(config.target_peer_count as u64);
+            .target_peer_count(config.target_peer_count as u64);
 
         ForestBehaviour {
             gossipsub,
@@ -136,7 +134,7 @@ impl ForestBehaviour {
     }
 
     /// Returns a map of peer ids and their multi-addresses
-    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
+    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, HashSet<Multiaddr>> {
         self.discovery.peer_addresses()
     }
 }

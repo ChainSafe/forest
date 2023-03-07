@@ -9,12 +9,12 @@ use decoder::DagCborDecodingReader;
 use futures::prelude::*;
 use libp2p::{
     core::ProtocolName,
-    request_response::{OutboundFailure, RequestResponseCodec},
+    request_response::{self, OutboundFailure},
 };
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy
-/// [`RequestResponseCodec`] for Hello and `ChainExchange` protocols without
+/// [`request_response::Codec`] for Hello and `ChainExchange` protocols without
 /// duplication.
 #[derive(Clone)]
 pub struct CborRequestResponse<P, RQ, RS> {
@@ -69,7 +69,7 @@ impl From<OutboundFailure> for RequestResponseError {
 }
 
 #[async_trait]
-impl<P, RQ, RS> RequestResponseCodec for CborRequestResponse<P, RQ, RS>
+impl<P, RQ, RS> request_response::Codec for CborRequestResponse<P, RQ, RS>
 where
     P: ProtocolName + Clone + Send + Sync,
     RQ: Serialize + DeserializeOwned + Send + Sync,

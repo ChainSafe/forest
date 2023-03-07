@@ -16,7 +16,6 @@ anes = "0.1.6"
 anyhow.workspace = true
 atty.workspace = true
 clap.workspace = true
-ctrlc = { version = "3.2", features = ["termination"] }
 daemonize-me = "2.0"
 dialoguer.workspace = true
 flume.workspace = true
@@ -51,13 +50,13 @@ serde_json.workspace = true
 shared_memory = "0.12"
 tempfile.workspace = true
 time.workspace = true
-tokio = { workspace = true, features = ["sync", "macros", "rt"] }
+tokio = { workspace = true, features = ["sync", "macros", "rt", "signal"] }
 
 [dev-dependencies]
 assert_cmd.workspace = true
 
 [features]
-default = ["forest_fil_cns", "rocksdb"]
+default = ["forest_fil_cns", "paritydb"]
 rocksdb = ["forest_db/rocksdb", "forest_cli_shared/rocksdb"]
 paritydb = ["forest_db/paritydb", "forest_cli_shared/paritydb"]
 insecure_post = ["forest_fil_cns/insecure_post"]

@@ -18,7 +18,6 @@ forest_json.workspace = true
 forest_message.workspace = true
 forest_shim.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

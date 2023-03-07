@@ -16,10 +16,10 @@ use forest_libp2p::chain_exchange::{
 use forest_message::SignedMessage;
 use forest_shim::{
     address::Address,
+    crypto::Signature,
     message::{Message, Message_v3},
 };
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use fvm_shared::crypto::signature::Signature;
 use num::BigInt;
 
 /// Defines a `TipsetKey` used in testing

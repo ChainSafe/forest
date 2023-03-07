@@ -4,8 +4,10 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use ahash::{HashMap, HashMapExt};
-use forest_shim::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use forest_shim::{
+    address::Address,
+    crypto::{Signature, SignatureType},
+};
 use serde::{Deserialize, Serialize};
 
 use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};

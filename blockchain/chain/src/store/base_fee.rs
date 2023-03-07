@@ -7,42 +7,44 @@ use forest_message::Message;
 use forest_shim::econ::TokenAmount;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared3::BLOCK_GAS_LIMIT;
 
 /// Used in calculating the base fee change.
-pub const BLOCK_GAS_TARGET: i64 = BLOCK_GAS_LIMIT / 2;
+pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT / 2;
 
 /// Limits gas base fee change to 12.5% of the change.
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8;
 
 /// Genesis base fee.
 pub const INITIAL_BASE_FEE: i64 = 100000000;
-pub const PACKING_EFFICIENCY_DENOM: i64 = 5;
-pub const PACKING_EFFICIENCY_NUM: i64 = 4;
+pub const PACKING_EFFICIENCY_DENOM: u64 = 5;
+pub const PACKING_EFFICIENCY_NUM: u64 = 4;
 pub const MINIMUM_BASE_FEE: i64 = 100;
 
 fn compute_next_base_fee(
     base_fee: &TokenAmount,
-    gas_limit_used: i64,
+    gas_limit_used: u64,
     no_of_blocks: usize,
     epoch: ChainEpoch,
     smoke_height: ChainEpoch,
 ) -> TokenAmount {
     let mut delta: i64 = if epoch > smoke_height {
-        (gas_limit_used / no_of_blocks as i64) - BLOCK_GAS_TARGET
+        (gas_limit_used as i64 / no_of_blocks as i64) - BLOCK_GAS_TARGET as i64
     } else {
         // Yes the denominator and numerator are intentionally flipped here. We are
         // matching go.
-        (PACKING_EFFICIENCY_DENOM * gas_limit_used / (no_of_blocks as i64 * PACKING_EFFICIENCY_NUM))
-            - BLOCK_GAS_TARGET
+        (PACKING_EFFICIENCY_DENOM * gas_limit_used / (no_of_blocks as u64 * PACKING_EFFICIENCY_NUM))
+            as i64
+            - BLOCK_GAS_TARGET as i64
     };
 
     // Limit absolute change at the block gas target.
-    if delta.abs() > BLOCK_GAS_TARGET {
+    if delta.abs() > BLOCK_GAS_TARGET as i64 {
         delta = if delta.is_positive() {
-            BLOCK_GAS_TARGET
+            BLOCK_GAS_TARGET as i64
         } else {
-            -BLOCK_GAS_TARGET
+            -(BLOCK_GAS_TARGET as i64)
         };
     }
 
@@ -104,7 +106,7 @@ mod tests {
 
     use super::*;
 
-    fn construct_tests() -> Vec<(i64, i64, usize, i64, i64)> {
+    fn construct_tests() -> Vec<(i64, u64, usize, i64, i64)> {
         // (base_fee, limit_used, no_of_blocks, output)
         vec![
             (100_000_000, 0, 1, 87_500_000, 87_500_000),

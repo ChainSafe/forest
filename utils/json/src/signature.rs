@@ -4,7 +4,7 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use forest_encoding::de;
-    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use forest_shim::crypto::{Signature, SignatureType};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.
@@ -30,7 +30,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: m.sig_type,
+            sig_type: m.signature_type(),
             bytes: BASE64_STANDARD.encode(&m.bytes),
         }
         .serialize(serializer)
@@ -41,10 +41,10 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
-        Ok(Signature {
+        Ok(Signature::new(
             sig_type,
-            bytes: BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
-        })
+            BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
+        ))
     }
 
     pub mod opt {
@@ -78,6 +78,7 @@ pub mod json {
         enum JsonHelperEnum {
             Bls,
             Secp256k1,
+            Delegated,
         }
 
         #[derive(Debug, Serialize, Deserialize)]
@@ -88,9 +89,10 @@ pub mod json {
         where
             S: Serializer,
         {
-            let json = match m {
+            let json = match *m {
                 SignatureType::BLS => JsonHelperEnum::Bls,
                 SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
+                SignatureType::Delegated => JsonHelperEnum::Delegated,
             };
             json.serialize(serializer)
         }
@@ -104,6 +106,7 @@ pub mod json {
             let signature_type = match json_enum {
                 JsonHelperEnum::Bls => SignatureType::BLS,
                 JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
+                JsonHelperEnum::Delegated => SignatureType::Delegated,
             };
             Ok(signature_type)
         }
@@ -112,53 +115,23 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use forest_shim::crypto::{Signature, SignatureType};
     use quickcheck_macros::quickcheck;
     use serde_json;
 
     use super::json::{signature_type::SignatureTypeJson, SignatureJson, SignatureJsonRef};
 
-    #[derive(Clone, Debug, PartialEq)]
-    struct SignatureWrapper {
-        signature: Signature,
-    }
-
-    #[derive(Clone, Debug, PartialEq)]
-    struct SignatureTypeWrapper {
-        sigtype: SignatureType,
-    }
-
-    impl quickcheck::Arbitrary for SignatureWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let sigtype = SignatureTypeWrapper::arbitrary(g);
-            let signature = Signature {
-                bytes: Vec::arbitrary(g),
-                sig_type: sigtype.sigtype,
-            };
-            SignatureWrapper { signature }
-        }
-    }
-
-    impl quickcheck::Arbitrary for SignatureTypeWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let sigtype = g
-                .choose(&[SignatureType::Secp256k1, SignatureType::BLS])
-                .unwrap();
-            SignatureTypeWrapper { sigtype: *sigtype }
-        }
-    }
-
     #[quickcheck]
-    fn signature_roundtrip(signature: SignatureWrapper) {
-        let serialized = serde_json::to_string(&SignatureJsonRef(&signature.signature)).unwrap();
+    fn signature_roundtrip(signature: Signature) {
+        let serialized = serde_json::to_string(&SignatureJsonRef(&signature)).unwrap();
         let parsed: SignatureJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(signature.signature, parsed.0);
+        assert_eq!(signature, parsed.0);
     }
 
     #[quickcheck]
-    fn signaturetype_roundtrip(sigtype: SignatureTypeWrapper) {
-        let serialized = serde_json::to_string(&SignatureTypeJson(sigtype.sigtype)).unwrap();
+    fn signaturetype_roundtrip(sigtype: SignatureType) {
+        let serialized = serde_json::to_string(&SignatureTypeJson(sigtype)).unwrap();
         let parsed: SignatureTypeJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(sigtype.sigtype, parsed.0);
+        assert_eq!(sigtype, parsed.0);
     }
 }

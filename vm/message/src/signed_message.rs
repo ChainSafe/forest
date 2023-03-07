@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_encoding::tuple::*;
-use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use forest_shim::{
+    address::Address,
+    crypto::{Signature, SignatureType},
+    econ::TokenAmount,
+    message::Message,
+};
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
 use fvm_ipld_encoding3::RawBytes;
-use fvm_shared::{
-    crypto::signature::{Signature, SignatureType},
-    MethodNum,
-};
+use fvm_shared::MethodNum;
 
 use super::Message as MessageTrait;
 
@@ -60,6 +62,11 @@ impl SignedMessage {
         self.signature.signature_type() == SignatureType::Secp256k1
     }
 
+    /// Checks if the signed message is a delegated message.
+    pub fn is_delegated(&self) -> bool {
+        self.signature.signature_type() == SignatureType::Delegated
+    }
+
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
@@ -86,10 +93,10 @@ impl MessageTrait for SignedMessage {
     fn params(&self) -> &RawBytes {
         self.message.params()
     }
-    fn gas_limit(&self) -> i64 {
+    fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
     }
-    fn set_gas_limit(&mut self, token_amount: i64) {
+    fn set_gas_limit(&mut self, token_amount: u64) {
         self.message.set_gas_limit(token_amount);
     }
     fn set_sequence(&mut self, new_sequence: u64) {
