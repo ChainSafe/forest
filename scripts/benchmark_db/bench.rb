@@ -55,29 +55,31 @@ def sample_proc(pid, metrics)
   metrics[:vsz].push(output[1].to_i)
 end
 
+def measure_online_validation(benchmark, pid, metrics)
+  Thread.new do
+    first_epoch = nil
+    loop do
+      start, first_epoch = benchmark.start_online_validation_command
+      if start
+        puts 'Start measure'
+        break
+      end
+      sleep 0.05
+    end
+    sleep benchmark.online_validation_secs
+    last_epoch = benchmark.epoch_command
+    # TODO: sometimes last_epoch or first_epoch is nil, fix it
+    metrics[:num_epochs] = last_epoch - first_epoch
+
+    puts 'Stopping process...'
+    benchmark.stop_command(pid)
+  end
+end
+
 def proc_monitor(pid, benchmark)
   # TODO: synchronize access to metrics hashmap
   metrics = { rss: [], vsz: [] }
-  if benchmark
-    Thread.new do
-      first_epoch = nil
-      loop do
-        start, first_epoch = benchmark.start_online_validation_command
-        if start
-          puts 'Start measure'
-          break
-        end
-        sleep 0.05
-      end
-      sleep benchmark.online_validation_secs
-      last_epoch = benchmark.epoch_command
-      # TODO: sometimes last_epoch or first_epoch is nil, fix it
-      metrics[:num_epochs] = last_epoch - first_epoch
-
-      puts 'Stopping process...'
-      benchmark.stop_command(pid)
-    end
-  end
+  measure_online_validation(benchmark, pid, metrics) if benchmark
   handle = Thread.new do
     loop do
       sample_proc(pid, metrics)
@@ -612,7 +614,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    # ForestBenchmark.new(name: 'forest'),
+    ForestBenchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
