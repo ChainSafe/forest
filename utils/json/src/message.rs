@@ -132,17 +132,17 @@ pub mod tests {
     use forest_shim::message::Message;
     use quickcheck_macros::quickcheck;
 
-    use crate::message::json;
+    use super::json::{MessageJson, MessageJsonRef};
 
     #[quickcheck]
     fn message_roundtrip(message: Message) {
-        let serialized: String = forest_test_utils::to_string_with!(&message, json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+        let serialized = serde_json::to_string(&MessageJsonRef(&message)).unwrap();
+        let parsed: MessageJson = serde_json::from_str(&serialized).unwrap();
         // Skip delegated addresses for now
         if (message.from.protocol() != forest_shim::address::Protocol::Delegated)
             && (message.to.protocol() != forest_shim::address::Protocol::Delegated)
         {
-            assert_eq!(message, parsed)
+            assert_eq!(message, parsed.0)
         }
     }
 }

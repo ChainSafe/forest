@@ -112,23 +112,18 @@ mod tests {
     use crate::{
         message,
         message::json::{MessageJson, MessageJsonRef},
-        signed_message::json,
     };
 
     #[quickcheck]
-    fn signed_message_roundtrip(id: u64) {
-        let unsigned_message_v3 = Message_v3 {
-            to: Address::new_id(id).into(),
-            from: Address::new_id(id).into(),
-            ..Message_v3::default()
-        };
-        let unsigned_message = Message::from(unsigned_message_v3);
-        let signed_message =
-            SignedMessage::new_unchecked(unsigned_message, Signature::new_secp256k1(vec![0]));
-        let serialized: String =
-            forest_test_utils::to_string_with!(&signed_message, json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
-        assert_eq!(signed_message, parsed);
+    fn signed_message_roundtrip(signed_message: SignedMessage) {
+        let serialized = serde_json::to_string(&SignedMessageJsonRef(&signed_message)).unwrap();
+        let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
+        // Skip delegated addresses for now
+        if (signed_message.message.from.protocol() != forest_shim::address::Protocol::Delegated)
+            && (signed_message.message.to.protocol() != forest_shim::address::Protocol::Delegated)
+        {
+            assert_eq!(signed_message, parsed.0)
+        }
     }
 
     #[test]

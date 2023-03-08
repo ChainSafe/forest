@@ -3900,6 +3900,7 @@ dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0 (git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles)",
+ "quickcheck",
  "rand 0.8.5",
  "serde",
 ]
