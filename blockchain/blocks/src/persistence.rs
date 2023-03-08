@@ -6,16 +6,6 @@ use fvm_ipld_encoding::Cbor;
 
 use crate::*;
 
-impl FileBackedObject for BlockHeader {
-    fn serialize(&self) -> anyhow::Result<Vec<u8>> {
-        Ok(self.marshal_cbor()?)
-    }
-
-    fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
-        Ok(BlockHeader::unmarshal_cbor(bytes)?)
-    }
-}
-
 impl FileBackedObject for TipsetKeys {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
         Ok(self.marshal_cbor()?)
@@ -36,25 +26,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn block_header_round_trip() -> Result<()> {
-        let path = Path::new("tests/calibnet/GENESIS");
-        let obj1: FileBacked<BlockHeader> = FileBacked::load_from_file_or_new(path.into())?;
-        ensure!(obj1.inner().is_some());
-        obj1.flush_to_file()?;
-        let obj2: FileBacked<BlockHeader> = FileBacked::load_from_file_or_new(path.into())?;
-        ensure!(obj1.inner() == obj2.inner());
-
-        Ok(())
-    }
-
-    #[test]
     fn tipset_keys_round_trip() -> Result<()> {
         let path = Path::new("tests/calibnet/HEAD");
-        let obj1: FileBacked<TipsetKeys> = FileBacked::load_from_file_or_new(path.into())?;
-        ensure!(obj1.inner().is_some());
-        obj1.flush_to_file()?;
-        let obj2: FileBacked<TipsetKeys> = FileBacked::load_from_file_or_new(path.into())?;
-        ensure!(obj1.inner() == obj2.inner());
+        let obj1: FileBacked<TipsetKeys> =
+            FileBacked::load_from_file_or_create(path.into(), Default::default)?;
+        let serialized = obj1.inner().serialize()?;
+        let deserialized = TipsetKeys::deserialize(&serialized)?;
+
+        ensure!(obj1.inner() == &deserialized);
 
         Ok(())
     }

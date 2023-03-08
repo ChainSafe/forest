@@ -1,7 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
+use std::{
+    collections::VecDeque,
+    num::NonZeroUsize,
+    path::Path,
+    sync::{
+        atomic::{self, AtomicBool},
+        Arc,
+    },
+    time::SystemTime,
+};
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
@@ -101,7 +110,7 @@ pub struct ChainStore<DB> {
     tipset_tracker: TipsetTracker<DB>,
 
     /// File backed genesis block header
-    file_backed_genesis: Mutex<FileBacked<BlockHeader>>,
+    file_backed_genesis: Mutex<FileBacked<Cid>>,
 
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
@@ -148,12 +157,16 @@ where
         let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let genesis_ts = Arc::new(Tipset::from(genesis_block_header));
         let file_backed_genesis = Mutex::new(FileBacked::new(
-            Some(genesis_block_header.clone()),
+            *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
         ));
+        let is_heaviest_tipset_keys_set = Arc::new(AtomicBool::new(true));
+        let is_heaviest_tipset_keys_set_cloned = is_heaviest_tipset_keys_set.clone();
         let file_backed_heaviest_tipset_keys =
-            FileBacked::load_from_file_or_new(chain_data_root.join("HEAD"))?;
-        let is_heaviest_tipset_keys_set = file_backed_heaviest_tipset_keys.inner().is_some();
+            FileBacked::load_from_file_or_create(chain_data_root.join("HEAD"), || {
+                is_heaviest_tipset_keys_set_cloned.store(false, atomic::Ordering::Relaxed);
+                genesis_ts.key().clone()
+            })?;
         let cs = Self {
             publisher,
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
@@ -167,7 +180,7 @@ where
 
         cs.set_genesis(genesis_block_header)?;
 
-        if is_heaviest_tipset_keys_set {
+        if is_heaviest_tipset_keys_set.load(atomic::Ordering::Relaxed) {
             // Result intentionally ignored, doesn't matter if heaviest doesn't exist in
             // store yet
             let _ = cs.load_heaviest_tipset();
@@ -193,7 +206,7 @@ where
 
     /// Writes genesis to `blockstore`.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        self.file_backed_genesis.lock().set_inner(header.clone())?;
+        self.file_backed_genesis.lock().set_inner(*header.cid())?;
 
         self.blockstore()
             .put_obj(&header, Blake2b256)
@@ -232,13 +245,8 @@ where
     /// Loads heaviest tipset from `datastore` and sets as heaviest in
     /// `chainstore`.
     fn load_heaviest_tipset(&self) -> Result<(), Error> {
-        let heaviest_ts = match self.file_backed_heaviest_tipset_keys.lock().inner() {
-            Some(tipset_keys) => self.tipset_from_keys(tipset_keys)?,
-            None => {
-                warn!("No previous chain state found");
-                return Err(Error::Other("No chain state found".to_owned()));
-            }
-        };
+        let heaviest_ts =
+            self.tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())?;
 
         // set as heaviest tipset
         *self.heaviest.lock() = heaviest_ts;
@@ -247,11 +255,15 @@ where
 
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        self.file_backed_genesis
-            .lock()
-            .inner()
-            .clone()
+        self.blockstore()
+            .get_obj::<BlockHeader>(self.file_backed_genesis.lock().inner())?
             .ok_or_else(|| Error::Other("Genesis block not set".into()))
+        // self.file_backed_genesis
+        //     .lock()
+        //     .inner()
+        //     .map(|cid| self.blockstore().get_obj::<BlockHeader>(&cid).ok())
+        //     .flatten()
+        //     .flatten()
     }
 
     /// Returns the currently tracked heaviest tipset.
