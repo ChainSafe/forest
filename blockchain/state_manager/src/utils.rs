@@ -124,6 +124,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
         return is_account_actor(&actor.code);
     }
 
+    // After nv18, we also support other kinds of senders.
     if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
         return true;
     }
