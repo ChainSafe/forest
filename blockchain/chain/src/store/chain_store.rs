@@ -143,7 +143,6 @@ where
     {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
-        let genesis_ts = Arc::new(Tipset::from(genesis_block_header));
         let file_backed_genesis = Mutex::new(FileBacked::new(
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
@@ -151,7 +150,7 @@ where
 
         let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("HEAD"),
-            || genesis_ts.key().clone(),
+            || TipsetKeys::new(vec![*genesis_block_header.cid()]),
         )?);
         let cs = Self {
             publisher,
