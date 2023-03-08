@@ -11,6 +11,7 @@ use std::{
 
 use forest_utils::db::file_backed_obj::FileBacked;
 use log::{info, warn};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use crate::db_engine::{open_db, Db, DbConfig};
@@ -18,9 +19,9 @@ use crate::db_engine::{open_db, Db, DbConfig};
 pub struct RollingDB {
     db_root: PathBuf,
     db_config: DbConfig,
-    db_index: FileBacked<DbIndex>,
+    db_index: RwLock<FileBacked<DbIndex>>,
     /// A queue of active databases, from youngest to oldest
-    db_queue: VecDeque<Db>,
+    db_queue: RwLock<VecDeque<Db>>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

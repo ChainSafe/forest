@@ -7,13 +7,14 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_utils::db::file_backed_obj::FileBackedObject;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
+use parking_lot::RwLock;
 
 use super::*;
 use crate::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        for db in self.db_queue.iter() {
+        for db in self.db_queue.read().iter() {
             if let Ok(true) = Blockstore::has(db, k) {
                 return Ok(true);
             }
@@ -23,7 +24,7 @@ impl Blockstore for RollingDB {
     }
 
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue.iter() {
+        for db in self.db_queue.read().iter() {
             if let Ok(Some(v)) = Blockstore::get(db, k) {
                 return Ok(Some(v));
             }
@@ -41,7 +42,7 @@ impl Blockstore for RollingDB {
         Self: Sized,
         D: AsRef<[u8]>,
     {
-        Blockstore::put(self.current(), mh_code, block)
+        Blockstore::put(&self.current(), mh_code, block)
     }
 
     fn put_many<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -50,7 +51,7 @@ impl Blockstore for RollingDB {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (cid::multihash::Code, fvm_ipld_blockstore::Block<D>)>,
     {
-        Blockstore::put_many(self.current(), blocks)
+        Blockstore::put_many(&self.current(), blocks)
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -59,11 +60,11 @@ impl Blockstore for RollingDB {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
-        Blockstore::put_many_keyed(self.current(), blocks)
+        Blockstore::put_many_keyed(&self.current(), blocks)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        Blockstore::put_keyed(self.current(), k, block)
+        Blockstore::put_keyed(&self.current(), k, block)
     }
 }
 
@@ -72,7 +73,7 @@ impl Store for RollingDB {
     where
         K: AsRef<[u8]>,
     {
-        for db in self.db_queue.iter() {
+        for db in self.db_queue.read().iter() {
             if let Ok(Some(v)) = Store::read(db, key.as_ref()) {
                 return Ok(Some(v));
             }
@@ -85,7 +86,7 @@ impl Store for RollingDB {
     where
         K: AsRef<[u8]>,
     {
-        for db in self.db_queue.iter() {
+        for db in self.db_queue.read().iter() {
             if let Ok(true) = Store::exists(db, key.as_ref()) {
                 return Ok(true);
             }
@@ -99,31 +100,31 @@ impl Store for RollingDB {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        Store::write(self.current(), key, value)
+        Store::write(&self.current(), key, value)
     }
 
     fn delete<K>(&self, key: K) -> Result<(), crate::Error>
     where
         K: AsRef<[u8]>,
     {
-        Store::delete(self.current(), key)
+        Store::delete(&self.current(), key)
     }
 
     fn bulk_write(
         &self,
         values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
     ) -> Result<(), crate::Error> {
-        Store::bulk_write(self.current(), values)
+        Store::bulk_write(&self.current(), values)
     }
 
     fn flush(&self) -> Result<(), crate::Error> {
-        Store::flush(self.current())
+        Store::flush(&self.current())
     }
 }
 
 impl BitswapStoreRead for RollingDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        for db in self.db_queue.iter() {
+        for db in self.db_queue.read().iter() {
             if let Ok(true) = BitswapStoreRead::contains(db, cid) {
                 return Ok(true);
             }
@@ -133,7 +134,7 @@ impl BitswapStoreRead for RollingDB {
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue.iter() {
+        for db in self.db_queue.read().iter() {
             if let Ok(Some(v)) = BitswapStoreRead::get(db, cid) {
                 return Ok(Some(v));
             }
@@ -147,13 +148,13 @@ impl BitswapStoreReadWrite for RollingDB {
     type Params = <Db as BitswapStoreReadWrite>::Params;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
-        BitswapStoreReadWrite::insert(self.current(), block)
+        BitswapStoreReadWrite::insert(&self.current(), block)
     }
 }
 
 impl DBStatistics for RollingDB {
     fn get_statistics(&self) -> Option<String> {
-        DBStatistics::get_statistics(self.current())
+        DBStatistics::get_statistics(&self.current())
     }
 }
 
@@ -181,25 +182,26 @@ impl Drop for RollingDB {
 impl RollingDB {
     pub fn load_or_create(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<Self> {
         let (db_index, db_queue) = load_db_queue(db_root.as_path(), &db_config)?;
-        let mut rolling = Self {
+        let rolling = Self {
             db_root,
             db_config,
-            db_index,
-            db_queue,
+            db_index: RwLock::new(db_index),
+            db_queue: db_queue.into(),
         };
 
-        if rolling.db_queue.is_empty() {
+        if rolling.db_queue.read().is_empty() {
             let (name, db) = rolling.create_untracked()?;
             rolling.track_as_current(name, db)?;
         }
-        rolling.ensure_db_index_integrity()?;
+
         Ok(rolling)
     }
 
-    pub fn track_as_current(&mut self, name: String, db: Db) -> anyhow::Result<()> {
-        self.db_queue.push_front(db);
-        self.db_index.inner_mut().db_names.push_front(name);
-        self.db_index.flush_to_file()
+    pub fn track_as_current(&self, name: String, db: Db) -> anyhow::Result<()> {
+        self.db_queue.write().push_front(db);
+        let mut db_index = self.db_index.write();
+        db_index.inner_mut().db_names.push_front(name);
+        db_index.flush_to_file()
     }
 
     pub fn create_untracked(&self) -> anyhow::Result<(String, Db)> {
@@ -208,33 +210,34 @@ impl RollingDB {
         Ok((name, db))
     }
 
-    pub fn clean_tracked(&mut self, n_db_to_reserve: usize, delete: bool) -> anyhow::Result<()> {
+    pub fn clean_tracked(&self, n_db_to_reserve: usize, delete: bool) -> anyhow::Result<()> {
         anyhow::ensure!(n_db_to_reserve > 0);
 
-        while self.db_queue.len() > n_db_to_reserve {
-            if let Some(db) = self.db_queue.pop_back() {
+        let mut db_index = self.db_index.write();
+        let mut db_queue = self.db_queue.write();
+        while db_queue.len() > n_db_to_reserve {
+            if let Some(db) = db_queue.pop_back() {
                 db.flush()?;
             }
-            if let Some(name) = self.db_index.inner_mut().db_names.pop_back() {
+            if let Some(name) = db_index.inner_mut().db_names.pop_back() {
                 info!("Closing DB {name}");
                 if delete {
                     let db_path = self.db_root.join(name);
                     delete_db(&db_path);
                 }
             }
-            self.ensure_db_index_integrity()?;
         }
 
-        self.db_index.flush_to_file()
+        db_index.flush_to_file()
     }
 
     pub fn clean_untracked(&self) -> anyhow::Result<()> {
         if let Ok(dir) = std::fs::read_dir(&self.db_root) {
+            let db_index = self.db_index.read();
             dir.flatten()
                 .filter(|entry| {
                     entry.path().is_dir()
-                        && self
-                            .db_index
+                        && db_index
                             .inner()
                             .db_names
                             .iter()
@@ -250,18 +253,15 @@ impl RollingDB {
     }
 
     pub fn size(&self) -> usize {
-        self.db_queue.len()
+        self.db_queue.read().len()
     }
 
-    fn current(&self) -> &Db {
+    fn current(&self) -> Db {
         self.db_queue
+            .read()
             .get(0)
+            .cloned()
             .expect("RollingDB should contain at least one DB reference")
-    }
-
-    fn ensure_db_index_integrity(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(self.db_queue.len() == self.db_index.inner().db_names.len());
-        Ok(())
     }
 }
 
