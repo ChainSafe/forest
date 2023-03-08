@@ -14,9 +14,7 @@ use cid::{
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use forest_blocks::{
-    persistence::FileBacked, Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta,
-};
+use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
@@ -33,7 +31,10 @@ use forest_shim::{
     message::Message,
     state_tree::StateTree,
 };
-use forest_utils::{db::BlockstoreExt, io::Checksum};
+use forest_utils::{
+    db::{file_backed_obj::FileBacked, BlockstoreExt},
+    io::Checksum,
+};
 use futures::Future;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
