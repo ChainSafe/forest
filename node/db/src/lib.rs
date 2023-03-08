@@ -17,6 +17,9 @@ pub mod rocks_config;
 pub use errors::Error;
 pub use memory::MemoryDB;
 
+mod rolling;
+pub use rolling::*;
+
 /// Store interface used as a KV store implementation
 pub trait Store {
     /// Read single value from data store and return `None` if key doesn't
@@ -41,14 +44,6 @@ pub trait Store {
     where
         K: AsRef<[u8]>;
 
-    /// Read slice of keys and return a vector of optional values.
-    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        keys.iter().map(|key| self.read(key)).collect()
-    }
-
     /// Write slice of KV pairs.
     fn bulk_write(
         &self,
@@ -57,14 +52,6 @@ pub trait Store {
         values
             .into_iter()
             .try_for_each(|(key, value)| self.write(key.into(), value.into()))
-    }
-
-    /// Bulk delete keys from the data store.
-    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        keys.iter().try_for_each(|key| self.delete(key))
     }
 
     /// Flush writing buffer if there is any. Default implementation is blank
@@ -103,25 +90,11 @@ impl<BS: Store> Store for &BS {
         (*self).exists(key)
     }
 
-    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).bulk_read(keys)
-    }
-
     fn bulk_write(
         &self,
         values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
     ) -> Result<(), Error> {
         (*self).bulk_write(values)
-    }
-
-    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).bulk_delete(keys)
     }
 }
 
