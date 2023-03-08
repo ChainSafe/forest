@@ -2,5 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod builtin;
+mod io;
 
 pub use self::builtin::*;

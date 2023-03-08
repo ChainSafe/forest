@@ -74,13 +74,13 @@ impl<DB: Blockstore> ForestExterns<DB> {
 
         let tbs = TrackingBlockstore::new(&self.db);
 
-        let ms = forest_actor_interface::miner::State::load(&tbs, &actor)?;
+        let ms = forest_actor_interface::miner::State::load(&tbs, &actor.into())?;
 
         let worker = ms.info(&tbs)?.worker;
 
         let state = StateTree::new_from_root(&self.db, &self.root)?;
 
-        let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
+        let addr = resolve_to_key_addr(&state, &tbs, &worker.into())?;
 
         let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;
