@@ -300,11 +300,11 @@ class Benchmark
     if daily
       validate_online_command = splice_args(@validate_online_command, args)
       new_metrics = exec_command(validate_online_command, dry_run, self)
-      if new_metrics[:num_epochs] then
-        new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
-      else
-        new_metrics[:tpm] = 'n/a'
-      end
+      new_metrics[:tpm] = if new_metrics[:num_epochs]
+                            (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+                          else
+                            'n/a'
+                          end
       metrics[:validate_online] = new_metrics
     end
 
@@ -315,7 +315,7 @@ class Benchmark
   end
 
   def online_validation_secs
-    #@chain == 'mainnet' ? 120.0 : 60.0
+    # TODO: restore 120.0 / 60.0 when PR is ready
     @chain == 'mainnet' ? 120.0 : 10.0
   end
 
@@ -463,7 +463,7 @@ end
 # Lotus benchmark class
 class LotusBenchmark < Benchmark
   def db_dir
-    lotus_path = ENV['LOTUS_PATH']# || "#{Dir.home}/.lotus"
+    lotus_path = ENV.fetch('LOTUS_PATH', nil)
     "#{lotus_path}/datastore/chain"
   end
 
@@ -607,7 +607,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    #ForestBenchmark.new(name: 'forest'),
+    # ForestBenchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
