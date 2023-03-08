@@ -193,35 +193,35 @@ def get_url(chain, url)
   url || output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
 end
 
-def download_and_move(url, filename, checksum_url, checksum_filename, output_dir, decompressed_filename)
-  Dir.mktmpdir do |dir|
-    # Download, decompress and verify checksums
-    puts 'Downloading checksum...'
-    syscall('aria2c', checksum_url, chdir: dir)
-    puts 'Downloading snapshot...'
-    syscall('aria2c', '-x5', url, chdir: dir)
-    puts 'Decompressing...'
-    syscall('zstd', '-d', filename, chdir: dir)
-    puts 'Verifying...'
-    syscall('sha256sum', '--check', '--status', checksum_filename, chdir: dir)
-
-    FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
-  end
-end
-
-def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
-  puts "output_dir: #{output_dir}"
-  puts "chain: #{chain}"
-  url = get_url(chain, url)
-  puts "snapshot_url: #{url}"
-
+def download_and_move(url, output_dir)
   filename = url.match(/(\d+_.+)/)[1]
   checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
   checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
   decompressed_filename = filename.sub(/\.car\.zst/, '.car')
 
-  download_and_move(url, filename, checksum_url, checksum_filename, output_dir, decompressed_filename)
+  Dir.mktmpdir do |dir|
+    # Download, decompress and verify checksums
+    puts '(I) Downloading checksum...'
+    syscall('aria2c', checksum_url, chdir: dir)
+    puts '(I) Downloading snapshot...'
+    syscall('aria2c', '-x5', url, chdir: dir)
+    puts "(I) Decompressing #{filename}..."
+    syscall('zstd', '-d', filename, chdir: dir)
+    puts '(I) Verifying...'
+    syscall('sha256sum', '--check', '--status', checksum_filename, chdir: dir)
+
+    FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
+  end
   "#{output_dir}/#{decompressed_filename}"
+end
+
+def download_snapshot(output_dir: BENCHMARK_DIR, chain: 'calibnet', url: nil)
+  puts "output_dir: #{output_dir}"
+  puts "chain: #{chain}"
+  url = get_url(chain, url)
+  puts "snapshot_url: #{url}"
+
+  download_and_move(url, output_dir)
 end
 
 # Base benchmark class
@@ -302,11 +302,11 @@ class Benchmark
     if daily
       validate_online_command = splice_args(@validate_online_command, args)
       new_metrics = exec_command(validate_online_command, dry_run, self)
-      if new_metrics[:num_epochs] then
-        new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
-      else
-        new_metrics[:tpm] = 'n/a'
-      end
+      new_metrics[:tpm] = if new_metrics[:num_epochs]
+                            (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+                          else
+                            'n/a'
+                          end
       metrics[:validate_online] = new_metrics
     end
 
@@ -317,7 +317,7 @@ class Benchmark
   end
 
   def online_validation_secs
-    #@chain == 'mainnet' ? 120.0 : 60.0
+    # TODO: restore 120.0 / 60.0 when PR is ready
     @chain == 'mainnet' ? 120.0 : 10.0
   end
 
@@ -423,7 +423,7 @@ class ForestBenchmark < Benchmark
     ]
     @validate_command = [
       target, '--config', '%<c>s', '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s', '--halt-after-import', '--skip-load', '--height', '%<h>s'
+      '--import-snapshot', '%<s>s', '--halt-after-import', '--skip-load=true', '--height', '%<h>s'
     ]
     @validate_online_command = [
       target, '--config', '%<c>s', '--encrypt-keystore', 'false'
@@ -466,7 +466,7 @@ end
 # Lotus benchmark class
 class LotusBenchmark < Benchmark
   def db_dir
-    lotus_path = ENV['LOTUS_PATH']# || "#{Dir.home}/.lotus"
+    lotus_path = ENV.fetch('LOTUS_PATH', nil)
     "#{lotus_path}/datastore/chain"
   end
 
@@ -610,8 +610,8 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    ForestBenchmark.new(name: 'forest'),
-    #LotusBenchmark.new(name: 'lotus')
+    # ForestBenchmark.new(name: 'forest'),
+    LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
 else
