@@ -28,6 +28,27 @@ HOUR = MINUTE * MINUTE
 
 BENCHMARK_DIR = Dir.mktmpdir('benchmark-')
 
+options = {
+  heights: HEIGHTS_TO_VALIDATE,
+  pattern: 'baseline',
+  chain: 'calibnet', # TODO: replace with 'mainnet' before merging
+  daily: true
+}
+OptionParser.new do |opts|
+  opts.banner = 'Usage: bench.rb [options] snapshot'
+  opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
+  opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
+  opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
+  opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
+  opts.on('--tempdir [Sring]', 'Specify a custom directory for running benchmarks') { |v| options[:custom_dir] = v }
+end.parse!
+
+WORKING_DIR = if options[:custom_dir].nil?
+                BENCHMARK_DIR
+              else
+                File.join(options[:custom_dir], BENCHMARK_DIR)
+              end
+
 # Provides human readable formatting to Numeric class
 class Numeric
   def to_bibyte
@@ -217,7 +238,7 @@ def download_and_move(url, output_dir)
   "#{output_dir}/#{decompressed_filename}"
 end
 
-def download_snapshot(output_dir: BENCHMARK_DIR, chain: 'calibnet', url: nil)
+def download_snapshot(output_dir: WORKING_DIR, chain: 'calibnet', url: nil)
   puts "output_dir: #{output_dir}"
   puts "chain: #{chain}"
   url = get_url(chain, url)
@@ -342,7 +363,7 @@ class Benchmark
   end
 
   def data_dir
-    path = "#{BENCHMARK_DIR}/.#{repository_name}"
+    path = "#{WORKING_DIR}/.#{repository_name}"
     FileUtils.mkdir_p path
     path
   end
@@ -537,7 +558,7 @@ class LotusBenchmark < Benchmark
 
   def initialize(name:, config: {})
     super(name: name, config: config)
-    ENV['LOTUS_PATH'] = File.join(BENCHMARK_DIR, ".#{repository_name}")
+    ENV['LOTUS_PATH'] = File.join(WORKING_DIR, ".#{repository_name}")
     @name = name
     @config = config
     @import_command = [
@@ -557,7 +578,7 @@ def run_benchmarks(benchmarks, options)
   bench_metrics = {}
   snapshot_abs_path = File.expand_path(options[:snapshot_path])
   puts "(I) Using snapshot: #{snapshot_abs_path}"
-  puts "(I) BENCHMARK_DIR: #{BENCHMARK_DIR}"
+  puts "(I) BENCHMARK_DIR: #{WORKING_DIR}"
   puts ''
   Dir.chdir(BENCHMARK_DIR) do
     benchmarks.each do |bench|
@@ -586,20 +607,6 @@ BENCHMARKS = [
   JemallocBenchmark.new(name: 'paritydb-jemalloc'),
   MimallocBenchmark.new(name: 'paritydb-mimalloc')
 ].freeze
-
-options = {
-  heights: HEIGHTS_TO_VALIDATE,
-  pattern: 'baseline',
-  chain: 'calibnet', # TODO: replace with 'mainnet' before merging
-  daily: true
-}
-OptionParser.new do |opts|
-  opts.banner = 'Usage: bench.rb [options] snapshot'
-  opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
-  opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
-  opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
-  opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
-end.parse!
 
 snapshot_path = ARGV.pop
 raise "The file '#{snapshot_path}' does not exist" if snapshot_path && !File.file?(snapshot_path)
