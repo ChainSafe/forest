@@ -4151,6 +4151,7 @@ dependencies = [
  "lru",
  "num",
  "num-traits",
+ "once_cell",
  "parking_lot 0.12.1",
  "prometheus",
  "serde",
