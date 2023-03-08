@@ -47,10 +47,6 @@ set -e
 echo "Validating as calibnet snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
 
-# echo "--- Forest STDOUT ---"; cat forest.out
-# echo "--- Forest STDERR ---"; cat forest.err
-# echo "--- Forest Prometheus metrics ---"; cat metrics.log
-
 echo "Print forest log files"
 ls -hl $LOG_DIRECTORY
 cat $LOG_DIRECTORY/*
@@ -65,11 +61,19 @@ FIL_AMT=500
 ADMIN_TOKEN=$(cat admin_token)
 # Wallet addresses: 
 # A preloaded address
-ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
+ADDR_ONE=t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y
 
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import scripts/preloaded_wallet.key
 sleep 5s
+
+echo "Exporting key"
+$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_ONE" > preloaded_wallet.test.key
+if ! cmp -s scripts/preloaded_wallet.key preloaded_wallet.test.key; then
+    echo ".key files should match"
+    $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
+    exit 1
+fi
 
 echo "Fetching metrics"
 wget -O metrics.log http://localhost:6116/metrics
@@ -80,10 +84,10 @@ sleep 5s
 echo "Listing wallet balances"
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
 
-echo "Creating a new address to send FIL to:"
+echo "Creating a new address to send FIL to"
 ADDR_TWO=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet new)
 echo "$ADDR_TWO"
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet set-default "t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y"
+$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet set-default "$ADDR_ONE"
 
 echo "Listing wallet balances"
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
@@ -100,22 +104,16 @@ $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
 
 ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO")
 if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
-  echo "token amount should match"
+  echo "FIL amount should match"
   $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
   exit 1
 fi
-
-echo "Exporting wallet with "
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_TWO" > addr_two_pkey.test.key
-echo "Importing wallet"
-# TODO: wipe wallet and import back with preloaded key
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import addr_two_pkey.test.key || true
 
 echo "Get and print metrics and logs and stop forest"
 wget -O metrics.log http://localhost:6116/metrics
 
 $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
 
-# echo "--- Forest STDOUT ---"; cat forest.out
-# echo "--- Forest STDERR ---"; cat forest.err
-# echo "--- Forest Prometheus metrics ---"; cat metrics.log
+echo "--- Forest STDOUT ---"; cat forest.out
+echo "--- Forest STDERR ---"; cat forest.err
+echo "--- Forest Prometheus metrics ---"; cat metrics.log
