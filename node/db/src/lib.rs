@@ -17,8 +17,8 @@ pub mod rocks_config;
 pub use errors::Error;
 pub use memory::MemoryDB;
 
-mod rolling;
-pub use rolling::*;
+#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
+pub mod rolling;
 
 /// Store interface used as a KV store implementation
 pub trait Store {

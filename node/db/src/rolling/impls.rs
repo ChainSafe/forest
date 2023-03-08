@@ -198,10 +198,7 @@ impl RollingDB {
 
     pub fn track_as_current(&mut self, name: String, db: Db) -> anyhow::Result<()> {
         self.db_queue.push_front(db);
-        self.db_index
-            .inner_mut_or_default()
-            .db_names
-            .push_front(name);
+        self.db_index.inner_mut().db_names.push_front(name);
         self.db_index.flush_to_file()
     }
 
@@ -218,13 +215,11 @@ impl RollingDB {
             if let Some(db) = self.db_queue.pop_back() {
                 db.flush()?;
             }
-            if let Some(db_index) = self.db_index.inner_mut() {
-                if let Some(name) = db_index.db_names.pop_back() {
-                    info!("Closing DB {name}");
-                    if delete {
-                        let db_path = self.db_root.join(name);
-                        delete_db(&db_path);
-                    }
+            if let Some(name) = self.db_index.inner_mut().db_names.pop_back() {
+                info!("Closing DB {name}");
+                if delete {
+                    let db_path = self.db_root.join(name);
+                    delete_db(&db_path);
                 }
             }
             self.ensure_db_index_integrity()?;
@@ -241,14 +236,9 @@ impl RollingDB {
                         && self
                             .db_index
                             .inner()
-                            .as_ref()
-                            .map(|db_index| {
-                                db_index
-                                    .db_names
-                                    .iter()
-                                    .all(|name| entry.path() != self.db_root.join(name).as_path())
-                            })
-                            .unwrap_or_default()
+                            .db_names
+                            .iter()
+                            .all(|name| entry.path() != self.db_root.join(name).as_path())
                 })
                 .for_each(|entry| delete_db(&entry.path()));
         }
@@ -270,15 +260,7 @@ impl RollingDB {
     }
 
     fn ensure_db_index_integrity(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.db_queue.len()
-                == self
-                    .db_index
-                    .inner()
-                    .as_ref()
-                    .map(|index| index.db_names.len())
-                    .unwrap_or_default()
-        );
+        anyhow::ensure!(self.db_queue.len() == self.db_index.inner().db_names.len());
         Ok(())
     }
 }
@@ -287,9 +269,10 @@ fn load_db_queue(
     db_root: &Path,
     db_config: &DbConfig,
 ) -> anyhow::Result<(FileBacked<DbIndex>, VecDeque<Db>)> {
-    let mut db_index = FileBacked::load_from_file_or_new(db_root.join("db_index.yaml"))?;
+    let mut db_index =
+        FileBacked::load_from_file_or_create(db_root.join("db_index.yaml"), Default::default)?;
     let mut db_queue = VecDeque::new();
-    let index_inner_mut: &mut DbIndex = db_index.inner_mut_or_default();
+    let index_inner_mut: &mut DbIndex = db_index.inner_mut();
     for i in (0..index_inner_mut.db_names.len()).rev() {
         let name = index_inner_mut.db_names[i].as_str();
         let db_path = db_root.join(name);

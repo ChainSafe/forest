@@ -1,69 +1,75 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
+use cid::Cid;
 use log::warn;
 
 pub struct FileBacked<T: FileBackedObject> {
-    inner: Option<T>,
+    inner: T,
     path: PathBuf,
 }
 
 impl<T: FileBackedObject> FileBacked<T> {
     /// Gets a borrow of the inner object
-    pub fn inner(&self) -> &Option<T> {
+    pub fn inner(&self) -> &T {
         &self.inner
     }
 
     /// Gets a mutable borrow of the inner object
-    pub fn inner_mut(&mut self) -> &mut Option<T> {
+    pub fn inner_mut(&mut self) -> &mut T {
         &mut self.inner
     }
 
     /// Sets the inner object and flushes to file
     pub fn set_inner(&mut self, inner: T) -> anyhow::Result<()> {
-        self.inner = Some(inner);
+        self.inner = inner;
         self.flush_to_file()
     }
 
     /// Creates a new file backed object
-    pub fn new(inner: Option<T>, path: PathBuf) -> Self {
+    pub fn new(inner: T, path: PathBuf) -> Self {
         Self { inner, path }
     }
 
     /// Loads an object from a file and creates a new instance
-    pub fn load_from_file_or_new(path: PathBuf) -> anyhow::Result<Self> {
-        if path.is_file() {
+    pub fn load_from_file_or_create<F: Fn() -> T>(
+        path: PathBuf,
+        create: F,
+    ) -> anyhow::Result<Self> {
+        let mut need_flush = false;
+        let obj = if path.is_file() {
             let bytes = std::fs::read(path.as_path())?;
-            Ok(Self {
+            Self {
                 inner: T::deserialize(&bytes)
                     .map_err(|e| {
                         warn!("Error loading object from {}", path.display());
+                        need_flush = true;
                         e
                     })
-                    .ok(),
+                    .unwrap_or_else(|_| create()),
                 path,
-            })
+            }
         } else {
-            Ok(Self { inner: None, path })
+            need_flush = true;
+            Self {
+                inner: create(),
+                path,
+            }
+        };
+
+        if need_flush {
+            obj.flush_to_file()?;
         }
+
+        Ok(obj)
     }
 
     /// Flushes the object to the file
     pub fn flush_to_file(&self) -> anyhow::Result<()> {
-        if let Some(inner) = &self.inner {
-            let bytes = inner.serialize()?;
-            Ok(std::fs::write(&self.path, bytes)?)
-        } else {
-            anyhow::bail!("Inner object is not set")
-        }
-    }
-}
-
-impl<T: FileBackedObject + Default> FileBacked<T> {
-    pub fn inner_mut_or_default(&mut self) -> &mut T {
-        self.inner_mut().get_or_insert_with(Default::default)
+        let bytes = self.inner().serialize()?;
+        Ok(std::fs::write(&self.path, bytes)?)
     }
 }
 
@@ -74,4 +80,14 @@ pub trait FileBackedObject: Sized {
 
     /// Deserializes from a byte array
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self>;
+}
+
+impl FileBackedObject for Cid {
+    fn serialize(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(self.to_string().into_bytes())
+    }
+
+    fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
+        Ok(Cid::from_str(String::from_utf8_lossy(bytes).trim())?)
+    }
 }

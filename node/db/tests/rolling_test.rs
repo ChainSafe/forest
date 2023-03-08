@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #[cfg(test)]
+#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 mod tests {
     use std::{thread::sleep, time::Duration};
 
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
-    use forest_db::RollingDB;
+    use forest_db::rolling::RollingDB;
     use forest_libp2p_bitswap::BitswapStoreRead;
     use fvm_ipld_blockstore::Blockstore;
     use rand::Rng;
