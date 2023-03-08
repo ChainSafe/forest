@@ -3,10 +3,8 @@
 
 use ahash::HashMap;
 use libp2p::{
-    request_response::{
-        OutboundFailure, ProtocolSupport, RequestId, RequestResponse, ResponseChannel,
-    },
-    swarm::NetworkBehaviour,
+    request_response::{self, OutboundFailure, ProtocolSupport, RequestId, ResponseChannel},
+    swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
 use log::warn;
@@ -14,7 +12,7 @@ use log::warn;
 use super::*;
 use crate::{rpc::RequestResponseError, service::metrics};
 
-type InnerBehaviour = RequestResponse<ChainExchangeCodec>;
+type InnerBehaviour = request_response::Behaviour<ChainExchangeCodec>;
 
 pub struct ChainExchangeBehaviour {
     inner: InnerBehaviour,
@@ -79,7 +77,7 @@ impl ChainExchangeBehaviour {
 impl Default for ChainExchangeBehaviour {
     fn default() -> Self {
         Self {
-            inner: RequestResponse::new(
+            inner: InnerBehaviour::new(
                 ChainExchangeCodec::default(),
                 [(ChainExchangeProtocolName, ProtocolSupport::Full)],
                 Default::default(),
@@ -94,39 +92,76 @@ impl NetworkBehaviour for ChainExchangeBehaviour {
 
     type OutEvent = <InnerBehaviour as NetworkBehaviour>::OutEvent;
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.inner.new_handler()
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        peer: PeerId,
+        local_addr: &libp2p::Multiaddr,
+        remote_addr: &libp2p::Multiaddr,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        self.inner.handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
     }
 
-    fn addresses_of_peer(&mut self, peer: &PeerId) -> Vec<libp2p::Multiaddr> {
-        self.inner.addresses_of_peer(peer)
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        peer: PeerId,
+        addr: &libp2p::Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
+        self.inner
+            .handle_established_outbound_connection(connection_id, peer, addr, role_override)
+    }
+
+    fn handle_pending_inbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        local_addr: &libp2p::Multiaddr,
+        remote_addr: &libp2p::Multiaddr,
+    ) -> Result<(), ConnectionDenied> {
+        self.inner
+            .handle_pending_inbound_connection(connection_id, local_addr, remote_addr)
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[libp2p::Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -> Result<Vec<libp2p::Multiaddr>, ConnectionDenied> {
+        self.inner.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
     }
 
     fn on_connection_handler_event(
         &mut self,
         peer_id: PeerId,
-        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as
-            libp2p::swarm::ConnectionHandler>::OutEvent,
+        connection_id: ConnectionId,
+        event: THandlerOutEvent<Self>,
     ) {
         self.inner
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn on_swarm_event(
-        &mut self,
-        event: libp2p::swarm::derive_prelude::FromSwarm<Self::ConnectionHandler>,
-    ) {
+    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
         self.inner.on_swarm_event(event)
     }
 
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<
-        libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-    > {
+        params: &mut impl PollParameters,
+    ) -> std::task::Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
         self.inner.poll(cx, params)
     }
 }

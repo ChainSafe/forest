@@ -240,7 +240,7 @@ The command will block until the detached Forest process has started its RPC ser
 - [rust doc](https://chainsafe.github.io/forest/rustdoc/)
 
 ## Contributing
-- Check out our contribution guidelines: [CONTRIBUTING.md](documentation/developer_documentation/CONTRIBUTING.md)
+- Check out our contribution guidelines: [CONTRIBUTING.md](documentation/src/developer_documentation/contributing.md)
 
 ## ChainSafe Security Policy
 

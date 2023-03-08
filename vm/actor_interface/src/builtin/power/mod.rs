@@ -1,19 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Borrow;
-
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime_v9::runtime::Policy;
-use forest_json::bigint::json;
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-use forest_utils::db::BlockstoreExt;
+use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::sector::StoragePower;
+use fvm_shared::{address::Address, econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
-use crate::FilterEstimate;
+use crate::{io::get_obj, FilterEstimate};
 
 /// Power actor address.
 // TODO: Select address based on actors version
@@ -70,20 +66,17 @@ impl State {
         BS: Blockstore,
     {
         if is_v8_power_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_power_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_power_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
@@ -120,9 +113,9 @@ impl State {
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
         match self {
-            State::V8(st) => st.into_total_locked().into(),
-            State::V9(st) => st.into_total_locked().into(),
-            State::V10(st) => st.into_total_locked().into(),
+            State::V8(st) => st.into_total_locked(),
+            State::V9(st) => st.into_total_locked(),
+            State::V10(st) => st.into_total_locked(),
         }
     }
 
@@ -133,9 +126,9 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
-            State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
-            State::V10(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V8(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
+            State::V9(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
+            State::V10(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
         }
     }
 
@@ -152,12 +145,8 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => {
-                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
-            }
-            State::V9(st) => {
-                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
-            }
+            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
+            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
             State::V10(st) => st
                 .miner_nominal_power_meets_consensus_minimum(policy, &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
@@ -177,9 +166,9 @@ impl State {
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_pledge_collateral.borrow().into(),
-            State::V9(st) => st.total_pledge_collateral.borrow().into(),
-            State::V10(st) => st.total_pledge_collateral.borrow().into(),
+            State::V8(st) => st.total_pledge_collateral.clone(),
+            State::V9(st) => st.total_pledge_collateral.clone(),
+            State::V10(st) => st.total_pledge_collateral.clone(),
         }
     }
 }
@@ -187,10 +176,8 @@ impl State {
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
-    #[serde(with = "json")]
     pub raw_byte_power: StoragePower,
     /// Sum of quality adjusted power for a miner's sectors.
-    #[serde(with = "json")]
     pub quality_adj_power: StoragePower,
 }
 

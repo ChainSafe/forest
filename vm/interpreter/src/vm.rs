@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ahash::HashSet;
 use cid::Cid;
-use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
+use forest_actor_interface::{cron, reward, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use forest_shim::{
@@ -117,7 +117,10 @@ where
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
-            let config = NetworkConfig_v3::new(network_version.into());
+            let mut config = NetworkConfig_v3::new(network_version.into());
+            // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
+            config.chain_id(chain_config.eth_chain_id.into());
+
             let engine = multi_engine_v3.get(&config)?;
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
@@ -190,8 +193,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg: Message = Message_v3 {
-            from: system::ADDRESS.into(),
-            to: cron::ADDRESS.into(),
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::CRON_ACTOR.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -399,8 +402,8 @@ impl RewardCalc for RewardActorMessageCalc {
         })?;
 
         let rew_msg = Message_v3 {
-            from: system::ADDRESS.into(),
-            to: reward::ADDRESS.into(),
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::REWARD_ACTOR.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
             // Epoch as sequence is intentional
@@ -449,7 +452,7 @@ impl RewardCalc for FixedRewardCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message_v3 {
-            from: reward::ADDRESS.into(),
+            from: Address::REWARD_ACTOR.into(),
             to: miner.into(),
             method_num: METHOD_SEND,
             params: Default::default(),

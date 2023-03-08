@@ -5,12 +5,13 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-use forest_utils::db::BlockstoreExt;
+use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{clock::ChainEpoch, piece::PaddedPieceSize};
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
+
+use crate::io::get_obj;
 
 /// Market actor address.
 pub const ADDRESS: Address = Address::new_id(5);
@@ -65,20 +66,17 @@ impl State {
         BS: Blockstore,
     {
         if is_v8_market_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
         if is_v9_market_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         if is_v10_market_cid(&actor.code) {
-            return store
-                .get_obj(&actor.state)?
+            return get_obj(store, &actor.state)?
                 .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
@@ -120,9 +118,9 @@ impl State {
     /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_locked().into(),
-            State::V9(st) => st.total_locked().into(),
-            State::V10(st) => st.get_total_locked().into(),
+            State::V8(st) => st.total_locked(),
+            State::V9(st) => st.total_locked(),
+            State::V10(st) => st.get_total_locked(),
         }
     }
 
@@ -167,13 +165,11 @@ impl<BS> DealProposals<'_, BS> {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposal {
-    #[serde(with = "forest_json::cid", rename = "PieceCID")]
+    #[serde(rename = "PieceCID")]
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-    #[serde(with = "forest_json::address::json")]
     pub client: Address,
-    #[serde(with = "forest_json::address::json")]
     pub provider: Address,
     // ! This is the field that requires unsafe unchecked utf8 deserialization
     pub label: String,

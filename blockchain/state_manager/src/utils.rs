@@ -34,7 +34,7 @@ where
         let actor = self
             .get_actor(miner_address, *st)?
             .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
+        let mas = miner::State::load(self.blockstore(), &actor.into())?;
 
         let proving_sectors = {
             let mut proving_sectors = BitField::new();
@@ -70,7 +70,7 @@ where
         }
 
         let info = mas.info(store)?;
-        let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv);
+        let spt = RegisteredSealProof::from_sector_size(info.sector_size().into(), nv);
 
         let wpt = spt
             .registered_winning_post_proof()
