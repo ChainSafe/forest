@@ -286,7 +286,7 @@ class Benchmark
     metrics = {}
     args = build_artefacts(dry_run)
 
-    exec_command(@init_command, dry_run)
+    exec_command(@init_command, dry_run) if @name == 'forest'
 
     import_command = splice_args(@import_command, args)
     metrics[:import] = exec_command(import_command, dry_run)
