@@ -5,6 +5,8 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+pub use utils::is_valid_for_sending;
+
 mod vm_circ_supply;
 
 use std::{num::NonZeroUsize, sync::Arc};
@@ -1158,7 +1160,7 @@ where
         ts: &Arc<Tipset>,
     ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
-            Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
+            Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
                 return Err(
                     Error::Other("cannot resolve actor address to key address".to_string()).into(),
@@ -1166,6 +1168,15 @@ where
             }
             _ => {}
         };
+
+        // First try to resolve the actor in the parent state, so we don't have to
+        // compute anything.
+        let state = StateTree::new_from_root(self.blockstore(), ts.parent_state())?;
+        if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
+            return Ok(addr);
+        }
+
+        // If that fails, compute the tip-set and try again.
         let (st, _) = self.tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
