@@ -255,8 +255,7 @@ class Benchmark
   end
   private :build_substitution_hash
 
-  def build_artefacts(dry_run)
-    puts '(I) Building artefacts...'
+  def build_client(dry_run)
     if Dir.exist?(repository_name)
       puts "(W) Directory #{repository_name} is already present"
     else
@@ -264,14 +263,17 @@ class Benchmark
       clone_command(dry_run)
       Dir.mkdir(repository_name) if dry_run
     end
-    Dir.chdir(repository_name) do
-      checkout_command(dry_run)
-    end
+
     puts '(I) Clean and build client'
     Dir.chdir(repository_name) do
       clean_command(dry_run)
       build_command(dry_run)
     end
+  end
+
+  def build_artefacts(dry_run)
+    puts '(I) Building artefacts...'
+    build_client(dry_run)
 
     build_config_file unless dry_run
     build_substitution_hash(dry_run)
