@@ -161,12 +161,13 @@ where
             chain_data_root.join("GENESIS"),
         ));
         let is_heaviest_tipset_keys_set = Arc::new(AtomicBool::new(true));
-        let is_heaviest_tipset_keys_set_cloned = is_heaviest_tipset_keys_set.clone();
-        let file_backed_heaviest_tipset_keys =
-            FileBacked::load_from_file_or_create(chain_data_root.join("HEAD"), || {
-                is_heaviest_tipset_keys_set_cloned.store(false, atomic::Ordering::Relaxed);
+        let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
+            chain_data_root.join("HEAD"),
+            || {
+                is_heaviest_tipset_keys_set.store(false, atomic::Ordering::Relaxed);
                 genesis_ts.key().clone()
-            })?;
+            },
+        )?);
         let cs = Self {
             publisher,
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
@@ -175,7 +176,7 @@ where
             ts_cache,
             heaviest: Mutex::new(genesis_ts.clone()),
             file_backed_genesis,
-            file_backed_heaviest_tipset_keys: Mutex::new(file_backed_heaviest_tipset_keys),
+            file_backed_heaviest_tipset_keys,
         };
 
         cs.set_genesis(genesis_block_header)?;
