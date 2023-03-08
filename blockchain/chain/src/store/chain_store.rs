@@ -1,16 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    collections::VecDeque,
-    num::NonZeroUsize,
-    path::Path,
-    sync::{
-        atomic::{self, AtomicBool},
-        Arc,
-    },
-    time::SystemTime,
-};
+use std::{collections::VecDeque, num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
@@ -157,13 +148,10 @@ where
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
         ));
-        let is_heaviest_tipset_keys_set = Arc::new(AtomicBool::new(true));
+
         let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("HEAD"),
-            || {
-                is_heaviest_tipset_keys_set.store(false, atomic::Ordering::Relaxed);
-                genesis_ts.key().clone()
-            },
+            || genesis_ts.key().clone(),
         )?);
         let cs = Self {
             publisher,
@@ -176,10 +164,6 @@ where
         };
 
         cs.set_genesis(genesis_block_header)?;
-
-        if !is_heaviest_tipset_keys_set.load(atomic::Ordering::Relaxed) {
-            cs.set_heaviest_tipset(genesis_ts)?;
-        }
 
         Ok(cs)
     }
