@@ -120,6 +120,11 @@ impl Store for RollingDB {
     fn flush(&self) -> Result<(), crate::Error> {
         Store::flush(&self.current())
     }
+
+    fn next_partition(&self) -> anyhow::Result<()> {
+        let (name, db) = self.create_untracked()?;
+        self.track_as_current(name, db)
+    }
 }
 
 impl BitswapStoreRead for RollingDB {
@@ -201,6 +206,7 @@ impl RollingDB {
     }
 
     pub fn track_as_current(&self, name: String, db: Db) -> anyhow::Result<()> {
+        info!("Setting db {name} as current");
         self.db_queue.write().push_front(db);
         let mut db_index = self.db_index.write();
         db_index.inner_mut().db_names.push_front(name);
@@ -251,15 +257,28 @@ impl RollingDB {
         Ok(())
     }
 
-    pub fn size_in_bytes(&self) -> anyhow::Result<u64> {
+    pub fn total_size_in_bytes(&self) -> anyhow::Result<u64> {
         Ok(fs_extra::dir::get_size(self.db_root.as_path())?)
     }
 
-    pub fn size(&self) -> usize {
+    pub fn current_size_in_bytes(&self) -> anyhow::Result<u64> {
+        Ok(fs_extra::dir::get_size(
+            self.db_root.as_path().join(
+                self.db_index
+                    .read()
+                    .inner()
+                    .db_names
+                    .get(0)
+                    .expect("RollingDB should contain at least one DB in index"),
+            ),
+        )?)
+    }
+
+    pub fn db_count(&self) -> usize {
         self.db_queue.read().len()
     }
 
-    fn current(&self) -> Db {
+    pub fn current(&self) -> Db {
         self.db_queue
             .read()
             .get(0)

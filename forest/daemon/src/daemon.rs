@@ -18,7 +18,7 @@ use forest_cli_shared::{
 };
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
-    rolling::RollingDB,
+    rolling::{DbGarbageCollector, RollingDB},
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -153,6 +153,16 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     )?);
 
     chain_store.set_genesis(&genesis_header)?;
+
+    {
+        let db = db.clone();
+        let chain_store = chain_store.clone();
+        let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
+        services.spawn(async move {
+            let db_garbage_collector = DbGarbageCollector::new(db, get_tipset);
+            db_garbage_collector.collect_loop().await
+        });
+    }
 
     let publisher = chain_store.publisher();
 

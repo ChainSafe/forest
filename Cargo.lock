@@ -3435,7 +3435,6 @@ dependencies = [
  "cid",
  "digest 0.10.6",
  "flume",
- "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
  "forest_db",
@@ -3448,7 +3447,6 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "forest_utils",
- "futures",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
@@ -3584,6 +3582,8 @@ dependencies = [
  "anyhow",
  "chrono",
  "cid",
+ "forest_blocks",
+ "forest_ipld",
  "forest_libp2p_bitswap",
  "forest_utils",
  "fs_extra",
@@ -3602,6 +3602,7 @@ dependencies = [
  "serde_yaml",
  "tempfile",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3751,6 +3752,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "cid",
+ "forest_blocks",
  "forest_db",
  "forest_json",
  "forest_utils",

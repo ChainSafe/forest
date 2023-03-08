@@ -27,6 +27,8 @@ ahash.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 cid.workspace = true
+forest_blocks.workspace = true
+forest_ipld.workspace = true
 forest_libp2p_bitswap.workspace = true
 forest_utils.workspace = true
 fs_extra.workspace = true
@@ -41,6 +43,7 @@ prometheus = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 
 # optional
 parity-db = { version = "0.4", default-features = false, optional = true }

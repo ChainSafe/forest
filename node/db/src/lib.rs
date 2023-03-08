@@ -58,6 +58,12 @@ pub trait Store {
     fn flush(&self) -> Result<(), Error> {
         Ok(())
     }
+
+    /// Create a new physical partition for writing when supported, defaults to
+    /// doing nothing
+    fn next_partition(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl<BS: Store> Store for &BS {

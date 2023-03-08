@@ -51,7 +51,7 @@ mod tests {
         }
 
         rolling_db.clean_tracked(1, false)?;
-        ensure!(rolling_db.size() == 1);
+        ensure!(rolling_db.db_count() == 1);
 
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
@@ -65,7 +65,7 @@ mod tests {
         drop(rolling_db);
 
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
-        ensure!(rolling_db.size() == 1);
+        ensure!(rolling_db.db_count() == 1);
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
                 ensure!(!rolling_db.contains(k)?);

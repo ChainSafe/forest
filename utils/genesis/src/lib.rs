@@ -159,6 +159,9 @@ where
 
     info!("Accepting {:?} as new head.", ts.cids());
 
+    // Creates a new partition after snapshot import if supported
+    sm.blockstore().next_partition()?;
+
     Ok(())
 }
 
