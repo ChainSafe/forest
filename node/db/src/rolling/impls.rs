@@ -181,12 +181,15 @@ impl Drop for RollingDB {
 
 impl RollingDB {
     pub fn load_or_create(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<Self> {
+        if !db_root.exists() {
+            std::fs::create_dir_all(db_root.as_path())?;
+        }
         let (db_index, db_queue) = load_db_queue(db_root.as_path(), &db_config)?;
         let rolling = Self {
-            db_root,
-            db_config,
-            db_index: RwLock::new(db_index),
-            db_queue: db_queue.into(),
+            db_root: db_root.into(),
+            db_config: db_config.into(),
+            db_index: RwLock::new(db_index).into(),
+            db_queue: RwLock::new(db_queue).into(),
         };
 
         if rolling.db_queue.read().is_empty() {
@@ -232,7 +235,7 @@ impl RollingDB {
     }
 
     pub fn clean_untracked(&self) -> anyhow::Result<()> {
-        if let Ok(dir) = std::fs::read_dir(&self.db_root) {
+        if let Ok(dir) = std::fs::read_dir(self.db_root.as_path()) {
             let db_index = self.db_index.read();
             dir.flatten()
                 .filter(|entry| {
@@ -249,7 +252,7 @@ impl RollingDB {
     }
 
     pub fn size_in_bytes(&self) -> anyhow::Result<u64> {
-        Ok(fs_extra::dir::get_size(&self.db_root)?)
+        Ok(fs_extra::dir::get_size(self.db_root.as_path())?)
     }
 
     pub fn size(&self) -> usize {

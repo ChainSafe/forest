@@ -3,7 +3,7 @@
 
 use clap::Subcommand;
 use forest_cli_shared::{chain_path, cli::Config};
-use forest_db::db_engine::db_path;
+use forest_db::db_engine::db_root;
 use log::error;
 
 use crate::cli::prompt_confirm;
@@ -26,14 +26,14 @@ impl DBCommands {
             Self::Stats => {
                 use human_repr::HumanCount;
 
-                let dir = db_path(&chain_path(config));
+                let dir = db_root(&chain_path(config));
                 println!("Database path: {}", dir.display());
                 let size = fs_extra::dir::get_size(dir).unwrap_or_default();
                 println!("Database size: {}", size.human_count_bytes());
                 Ok(())
             }
             Self::Clean { force } => {
-                let dir = db_path(&chain_path(config));
+                let dir = db_root(&chain_path(config));
                 if !dir.is_dir() {
                     println!(
                         "Aborted. Database path {} is not a valid directory",

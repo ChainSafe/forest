@@ -17,7 +17,8 @@ use forest_cli_shared::{
     },
 };
 use forest_db::{
-    db_engine::{db_path, open_db, Db},
+    db_engine::{db_root, open_proxy_db},
+    rolling::RollingDB,
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -69,7 +70,7 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 }
 
 /// Starts daemon process
-pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
+pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<RollingDB> {
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
@@ -112,7 +113,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
 
     let keystore = Arc::new(RwLock::new(keystore));
 
-    let db = open_db(&db_path(&chain_path(&config)), config.db_config())?;
+    let db = open_proxy_db(db_root(&chain_path(&config)), config.db_config().clone())?;
 
     let mut services = JoinSet::new();
 
@@ -125,7 +126,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = forest_db::db_engine::db_path(&chain_path(&config));
+        let db_directory = forest_db::db_engine::db_root(&chain_path(&config));
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)

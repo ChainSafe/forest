@@ -7,6 +7,7 @@ mod index;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use forest_utils::db::file_backed_obj::FileBacked;
@@ -16,12 +17,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::db_engine::{open_db, Db, DbConfig};
 
+#[derive(Clone)]
 pub struct RollingDB {
-    db_root: PathBuf,
-    db_config: DbConfig,
-    db_index: RwLock<FileBacked<DbIndex>>,
+    db_root: Arc<PathBuf>,
+    db_config: Arc<DbConfig>,
+    db_index: Arc<RwLock<FileBacked<DbIndex>>>,
     /// A queue of active databases, from youngest to oldest
-    db_queue: RwLock<VecDeque<Db>>,
+    db_queue: Arc<RwLock<VecDeque<Db>>>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

@@ -11,7 +11,10 @@ use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
-use forest_db::{db_engine::open_db, Store};
+use forest_db::{
+    db_engine::{db_root, open_proxy_db},
+    Store,
+};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_rpc_api::chain_api::ChainExportParams;
@@ -393,8 +396,8 @@ async fn validate(
 
     if confirm {
         let tmp_db_path = TempDir::new()?;
-        let db_path = tmp_db_path.path().join(&config.chain.name);
-        let db = open_db(&db_path, config.db_config())?;
+        let db_path = db_root(tmp_db_path.path().join(&config.chain.name).as_path());
+        let db = open_proxy_db(db_path, config.db_config().clone())?;
 
         let genesis = read_genesis_header(
             config.client.genesis_file.as_ref(),

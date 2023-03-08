@@ -105,35 +105,41 @@ pub trait DBStatistics {
     }
 }
 
-#[cfg(feature = "rocksdb")]
+#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
+    use crate::rolling::*;
+
+    #[cfg(feature = "rocksdb")]
     pub type Db = crate::rocks::RocksDb;
-    pub type DbConfig = crate::rocks_config::RocksDbConfig;
-
-    pub fn db_path(path: &Path) -> PathBuf {
-        path.join("rocksdb")
-    }
-
-    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
-        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
-    }
-}
-
-#[cfg(feature = "paritydb")]
-pub mod db_engine {
-    use std::path::{Path, PathBuf};
-
+    #[cfg(feature = "paritydb")]
     pub type Db = crate::parity_db::ParityDb;
+    #[cfg(feature = "rocksdb")]
+    pub type DbConfig = crate::rocks_config::RocksDbConfig;
+    #[cfg(feature = "paritydb")]
     pub type DbConfig = crate::parity_db_config::ParityDbConfig;
 
-    pub fn db_path(path: &Path) -> PathBuf {
-        path.join("paritydb")
+    #[cfg(feature = "rocksdb")]
+    const DIR_NAME: &str = "rocksdb";
+    #[cfg(feature = "paritydb")]
+    const DIR_NAME: &str = "paritydb";
+
+    pub fn db_root(chain_data_root: &Path) -> PathBuf {
+        chain_data_root.join(DIR_NAME)
     }
 
-    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
-        use crate::parity_db::ParityDb;
-        ParityDb::open(path.to_owned(), config)
+    #[cfg(feature = "rocksdb")]
+    pub(crate) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
+        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
+    }
+
+    #[cfg(feature = "paritydb")]
+    pub(crate) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
+        crate::parity_db::ParityDb::open(path.into(), config).map_err(Into::into)
+    }
+
+    pub fn open_proxy_db(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<RollingDB> {
+        RollingDB::load_or_create(db_root, db_config)
     }
 }
