@@ -39,6 +39,7 @@ lazy_static.workspace = true
 lru.workspace = true
 num-traits.workspace = true
 num.workspace = true
+once_cell.workspace = true
 parking_lot.workspace = true
 prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }

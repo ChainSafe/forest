@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_actor_interface::miner;
+use forest_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
 use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
 use forest_shim::{
-    address::Address,
+    address::{Address, Payload},
     randomness::Randomness,
     sector::{RegisteredSealProof, SectorInfo},
+    state_tree::ActorState,
     version::NetworkVersion,
 };
 use fvm_ipld_bitfield::BitField;
@@ -102,5 +103,119 @@ where
             .collect();
 
         Ok(out)
+    }
+}
+
+pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState) -> bool {
+    // Comments from Lotus:
+    // Before nv18 (Hygge), we only supported built-in account actors as senders.
+    //
+    // Note: this gate is probably superfluous, since:
+    // 1. Placeholder actors cannot be created before nv18.
+    // 2. EthAccount actors cannot be created before nv18.
+    // 3. Delegated addresses cannot be created before nv18.
+    //
+    // But it's a safeguard.
+    //
+    // Note 2: ad-hoc checks for network versions like this across the codebase
+    // will be problematic with networks with diverging version lineages
+    // (e.g. Hyperspace). We need to revisit this strategy entirely.
+    if network_version < NetworkVersion::V18 {
+        return is_account_actor(&actor.code);
+    }
+
+    // After nv18, we also support other kinds of senders.
+    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
+        return true;
+    }
+
+    // Allow placeholder actors with a delegated address and nonce 0 to send a
+    // message. These will be converted to an EthAccount actor on first send.
+    if !is_placeholder_actor(&actor.code)
+        || actor.sequence != 0
+        || actor.delegated_address.is_none()
+    {
+        return false;
+    }
+
+    // Only allow such actors to send if their delegated address is in the EAM's
+    // namespace.
+    return if let Payload::Delegated(address) = actor
+        .delegated_address
+        .as_ref()
+        .expect("unfallible")
+        .payload()
+    {
+        address.namespace() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+    } else {
+        false
+    };
+}
+
+#[cfg(test)]
+mod test {
+    use cid::Cid;
+    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+
+    use super::*;
+
+    #[test]
+    fn is_valid_for_sending_test() {
+        let create_actor = |code: &Cid, sequence: u64, delegated_address: Option<Address>| {
+            ActorState::new(
+                code.to_owned(),
+                // changing this cid will unleash unthinkable horrors upon the world
+                Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wgcthulhu")
+                    .unwrap(),
+                TokenAmount::default(),
+                sequence,
+                delegated_address,
+            )
+        };
+
+        // calibnet actor version 10
+        let account_actor_cid =
+            Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw")
+                .unwrap();
+        let ethaccount_actor_cid =
+            Cid::try_from("bafk2bzacebiyrhz32xwxi6xql67aaq5nrzeelzas472kuwjqmdmgwotpkj35e")
+                .unwrap();
+        let placeholder_actor_cid =
+            Cid::try_from("bafk2bzacedfvut2myeleyq67fljcrw4kkmn5pb5dpyozovj7jpoez5irnc3ro")
+                .unwrap();
+
+        // happy path for account actor
+        let actor = create_actor(&account_actor_cid, 0, None);
+        assert!(is_valid_for_sending(NetworkVersion::V17, &actor));
+
+        // eth account not allowed before v18, should fail
+        let actor = create_actor(&ethaccount_actor_cid, 0, None);
+        assert!(!is_valid_for_sending(NetworkVersion::V17, &actor));
+
+        // happy path for eth account
+        assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // no delegated address for placeholder actor, should fail
+        let actor = create_actor(&placeholder_actor_cid, 0, None);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // happy path for the placeholder actor
+        let delegated_address = Address::new_delegated(
+            Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap(),
+            &[0; 20],
+        )
+        .ok();
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
+        assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // sequence not 0, should fail
+        let actor = create_actor(&placeholder_actor_cid, 1, delegated_address);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
+
+        // delegated address not in EAM namespace, should fail
+        let delegated_address =
+            Address::new_delegated(Address::CHAOS_ACTOR.id().unwrap(), &[0; 20]).ok();
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
+        assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
     }
 }
