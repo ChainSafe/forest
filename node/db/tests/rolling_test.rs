@@ -1,3 +1,6 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 #[cfg(test)]
 mod tests {
     use std::{thread::sleep, time::Duration};
@@ -47,7 +50,7 @@ mod tests {
         }
 
         rolling_db.clean_tracked(1, false)?;
-        ensure!(rolling_db.len() == 1);
+        ensure!(rolling_db.size() == 1);
 
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
@@ -61,7 +64,7 @@ mod tests {
         drop(rolling_db);
 
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
-        ensure!(rolling_db.len() == 1);
+        ensure!(rolling_db.size() == 1);
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
                 ensure!(!rolling_db.contains(k)?);

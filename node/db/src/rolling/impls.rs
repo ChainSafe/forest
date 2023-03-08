@@ -259,7 +259,7 @@ impl RollingDB {
         Ok(fs_extra::dir::get_size(&self.db_root)?)
     }
 
-    pub fn len(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.db_queue.len()
     }
 
