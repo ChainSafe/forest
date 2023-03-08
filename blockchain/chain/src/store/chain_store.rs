@@ -97,9 +97,6 @@ pub struct ChainStore<DB> {
     /// key-value `datastore`.
     pub db: DB,
 
-    /// Tipset at the head of the best-known chain.
-    heaviest: Mutex<Arc<Tipset>>,
-
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
 
@@ -174,18 +171,13 @@ where
             tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
             db,
             ts_cache,
-            heaviest: Mutex::new(genesis_ts.clone()),
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
         };
 
         cs.set_genesis(genesis_block_header)?;
 
-        if is_heaviest_tipset_keys_set.load(atomic::Ordering::Relaxed) {
-            // Result intentionally ignored, doesn't matter if heaviest doesn't exist in
-            // store yet
-            let _ = cs.load_heaviest_tipset();
-        } else {
+        if !is_heaviest_tipset_keys_set.load(atomic::Ordering::Relaxed) {
             cs.set_heaviest_tipset(genesis_ts)?;
         }
 
@@ -198,7 +190,6 @@ where
         self.file_backed_heaviest_tipset_keys
             .lock()
             .set_inner(ts.key().clone())?;
-        *self.heaviest.lock() = ts.clone();
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -243,33 +234,17 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Loads heaviest tipset from `datastore` and sets as heaviest in
-    /// `chainstore`.
-    fn load_heaviest_tipset(&self) -> Result<(), Error> {
-        let heaviest_ts =
-            self.tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())?;
-
-        // set as heaviest tipset
-        *self.heaviest.lock() = heaviest_ts;
-        Ok(())
-    }
-
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
         self.blockstore()
             .get_obj::<BlockHeader>(self.file_backed_genesis.lock().inner())?
             .ok_or_else(|| Error::Other("Genesis block not set".into()))
-        // self.file_backed_genesis
-        //     .lock()
-        //     .inner()
-        //     .map(|cid| self.blockstore().get_obj::<BlockHeader>(&cid).ok())
-        //     .flatten()
-        //     .flatten()
     }
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        self.heaviest.lock().clone()
+        self.tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())
+            .expect("Failed to load heavist tipset")
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -302,7 +277,7 @@ where
         S: Scale,
     {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = S::weight(self.blockstore(), self.heaviest.lock().as_ref())?;
+        let heaviest_weight = S::weight(self.blockstore(), &self.heaviest_tipset())?;
 
         let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
         let curr_weight = heaviest_weight;
