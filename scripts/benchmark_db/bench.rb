@@ -284,6 +284,8 @@ class Benchmark
     metrics = {}
     args = build_artefacts(dry_run)
 
+    exec_command(@init_command, dry_run)
+
     import_command = splice_args(@import_command, args)
     metrics[:import] = exec_command(import_command, dry_run)
 
@@ -415,6 +417,7 @@ class ForestBenchmark < Benchmark
     super(name: name, config: config)
     @name = name
     @config = config
+    @init_command = [target_cli, 'fetch-params', '--keys']
     @import_command = [
       target, '--config', '%<c>s', '--encrypt-keystore', 'false', '--import-snapshot', '%<s>s', '--halt-after-import'
     ]
@@ -607,8 +610,8 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    #ForestBenchmark.new(name: 'forest'),
-    LotusBenchmark.new(name: 'lotus')
+    ForestBenchmark.new(name: 'forest'),
+    #LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
 else
