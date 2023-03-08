@@ -282,11 +282,29 @@ class Benchmark
   end
   private :build_artefacts
 
+  def run_validation_step(dry_run, daily)
+    unless daily
+      validate_command = splice_args(@validate_command, args)
+      metrics[:validate] = exec_command(validate_command, dry_run)
+      return
+    end
+
+    validate_online_command = splice_args(@validate_online_command, args)
+    new_metrics = exec_command(validate_online_command, dry_run, self)
+    new_metrics[:tpm] = if new_metrics[:num_epochs]
+                          (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+                        else
+                          'n/a'
+                        end
+    metrics[:validate_online] = new_metrics
+  end
+
   def run(dry_run, daily)
     puts "(I) Running bench: #{@name}"
 
     metrics = {}
     args = build_artefacts(dry_run)
+    @sync_status_command = splice_args(@sync_status_command, args)
 
     exec_command(@init_command, dry_run) if @name == 'forest'
 
@@ -296,23 +314,7 @@ class Benchmark
     # Save db size just after import
     metrics[:import][:db_size] = db_size unless dry_run
 
-    @sync_status_command = splice_args(@sync_status_command, args)
-
-    unless daily
-      validate_command = splice_args(@validate_command, args)
-      metrics[:validate] = exec_command(validate_command, dry_run)
-    end
-
-    if daily
-      validate_online_command = splice_args(@validate_online_command, args)
-      new_metrics = exec_command(validate_online_command, dry_run, self)
-      new_metrics[:tpm] = if new_metrics[:num_epochs]
-                            (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
-                          else
-                            'n/a'
-                          end
-      metrics[:validate_online] = new_metrics
-    end
+    run_validation_step(dry_run, daily)
 
     puts '(I) Clean db'
     clean_db(dry_run)
