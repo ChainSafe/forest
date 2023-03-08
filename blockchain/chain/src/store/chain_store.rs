@@ -106,7 +106,7 @@ pub struct ChainStore<DB> {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    /// File backed genesis block header
+    /// File backed genesis block cid
     file_backed_genesis: Mutex<FileBacked<Cid>>,
 
     /// File backed heaviest tipset keys
@@ -244,7 +244,7 @@ where
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
         self.tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())
-            .expect("Failed to load heavist tipset")
+            .expect("Failed to load heaviest tipset")
     }
 
     /// Returns a reference to the publisher of head changes.
