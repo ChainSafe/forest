@@ -282,7 +282,7 @@ class Benchmark
   end
   private :build_artefacts
 
-  def run_validation_step(dry_run, daily)
+  def run_validation_step(dry_run, daily, args, metrics)
     unless daily
       validate_command = splice_args(@validate_command, args)
       metrics[:validate] = exec_command(validate_command, dry_run)
@@ -314,7 +314,7 @@ class Benchmark
     # Save db size just after import
     metrics[:import][:db_size] = db_size unless dry_run
 
-    run_validation_step(dry_run, daily)
+    run_validation_step(dry_run, daily, args, metrics)
 
     puts '(I) Clean db'
     clean_db(dry_run)
