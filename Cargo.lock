@@ -3585,7 +3585,10 @@ dependencies = [
  "chrono",
  "cid",
  "forest_libp2p_bitswap",
+ "forest_utils",
+ "fs_extra",
  "fvm_ipld_blockstore",
+ "human-repr",
  "lazy_static",
  "libipld",
  "log",
@@ -3593,8 +3596,10 @@ dependencies = [
  "parity-db",
  "parking_lot 0.12.1",
  "prometheus",
+ "rand 0.8.5",
  "rocksdb",
  "serde",
+ "serde_yaml",
  "tempfile",
  "thiserror",
 ]
@@ -8864,6 +8869,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f82e6c8c047aa50a7328632d067bcae6ef38772a79e28daf32f735e0e4f3dd10"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "serialization_tests"
 version = "0.6.0"
 dependencies = [
@@ -10153,6 +10171,12 @@ dependencies = [
  "crypto-common",
  "subtle",
 ]
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad2024452afd3874bf539695e04af6732ba06517424dbf958fdb16a01f3bef6c"
 
 [[package]]
 name = "unsigned-varint"

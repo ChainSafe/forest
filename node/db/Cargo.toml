@@ -28,7 +28,10 @@ anyhow.workspace = true
 chrono.workspace = true
 cid.workspace = true
 forest_libp2p_bitswap.workspace = true
+forest_utils.workspace = true
+fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
+human-repr.workspace = true
 lazy_static.workspace = true
 libipld.workspace = true
 log.workspace = true
@@ -36,6 +39,7 @@ num_cpus.workspace = true
 parking_lot.workspace = true
 prometheus = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true
 thiserror.workspace = true
 
 # optional
@@ -43,4 +47,5 @@ parity-db = { version = "=0.4.3", default-features = false, optional = true }
 rocksdb = { version = "0.20", default-features = false, optional = true }
 
 [dev-dependencies]
+rand.workspace = true
 tempfile.workspace = true
