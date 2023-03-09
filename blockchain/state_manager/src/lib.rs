@@ -5,6 +5,8 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+pub use utils::is_valid_for_sending;
+
 mod vm_circ_supply;
 
 use std::{num::NonZeroUsize, sync::Arc};
@@ -41,6 +43,7 @@ use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
+use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
@@ -378,7 +381,7 @@ where
         let db = self.blockstore().clone();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
-        let create_vm = |state_root, epoch| {
+        let create_vm = |state_root, epoch, timestamp| {
             VM::new(
                 state_root,
                 self.blockstore().clone(),
@@ -392,15 +395,22 @@ where
                 &self.engine_v2,
                 &self.engine_v3,
                 Arc::clone(self.chain_config()),
-                tipset.min_timestamp(),
+                timestamp,
             )
         };
 
         let mut parent_state = *p_state;
+        let genesis_timestamp = Lazy::new(|| {
+            self.chain_store()
+                .genesis()
+                .expect("could not find genesis block!")
+                .timestamp()
+        });
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
-                let mut vm = create_vm(parent_state, epoch_i)?;
+                let timestamp = *genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
                     error!("Beginning of epoch cron failed to run: {}", e);
@@ -414,7 +424,7 @@ where
             }
         }
 
-        let mut vm = create_vm(parent_state, epoch)?;
+        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // Apply tipset messages
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
@@ -1150,7 +1160,7 @@ where
         ts: &Arc<Tipset>,
     ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
-            Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
+            Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
                 return Err(
                     Error::Other("cannot resolve actor address to key address".to_string()).into(),
@@ -1158,6 +1168,15 @@ where
             }
             _ => {}
         };
+
+        // First try to resolve the actor in the parent state, so we don't have to
+        // compute anything.
+        let state = StateTree::new_from_root(self.blockstore(), ts.parent_state())?;
+        if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
+            return Ok(addr);
+        }
+
+        // If that fails, compute the tip-set and try again.
         let (st, _) = self.tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 

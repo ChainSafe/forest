@@ -20,7 +20,7 @@ const MAINNET_ETH_CHAIN_ID: u64 = 314;
 const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

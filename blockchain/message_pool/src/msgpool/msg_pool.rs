@@ -23,6 +23,7 @@ use forest_shim::{
     econ::TokenAmount,
     gas::price_list_by_network_version,
 };
+use forest_state_manager::is_valid_for_sending;
 use forest_utils::const_option;
 use futures::StreamExt;
 use fvm3::gas::Gas;
@@ -369,6 +370,16 @@ where
 
         if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
+        }
+
+        let sender_actor = self.api.get_actor_after(&msg.message().from(), cur_ts)?;
+
+        // This message can only be included in the next epoch and beyond, hence the +1.
+        let nv = self.chain_config.network_version(cur_ts.epoch() + 1);
+        if !is_valid_for_sending(nv, &sender_actor) {
+            return Err(Error::Other(
+                "Sender actor is not a valid top-level sender".to_owned(),
+            ));
         }
 
         let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
