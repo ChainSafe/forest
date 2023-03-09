@@ -26,8 +26,6 @@ HEIGHTS_TO_VALIDATE = 5
 MINUTE = 60
 HOUR = MINUTE * MINUTE
 
-BENCHMARK_DIR = Dir.mktmpdir('benchmark-')
-
 options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
@@ -40,13 +38,13 @@ OptionParser.new do |opts|
   opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
   opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
-  opts.on('--tempdir [Sring]', 'Specify a custom directory for running benchmarks') { |v| options[:custom_dir] = v }
+  opts.on('--tempdir [String]', 'Specify a custom directory for running benchmarks') { |v| options[:tempdir] = v }
 end.parse!
 
-WORKING_DIR = if options[:custom_dir].nil?
-                BENCHMARK_DIR
+WORKING_DIR = if options[:tempdir].nil?
+                Dir.mktmpdir('benchmark-')
               else
-                File.join(options[:custom_dir], BENCHMARK_DIR)
+                options[:tempdir]
               end
 
 # Provides human readable formatting to Numeric class
@@ -576,15 +574,10 @@ class LotusBenchmark < Benchmark
   end
 end
 
-def run_benchmarks(benchmarks, options)
-  bench_metrics = {}
-  snapshot_abs_path = File.expand_path(options[:snapshot_path])
-  puts "(I) Using snapshot: #{snapshot_abs_path}"
-  puts "(I) BENCHMARK_DIR: #{WORKING_DIR}"
-  puts ''
-  Dir.chdir(BENCHMARK_DIR) do
+def run_loop(benchmarks, options, bench_metrics)
+  Dir.chdir(WORKING_DIR) do
     benchmarks.each do |bench|
-      bench.snapshot_path = snapshot_abs_path
+      bench.snapshot_path = options[:snapshot_path]
       bench.heights = options[:heights]
       bench.chain = options[:chain]
       bench.run(options[:dry_run], options[:daily])
@@ -594,6 +587,15 @@ def run_benchmarks(benchmarks, options)
       puts "\n"
     end
   end
+end
+
+def run_benchmarks(benchmarks, options)
+  bench_metrics = {}
+  options[:snapshot_path] = File.expand_path(options[:snapshot_path])
+  puts "(I) Using snapshot: #{options[:snapshot_path]}"
+  puts "(I) WORKING_DIR: #{WORKING_DIR}"
+  puts ''
+  run_loop(benchmarks, options, bench_metrics)
   if options[:daily]
     write_csv(bench_metrics)
   else
