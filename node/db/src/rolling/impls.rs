@@ -7,14 +7,14 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_utils::db::file_backed_obj::FileBackedObject;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockReadGuard};
 
 use super::*;
 use crate::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        for db in self.db_queue.read().iter() {
+        for db in self.db_queue().iter() {
             if let Ok(true) = Blockstore::has(db, k) {
                 return Ok(true);
             }
@@ -24,7 +24,7 @@ impl Blockstore for RollingDB {
     }
 
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue.read().iter() {
+        for db in self.db_queue().iter() {
             if let Ok(Some(v)) = Blockstore::get(db, k) {
                 return Ok(Some(v));
             }
@@ -73,7 +73,7 @@ impl Store for RollingDB {
     where
         K: AsRef<[u8]>,
     {
-        for db in self.db_queue.read().iter() {
+        for db in self.db_queue().iter() {
             if let Ok(Some(v)) = Store::read(db, key.as_ref()) {
                 return Ok(Some(v));
             }
@@ -86,7 +86,7 @@ impl Store for RollingDB {
     where
         K: AsRef<[u8]>,
     {
-        for db in self.db_queue.read().iter() {
+        for db in self.db_queue().iter() {
             if let Ok(true) = Store::exists(db, key.as_ref()) {
                 return Ok(true);
             }
@@ -101,13 +101,6 @@ impl Store for RollingDB {
         V: AsRef<[u8]>,
     {
         Store::write(&self.current(), key, value)
-    }
-
-    fn delete<K>(&self, key: K) -> Result<(), crate::Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        Store::delete(&self.current(), key)
     }
 
     fn bulk_write(
@@ -129,7 +122,7 @@ impl Store for RollingDB {
 
 impl BitswapStoreRead for RollingDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        for db in self.db_queue.read().iter() {
+        for db in self.db_queue().iter() {
             if let Ok(true) = BitswapStoreRead::contains(db, cid) {
                 return Ok(true);
             }
@@ -139,7 +132,7 @@ impl BitswapStoreRead for RollingDB {
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue.read().iter() {
+        for db in self.db_queue().iter() {
             if let Ok(Some(v)) = BitswapStoreRead::get(db, cid) {
                 return Ok(Some(v));
             }
@@ -197,7 +190,7 @@ impl RollingDB {
             db_queue: RwLock::new(db_queue).into(),
         };
 
-        if rolling.db_queue.read().is_empty() {
+        if rolling.db_queue().is_empty() {
             let (name, db) = rolling.create_untracked()?;
             rolling.track_as_current(name, db)?;
         }
@@ -275,7 +268,7 @@ impl RollingDB {
     }
 
     pub fn db_count(&self) -> usize {
-        self.db_queue.read().len()
+        self.db_queue().len()
     }
 
     pub fn current(&self) -> Db {
@@ -284,6 +277,10 @@ impl RollingDB {
             .get(0)
             .cloned()
             .expect("RollingDB should contain at least one DB reference")
+    }
+
+    fn db_queue(&self) -> RwLockReadGuard<VecDeque<Db>> {
+        self.db_queue.read()
     }
 }
 

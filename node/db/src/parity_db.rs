@@ -106,14 +106,6 @@ impl Store for ParityDb {
         // ```
     }
 
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        let tx = [(0, key.as_ref(), None)];
-        self.db.commit(tx).map_err(Error::from)
-    }
-
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,

@@ -4,7 +4,6 @@
 mod gc;
 pub use gc::*;
 mod impls;
-mod index;
 
 use std::{
     collections::VecDeque,

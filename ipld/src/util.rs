@@ -6,7 +6,6 @@ use std::{collections::VecDeque, future::Future};
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
 use fvm_ipld_encoding::{from_slice, Cbor};
-use fvm_shared::clock::ChainEpoch;
 
 use crate::{CidHashSet, Ipld};
 
@@ -81,13 +80,13 @@ where
     Ok(())
 }
 
-pub const DEFAULT_RECENT_ROOTS: ChainEpoch = 2000;
+pub const DEFAULT_RECENT_ROOTS: i64 = 2000;
 
 /// Walks over tipset and state data and loads all blocks not yet seen.
 /// This is tracked based on the callback function loading blocks.
 pub async fn walk_snapshot<F, T>(
     tipset: &Tipset,
-    recent_roots: ChainEpoch,
+    recent_roots: i64,
     mut load_block: F,
 ) -> anyhow::Result<()>
 where

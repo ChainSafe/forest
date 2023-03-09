@@ -36,11 +36,6 @@ pub trait Store {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
 
-    /// Delete value at key.
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>;
-
     /// Returns `Ok(true)` if key exists in store
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
@@ -82,13 +77,6 @@ impl<BS: Store> Store for &BS {
         V: AsRef<[u8]>,
     {
         (*self).write(key, value)
-    }
-
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).delete(key)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>

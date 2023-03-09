@@ -43,20 +43,6 @@ where
     assert!(!res);
 }
 
-pub fn delete<DB>(db: &DB)
-where
-    DB: Store,
-{
-    let key = [0];
-    let value = [1];
-    db.write(key, value).unwrap();
-    let res = db.exists(key).unwrap();
-    assert!(res);
-    db.delete(key).unwrap();
-    let res = db.exists(key).unwrap();
-    assert!(!res);
-}
-
 pub fn bulk_write<DB>(db: &DB)
 where
     DB: Store,
