@@ -111,7 +111,7 @@ pub const HEIGHT_INFOS: [HeightInfo; 19] = [
     },
     HeightInfo {
         height: Height::Hygge,
-        epoch: ChainEpoch::MAX,
+        epoch: 2_683_348,
     },
 ];
 
