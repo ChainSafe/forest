@@ -5,6 +5,7 @@ use std::{
     fs::File as SyncFile,
     io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind},
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
 };
 
@@ -15,12 +16,13 @@ use forest_shim::sector::SectorSize;
 use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;
 use log::{debug, error, info, warn};
+use rs_car_ipfs::{single_file::read_single_file_seek, Cid};
 use serde::{Deserialize, Serialize};
 use tokio::{
     fs::{self, File},
     io::BufWriter,
 };
-use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
@@ -162,38 +164,32 @@ async fn fetch_verify_params(
 async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching param file {:?} from {}", path, gw);
-    let url = format!("{}{}", gw, info.cid);
+
+    let cid = Cid::from_str(&info.cid)?;
     let result = retry(ExponentialBackoff::default(), || async {
-        Ok(fetch_params_inner(&url, path).await?)
+        Ok(fetch_params_inner(&gw, path, &cid).await?)
     })
     .await;
     debug!("Done fetching param file {:?} from {}", path, gw);
     result
 }
 
-async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
+async fn fetch_params_inner(gw: &str, path: &Path, cid: &Cid) -> Result<(), anyhow::Error> {
+    let url = format!("{gw}{cid}?format=car");
+
     let client = https_client();
-    let req = client.get(url.as_ref().try_into()?);
+    let req = client.get(url.try_into()?);
     let response = req.await.map_err(|e| anyhow::anyhow!(e))?;
     anyhow::ensure!(response.status().is_success());
-    let content_len = response
-        .headers()
-        .get("content-length")
-        .and_then(|ct_len| ct_len.to_str().ok())
-        .and_then(|ct_len| ct_len.parse::<u64>().ok())
-        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
+
     let map_err: fn(hyper::Error) -> futures::io::Error =
         |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
-    let mut source = response
-        .into_body()
-        .map_err(map_err)
-        .into_async_read()
-        .compat();
+    let mut source = response.into_body().map_err(map_err).into_async_read();
     let file = File::create(path).await?;
-    let mut writer = BufWriter::new(file);
-    tokio::io::copy(&mut source, &mut writer).await?;
-    let file_metadata = std::fs::metadata(path)?;
-    anyhow::ensure!(file_metadata.len() == content_len);
+    let mut writer = BufWriter::new(file).compat_write();
+
+    read_single_file_seek(&mut source, &mut writer, Some(cid)).await?;
+
     Ok(())
 }
 
