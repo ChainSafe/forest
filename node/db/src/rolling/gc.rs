@@ -12,7 +12,10 @@ use tokio::sync::Mutex;
 use super::*;
 use crate::Store;
 
-pub struct DbGarbageCollector<F: Fn() -> Tipset> {
+pub struct DbGarbageCollector<F>
+where
+    F: Fn() -> Tipset + Send + Sync + 'static,
+{
     db: RollingDB,
     get_tipset: F,
     lock: Mutex<()>,
@@ -20,7 +23,10 @@ pub struct DbGarbageCollector<F: Fn() -> Tipset> {
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
 }
 
-impl<F: Fn() -> Tipset> DbGarbageCollector<F> {
+impl<F> DbGarbageCollector<F>
+where
+    F: Fn() -> Tipset + Send + Sync + 'static,
+{
     pub fn new(db: RollingDB, get_tipset: F) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
@@ -52,11 +58,15 @@ impl<F: Fn() -> Tipset> DbGarbageCollector<F> {
         }
     }
 
-    pub async fn collect_loop_event(&self) -> anyhow::Result<()> {
+    pub async fn collect_loop_event(self: &Arc<Self>) -> anyhow::Result<()> {
         while let Ok(responder) = self.gc_rx.recv_async().await {
-            if let Err(e) = responder.send(self.collect_once().await) {
-                warn!("{e}");
-            }
+            let this = self.clone();
+            tokio::spawn(async move {
+                let result = this.collect_once().await;
+                if let Err(e) = responder.send(result) {
+                    warn!("{e}");
+                }
+            });
         }
 
         Ok(())
