@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod errors;
+mod ext;
 mod memory;
 mod metrics;
 
@@ -15,6 +16,7 @@ pub mod parity_db_config;
 pub mod rocks_config;
 
 pub use errors::Error;
+pub use ext::StoreExt;
 pub use memory::MemoryDB;
 
 #[cfg(any(feature = "paritydb", feature = "rocksdb"))]

@@ -10,7 +10,7 @@ use fvm_ipld_blockstore::Blockstore;
 use tokio::sync::Mutex;
 
 use super::*;
-use crate::Store;
+use crate::{Store, StoreExt};
 
 pub struct DbGarbageCollector<F>
 where
@@ -83,20 +83,30 @@ where
         info!("Garbage collection started at epoch {}", tipset.epoch());
         let db = &self.db;
         if db.db_count() > 1 {
+            // 512MB
+            const BUFFER_CAPCITY_BYTES: usize = 512 * 1024 * 1024;
+            let (tx, rx) = flume::unbounded();
+            let write_task = tokio::spawn({
+                let db = db.current();
+                async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
+            });
             walk_snapshot(&tipset, DEFAULT_RECENT_ROOTS, |cid| {
                 let db = db.clone();
+                let tx = tx.clone();
                 async move {
                     let block = db
                         .get(&cid)?
                         .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
                     if !db.current().has(&cid)? {
-                        db.current().put_keyed(&cid, &block)?;
+                        tx.send_async((cid.to_bytes(), block.clone())).await?;
                     }
 
                     Ok(block)
                 }
             })
             .await?;
+            drop(tx);
+            write_task.await??;
         }
         info!(
             "Garbage collection finished at epoch {}, took {}s",

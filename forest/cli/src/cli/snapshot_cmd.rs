@@ -411,7 +411,7 @@ async fn validate(
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
-            forest_load_car(chain_store.blockstore(), reader.compat()).await?
+            forest_load_car(chain_store.blockstore().clone(), reader.compat()).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;

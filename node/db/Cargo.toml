@@ -25,6 +25,7 @@ paritydb = ["dep:parity-db"]
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-trait.workspace = true
 chrono.workspace = true
 cid.workspace = true
 flume.workspace = true
@@ -47,7 +48,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 
 # optional
-parity-db = { version = "0.4", default-features = false, optional = true }
+parity-db = { version = "=0.4.3", default-features = false, optional = true }
 rocksdb = { version = "0.20", default-features = false, optional = true }
 
 [dev-dependencies]
