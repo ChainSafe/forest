@@ -14,6 +14,9 @@ pub mod sector;
 pub mod state_tree;
 pub mod version;
 
+use fil_actors_runtime_v9::builtin::network;
+pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
+
 ///
 /// Helper trait to re-use static methods and constants.
 /// The usage is awkward but it avoids code duplication.

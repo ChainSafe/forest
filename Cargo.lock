@@ -4101,6 +4101,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "cid",
+ "fil_actors_runtime_v9",
  "filecoin-proofs-api",
  "fvm 2.2.0",
  "fvm 3.0.0",

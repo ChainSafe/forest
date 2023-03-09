@@ -9,6 +9,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 cid.workspace = true
+fil_actors_runtime_v9.workspace = true
 filecoin-proofs-api.workspace = true
 fvm.workspace = true
 fvm3.workspace = true

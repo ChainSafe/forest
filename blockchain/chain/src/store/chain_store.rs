@@ -12,7 +12,6 @@ use cid::{
     Cid,
 };
 use digest::Digest;
-use fil_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
@@ -30,6 +29,7 @@ use forest_shim::{
     executor::Receipt,
     message::Message,
     state_tree::StateTree,
+    EPOCHS_IN_DAY,
 };
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
