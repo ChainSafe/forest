@@ -601,11 +601,10 @@ def run_benchmarks(benchmarks, options)
   # puts bench_metrics
 end
 
-BENCHMARKS = [
-  ForestBenchmark.new(name: 'baseline'),
-  ParityDbBenchmark.new(name: 'paritydb'),
-  JemallocBenchmark.new(name: 'paritydb-jemalloc'),
-  MimallocBenchmark.new(name: 'paritydb-mimalloc')
+FOREST_BENCHMARKS = [
+  BaselineBenchmark.new(name: 'baseline'),
+  JemallocBenchmark.new(name: 'jemalloc'),
+  MimallocBenchmark.new(name: 'mimalloc')
 ].freeze
 
 snapshot_path = ARGV.pop
@@ -627,7 +626,7 @@ if options[:daily]
   run_benchmarks(selection, options)
 else
   selection = Set[]
-  BENCHMARKS.each do |bench|
+  FOREST_BENCHMARKS.each do |bench|
     options[:pattern].split(',').each do |pat|
       selection.add(bench) if File.fnmatch(pat.strip, bench.name)
     end
