@@ -13,7 +13,6 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use forest_actor_interface::is_account_actor;
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -25,7 +24,7 @@ use forest_networks::Height;
 use forest_shim::{
     address::Address, gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
-use forest_state_manager::{Error as StateManagerError, StateManager};
+use forest_state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -1505,8 +1504,11 @@ async fn check_block_messages<
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )
                 })?;
-                if !is_account_actor(&actor.code) {
-                    anyhow::bail!("Sending must be an account actor");
+                let network_version = state_manager
+                    .chain_config()
+                    .network_version(block.header.epoch());
+                if !is_valid_for_sending(network_version, &actor) {
+                    anyhow::bail!("not valid for sending!");
                 }
                 actor.sequence
             }
@@ -1547,10 +1549,6 @@ async fn check_block_messages<
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
-        // https://github.com/ChainSafe/forest/issues/2601
-        if msg.is_delegated() {
-            continue;
-        }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::<C>::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"
