@@ -579,19 +579,15 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
   end
 end
 
-def run_loop(benchmarks, options, bench_metrics)
-  Dir.chdir(WORKING_DIR) do
-    benchmarks_loop(benchmarks, options, bench_metrics)
-  end
-end
-
 def run_benchmarks(benchmarks, options)
   bench_metrics = {}
   options[:snapshot_path] = File.expand_path(options[:snapshot_path])
   puts "(I) Using snapshot: #{options[:snapshot_path]}"
   puts "(I) WORKING_DIR: #{WORKING_DIR}"
   puts ''
-  run_loop(benchmarks, options, bench_metrics)
+  Dir.chdir(WORKING_DIR) do
+    benchmarks_loop(benchmarks, options, bench_metrics)
+  end
   if options[:daily]
     write_csv(bench_metrics)
   else
