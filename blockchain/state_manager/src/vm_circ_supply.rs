@@ -3,7 +3,7 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_actor_interface::{market, power, reward, EPOCHS_IN_DAY};
+use fil_actor_interface::{market, power, reward, EPOCHS_IN_DAY};
 use forest_chain::*;
 use forest_db::Store;
 use forest_networks::{ChainConfig, Height};

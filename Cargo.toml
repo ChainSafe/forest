@@ -19,7 +19,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm/actor_interface",
   "vm/message",
   "vm/interpreter",
   "vm/state_migration",
@@ -175,7 +174,7 @@ fil_actors_runtime_v10 = { git = "https://github.com/ChainSafe/fil-actor-states"
 fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 # fil_actors_runtime_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 # fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-forest_actor_interface = { path = "./vm/actor_interface" }
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
 forest_blocks = { path = "./blockchain/blocks" }

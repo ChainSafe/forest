@@ -76,7 +76,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
 
         let tbs = TrackingBlockstore::new(&self.db);
 
-        let ms = forest_actor_interface::miner::State::load(&tbs, &actor.into())?;
+        let ms = fil_actor_interface::miner::State::load(&tbs, &actor.into())?;
 
         let worker = ms.info(&tbs)?.worker;
 

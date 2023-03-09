@@ -9,7 +9,7 @@ use std::{
 };
 
 use cid::Cid;
-use forest_actor_interface::EPOCHS_IN_DAY;
+use fil_actor_interface::EPOCHS_IN_DAY;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };

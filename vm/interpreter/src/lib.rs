@@ -9,7 +9,7 @@ mod instrumented_kernel;
 mod metrics;
 mod vm;
 
-use forest_actor_interface::account;
+use fil_actor_interface::account;
 use forest_shim::{
     address::{Address, Protocol},
     state_tree::StateTree,

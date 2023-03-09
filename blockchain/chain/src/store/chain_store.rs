@@ -12,7 +12,7 @@ use cid::{
     Cid,
 };
 use digest::Digest;
-use forest_actor_interface::EPOCHS_IN_DAY;
+use fil_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
