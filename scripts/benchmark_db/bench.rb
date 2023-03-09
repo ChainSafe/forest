@@ -310,11 +310,7 @@ class Benchmark
 
     validate_online_command = splice_args(@validate_online_command, args)
     new_metrics = exec_command(validate_online_command, self)
-    new_metrics[:tpm] = if new_metrics[:num_epochs]
-                          (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
-                        else
-                          'n/a'
-                        end
+    new_metrics[:tpm] = new_metrics[:num_epochs] ? (MINUTE * new_metrics[:num_epochs]) / online_validation_secs : 'n/a'
     metrics[:validate_online] = new_metrics
   end
 
@@ -569,19 +565,23 @@ class LotusBenchmark < Benchmark
   end
 end
 
+def benchmarks_loop(benchmarks, options, bench_metrics)
+  benchmarks.each do |bench|
+    bench.dry_run = options[:dry_run]
+    bench.snapshot_path = options[:snapshot_path]
+    bench.heights = options[:heights]
+    bench.chain = options[:chain]
+    bench.run(options[:daily])
+
+    bench_metrics[bench.name] = bench.metrics
+
+    puts "\n"
+  end
+end
+
 def run_loop(benchmarks, options, bench_metrics)
   Dir.chdir(WORKING_DIR) do
-    benchmarks.each do |bench|
-      bench.dry_run = options[:dry_run]
-      bench.snapshot_path = options[:snapshot_path]
-      bench.heights = options[:heights]
-      bench.chain = options[:chain]
-      bench.run(options[:daily])
-
-      bench_metrics[bench.name] = bench.metrics
-
-      puts "\n"
-    end
+    benchmarks_loop(benchmarks, options, bench_metrics)
   end
 end
 
