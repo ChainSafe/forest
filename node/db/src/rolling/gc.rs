@@ -16,18 +16,28 @@ pub struct DbGarbageCollector<F: Fn() -> Tipset> {
     db: RollingDB,
     get_tipset: F,
     lock: Mutex<()>,
+    gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
+    gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
 }
 
 impl<F: Fn() -> Tipset> DbGarbageCollector<F> {
     pub fn new(db: RollingDB, get_tipset: F) -> Self {
+        let (gc_tx, gc_rx) = flume::unbounded();
+
         Self {
             db,
             get_tipset,
             lock: Default::default(),
+            gc_tx,
+            gc_rx,
         }
     }
 
-    pub async fn collect_loop(&self) -> anyhow::Result<()> {
+    pub fn get_tx(&self) -> flume::Sender<flume::Sender<anyhow::Result<()>>> {
+        self.gc_tx.clone()
+    }
+
+    pub async fn collect_loop_passive(&self) -> anyhow::Result<()> {
         loop {
             if let Ok(total_size) = self.db.total_size_in_bytes() {
                 if let Ok(current_size) = self.db.current_size_in_bytes() {
@@ -42,19 +52,34 @@ impl<F: Fn() -> Tipset> DbGarbageCollector<F> {
         }
     }
 
-    pub async fn collect_once(&self) -> anyhow::Result<()> {
-        if self.lock.try_lock().is_ok() {
-            let start = Utc::now();
-            let tipset = (self.get_tipset)();
-            info!("Garbage collection started at epoch {}", tipset.epoch());
-            let db = &self.db;
+    pub async fn collect_loop_event(&self) -> anyhow::Result<()> {
+        while let Ok(responder) = self.gc_rx.recv_async().await {
+            if let Err(e) = responder.send(self.collect_once().await) {
+                warn!("{e}");
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn collect_once(&self) -> anyhow::Result<()> {
+        let guard = self.lock.try_lock();
+        if guard.is_err() {
+            anyhow::bail!("Another garbage collection task is in progress.");
+        }
+
+        let start = Utc::now();
+        let tipset = (self.get_tipset)();
+        info!("Garbage collection started at epoch {}", tipset.epoch());
+        let db = &self.db;
+        if db.db_count() > 1 {
             walk_snapshot(&tipset, DEFAULT_RECENT_ROOTS, |cid| {
                 let db = db.clone();
                 async move {
                     let block = db
                         .get(&cid)?
                         .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
-                    if should_save_block_to_snapshot(&cid) && !db.current().has(&cid)? {
+                    if !db.current().has(&cid)? {
                         db.current().put_keyed(&cid, &block)?;
                     }
 
@@ -62,17 +87,15 @@ impl<F: Fn() -> Tipset> DbGarbageCollector<F> {
                 }
             })
             .await?;
-            info!(
-                "Garbage collection finished at epoch {}, took {}s",
-                tipset.epoch(),
-                (Utc::now() - start).num_seconds()
-            );
-            db.clean_tracked(1, true)?;
-            db.next_partition()?;
-            db.clean_untracked()?;
-            Ok(())
-        } else {
-            anyhow::bail!("Another garbage collection task is in progress.");
         }
+        info!(
+            "Garbage collection finished at epoch {}, took {}s",
+            tipset.epoch(),
+            (Utc::now() - start).num_seconds()
+        );
+        db.clean_tracked(1, true)?;
+        db.next_partition()?;
+        db.clean_untracked()?;
+        Ok(())
     }
 }

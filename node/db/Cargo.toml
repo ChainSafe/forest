@@ -27,6 +27,7 @@ ahash.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 cid.workspace = true
+flume.workspace = true
 forest_blocks.workspace = true
 forest_ipld.workspace = true
 forest_libp2p_bitswap.workspace = true

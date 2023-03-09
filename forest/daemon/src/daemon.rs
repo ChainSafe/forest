@@ -153,16 +153,21 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     )?);
 
     chain_store.set_genesis(&genesis_header)?;
-
-    {
+    let db_garbage_collector = {
         let db = db.clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
-        services.spawn(async move {
-            let db_garbage_collector = DbGarbageCollector::new(db, get_tipset);
-            db_garbage_collector.collect_loop().await
-        });
-    }
+        Arc::new(DbGarbageCollector::new(db, get_tipset))
+    };
+
+    services.spawn({
+        let db_garbage_collector = db_garbage_collector.clone();
+        async move { db_garbage_collector.collect_loop_passive().await }
+    });
+    services.spawn({
+        let db_garbage_collector = db_garbage_collector.clone();
+        async move { db_garbage_collector.collect_loop_event().await }
+    });
 
     let publisher = chain_store.publisher();
 
@@ -293,6 +298,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
+        let gc_event_tx = db_garbage_collector.get_tx();
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
@@ -305,11 +311,13 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
+                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can
+                                                                  * fetch
                                                                   * this itself from the
                                                                   * StateManager */
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
+                    gc_event_tx,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
