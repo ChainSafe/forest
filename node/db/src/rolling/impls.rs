@@ -4,7 +4,7 @@
 use chrono::Utc;
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_utils::db::file_backed_obj::FileBackedObject;
+use forest_utils::{common::AggregatedError, db::file_backed_obj::FileBackedObject};
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use parking_lot::{RwLock, RwLockReadGuard};
@@ -14,23 +14,36 @@ use crate::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
+        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            if let Ok(true) = Blockstore::has(db, k) {
-                return Ok(true);
+            match Blockstore::has(db, k) {
+                Ok(true) => return Ok(true),
+                Ok(false) => {}
+                Err(e) => errors.push(e),
             }
         }
 
-        Ok(false)
+        if errors.is_empty() {
+            Ok(false)
+        } else {
+            Err(errors.into())
+        }
     }
 
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            if let Ok(Some(v)) = Blockstore::get(db, k) {
-                return Ok(Some(v));
+            match Blockstore::get(db, k) {
+                Ok(Some(v)) => return Ok(Some(v)),
+                Ok(None) => {}
+                Err(e) => errors.push(e),
             }
         }
-
-        Ok(None)
+        if errors.is_empty() {
+            Ok(None)
+        } else {
+            Err(errors.into())
+        }
     }
 
     fn put<D>(
@@ -73,26 +86,40 @@ impl Store for RollingDB {
     where
         K: AsRef<[u8]>,
     {
+        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            if let Ok(Some(v)) = Store::read(db, key.as_ref()) {
-                return Ok(Some(v));
+            match Store::read(db, key.as_ref()) {
+                Ok(Some(v)) => return Ok(Some(v)),
+                Ok(None) => {}
+                Err(e) => errors.push(e),
             }
         }
 
-        Ok(None)
+        if errors.is_empty() {
+            Ok(None)
+        } else {
+            Err(errors.into())
+        }
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, crate::Error>
     where
         K: AsRef<[u8]>,
     {
+        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            if let Ok(true) = Store::exists(db, key.as_ref()) {
-                return Ok(true);
+            match Store::exists(db, key.as_ref()) {
+                Ok(true) => return Ok(true),
+                Ok(false) => {}
+                Err(e) => errors.push(e),
             }
         }
 
-        Ok(false)
+        if errors.is_empty() {
+            Ok(false)
+        } else {
+            Err(errors.into())
+        }
     }
 
     fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::Error>
@@ -122,23 +149,37 @@ impl Store for RollingDB {
 
 impl BitswapStoreRead for RollingDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            if let Ok(true) = BitswapStoreRead::contains(db, cid) {
-                return Ok(true);
+            match BitswapStoreRead::contains(db, cid) {
+                Ok(true) => return Ok(true),
+                Ok(false) => {}
+                Err(e) => errors.push(e),
             }
         }
 
-        Ok(false)
+        if errors.is_empty() {
+            Ok(false)
+        } else {
+            Err(errors.into())
+        }
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            if let Ok(Some(v)) = BitswapStoreRead::get(db, cid) {
-                return Ok(Some(v));
+            match BitswapStoreRead::get(db, cid) {
+                Ok(Some(v)) => return Ok(Some(v)),
+                Ok(None) => {}
+                Err(e) => errors.push(e),
             }
         }
 
-        Ok(None)
+        if errors.is_empty() {
+            Ok(None)
+        } else {
+            Err(errors.into())
+        }
     }
 }
 

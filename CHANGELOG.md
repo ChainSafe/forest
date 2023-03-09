@@ -5,11 +5,13 @@ Notable updates:
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
 * [api|cli] Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand. [#2538](https://github.com/ChainSafe/forest/pull/2538)
+* [api|cli] Add RPC `Filecoin.DatabaseGarbageCollection` endpoint and `forest-cli db gc` subcommand. [#2638](https://github.com/ChainSafe/forest/pull/2638)
 * [cli] A JavaScript console to interact with Filecoin API. [#2492](https://github.com/ChainSafe/forest/pull/2492)
 * [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
 * [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 * [forest daemon] Added `--exit-after-init` and `--save-token` flags. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 * [forest daemon] Support for NV18. [#2558](https://github.com/ChainSafe/forest/pull/2558) [#2579](https://github.com/ChainSafe/forest/pull/2579)
+* [forest daemon] Automatic database garbage collection. [#2638](https://github.com/ChainSafe/forest/pull/2638)
 
 ### Changed
 * [cli] Remove Forest ctrl-c hard shutdown behavior on subsequent ctrl-c signals. [#2538](https://github.com/ChainSafe/forest/pull/2538)
