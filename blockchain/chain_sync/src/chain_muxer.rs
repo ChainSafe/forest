@@ -19,7 +19,7 @@ use forest_libp2p::{
 };
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
-use forest_shim::{message::Message, EPOCHS_IN_DAY};
+use forest_shim::{clock::EPOCHS_IN_DAY, message::Message};
 use forest_state_manager::StateManager;
 use futures::{
     future::{try_join_all, Future},

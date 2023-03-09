@@ -3,6 +3,7 @@
 
 pub mod address;
 pub mod bigint;
+pub mod clock;
 pub mod crypto;
 pub mod econ;
 pub mod error;
@@ -13,9 +14,6 @@ pub mod randomness;
 pub mod sector;
 pub mod state_tree;
 pub mod version;
-
-use fil_actors_runtime_v9::builtin::network;
-pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
 
 ///
 /// Helper trait to re-use static methods and constants.
