@@ -124,18 +124,6 @@ def exec_command_aux(command, metrics, benchmark)
   end
 end
 
-def exec_command(command, dry_run, benchmark = nil)
-  puts "$ #{command.join(' ')}"
-  return {} if dry_run
-
-  metrics = {}
-  t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  exec_command_aux(command, metrics, benchmark)
-  t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  metrics[:elapsed] = hr(t1 - t0)
-  metrics
-end
-
 def format_import_table_row(key, value)
   elapsed = value[:import][:elapsed] || 'n/a'
   rss = value[:import][:rss]
@@ -248,11 +236,23 @@ end
 # Base benchmark class
 class Benchmark
   attr_reader :name, :metrics
-  attr_accessor :snapshot_path, :heights, :chain
+  attr_accessor :dry_run, :snapshot_path, :heights, :chain
 
   def initialize(name:, config: {})
     @name = name
     @config = config
+  end
+
+  def exec_command(command, benchmark = nil)
+    puts "$ #{command.join(' ')}"
+    return {} if @dry_run
+
+    metrics = {}
+    t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    exec_command_aux(command, metrics, benchmark)
+    t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    metrics[:elapsed] = hr(t1 - t0)
+    metrics
   end
 
   def build_config_file
@@ -264,11 +264,11 @@ class Benchmark
   end
   private :build_config_file
 
-  def build_substitution_hash(dry_run)
+  def build_substitution_hash
     height = snapshot_height(@snapshot_path)
     start = height - @heights
 
-    return { c: '<tbd>', s: '<tbd>', h: start } if dry_run
+    return { c: '<tbd>', s: '<tbd>', h: start } if @dry_run
 
     config_path = "#{data_dir}/#{@name}.toml"
 
@@ -276,40 +276,40 @@ class Benchmark
   end
   private :build_substitution_hash
 
-  def build_client(dry_run)
+  def build_client
     if Dir.exist?(repository_name)
       puts "(W) Directory #{repository_name} is already present"
     else
       puts '(I) Cloning repository'
-      clone_command(dry_run)
-      Dir.mkdir(repository_name) if dry_run
+      clone_command
+      Dir.mkdir(repository_name) if @dry_run
     end
 
     puts '(I) Clean and build client'
     Dir.chdir(repository_name) do
-      clean_command(dry_run)
-      build_command(dry_run)
+      clean_command
+      build_command
     end
   end
 
-  def build_artefacts(dry_run)
+  def build_artefacts
     puts '(I) Building artefacts...'
-    build_client(dry_run)
+    build_client
 
-    build_config_file unless dry_run
-    build_substitution_hash(dry_run)
+    build_config_file unless @dry_run
+    build_substitution_hash
   end
   private :build_artefacts
 
-  def run_validation_step(dry_run, daily, args, metrics)
+  def run_validation_step(daily, args, metrics)
     unless daily
       validate_command = splice_args(@validate_command, args)
-      metrics[:validate] = exec_command(validate_command, dry_run)
+      metrics[:validate] = exec_command(validate_command)
       return
     end
 
     validate_online_command = splice_args(@validate_online_command, args)
-    new_metrics = exec_command(validate_online_command, dry_run, self)
+    new_metrics = exec_command(validate_online_command, self)
     new_metrics[:tpm] = if new_metrics[:num_epochs]
                           (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
                         else
@@ -318,25 +318,25 @@ class Benchmark
     metrics[:validate_online] = new_metrics
   end
 
-  def run(dry_run, daily)
+  def run(daily)
     puts "(I) Running bench: #{@name}"
 
     metrics = {}
-    args = build_artefacts(dry_run)
+    args = build_artefacts
     @sync_status_command = splice_args(@sync_status_command, args)
 
-    exec_command(@init_command, dry_run) if @name == 'forest'
+    exec_command(@init_command) if @name == 'forest'
 
     import_command = splice_args(@import_command, args)
-    metrics[:import] = exec_command(import_command, dry_run)
+    metrics[:import] = exec_command(import_command)
 
     # Save db size just after import
-    metrics[:import][:db_size] = db_size unless dry_run
+    metrics[:import][:db_size] = db_size unless @dry_run
 
-    run_validation_step(dry_run, daily, args, metrics)
+    run_validation_step(daily, args, metrics)
 
     puts '(I) Clean db'
-    clean_db(dry_run)
+    clean_db
 
     @metrics = metrics
   end
@@ -387,10 +387,10 @@ class ForestBenchmark < Benchmark
     match[1]
   end
 
-  def clean_db(dry_run)
+  def clean_db
     config_path = "#{data_dir}/#{@name}.toml"
 
-    exec_command([target_cli, '-c', config_path, 'db', 'clean', '--force'], dry_run)
+    exec_command([target_cli, '-c', config_path, 'db', 'clean', '--force'])
   end
 
   def target
@@ -405,18 +405,18 @@ class ForestBenchmark < Benchmark
     'forest'
   end
 
-  def clone_command(dry_run)
-    exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name], dry_run)
+  def clone_command
+    exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name])
   end
 
-  def checkout_command(_dry_run); end
+  def checkout_command(); end
 
-  def clean_command(dry_run)
-    exec_command(%w[cargo clean], dry_run)
+  def clean_command
+    exec_command(%w[cargo clean])
   end
 
-  def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release'], dry_run)
+  def build_command
+    exec_command(['cargo', 'build', '--release'])
   end
 
   def epoch_command
@@ -440,8 +440,6 @@ class ForestBenchmark < Benchmark
 
   def initialize(name:, config: {})
     super(name: name, config: config)
-    @name = name
-    @config = config
     @init_command = [target_cli, 'fetch-params', '--keys']
     @import_command = [
       target, '--config', '%<c>s', '--encrypt-keystore', 'false', '--import-snapshot', '%<s>s', '--halt-after-import'
@@ -462,28 +460,27 @@ end
 
 # Benchmark class for Forest with ParityDb backend
 class ParityDbBenchmark < ForestBenchmark
-  def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'],
-                 dry_run)
+  def build_command
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'])
   end
 end
 
 # Benchmark class for Forest with ParityDb backend and Jemalloc allocator
 class JemallocBenchmark < ForestBenchmark
-  def build_command(dry_run)
+  def build_command
     exec_command(
       ['cargo', 'build', '--release', '--no-default-features', '--features',
-       'forest_fil_cns,paritydb,jemalloc'], dry_run
+       'forest_fil_cns,paritydb,jemalloc']
     )
   end
 end
 
 # Benchmark class for Forest with ParityDb backend and Mimalloc allocator
 class MimallocBenchmark < ForestBenchmark
-  def build_command(dry_run)
+  def build_command
     exec_command(
       ['cargo', 'build', '--release', '--no-default-features', '--features',
-       'forest_fil_cns,paritydb,mimalloc'], dry_run
+       'forest_fil_cns,paritydb,mimalloc']
     )
   end
 end
@@ -500,8 +497,8 @@ class LotusBenchmark < Benchmark
     size.split[0]
   end
 
-  def clean_db(dry_run)
-    FileUtils.rm_rf(db_dir, secure: true) unless dry_run
+  def clean_db
+    FileUtils.rm_rf(db_dir, secure: true) unless @dry_run
   end
 
   def build_config_file
@@ -517,24 +514,24 @@ class LotusBenchmark < Benchmark
     File.join('.', repository_name, 'lotus')
   end
 
-  def clone_command(dry_run)
-    exec_command(['git', 'clone', 'https://github.com/filecoin-project/lotus.git', repository_name], dry_run)
+  def clone_command
+    exec_command(['git', 'clone', 'https://github.com/filecoin-project/lotus.git', repository_name])
   end
 
-  def checkout_command(dry_run)
+  def checkout_command
     if @chain == 'mainnet'
-      exec_command(%w[git checkout releases], dry_run)
+      exec_command(%w[git checkout releases])
     else
-      exec_command(%w[git checkout master], dry_run)
+      exec_command(%w[git checkout master])
     end
   end
 
-  def clean_command(dry_run)
-    exec_command(%w[make clean], dry_run)
+  def clean_command
+    exec_command(%w[make clean])
   end
 
-  def build_command(dry_run)
-    exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
+  def build_command
+    exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'])
   end
 
   def epoch_command
@@ -559,8 +556,6 @@ class LotusBenchmark < Benchmark
   def initialize(name:, config: {})
     super(name: name, config: config)
     ENV['LOTUS_PATH'] = File.join(WORKING_DIR, ".#{repository_name}")
-    @name = name
-    @config = config
     @import_command = [
       target, 'daemon', '--import-snapshot', '%<s>s', '--halt-after-import'
     ]
@@ -577,10 +572,11 @@ end
 def run_loop(benchmarks, options, bench_metrics)
   Dir.chdir(WORKING_DIR) do
     benchmarks.each do |bench|
+      bench.dry_run = options[:dry_run]
       bench.snapshot_path = options[:snapshot_path]
       bench.heights = options[:heights]
       bench.chain = options[:chain]
-      bench.run(options[:dry_run], options[:daily])
+      bench.run(options[:daily])
 
       bench_metrics[bench.name] = bench.metrics
 
