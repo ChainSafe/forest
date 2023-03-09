@@ -164,6 +164,11 @@ jobs:
         run: |
           forest-cli --chain calibnet sync wait
           forest-cli --chain calibnet db stats
+      - name: db gc
+        run: |
+          du -hS ~/.local/share/forest/calibnet
+          forest-cli --chain calibnet db gc
+          du -hS ~/.local/share/forest/calibnet
       - name: export snapshot
         run: |
           forest-cli --chain calibnet snapshot export
@@ -174,11 +179,6 @@ jobs:
         run: |
           forest-cli net listen
           forest-cli net peers
-      - name: db gc
-        run: |
-          du -hS ~/.local/share/forest/calibnet
-          forest-cli --chain calibnet db gc
-          du -hS ~/.local/share/forest/calibnet
       - name: validate snapshot
         run: |
           forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
