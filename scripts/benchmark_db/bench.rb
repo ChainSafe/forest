@@ -602,7 +602,7 @@ def run_benchmarks(benchmarks, options)
 end
 
 FOREST_BENCHMARKS = [
-  BaselineBenchmark.new(name: 'baseline'),
+  ForestBenchmark.new(name: 'baseline'),
   JemallocBenchmark.new(name: 'jemalloc'),
   MimallocBenchmark.new(name: 'mimalloc')
 ].freeze
