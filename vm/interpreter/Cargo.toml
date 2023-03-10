@@ -10,7 +10,7 @@ edition.workspace = true
 ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
-forest_actor_interface.workspace = true
+fil_actor_interface.workspace = true
 forest_blocks.workspace = true
 forest_message = { workspace = true, default_features = false, features = ["blst"] }
 forest_networks.workspace = true

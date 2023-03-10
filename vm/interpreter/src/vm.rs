@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ahash::HashSet;
 use cid::Cid;
-use forest_actor_interface::{cron, reward, AwardBlockRewardParams};
+use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use forest_shim::{

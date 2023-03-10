@@ -74,6 +74,7 @@ mod tests {
     use forest_state_manager::StateManager;
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;
+    use tempfile::TempDir;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -100,7 +101,16 @@ mod tests {
             .build()
             .unwrap();
 
-        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header).unwrap());
+        let chain_data_root = TempDir::new().unwrap();
+        let cs_arc = Arc::new(
+            ChainStore::new(
+                db,
+                chain_config.clone(),
+                &genesis_header,
+                chain_data_root.path(),
+            )
+            .unwrap(),
+        );
 
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(
