@@ -33,7 +33,7 @@ forest-cli --token eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwi
 ```
 
 When the Forest daemon is started, an admin token will be displayed (alternatively, use `--save-token <token>` flag to save it on disk).
-## Sending filecoin tokens (money) from your wallet.
+## Sending Filecoin tokens from your wallet
 
 For sending filecoin token, forest daemon must be running. You can do so by running:
 
