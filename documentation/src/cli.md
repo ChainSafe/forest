@@ -39,7 +39,7 @@ For sending filecoin token, forest daemon must be running. You can do so by runn
 
 `forest --chain calibnet --target-peer-count 50 --encrypt-keystore false`
 
-Next, to send filecoin token (money) to a wallet address:
+Next, send Filecoin tokens to a wallet address:
 
 `forest-cli --token <admin_token> send <wallet-address> <amount in attoFIL>`
 
