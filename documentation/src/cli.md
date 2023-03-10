@@ -85,7 +85,7 @@ command to get formatted keys for importing.
 Usage: `forest-cli wallet import <hex encoded json key>`
 
 Export
-Export a key by address. Use a wallet address to export a key. Returns a hex encoded key
+Export a key by address. Use a wallet address to export a key. Returns a hex-encoded key
 to be used to import on another node, or into a new keystore.
 Usage: `forest-cli wallet export <address>`
 
