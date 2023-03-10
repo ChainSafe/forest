@@ -107,23 +107,25 @@ pub async fn get_params(
             }))
         });
 
-    let mut errors = vec![];
+    let mut errors = Vec::<anyhow::Error>::new();
 
     for t in tasks {
-        if let Err(err) = t.await {
-            errors.push(err);
+        match t.await {
+            Err(err) => errors.push(err.into()),
+            Ok(Err(err)) => errors.push(err),
+            _ => (),
         }
     }
 
-    if errors.is_empty() {
-        Ok(())
-    } else {
+    if !errors.is_empty() {
         let error_messages: Vec<_> = errors.iter().map(|e| format!("{e}")).collect();
         anyhow::bail!(anyhow::Error::msg(format!(
             "Aggregated errors:\n{}",
             error_messages.join("\n\n")
         )))
     }
+
+    Ok(())
 }
 
 /// Get proofs parameters and all verification keys for a given sector size
