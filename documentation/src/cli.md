@@ -43,7 +43,7 @@ Next, send Filecoin tokens to a wallet address:
 
 `forest-cli --token <admin_token> send <wallet-address> <amount in attoFIL>`
 
-where 1 attoFIL = 10e−18 FIL.
+where 1 attoFIL = $10^{−18}$ FIL.
 
 ## Wallet
 
