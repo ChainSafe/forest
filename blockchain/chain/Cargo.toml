@@ -42,6 +42,7 @@ num.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
+tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
