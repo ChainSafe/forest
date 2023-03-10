@@ -74,6 +74,17 @@ def sample_proc(pid, metrics)
   metrics[:vsz].push(output[1].to_i)
 end
 
+def get_last_epoch(benchmark)
+  epoch = nil
+  loop do
+    epoch = benchmark.epoch_command
+    sleep 0.5
+    # epoch can be nil (e.g. if client is in "fetchting messages" stage)
+    break if epoch
+  end
+  epoch
+end
+
 def measure_online_validation(benchmark, pid, metrics)
   Thread.new do
     first_epoch = nil
@@ -83,11 +94,10 @@ def measure_online_validation(benchmark, pid, metrics)
         puts 'Start measure'
         break
       end
-      sleep 0.05
+      sleep 0.1
     end
     sleep benchmark.online_validation_secs
-    last_epoch = benchmark.epoch_command
-    # TODO: sometimes last_epoch or first_epoch is nil, fix it
+    last_epoch = get_last_epoch(benchmark)
     metrics[:num_epochs] = last_epoch - first_epoch
 
     puts 'Stopping process...'
