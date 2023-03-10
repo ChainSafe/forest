@@ -11,15 +11,11 @@ use std::{
 use ahash::HashMap;
 use cid::Cid;
 use colored::*;
-use fil_actor_account_v9::State as AccountState;
-use fil_actor_cron_v9::State as CronState;
-use fil_actor_init_v9::State as InitState;
-use fil_actor_market_v9::State as MarketState;
-use fil_actor_miner_v9::State as MinerState;
-use fil_actor_multisig_v9::State as MultiSigState;
-use fil_actor_power_v9::State as PowerState;
-use fil_actor_reward_v9::State as RewardState;
-use fil_actor_system_v9::State as SystemState;
+use fil_actor_interface::{
+    account::State as AccountState, cron::State as CronState, init::State as InitState,
+    market::State as MarketState, miner::State as MinerState, multisig::State as MultiSigState,
+    power::State as PowerState, reward::State as RewardState, system::State as SystemState,
+};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
 use forest_shim::{
@@ -124,46 +120,41 @@ fn pp_actor_state(
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
     let resolved = actor_to_resolved(bs, state, depth);
-    let ipld = &resolved.state.0;
     let mut buffer = String::new();
-
     writeln!(&mut buffer, "{state:?}")?;
-
-    // FIXME: Use the actor interface to load and pretty print the actor states.
-    //        Tracker: https://github.com/ChainSafe/forest/issues/1561
-    if let Ok(miner_state) = forest_ipld::from_ipld::<MinerState>(ipld.clone()) {
+    if let Ok(miner_state) = MinerState::load(bs, &state.into()) {
         write!(&mut buffer, "{miner_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(cron_state) = forest_ipld::from_ipld::<CronState>(ipld.clone()) {
+    if let Ok(cron_state) = CronState::load(bs, &state.into()) {
         write!(&mut buffer, "{cron_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(account_state) = forest_ipld::from_ipld::<AccountState>(ipld.clone()) {
+    if let Ok(account_state) = AccountState::load(bs, &state.into()) {
         write!(&mut buffer, "{account_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(power_state) = forest_ipld::from_ipld::<PowerState>(ipld.clone()) {
+    if let Ok(power_state) = PowerState::load(bs, &state.into()) {
         write!(&mut buffer, "{power_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(init_state) = forest_ipld::from_ipld::<InitState>(ipld.clone()) {
+    if let Ok(init_state) = InitState::load(bs, &state.into()) {
         write!(&mut buffer, "{init_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(reward_state) = forest_ipld::from_ipld::<RewardState>(ipld.clone()) {
+    if let Ok(reward_state) = RewardState::load(bs, &state.into()) {
         write!(&mut buffer, "{reward_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(system_state) = forest_ipld::from_ipld::<SystemState>(ipld.clone()) {
+    if let Ok(system_state) = SystemState::load(bs, &state.into()) {
         write!(&mut buffer, "{system_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(multi_sig_state) = forest_ipld::from_ipld::<MultiSigState>(ipld.clone()) {
+    if let Ok(multi_sig_state) = MultiSigState::load(bs, &state.into()) {
         write!(&mut buffer, "{multi_sig_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(market_state) = forest_ipld::from_ipld::<MarketState>(ipld.clone()) {
+    if let Ok(market_state) = MarketState::load(bs, &state.into()) {
         write!(&mut buffer, "{market_state:?}")?;
         return Ok(buffer);
     }
