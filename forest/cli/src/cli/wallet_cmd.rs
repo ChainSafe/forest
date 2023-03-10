@@ -210,7 +210,7 @@ impl WalletCommands {
 
                 let default = wallet_default_address((), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err);
+                    .map_err(handle_rpc_err)?;
 
                 let (title_address, title_default_mark, title_balance) =
                     ("Address", "Default", "Balance");
@@ -218,15 +218,7 @@ impl WalletCommands {
 
                 for address in response {
                     let addr = address.0.to_string();
-                    let default_address_mark = if let Ok(default) = &default {
-                        if &addr == default {
-                            "X"
-                        } else {
-                            ""
-                        }
-                    } else {
-                        ""
-                    };
+                    let default_address_mark = if addr == default { "X" } else { "" };
 
                     let balance_string = wallet_balance((addr.clone(),), &config.client.rpc_token)
                         .await
