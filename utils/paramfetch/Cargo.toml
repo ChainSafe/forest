@@ -15,7 +15,6 @@ forest_shim.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 log.workspace = true
-rs-car-ipfs = "0.3.0"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tokio-util = { workspace = true, features = ["compat"] }
