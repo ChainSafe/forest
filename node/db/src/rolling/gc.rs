@@ -86,8 +86,8 @@ where
         info!("Garbage collection started at epoch {}", tipset.epoch());
         let db = &self.db;
         if db.db_count() > 1 {
-            // 512MB
-            const BUFFER_CAPCITY_BYTES: usize = 512 * 1024 * 1024;
+            // 128MB
+            const BUFFER_CAPCITY_BYTES: usize = 128 * 1024 * 1024;
             let (tx, rx) = flume::unbounded();
             let write_task = tokio::spawn({
                 let db = db.current();

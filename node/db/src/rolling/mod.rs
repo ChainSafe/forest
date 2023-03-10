@@ -25,6 +25,8 @@ pub struct RollingDB {
     db_index: Arc<RwLock<FileBacked<DbIndex>>>,
     /// A queue of active databases, from youngest to oldest
     db_queue: Arc<RwLock<VecDeque<Db>>>,
+    /// The current writable DB
+    current: Arc<RwLock<(String, Db)>>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

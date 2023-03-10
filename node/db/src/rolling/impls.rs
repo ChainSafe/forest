@@ -4,7 +4,7 @@
 use chrono::Utc;
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_utils::{common::AggregatedError, db::file_backed_obj::FileBackedObject};
+use forest_utils::db::file_backed_obj::FileBackedObject;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use parking_lot::{RwLock, RwLockReadGuard};
@@ -14,36 +14,23 @@ use crate::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            match Blockstore::has(db, k) {
-                Ok(true) => return Ok(true),
-                Ok(false) => {}
-                Err(e) => errors.push(e),
+            if Blockstore::has(db, k)? {
+                return Ok(true);
             }
         }
 
-        if errors.is_empty() {
-            Ok(false)
-        } else {
-            Err(errors.into())
-        }
+        Ok(false)
     }
 
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            match Blockstore::get(db, k) {
-                Ok(Some(v)) => return Ok(Some(v)),
-                Ok(None) => {}
-                Err(e) => errors.push(e),
+            if let Some(v) = Blockstore::get(db, k)? {
+                return Ok(Some(v));
             }
         }
-        if errors.is_empty() {
-            Ok(None)
-        } else {
-            Err(errors.into())
-        }
+
+        Ok(None)
     }
 
     fn put<D>(
@@ -86,40 +73,26 @@ impl Store for RollingDB {
     where
         K: AsRef<[u8]>,
     {
-        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            match Store::read(db, key.as_ref()) {
-                Ok(Some(v)) => return Ok(Some(v)),
-                Ok(None) => {}
-                Err(e) => errors.push(e),
+            if let Some(v) = Store::read(db, key.as_ref())? {
+                return Ok(Some(v));
             }
         }
 
-        if errors.is_empty() {
-            Ok(None)
-        } else {
-            Err(errors.into())
-        }
+        Ok(None)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, crate::Error>
     where
         K: AsRef<[u8]>,
     {
-        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            match Store::exists(db, key.as_ref()) {
-                Ok(true) => return Ok(true),
-                Ok(false) => {}
-                Err(e) => errors.push(e),
+            if Store::exists(db, key.as_ref())? {
+                return Ok(true);
             }
         }
 
-        if errors.is_empty() {
-            Ok(false)
-        } else {
-            Err(errors.into())
-        }
+        Ok(false)
     }
 
     fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::Error>
@@ -149,37 +122,23 @@ impl Store for RollingDB {
 
 impl BitswapStoreRead for RollingDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            match BitswapStoreRead::contains(db, cid) {
-                Ok(true) => return Ok(true),
-                Ok(false) => {}
-                Err(e) => errors.push(e),
+            if BitswapStoreRead::contains(db, cid)? {
+                return Ok(true);
             }
         }
 
-        if errors.is_empty() {
-            Ok(false)
-        } else {
-            Err(errors.into())
-        }
+        Ok(false)
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let mut errors = AggregatedError::new();
         for db in self.db_queue().iter() {
-            match BitswapStoreRead::get(db, cid) {
-                Ok(Some(v)) => return Ok(Some(v)),
-                Ok(None) => {}
-                Err(e) => errors.push(e),
+            if let Some(v) = BitswapStoreRead::get(db, cid)? {
+                return Ok(Some(v));
             }
         }
 
-        if errors.is_empty() {
-            Ok(None)
-        } else {
-            Err(errors.into())
-        }
+        Ok(None)
     }
 }
 
@@ -223,34 +182,34 @@ impl RollingDB {
         if !db_root.exists() {
             std::fs::create_dir_all(db_root.as_path())?;
         }
-        let (db_index, db_queue) = load_db_queue(db_root.as_path(), &db_config)?;
-        let rolling = Self {
+        let (mut db_index, mut db_queue) = load_db_queue(&db_root, &db_config)?;
+        let current = if db_queue.is_empty() {
+            let (name, db) = create_untracked(&db_root, &db_config)?;
+            track_as_youngest(&mut db_index, &mut db_queue, name.clone(), db.clone())?;
+            (name, db)
+        } else {
+            (db_index.inner().db_names[0].clone(), db_queue[0].clone())
+        };
+
+        Ok(Self {
             db_root: db_root.into(),
             db_config: db_config.into(),
             db_index: RwLock::new(db_index).into(),
             db_queue: RwLock::new(db_queue).into(),
-        };
-
-        if rolling.db_queue().is_empty() {
-            let (name, db) = rolling.create_untracked()?;
-            rolling.track_as_current(name, db)?;
-        }
-
-        Ok(rolling)
+            current: RwLock::new(current).into(),
+        })
     }
 
     pub fn track_as_current(&self, name: String, db: Db) -> anyhow::Result<()> {
-        info!("Setting db {name} as current");
-        self.db_queue.write().push_front(db);
         let mut db_index = self.db_index.write();
-        db_index.inner_mut().db_names.push_front(name);
-        db_index.flush_to_file()
+        let mut db_queue = self.db_queue.write();
+        track_as_youngest(&mut db_index, &mut db_queue, name.clone(), db.clone())?;
+        *self.current.write() = (name, db);
+        Ok(())
     }
 
     pub fn create_untracked(&self) -> anyhow::Result<(String, Db)> {
-        let name = Utc::now().timestamp_millis().to_string();
-        let db = open_db(&self.db_root.join(&name), &self.db_config)?;
-        Ok((name, db))
+        create_untracked(&self.db_root, &self.db_config)
     }
 
     pub fn clean_tracked(&self, n_db_to_reserve: usize, delete: bool) -> anyhow::Result<()> {
@@ -297,14 +256,7 @@ impl RollingDB {
 
     pub fn current_size_in_bytes(&self) -> anyhow::Result<u64> {
         Ok(fs_extra::dir::get_size(
-            self.db_root.as_path().join(
-                self.db_index
-                    .read()
-                    .inner()
-                    .db_names
-                    .get(0)
-                    .expect("RollingDB should contain at least one DB in index"),
-            ),
+            self.db_root.as_path().join(self.current.read().0.as_str()),
         )?)
     }
 
@@ -313,11 +265,7 @@ impl RollingDB {
     }
 
     pub fn current(&self) -> Db {
-        self.db_queue
-            .read()
-            .get(0)
-            .cloned()
-            .expect("RollingDB should contain at least one DB reference")
+        self.current.read().1.clone()
     }
 
     fn db_queue(&self) -> RwLockReadGuard<VecDeque<Db>> {
@@ -368,4 +316,22 @@ fn delete_db(db_path: &Path) {
             size.human_count_bytes()
         );
     }
+}
+
+fn track_as_youngest(
+    db_index: &mut FileBacked<DbIndex>,
+    db_queue: &mut VecDeque<Db>,
+    name: String,
+    db: Db,
+) -> anyhow::Result<()> {
+    info!("Setting db {name} as current");
+    db_queue.push_front(db);
+    db_index.inner_mut().db_names.push_front(name);
+    db_index.flush_to_file()
+}
+
+fn create_untracked(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(String, Db)> {
+    let name = Utc::now().timestamp_millis().to_string();
+    let db = open_db(&db_root.join(&name), db_config)?;
+    Ok((name, db))
 }
