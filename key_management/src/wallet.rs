@@ -173,11 +173,9 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     all.sort();
     let mut out = Vec::new();
     for i in all {
-        if i.starts_with("wallet-") {
-            if let Some(addr_str) = i.strip_prefix("wallet-") {
-                if let Ok(addr) = Address::from_str(addr_str) {
-                    out.push(addr);
-                }
+        if let Some(addr_str) = i.strip_prefix("wallet-") {
+            if let Ok(addr) = Address::from_str(addr_str) {
+                out.push(addr);
             }
         }
     }
