@@ -45,15 +45,18 @@ where
 
     pub async fn collect_loop_passive(&self) -> anyhow::Result<()> {
         loop {
-            if let Ok(total_size) = self.db.total_size_in_bytes() {
-                if let Ok(current_size) = self.db.current_size_in_bytes() {
-                    if total_size > 0 && self.db.db_count() > 1 && current_size * 3 > total_size {
-                        if let Err(err) = self.collect_once().await {
-                            warn!("Garbage collection failed: {err}");
-                        }
+            if let (Ok(total_size), Ok(current_size)) = (
+                self.db.total_size_in_bytes(),
+                self.db.current_size_in_bytes(),
+            ) {
+                // Collect when size of young partition > 0.5 * size of old partition
+                if total_size > 0 && self.db.db_count() > 1 && current_size * 3 > total_size {
+                    if let Err(err) = self.collect_once().await {
+                        warn!("Garbage collection failed: {err}");
                     }
                 }
             }
+
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
     }
