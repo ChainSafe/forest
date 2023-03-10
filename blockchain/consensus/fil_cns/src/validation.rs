@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use cid::Cid;
+use fil_actor_interface::power;
 use fil_actors_runtime_v9::runtime::DomainSeparationTag;
-use forest_actor_interface::power;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
