@@ -3,6 +3,7 @@
 
 use std::{path::PathBuf, str::FromStr};
 
+use ahash::HashSet;
 use cid::Cid;
 use log::warn;
 
@@ -89,6 +90,18 @@ impl FileBackedObject for Cid {
 
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
         Ok(Cid::from_str(String::from_utf8_lossy(bytes).trim())?)
+    }
+}
+
+impl FileBackedObject for HashSet<Cid> {
+    fn serialize(&self) -> anyhow::Result<Vec<u8>> {
+        let serialized = serde_json::to_string(&self)?;
+        Ok(serialized.into_bytes())
+    }
+
+    fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
+        let result = serde_json::from_str(String::from_utf8_lossy(bytes).trim());
+        Ok(result?)
     }
 }
 

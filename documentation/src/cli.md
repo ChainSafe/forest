@@ -13,7 +13,7 @@ to provide the multiaddress information for the node. You will need to either se
 
 On Linux, you can set the environment variable with the following syntax
 
-`export FULLNOPDE_API_INFO="..."`
+`export FULLNODE_API_INFO="..."`
 
 Setting your API info this way will limit the value to your current session. Look online for ways to persist
 this variable if desired.
