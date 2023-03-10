@@ -4,7 +4,7 @@
 
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
-use forest_actor_interface::market;
+use fil_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_db::Store;

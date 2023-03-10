@@ -85,7 +85,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "433cfd6710c9986c576a25ca913c39d66a6474107b406f34f91d4a8923395241"
 dependencies = [
  "cfg-if 1.0.0",
- "cipher 0.4.3",
+ "cipher 0.4.4",
  "cpufeatures",
 ]
 
@@ -111,7 +111,7 @@ checksum = "82e1366e0c69c9f927b1fa5ce2c7bf9eafc8f9268c0b9800729e8b267612447c"
 dependencies = [
  "aead 0.5.1",
  "aes 0.8.2",
- "cipher 0.4.3",
+ "cipher 0.4.4",
  "ctr 0.9.2",
  "ghash 0.5.0",
  "subtle",
@@ -864,9 +864,9 @@ dependencies = [
 
 [[package]]
 name = "block-buffer"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69cce20737498f97b993470a6e536b8523f0af7892a4f928cceb1ac5e52ebe7e"
+checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array 0.14.6",
 ]
@@ -1203,7 +1203,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26b52a9543ae338f279b96b0b9fed9c8093744685043739079ce85cd58f289a6"
 dependencies = [
- "cipher 0.4.3",
+ "cipher 0.4.4",
 ]
 
 [[package]]
@@ -1331,9 +1331,9 @@ dependencies = [
 
 [[package]]
 name = "cipher"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1873270f8f7942c191139cb8a40fd228da6c3fd2fc376d7e92d47aa14aeb59e"
+checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common",
  "inout",
@@ -1491,8 +1491,8 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e57ff02e8ad8e06ab9731d5dc72dc23bef9200778eae1a89d555d8c42e5d4a86"
 dependencies = [
- "prost 0.11.8",
- "prost-types 0.11.8",
+ "prost",
+ "prost-types",
  "tonic",
  "tracing-core",
 ]
@@ -1510,7 +1510,7 @@ dependencies = [
  "hdrhistogram",
  "humantime",
  "parking_lot 0.11.2",
- "prost-types 0.11.8",
+ "prost-types",
  "serde",
  "serde_json",
  "thread_local",
@@ -1890,7 +1890,7 @@ version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
- "cipher 0.4.3",
+ "cipher 0.4.4",
 ]
 
 [[package]]
@@ -2220,7 +2220,7 @@ version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8168378f4e5023e7218c89c891c0fd8ecdb5e5e4f18cb78f38cf245dd021e76f"
 dependencies = [
- "block-buffer 0.10.3",
+ "block-buffer 0.10.4",
  "crypto-common",
  "subtle",
 ]
@@ -2610,14 +2610,14 @@ dependencies = [
 
 [[package]]
 name = "fiat-crypto"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54b2f3c51e4dd999930845da5d10a48775b8fe4ca9f4f9ec1f9161f334da5dfe"
+checksum = "93ace6ec7cc19c8ed33a32eaa9ea692d7faea05006b5356b9e2b668ec4bc3955"
 
 [[package]]
 name = "fil_actor_account_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v10",
@@ -2633,7 +2633,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2647,7 +2647,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v9",
@@ -2663,7 +2663,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2677,7 +2677,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -2691,7 +2691,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2710,7 +2710,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2727,7 +2727,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2742,9 +2742,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_interface"
+version = "0.6.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actor_account_v10",
+ "fil_actor_account_v8",
+ "fil_actor_account_v9",
+ "fil_actor_cron_v8",
+ "fil_actor_init_v10",
+ "fil_actor_init_v8",
+ "fil_actor_init_v9",
+ "fil_actor_market_v10",
+ "fil_actor_market_v8",
+ "fil_actor_market_v9",
+ "fil_actor_miner_v10",
+ "fil_actor_miner_v8",
+ "fil_actor_miner_v9",
+ "fil_actor_power_v10",
+ "fil_actor_power_v8",
+ "fil_actor_power_v9",
+ "fil_actor_reward_v10",
+ "fil_actor_reward_v8",
+ "fil_actor_reward_v9",
+ "fil_actors_runtime_v10",
+ "fil_actors_runtime_v9",
+ "fvm 2.2.0",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.3",
+ "fvm_shared 2.0.0",
+ "libp2p",
+ "num",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_market_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2766,7 +2804,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2785,7 +2823,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2805,7 +2843,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2831,7 +2869,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2854,7 +2892,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2878,7 +2916,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2899,7 +2937,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2919,7 +2957,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2938,7 +2976,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2957,7 +2995,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "fil_actors_runtime_v10",
  "fvm_ipld_blockstore",
@@ -2972,7 +3010,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2988,7 +3026,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -3004,7 +3042,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "cid",
@@ -3019,7 +3057,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -3051,7 +3089,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -3080,7 +3118,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#76ff8ce5068cc96779c9df484124d0a97de1a105"
+source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -3317,43 +3355,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_actor_interface"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actor_account_v10",
- "fil_actor_account_v8",
- "fil_actor_account_v9",
- "fil_actor_cron_v8",
- "fil_actor_init_v10",
- "fil_actor_init_v8",
- "fil_actor_init_v9",
- "fil_actor_market_v10",
- "fil_actor_market_v8",
- "fil_actor_market_v9",
- "fil_actor_miner_v10",
- "fil_actor_miner_v8",
- "fil_actor_miner_v9",
- "fil_actor_power_v10",
- "fil_actor_power_v8",
- "fil_actor_power_v9",
- "fil_actor_reward_v10",
- "fil_actor_reward_v8",
- "fil_actor_reward_v9",
- "fil_actors_runtime_v10",
- "fil_actors_runtime_v9",
- "fvm 2.2.0",
- "fvm_ipld_bitfield",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
- "libp2p",
- "num",
- "serde",
-]
-
-[[package]]
 name = "forest_auth"
 version = "0.6.0"
 dependencies = [
@@ -3436,7 +3437,6 @@ dependencies = [
  "cid",
  "digest 0.10.6",
  "flume",
- "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
  "forest_db",
@@ -3480,7 +3480,6 @@ dependencies = [
  "base64 0.21.0",
  "cid",
  "flume",
- "forest_actor_interface",
  "forest_blocks",
  "forest_chain",
  "forest_crypto",
@@ -3646,8 +3645,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cid",
+ "fil_actor_interface",
  "fil_actors_runtime_v9",
- "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",
@@ -3719,7 +3718,7 @@ dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "cid",
- "forest_actor_interface",
+ "fil_actor_interface",
  "forest_blocks",
  "forest_message",
  "forest_networks",
@@ -4006,8 +4005,8 @@ dependencies = [
  "base64 0.21.0",
  "cid",
  "crossbeam",
+ "fil_actor_interface",
  "flume",
- "forest_actor_interface",
  "forest_auth",
  "forest_beacon",
  "forest_blocks",
@@ -4058,8 +4057,8 @@ dependencies = [
  "anyhow",
  "chrono",
  "cid",
+ "fil_actor_interface",
  "flume",
- "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",
@@ -4128,8 +4127,8 @@ dependencies = [
  "blake2b_simd",
  "byteorder",
  "cid",
+ "fil_actor_interface",
  "fil_actors_runtime_v9",
- "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",
@@ -5757,7 +5756,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "pin-project",
- "prost 0.11.8",
+ "prost",
  "prost-build",
  "rand 0.8.5",
  "rw-stream-sink",
@@ -5802,7 +5801,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prometheus-client",
- "prost 0.11.8",
+ "prost",
  "prost-build",
  "prost-codec",
  "rand 0.8.5",
@@ -5828,7 +5827,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "lru",
- "prost 0.11.8",
+ "prost",
  "prost-build",
  "prost-codec",
  "smallvec",
@@ -5853,7 +5852,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-swarm",
  "log",
- "prost 0.11.8",
+ "prost",
  "prost-build",
  "rand 0.8.5",
  "sha2 0.10.6",
@@ -5911,7 +5910,7 @@ dependencies = [
  "libp2p-core",
  "log",
  "once_cell",
- "prost 0.11.8",
+ "prost",
  "prost-build",
  "rand 0.8.5",
  "sha2 0.10.6",
@@ -6078,7 +6077,7 @@ dependencies = [
  "libp2p-noise",
  "log",
  "multihash 0.17.0",
- "prost 0.11.8",
+ "prost",
  "prost-build",
  "prost-codec",
  "rand 0.8.5",
@@ -6250,12 +6249,12 @@ dependencies = [
 
 [[package]]
 name = "loki-api"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1b21fa6bc76e25acb47396ec0a66901c895a42b69de12ae48c68c6ce9172ca2"
+checksum = "f56d36f573486ba7f462b62cbae597fef7d5d93665e7047956b457531b8a1ced"
 dependencies = [
- "prost 0.9.0",
- "prost-types 0.9.0",
+ "prost",
+ "prost-types",
 ]
 
 [[package]]
@@ -7378,16 +7377,18 @@ checksum = "e3d7ddaed09e0eb771a79ab0fd64609ba0afb0a8366421957936ad14cbd13630"
 
 [[package]]
 name = "polling"
-version = "2.5.2"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22122d5ec4f9fe1b3916419b76be1e80bcb93f618d071d2edf841b137b2a2bd6"
+checksum = "7e1f879b2998099c2d69ab9605d145d5b661195627eccc680002c4918a7fb6fa"
 dependencies = [
  "autocfg",
+ "bitflags",
  "cfg-if 1.0.0",
+ "concurrent-queue",
  "libc",
  "log",
- "wepoll-ffi",
- "windows-sys 0.42.0",
+ "pin-project-lite 0.2.9",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -7615,22 +7616,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
-dependencies = [
- "bytes 1.4.0",
- "prost-derive 0.9.0",
-]
-
-[[package]]
-name = "prost"
 version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e48e50df39172a3e7eb17e14642445da64996989bc212b583015435d39a58537"
 dependencies = [
  "bytes 1.4.0",
- "prost-derive 0.11.8",
+ "prost-derive",
 ]
 
 [[package]]
@@ -7647,8 +7638,8 @@ dependencies = [
  "multimap",
  "petgraph",
  "prettyplease",
- "prost 0.11.8",
- "prost-types 0.11.8",
+ "prost",
+ "prost-types",
  "regex",
  "syn",
  "tempfile",
@@ -7663,22 +7654,9 @@ checksum = "0dc34979ff898b6e141106178981ce2596c387ea6e62533facfc61a37fc879c0"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.4.0",
- "prost 0.11.8",
+ "prost",
  "thiserror",
  "unsigned-varint",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -7696,21 +7674,11 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "534b7a0e836e3c482d2693070f982e39e7611da9695d4d1f5a4b186b51faef0a"
-dependencies = [
- "bytes 1.4.0",
- "prost 0.9.0",
-]
-
-[[package]]
-name = "prost-types"
 version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "379119666929a1afd7a043aa6cf96fa67a6dce9af60c88095a4686dbce4c9c88"
 dependencies = [
- "prost 0.11.8",
+ "prost",
 ]
 
 [[package]]
@@ -8620,7 +8588,7 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97a22f5af31f73a954c10289c93e8a50cc23d971e80ee446f1f6f7137a088213"
 dependencies = [
- "cipher 0.4.3",
+ "cipher 0.4.4",
 ]
 
 [[package]]
@@ -8742,9 +8710,9 @@ checksum = "f638d531eccd6e23b980caf34876660d38e265409d8e99b397ab71eb3612fad0"
 
 [[package]]
 name = "serde"
-version = "1.0.153"
+version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a382c72b4ba118526e187430bb4963cd6d55051ebf13d9b25574d379cc98d20"
+checksum = "8cdd151213925e7f1ab45a9bbfb129316bd00799784b174b7cc7bcd16961c49e"
 dependencies = [
  "serde_derive",
 ]
@@ -8781,9 +8749,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.153"
+version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ef476a5790f0f6decbc66726b6e5d63680ed518283e64c7df415989d880954f"
+checksum = "4fc80d722935453bcafdc2c9a73cd6fac4dc1938f0346035d84bf99fa9e33217"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9808,8 +9776,8 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding",
  "pin-project",
- "prost 0.11.8",
- "prost-derive 0.11.8",
+ "prost",
+ "prost-derive",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -9964,9 +9932,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-loki"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14c616d5f020d7e61c504c3458f76188fcc91cfdd67dc6e33533d50779a9d743"
+checksum = "630f9edbf303c204f36d08d99510bb7b5b2cb6c010146be3aa6537a183907a95"
 dependencies = [
  "loki-api",
  "reqwest",
@@ -10131,9 +10099,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-bidi"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d54675592c1dbefd78cbd98db9bacd89886e1ca50692a0692baefffdeb92dd58"
+checksum = "524b68aca1d05e03fdf03fcdce2c6c94b6daf6d16861ddaa7e4f2b6638a9052c"
 
 [[package]]
 name = "unicode-general-category"
@@ -10878,15 +10846,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "winapi",
-]
-
-[[package]]
-name = "wepoll-ffi"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d743fdedc5c64377b5fc2bc036b01c7fd642205a0d96356034ae3404d49eb7fb"
-dependencies = [
- "cc",
 ]
 
 [[package]]

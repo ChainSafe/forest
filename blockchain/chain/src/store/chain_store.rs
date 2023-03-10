@@ -12,7 +12,6 @@ use cid::{
     Cid,
 };
 use digest::Digest;
-use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
@@ -25,6 +24,7 @@ use forest_metrics::metrics;
 use forest_networks::ChainConfig;
 use forest_shim::{
     address::Address,
+    clock::EPOCHS_IN_DAY,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     executor::Receipt,
