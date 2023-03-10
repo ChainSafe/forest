@@ -37,7 +37,7 @@ When the Forest daemon is started, an admin token will be displayed (alternative
 
 For sending Filecoin tokens, the Forest daemon must be running. You can do so by running:
 
-`forest --chain calibnet --target-peer-count 50 --encrypt-keystore false`
+`forest --chain calibnet`
 
 Next, send Filecoin tokens to a wallet address:
 
