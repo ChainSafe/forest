@@ -91,3 +91,33 @@ impl FileBackedObject for Cid {
         Ok(Cid::from_str(String::from_utf8_lossy(bytes).trim())?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::*;
+    use cid::multihash::MultihashDigest;
+    use rand::Rng;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn cid_round_trip() -> Result<()> {
+        let mut bytes = [0; 1024];
+        rand::rngs::OsRng.fill(&mut bytes);
+        let cid = Cid::new_v0(multihash::Code::Sha2_256.digest(bytes.as_slice()))?;
+        let serialized = cid.serialize()?;
+        let deserialized = Cid::deserialize(&serialized)?;
+        ensure!(cid == deserialized);
+
+        let dir = TempDir::new()?;
+        let file_path = dir.path().join("CID");
+        let obj1: FileBacked<Cid> =
+            FileBacked::load_from_file_or_create(file_path.clone(), || cid)?;
+        let obj2: FileBacked<Cid> =
+            FileBacked::load_from_file_or_create(file_path, Default::default)?;
+        ensure!(obj1.inner() == obj2.inner());
+
+        Ok(())
+    }
+}

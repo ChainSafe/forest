@@ -395,8 +395,13 @@ async fn validate(
                 .unwrap_or_default();
 
     if confirm {
-        let tmp_db_path = TempDir::new()?;
-        let db_path = db_root(tmp_db_path.path().join(&config.chain.name).as_path());
+        let tmp_chain_data_path = TempDir::new()?;
+        let db_path = db_root(
+            tmp_chain_data_path
+                .path()
+                .join(&config.chain.name)
+                .as_path(),
+        );
         let db = open_proxy_db(db_path, config.db_config().clone())?;
 
         let genesis = read_genesis_header(
@@ -406,7 +411,12 @@ async fn validate(
         )
         .await?;
 
-        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone(), &genesis)?);
+        let chain_store = Arc::new(ChainStore::new(
+            db,
+            config.chain.clone(),
+            &genesis,
+            tmp_chain_data_path.path(),
+        )?);
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
