@@ -49,8 +49,8 @@ where 1 attoFIL = $10^{−18}$ FIL.
 
 Filecoin wallets are stored under the Forest data directory (e.g., `~/.local/share/forest` in the case of Linux) in a `keystore` file.
 
-All wallet commands require write permissions and admin token (`--token`) to interact with the keystore.
-The admin token can be retrieved from forest startup logs.
+All wallet commands require write permissions and an admin token (`--token`) to interact with the keystore.
+The admin token can be retrieved from forest startup logs or by running it with `--save-token <PATH>`.
 
 Balance
 Retrieve the FIL balance of a given address
