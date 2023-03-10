@@ -204,10 +204,6 @@ impl WalletCommands {
                 exact_balance,
                 fixed_unit,
             } => {
-                // if config.chain.name == "calibnet" {
-                //     forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
-                // }
-
                 let response = wallet_list((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
