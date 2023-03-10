@@ -154,7 +154,7 @@ where
         )?);
         let file_backed_validated_blocks = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("VALIDATED_BLOCKS"),
-            || HashSet::default(),
+            HashSet::default,
         )?);
 
         let cs = Self {
