@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
+use std::{collections::VecDeque, num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
@@ -31,12 +31,15 @@ use forest_shim::{
     message::Message,
     state_tree::StateTree,
 };
-use forest_utils::{db::BlockstoreExt, io::Checksum};
+use forest_utils::{
+    db::{file_backed_obj::FileBacked, BlockstoreExt},
+    io::Checksum,
+};
 use futures::Future;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use fvm_ipld_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -58,8 +61,6 @@ use super::{
 };
 use crate::Scale;
 
-const GENESIS_KEY: &str = "gen_block";
-const HEAD_KEY: &str = "head";
 const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 
 // A cap on the size of the future_sink
@@ -87,9 +88,6 @@ pub struct ChainStore<DB> {
     /// key-value `datastore`.
     pub db: DB,
 
-    /// Tipset at the head of the best-known chain.
-    heaviest: Mutex<Arc<Tipset>>,
-
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
 
@@ -98,6 +96,12 @@ pub struct ChainStore<DB> {
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
+
+    /// File backed genesis block cid
+    file_backed_genesis: Mutex<FileBacked<Cid>>,
+
+    /// File backed heaviest tipset keys
+    file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -132,42 +136,43 @@ where
         db: DB,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: &BlockHeader,
+        chain_data_root: &Path,
     ) -> Result<Self>
     where
         DB: Clone,
     {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
-        let genesis_ts = Arc::new(Tipset::from(genesis_block_header));
+        let file_backed_genesis = Mutex::new(FileBacked::new(
+            *genesis_block_header.cid(),
+            chain_data_root.join("GENESIS"),
+        ));
+
+        let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
+            chain_data_root.join("HEAD"),
+            || TipsetKeys::new(vec![*genesis_block_header.cid()]),
+        )?);
         let cs = Self {
             publisher,
-            // subscriptions: Default::default(),
-            // subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
             db,
             ts_cache,
-            heaviest: Mutex::new(genesis_ts.clone()),
+            file_backed_genesis,
+            file_backed_heaviest_tipset_keys,
         };
 
-        // Result intentionally ignored, doesn't matter if heaviest doesn't exist in
-        // store yet
-        let _ = cs.load_heaviest_tipset();
-
         cs.set_genesis(genesis_block_header)?;
-
-        if cs.blockstore().read(HEAD_KEY)?.is_none() {
-            cs.set_heaviest_tipset(genesis_ts)?;
-        }
 
         Ok(cs)
     }
 
-    /// Sets heaviest tipset within `ChainStore` and store its tipset keys under
-    /// `HEAD_KEY`
+    /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
+    /// `{forest_chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        *self.heaviest.lock() = ts.clone();
+        self.file_backed_heaviest_tipset_keys
+            .lock()
+            .set_inner(ts.key().clone())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -176,11 +181,11 @@ where
 
     /// Writes genesis to `blockstore`.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        self.blockstore()
-            .write(GENESIS_KEY, header.marshal_cbor()?)?;
+        self.file_backed_genesis.lock().set_inner(*header.cid())?;
+
         self.blockstore()
             .put_obj(&header, Blake2b256)
-            .map_err(|e| Error::Other(e.to_string()))
+            .map_err(Error::from)
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
@@ -212,35 +217,17 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Loads heaviest tipset from `datastore` and sets as heaviest in
-    /// `chainstore`.
-    fn load_heaviest_tipset(&self) -> Result<(), Error> {
-        let heaviest_ts = match self.db.read(HEAD_KEY)? {
-            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?)?,
-            None => {
-                warn!("No previous chain state found");
-                return Err(Error::Other("No chain state found".to_owned()));
-            }
-        };
-
-        // set as heaviest tipset
-        *self.heaviest.lock() = heaviest_ts;
-        Ok(())
-    }
-
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
         self.blockstore()
-            .read(GENESIS_KEY)?
-            .map(|bz| BlockHeader::unmarshal_cbor(&bz).map_err(|e| Error::Other(e.to_string())))
-            .ok_or(Error::Other(
-                "Genesis key not defined in database".to_string(),
-            ))?
+            .get_obj::<BlockHeader>(self.file_backed_genesis.lock().inner())?
+            .ok_or_else(|| Error::Other("Genesis block not set".into()))
     }
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        self.heaviest.lock().clone()
+        self.tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())
+            .expect("Failed to load heaviest tipset")
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -273,7 +260,7 @@ where
         S: Scale,
     {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = S::weight(self.blockstore(), self.heaviest.lock().as_ref())?;
+        let heaviest_weight = S::weight(self.blockstore(), &self.heaviest_tipset())?;
 
         let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
         let curr_weight = heaviest_weight;
@@ -682,8 +669,7 @@ where
         .iter()
         .map(|c| {
             store
-                .get_obj(c)
-                .map_err(|e| Error::Other(e.to_string()))?
+                .get_obj(c)?
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
         .collect::<Result<_, Error>>()?;
@@ -743,10 +729,7 @@ pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>),
 where
     DB: Blockstore,
 {
-    if let Some(roots) = db
-        .get_obj::<TxMeta>(msg_cid)
-        .map_err(|e| Error::Other(e.to_string()))?
-    {
+    if let Some(roots) = db.get_obj::<TxMeta>(msg_cid)? {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
@@ -764,8 +747,7 @@ where
     C: Serialize,
 {
     for chunk in headers.chunks(256) {
-        db.bulk_put(chunk, Blake2b256)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        db.bulk_put(chunk, Blake2b256)?;
     }
     Ok(())
 }
@@ -793,8 +775,7 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: Blockstore,
 {
-    db.get_obj(key)
-        .map_err(|e| Error::Other(e.to_string()))?
+    db.get_obj(key)?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
@@ -805,8 +786,7 @@ where
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state =
-        StateTree::new_from_root(db, ts.parent_state()).map_err(|e| Error::Other(e.to_string()))?;
+    let state = StateTree::new_from_root(db, ts.parent_state())?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
@@ -819,8 +799,7 @@ where
             let from_address = &message.from();
             if applied.contains_key(from_address) {
                 let actor_state = state
-                    .get_actor(from_address)
-                    .map_err(|e| Error::Other(e.to_string()))?
+                    .get_actor(from_address)?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
                 balances.insert(*from_address, actor_state.balance.clone().into());
@@ -864,8 +843,7 @@ where
 {
     keys.iter()
         .map(|k| {
-            db.get_obj(k)
-                .map_err(|e| Error::Other(e.to_string()))?
+            db.get_obj(k)?
                 .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
         .collect()
@@ -999,6 +977,7 @@ mod tests {
     };
     use forest_shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
+    use tempfile::TempDir;
 
     use super::*;
 
@@ -1016,7 +995,8 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block).unwrap();
+        let chain_data_root = TempDir::new().unwrap();
+        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
 
         assert_eq!(cs.genesis().unwrap(), gen_block);
     }
@@ -1030,7 +1010,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let cs = ChainStore::new(db, chain_config, &gen_block).unwrap();
+        let chain_data_root = TempDir::new().unwrap();
+        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

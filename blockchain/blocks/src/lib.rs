@@ -6,6 +6,7 @@ pub mod election_proof;
 mod errors;
 pub mod gossip_block;
 pub mod header;
+pub mod persistence;
 pub mod ticket;
 pub mod tipset;
 
