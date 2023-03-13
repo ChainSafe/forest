@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chrono::Utc;
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_utils::db::file_backed_obj::FileBackedObject;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
-use parking_lot::{RwLock, RwLockReadGuard};
+use parking_lot::RwLock;
+use uuid::Uuid;
 
 use super::*;
 use crate::*;
@@ -115,8 +115,7 @@ impl Store for RollingDB {
     }
 
     fn next_partition(&self) -> anyhow::Result<()> {
-        let (name, db) = self.create_untracked()?;
-        self.track_as_current(name, db)
+        self.next_current()
     }
 }
 
@@ -182,71 +181,30 @@ impl RollingDB {
         if !db_root.exists() {
             std::fs::create_dir_all(db_root.as_path())?;
         }
-        let (mut db_index, mut db_queue) = load_db_queue(&db_root, &db_config)?;
-        let current = if db_queue.is_empty() {
-            let (name, db) = create_untracked(&db_root, &db_config)?;
-            track_as_youngest(&mut db_index, &mut db_queue, name.clone(), db.clone())?;
-            (name, db)
-        } else {
-            (db_index.inner().db_names[0].clone(), db_queue[0].clone())
-        };
+        let (db_index, current, old) = load_dbs(&db_root, &db_config)?;
 
         Ok(Self {
             db_root: db_root.into(),
             db_config: db_config.into(),
             db_index: RwLock::new(db_index).into(),
-            db_queue: RwLock::new(db_queue).into(),
             current: RwLock::new(current).into(),
+            old: RwLock::new(old).into(),
         })
     }
 
-    pub fn track_as_current(&self, name: String, db: Db) -> anyhow::Result<()> {
+    fn next_current(&self) -> anyhow::Result<()> {
+        let new_db_name = Uuid::new_v4().simple().to_string();
+        let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
+        *self.old.write() = self.current.read().clone();
+        *self.current.write() = db;
         let mut db_index = self.db_index.write();
-        let mut db_queue = self.db_queue.write();
-        track_as_youngest(&mut db_index, &mut db_queue, name.clone(), db.clone())?;
-        *self.current.write() = (name, db);
-        Ok(())
-    }
+        let db_index_inner_mut = db_index.inner_mut();
+        let old_db_path = self.db_root.join(&db_index_inner_mut.old);
+        db_index_inner_mut.old = db_index_inner_mut.current.clone();
+        db_index_inner_mut.current = new_db_name;
+        db_index.flush_to_file()?;
+        delete_db(&old_db_path);
 
-    pub fn create_untracked(&self) -> anyhow::Result<(String, Db)> {
-        create_untracked(&self.db_root, &self.db_config)
-    }
-
-    pub fn clean_tracked(&self, n_db_to_reserve: usize, delete: bool) -> anyhow::Result<()> {
-        anyhow::ensure!(n_db_to_reserve > 0);
-
-        let mut db_index = self.db_index.write();
-        let mut db_queue = self.db_queue.write();
-        while db_queue.len() > n_db_to_reserve {
-            if let Some(db) = db_queue.pop_back() {
-                db.flush()?;
-            }
-            if let Some(name) = db_index.inner_mut().db_names.pop_back() {
-                info!("Closing DB {name}");
-                if delete {
-                    let db_path = self.db_root.join(name);
-                    delete_db(&db_path);
-                }
-            }
-        }
-
-        db_index.flush_to_file()
-    }
-
-    pub fn clean_untracked(&self) -> anyhow::Result<()> {
-        if let Ok(dir) = std::fs::read_dir(self.db_root.as_path()) {
-            let db_index = self.db_index.read();
-            dir.flatten()
-                .filter(|entry| {
-                    entry.path().is_dir()
-                        && db_index
-                            .inner()
-                            .db_names
-                            .iter()
-                            .all(|name| entry.path() != self.db_root.join(name).as_path())
-                })
-                .for_each(|entry| delete_db(&entry.path()));
-        }
         Ok(())
     }
 
@@ -256,49 +214,35 @@ impl RollingDB {
 
     pub fn current_size_in_bytes(&self) -> anyhow::Result<u64> {
         Ok(fs_extra::dir::get_size(
-            self.db_root.as_path().join(self.current.read().0.as_str()),
+            self.db_root
+                .as_path()
+                .join(self.db_index.read().inner().current.as_str()),
         )?)
     }
 
-    pub fn db_count(&self) -> usize {
-        self.db_queue().len()
-    }
-
     pub fn current(&self) -> Db {
-        self.current.read().1.clone()
+        self.current.read().clone()
     }
 
-    fn db_queue(&self) -> RwLockReadGuard<VecDeque<Db>> {
-        self.db_queue.read()
+    fn db_queue(&self) -> [Db; 2] {
+        [self.current.read().clone(), self.old.read().clone()]
     }
 }
 
-fn load_db_queue(
-    db_root: &Path,
-    db_config: &DbConfig,
-) -> anyhow::Result<(FileBacked<DbIndex>, VecDeque<Db>)> {
+fn load_dbs(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(FileBacked<DbIndex>, Db, Db)> {
     let mut db_index =
         FileBacked::load_from_file_or_create(db_root.join("db_index.yaml"), Default::default)?;
-    let mut db_queue = VecDeque::new();
-    let index_inner_mut: &mut DbIndex = db_index.inner_mut();
-    for i in (0..index_inner_mut.db_names.len()).rev() {
-        let name = index_inner_mut.db_names[i].as_str();
-        let db_path = db_root.join(name);
-        if !db_path.is_dir() {
-            index_inner_mut.db_names.remove(i);
-            continue;
-        }
-        match open_db(&db_path, db_config) {
-            Ok(db) => db_queue.push_front(db),
-            Err(err) => {
-                index_inner_mut.db_names.remove(i);
-                warn!("Failed to open database under {}: {err}", db_path.display());
-            }
-        }
+    let db_index_mut: &mut DbIndex = db_index.inner_mut();
+    if db_index_mut.current.is_empty() {
+        db_index_mut.current = Uuid::new_v4().simple().to_string();
     }
-
+    if db_index_mut.old.is_empty() {
+        db_index_mut.old = Uuid::new_v4().simple().to_string();
+    }
+    let current = open_db(&db_root.join(&db_index_mut.current), db_config)?;
+    let old = open_db(&db_root.join(&db_index_mut.old), db_config)?;
     db_index.flush_to_file()?;
-    Ok((db_index, db_queue))
+    Ok((db_index, current, old))
 }
 
 fn delete_db(db_path: &Path) {
@@ -316,22 +260,4 @@ fn delete_db(db_path: &Path) {
             size.human_count_bytes()
         );
     }
-}
-
-fn track_as_youngest(
-    db_index: &mut FileBacked<DbIndex>,
-    db_queue: &mut VecDeque<Db>,
-    name: String,
-    db: Db,
-) -> anyhow::Result<()> {
-    info!("Setting db {name} as current");
-    db_queue.push_front(db);
-    db_index.inner_mut().db_names.push_front(name);
-    db_index.flush_to_file()
-}
-
-fn create_untracked(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(String, Db)> {
-    let name = Utc::now().timestamp_millis().to_string();
-    let db = open_db(&db_root.join(&name), db_config)?;
-    Ok((name, db))
 }

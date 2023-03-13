@@ -45,19 +45,28 @@ where
 
     pub async fn collect_loop_passive(&self) -> anyhow::Result<()> {
         loop {
+            // Check every 10 mins
+            tokio::time::sleep(Duration::from_secs(10 * 60)).await;
+
+            // Bypass size checking when lock is held
+            {
+                let lock = self.lock.try_lock();
+                if lock.is_err() {
+                    continue;
+                }
+            }
+
             if let (Ok(total_size), Ok(current_size)) = (
                 self.db.total_size_in_bytes(),
                 self.db.current_size_in_bytes(),
             ) {
                 // Collect when size of young partition > 0.5 * size of old partition
-                if total_size > 0 && self.db.db_count() > 1 && current_size * 3 > total_size {
+                if total_size > 0 && current_size * 3 > total_size {
                     if let Err(err) = self.collect_once().await {
                         warn!("Garbage collection failed: {err}");
                     }
                 }
             }
-
-            tokio::time::sleep(Duration::from_secs(60)).await;
         }
     }
 
@@ -85,40 +94,37 @@ where
         let tipset = (self.get_tipset)();
         info!("Garbage collection started at epoch {}", tipset.epoch());
         let db = &self.db;
-        if db.db_count() > 1 {
-            // 128MB
-            const BUFFER_CAPCITY_BYTES: usize = 128 * 1024 * 1024;
-            let (tx, rx) = flume::unbounded();
-            let write_task = tokio::spawn({
-                let db = db.current();
-                async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
-            });
-            walk_snapshot(&tipset, DEFAULT_RECENT_ROOTS, |cid| {
-                let db = db.clone();
-                let tx = tx.clone();
-                async move {
-                    let block = db
-                        .get(&cid)?
-                        .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
-                    if !db.current().has(&cid)? {
-                        tx.send_async((cid.to_bytes(), block.clone())).await?;
-                    }
-
-                    Ok(block)
+        // 128MB
+        const BUFFER_CAPCITY_BYTES: usize = 128 * 1024 * 1024;
+        let (tx, rx) = flume::unbounded();
+        let write_task = tokio::spawn({
+            let db = db.current();
+            async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
+        });
+        walk_snapshot(&tipset, DEFAULT_RECENT_ROOTS, |cid| {
+            let db = db.clone();
+            let tx = tx.clone();
+            async move {
+                let block = db
+                    .get(&cid)?
+                    .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
+                if !db.current().has(&cid)? {
+                    tx.send_async((cid.to_bytes(), block.clone())).await?;
                 }
-            })
-            .await?;
-            drop(tx);
-            write_task.await??;
-        }
+
+                Ok(block)
+            }
+        })
+        .await?;
+        drop(tx);
+        write_task.await??;
+
         info!(
             "Garbage collection finished at epoch {}, took {}s",
             tipset.epoch(),
             (Utc::now() - start).num_seconds()
         );
-        db.clean_tracked(1, true)?;
         db.next_partition()?;
-        db.clean_untracked()?;
         Ok(())
     }
 }

@@ -8,7 +8,7 @@ mod tests {
 
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
-    use forest_db::rolling::RollingDB;
+    use forest_db::{rolling::RollingDB, Store};
     use forest_libp2p_bitswap::BitswapStoreRead;
     use fvm_ipld_blockstore::Blockstore;
     use rand::Rng;
@@ -35,9 +35,9 @@ mod tests {
         for (i, (k, block)) in pairs.iter().enumerate() {
             if i == split_index {
                 sleep(Duration::from_millis(1));
-                println!("Creating another inner db");
-                let (name, db) = rolling_db.create_untracked()?;
-                rolling_db.track_as_current(name, db)?;
+                println!("Creating a new current db");
+                rolling_db.next_partition()?;
+                println!("Created a new current db");
             }
             rolling_db.put_keyed(k, block)?;
         }
@@ -50,8 +50,7 @@ mod tests {
             );
         }
 
-        rolling_db.clean_tracked(1, false)?;
-        ensure!(rolling_db.db_count() == 1);
+        rolling_db.next_partition()?;
 
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
@@ -61,11 +60,9 @@ mod tests {
             }
         }
 
-        rolling_db.clean_untracked()?;
         drop(rolling_db);
 
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
-        ensure!(rolling_db.db_count() == 1);
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
                 ensure!(!rolling_db.contains(k)?);
