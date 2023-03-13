@@ -29,8 +29,7 @@ HOUR = MINUTE * MINUTE
 options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
-  chain: 'calibnet', # TODO: replace with 'mainnet' before merging
-  daily: true
+  chain: 'calibnet' # TODO: replace with 'mainnet' before merging
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
@@ -39,6 +38,7 @@ OptionParser.new do |opts|
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
   opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
   opts.on('--tempdir [String]', 'Specify a custom directory for running benchmarks') { |v| options[:tempdir] = v }
+  opts.on('--daily', 'Run snapshot import and validation time metrics') { |v| options[:daily] = v }
 end.parse!
 
 WORKING_DIR = if options[:tempdir].nil?
@@ -464,19 +464,12 @@ class ForestBenchmark < Benchmark
   end
 end
 
-# Benchmark class for Forest with ParityDb backend
-class ParityDbBenchmark < ForestBenchmark
-  def build_command
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'])
-  end
-end
-
 # Benchmark class for Forest with ParityDb backend and Jemalloc allocator
 class JemallocBenchmark < ForestBenchmark
   def build_command
     exec_command(
       ['cargo', 'build', '--release', '--no-default-features', '--features',
-       'forest_fil_cns,paritydb,jemalloc']
+       'forest_fil_cns,jemalloc']
     )
   end
 end
@@ -486,7 +479,7 @@ class MimallocBenchmark < ForestBenchmark
   def build_command
     exec_command(
       ['cargo', 'build', '--release', '--no-default-features', '--features',
-       'forest_fil_cns,paritydb,mimalloc']
+       'forest_fil_cns,mimalloc']
     )
   end
 end

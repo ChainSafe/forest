@@ -1,48 +1,86 @@
 # Forest benchmark db script
 
-This script is here to help with testing of Forest db backends and their
-configuration.
+This script was developed to help with testing of Forest db backends and their
+configuration; the script now also allows benchmarking ("daily" benchmarks) of Forest and Lotus 
+snapshot import times (in min:sec) and validation times (in tipsets/min).
 
 ## Install dependencies
 
-You will need to install Ruby first. Then go into `benchmark_db` and type:
+[Install Ruby](https://www.ruby-lang.org/en/documentation/installation/) first. Then go into `/forest/scripts/benchmark_db` and execute:
 
 ```
 $ bundle install
 ```
 
+Note: depending upon your Ruby installation, it may be necessary to execute `gem install bundler` first.
+
+The daily benchmarks also require installation of [aria2](https://github.com/aria2/aria2s), as well as dependencies required for the installation of [Forest](https://github.com/ChainSafe/forest) and [Lotus](https://github.com/filecoin-project/lotus) (note that the script handles installation of the Forest and Lotus binaries).
+
 ## Run benchmarks
 
-You need to run the script at the root of the repository. Ie:
+Run the script at the root of the repository. I.e.,:
 
 ```
-$ ./benchmark_db/bench.rb 2369040_2022_11_25t12_00_00z.car
+$ ./scripts/benchmark_db/bench.rb <path to snapshot> <optional flags>
 ```
 
-You can create a selection of benchmarks using the `--pattern` flag. If used in conjunction with `--dry-run` you will see what commands will be run:
+If the `--daily` flag is included in the command line arguments, the script will run the daily benchmarks specified earlier; otherwise the script will run the backend metrics. 
+
+On many machines, running the script with `--chain mainnet` may require more space than allocated to the `tmp` partition. To address this, specify the `--tempdir` flag with a user-defined directory.
+
+To create a selection of benchmarks, use the `--pattern` flag (current defined patterns are `'*'`, `'baseline'`, `'jemalloc'`, and `'mimalloc'`). Using `--dry-run` outputs to the terminal the commands the script will run (without actually running the commands):
 
 ```
-$ ./scripts/benchmark_db/bench.rb 2369040_2022_11_25t12_00_00z.car --pattern 'baseline*,paritydb' --dry-run
-Running bench: baseline
+$ ./scripts/benchmark_db/bench.rb <path to snapshot> --chain calibnet --pattern jemalloc --dry-run
+(I) Using snapshot: <path to snapshot>
+(I) WORKING_DIR: <generated directory>
+
+(I) Running bench: jemalloc
+(I) Building artefacts...
+(I) Cloning repository
+$ git clone https://github.com/ChainSafe/forest.git forest
+(I) Clean and build client
+$ cargo clean
+$ cargo build --release --no-default-features --features forest_fil_cns,paritydb,jemalloc
+$ ./forest/target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import
+$ ./forest/target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import --skip-load=true --height <height>
+(I) Clean db
+$ ./forest/target/release/forest-cli -c <path>
+toml db clean --force
+
+(I) Wrote result_<time>.md
+```
+
+```
+$ ./scripts/benchmark_db/bench.rb <path to snapshot> --chain calibnet --dry-run --daily
+(I) Using snapshot: <path to snapshot>
+(I) WORKING_DIR: <generated directory>
+
+(I) Running bench: forest
+(I) Building artefacts...
+(I) Cloning repository
+$ git clone https://github.com/ChainSafe/forest.git forest
+(I) Clean and build client
 $ cargo clean
 $ cargo build --release
-$ ./target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import
-$ ./target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import --skip-load --height 2368640
-Wiping db
+$ ./forest/target/release/forest-cli fetch-params --keys
+$ ./forest/target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import
+$ ./forest/target/release/forest --config <tbd> --encrypt-keystore false
+(I) Clean db
+$ ./forest/target/release/forest-cli -c <path> db clean --force
 
-Running bench: baseline-with-stats
-$ cargo clean
-$ cargo build --release
-$ ./target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import
-$ ./target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import --skip-load --height 2368640
-Wiping db
+(I) Running bench: lotus
+(I) Building artefacts...
+(I) Cloning repository
+$ git clone https://github.com/filecoin-project/lotus.git lotus
+(I) Clean and build client
+$ make clean
+$ make calibnet
+$ ./lotus/lotus daemon --import-snapshot <tbd> --halt-after-import
+$ ./lotus/lotus daemon
+(I) Clean db
 
-Running bench: paritydb
-$ cargo clean
-$ cargo build --release --no-default-features --features forest_fil_cns,paritydb
-$ ./target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import
-$ ./target/release/forest --config <tbd> --encrypt-keystore false --import-snapshot <tbd> --halt-after-import --skip-load --height 2368640
-Wiping db
+Wrote result_<time>.csv
 ```
 
-Benchmark results will be written to a markdown file at the end.
+As seen in these examples, if `--daily` is passed in the command line, benchmark results are written to a CSV in the current directory with naming format `result_<time>.csv`. Otherwise, benchmark results will be written to a markdown file with a similar naming convention.
