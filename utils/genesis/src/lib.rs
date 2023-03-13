@@ -199,7 +199,7 @@ where
     // 1GB
     const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
 
-    let (tx, rx) = flume::unbounded();
+    let (tx, rx) = flume::bounded(100);
     let write_task =
         tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;

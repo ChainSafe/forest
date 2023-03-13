@@ -103,7 +103,7 @@ where
         let db = &self.db;
         // 128MB
         const BUFFER_CAPCITY_BYTES: usize = 128 * 1024 * 1024;
-        let (tx, rx) = flume::unbounded();
+        let (tx, rx) = flume::bounded(100);
         let write_task = tokio::spawn({
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
