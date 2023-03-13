@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
+use chrono::Utc;
+use human_repr::HumanCount;
+use log::info;
 
 use crate::*;
 
@@ -12,17 +15,29 @@ pub trait StoreExt: Store {
         rx: flume::Receiver<(Vec<u8>, Vec<u8>)>,
         buffer_capacity_bytes: usize,
     ) -> anyhow::Result<()> {
-        let mut estimated_size = 0;
+        let start = Utc::now();
+        let mut total_bytes = 0;
+        let mut total_entries = 0;
+        let mut estimated_buffer_bytes = 0;
         let mut buffer = vec![];
         while let Ok((key, value)) = rx.recv_async().await {
-            estimated_size += key.len() + value.len();
+            estimated_buffer_bytes += key.len() + value.len();
+            total_bytes += key.len() + value.len();
+            total_entries += 1;
             buffer.push((key, value));
-            if estimated_size >= buffer_capacity_bytes {
+            if estimated_buffer_bytes >= buffer_capacity_bytes {
                 self.bulk_write(std::mem::take(&mut buffer))?;
-                estimated_size = 0;
+                estimated_buffer_bytes = 0;
             }
         }
-        Ok(self.bulk_write(buffer)?)
+        self.bulk_write(buffer)?;
+        info!(
+            "Buffered write completed: total entries: {total_entries}, total size: {}, took: {}s",
+            total_bytes.human_count_bytes(),
+            (Utc::now() - start).num_seconds()
+        );
+
+        Ok(())
     }
 }
 

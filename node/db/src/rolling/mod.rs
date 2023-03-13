@@ -5,8 +5,8 @@
 //! This DB wrapper is specially designed for supporting the concurrent,
 //! semi-space GC algorithm that is implemented in the [gc] module, containing a
 //! reference to the `old` DB space and a reference to the `current` DB space.
-//! Both underlying key-vale DB are supposed to contain only block data as value and
-//! its content-addressed CID as key
+//! Both underlying key-vale DB are supposed to contain only block data as value
+//! and its content-addressed CID as key
 
 mod gc;
 pub use gc::*;
