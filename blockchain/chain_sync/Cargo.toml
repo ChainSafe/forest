@@ -14,7 +14,6 @@ cid.workspace = true
 flume.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_encoding.workspace = true
 forest_libp2p.workspace = true
