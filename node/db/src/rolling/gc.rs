@@ -2,8 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
-//! The current implementation of the garbage collector is a concurrent,
-//! semi-space one.
+//! The state of the Filecoin Blockchain is a persistent, directed acyclic
+//! graph. Data in this graph is never mutated nor explicitly deleted but may
+//! become unreachable over time.
+//!
+//! This module contains a concurrent, semi-space garbage collector. The garbage
+//! collector is guaranteed to be non-blocking and can be expected to run with a
+//! fixed memory overhead and require disk space proportional to the size of the
+//! reachable graph. For example, if the size of the reachable graph is 100GiB,
+//! expect this garbage collector to use 3x100GiB = 300GiB of storage.
 //!
 //! ## Design goals
 //! Implement a correct GC algorithm that is simple and efficient for forest
