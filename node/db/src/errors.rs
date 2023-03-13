@@ -1,9 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt::Display;
-
-use forest_utils::common::AggregatedError;
 use thiserror::Error;
 
 /// Database error
@@ -43,11 +40,5 @@ impl PartialEq for Error {
 impl From<Error> for String {
     fn from(e: Error) -> Self {
         e.to_string()
-    }
-}
-
-impl<T: Display> From<AggregatedError<T>> for Error {
-    fn from(value: AggregatedError<T>) -> Self {
-        Self::Other(value.to_string())
     }
 }

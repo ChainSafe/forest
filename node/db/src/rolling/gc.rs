@@ -1,6 +1,39 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//!
+//! The current implementation of the garbage collector is a concurrent,
+//! semi-space one.
+//!
+//! ## GC workflow
+//! 1. Walk back from the current heaviest tipset to the genesis block, collect
+//! all the blocks that are reachable from the snapshot
+//! 2. writes blocks that are absent from the `current` database to it
+//! 3. delete `old` database(s)
+//! 4. sets `current` database to a newly created one
+//!
+//! ## Correctness
+//! This alroghrim considers all blocks that are visited during the snapshot
+//! export task reachable, and ensures they are all transfered and kept in the
+//! current DB space. A snapshot can be used to bootstrap the node from
+//! scratch thus the algorithm is considered approapriate when the post-GC
+//! database contains blocks that are sufficient for exporting a snapshot
+//!
+//! ## Disk usage
+//! During `walk_snapshot`, data from the `old` DB is duplicated in the
+//! `current` DB, which uses extra disk space of up-to 100% of the snapshot file
+//! size
+//!
+//! ## Memory usage
+//! During the data carry-over process, a memory buffer with a fixed capacity is
+//! used to speed up the database write operation
+//!
+//! ## Scheduling
+//! 1. GC is triggered automatically when current DB size is greater than 50% of
+//! the old DB size
+//! 2. GC can be triggered manually by `forest-cli db gc` command
+//! 3. There's global GC lock to ensure at most one GC job running
+
 use std::time::Duration;
 
 use chrono::Utc;
