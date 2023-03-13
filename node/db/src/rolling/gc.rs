@@ -48,6 +48,12 @@ where
             // Check every 10 mins
             tokio::time::sleep(Duration::from_secs(10 * 60)).await;
 
+            // Bypass size checking during import
+            let tipset = (self.get_tipset)();
+            if tipset.epoch() == 0 {
+                continue;
+            }
+
             // Bypass size checking when lock is held
             {
                 let lock = self.lock.try_lock();
@@ -62,7 +68,7 @@ where
             ) {
                 // Collect when size of young partition > 0.5 * size of old partition
                 if total_size > 0 && current_size * 3 > total_size {
-                    if let Err(err) = self.collect_once().await {
+                    if let Err(err) = self.collect_once(tipset).await {
                         warn!("Garbage collection failed: {err}");
                     }
                 }
@@ -73,8 +79,9 @@ where
     pub async fn collect_loop_event(self: &Arc<Self>) -> anyhow::Result<()> {
         while let Ok(responder) = self.gc_rx.recv_async().await {
             let this = self.clone();
+            let tipset = (self.get_tipset)();
             tokio::spawn(async move {
-                let result = this.collect_once().await;
+                let result = this.collect_once(tipset).await;
                 if let Err(e) = responder.send(result) {
                     warn!("{e}");
                 }
@@ -84,17 +91,13 @@ where
         Ok(())
     }
 
-    async fn collect_once(&self) -> anyhow::Result<()> {
+    async fn collect_once(&self, tipset: Tipset) -> anyhow::Result<()> {
         let guard = self.lock.try_lock();
         if guard.is_err() {
             anyhow::bail!("Another garbage collection task is in progress.");
         }
 
         let start = Utc::now();
-        let tipset = (self.get_tipset)();
-        if tipset.epoch() == 0 {
-            return Ok(());
-        }
 
         info!("Garbage collection started at epoch {}", tipset.epoch());
         let db = &self.db;
