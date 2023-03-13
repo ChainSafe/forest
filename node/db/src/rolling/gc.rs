@@ -2,15 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
-//! The state of the Filecoin Blockchain is a persistent, directed acyclic
-//! graph. Data in this graph is never mutated nor explicitly deleted but may
-//! become unreachable over time.
-//!
-//! This module contains a concurrent, semi-space garbage collector. The garbage
-//! collector is guaranteed to be non-blocking and can be expected to run with a
-//! fixed memory overhead and require disk space proportional to the size of the
-//! reachable graph. For example, if the size of the reachable graph is 100GiB,
-//! expect this garbage collector to use 3x100GiB = 300GiB of storage.
+//! The current implementation of the garbage collector is a concurrent,
+//! semi-space one.
 //!
 //! ## Design goals
 //! Implement a correct GC algorithm that is simple and efficient for forest
@@ -46,17 +39,21 @@
 //! used to speed up the database write operation
 //!
 //! ## Scheduling
-//! 1. GC is triggered automatically when current DB size is greater than 50% of
-//! the old DB size
+//! 1. GC is triggered automatically when total DB size is greater than 2x of
+//! the last reachable data size
 //! 2. GC can be triggered manually by `forest-cli db gc` command
 //! 3. There's global GC lock to ensure at most one GC job is running
 
-use std::time::Duration;
+use std::{
+    sync::atomic::{self, AtomicU64, AtomicUsize},
+    time::Duration,
+};
 
 use chrono::Utc;
 use forest_blocks::Tipset;
 use forest_ipld::util::*;
 use fvm_ipld_blockstore::Blockstore;
+use human_repr::HumanCount;
 use tokio::sync::Mutex;
 
 use super::*;
@@ -71,6 +68,7 @@ where
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
+    last_reachable_bytes: AtomicU64,
 }
 
 impl<F> DbGarbageCollector<F>
@@ -86,6 +84,7 @@ where
             lock: Default::default(),
             gc_tx,
             gc_rx,
+            last_reachable_bytes: AtomicU64::new(0),
         }
     }
 
@@ -112,12 +111,18 @@ where
                 }
             }
 
-            if let (Ok(total_size), Ok(current_size)) = (
+            if let (Ok(total_size), Ok(current_size), last_reachable_bytes) = (
                 self.db.total_size_in_bytes(),
                 self.db.current_size_in_bytes(),
+                self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
             ) {
-                // Collect when size of young partition > 0.5 * size of old partition
-                if total_size > 0 && current_size * 3 > total_size {
+                let should_collect = if last_reachable_bytes > 0 {
+                    total_size > 2 * last_reachable_bytes
+                } else {
+                    total_size > 0 && current_size * 3 > total_size
+                };
+
+                if should_collect {
                     if let Err(err) = self.collect_once(tipset).await {
                         warn!("Garbage collection failed: {err}");
                     }
@@ -148,6 +153,7 @@ where
         }
 
         let start = Utc::now();
+        let reachable_bytes = Arc::new(AtomicUsize::new(0));
 
         info!("Garbage collection started at epoch {}", tipset.epoch());
         let db = &self.db;
@@ -161,12 +167,16 @@ where
         walk_snapshot(&tipset, DEFAULT_RECENT_STATE_ROOTS, |cid| {
             let db = db.clone();
             let tx = tx.clone();
+            let reachable_bytes = reachable_bytes.clone();
             async move {
                 let block = db
                     .get(&cid)?
                     .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
                 if !db.current().has(&cid)? {
-                    tx.send_async((cid.to_bytes(), block.clone())).await?;
+                    let pair = (cid.to_bytes(), block.clone());
+                    reachable_bytes
+                        .fetch_add(pair.0.len() + pair.1.len(), atomic::Ordering::Relaxed);
+                    tx.send_async(pair).await?;
                 }
 
                 Ok(block)
@@ -176,11 +186,16 @@ where
         drop(tx);
         write_task.await??;
 
+        let reachable_bytes = reachable_bytes.load(atomic::Ordering::Relaxed);
+        self.last_reachable_bytes
+            .store(reachable_bytes as _, atomic::Ordering::Relaxed);
         info!(
-            "Garbage collection finished at epoch {}, took {}s",
+            "Garbage collection finished at epoch {}, took {}s, reachable data size: {}",
             tipset.epoch(),
-            (Utc::now() - start).num_seconds()
+            (Utc::now() - start).num_seconds(),
+            reachable_bytes.human_count_bytes(),
         );
+
         db.next_partition()?;
         Ok(())
     }
