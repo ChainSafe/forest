@@ -12,7 +12,7 @@
 //! We choose `semi-space` GC algorithm for simplicity and sufficiency
 //! Besides `semi-space`, `mark-and-sweep` was also considered and evaluated.
 //! However, it's not feasible because of the limitations of the underlying DB
-//! we use, more specifically, iterating the DB and retrieve the original key. See <https://github.com/paritytech/parity-db/issues/187>
+//! we use, more specifically, limitations in iterating the DB and retrieving the original key. See <https://github.com/paritytech/parity-db/issues/187>
 //!
 //! ## GC workflow
 //! 1. Walk back from the current heaviest tipset to the genesis block, collect
