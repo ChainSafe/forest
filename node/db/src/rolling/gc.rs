@@ -5,6 +5,15 @@
 //! The current implementation of the garbage collector is a concurrent,
 //! semi-space one.
 //!
+//! ## Design goals
+//! Implement a correct GC algorithm that is simple and efficient for forest scenarios.
+//! 
+//! ## GC algorithm
+//! We choose `semi-space` GC algorithm for simplicity and sufficiency
+//! Besides `semi-space`, `mark-and-sweep` was also considered and evaluated.
+//! However, it's not feasible because of the limitations of the underlying DB
+//! we use, more specifically, iterating the DB and retrieve the original key. See <https://github.com/paritytech/parity-db/issues/187>
+//!
 //! ## GC workflow
 //! 1. Walk back from the current heaviest tipset to the genesis block, collect
 //! all the blocks that are reachable from the snapshot
@@ -13,10 +22,10 @@
 //! 4. sets `current` database to a newly created one
 //!
 //! ## Correctness
-//! This alroghrim considers all blocks that are visited during the snapshot
-//! export task reachable, and ensures they are all transfered and kept in the
-//! current DB space. A snapshot can be used to bootstrap the node from
-//! scratch thus the algorithm is considered approapriate when the post-GC
+//! This algorithm considers all blocks that are visited during the snapshot
+//! export task reachable, and ensures they are all transferred and kept in the
+//! current DB space. A snapshot can be used to bootstrap a node from
+//! scratch thus the algorithm is considered appropriate when the post-GC
 //! database contains blocks that are sufficient for exporting a snapshot
 //!
 //! ## Disk usage
@@ -32,7 +41,7 @@
 //! 1. GC is triggered automatically when current DB size is greater than 50% of
 //! the old DB size
 //! 2. GC can be triggered manually by `forest-cli db gc` command
-//! 3. There's global GC lock to ensure at most one GC job running
+//! 3. There's global GC lock to ensure at most one GC job is running
 
 use std::time::Duration;
 
