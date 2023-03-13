@@ -54,8 +54,8 @@ serde = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace = true
 sha2 = { workspace = true, default-features = false }
 tempfile.workspace = true
-tokio = { workspace = true, features = ["sync"] }
 time = { workspace = true, features = ["local-offset"] }
+tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 forest_db.workspace = true
