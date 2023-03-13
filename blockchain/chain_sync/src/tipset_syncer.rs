@@ -1384,6 +1384,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     }));
 
     let v_block = block.clone();
+    #[allow(clippy::redundant_async_block)]
     validations.push(tokio::task::spawn(async move {
         consensus
             .validate_block(state_manager, v_block)
