@@ -6,8 +6,9 @@
 //! semi-space one.
 //!
 //! ## Design goals
-//! Implement a correct GC algorithm that is simple and efficient for forest scenarios.
-//! 
+//! Implement a correct GC algorithm that is simple and efficient for forest
+//! scenarios.
+//!
 //! ## GC algorithm
 //! We choose `semi-space` GC algorithm for simplicity and sufficiency
 //! Besides `semi-space`, `mark-and-sweep` was also considered and evaluated.
