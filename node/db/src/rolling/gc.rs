@@ -92,6 +92,10 @@ where
 
         let start = Utc::now();
         let tipset = (self.get_tipset)();
+        if tipset.epoch() == 0 {
+            return Ok(());
+        }
+
         info!("Garbage collection started at epoch {}", tipset.epoch());
         let db = &self.db;
         // 128MB
