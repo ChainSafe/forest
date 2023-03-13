@@ -16,7 +16,7 @@ use forest_db::{
     Store,
 };
 use forest_genesis::{forest_load_car, read_genesis_header};
-use forest_ipld::{recurse_links_hash, CidHashSet};
+use forest_ipld::{recurse_links_hash, CidHashSet, DEFAULT_RECENT_STATE_ROOTS};
 use forest_rpc_api::chain_api::ChainExportParams;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
@@ -38,12 +38,6 @@ pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
-        /// Tipset to start the export from, default is the chain head
-        #[arg(short, long)]
-        tipset: Option<i64>,
-        /// Specify the number of recent state roots to include in the export.
-        #[arg(short, long, default_value = "2000")]
-        recent_stateroots: i64,
         /// Snapshot output path. Default to
         /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
@@ -153,8 +147,6 @@ impl SnapshotCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Export {
-                tipset,
-                recent_stateroots,
                 output_path,
                 skip_checksum,
                 dry_run,
@@ -164,7 +156,7 @@ impl SnapshotCommands {
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
-                let epoch = tipset.unwrap_or(chain_head.epoch());
+                let epoch = chain_head.epoch();
 
                 let now = OffsetDateTime::now_utc();
 
@@ -199,7 +191,7 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: *recent_stateroots,
+                    recent_roots: DEFAULT_RECENT_STATE_ROOTS,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
                     skip_checksum: *skip_checksum,

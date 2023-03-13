@@ -141,7 +141,7 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        walk_snapshot(&tipset, DEFAULT_RECENT_ROOTS, |cid| {
+        walk_snapshot(&tipset, DEFAULT_RECENT_STATE_ROOTS, |cid| {
             let db = db.clone();
             let tx = tx.clone();
             async move {
