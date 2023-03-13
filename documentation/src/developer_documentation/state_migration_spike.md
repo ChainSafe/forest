@@ -62,7 +62,7 @@ entities.
 
 ### Where to upgrade?
 
-It should be done ost likely in the apply blocks method.
+It should be done most likely in the apply blocks method.
 
 [Lotus](https://github.com/filecoin-project/lotus/blob/74d94af03418c799350fc0f40d3758c23cd82ab8/chain/consensus/compute_state.go#L178):
 
