@@ -3,12 +3,13 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_actor_interface::{market, power, reward, EPOCHS_IN_DAY};
+use fil_actor_interface::{market, power, reward};
 use forest_chain::*;
 use forest_db::Store;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
+    clock::EPOCHS_IN_DAY,
     econ::TokenAmount,
     state_tree::{ActorState, StateTree},
 };

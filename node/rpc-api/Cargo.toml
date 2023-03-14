@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 # Internal
-forest_actor_interface.workspace = true
+fil_actor_interface.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true

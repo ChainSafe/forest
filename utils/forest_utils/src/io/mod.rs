@@ -13,8 +13,9 @@ use std::{
 };
 
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
-pub use tempfile::*;
 pub use writer_checksum::*;
+
+pub use self::tempfile::*;
 
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]

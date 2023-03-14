@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
 use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
 use forest_shim::{
