@@ -149,7 +149,10 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Calibnet health check
-        run: ./scripts/calibnet_health_check.sh
+        env:
+          CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
+        run: |
+          ./scripts/calibnet_health_check.sh "%CALIBNET_WALLET%"
 
   dependencies-check:
     name: Check cargo files for duplicates
