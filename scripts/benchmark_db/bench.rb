@@ -486,6 +486,14 @@ end
 
 # Lotus benchmark class
 class LotusBenchmark < Benchmark
+  def default_config
+    toml_str = syscall(target, 'config', 'default')
+
+    default = Tomlrb.parse(toml_str)
+    default['client']['data_dir'] = data_dir
+    default
+  end
+
   def db_dir
     lotus_path = ENV.fetch('LOTUS_PATH', nil)
     "#{lotus_path}/datastore/chain"
@@ -556,13 +564,13 @@ class LotusBenchmark < Benchmark
     super(name: name, config: config)
     ENV['LOTUS_PATH'] = File.join(WORKING_DIR, ".#{repository_name}")
     @import_command = [
-      target, 'daemon', '--import-snapshot', '%<s>s', '--halt-after-import'
+      target, 'daemon', '--config', '%<c>s', '--import-snapshot', '%<s>s', '--halt-after-import'
     ]
     @validate_online_command = [
-      target, 'daemon'
+      target, 'daemon', '--config', '%<c>s'
     ]
     @sync_status_command = [
-      target, 'sync', 'status'
+      target, 'sync', 'status', '--config', '%<c>s'
     ]
     @metrics = {}
   end
