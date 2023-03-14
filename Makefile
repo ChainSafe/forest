@@ -57,7 +57,6 @@ clean:
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
-	@cargo clean -p forest_crypto
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_ipld
 	@cargo clean -p forest_json
@@ -124,8 +123,7 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo nextest run --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
-	cargo nextest run -p forest_crypto --features blst --no-default-features
+	cargo nextest run --all --exclude serialization_tests --exclude forest_message
 	cargo nextest run -p forest_message --features blst --no-default-features
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
@@ -138,8 +136,7 @@ test-slow:
 	cargo nextest run -p forest-daemon --features slow_tests
 
 test-release:
-	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
-	cargo nextest run --release -p forest_crypto --features blst --no-default-features
+	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message
 	cargo nextest run --release -p forest_message --features blst --no-default-features
 	cargo nextest run --release -p forest_db --no-default-features --features paritydb
 	cargo nextest run --release -p forest_db --no-default-features --features rocksdb
