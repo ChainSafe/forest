@@ -41,6 +41,7 @@ Notable updates:
 * [forest daemon] forest daeamon crashes on sending bitswap requests. [#2419](https://github.com/ChainSafe/forest/pull/2419)
 * [version] The version shown in `--help` was stuck at `0.4.1`. Now all binaries and crates in the project will follow a standard version, based on the release tag. [#2487](https://github.com/ChainSafe/forest/pull/2487)
 * [forest] Failing snapshot fetch resulting in daemon crash in one attempt. [#2571](https://github.com/ChainSafe/forest/pull/2571)
+* [forest-cli] corrected counts displayed when using `forest-cli --chain <chain> sync wait`. [#2654](https://github.com/ChainSafe/forest/pull/2654)
 
 ## Forest v0.6.0 (2023-01-06)
 

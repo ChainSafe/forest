@@ -76,8 +76,8 @@ impl SyncCommands {
                     println!(
                         "State: {}; Current Epoch: {}; Todo: {}",
                         state.stage(),
-                        base_height,
-                        state.epoch()
+                        state.epoch(),
+                        target_height - state.epoch()
                     );
 
                     for _ in 0..2 {
@@ -85,7 +85,7 @@ impl SyncCommands {
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {
-                        println!("Done!");
+                        println!("\nDone!");
                         break;
                     };
                 }
