@@ -99,12 +99,19 @@ $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" send "$ADDR_TWO" "$FIL_
 
 echo "Checking balance of $ADDR_TWO..."
 
-sleep 5m
+ADDR_TWO_BALANCE=0
+i=0
+while [[ $i != 10 && $ADDR_TWO_BALANCE == 0 ]]; do
+  echo "i=$i"
+  sleep 30s
+  ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO")
+
+  i=$(($i+1))
+done
 
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list
 
-ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO")
 if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
   echo "FIL amount should match"
   $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
