@@ -106,7 +106,7 @@ while [[ $i != 10 && $ADDR_TWO_BALANCE == 0 ]]; do
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet balance "$ADDR_TWO")
 
-  i=$(($i+1))
+  i=$((i+1))
 done
 
 # wallet list should contain address two with transfered FIL amount
