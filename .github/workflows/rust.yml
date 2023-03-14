@@ -152,7 +152,7 @@ jobs:
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
         run: |
-          ./scripts/calibnet_health_check.sh "%CALIBNET_WALLET%"
+          ./scripts/calibnet_health_check.sh "$CALIBNET_WALLET"
 
   dependencies-check:
     name: Check cargo files for duplicates
