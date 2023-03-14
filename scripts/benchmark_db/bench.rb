@@ -18,7 +18,7 @@ require 'toml-rb'
 # Those are for capturing the snapshot height
 SNAPSHOT_REGEXES = [
   /_height_(?<height>\d+)\.car/,
-  /(?<height>\d+)_.*/
+  /\/(?<height>\d+)_*/
 ].freeze
 
 HEIGHTS_TO_VALIDATE = 5
