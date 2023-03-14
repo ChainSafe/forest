@@ -218,15 +218,12 @@ impl WalletCommands {
 
                 for address in response {
                     let addr = address.0.to_string();
-                    let default_address_mark = if let Ok(default) = &default {
-                        if &addr == default {
+                    let default_address_mark =
+                        if default.as_ref().map(|v| v == &addr).unwrap_or(false) {
                             "X"
                         } else {
                             ""
-                        }
-                    } else {
-                        ""
-                    };
+                        };
 
                     let balance_string = wallet_balance((addr.clone(),), &config.client.rpc_token)
                         .await
