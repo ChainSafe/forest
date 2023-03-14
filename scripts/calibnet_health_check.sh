@@ -2,6 +2,8 @@
 
 set -e
 
+echo "$1" > preloaded_wallet.key
+
 SNAPSHOT_DIRECTORY="/tmp/snapshots"
 LOG_DIRECTORY="/tmp/log"
 
@@ -64,12 +66,12 @@ ADMIN_TOKEN=$(cat admin_token)
 ADDR_ONE=t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y
 
 echo "Importing preloaded wallet key"
-$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import scripts/preloaded_wallet.key
+$FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import preloaded_wallet.key
 sleep 5s
 
 echo "Exporting key"
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet export "$ADDR_ONE" > preloaded_wallet.test.key
-if ! cmp -s scripts/preloaded_wallet.key preloaded_wallet.test.key; then
+if ! cmp -s preloaded_wallet.key preloaded_wallet.test.key; then
     echo ".key files should match"
     $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
     exit 1
