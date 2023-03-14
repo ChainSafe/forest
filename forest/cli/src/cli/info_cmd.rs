@@ -9,6 +9,7 @@ use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
+use time::OffsetDateTime;
 
 use super::Config;
 use crate::cli::handle_rpc_err;
@@ -27,9 +28,15 @@ enum SyncStatus {
 
 pub struct NodeStatusInfo {
     behind: u64,
+    /// Chain health calculated as percentage: amount of blocks in last finality
+    /// / very healthy amount of blocks in a finality (900 epochs * 5 blocks per
+    /// tipset)
     health: usize,
+    /// epoch the node is currently at
     epoch: i64,
+    /// base fee
     base_fee: String,
+    /// sync status information
     sync_status: SyncStatus,
 }
 
@@ -43,7 +50,7 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     let ts = chain_head.0.min_timestamp();
     let now = Instant::now().elapsed().as_secs();
     let delta = ts - now;
-    let behind = delta / 30;
+    let behind = delta;
 
     let sync_status = if delta < 30 * 3 / 2 {
         SyncStatus::Ok
@@ -95,7 +102,10 @@ impl InfoCommand {
             .await
             .map(|t| {
                 let start_time = t.to_hms();
-                format!("{}h {}m {}s", start_time.0, start_time.1, start_time.2)
+                format!(
+                    "{}h {}m {}s (Started at: {})",
+                    start_time.0, start_time.1, start_time.2, t
+                )
             })
             .map_err(handle_rpc_err)?;
 
@@ -103,14 +113,21 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
-        let behind = node_status.behind;
+        let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?;
         let health = node_status.health;
         let base_fee = node_status.base_fee;
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
+        let behind_time = format!(
+            "{}h {}m {}s",
+            behind.to_hms().0,
+            behind.to_hms().1,
+            behind.to_hms().2
+        );
+
         let chain_status = format!(
-            "[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee} pFIL] [epoch: {epoch}]"
+            "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee} pFIL] [epoch: {epoch}]"
         )
         .blue();
 
@@ -134,8 +151,7 @@ impl InfoCommand {
         let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
-        let default_wallet_address = default_wallet_address.bold();
-        println!("Default wallet address: {default_wallet_address}");
+        println!("Default wallet address: {}", default_wallet_address.bold());
 
         Ok(())
     }
