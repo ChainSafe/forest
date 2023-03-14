@@ -9,6 +9,7 @@ use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
+use num::BigInt;
 use time::OffsetDateTime;
 
 use super::Config;
@@ -35,7 +36,7 @@ pub struct NodeStatusInfo {
     /// epoch the node is currently at
     epoch: i64,
     /// base fee
-    base_fee: String,
+    base_fee: BigInt,
     /// sync status information
     sync_status: SyncStatus,
 }
@@ -60,8 +61,12 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
         SyncStatus::Behind
     };
 
-    let base_fee = chain_head.0.min_ticket_block().parent_base_fee();
-    let base_fee = base_fee.to_string();
+    let base_fee = chain_head
+        .0
+        .min_ticket_block()
+        .parent_base_fee()
+        .atto()
+        .clone();
 
     // chain health
     let blocks_per_tipset_last_finality = if epoch > chain_finality {
@@ -115,7 +120,7 @@ impl InfoCommand {
 
         let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?;
         let health = node_status.health;
-        let base_fee = node_status.base_fee;
+        let base_fee = node_status.base_fee.to_string();
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
@@ -127,7 +132,7 @@ impl InfoCommand {
         );
 
         let chain_status = format!(
-            "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee} pFIL] [epoch: {epoch}]"
+            "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee} aFIL] [epoch: {epoch}]"
         )
         .blue();
 
