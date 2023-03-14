@@ -68,7 +68,6 @@ clean:
 	@cargo clean -p forest_test_utils
 	@cargo clean -p forest_message_pool
 	@cargo clean -p forest_genesis
-	@cargo clean -p forest_actor_interface
 	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 

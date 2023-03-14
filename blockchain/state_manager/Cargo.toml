@@ -12,8 +12,8 @@ anyhow.workspace = true
 blake2b_simd.workspace = true
 byteorder.workspace = true
 cid.workspace = true
+fil_actor_interface.workspace = true
 fil_actors_runtime_v9.workspace = true
-forest_actor_interface.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
@@ -39,6 +39,7 @@ lazy_static.workspace = true
 lru.workspace = true
 num-traits.workspace = true
 num.workspace = true
+once_cell.workspace = true
 parking_lot.workspace = true
 prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }

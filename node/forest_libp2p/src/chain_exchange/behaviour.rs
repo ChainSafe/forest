@@ -7,7 +7,7 @@ use libp2p::{
     swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
-use log::warn;
+use log::debug;
 
 use super::*;
 use crate::{rpc::RequestResponseError, service::metrics};
@@ -53,7 +53,10 @@ impl ChainExchangeBehaviour {
         if let Some(channel) = self.response_channels.remove(request_id) {
             self.track_metrics();
             if let Err(err) = channel.send_async(Ok(response)).await {
-                warn!("{err}");
+                // Demoting log level here because the same request might be sent to multiple
+                // remote peers simultaneously, it's expected that responses that arrive late
+                // might be sent to a closed channel
+                debug!("{err}");
             }
         }
     }
@@ -62,7 +65,11 @@ impl ChainExchangeBehaviour {
         self.track_metrics();
         if let Some(tx) = self.response_channels.remove(request_id) {
             if let Err(err) = tx.send(Err(error.into())) {
-                warn!("{err}");
+                // Demoting log level here because the same request might be sent to multiple
+                // remote peers simultaneously, it's expected that outbound failures that happen
+                // after receiving the first successful response could be sent to a closed
+                // channel.
+                debug!("{err}");
             }
         }
     }

@@ -3,6 +3,7 @@
 
 pub mod address;
 pub mod bigint;
+pub mod clock;
 pub mod crypto;
 pub mod econ;
 pub mod error;

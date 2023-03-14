@@ -19,7 +19,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm/actor_interface",
   "vm/message",
   "vm/interpreter",
   "vm/state_migration",
@@ -145,37 +144,17 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
-fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_account_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_account_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_cron_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_cron_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_init_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_init_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_init_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_market_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_market_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_market_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_miner_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_miner_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_miner_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-# fil_actor_multisig_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_multisig_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_power_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_power_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_power_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_reward_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_reward_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_reward_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-# fil_actor_system_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-# fil_actor_verifreg_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-# fil_actor_verifreg_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actors_runtime_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-# fil_actors_runtime_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-# fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
 forest_blocks = { path = "./blockchain/blocks" }
@@ -205,7 +184,6 @@ forest_rpc-api = { path = "./node/rpc-api" }
 forest_rpc-client = { path = "./node/rpc-client" }
 forest_shim = { path = "./utils/forest_shim" }
 forest_state_manager = { path = "./blockchain/state_manager" }
-# forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }

@@ -74,6 +74,15 @@ impl SignedMessage {
     }
 }
 
+impl quickcheck::Arbitrary for SignedMessage {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        SignedMessage {
+            message: Message::arbitrary(g),
+            signature: Signature::arbitrary(g),
+        }
+    }
+}
+
 impl MessageTrait for SignedMessage {
     fn from(&self) -> Address {
         self.message.from()
