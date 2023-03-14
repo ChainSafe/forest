@@ -5,6 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+use forest_state_migration::{Migrator, StateMigration};
 pub use utils::is_valid_for_sending;
 
 mod vm_circ_supply;
@@ -12,6 +13,7 @@ mod vm_circ_supply;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
+use anyhow::{anyhow, bail};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::*;
@@ -22,22 +24,22 @@ use forest_chain::{ChainStore, HeadChange};
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
-use forest_networks::{ChainConfig, Height};
+use forest_networks::{calibnet::HEIGHT_INFOS, ChainConfig, Height, Height::Hygge};
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
     message::Message,
-    state_tree::{ActorState, StateTree},
+    state_tree::{ActorState, StateTree, StateTreeVersion},
     version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
-use futures::{channel::oneshot, select, FutureExt};
-use fvm::externs::Rand;
+use futures::{channel::oneshot, future::err, select, FutureExt};
+use fvm::{externs::Rand, machine::Manifest};
 use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::{ipld_block::IpldBlock, Cbor, CborStore};
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
@@ -45,7 +47,10 @@ use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
+use tokio::{
+    sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock},
+    time,
+};
 use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
 
@@ -418,8 +423,8 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if epoch_i == turbo_height {
-                todo!("cannot migrate state when using FVM - see https://github.com/ChainSafe/forest/issues/1454 for updates");
+            if let Some(new_state) = self.handle_state_migrations(&parent_state, epoch_i)? {
+                parent_state = new_state;
             }
         }
 
@@ -435,6 +440,28 @@ where
         let state_root = vm.flush()?;
 
         Ok((state_root, receipt_root))
+    }
+
+    fn handle_state_migrations(
+        &self,
+        parent_state: &Cid,
+        epoch: ChainEpoch,
+    ) -> anyhow::Result<Option<Cid>> {
+        match epoch {
+            x if x == self.chain_config.epoch(Height::Hygge) => {
+                let start_time = time::Instant::now();
+                info!("Running Hygge migration");
+                let new_state = run_nv18_migration(self.blockstore(), parent_state, epoch)?;
+                let elapsed = start_time.elapsed().as_secs_f32();
+                if new_state != *parent_state {
+                    info!("state migration successful, took: {elapsed}s",);
+                } else {
+                    bail!("State post migration must not match. Previous state: {}, new state: {}. Took {elapsed}s", parent_state, new_state);
+                }
+                Ok(Some(new_state))
+            }
+            _ => Ok(None),
+        }
     }
 
     /// Returns the pair of (parent state root, message receipt root). This will
@@ -1255,6 +1282,22 @@ where
             self.beacon.clone(),
         )
     }
+}
+
+fn run_nv18_migration<DB>(blockstore: &DB, state: &Cid, epoch: ChainEpoch) -> anyhow::Result<Cid>
+where
+    DB: 'static + Blockstore + Clone + Send + Sync,
+{
+    let mut migration = StateMigration::<DB>::new();
+    migration.add_nil_migrations();
+    migration.add_nv_18_migrations();
+
+    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
+    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let new_state =
+        migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
+
+    Ok(new_state)
 }
 
 fn chain_epoch_root<DB>(

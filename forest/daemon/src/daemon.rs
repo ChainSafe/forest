@@ -21,28 +21,34 @@ use forest_db::{
     rolling::{DbGarbageCollector, RollingDB},
     Store,
 };
-use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use forest_genesis::{
+    forest_load_car, get_network_name_from_genesis, import_chain, read_genesis_header,
+};
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use forest_networks::Height;
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, retry};
-use futures::{select, FutureExt};
+use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, net::FetchProgress, retry};
+use futures::{select, FutureExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use tokio::{
+    fs::File,
+    io::{BufReader, BufWriter},
     signal::unix::{signal, SignalKind},
     sync::RwLock,
     task::JoinSet,
     time::sleep,
 };
+use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use super::cli::set_sigint_handler;
 
@@ -254,6 +260,19 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     } else {
         false
     };
+
+    if epoch < config.chain.epoch(Height::Hygge) {
+        let bundle = get_actors_bundle(&config).await?;
+
+        let result = forest_load_car(db.clone(), bundle.compat()).await?;
+        assert_eq!(
+            result.len(),
+            1,
+            "expected one root when loading actors bundle"
+        );
+        println!("Bundle CID: {}", result[0].to_string());
+        println!("Loaded actors bundle");
+    }
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -615,6 +634,33 @@ fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             config.client.data_dir.clone(),
         ))?)
     }
+}
+
+async fn get_actors_bundle(config: &Config) -> anyhow::Result<BufReader<File>> {
+    let bundle_path_dir = config
+        .client
+        .data_dir
+        .join("bundle")
+        .join(&config.chain.name);
+
+    tokio::fs::create_dir_all(&bundle_path_dir).await?;
+    let bundle_path = bundle_path_dir.join("bundle_v10.car");
+
+    if bundle_path.exists() {
+        let file = tokio::fs::File::open(bundle_path).await?;
+        return Ok(BufReader::new(file));
+    }
+
+    info!("Downloading actors bundle...");
+    let url = "https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car";
+    let mut reader = FetchProgress::fetch_from_url(url.try_into()?).await?.inner;
+
+    let file = File::create(&bundle_path).await?;
+    let mut writer = BufWriter::new(file);
+    tokio::io::copy(&mut reader, &mut writer).await?;
+
+    let file = tokio::fs::File::open(bundle_path).await?;
+    Ok(BufReader::new(file))
 }
 
 #[cfg(test)]

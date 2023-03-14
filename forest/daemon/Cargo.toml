@@ -52,6 +52,7 @@ shared_memory = "0.12"
 tempfile.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt", "signal"] }
+tokio-util = { workspace = true, features = ["compat"] }
 
 [dev-dependencies]
 assert_cmd.workspace = true

@@ -4,51 +4,37 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
-use std::sync::Arc;
+use std::sync::{atomic::AtomicU32, Arc};
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use anyhow::{anyhow, bail};
 use cid::Cid;
+use fil_actor_init_v10::State as StateV10;
+use fil_actors_runtime_v10::runtime::EMPTY_ARR_CID;
 use forest_shim::{
+    address::Address,
     state_tree::{ActorState, StateTree},
     Inner,
 };
+use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
-use rayon::ThreadPoolBuildError;
+use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
+use parking_lot::Mutex;
+
+use crate::nv18::{
+    calibnet::v10::{EAM, ETH_ACCOUNT},
+    eam::create_eam_actor,
+};
 
 // pub mod nv12;
 
+pub mod nv18;
+
+// TODO it's not same across versions, need to handle it in a more sophisticated
+// way.
 pub const ACTORS_COUNT: usize = 11;
 
 pub type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
-pub type MigrationResult<T> = Result<T, MigrationError>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum MigrationError {
-    // FIXME: use underlying concrete types when possible.
-    #[error("Failed creating job for state migration: {0}")]
-    MigrationJobCreate(String),
-    #[error("Failed running job for state migration: {0}")]
-    MigrationJobRun(String),
-    #[error("Flush failed post migration: {0}")]
-    FlushFailed(String),
-    #[error("Failed writing to blockstore: {0}")]
-    BlockStoreWrite(String),
-    #[error("Failed reading from blockstore: {0}")]
-    BlockStoreRead(String),
-    #[error("Migrator not found for cid: {0}")]
-    MigratorNotFound(Cid),
-    #[error("Failed updating new actor state: {0}")]
-    SetActorState(String),
-    #[error("State tree creation failed")]
-    StateTreeCreation(String),
-    #[error("Incomplete migration specification with {0} code CIDs")]
-    IncompleteMigrationSpec(usize),
-    #[error("Thread pool creation failed: {0}")]
-    ThreadPoolCreation(ThreadPoolBuildError),
-    #[error("Migration failed")]
-    Other,
-}
 
 pub struct StateMigration<BS> {
     migrations: HashMap<Cid, Migrator<BS>>,
@@ -70,16 +56,18 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
     pub fn migrate_state_tree(
         &mut self,
-        store: Arc<BS>,
+        store: BS,
         prior_epoch: ChainEpoch,
         actors_in: StateTree<BS>,
         mut actors_out: StateTree<BS>,
-    ) -> MigrationResult<Cid> {
-        if self.migrations.len() + self.deferred_code_ids.len() != ACTORS_COUNT {
-            return Err(MigrationError::IncompleteMigrationSpec(
-                self.migrations.len(),
-            ));
-        }
+    ) -> anyhow::Result<Cid> {
+        // need to make it variable
+        //if self.migrations.len() + self.deferred_code_ids.len() != ACTORS_COUNT {
+        //    bail!(
+        //        "Incomplete migration spec. Count: {}",
+        //        self.migrations.len()
+        //    );
+        //}
 
         let cpus = num_cpus::get();
         let chan_size = cpus / 2;
@@ -91,16 +79,19 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         );
 
         let pool = rayon::ThreadPoolBuilder::new()
-            .thread_name(|id| format!("nv12 migration thread: {id}"))
+            .thread_name(|id| format!("state migration thread: {id}"))
             .num_threads(cpus)
-            .build()
-            .map_err(MigrationError::ThreadPoolCreation)?;
+            .build()?;
 
         let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
         let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
 
+        let actors_in_counter = Arc::new(Mutex::new(0));
+        let actors_out_counter = Arc::new(Mutex::new(0));
+
         pool.scope(|s| {
             let store_clone = store.clone();
+            let actors_in_counter_clone = actors_in_counter.clone();
 
             s.spawn(move |_| {
                 // TODO: actors_in (StateTree) could use an iterator here.
@@ -109,6 +100,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                         state_tx
                             .send((addr, state.clone()))
                             .expect("failed sending actor state through channel");
+                        *actors_in_counter_clone.lock() += 1;
                         Ok(())
                     })
                     .expect("Failed iterating over actor state");
@@ -118,10 +110,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let store_clone = store_clone.clone();
-                    let migrator = self.migrations.get(&state.code).cloned().unwrap();
+                    let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("fiasco with: {}", state.code));
                     scope.spawn(move |_| {
                         let job = MigrationJob {
-                            address: address.into(),
+                            address,
                             actor_state: state,
                             actor_migration: migrator,
                         };
@@ -146,18 +138,47 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     actor_state,
                 } = job_output;
                 actors_out
-                    .set_actor(&address.into(), actor_state)
+                    .set_actor(&address, actor_state)
                     .unwrap_or_else(|e| {
                         panic!(
                             "Failed setting new actor state at given address: {address}, Reason: {e}"
                         )
                     });
+                    *actors_out_counter.lock() += 1;
             }
         });
 
-        actors_out
-            .flush()
-            .map_err(|e| MigrationError::FlushFailed(e.to_string()))
+        dbg!(*actors_in_counter.lock(), *actors_out_counter.lock());
+
+        // TODO this is NV18 specific, should be abstracted away. Or, like in Go code,
+        // copied so that each migration is completely distinct.
+        let eam_actor = ActorState::new_empty(*EAM, None);
+        actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
+
+        let init_actor = actors_out
+            .get_actor(&Address::INIT_ACTOR)?
+            .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
+        let init_state: StateV10 = store
+            .get_obj(&init_actor.state)?
+            .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
+
+        let eth_zero_addr =
+            Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;
+        let eth_zero_addr_id = init_state
+            .resolve_address(&store, &eth_zero_addr.into())?
+            .ok_or_else(|| anyhow!("failed to get eth zero actor"))?;
+
+        let eth_account_actor = ActorState::new(
+            *ETH_ACCOUNT,
+            EMPTY_ARR_CID,
+            Default::default(),
+            0,
+            Some(eth_zero_addr),
+        );
+
+        actors_out.set_actor(&eth_zero_addr_id.into(), eth_account_actor)?;
+
+        actors_out.flush()
     }
 }
 
@@ -178,12 +199,12 @@ pub struct MigrationOutput {
     new_head: Cid,
 }
 
-pub trait ActorMigration<BS: Blockstore + Send + Sync> {
+pub trait ActorMigration<BS: Blockstore + Clone + Send + Sync> {
     fn migrate_state(
         &self,
-        store: Arc<BS>,
+        store: BS,
         input: ActorMigrationInput,
-    ) -> MigrationResult<MigrationOutput>;
+    ) -> anyhow::Result<MigrationOutput>;
 }
 
 struct MigrationJob<BS: Blockstore> {
@@ -192,8 +213,8 @@ struct MigrationJob<BS: Blockstore> {
     actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
-impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
-    fn run(&self, store: Arc<BS>, prior_epoch: ChainEpoch) -> MigrationResult<MigrationJobOutput> {
+impl<BS: Blockstore + Clone + Send + Sync> MigrationJob<BS> {
+    fn run(&self, store: BS, prior_epoch: ChainEpoch) -> anyhow::Result<MigrationJobOutput> {
         let result = self
             .actor_migration
             .migrate_state(
@@ -203,13 +224,16 @@ impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
                     balance: forest_shim::econ::TokenAmount::from(&self.actor_state.balance).into(),
                     head: self.actor_state.state,
                     prior_epoch,
+                    // TODO: Lotus adds some kind of a cache, may need to investigate it
                 },
             )
             .map_err(|e| {
-                MigrationError::MigrationJobRun(format!(
+                anyhow::anyhow!(
                     "state migration failed for {} actor, addr {}:{}",
-                    self.actor_state.code, self.address, e
-                ))
+                    self.actor_state.code,
+                    self.address,
+                    e
+                )
             })?;
 
         let migration_job_result = MigrationJobOutput {
@@ -235,7 +259,7 @@ struct MigrationJobOutput {
 }
 
 #[allow(dead_code)]
-fn nil_migrator<BS: Blockstore + Send + Sync>(
+fn nil_migrator<BS: Blockstore + Clone + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(NilMigrator(cid))
@@ -244,12 +268,12 @@ fn nil_migrator<BS: Blockstore + Send + Sync>(
 /// Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
 
-impl<BS: Blockstore + Send + Sync> ActorMigration<BS> for NilMigrator {
+impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
-        _store: Arc<BS>,
+        _store: BS,
         input: ActorMigrationInput,
-    ) -> MigrationResult<MigrationOutput> {
+    ) -> anyhow::Result<MigrationOutput> {
         Ok(MigrationOutput {
             new_code_cid: self.0,
             new_head: input.head,

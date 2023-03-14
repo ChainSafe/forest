@@ -108,6 +108,7 @@ num-bigint = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
+num-derive = "0.3"
 once_cell = "1.15"
 parking_lot = "0.12"
 pin-project-lite = "0.2"
@@ -142,7 +143,19 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
+fil_actor_account_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_cron_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_market_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_miner_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_multisig_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_power_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_reward_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actors_runtime_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
@@ -173,6 +186,7 @@ forest_state_manager = { path = "./blockchain/state_manager" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
+forest_state_migration = {path = "./vm/state_migration" }
 
 [patch.crates-io]
 fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }

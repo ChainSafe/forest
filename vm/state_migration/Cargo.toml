@@ -8,12 +8,21 @@ edition = "2021"
 
 [dependencies]
 ahash.workspace = true
+anyhow.workspace = true
 cid.workspace = true
 crossbeam-channel = "0.5"
 forest_shim.workspace = true
+forest_utils.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 log.workspace = true
+lazy_static.workspace = true
 num_cpus.workspace = true
 rayon.workspace = true
 thiserror.workspace = true
+parking_lot.workspace = true
+
+fil_actor_init_v9.workspace = true
+fil_actor_init_v10.workspace = true
+fil_actor_system_v10.workspace = true
+fil_actors_runtime_v10.workspace = true

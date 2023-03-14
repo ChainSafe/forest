@@ -3420,6 +3420,7 @@ dependencies = [
  "tempfile",
  "time 0.3.20",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4151,7 +4152,9 @@ dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
  "fvm_shared 3.1.0",
+ "num",
  "num-bigint",
+ "num-derive",
  "num-traits",
  "quickcheck",
  "serde",
@@ -4180,6 +4183,7 @@ dependencies = [
  "forest_metrics",
  "forest_networks",
  "forest_shim",
+ "forest_state_migration",
  "forest_utils",
  "futures",
  "fvm 2.3.0",
@@ -4207,13 +4211,21 @@ name = "forest_state_migration"
 version = "0.7.1"
 dependencies = [
  "ahash 0.8.3",
+ "anyhow",
  "cid",
  "crossbeam-channel",
+ "fil_actor_init_v10",
+ "fil_actor_init_v9",
+ "fil_actor_system_v10",
+ "fil_actors_runtime_v10",
  "forest_shim",
+ "forest_utils",
  "fvm_ipld_blockstore",
  "fvm_shared 2.3.0",
+ "lazy_static",
  "log",
  "num_cpus",
+ "parking_lot 0.12.1",
  "rayon",
  "thiserror",
 ]
