@@ -40,7 +40,5 @@ pub(crate) async fn start_time<
 >(
     data: Data<RPCState<DB, B>>,
 ) -> Result<StartTimeResult, JsonRpcError> {
-    // let uptime = &data.start_time.to_hms();
     Ok(data.start_time)
-    // Ok(format!("{}h {}m {}s", uptime.0, uptime.1, uptime.2))
 }
