@@ -295,9 +295,9 @@ where
     /// Marks block as validated in the metadata file.
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
         let mut file = self.file_backed_validated_blocks.lock();
-        file.inner_mut().insert(*cid);
-        file.flush_to_file()?;
-        Ok(())
+        Ok(file.with_inner(|inner| {
+            inner.insert(*cid);
+        })?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.

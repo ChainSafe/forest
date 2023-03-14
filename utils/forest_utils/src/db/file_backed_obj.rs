@@ -1,7 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    path::PathBuf,
+    str::FromStr,
+    time::{Duration, SystemTime},
+};
 
 use ahash::HashSet;
 use cid::Cid;
@@ -10,17 +14,15 @@ use log::warn;
 pub struct FileBacked<T: FileBackedObject> {
     inner: T,
     path: PathBuf,
+    last_sync: Option<SystemTime>,
 }
+
+const SYNC_PERIOD: Duration = Duration::from_secs(600);
 
 impl<T: FileBackedObject> FileBacked<T> {
     /// Gets a borrow of the inner object
     pub fn inner(&self) -> &T {
         &self.inner
-    }
-
-    /// Gets a mutable borrow of the inner object
-    pub fn inner_mut(&mut self) -> &mut T {
-        &mut self.inner
     }
 
     /// Sets the inner object and flushes to file
@@ -29,9 +31,31 @@ impl<T: FileBackedObject> FileBacked<T> {
         self.flush_to_file()
     }
 
+    /// Calls func with inner mutable reference and flushes every `SYNC_PERIOD`
+    pub fn with_inner<F>(&mut self, func: F) -> anyhow::Result<()>
+    where
+        F: FnOnce(&mut T) -> (),
+    {
+        func(&mut self.inner);
+        let now = SystemTime::now();
+        if let Some(last_sync) = self.last_sync {
+            if now.duration_since(last_sync)? > SYNC_PERIOD {
+                self.last_sync = Some(now);
+                self.flush_to_file()?;
+            }
+            return Ok(());
+        }
+        self.last_sync = Some(now);
+        Ok(())
+    }
+
     /// Creates a new file backed object
     pub fn new(inner: T, path: PathBuf) -> Self {
-        Self { inner, path }
+        Self {
+            inner,
+            path,
+            last_sync: None,
+        }
     }
 
     /// Loads an object from a file and creates a new instance
@@ -51,12 +75,14 @@ impl<T: FileBackedObject> FileBacked<T> {
                     })
                     .unwrap_or_else(|_| create()),
                 path,
+                last_sync: None,
             }
         } else {
             need_flush = true;
             Self {
                 inner: create(),
                 path,
+                last_sync: None,
             }
         };
 
@@ -68,7 +94,7 @@ impl<T: FileBackedObject> FileBacked<T> {
     }
 
     /// Flushes the object to the file
-    pub fn flush_to_file(&self) -> anyhow::Result<()> {
+    fn flush_to_file(&self) -> anyhow::Result<()> {
         let bytes = self.inner().serialize()?;
         Ok(std::fs::write(&self.path, bytes)?)
     }
