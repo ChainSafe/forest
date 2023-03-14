@@ -3,15 +3,16 @@ Notable updates:
 * Support for nv18.
 
 ### Added
-* [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
+* [database] Added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
 * [api|cli] Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand. [#2538](https://github.com/ChainSafe/forest/pull/2538)
 * [cli] A JavaScript console to interact with Filecoin API. [#2492](https://github.com/ChainSafe/forest/pull/2492)
 * [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
-* [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
+* [forest-cli] Added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 * [forest daemon] Added `--exit-after-init` and `--save-token` flags. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 * [forest daemon] Support for NV18. [#2558](https://github.com/ChainSafe/forest/pull/2558) [#2579](https://github.com/ChainSafe/forest/pull/2579)
 
 ### Changed
+* [database] Move blockstore meta-data to standalone files. [2635](https://github.com/ChainSafe/forest/pull/2635) [2652](https://github.com/ChainSafe/forest/pull/2652)
 * [cli] Remove Forest ctrl-c hard shutdown behavior on subsequent ctrl-c signals. [#2538](https://github.com/ChainSafe/forest/pull/2538)
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
 * [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h. [#2396](https://github.com/ChainSafe/forest/pull/2396)
