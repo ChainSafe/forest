@@ -3568,6 +3568,7 @@ dependencies = [
  "forest_chain",
  "forest_db",
  "forest_encoding",
+ "forest_json",
  "forest_libp2p",
  "forest_message",
  "forest_message_pool",
