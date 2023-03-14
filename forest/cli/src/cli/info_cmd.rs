@@ -7,7 +7,7 @@ use clap::Subcommand;
 use colored::*;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::{
-    chain_get_name, chain_get_tipset, chain_head, state_start_time, wallet_default_address,
+    chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
 
 use super::Config;
@@ -91,8 +91,12 @@ impl InfoCommand {
         let node_status = node_status(&config).await?;
 
         // uptime
-        let start_time = state_start_time(&config.client.rpc_token)
+        let start_time = start_time(&config.client.rpc_token)
             .await
+            .map(|t| {
+                let start_time = t.to_hms();
+                format!("{}h {}m {}s", start_time.0, start_time.1, start_time.2)
+            })
             .map_err(handle_rpc_err)?;
 
         let network = chain_get_name((), &config.client.rpc_token)

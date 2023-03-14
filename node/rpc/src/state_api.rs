@@ -74,17 +74,6 @@ pub(crate) async fn state_network_name<
         .map_err(|e| e.into())
 }
 
-/// gets start time from network
-pub(crate) async fn state_start_time<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-) -> Result<StateNetworkNameResult, JsonRpcError> {
-    let uptime = &data.start_time.to_hms();
-    Ok(format!("{}h {}m {}s", uptime.0, uptime.1, uptime.2))
-}
-
 pub(crate) async fn state_get_network_version<
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,

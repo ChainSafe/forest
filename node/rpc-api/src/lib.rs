@@ -72,7 +72,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
-    access.insert(state_api::STATE_START_TIME, Access::Read);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
 
     // Gas API
@@ -84,6 +83,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Common API
     access.insert(common_api::VERSION, Access::Read);
     access.insert(common_api::SHUTDOWN, Access::Admin);
+    access.insert(common_api::START_TIME, Access::Read);
 
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
@@ -335,10 +335,6 @@ pub mod state_api {
     pub type StateNetworkNameParams = ();
     pub type StateNetworkNameResult = String;
 
-    pub const STATE_START_TIME: &str = "Filecoin.StateStartTime";
-    pub type StateStartTimeParams = ();
-    pub type StateStartTimeResult = String;
-
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
     pub type StateNetworkVersionParams = (TipsetKeysJson,);
     pub type StateNetworkVersionResult = NetworkVersion;
@@ -395,6 +391,10 @@ pub mod common_api {
     pub const SHUTDOWN: &str = "Filecoin.Shutdown";
     pub type ShutdownParams = ();
     pub type ShutdownResult = ();
+
+    pub const START_TIME: &str = "Filecoin.StateStartTime";
+    pub type StartTimeParams = ();
+    pub type StartTimeResult = time::OffsetDateTime;
 }
 
 /// Net API

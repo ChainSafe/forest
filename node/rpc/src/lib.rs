@@ -31,7 +31,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{
     beacon_api::beacon_get_entry,
-    common_api::{shutdown, version},
+    common_api::{shutdown, start_time, version},
     rpc_http_handler::rpc_http_handler,
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
@@ -107,7 +107,6 @@ where
             .with_method(STATE_CALL, state_call::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
-            .with_method(STATE_START_TIME, state_start_time::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB, B>)
@@ -122,6 +121,7 @@ where
             // Common API
             .with_method(VERSION, move || version(block_delay, forest_version))
             .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
+            .with_method(START_TIME, start_time::<DB, B>)
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)

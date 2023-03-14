@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use forest_beacon::Beacon;
+use forest_db::Store;
 use forest_rpc_api::{
     common_api::*,
-    data_types::{APIVersion, Version},
+    data_types::{APIVersion, RPCState, Version},
 };
-use jsonrpc_v2::Error as JsonRpcError;
+use fvm_ipld_blockstore::Blockstore;
+use jsonrpc_v2::{Data, Error as JsonRpcError};
 use semver::Version as SemVer;
 use tokio::sync::mpsc::Sender;
 
@@ -28,4 +31,16 @@ pub(crate) async fn shutdown(shutdown_send: Sender<()>) -> Result<ShutdownResult
         return Err(JsonRpcError::from(err));
     }
     Ok(())
+}
+
+/// gets start time from network
+pub(crate) async fn start_time<
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
+>(
+    data: Data<RPCState<DB, B>>,
+) -> Result<StartTimeResult, JsonRpcError> {
+    // let uptime = &data.start_time.to_hms();
+    Ok(data.start_time)
+    // Ok(format!("{}h {}m {}s", uptime.0, uptime.1, uptime.2))
 }
