@@ -34,7 +34,7 @@ impl<T: FileBackedObject> FileBacked<T> {
     /// Calls func with inner mutable reference and flushes every `SYNC_PERIOD`
     pub fn with_inner<F>(&mut self, func: F) -> anyhow::Result<()>
     where
-        F: FnOnce(&mut T) -> (),
+        F: FnOnce(&mut T),
     {
         func(&mut self.inner);
         let now = SystemTime::now();
