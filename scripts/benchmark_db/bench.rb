@@ -489,9 +489,7 @@ class LotusBenchmark < Benchmark
   def default_config
     toml_str = syscall(target, 'config', 'default')
 
-    default = Tomlrb.parse(toml_str)
-    default['client']['data_dir'] = data_dir
-    default
+    Tomlrb.parse(toml_str)
   end
 
   def db_dir
@@ -507,11 +505,6 @@ class LotusBenchmark < Benchmark
   def clean_db
     FileUtils.rm_rf(db_dir, secure: true) unless @dry_run
   end
-
-  def build_config_file
-    # No support for passing custom config file right now
-  end
-  private :build_config_file
 
   def repository_name
     'lotus'
