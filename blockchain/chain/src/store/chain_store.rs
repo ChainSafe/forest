@@ -14,7 +14,6 @@ use cid::{
 use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::{recurse_links_hash, CidHashSet};
@@ -131,7 +130,7 @@ where
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     pub fn new(
         db: DB,
