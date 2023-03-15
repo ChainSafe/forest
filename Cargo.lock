@@ -1037,7 +1037,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40f9ca3698b2e4cb7c15571db0abc5551dca417a21ae8140460b50309bb2cc62"
 dependencies = [
  "borsh-derive",
- "hashbrown 0.13.2",
+ "hashbrown 0.11.2",
 ]
 
 [[package]]
@@ -2617,7 +2617,7 @@ checksum = "93ace6ec7cc19c8ed33a32eaa9ea692d7faea05006b5356b9e2b668ec4bc3955"
 [[package]]
 name = "fil_actor_account_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v10",
@@ -2633,7 +2633,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2647,7 +2647,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v9",
@@ -2661,9 +2661,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_cron_v10"
+version = "10.0.0-alpha.1"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
+dependencies = [
+ "fil_actors_runtime_v10",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.3",
+ "fvm_shared 2.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_cron_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2677,7 +2691,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -2691,7 +2705,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2710,7 +2724,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2727,7 +2741,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2744,14 +2758,16 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "0.6.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actor_account_v10",
  "fil_actor_account_v8",
  "fil_actor_account_v9",
+ "fil_actor_cron_v10",
  "fil_actor_cron_v8",
+ "fil_actor_cron_v9",
  "fil_actor_init_v10",
  "fil_actor_init_v8",
  "fil_actor_init_v9",
@@ -2761,12 +2777,18 @@ dependencies = [
  "fil_actor_miner_v10",
  "fil_actor_miner_v8",
  "fil_actor_miner_v9",
+ "fil_actor_multisig_v10",
+ "fil_actor_multisig_v8",
+ "fil_actor_multisig_v9",
  "fil_actor_power_v10",
  "fil_actor_power_v8",
  "fil_actor_power_v9",
  "fil_actor_reward_v10",
  "fil_actor_reward_v8",
  "fil_actor_reward_v9",
+ "fil_actor_system_v10",
+ "fil_actor_system_v8",
+ "fil_actor_system_v9",
  "fil_actors_runtime_v10",
  "fil_actors_runtime_v9",
  "fvm 2.2.0",
@@ -2782,7 +2804,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2804,7 +2826,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2823,7 +2845,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2843,7 +2865,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2869,7 +2891,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2892,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2914,9 +2936,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_multisig_v10"
+version = "10.0.0-alpha.1"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime_v10",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 2.0.0",
+ "indexmap",
+ "integer-encoding",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_multisig_v8"
+version = "8.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime_v8",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 2.0.0",
+ "indexmap",
+ "integer-encoding",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_multisig_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2937,7 +2999,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2957,7 +3019,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2976,7 +3038,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2995,7 +3057,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "fil_actors_runtime_v10",
  "fvm_ipld_blockstore",
@@ -3010,7 +3072,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -3026,7 +3088,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -3040,9 +3102,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_system_v10"
+version = "10.0.0-alpha.1"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.3",
+ "fvm_shared 2.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_system_v8"
+version = "8.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.3",
+ "fvm_shared 2.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_system_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -3057,7 +3149,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v10"
 version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -3089,7 +3181,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -3118,7 +3210,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#bce269551ea55600e629849d82669800ac96743b"
+source = "git+https://github.com/ChainSafe/fil-actor-states#d0961bd33849ddc6fd09ac615e531e32d967c5fb"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -5023,6 +5115,9 @@ name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+dependencies = [
+ "ahash 0.7.6",
+]
 
 [[package]]
 name = "hashbrown"
