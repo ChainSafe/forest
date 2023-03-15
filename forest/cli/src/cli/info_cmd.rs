@@ -28,9 +28,10 @@ enum SyncStatus {
 }
 
 pub struct NodeStatusInfo {
+    /// timestamp of how far behind the node is with respect to syncing to head
     behind: u64,
     /// Chain health calculated as percentage: amount of blocks in last finality
-    /// / very healthy amount of blocks in a finality (900 epochs * 5 blocks per
+    /// very healthy amount of blocks in a finality (900 epochs * 5 blocks per
     /// tipset)
     health: usize,
     /// epoch the node is currently at
