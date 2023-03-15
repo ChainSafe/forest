@@ -232,7 +232,7 @@ impl WalletCommands {
                     let balance_token_amount =
                         TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
                     let balance_string = format_balance_string(
-                        balance_token_amount.into(),
+                        balance_token_amount,
                         bool_pair_to_mode(*exact_balance, *fixed_unit),
                     )?;
 
