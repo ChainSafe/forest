@@ -5,13 +5,12 @@ use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
 use libp2p::{
-    core::identity::Keypair,
+    core::identity::{Keypair, PeerId},
     gossipsub::{
         self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
         ValidationMode,
     },
     identify,
-    identity::PeerId,
     kad::QueryId,
     metrics::{Metrics, Recorder},
     ping,
