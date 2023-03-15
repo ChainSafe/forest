@@ -9,11 +9,11 @@ use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
-use num::BigInt;
+use forest_shim::econ::TokenAmount;
 use time::OffsetDateTime;
 
 use super::Config;
-use crate::cli::handle_rpc_err;
+use crate::cli::{handle_rpc_err, wallet_cmd::format_balance_string};
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -36,7 +36,7 @@ pub struct NodeStatusInfo {
     /// epoch the node is currently at
     epoch: i64,
     /// base fee
-    base_fee: BigInt,
+    base_fee: TokenAmount,
     /// sync status information
     sync_status: SyncStatus,
 }
@@ -61,12 +61,9 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
         SyncStatus::Behind
     };
 
-    let base_fee = chain_head
-        .0
-        .min_ticket_block()
-        .parent_base_fee()
-        .atto()
-        .clone();
+    let base_fee = chain_head.0.min_ticket_block().parent_base_fee().clone();
+    // .atto()
+    // .clone();
 
     // chain health
     let blocks_per_tipset_last_finality = if epoch > chain_finality {
@@ -120,14 +117,17 @@ impl InfoCommand {
 
         let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?.to_hms();
         let health = node_status.health;
-        let base_fee = node_status.base_fee;
+        let base_fee = format_balance_string(
+            node_status.base_fee,
+            crate::cli::wallet_cmd::FormattingMode::NotExactNotFixed,
+        )?;
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
         let behind_time = format!("{}h {}m {}s", behind.0, behind.1, behind.2);
 
         let chain_status = format!(
-            "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee} aFIL] [epoch: {epoch}]"
+            "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee}] [epoch: {epoch}]"
         )
         .blue();
 

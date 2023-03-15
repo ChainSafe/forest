@@ -18,9 +18,9 @@ use forest_rpc_client::wallet_ops::*;
 use forest_shim::{
     address::{Address, Protocol},
     crypto::{Signature, SignatureType},
+    econ::TokenAmount,
 };
 use forest_utils::io::read_file_to_string;
-use fvm_shared::econ::TokenAmount;
 use num::BigInt;
 use rpassword::read_password;
 use rust_decimal::prelude::*;
@@ -31,7 +31,7 @@ use super::{handle_rpc_err, Config};
 const NUM_SIGNIFICANT_DIGITS: u32 = 4;
 
 #[allow(clippy::enum_variant_names)]
-enum FormattingMode {
+pub enum FormattingMode {
     /// mode to show data in `FIL` units
     /// in full accuracy
     /// E.g. 0.50023677980 `FIL`
@@ -232,7 +232,7 @@ impl WalletCommands {
                     let balance_token_amount =
                         TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
                     let balance_string = format_balance_string(
-                        balance_token_amount,
+                        balance_token_amount.into(),
                         bool_pair_to_mode(*exact_balance, *fixed_unit),
                     )?;
 
@@ -305,7 +305,7 @@ impl WalletCommands {
 /// in full accuracy for `ExactNotFixed` mode,
 /// mode to show data in SI units
 /// with 4 significant digits for `NotExactNotFixed` mode
-fn format_balance_string(
+pub fn format_balance_string(
     token_amount: TokenAmount,
     mode: FormattingMode,
 ) -> anyhow::Result<String> {
@@ -395,7 +395,7 @@ fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
 
 #[cfg(test)]
 mod test {
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::econ::TokenAmount;
 
     use super::*;
 
