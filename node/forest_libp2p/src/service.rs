@@ -28,7 +28,7 @@ use libp2p::{
     core,
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
-    identity::{ed25519, Keypair},
+    identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping,
@@ -846,11 +846,10 @@ pub fn get_keypair(path: &Path) -> Option<Keypair> {
             trace!("Error {:?}", e);
             None
         }
-        Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
+        Ok(mut vec) => match libp2p::core::identity::Keypair::ed25519_from_bytes(&mut vec) {
             Ok(kp) => {
                 info!("Recovered libp2p keypair from {:?}", &path);
-                #[allow(deprecated)] // FIXME: use: into_ed25519
-                Some(Keypair::Ed25519(kp))
+                Some(kp)
             }
             Err(e) => {
                 info!("Could not decode networking keystore!");
