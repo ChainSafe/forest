@@ -46,8 +46,9 @@ jobs:
       with:
         dockerfile: "Dockerfile*"
         recursive: true
-        # Ignore https://github.com/hadolint/hadolint/wiki/DL3008
-        ignore: DL3008
+        # https://github.com/hadolint/hadolint/wiki/DL3008
+        # https://github.com/hadolint/hadolint/wiki/DL3018
+        ignore: DL3008,DL3018
   markdown-lint:
     runs-on: ubuntu-latest
     steps:

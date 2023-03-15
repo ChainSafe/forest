@@ -31,13 +31,15 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY --from=xx / /
 
 # install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang protobuf-compiler cmake
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y build-essential clang protobuf-compiler cmake
 
 # export TARGETPLATFORM
 ARG TARGETPLATFORM
 
 # Install those packages for the target architecture
-RUN xx-apt-get update && xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
+RUN xx-apt-get update && \
+    xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
 
 WORKDIR /forest
 COPY . .
@@ -65,17 +67,21 @@ ARG DATA_DIR=/home/forest/.local/share/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-libopencl1 aria2 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y ocl-icd-libopencl1 aria2 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 RUN update-ca-certificates
 
 # Create user and group and assign appropriate rights to the forest binaries
-RUN addgroup --gid 1000 ${SERVICE_GROUP} && adduser --uid 1000 --ingroup ${SERVICE_GROUP} --disabled-password --gecos "" ${SERVICE_USER}
+RUN addgroup --gid 1000 ${SERVICE_GROUP} && \
+    adduser --uid 1000 --ingroup ${SERVICE_GROUP} --disabled-password --gecos "" ${SERVICE_USER}
 
 # Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /usr/local/bin/
 
 # Initialize data directory with proper permissions
-RUN mkdir -p ${DATA_DIR} && chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
+RUN mkdir -p ${DATA_DIR} && \
+    chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
 
 USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
