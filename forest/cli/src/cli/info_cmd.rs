@@ -118,18 +118,13 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
-        let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?;
+        let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?.to_hms();
         let health = node_status.health;
-        let base_fee = node_status.base_fee.to_string();
+        let base_fee = node_status.base_fee;
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
-        let behind_time = format!(
-            "{}h {}m {}s",
-            behind.to_hms().0,
-            behind.to_hms().1,
-            behind.to_hms().2
-        );
+        let behind_time = format!("{}h {}m {}s", behind.0, behind.1, behind.2);
 
         let chain_status = format!(
             "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee} aFIL] [epoch: {epoch}]"
