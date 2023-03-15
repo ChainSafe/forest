@@ -93,6 +93,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
             let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
             // Restrict permissions on files containing private keys
             forest_utils::io::set_user_perm(&file)?;
+            #[allow(deprecated)] // FIXME: use: into_ed25519
             Ok(Keypair::Ed25519(gen_keypair))
         }
     }?;

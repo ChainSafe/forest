@@ -849,6 +849,7 @@ pub fn get_keypair(path: &Path) -> Option<Keypair> {
         Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
             Ok(kp) => {
                 info!("Recovered libp2p keypair from {:?}", &path);
+                #[allow(deprecated)] // FIXME: use: into_ed25519
                 Some(Keypair::Ed25519(kp))
             }
             Err(e) => {
