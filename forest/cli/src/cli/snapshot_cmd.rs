@@ -11,7 +11,7 @@ use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
-use forest_db::{db_engine::open_db, Store};
+use forest_db::db_engine::open_db;
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_rpc_api::chain_api::ChainExportParams;

@@ -107,7 +107,7 @@ pub async fn import_chain<DB>(
     skip_load: bool,
 ) -> Result<(), anyhow::Error>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
@@ -118,14 +118,12 @@ where
         info!("Downloading file...");
         let url = Url::parse(path)?;
         let reader = FetchProgress::fetch_from_url(url).await?;
-        //load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
-        todo!()
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     } else {
         info!("Reading file...");
         let file = File::open(&path).await?;
         let reader = FetchProgress::fetch_from_file(file).await?;
-        //load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
-        todo!()
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     };
 
     info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
