@@ -9,7 +9,7 @@ use cid::{
     Cid,
 };
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
-use forest_crypto::VRFProof;
+use forest_json::vrf::VRFProof;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
