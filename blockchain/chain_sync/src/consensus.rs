@@ -10,7 +10,6 @@ use std::{
 use async_trait::async_trait;
 use forest_blocks::{Block, GossipBlock, Tipset};
 use forest_chain::Scale;
-use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
 use forest_message_pool::MessagePool;
@@ -46,7 +45,7 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static;
+        DB: Blockstore + Clone + Sync + Send + 'static;
 }
 
 /// Helper function to collect errors from async validations.
@@ -114,7 +113,7 @@ pub trait Proposer {
         services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;
 }
 
@@ -142,7 +141,7 @@ pub trait MessagePoolApi {
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static;
+        DB: Blockstore + Clone + Sync + Send + 'static;
 }
 
 impl<P> MessagePoolApi for MessagePool<P>
@@ -155,7 +154,7 @@ where
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
     {
         self.select_messages_for_block(base)
             .map_err(|e| e.into())

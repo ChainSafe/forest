@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_db::Store;
 use forest_key_management::Key;
 use forest_networks::Height;
 use forest_shim::address::Address;
@@ -52,7 +51,7 @@ impl DelegatedProposer {
         base: &Arc<Tipset>,
     ) -> anyhow::Result<GossipBlock>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
     {
         let block_delay = state_manager.chain_config().block_delay_secs;
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
@@ -105,7 +104,7 @@ impl Proposer for DelegatedProposer {
         services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         services.spawn(async move {
@@ -125,7 +124,7 @@ impl DelegatedProposer {
         submitter: &SyncGossipSubmitter,
     ) -> anyhow::Result<()>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         // TODO: Ideally these should not be coming through the `StateManager`.

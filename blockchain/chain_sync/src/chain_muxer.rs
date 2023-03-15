@@ -13,7 +13,6 @@ use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
-use forest_db::Store;
 use forest_libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
 };
@@ -159,7 +158,7 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -838,7 +837,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {

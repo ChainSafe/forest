@@ -7,7 +7,6 @@ use cid::Cid;
 use fil_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_db::Store;
 use forest_ipld::json::IpldJson;
 use forest_json::cid::CidJson;
 use forest_rpc_api::{
@@ -24,10 +23,7 @@ use libipld_core::ipld::Ipld;
 // defaulting to Full).
 
 /// runs the given message and returns its result without any persisted changes.
-pub(crate) async fn state_call<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn state_call<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateCallParams>,
 ) -> Result<StateCallResult, JsonRpcError> {
@@ -43,10 +39,7 @@ pub(crate) async fn state_call<
 
 /// returns the result of executing the indicated message, assuming it was
 /// executed in the indicated tipset.
-pub(crate) async fn state_replay<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn state_replay<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateReplayParams>,
 ) -> Result<StateReplayResult, JsonRpcError> {
@@ -68,7 +61,7 @@ pub(crate) async fn state_replay<
 
 /// gets network name from state manager
 pub(crate) async fn state_network_name<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
@@ -82,7 +75,7 @@ pub(crate) async fn state_network_name<
 }
 
 pub(crate) async fn state_get_network_version<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
@@ -96,7 +89,7 @@ pub(crate) async fn state_get_network_version<
 /// looks up the Escrow and Locked balances of the given address in the Storage
 /// Market
 pub(crate) async fn state_market_balance<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
@@ -114,7 +107,7 @@ pub(crate) async fn state_market_balance<
 }
 
 pub(crate) async fn state_market_deals<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
@@ -151,10 +144,7 @@ pub(crate) async fn state_market_deals<
 }
 
 /// returns the message receipt for the given message
-pub(crate) async fn state_get_receipt<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn state_get_receipt<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateGetReceiptParams>,
 ) -> Result<StateGetReceiptResult, JsonRpcError> {
@@ -172,10 +162,7 @@ pub(crate) async fn state_get_receipt<
 }
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
-pub(crate) async fn state_wait_msg<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateWaitMsgParams>,
 ) -> Result<StateWaitMsgResult, JsonRpcError> {

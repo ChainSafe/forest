@@ -441,7 +441,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     network: &str,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
+    DB: fvm_ipld_blockstore::Blockstore + Send + Sync,
 {
     let mut seen = CidHashSet::default();
     let upto = ts.epoch() - recent_stateroots;
