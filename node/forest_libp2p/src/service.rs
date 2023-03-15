@@ -25,10 +25,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
-    core,
-    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
-    identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping,
@@ -846,7 +844,7 @@ pub fn get_keypair(path: &Path) -> Option<Keypair> {
             trace!("Error {:?}", e);
             None
         }
-        Ok(mut vec) => match libp2p::core::identity::Keypair::ed25519_from_bytes(&mut vec) {
+        Ok(mut vec) => match Keypair::ed25519_from_bytes(&mut vec) {
             Ok(kp) => {
                 info!("Recovered libp2p keypair from {:?}", &path);
                 Some(kp)
