@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{string::ToString, time::Instant};
+use std::time::Instant;
 
 use clap::Subcommand;
 use colored::*;
