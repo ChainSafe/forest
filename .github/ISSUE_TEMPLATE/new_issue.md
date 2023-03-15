@@ -1,15 +1,16 @@
 ---
 name: New issue
 about: New issue template
-title: ''
-assignees: ''
-
+title: ""
+assignees: ""
 ---
 
 **Issue summary**
+
 <!-- A clear and concise description of what the issue is. -->
 
 **Task summary**
+
 <!-- A clear and concise description of what the task(s) are. -->
 
 - [ ] Task 1
@@ -19,15 +20,15 @@ assignees: ''
 - [x] Task 5
 
 **Acceptance Criteria**
+
 <!-- Provide the acceptance criteria for the issue. -->
 
 - [ ] acceptance criteria #1
 - [ ] acceptance criteria #2
 - [x] acceptance criteria #3
 
-
 **Other information and links**
-<!-- Add any other context, existing implementation reference or screenshots about the task here. -->
 
+<!-- Add any other context, existing implementation reference or screenshots about the task here. -->
 
 <!-- Thank you 💪 -->
