@@ -1642,7 +1642,7 @@ fn validate_tipset_against_cache<C: Consensus>(
 mod test {
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use forest_crypto::VRFProof;
+    use forest_json::vrf::VRFProof;
     use forest_shim::address::Address;
     use num_bigint::BigInt;
 

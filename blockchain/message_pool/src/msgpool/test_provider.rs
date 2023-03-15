@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use cid::Cid;
 use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
-use forest_crypto::VRFProof;
+use forest_json::vrf::VRFProof;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use num::BigInt;
