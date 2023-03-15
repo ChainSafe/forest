@@ -5,6 +5,7 @@ Notable updates:
 - Support for nv18.
 
 ### Added
+
 - [database] added ParityDb statistics to the stats endpoint.
   [#2444](https://github.com/ChainSafe/forest/pull/2444)
 - [api|cli] Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown`
@@ -22,6 +23,7 @@ Notable updates:
   [#2579](https://github.com/ChainSafe/forest/pull/2579)
 
 ### Changed
+
 - [database] Move blockstore meta-data to standalone files.
   [2635](https://github.com/ChainSafe/forest/pull/2635)
   [2652](https://github.com/ChainSafe/forest/pull/2652)
