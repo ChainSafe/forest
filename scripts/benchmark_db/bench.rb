@@ -4,6 +4,7 @@
 
 # Script to test various configurations that can impact performance of the node
 
+require 'concurrent-ruby'
 require 'csv'
 require 'deep_merge'
 require 'fileutils'
@@ -29,7 +30,7 @@ HOUR = MINUTE * MINUTE
 options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
-  chain: 'calibnet' # TODO: replace with 'mainnet' before merging
+  chain: 'mainnet'
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
@@ -106,8 +107,9 @@ def measure_online_validation(benchmark, pid, metrics)
 end
 
 def proc_monitor(pid, benchmark)
-  # TODO: synchronize access to metrics hashmap
-  metrics = { rss: [], vsz: [] }
+  metrics = Concurrent::Hash.new
+  metrics[:rss] = []
+  metrics[:vsz] = []
   measure_online_validation(benchmark, pid, metrics) if benchmark
   handle = Thread.new do
     loop do
@@ -182,7 +184,7 @@ end
 def write_csv(metrics)
   filename = "result_#{Time.now.to_i}.csv"
   CSV.open(filename, 'w') do |csv|
-    csv << ['Client', 'Snapshot Import Time [sec]', 'Validation Time [tipsets/min]']
+    csv << ['Client', 'Snapshot Import Time [min:sec]', 'Validation Time [tipsets/min]']
 
     metrics.each do |key, value|
       elapsed = value[:import][:elapsed] || 'n/a'
@@ -257,7 +259,7 @@ class Benchmark
     puts "$ #{command.join(' ')}"
     return {} if @dry_run
 
-    metrics = {}
+    metrics = Concurrent::Hash.new
     t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     exec_command_aux(command, metrics, benchmark)
     t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -327,7 +329,7 @@ class Benchmark
   def run(daily)
     puts "(I) Running bench: #{@name}"
 
-    metrics = {}
+    metrics = Concurrent::Hash.new
     args = build_artefacts
     @sync_status_command = splice_args(@sync_status_command, args)
 
@@ -348,7 +350,6 @@ class Benchmark
   end
 
   def online_validation_secs
-    # TODO: restore 120.0 / 60.0 when PR is ready
     @chain == 'mainnet' ? 120.0 : 10.0
   end
 
@@ -433,7 +434,6 @@ class ForestBenchmark < Benchmark
     end
     msg_sync = output.match(/Stage:\smessage sync/m)
     if msg_sync
-      # TODO: merge matches since forest prints workers that could be at different stages
       match = output.match(/Height:\s(\d+)/m)
       return match.captures[0].to_i if match
     end
@@ -460,7 +460,7 @@ class ForestBenchmark < Benchmark
     @sync_status_command = [
       target_cli, '--config', '%<c>s', 'sync', 'status'
     ]
-    @metrics = {}
+    @metrics = Concurrent::Hash.new
   end
 end
 
@@ -542,7 +542,6 @@ class LotusBenchmark < Benchmark
     end
     msg_sync = output.match(/Stage: message sync/m)
     if msg_sync
-      # TODO: merge matches since lotus prints workers that could be at different stages
       match = output.match(/Height: (\d+)/m)
       return match.captures[0].to_i if match
     end
@@ -565,7 +564,7 @@ class LotusBenchmark < Benchmark
     @sync_status_command = [
       target, 'sync', 'status', '--config', '%<c>s'
     ]
-    @metrics = {}
+    @metrics = Concurrent::Hash.new
   end
 end
 
@@ -584,7 +583,7 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
 end
 
 def run_benchmarks(benchmarks, options)
-  bench_metrics = {}
+  bench_metrics = Concurrent::Hash.new
   options[:snapshot_path] = File.expand_path(options[:snapshot_path])
   puts "(I) Using snapshot: #{options[:snapshot_path]}"
   puts "(I) WORKING_DIR: #{WORKING_DIR}"
@@ -597,8 +596,6 @@ def run_benchmarks(benchmarks, options)
   else
     write_markdown(bench_metrics)
   end
-
-  # puts bench_metrics
 end
 
 FOREST_BENCHMARKS = [
@@ -614,6 +611,10 @@ if snapshot_path.nil?
   puts '(I) No snapshot provided, downloading one'
   snapshot_path = download_snapshot(chain: options[:chain])
   puts snapshot_path
+  # if a fresh snapshot is downloaded, allow network to move ahead, otherwise
+  # `message sync` phase may not be long enough for validation metric
+  puts 'Fresh snapshot; sleeping while network advances for 5 minutes...'
+  sleep 300 if options[:daily]
 end
 
 options[:snapshot_path] = snapshot_path
