@@ -12,9 +12,10 @@ use ahash::HashMap;
 use cid::Cid;
 use colored::*;
 use fil_actor_interface::{
-    account::State as AccountState, cron::State as CronState, init::State as InitState,
-    market::State as MarketState, miner::State as MinerState, multisig::State as MultiSigState,
-    power::State as PowerState, reward::State as RewardState, system::State as SystemState,
+    account::State as AccountState, cron::State as CronState, datacap::State as DatacapState,
+    evm::State as EvmState, init::State as InitState, market::State as MarketState,
+    miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
+    reward::State as RewardState, system::State as SystemState,
 };
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
@@ -156,6 +157,14 @@ fn pp_actor_state(
     }
     if let Ok(market_state) = MarketState::load(bs, &state.into()) {
         write!(&mut buffer, "{market_state:?}")?;
+        return Ok(buffer);
+    }
+    if let Ok(datacap_state) = DatacapState::load(bs, &state.into()) {
+        write!(&mut buffer, "{datacap_state:?}")?;
+        return Ok(buffer);
+    }
+    if let Ok(evm_state) = EvmState::load(bs, &state.into()) {
+        write!(&mut buffer, "{evm_state:?}")?;
         return Ok(buffer);
     }
     buffer += &serde_json::to_string_pretty(&resolved)?;
