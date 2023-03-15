@@ -96,10 +96,11 @@ lint-clippy:
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
-# Formats Rust and TOML files
+# Formats Rust, TOML and Markdown files.
 fmt:
 	cargo fmt --all
 	taplo fmt
+	yarn md-fmt
 
 build:
 	cargo build --bin forest --bin forest-cli
