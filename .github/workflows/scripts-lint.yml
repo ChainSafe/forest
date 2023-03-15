@@ -48,3 +48,10 @@ jobs:
         recursive: true
         # Ignore https://github.com/hadolint/hadolint/wiki/DL3008
         ignore: DL3008
+  markdown-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          yarn install
+          yarn run md-check

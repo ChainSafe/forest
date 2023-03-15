@@ -146,6 +146,23 @@ where
 #[serde(transparent)]
 pub struct ActorState(ActorStateV3);
 
+impl ActorState {
+    pub fn new(
+        code: Cid,
+        state: Cid,
+        balance: TokenAmount,
+        sequence: u64,
+        address: Option<Address>,
+    ) -> Self {
+        Self(ActorStateV3::new(
+            code,
+            state,
+            balance.into(),
+            sequence,
+            address.map(Into::into),
+        ))
+    }
+}
 impl Inner for ActorState {
     type FVM = ActorStateV3;
 }

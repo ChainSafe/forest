@@ -20,7 +20,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -39,6 +39,9 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
+      - uses: actions/setup-go@v3
+        with:
+          go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-all
@@ -48,7 +51,7 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-4vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -120,7 +123,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: buildjet-8vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -167,6 +170,10 @@ jobs:
           sha256sum -c *.sha256sum
       - name: js console
         run: forest-cli attach --exec 'showPeers()'
+      - name: net subcommand
+        run: |
+          forest-cli net listen
+          forest-cli net peers
       - name: validate snapshot
         run: |
           forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&

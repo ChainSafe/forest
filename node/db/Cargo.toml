@@ -38,7 +38,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 
 # optional
-parity-db = { version = "0.4", default-features = false, optional = true }
+parity-db = { version = "=0.4.3", default-features = false, optional = true }
 rocksdb = { version = "0.20", default-features = false, optional = true }
 
 [dev-dependencies]

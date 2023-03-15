@@ -13,8 +13,8 @@ axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
 cid.workspace = true
 crossbeam = "0.8"
+fil_actor_interface.workspace = true
 flume.workspace = true
-forest_actor_interface.workspace = true
 forest_auth.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
@@ -53,6 +53,7 @@ semver = "1.0"
 serde = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace = true
 sha2 = { workspace = true, default-features = false }
+tempfile.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]

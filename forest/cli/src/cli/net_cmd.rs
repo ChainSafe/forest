@@ -92,7 +92,7 @@ impl NetCommands {
                     cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 1)
                 }
 
-                let addrs = vec![addr];
+                let addrs = HashSet::from_iter([addr]);
                 let addr_info = AddrInfo {
                     id: id.clone(),
                     addrs,

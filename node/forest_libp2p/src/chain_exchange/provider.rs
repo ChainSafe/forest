@@ -36,7 +36,7 @@ where
                 return ChainExchangeResponse {
                     chain: vec![],
                     status: ChainExchangeResponseStatus::InternalError,
-                    message: "Tipset was not found in the database".to_owned(),
+                    message: "Tipset was not found in the database".into(),
                 };
             }
         };
@@ -50,7 +50,7 @@ where
                     return ChainExchangeResponse {
                         chain: vec![],
                         status: ChainExchangeResponseStatus::InternalError,
-                        message: "Can not fulfil the request".to_owned(),
+                        message: "Can not fulfil the request".into(),
                     };
                 }
             }
@@ -82,7 +82,7 @@ where
         } else {
             ChainExchangeResponseStatus::Success
         },
-        message: "Success".to_owned(),
+        message: "Success".into(),
     }
 }
 
@@ -156,6 +156,7 @@ mod tests {
     use forest_networks::ChainConfig;
     use forest_shim::address::Address;
     use fvm_ipld_car::load_car;
+    use tempfile::TempDir;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -181,8 +182,15 @@ mod tests {
             .build()
             .unwrap();
 
+        let chain_store_root = TempDir::new().unwrap();
         let response = make_chain_exchange_response(
-            &ChainStore::new(db, Arc::new(ChainConfig::default()), &gen_block).unwrap(),
+            &ChainStore::new(
+                db,
+                Arc::new(ChainConfig::default()),
+                &gen_block,
+                chain_store_root.path(),
+            )
+            .unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

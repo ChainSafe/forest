@@ -68,7 +68,6 @@ clean:
 	@cargo clean -p forest_test_utils
 	@cargo clean -p forest_message_pool
 	@cargo clean -p forest_genesis
-	@cargo clean -p forest_actor_interface
 	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 
@@ -101,10 +100,11 @@ DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
 	docker run --rm -i hadolint/hadolint < $<
 
-# Formats Rust and TOML files
+# Formats Rust, TOML and Markdown files.
 fmt:
 	cargo fmt --all
 	taplo fmt
+	yarn md-fmt
 
 build:
 	cargo build --bin forest --bin forest-cli

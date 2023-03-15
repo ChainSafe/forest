@@ -7,7 +7,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
 use flume::Sender;
@@ -27,13 +27,12 @@ pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     core,
     core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
-    gossipsub::GossipsubEvent,
+    gossipsub,
     identity::{ed25519, Keypair},
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
-    multihash::Multihash,
     noise, ping,
-    request_response::{RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel},
+    request_response::{self, RequestId, ResponseChannel},
     swarm::{ConnectionLimits, SwarmBuilder, SwarmEvent},
     yamux::YamuxConfig,
     PeerId, Swarm, Transport,
@@ -47,7 +46,7 @@ use super::{
 };
 use crate::{
     chain_exchange::ChainExchangeBehaviour,
-    discovery::DiscoveryOut,
+    discovery::DiscoveryEvent,
     hello::{HelloBehaviour, HelloRequest, HelloResponse},
     rpc::RequestResponseError,
     PeerManager, PeerOperation,
@@ -174,9 +173,9 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
-    NetPeers(OneShotSender<HashMap<PeerId, Vec<Multiaddr>>>),
-    NetConnect(OneShotSender<bool>, PeerId, Vec<Multiaddr>),
+    NetAddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
+    NetPeers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    NetConnect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
@@ -225,7 +224,7 @@ where
         )
         .connection_limits(limits)
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
-        .connection_event_buffer_size(64)
+        .per_connection_event_buffer_size(64)
         .build();
 
         // Subscribe to gossipsub topics with the network name suffix
@@ -425,7 +424,7 @@ async fn handle_network_message(
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {
-                let listeners: Vec<_> = Swarm::listeners(swarm).cloned().collect();
+                let listeners = Swarm::listeners(swarm).cloned().collect();
                 let peer_id = Swarm::local_peer_id(swarm);
 
                 if response_channel.send((*peer_id, listeners)).is_err() {
@@ -433,20 +432,16 @@ async fn handle_network_message(
                 }
             }
             NetRPCMethods::NetPeers(response_channel) => {
-                let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> =
-                    swarm.behaviour_mut().peer_addresses();
-
-                if response_channel.send(peer_addresses.to_owned()).is_err() {
+                let peer_addresses = swarm.behaviour_mut().peer_addresses();
+                if response_channel.send(peer_addresses.clone()).is_err() {
                     warn!("Failed to get Libp2p peers");
                 }
             }
-            NetRPCMethods::NetConnect(response_channel, peer_id, mut addresses) => {
+            NetRPCMethods::NetConnect(response_channel, peer_id, addresses) => {
                 let mut success = false;
 
-                for multiaddr in addresses.iter_mut() {
-                    multiaddr.push(Protocol::P2p(
-                        Multihash::from_bytes(&peer_id.to_bytes()).unwrap(),
-                    ));
+                for mut multiaddr in addresses {
+                    multiaddr.push(Protocol::P2p(peer_id.into()));
 
                     if Swarm::dial(swarm, multiaddr.clone()).is_ok() {
                         success = true;
@@ -469,15 +464,15 @@ async fn handle_network_message(
 }
 
 async fn handle_discovery_event(
-    discovery_out: DiscoveryOut,
+    discovery_out: DiscoveryEvent,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
     match discovery_out {
-        DiscoveryOut::Connected(peer_id, _) => {
+        DiscoveryEvent::PeerConnected(peer_id) => {
             debug!("Peer connected, {:?}", peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
-        DiscoveryOut::Disconnected(peer_id, _) => {
+        DiscoveryEvent::PeerDisconnected(peer_id) => {
             debug!("Peer disconnected, {:?}", peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
@@ -485,12 +480,12 @@ async fn handle_discovery_event(
 }
 
 async fn handle_gossip_event(
-    e: GossipsubEvent,
+    e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) {
-    if let GossipsubEvent::Message {
+    if let gossipsub::Event::Message {
         propagation_source: source,
         message,
         message_id: _,
@@ -539,14 +534,14 @@ async fn handle_gossip_event(
 
 async fn handle_hello_event(
     hello: &mut HelloBehaviour,
-    event: RequestResponseEvent<HelloRequest, HelloResponse, HelloResponse>,
+    event: request_response::Event<HelloRequest, HelloResponse, HelloResponse>,
     peer_manager: &Arc<PeerManager>,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
     match event {
-        RequestResponseEvent::Message { peer, message } => match message {
-            RequestResponseMessage::Request {
+        request_response::Event::Message { peer, message } => match message {
+            request_response::Message::Request {
                 request,
                 channel,
                 request_id: _,
@@ -603,7 +598,7 @@ async fn handle_hello_event(
                     }
                 }
             }
-            RequestResponseMessage::Response {
+            request_response::Message::Response {
                 request_id,
                 response,
             } => {
@@ -615,7 +610,7 @@ async fn handle_hello_event(
                 hello.handle_response(&request_id, response).await;
             }
         },
-        RequestResponseEvent::OutboundFailure {
+        request_response::Event::OutboundFailure {
             request_id,
             peer,
             error: _,
@@ -623,14 +618,14 @@ async fn handle_hello_event(
             hello.on_error(&request_id);
             peer_manager.mark_peer_bad(peer).await;
         }
-        RequestResponseEvent::InboundFailure {
+        request_response::Event::InboundFailure {
             request_id,
             peer: _,
             error: _,
         } => {
             hello.on_error(&request_id);
         }
-        RequestResponseEvent::ResponseSent { .. } => (),
+        request_response::Event::ResponseSent { .. } => (),
     }
 }
 
@@ -672,7 +667,7 @@ async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManag
 
 async fn handle_chain_exchange_event<DB>(
     chain_exchange: &mut ChainExchangeBehaviour,
-    ce_event: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>,
+    ce_event: request_response::Event<ChainExchangeRequest, ChainExchangeResponse>,
     db: &Arc<ChainStore<DB>>,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
@@ -684,9 +679,9 @@ async fn handle_chain_exchange_event<DB>(
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
 {
     match ce_event {
-        RequestResponseEvent::Message { peer, message } => {
+        request_response::Event::Message { peer, message } => {
             match message {
-                RequestResponseMessage::Request {
+                request_response::Message::Request {
                     request,
                     channel,
                     request_id,
@@ -708,7 +703,7 @@ async fn handle_chain_exchange_event<DB>(
                         }
                     });
                 }
-                RequestResponseMessage::Response {
+                request_response::Message::Response {
                     request_id,
                     response,
                 } => {
@@ -723,14 +718,14 @@ async fn handle_chain_exchange_event<DB>(
                 }
             }
         }
-        RequestResponseEvent::OutboundFailure {
+        request_response::Event::OutboundFailure {
             peer: _,
             request_id,
             error,
         } => {
             chain_exchange.on_outbound_error(&request_id, error);
         }
-        RequestResponseEvent::InboundFailure {
+        request_response::Event::InboundFailure {
             peer,
             error,
             request_id: _,
@@ -740,7 +735,7 @@ async fn handle_chain_exchange_event<DB>(
                 peer, error
             );
         }
-        RequestResponseEvent::ResponseSent { request_id, .. } => {
+        request_response::Event::ResponseSent { request_id, .. } => {
             emit_event(
                 network_sender_out,
                 NetworkEvent::ChainExchangeResponseOutbound { request_id },

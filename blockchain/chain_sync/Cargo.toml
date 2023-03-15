@@ -12,7 +12,6 @@ anyhow.workspace = true
 async-trait.workspace = true
 cid.workspace = true
 flume.workspace = true
-forest_actor_interface.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_crypto = { workspace = true, features = ["blst"] }

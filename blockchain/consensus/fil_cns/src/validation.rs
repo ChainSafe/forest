@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use cid::Cid;
+use fil_actor_interface::power;
 use fil_actors_runtime_v9::runtime::DomainSeparationTag;
-use forest_actor_interface::power;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
@@ -210,15 +210,15 @@ fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
         .start_timer();
 
     let actor = state_manager
-        .get_actor(&power::ADDRESS, *tipset_state)
+        .get_actor(&Address::POWER_ACTOR, *tipset_state)
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
         .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
 
-    let state = power::State::load(state_manager.blockstore(), &actor)
+    let state = power::State::load(state_manager.blockstore(), &actor.into())
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     state
-        .miner_power(state_manager.blockstore(), miner_addr)
+        .miner_power(state_manager.blockstore(), &miner_addr.into())
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;
 
     Ok(())

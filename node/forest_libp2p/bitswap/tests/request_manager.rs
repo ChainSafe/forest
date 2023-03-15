@@ -14,12 +14,8 @@ mod tests {
         Block, Cid,
     };
     use libp2p::{
-        core,
-        identity::Keypair,
-        multiaddr::Protocol,
-        noise,
-        swarm::{ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, SwarmEvent},
-        tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
+        core, identity::Keypair, multiaddr::Protocol, noise, swarm::SwarmEvent, tcp, yamux,
+        Multiaddr, PeerId, Swarm, Transport,
     };
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
@@ -151,7 +147,7 @@ mod tests {
     fn handle_swarm_event(
         swarm: &mut Swarm<BitswapBehaviour>,
         swarm_event_opt: Option<
-            SwarmEvent<BitswapBehaviourEvent, <<<BitswapBehaviour as NetworkBehaviour>::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::Error>,
+            SwarmEvent<BitswapBehaviourEvent, libp2p::swarm::THandlerErr<BitswapBehaviour>>,
         >,
         store: &impl BitswapStoreRead,
     ) -> Result<()> {

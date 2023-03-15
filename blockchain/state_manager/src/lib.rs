@@ -5,6 +5,8 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+pub use utils::is_valid_for_sending;
+
 mod vm_circ_supply;
 
 use std::{num::NonZeroUsize, sync::Arc};
@@ -12,8 +14,8 @@ use std::{num::NonZeroUsize, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
+use fil_actor_interface::*;
 use fil_actors_runtime_v9::runtime::Policy;
-use forest_actor_interface::*;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
@@ -41,6 +43,7 @@ use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
+use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
@@ -291,12 +294,12 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
-            .get_actor(&forest_actor_interface::power::ADDRESS, *state_cid)?
+            .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor)?;
+        let spas = power::State::load(self.blockstore(), &actor.into())?;
 
-        Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
+        Ok(spas.miner_power(self.blockstore(), &addr.into())?.is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
@@ -313,11 +316,11 @@ where
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act)?;
+        let ms = miner::State::load(self.blockstore(), &act.into())?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker().into())?;
         Ok(addr)
     }
 
@@ -329,22 +332,22 @@ where
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(&forest_actor_interface::power::ADDRESS, *state_cid)?
+            .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor)?;
+        let spas = power::State::load(self.blockstore(), &actor.into())?;
 
         let t_pow = spas.total_power();
 
         if let Some(maddr) = addr {
             let m_pow = spas
-                .miner_power(self.blockstore(), maddr)?
+                .miner_power(self.blockstore(), &maddr.into())?
                 .ok_or_else(|| Error::State(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config.policy,
                 self.blockstore(),
-                maddr,
+                &maddr.into(),
             )?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
@@ -378,7 +381,7 @@ where
         let db = self.blockstore().clone();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
-        let create_vm = |state_root, epoch| {
+        let create_vm = |state_root, epoch, timestamp| {
             VM::new(
                 state_root,
                 self.blockstore().clone(),
@@ -392,15 +395,22 @@ where
                 &self.engine_v2,
                 &self.engine_v3,
                 Arc::clone(self.chain_config()),
-                tipset.min_timestamp(),
+                timestamp,
             )
         };
 
         let mut parent_state = *p_state;
+        let genesis_timestamp = Lazy::new(|| {
+            self.chain_store()
+                .genesis()
+                .expect("could not find genesis block!")
+                .timestamp()
+        });
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
-                let mut vm = create_vm(parent_state, epoch_i)?;
+                let timestamp = *genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
                     error!("Beginning of epoch cron failed to run: {}", e);
@@ -414,7 +424,7 @@ where
             }
         }
 
-        let mut vm = create_vm(parent_state, epoch)?;
+        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // Apply tipset messages
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
@@ -686,23 +696,20 @@ where
         }
 
         let actor = self
-            .get_actor(
-                &forest_actor_interface::power::ADDRESS,
-                *base_tipset.parent_state(),
-            )?
+            .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let power_state = power::State::load(self.blockstore(), &actor)?;
+        let power_state = power::State::load(self.blockstore(), &actor.into())?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
 
-        let miner_state = miner::State::load(self.blockstore(), &actor)?;
+        let miner_state = miner::State::load(self.blockstore(), &actor.into())?;
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), address)?
+            .miner_power(self.blockstore(), &address.into())?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -1116,12 +1123,12 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(&forest_actor_interface::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
 
-        let market_state = market::State::load(self.blockstore(), &actor)?;
+        let market_state = market::State::load(self.blockstore(), &actor.into())?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
@@ -1131,12 +1138,14 @@ where
             escrow: {
                 market_state
                     .escrow_table(self.blockstore())?
-                    .get(&new_addr)?
+                    .get(&new_addr.into())?
+                    .into()
             },
             locked: {
                 market_state
                     .locked_table(self.blockstore())?
-                    .get(&new_addr)?
+                    .get(&new_addr.into())?
+                    .into()
             },
         };
 
@@ -1151,7 +1160,7 @@ where
         ts: &Arc<Tipset>,
     ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
-            Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
+            Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
                 return Err(
                     Error::Other("cannot resolve actor address to key address".to_string()).into(),
@@ -1159,6 +1168,15 @@ where
             }
             _ => {}
         };
+
+        // First try to resolve the actor in the parent state, so we don't have to
+        // compute anything.
+        let state = StateTree::new_from_root(self.blockstore(), ts.parent_state())?;
+        if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
+            return Ok(addr);
+        }
+
+        // If that fails, compute the tip-set and try again.
         let (st, _) = self.tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
@@ -1174,11 +1192,11 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
         let actor = self
-            .get_actor(&forest_actor_interface::power::ADDRESS, *ts.parent_state())?
+            .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let ps = power::State::load(self.blockstore(), &actor)?;
+        let ps = power::State::load(self.blockstore(), &actor.into())?;
 
-        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
+        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
     }
 
     pub async fn validate_chain(

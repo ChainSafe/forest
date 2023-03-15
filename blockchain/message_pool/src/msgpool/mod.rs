@@ -279,7 +279,7 @@ where
         for (_, msg) in hm {
             let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
-                error!("Failed to readd message from reorg to mpool: {}", e);
+                error!("Failed to read message from reorg to mpool: {}", e);
             }
         }
     }

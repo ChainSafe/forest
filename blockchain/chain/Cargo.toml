@@ -15,7 +15,6 @@ bls-signatures.workspace = true
 cid.workspace = true
 digest.workspace = true
 flume.workspace = true
-forest_actor_interface.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_db.workspace = true
@@ -42,6 +41,7 @@ num.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
+tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
