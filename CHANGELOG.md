@@ -5,7 +5,6 @@ Notable updates:
 - Support for nv18.
 
 ### Added
-<<<<<<< HEAD
 
 - [database] added ParityDb statistics to the stats endpoint.
   [#2444](https://github.com/ChainSafe/forest/pull/2444)
@@ -24,6 +23,7 @@ Notable updates:
   [#2579](https://github.com/ChainSafe/forest/pull/2579)
 * [forest-cli info] Added forest info command. 
   [#2578](https://github.com/ChainSafe/forest/pull/2578)
+
 ### Changed
 
 - [database] Move blockstore meta-data to standalone files.
