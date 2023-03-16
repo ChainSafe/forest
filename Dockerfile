@@ -30,7 +30,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY --from=xx / /
 
 # install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang protobuf-compiler cmake
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang cmake
 
 # export TARGETPLATFORM
 ARG TARGETPLATFORM
