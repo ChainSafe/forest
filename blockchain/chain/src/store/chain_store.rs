@@ -31,7 +31,10 @@ use forest_shim::{
     state_tree::StateTree,
 };
 use forest_utils::{
-    db::{file_backed_obj::FileBacked, BlockstoreExt},
+    db::{
+        file_backed_obj::{FileBacked, SYNC_PERIOD},
+        BlockstoreExt,
+    },
     io::Checksum,
 };
 use futures::Future;
@@ -150,10 +153,12 @@ where
         let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("HEAD"),
             || TipsetKeys::new(vec![*genesis_block_header.cid()]),
+            None,
         )?);
         let file_backed_validated_blocks = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("VALIDATED_BLOCKS"),
             HashSet::default,
+            Some(SYNC_PERIOD),
         )?);
 
         let cs = Self {
