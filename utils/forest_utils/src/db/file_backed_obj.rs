@@ -228,6 +228,7 @@ mod tests {
         obj1.with_inner(|inner| *inner = cid1)?;
         // Check if content of file still match the old cid0 value
         let result = std::fs::read(file_path.as_path())?;
+        ensure!(obj1.inner() == &cid1);
         ensure!(serialized0 == result);
 
         // Wait for the period
