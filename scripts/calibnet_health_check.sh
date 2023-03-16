@@ -72,12 +72,13 @@ echo "Wallet tests"
 FIL_AMT=500
 # Admin token used when interacting with wallet
 ADMIN_TOKEN=$(cat admin_token)
-# Wallet addresses: 
-# A preloaded address
-ADDR_ONE=t1ac6ndwj6nghqbmtbovvnwcqo577p6ox2pt52q2y
 
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet import preloaded_wallet.key
+
+# The preloaded address
+ADDR_ONE=$($FOREST_CLI_PATH --chain calibnet --token "$ADMIN_TOKEN" wallet list | tail -1 | cut -d ' ' -f1)
+
 sleep 5s
 
 echo "Exporting key"
