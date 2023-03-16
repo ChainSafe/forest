@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn with_inner_with_period() -> Result<()> {
-        const TEST_SYNC_PERIOD: Duration = Duration::from_millis(500);
+        const TEST_SYNC_PERIOD: Duration = Duration::from_millis(1);
 
         let mut bytes = [0; 1024];
         rand::rngs::OsRng.fill(&mut bytes);
