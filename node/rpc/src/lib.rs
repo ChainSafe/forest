@@ -131,8 +131,8 @@ where
     );
 
     let app = axum::Router::new()
-        .route("/rpc/v0", get(rpc_ws_handler::<DB, B>))
-        .route("/rpc/v0", post(rpc_http_handler::<DB, B>))
+        .route("/rpc/v0", get(rpc_ws_handler))
+        .route("/rpc/v0", post(rpc_http_handler))
         .with_state(rpc_server);
 
     info!("Ready for RPC connections");
