@@ -24,9 +24,7 @@ use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_h
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use forest_libp2p::{
-    ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
-};
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -87,13 +85,21 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let net_keypair = match get_keypair(&path.join("keypair")) {
         Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
         None => {
-            let gen_keypair = ed25519::Keypair::generate();
+            let gen_keypair = forest_libp2p::Keypair::generate_ed25519();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
+            let file = write_to_file(
+                &gen_keypair
+                    .clone()
+                    .into_ed25519()
+                    .ok_or(anyhow::anyhow!("couldn't convert keypair to ed25519"))?
+                    .encode(),
+                &path,
+                "keypair",
+            )?;
             // Restrict permissions on files containing private keys
             forest_utils::io::set_user_perm(&file)?;
-            Ok(Keypair::Ed25519(gen_keypair))
+            Ok(gen_keypair)
         }
     }?;
 
