@@ -14,7 +14,6 @@ cid.workspace = true
 flume.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_encoding.workspace = true
 forest_libp2p.workspace = true
@@ -46,6 +45,7 @@ tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 base64.workspace = true
+forest_json.workspace = true
 forest_test_utils.workspace = true
 quickcheck_macros.workspace = true
 serde_json.workspace = true

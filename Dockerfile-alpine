@@ -21,7 +21,7 @@ FROM alpine AS build-env
 
 # Install dependencies
 RUN apk update
-RUN apk add git curl protobuf make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
+RUN apk add git curl make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
 RUN update-ca-certificates
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

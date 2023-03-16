@@ -446,7 +446,7 @@ mod test {
         multihash::{Code::Identity, MultihashDigest},
         Cid,
     };
-    use forest_crypto::VRFProof;
+    use forest_json::vrf::VRFProof;
     use forest_shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
