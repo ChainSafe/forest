@@ -3704,8 +3704,11 @@ dependencies = [
  "anyhow",
  "blake2b_simd",
  "cs_serde_bytes",
+ "fvm_ipld_encoding 0.3.3",
+ "rand 0.8.5",
  "serde",
  "serde_ipld_dagcbor",
+ "serde_json",
  "serde_repr",
  "serde_tuple",
 ]
