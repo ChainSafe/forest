@@ -50,7 +50,10 @@ pub async fn rpc_ws_handler(
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     let authorization_header = get_auth_header(headers);
-    ws.on_upgrade(move |socket| rpc_ws_handler_inner(socket, authorization_header, rpc_server))
+    #[allow(clippy::redundant_async_block)]
+    ws.on_upgrade(move |socket| async {
+        rpc_ws_handler_inner(socket, authorization_header, rpc_server).await
+    })
 }
 
 async fn rpc_ws_handler_inner(

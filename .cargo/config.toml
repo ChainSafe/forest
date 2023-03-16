@@ -39,4 +39,4 @@ git-fetch-with-cli = true
 retry = 5
 
 [registries.crates-io]
-protocol = 'sparse'
+protocol = "sparse"
