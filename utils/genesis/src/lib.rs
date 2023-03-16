@@ -145,7 +145,7 @@ where
     // Update head with snapshot header tipset
     sm.chain_store().set_heaviest_tipset(ts.clone())?;
 
-    //sm.blockstore().flush()?;
+    sm.blockstore().flush()?;
 
     if let Some(height) = validate_height {
         let height = if height > 0 {
