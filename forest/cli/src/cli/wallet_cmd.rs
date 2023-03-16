@@ -156,7 +156,7 @@ impl WalletCommands {
                 let response = wallet_default_address((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?
-                    .unwrap_or("No default wallet address set".to_string());
+                    .unwrap_or_else(|| "No default wallet address set".to_string());
                 println!("{response}");
                 Ok(())
             }
@@ -209,7 +209,7 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                    let default = wallet_default_address((), &config.client.rpc_token)
+                let default = wallet_default_address((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
@@ -219,7 +219,6 @@ impl WalletCommands {
 
                 for address in response {
                     let addr = address.0.to_string();
-
                     let default_address_mark = if default.as_ref() == Some(&addr) {
                         "X"
                     } else {
