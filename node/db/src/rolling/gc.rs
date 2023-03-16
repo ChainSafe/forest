@@ -43,6 +43,22 @@
 //! the last reachable data size
 //! 2. GC can be triggered manually by `forest-cli db gc` command
 //! 3. There's global GC lock to ensure at most one GC job is running
+//!
+//! ## Performance
+//! GC performance is typically 1x-1.5x of `snapshot export`, depending on
+//! number of write operations to the `current` DB space.
+//!
+//! ### Look up performance
+//! DB lookup performance is almost on-par between from single DB and two DBs.
+//! Time cost of `forest-cli snapshot export --dry-run` on DO droplet with 16GiB
+//! ram is between `9000s` to `11000s` for both scenarios, no significant
+//! performance regression has been observed
+//!
+//! ### Write performance
+//! DB write performance is typically on-par with `snapshot import`, note that
+//! when the `current` DB space is very large, it tends to trigger DB re-index
+//! more frequently, each DB re-index could pause the GC process for a few
+//! minutes. The same behaviour is observed during snapshot import as well.
 
 use std::{
     sync::atomic::{self, AtomicU64, AtomicUsize},
@@ -58,6 +74,9 @@ use tokio::sync::Mutex;
 
 use super::*;
 use crate::{Store, StoreExt};
+
+/// 100GiB
+const ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START: u64 = 100 * 1024_u64.pow(3);
 
 pub struct DbGarbageCollector<F>
 where
@@ -84,7 +103,7 @@ where
             lock: Default::default(),
             gc_tx,
             gc_rx,
-            last_reachable_bytes: AtomicU64::new(0),
+            last_reachable_bytes: AtomicU64::new(ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START),
         }
     }
 
@@ -92,6 +111,8 @@ where
         self.gc_tx.clone()
     }
 
+    /// This loop automatically triggers `collect_once` when the total DB size
+    /// is greater than 2x of the last reachable data size
     pub async fn collect_loop_passive(&self) -> anyhow::Result<()> {
         loop {
             // Check every 10 mins
@@ -111,18 +132,15 @@ where
                 }
             }
 
-            if let (Ok(total_size), Ok(current_size), last_reachable_bytes) = (
+            if let (Ok(total_size), mut last_reachable_bytes) = (
                 self.db.total_size_in_bytes(),
-                self.db.current_size_in_bytes(),
                 self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
             ) {
-                let should_collect = if last_reachable_bytes > 0 {
-                    total_size > 2 * last_reachable_bytes
-                } else {
-                    total_size > 0 && current_size * 3 > total_size
-                };
+                if last_reachable_bytes == 0 {
+                    last_reachable_bytes = ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START;
+                }
 
-                if should_collect {
+                if total_size > 2 * last_reachable_bytes {
                     if let Err(err) = self.collect_once(tipset).await {
                         warn!("Garbage collection failed: {err}");
                     }
@@ -131,6 +149,8 @@ where
         }
     }
 
+    /// This loop listens on events emitted by `forest-cli db gc` and triggers
+    /// `collect_once`
     pub async fn collect_loop_event(self: &Arc<Self>) -> anyhow::Result<()> {
         while let Ok(responder) = self.gc_rx.recv_async().await {
             let this = self.clone();
@@ -146,6 +166,12 @@ where
         Ok(())
     }
 
+    /// ## GC workflow
+    /// 1. Walk back from the current heaviest tipset to the genesis block,
+    /// collect all the blocks that are reachable from the snapshot
+    /// 2. writes blocks that are absent from the `current` database to it
+    /// 3. delete `old` database(s)
+    /// 4. sets `current` database to a newly created one
     async fn collect_once(&self, tipset: Tipset) -> anyhow::Result<()> {
         let guard = self.lock.try_lock();
         if guard.is_err() {
