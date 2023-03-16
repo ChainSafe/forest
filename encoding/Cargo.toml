@@ -19,4 +19,4 @@ serde_tuple = "0.5"
 anyhow.workspace = true
 cs_serde_bytes = "0.12.2"
 rand.workspace = true
-serde_json.workspace=true
+serde_json.workspace = true

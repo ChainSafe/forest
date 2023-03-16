@@ -122,6 +122,8 @@ mod tests {
 
     #[test]
     fn parity_tests() -> anyhow::Result<()> {
+        use cs_serde_bytes;
+
         #[derive(Deserialize, Serialize)]
         struct A(#[serde(with = "fvm_ipld_encoding3::strict_bytes")] Vec<u8>);
 
