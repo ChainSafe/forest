@@ -199,10 +199,10 @@ where
                 let block = db
                     .get(&cid)?
                     .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
+
+                let pair = (cid.to_bytes(), block.clone());
+                reachable_bytes.fetch_add(pair.0.len() + pair.1.len(), atomic::Ordering::Relaxed);
                 if !db.current().has(&cid)? {
-                    let pair = (cid.to_bytes(), block.clone());
-                    reachable_bytes
-                        .fetch_add(pair.0.len() + pair.1.len(), atomic::Ordering::Relaxed);
                     tx.send_async(pair).await?;
                 }
 
