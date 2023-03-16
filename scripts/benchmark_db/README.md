@@ -1,20 +1,29 @@
 # Forest benchmark db script
 
 This script was developed to help with testing of Forest db backends and their
-configuration; the script now also allows benchmarking ("daily" benchmarks) of Forest and Lotus
-snapshot import times (in min:sec) and validation times (in tipsets/min).
+configuration; the script now also allows benchmarking ("daily" benchmarks) of
+Forest and Lotus snapshot import times (in min:sec) and validation times (in
+tipsets/min).
 
 ## Install dependencies
 
-[Install Ruby](https://www.ruby-lang.org/en/documentation/installation/) first. Then go into `/forest/scripts/benchmark_db` and execute:
+[Install Ruby](https://www.ruby-lang.org/en/documentation/installation/) first.
+Then go into `/forest/scripts/benchmark_db` and execute:
 
 ```
 $ bundle install
 ```
 
-Note: depending upon your Ruby installation, it may be necessary to execute `gem install bundler` first. In case of any issues with "native extensions" during `bundle install` on a \*nix machine, it may also be necessary to execute `apt-get update && apt-get install -y build-essential`.
+Note: depending upon your Ruby installation, it may be necessary to execute
+`gem install bundler` first. In case of any issues with "native extensions"
+during `bundle install` on a \*nix machine, it may also be necessary to execute
+`apt-get update && apt-get install -y build-essential`.
 
-The daily benchmarks also require installation of [aria2](https://github.com/aria2/aria2), as well as dependencies required for the installation of [Forest](https://github.com/ChainSafe/forest) and [Lotus](https://github.com/filecoin-project/lotus) (note that the script handles installation of the Forest and Lotus binaries).
+The daily benchmarks also require installation of
+[aria2](https://github.com/aria2/aria2), as well as dependencies required for
+the installation of [Forest](https://github.com/ChainSafe/forest) and
+[Lotus](https://github.com/filecoin-project/lotus) (note that the script handles
+installation of the Forest and Lotus binaries).
 
 ## Run benchmarks
 
@@ -24,13 +33,27 @@ Run the script at the root of the repository. I.e.,:
 $ ./scripts/benchmark_db/bench.rb <path to snapshot> <optional flags>
 ```
 
-If the user does not specify a path to a snapshot, the script will automatically download a fresh snapshot, then pause for 5 minutes to allow the network to advance to ensure that enough time will be spent in the `message sync` stage for proper calculation of the validation time metric. Also note that if `--chain` is specified, the user must provide a script matching the specified `<chain>` (the script defaults to `mainnet`, so if `--chain` is not specified, provide a `mainnet` snapshot).
+If the user does not specify a path to a snapshot, the script will automatically
+download a fresh snapshot, then pause for 5 minutes to allow the network to
+advance to ensure that enough time will be spent in the `message sync` stage for
+proper calculation of the validation time metric. Also note that if `--chain` is
+specified, the user must provide a script matching the specified `<chain>` (the
+script defaults to `mainnet`, so if `--chain` is not specified, provide a
+`mainnet` snapshot).
 
-If the `--daily` flag is included in the command line arguments, the script will run the daily benchmarks specified earlier; otherwise the script will run the backend metrics.
+If the `--daily` flag is included in the command line arguments, the script will
+run the daily benchmarks specified earlier; otherwise the script will run the
+backend metrics.
 
-On many machines, running the script with `--chain mainnet` may require more space than allocated to the `tmp` partition. To address this, specify the `--tempdir` flag with a user-defined directory (important note: the user must manually create this directory prior to running the script).
+On many machines, running the script with `--chain mainnet` may require more
+space than allocated to the `tmp` partition. To address this, specify the
+`--tempdir` flag with a user-defined directory (important note: the user must
+manually create this directory prior to running the script).
 
-To create a selection of benchmarks, use the `--pattern` flag (current defined patterns are `'*'`, `'baseline'`, `'jemalloc'`, and `'mimalloc'`). Using `--dry-run` outputs to the terminal the commands the script will run (without actually running the commands):
+To create a selection of benchmarks, use the `--pattern` flag (current defined
+patterns are `'*'`, `'baseline'`, `'jemalloc'`, and `'mimalloc'`). Using
+`--dry-run` outputs to the terminal the commands the script will run (without
+actually running the commands):
 
 ```
 $ ./scripts/benchmark_db/bench.rb <path to snapshot> --chain calibnet --pattern jemalloc --dry-run
@@ -85,4 +108,7 @@ $ ./lotus/lotus daemon
 Wrote result_<time>.csv
 ```
 
-As seen in these examples, if `--daily` is passed in the command line, daily benchmark results are written to a CSV in the current directory with naming format `result_<time>.csv`. Otherwise, backend benchmark results will be written to a markdown file with a similar naming convention.
+As seen in these examples, if `--daily` is passed in the command line, daily
+benchmark results are written to a CSV in the current directory with naming
+format `result_<time>.csv`. Otherwise, backend benchmark results will be written
+to a markdown file with a similar naming convention.
