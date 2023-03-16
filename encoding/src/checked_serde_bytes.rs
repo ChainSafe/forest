@@ -47,10 +47,10 @@ pub mod serde_byte_array {
 #[cfg(test)]
 mod tests {
     use anyhow::{ensure, Result};
+    use rand::Rng;
     use serde::{Deserialize, Serialize};
 
-    use super::serde_byte_array;
-    use crate::BYTE_ARRAY_MAX_LEN;
+    use super::*;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     struct ByteArray {
@@ -117,6 +117,25 @@ mod tests {
                 .unwrap()
         )
         .contains("Array exceed max length"));
+        Ok(())
+    }
+
+    #[test]
+    fn parity_tests() -> anyhow::Result<()> {
+        #[derive(Deserialize, Serialize)]
+        struct A(#[serde(with = "fvm_ipld_encoding3::strict_bytes")] Vec<u8>);
+
+        #[derive(Deserialize, Serialize)]
+        struct B(#[serde(with = "cs_serde_bytes")] Vec<u8>);
+
+        let mut array = [0; 1024];
+        rand::rngs::OsRng.fill(&mut array);
+
+        let a = A(array.to_vec());
+        let b = B(array.to_vec());
+
+        ensure!(serde_json::to_string_pretty(&a)? == serde_json::to_string_pretty(&b)?);
+
         Ok(())
     }
 }
