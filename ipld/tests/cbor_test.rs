@@ -50,7 +50,7 @@ fn cid_conversions_ipld() {
         details: cid,
     };
     assert_eq!(
-        to_ipld(&m_s).unwrap(),
+        to_ipld(m_s).unwrap(),
         ipld!({"name": "s", "details": Ipld::Link(cid) })
     );
     let serialized = to_vec(&cid).unwrap();
