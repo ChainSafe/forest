@@ -1,9 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_beacon::Beacon;
 use forest_rpc_api::{auth_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP};
-use fvm_ipld_blockstore::Blockstore;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use log::{debug, error};
 use serde::de::DeserializeOwned;
@@ -41,15 +39,11 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
-pub async fn check_permissions<DB, B>(
+pub async fn check_permissions(
     rpc_server: JsonRpcServerState,
     method: &str,
     authorization_header: Option<HeaderValue>,
-) -> Result<(), (StatusCode, String)>
-where
-    DB: Blockstore,
-    B: Beacon,
-{
+) -> Result<(), (StatusCode, String)> {
     let claims = match authorization_header {
         Some(token) => {
             let token = token

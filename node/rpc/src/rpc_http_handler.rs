@@ -2,25 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use axum::response::IntoResponse;
-use forest_beacon::Beacon;
 use forest_rpc_api::data_types::JsonRpcServerState;
-use fvm_ipld_blockstore::Blockstore;
 use http::{HeaderMap, StatusCode};
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
-pub async fn rpc_http_handler<DB, B>(
+pub async fn rpc_http_handler(
     headers: HeaderMap,
     axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
     axum::Json(rpc_call): axum::Json<JsonRpcRequestObject>,
-) -> impl IntoResponse
-where
-    DB: Blockstore + Send + Sync + 'static,
-    B: Beacon,
-{
+) -> impl IntoResponse {
     let response_headers = [("content-type", "application/json-rpc;charset=utf-8")];
-    if let Err((code, msg)) = check_permissions::<DB, B>(
+    if let Err((code, msg)) = check_permissions(
         rpc_server.clone(),
         rpc_call.method_ref(),
         get_auth_header(headers),

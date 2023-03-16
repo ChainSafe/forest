@@ -13,7 +13,6 @@ base64.workspace = true
 cid.workspace = true
 derive_builder.workspace = true
 forest_beacon.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
 forest_encoding.workspace = true
 forest_json.workspace = true
 forest_message = { workspace = true, features = ["blst"] }

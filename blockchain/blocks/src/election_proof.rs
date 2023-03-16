@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_crypto::VRFProof;
 use forest_encoding::{blake2b_256, tuple::*};
+use forest_json::vrf::VRFProof;
 use fvm_shared::BLOCKS_PER_EPOCH;
 use lazy_static::lazy_static;
 use num::{
@@ -184,7 +184,7 @@ impl quickcheck::Arbitrary for ElectionProof {
 }
 
 pub mod json {
-    use forest_crypto::vrf;
+    use forest_json::vrf;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
