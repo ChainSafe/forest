@@ -11,31 +11,25 @@ use axum::{
     response::IntoResponse,
 };
 use crossbeam::atomic::AtomicCell;
-use forest_beacon::Beacon;
 use forest_rpc_api::data_types::JsonRpcServerState;
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use fvm_ipld_blockstore::Blockstore;
 use http::{HeaderMap, HeaderValue};
 use log::{debug, error, info, warn};
 use tokio::sync::RwLock;
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
 
-async fn rpc_ws_task<DB, B>(
+async fn rpc_ws_task(
     authorization_header: Option<HeaderValue>,
     rpc_call: jsonrpc_v2::RequestObject,
     rpc_server: JsonRpcServerState,
     _is_socket_active: Arc<AtomicCell<bool>>,
     ws_sender: Arc<RwLock<SplitSink<WebSocket, Message>>>,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore,
-    B: Beacon,
-{
+) -> anyhow::Result<()> {
     let call_method = rpc_call.method_ref();
     let _call_id = rpc_call.id_ref();
 
-    check_permissions::<DB, B>(rpc_server.clone(), call_method, authorization_header)
+    check_permissions(rpc_server.clone(), call_method, authorization_header)
         .await
         .map_err(|(_, e)| anyhow::Error::msg(e))?;
 
@@ -50,29 +44,23 @@ where
     Ok(())
 }
 
-pub async fn rpc_ws_handler<DB, B>(
+pub async fn rpc_ws_handler(
     headers: HeaderMap,
     axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
     ws: WebSocketUpgrade,
-) -> impl IntoResponse
-where
-    DB: Blockstore,
-    B: Beacon,
-{
+) -> impl IntoResponse {
     let authorization_header = get_auth_header(headers);
+    #[allow(clippy::redundant_async_block)]
     ws.on_upgrade(move |socket| async {
-        rpc_ws_handler_inner::<DB, B>(socket, authorization_header, rpc_server).await
+        rpc_ws_handler_inner(socket, authorization_header, rpc_server).await
     })
 }
 
-async fn rpc_ws_handler_inner<DB, B>(
+async fn rpc_ws_handler_inner(
     socket: WebSocket,
     authorization_header: Option<HeaderValue>,
     rpc_server: JsonRpcServerState,
-) where
-    DB: Blockstore,
-    B: Beacon,
-{
+) {
     info!("Accepted WS connection!");
     let (sender, mut receiver) = socket.split();
     let ws_sender = Arc::new(RwLock::new(sender));
@@ -92,7 +80,7 @@ async fn rpc_ws_handler_inner<DB, B>(
                 {
                     Ok(rpc_call) => {
                         tokio::task::spawn(async move {
-                            match rpc_ws_task::<DB, B>(
+                            match rpc_ws_task(
                                 authorization_header,
                                 rpc_call,
                                 task_rpc_server,
