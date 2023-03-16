@@ -14,9 +14,6 @@ fi
 
 echo "$1" > preloaded_wallet.key
 
-SNAPSHOT_DIRECTORY="/tmp/snapshots"
-LOG_DIRECTORY="/tmp/log"
-
 TMP_DIR=$(mktemp --directory)
 SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
 LOG_DIRECTORY=$TMP_DIR/logs
