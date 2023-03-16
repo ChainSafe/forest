@@ -29,7 +29,6 @@ members = [
   "node/forest_libp2p",
   "node/forest_libp2p/bitswap",
   "node/forest_libp2p/bitswap/examples/*",
-  "crypto",
   "encoding",
   "ipld",
   "key_management",
@@ -66,7 +65,6 @@ chrono = { version = "0.4", default-features = false, features = [] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
-cs_serde_bytes = "0.12.2"
 derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
@@ -161,7 +159,6 @@ forest_blocks = { path = "./blockchain/blocks" }
 forest_chain = { path = "./blockchain/chain" }
 forest_chain_sync = { path = "./blockchain/chain_sync" }
 forest_cli_shared = { path = "./forest/shared" }
-forest_crypto = { path = "./crypto" }
 forest_db = { path = "./node/db" }
 forest_deleg_cns = { path = "./blockchain/consensus/deleg_cns" }
 forest_encoding = { path = "./encoding" }

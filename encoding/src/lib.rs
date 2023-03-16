@@ -9,7 +9,6 @@ pub mod error {
     };
 }
 
-pub use cs_serde_bytes;
 pub use serde::{de, ser};
 
 pub use self::{checked_serde_bytes::serde_byte_array, hash::*};
