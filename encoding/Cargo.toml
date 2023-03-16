@@ -9,7 +9,7 @@ edition.workspace = true
 
 [dependencies]
 blake2b_simd.workspace = true
-cs_serde_bytes.workspace = true
+fvm_ipld_encoding3.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_repr.workspace = true
