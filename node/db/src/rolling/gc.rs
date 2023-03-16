@@ -75,9 +75,6 @@ use tokio::sync::Mutex;
 use super::*;
 use crate::StoreExt;
 
-/// 100GiB
-const ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START: u64 = 100 * 1024_u64.pow(3);
-
 pub struct DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
@@ -103,7 +100,7 @@ where
             lock: Default::default(),
             gc_tx,
             gc_rx,
-            last_reachable_bytes: AtomicU64::new(ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START),
+            last_reachable_bytes: AtomicU64::new(0),
         }
     }
 
@@ -132,15 +129,18 @@ where
                 }
             }
 
-            if let (Ok(total_size), mut last_reachable_bytes) = (
+            if let (Ok(total_size), Ok(current_size), last_reachable_bytes) = (
                 self.db.total_size_in_bytes(),
+                self.db.current_size_in_bytes(),
                 self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
             ) {
-                if last_reachable_bytes == 0 {
-                    last_reachable_bytes = ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START;
-                }
+                let should_collect = if last_reachable_bytes > 0 {
+                    total_size > 2 * last_reachable_bytes
+                } else {
+                    total_size > 0 && current_size * 3 > total_size
+                };
 
-                if total_size > 2 * last_reachable_bytes {
+                if should_collect {
                     if let Err(err) = self.collect_once(tipset).await {
                         warn!("Garbage collection failed: {err}");
                     }
