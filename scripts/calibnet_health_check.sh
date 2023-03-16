@@ -2,6 +2,13 @@
 
 set -e
 
+FOREST_PATH="forest"
+FOREST_CLI_PATH="forest-cli"
+
+TMP_DIR=$(mktemp --directory)
+SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
+LOG_DIRECTORY=$TMP_DIR/logs
+
 usage() {
   echo "Usage: $0 <PRELOADED_WALLET_STRING>"
   exit 1
@@ -12,14 +19,21 @@ if [ -z "$1" ]
     usage
 fi
 
+function cleanup {
+  # Removing temporary directory $TMP_DIR
+  rm -rf "$TMP_DIR"
+
+  $FOREST_CLI_PATH shutdown --force
+
+  sleep 10s
+  set +e
+  if pgrep -x forest; then
+    echo "Forest is still running"
+  fi
+}
+trap cleanup EXIT
+
 echo "$1" > preloaded_wallet.key
-
-TMP_DIR=$(mktemp --directory)
-SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
-LOG_DIRECTORY=$TMP_DIR/logs
-
-FOREST_PATH="forest"
-FOREST_CLI_PATH="forest-cli"
 
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
@@ -52,7 +66,6 @@ set +e
 $FOREST_CLI_PATH --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && \
 {
     echo "mainnet snapshot validation with calibnet snapshot should fail";
-    $FOREST_CLI_PATH --token "$ADMIN_TOKEN" shutdown --force
     exit 1;
 }
 set -e
@@ -87,7 +100,6 @@ echo "Exporting key"
 $FOREST_CLI_PATH --chain calibnet wallet export "$ADDR_ONE" > preloaded_wallet.test.key
 if ! cmp -s preloaded_wallet.key preloaded_wallet.test.key; then
     echo ".key files should match"
-    $FOREST_CLI_PATH shutdown --force
     exit 1
 fi
 
@@ -128,14 +140,11 @@ $FOREST_CLI_PATH --chain calibnet wallet list
 
 if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
   echo "FIL amount should match"
-  $FOREST_CLI_PATH shutdown --force
   exit 1
 fi
 
 echo "Get and print metrics and logs and stop forest"
 wget -O metrics.log http://localhost:6116/metrics
-
-$FOREST_CLI_PATH shutdown --force
 
 echo "--- Forest STDOUT ---"; cat forest.out
 echo "--- Forest STDERR ---"; cat forest.err
