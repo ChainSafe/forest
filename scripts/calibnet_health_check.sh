@@ -2,6 +2,16 @@
 
 set -e
 
+usage() {
+  echo "Usage: $0 <PRELOADED_WALLET_STRING>"
+  exit 1
+}
+
+if [ -z "$1" ]
+  then
+    usage
+fi
+
 echo "$1" > preloaded_wallet.key
 
 SNAPSHOT_DIRECTORY="/tmp/snapshots"
