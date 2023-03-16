@@ -8,7 +8,7 @@ mod tests {
 
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
-    use forest_db::{rolling::RollingDB, Store};
+    use forest_db::rolling::RollingDB;
     use forest_libp2p_bitswap::BitswapStoreRead;
     use fvm_ipld_blockstore::Blockstore;
     use rand::Rng;

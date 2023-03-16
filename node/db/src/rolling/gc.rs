@@ -73,7 +73,7 @@ use human_repr::HumanCount;
 use tokio::sync::Mutex;
 
 use super::*;
-use crate::{Store, StoreExt};
+use crate::StoreExt;
 
 /// 100GiB
 const ESTIMATED_LAST_REACHABLE_BYTES_FOR_COLD_START: u64 = 100 * 1024_u64.pow(3);
