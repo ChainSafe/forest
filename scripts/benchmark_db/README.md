@@ -12,7 +12,7 @@ snapshot import times (in min:sec) and validation times (in tipsets/min).
 $ bundle install
 ```
 
-Note: depending upon your Ruby installation, it may be necessary to execute `gem install bundler` first.
+Note: depending upon your Ruby installation, it may be necessary to execute `gem install bundler` first. In case of any issues with "native extensions" during `bundle install` on a *nix machine, it may also be necessary to execute `apt-get update && apt-get install -y build-essential`.
 
 The daily benchmarks also require installation of [aria2](https://github.com/aria2/aria2), as well as dependencies required for the installation of [Forest](https://github.com/ChainSafe/forest) and [Lotus](https://github.com/filecoin-project/lotus) (note that the script handles installation of the Forest and Lotus binaries).
 
