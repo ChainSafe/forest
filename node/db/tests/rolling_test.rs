@@ -36,7 +36,7 @@ mod tests {
             if i == split_index {
                 sleep(Duration::from_millis(1));
                 println!("Creating a new current db");
-                rolling_db.next_partition()?;
+                rolling_db.next_current()?;
                 println!("Created a new current db");
             }
             rolling_db.put_keyed(k, block)?;
@@ -50,7 +50,7 @@ mod tests {
             );
         }
 
-        rolling_db.next_partition()?;
+        rolling_db.next_current()?;
 
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {

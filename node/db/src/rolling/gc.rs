@@ -223,7 +223,7 @@ where
             reachable_bytes.human_count_bytes(),
         );
 
-        db.next_partition()?;
+        db.next_current()?;
         Ok(())
     }
 }

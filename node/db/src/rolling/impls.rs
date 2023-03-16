@@ -113,10 +113,6 @@ impl Store for RollingDB {
     fn flush(&self) -> Result<(), crate::Error> {
         Store::flush(&self.current())
     }
-
-    fn next_partition(&self) -> anyhow::Result<()> {
-        self.next_current()
-    }
 }
 
 impl BitswapStoreRead for RollingDB {
@@ -192,7 +188,9 @@ impl RollingDB {
         })
     }
 
-    fn next_current(&self) -> anyhow::Result<()> {
+    /// Sets `current` as `old`, and sets a new DB as `current`, finally delete
+    /// the dangling `old` DB.
+    pub fn next_current(&self) -> anyhow::Result<()> {
         let new_db_name = Uuid::new_v4().simple().to_string();
         let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
         *self.old.write() = self.current.read().clone();
