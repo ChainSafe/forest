@@ -23,6 +23,7 @@
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.2.1 AS xx
 
 FROM --platform=$BUILDPLATFORM buildpack-deps:bullseye AS build-env
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
@@ -30,13 +31,15 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY --from=xx / /
 
 # install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang cmake
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y build-essential clang cmake
 
 # export TARGETPLATFORM
 ARG TARGETPLATFORM
 
 # Install those packages for the target architecture
-RUN xx-apt-get update && xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
+RUN xx-apt-get update && \
+    xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
 
 WORKDIR /forest
 COPY . .
@@ -64,23 +67,26 @@ ARG DATA_DIR=/home/forest/.local/share/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-libopencl1 aria2 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y ocl-icd-libopencl1 aria2 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 RUN update-ca-certificates
 
 # Create user and group and assign appropriate rights to the forest binaries
-RUN addgroup --gid 1000 ${SERVICE_GROUP} && adduser --uid 1000 --ingroup ${SERVICE_GROUP} --disabled-password --gecos "" ${SERVICE_USER}
+RUN addgroup --gid 1000 ${SERVICE_GROUP} && \
+    adduser --uid 1000 --ingroup ${SERVICE_GROUP} --disabled-password --gecos "" ${SERVICE_USER}
 
 # Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /usr/local/bin/
 
 # Initialize data directory with proper permissions
-RUN mkdir -p ${DATA_DIR} && chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
+RUN mkdir -p ${DATA_DIR} && \
+    chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
 
 USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
 
 # Basic verification of dynamically linked dependencies
-RUN forest -V
-RUN forest-cli -V
+RUN forest -V && forest-cli -V
 
 ENTRYPOINT ["forest"]
