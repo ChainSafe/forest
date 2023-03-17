@@ -63,7 +63,7 @@ $FOREST_CLI_PATH attach --exec 'showPeers()'
 
 echo "Validating as mainnet snapshot"
 set +e
-$FOREST_CLI_PATH --chain mainnet snapshot validate "$SNAPSHOT_DIRECTORY/*.car" --force && \
+$FOREST_CLI_PATH --chain mainnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force && \
 {
     echo "mainnet snapshot validation with calibnet snapshot should fail";
     exit 1;
@@ -71,7 +71,7 @@ $FOREST_CLI_PATH --chain mainnet snapshot validate "$SNAPSHOT_DIRECTORY/*.car" -
 set -e
 
 echo "Validating as calibnet snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY/*.car" --force
+$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force
 
 echo "Print forest log files"
 ls -hl "$LOG_DIRECTORY"
