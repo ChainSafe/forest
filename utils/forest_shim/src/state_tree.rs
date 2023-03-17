@@ -233,3 +233,14 @@ impl From<ActorState> for ActorStateV2 {
         }
     }
 }
+
+impl From<&ActorState> for ActorStateV2 {
+    fn from(other: &ActorState) -> ActorStateV2 {
+        ActorStateV2 {
+            code: other.code,
+            state: other.state,
+            sequence: other.sequence,
+            balance: TokenAmount::from(&other.balance).into(),
+        }
+    }
+}

@@ -11,15 +11,12 @@ use std::{
 use ahash::HashMap;
 use cid::Cid;
 use colored::*;
-use fil_actor_account_v9::State as AccountState;
-use fil_actor_cron_v9::State as CronState;
-use fil_actor_init_v9::State as InitState;
-use fil_actor_market_v9::State as MarketState;
-use fil_actor_miner_v9::State as MinerState;
-use fil_actor_multisig_v9::State as MultiSigState;
-use fil_actor_power_v9::State as PowerState;
-use fil_actor_reward_v9::State as RewardState;
-use fil_actor_system_v9::State as SystemState;
+use fil_actor_interface::{
+    account::State as AccountState, cron::State as CronState, datacap::State as DatacapState,
+    evm::State as EvmState, init::State as InitState, market::State as MarketState,
+    miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
+    reward::State as RewardState, system::State as SystemState,
+};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
 use forest_shim::{
@@ -123,51 +120,55 @@ fn pp_actor_state(
     state: &ActorState,
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
-    let resolved = actor_to_resolved(bs, state, depth);
-    let ipld = &resolved.state.0;
     let mut buffer = String::new();
-
     writeln!(&mut buffer, "{state:?}")?;
-
-    // FIXME: Use the actor interface to load and pretty print the actor states.
-    //        Tracker: https://github.com/ChainSafe/forest/issues/1561
-    if let Ok(miner_state) = forest_ipld::from_ipld::<MinerState>(ipld.clone()) {
+    if let Ok(miner_state) = MinerState::load(bs, &state.into()) {
         write!(&mut buffer, "{miner_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(cron_state) = forest_ipld::from_ipld::<CronState>(ipld.clone()) {
+    if let Ok(cron_state) = CronState::load(bs, &state.into()) {
         write!(&mut buffer, "{cron_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(account_state) = forest_ipld::from_ipld::<AccountState>(ipld.clone()) {
+    if let Ok(account_state) = AccountState::load(bs, &state.into()) {
         write!(&mut buffer, "{account_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(power_state) = forest_ipld::from_ipld::<PowerState>(ipld.clone()) {
+    if let Ok(power_state) = PowerState::load(bs, &state.into()) {
         write!(&mut buffer, "{power_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(init_state) = forest_ipld::from_ipld::<InitState>(ipld.clone()) {
+    if let Ok(init_state) = InitState::load(bs, &state.into()) {
         write!(&mut buffer, "{init_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(reward_state) = forest_ipld::from_ipld::<RewardState>(ipld.clone()) {
+    if let Ok(reward_state) = RewardState::load(bs, &state.into()) {
         write!(&mut buffer, "{reward_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(system_state) = forest_ipld::from_ipld::<SystemState>(ipld.clone()) {
+    if let Ok(system_state) = SystemState::load(bs, &state.into()) {
         write!(&mut buffer, "{system_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(multi_sig_state) = forest_ipld::from_ipld::<MultiSigState>(ipld.clone()) {
+    if let Ok(multi_sig_state) = MultiSigState::load(bs, &state.into()) {
         write!(&mut buffer, "{multi_sig_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(market_state) = forest_ipld::from_ipld::<MarketState>(ipld.clone()) {
+    if let Ok(market_state) = MarketState::load(bs, &state.into()) {
         write!(&mut buffer, "{market_state:?}")?;
         return Ok(buffer);
     }
-    buffer += &serde_json::to_string_pretty(&resolved)?;
+    if let Ok(datacap_state) = DatacapState::load(bs, &state.into()) {
+        write!(&mut buffer, "{datacap_state:?}")?;
+        return Ok(buffer);
+    }
+    if let Ok(evm_state) = EvmState::load(bs, &state.into()) {
+        write!(&mut buffer, "{evm_state:?}")?;
+        return Ok(buffer);
+    }
+
+    let resolved = actor_to_resolved(bs, state, depth);
+    buffer = serde_json::to_string_pretty(&resolved)?;
     Ok(buffer)
 }
 
@@ -214,4 +215,88 @@ where
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use cid::{multihash::Code::Blake2b256, Cid};
+    use fil_actor_account_v10::State as AccountState;
+    use forest_db::MemoryDB;
+    use forest_shim::{econ::TokenAmount, state_tree::ActorState};
+    use forest_utils::db::BlockstoreExt;
+    use fvm_ipld_blockstore::Blockstore;
+    use fvm_shared::address::Address;
+
+    use super::pp_actor_state;
+
+    fn mk_account_v10(db: &impl Blockstore, account: &AccountState) -> ActorState {
+        // mainnet v10 account actor cid
+        let account_cid =
+            Cid::try_from("bafk2bzaceampw4romta75hyz5p4cqriypmpbgnkxncgxgqn6zptv5lsp2w2bo")
+                .unwrap();
+        let actor_state_cid = db.put_obj(&account, Blake2b256).unwrap();
+        ActorState::new(
+            account_cid,
+            actor_state_cid,
+            TokenAmount::from_atto(0),
+            0,
+            None,
+        )
+    }
+
+    // Account states should be parsed and pretty-printed.
+    #[test]
+    fn correctly_pretty_print_account_actor_state() {
+        let db = MemoryDB::default();
+
+        let account_state = AccountState {
+            address: Address::new_id(0xdeadbeef),
+        };
+        let state = mk_account_v10(&db, &account_state);
+
+        let pretty = pp_actor_state(&db, &state, None).unwrap();
+
+        assert_eq!(
+            pretty,
+            "ActorState(\
+                ActorState { \
+                    code: Cid(bafk2bzaceampw4romta75hyz5p4cqriypmpbgnkxncgxgqn6zptv5lsp2w2bo), \
+                    state: Cid(bafy2bzaceaiws3hdhmfyxyfjzmbaxv5aw6eywwbipeae4n5jjg5smmfxsaeic), \
+                    sequence: 0, balance: TokenAmount(0.0), delegated_address: None })\n\
+            V10(State { address: Address { network: Mainnet, payload: ID(3735928559) } })"
+        );
+    }
+
+    // When we cannot identify (or parse) an actor state, we should print the IPLD
+    // as JSON
+    #[test]
+    fn check_json_fallback_if_unknown_actor() {
+        let db = MemoryDB::default();
+
+        let account_state = AccountState {
+            address: Address::new_id(0xdeadbeef),
+        };
+        let mut state = mk_account_v10(&db, &account_state);
+        state.code = Cid::default(); // Use an unknown actor CID to force parsing to fail.
+
+        let pretty = pp_actor_state(&db, &state, None).unwrap();
+
+        assert_eq!(
+            pretty,
+            "{
+  \"code\": {
+    \"/\": \"baeaaaaa\"
+  },
+  \"sequence\": 0,
+  \"balance\": \"0.0\",
+  \"state\": [
+    {
+      \"/\": {
+        \"bytes\": \"mAO/9tvUN\"
+      }
+    }
+  ]
+}"
+        );
+    }
 }
