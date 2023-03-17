@@ -20,9 +20,6 @@ if [ -z "$1" ]
 fi
 
 function cleanup {
-  # Removing temporary directory $TMP_DIR
-  rm -rf "$TMP_DIR"
-
   $FOREST_CLI_PATH shutdown --force
 
   timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
