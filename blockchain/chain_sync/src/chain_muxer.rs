@@ -886,6 +886,16 @@ where
                         );
                         metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
+
+                        match why {
+                            ChainMuxerError::P2PEventStreamReceive(_s) => {
+                                // if s == "receiving on a closed channel" {
+                                //     return Poll::Pending;
+                                // }
+                                return Poll::Pending
+                            }
+                            _ => (),
+                        }
                     }
                     Poll::Pending => return Poll::Pending,
                 },
