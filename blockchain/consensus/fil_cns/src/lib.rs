@@ -8,7 +8,6 @@ use forest_beacon::{Beacon, BeaconSchedule};
 use forest_blocks::{Block, Tipset};
 use forest_chain::{Error as ChainStoreError, Scale, Weight};
 use forest_chain_sync::Consensus;
-use forest_db::Store;
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
@@ -109,7 +108,7 @@ where
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
     {
         validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
     }

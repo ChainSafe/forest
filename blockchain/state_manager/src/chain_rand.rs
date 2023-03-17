@@ -9,7 +9,6 @@ use byteorder::{BigEndian, WriteBytesExt};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_db::Store;
 use forest_encoding::blake2b_256;
 use forest_networks::ChainConfig;
 use fvm::externs::Rand as Rand_v2;
@@ -38,7 +37,7 @@ impl<DB> Clone for ChainRand<DB> {
 
 impl<DB> ChainRand<DB>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     pub fn new(
         chain_config: Arc<ChainConfig>,
@@ -190,7 +189,7 @@ where
 
 impl<DB> Rand_v2 for ChainRand<DB>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     fn get_chain_randomness(
         &self,
@@ -213,7 +212,7 @@ where
 
 impl<DB> Rand_v3 for ChainRand<DB>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     fn get_chain_randomness(
         &self,
