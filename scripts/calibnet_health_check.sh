@@ -29,6 +29,7 @@ function cleanup {
   set +e
   if pgrep -x forest; then
     echo "Forest is still running"
+    exit 1
   fi
 }
 trap cleanup EXIT
