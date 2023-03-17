@@ -887,11 +887,8 @@ where
                         metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
 
-                        match why {
-                            ChainMuxerError::P2PEventStreamReceive(_s) => {
-                                return Poll::Pending
-                            }
-                            _ => (),
+                        if let ChainMuxerError::P2PEventStreamReceive(_s) = why {
+                            return Poll::Pending;
                         }
                     }
                     Poll::Pending => return Poll::Pending,
