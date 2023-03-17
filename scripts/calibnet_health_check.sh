@@ -38,14 +38,14 @@ echo "$1" > preloaded_wallet.key
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
 echo "Downloading snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
+$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
 
 echo "Importing snapshot and running Forest"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY/*.car"
 echo "Checking DB stats"
 $FOREST_CLI_PATH --chain calibnet db stats
 echo "Running forest in detached mode"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir $LOG_DIRECTORY --detach --save-token ./admin_token
+$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token
 
 echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
@@ -63,7 +63,7 @@ $FOREST_CLI_PATH attach --exec 'showPeers()'
 
 echo "Validating as mainnet snapshot"
 set +e
-$FOREST_CLI_PATH --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && \
+$FOREST_CLI_PATH --chain mainnet snapshot validate "$SNAPSHOT_DIRECTORY/*.car" --force && \
 {
     echo "mainnet snapshot validation with calibnet snapshot should fail";
     exit 1;
@@ -71,11 +71,11 @@ $FOREST_CLI_PATH --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --f
 set -e
 
 echo "Validating as calibnet snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
+$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY/*.car" --force
 
 echo "Print forest log files"
-ls -hl $LOG_DIRECTORY
-cat $LOG_DIRECTORY/*
+ls -hl "$LOG_DIRECTORY"
+cat "$LOG_DIRECTORY/*"
 
 echo "Wallet tests"
 
