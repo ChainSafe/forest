@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use forest_beacon::DrandBeacon;
 use forest_chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
-use forest_db::Store;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
@@ -29,7 +28,7 @@ pub async fn consensus<DB, MP>(
     _services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<FullConsensus>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     MP: MessagePoolApi + Send + Sync + 'static,
 {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());

@@ -3680,7 +3680,6 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_chain_sync",
- "forest_db",
  "forest_interpreter",
  "forest_key_management",
  "forest_networks",
@@ -3726,7 +3725,6 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_chain_sync",
- "forest_db",
  "forest_fil_types",
  "forest_interpreter",
  "forest_key_management",
@@ -4306,6 +4304,7 @@ dependencies = [
 name = "forest_utils"
 version = "0.6.0"
 dependencies = [
+ "ahash 0.8.3",
  "anyhow",
  "async-trait",
  "atty",

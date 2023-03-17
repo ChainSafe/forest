@@ -4,7 +4,6 @@
 use std::str::FromStr;
 
 use forest_beacon::Beacon;
-use forest_db::Store;
 use forest_libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use forest_rpc_api::{
     data_types::{AddrInfo, RPCState},
@@ -15,10 +14,7 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::error;
 
-pub(crate) async fn net_addrs_listen<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn net_addrs_listen<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<NetAddrsListenResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -35,7 +31,7 @@ pub(crate) async fn net_addrs_listen<
     })
 }
 
-pub(crate) async fn net_peers<DB: Blockstore + Store + Clone + Send + Sync + 'static, B: Beacon>(
+pub(crate) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<NetPeersResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -57,10 +53,7 @@ pub(crate) async fn net_peers<DB: Blockstore + Store + Clone + Send + Sync + 'st
     Ok(connections)
 }
 
-pub(crate) async fn net_connect<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn net_connect<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetConnectParams>,
 ) -> Result<NetConnectResult, JsonRpcError> {
@@ -84,10 +77,7 @@ pub(crate) async fn net_connect<
     }
 }
 
-pub(crate) async fn net_disconnect<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn net_disconnect<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetDisconnectParams>,
 ) -> Result<NetDisconnectResult, JsonRpcError> {

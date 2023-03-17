@@ -7,6 +7,7 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 atty.workspace = true

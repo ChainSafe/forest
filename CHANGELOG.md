@@ -24,6 +24,9 @@ Notable updates:
 
 ### Changed
 
+- [database] Move blockstore meta-data to standalone files.
+  [2635](https://github.com/ChainSafe/forest/pull/2635)
+  [2652](https://github.com/ChainSafe/forest/pull/2652)
 - [cli] Remove Forest ctrl-c hard shutdown behavior on subsequent ctrl-c
   signals. [#2538](https://github.com/ChainSafe/forest/pull/2538)
 - [libp2p] Use in house bitswap implementation.

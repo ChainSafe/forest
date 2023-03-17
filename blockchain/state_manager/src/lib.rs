@@ -19,7 +19,6 @@ use fil_actors_runtime_v9::runtime::Policy;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
-use forest_db::Store;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
@@ -214,7 +213,7 @@ pub struct StateManager<DB> {
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
@@ -939,7 +938,7 @@ where
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>
     where
-        DB: Blockstore + Store + Clone + Send + Sync + 'static,
+        DB: Blockstore + Clone + Send + Sync + 'static,
     {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -1263,7 +1262,7 @@ fn chain_epoch_root<DB>(
     tipset: Arc<Tipset>,
 ) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
         let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;

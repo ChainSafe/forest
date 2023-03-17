@@ -30,7 +30,7 @@ pub async fn read_genesis_header<DB>(
     db: &DB,
 ) -> Result<BlockHeader, anyhow::Error>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -56,7 +56,7 @@ pub fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Clone + Send + Sync + 'static,
 {
     // Get network name from genesis state.
     let network_name = state_manager
@@ -70,7 +70,7 @@ pub async fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), anyhow::Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Clone + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let genesis =
@@ -83,7 +83,7 @@ where
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Store + Send + Sync,
+    BS: Blockstore + Send + Sync,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(db, reader.compat()).await?;
