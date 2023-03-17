@@ -75,7 +75,7 @@ $FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car 
 
 echo "Print forest log files"
 ls -hl "$LOG_DIRECTORY"
-cat "$LOG_DIRECTORY/*"
+cat "$LOG_DIRECTORY"/*
 
 echo "Wallet tests"
 
