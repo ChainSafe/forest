@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -337,7 +337,15 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     tokio::select! {
-        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        err = propagate_snapshot_error(&config, &state_manager) => {
+            error!(
+                    "Failed miserably while importing chain from snapshot {}: {err}",
+                    path.display()
+                );
+            services.shutdown().await;
+            return Ok(db);
+            },
+        Ok(()) = sync_from_snapshot(&config, &state_manager) => {},
         _ = tokio::signal::ctrl_c() => {
             services.shutdown().await;
             return Ok(db);
@@ -393,6 +401,31 @@ fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> a
     }
 
     Ok(())
+}
+
+// propogates snapshot import error to `tokio::select!` poll
+// in case snapshot imports without an error, sleeps for more than 2 years
+// while waiting for CTRL-C signal
+async fn propagate_snapshot_error<DB>(
+    config: &Config,
+    state_manager: &Arc<StateManager<DB>>,
+) -> anyhow::Error
+where
+    DB: Store + Send + Clone + Sync + Blockstore + 'static,
+{
+    select! {
+        result = sync_from_snapshot(config, state_manager).fuse() => {
+            if let Err(error_message) = result {
+                return error_message
+            }
+        },
+    }
+    // In case snapshot imports with no error, we are still willing
+    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
+    // a limit of approximately 2.2 years we have to loop
+    loop {
+        tokio::time::sleep(Duration::new(64000000, 0)).await;
+    }
 }
 
 // returns the first error with which any of the services end
@@ -476,37 +509,29 @@ async fn prompt_snapshot_or_die(
     }
 }
 
-async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>)
+async fn sync_from_snapshot<DB>(
+    config: &Config,
+    state_manager: &Arc<StateManager<DB>>,
+) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
 {
     if let Some(path) = &config.client.snapshot_path {
-        let stopwatch = time::Instant::now();
         let validate_height = if config.client.snapshot {
             config.client.snapshot_height
         } else {
             Some(0)
         };
 
-        match import_chain::<_>(
+        return import_chain::<_>(
             state_manager,
             &path.display().to_string(),
             validate_height,
             config.client.skip_load,
         )
-        .await
-        {
-            Ok(_) => {
-                info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-            }
-            Err(err) => {
-                error!(
-                    "Failed miserably while importing chain from snapshot {}: {err}",
-                    path.display()
-                )
-            }
-        }
+        .await;
     }
+    Ok(())
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
