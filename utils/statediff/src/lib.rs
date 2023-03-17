@@ -120,7 +120,6 @@ fn pp_actor_state(
     state: &ActorState,
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
-    let resolved = actor_to_resolved(bs, state, depth);
     let mut buffer = String::new();
     writeln!(&mut buffer, "{state:?}")?;
     if let Ok(miner_state) = MinerState::load(bs, &state.into()) {
@@ -167,7 +166,9 @@ fn pp_actor_state(
         write!(&mut buffer, "{evm_state:?}")?;
         return Ok(buffer);
     }
-    buffer += &serde_json::to_string_pretty(&resolved)?;
+
+    let resolved = actor_to_resolved(bs, state, depth);
+    buffer = serde_json::to_string_pretty(&resolved)?;
     Ok(buffer)
 }
 
@@ -214,4 +215,88 @@ where
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use cid::{multihash::Code::Blake2b256, Cid};
+    use fil_actor_account_v10::State as AccountState;
+    use forest_db::MemoryDB;
+    use forest_shim::{econ::TokenAmount, state_tree::ActorState};
+    use forest_utils::db::BlockstoreExt;
+    use fvm_ipld_blockstore::Blockstore;
+    use fvm_shared::address::Address;
+
+    use super::pp_actor_state;
+
+    fn mk_account_v10(db: &impl Blockstore, account: &AccountState) -> ActorState {
+        // mainnet v10 account actor cid
+        let account_cid =
+            Cid::try_from("bafk2bzaceampw4romta75hyz5p4cqriypmpbgnkxncgxgqn6zptv5lsp2w2bo")
+                .unwrap();
+        let actor_state_cid = db.put_obj(&account, Blake2b256).unwrap();
+        ActorState::new(
+            account_cid,
+            actor_state_cid,
+            TokenAmount::from_atto(0),
+            0,
+            None,
+        )
+    }
+
+    // Account states should be parsed and pretty-printed.
+    #[test]
+    fn correctly_pretty_print_account_actor_state() {
+        let db = MemoryDB::default();
+
+        let account_state = AccountState {
+            address: Address::new_id(0xdeadbeef),
+        };
+        let state = mk_account_v10(&db, &account_state);
+
+        let pretty = pp_actor_state(&db, &state, None).unwrap();
+
+        assert_eq!(
+            pretty,
+            "ActorState(\
+                ActorState { \
+                    code: Cid(bafk2bzaceampw4romta75hyz5p4cqriypmpbgnkxncgxgqn6zptv5lsp2w2bo), \
+                    state: Cid(bafy2bzaceaiws3hdhmfyxyfjzmbaxv5aw6eywwbipeae4n5jjg5smmfxsaeic), \
+                    sequence: 0, balance: TokenAmount(0.0), delegated_address: None })\n\
+            V10(State { address: Address { network: Mainnet, payload: ID(3735928559) } })"
+        );
+    }
+
+    // When we cannot identify (or parse) an actor state, we should print the IPLD
+    // as JSON
+    #[test]
+    fn check_json_fallback_if_unknown_actor() {
+        let db = MemoryDB::default();
+
+        let account_state = AccountState {
+            address: Address::new_id(0xdeadbeef),
+        };
+        let mut state = mk_account_v10(&db, &account_state);
+        state.code = Cid::default(); // Use an unknown actor CID to force parsing to fail.
+
+        let pretty = pp_actor_state(&db, &state, None).unwrap();
+
+        assert_eq!(
+            pretty,
+            "{
+  \"code\": {
+    \"/\": \"baeaaaaa\"
+  },
+  \"sequence\": 0,
+  \"balance\": \"0.0\",
+  \"state\": [
+    {
+      \"/\": {
+        \"bytes\": \"mAO/9tvUN\"
+      }
+    }
+  ]
+}"
+        );
+    }
 }
