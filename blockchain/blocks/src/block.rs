@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use forest_shim::message::Message;
+use forest_utils::tuple::*;
 
 use super::BlockHeader;
 

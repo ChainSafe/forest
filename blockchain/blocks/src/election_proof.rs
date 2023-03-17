@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::{blake2b_256, tuple::*};
 use forest_json::vrf::VRFProof;
+use forest_utils::{blake2b_256, tuple::*};
 use fvm_shared::BLOCKS_PER_EPOCH;
 use lazy_static::lazy_static;
 use num::{

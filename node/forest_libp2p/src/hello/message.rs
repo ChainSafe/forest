@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_encoding::tuple::*;
 use forest_shim::bigint::BigInt;
+use forest_utils::tuple::*;
 use fvm_shared::clock::ChainEpoch;
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>

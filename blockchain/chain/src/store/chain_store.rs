@@ -14,7 +14,6 @@ use cid::{
 use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -35,6 +34,7 @@ use forest_utils::{
         file_backed_obj::{FileBacked, SYNC_PERIOD},
         BlockstoreExt,
     },
+    de::DeserializeOwned,
     io::Checksum,
 };
 use futures::Future;

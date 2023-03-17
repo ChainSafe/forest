@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_encoding::tuple::*;
+use forest_utils::tuple::*;
 use fvm_ipld_encoding::Cbor;
 
 use crate::{ArbitraryCid, BlockHeader};

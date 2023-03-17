@@ -10,8 +10,8 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 cid.workspace = true
-forest_encoding.workspace = true
 forest_shim.workspace = true
+forest_utils.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_ipld_encoding3.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
