@@ -278,8 +278,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    // services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
-    let muxer_task = tokio::spawn(chain_muxer);
+    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
     // Start services
     if config.client.enable_rpc {
@@ -378,8 +377,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     }
 
     services.shutdown().await;
-
-    let _x = muxer_task.abort();
 
     Ok(db)
 }
