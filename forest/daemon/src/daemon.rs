@@ -352,6 +352,12 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
         },
     }
 
+    // For convenience, flush the database after we've potentially loaded a new
+    // snapshot. This ensures the snapshot won't have to be re-imported if
+    // Forest is interrupted. As of writing, flushing only affects RocksDB and
+    // is a no-op with ParityDB.
+    state_manager.blockstore().flush()?;
+
     // Halt
     if opts.halt_after_import {
         // Cancel all async services
