@@ -41,7 +41,7 @@ echo "Downloading snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
 
 echo "Importing snapshot and running Forest"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY/*.car"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.car
 echo "Checking DB stats"
 $FOREST_CLI_PATH --chain calibnet db stats
 echo "Running forest in detached mode"
