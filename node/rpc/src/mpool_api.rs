@@ -7,7 +7,6 @@ use std::convert::TryFrom;
 use ahash::{HashSet, HashSetExt};
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
-use forest_db::Store;
 use forest_json::{
     cid::{vec::CidJsonVec, CidJson},
     message::json::MessageJson,
@@ -28,7 +27,7 @@ pub(crate) async fn mpool_pending<DB, B>(
     Params(params): Params<MpoolPendingParams>,
 ) -> Result<MpoolPendingResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
     let (CidJsonVec(cid_vec),) = params;
@@ -88,7 +87,7 @@ pub(crate) async fn mpool_push<DB, B>(
     Params(params): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
     let (SignedMessageJson(smsg),) = params;
@@ -104,7 +103,7 @@ pub(crate) async fn mpool_push_message<DB, B>(
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
     let (MessageJson(umsg), spec) = params;

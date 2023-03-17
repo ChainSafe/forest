@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_beacon::{json::BeaconEntryJson, Beacon};
-use forest_db::Store;
 use forest_rpc_api::{beacon_api::*, data_types::RPCState};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -15,7 +14,7 @@ pub(crate) async fn beacon_get_entry<DB, B>(
     Params(params): Params<BeaconGetEntryParams>,
 ) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
     let (first,) = params;

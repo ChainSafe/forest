@@ -3,7 +3,6 @@
 
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
-use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
 use forest_shim::{
     address::{Address, Payload},
@@ -19,7 +18,7 @@ use crate::{errors::*, StateManager};
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt`
     /// verification.

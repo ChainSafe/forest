@@ -9,7 +9,6 @@ use fil_actors_runtime_v9::runtime::DomainSeparationTag;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
-use forest_db::Store;
 use forest_fil_types::verifier::verify_winning_post;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{address::Address, randomness::Randomness, version::NetworkVersion};
@@ -34,10 +33,7 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(crate) async fn validate_block<
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
-    B: Beacon,
->(
+pub(crate) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,
     block: Arc<Block>,
@@ -200,7 +196,7 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
+fn validate_miner<DB: Blockstore + Clone + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
     tipset_state: &Cid,
@@ -224,7 +220,7 @@ fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
     Ok(())
 }
 
-fn validate_winner_election<DB: Blockstore + Store + Clone + Sync + Send + 'static>(
+fn validate_winner_election<DB: Blockstore + Clone + Sync + Send + 'static>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
@@ -334,7 +330,7 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, &worker.into()).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
+fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,

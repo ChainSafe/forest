@@ -20,7 +20,6 @@ use std::{net::TcpListener, sync::Arc};
 use axum::routing::{get, post};
 use forest_beacon::Beacon;
 use forest_chain::Scale;
-use forest_db::Store;
 use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, gas_api::*,
     mpool_api::*, net_api::*, state_api::*, sync_api::*, wallet_api::*,
@@ -45,7 +44,7 @@ pub async fn start_rpc<DB, B, S>(
     shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
     S: Scale + 'static,
 {
