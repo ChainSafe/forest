@@ -3,6 +3,8 @@
 
 pub mod file_backed_obj;
 
+use async_trait::async_trait;
+use chrono::Utc;
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -10,6 +12,8 @@ use cid::{
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
+use human_repr::HumanCount;
+use log::info;
 
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
@@ -68,3 +72,40 @@ pub trait BlockstoreExt: Blockstore {
 }
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
+
+/// Extension methods for buffered write with manageable limit of RAM usage
+#[async_trait]
+pub trait BlockstoreBufferedWriteExt: Blockstore + Sized {
+    async fn buffered_write(
+        &self,
+        rx: flume::Receiver<(Cid, Vec<u8>)>,
+        buffer_capacity_bytes: usize,
+    ) -> anyhow::Result<()> {
+        let start = Utc::now();
+        let mut total_bytes = 0;
+        let mut total_entries = 0;
+        let mut estimated_buffer_bytes = 0;
+        let mut buffer = vec![];
+        while let Ok((key, value)) = rx.recv_async().await {
+            // Key is stored in 32 bytes in paritydb
+            estimated_buffer_bytes += 32 + value.len();
+            total_bytes += 32 + value.len();
+            total_entries += 1;
+            buffer.push((key, value));
+            if estimated_buffer_bytes >= buffer_capacity_bytes {
+                self.put_many_keyed(std::mem::take(&mut buffer))?;
+                estimated_buffer_bytes = 0;
+            }
+        }
+        self.put_many_keyed(buffer)?;
+        info!(
+            "Buffered write completed: total entries: {total_entries}, total size: {}, took: {}s",
+            total_bytes.human_count_bytes(),
+            (Utc::now() - start).num_seconds()
+        );
+
+        Ok(())
+    }
+}
+
+impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreBufferedWriteExt for T {}

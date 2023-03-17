@@ -3,7 +3,7 @@
 
 use std::{num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
 
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
@@ -11,7 +11,6 @@ use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::{should_save_block_to_snapshot, walk_snapshot};
@@ -28,7 +27,10 @@ use forest_shim::{
     state_tree::StateTree,
 };
 use forest_utils::{
-    db::{file_backed_obj::FileBacked, BlockstoreExt},
+    db::{
+        file_backed_obj::{FileBacked, SYNC_PERIOD},
+        BlockstoreExt,
+    },
     io::Checksum,
 };
 use fvm_ipld_amt::Amtv0 as Amt;
@@ -55,8 +57,6 @@ use super::{
     Error,
 };
 use crate::Scale;
-
-const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -97,6 +97,9 @@ pub struct ChainStore<DB> {
 
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
+
+    /// File backed validated blocks
+    file_backed_validated_blocks: Mutex<FileBacked<HashSet<Cid>>>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -125,7 +128,7 @@ where
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     pub fn new(
         db: DB,
@@ -142,11 +145,17 @@ where
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
         ));
-
         let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("HEAD"),
             || TipsetKeys::new(vec![*genesis_block_header.cid()]),
+            None,
         )?);
+        let file_backed_validated_blocks = Mutex::new(FileBacked::load_from_file_or_create(
+            chain_data_root.join("VALIDATED_BLOCKS"),
+            HashSet::default,
+            Some(SYNC_PERIOD),
+        )?);
+
         let cs = Self {
             publisher,
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
@@ -155,6 +164,7 @@ where
             ts_cache,
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
+            file_backed_validated_blocks,
         };
 
         cs.set_genesis(genesis_block_header)?;
@@ -268,20 +278,25 @@ where
         Ok(())
     }
 
-    /// Checks store if block has already been validated. Key based on the block
-    /// validation prefix.
+    /// Checks metadata file if block has already been validated.
     pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
-        let key = block_validation_key(cid);
-
-        Ok(self.db.exists(key)?)
+        let validated = self
+            .file_backed_validated_blocks
+            .lock()
+            .inner()
+            .contains(cid);
+        if validated {
+            log::debug!("Block {cid} was previously validated");
+        }
+        Ok(validated)
     }
 
-    /// Marks block as validated in the store. This is retrieved using the block
-    /// validation prefix.
+    /// Marks block as validated in the metadata file.
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
-        let key = block_validation_key(cid);
-
-        Ok(self.db.write(key, [])?)
+        let mut file = self.file_backed_validated_blocks.lock();
+        Ok(file.with_inner(|inner| {
+            inner.insert(*cid);
+        })?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -617,14 +632,6 @@ where
         .with_label_values(&[metrics::values::TIPSET])
         .inc();
     Ok(ts)
-}
-
-/// Helper to ensure consistent CID to db key translation.
-fn block_validation_key(cid: &Cid) -> Vec<u8> {
-    let mut key = Vec::new();
-    key.extend_from_slice(BLOCK_VAL_PREFIX);
-    key.extend(cid.to_bytes());
-    key
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages

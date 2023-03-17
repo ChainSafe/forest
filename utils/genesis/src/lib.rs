@@ -6,9 +6,11 @@ use std::{sync::Arc, time};
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_db::{Store, StoreExt};
 use forest_state_manager::StateManager;
-use forest_utils::{db::BlockstoreExt, net::FetchProgress};
+use forest_utils::{
+    db::{BlockstoreBufferedWriteExt, BlockstoreExt},
+    net::FetchProgress,
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
@@ -30,7 +32,7 @@ pub async fn read_genesis_header<DB>(
     db: &DB,
 ) -> Result<BlockHeader, anyhow::Error>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -56,7 +58,7 @@ pub fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Clone + Send + Sync + 'static,
 {
     // Get network name from genesis state.
     let network_name = state_manager
@@ -70,7 +72,7 @@ pub async fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), anyhow::Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Clone + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let genesis =
@@ -83,7 +85,7 @@ where
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Store + Send + Sync,
+    BS: Blockstore + Send + Sync,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(db, reader.compat()).await?;
@@ -107,7 +109,7 @@ pub async fn import_chain<DB>(
     skip_load: bool,
 ) -> Result<(), anyhow::Error>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
@@ -145,8 +147,6 @@ where
     // Update head with snapshot header tipset
     sm.chain_store().set_heaviest_tipset(ts.clone())?;
 
-    sm.blockstore().flush()?;
-
     if let Some(height) = validate_height {
         let height = if height > 0 {
             height
@@ -170,7 +170,7 @@ async fn load_and_retrieve_header<DB, R>(
     skip_load: bool,
 ) -> anyhow::Result<Vec<Cid>>
 where
-    DB: Store + Sync + Send + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     R: AsyncRead + Send + Unpin,
 {
     let mut compat = reader.compat();
@@ -184,14 +184,10 @@ where
     Ok(result)
 }
 
-/// Optimizations:
-/// 1. ParityDB could benefit from a larger buffer. It's hard coded as 1000
-/// blocks in [fvm_ipld_car::load_car] 2. Use [Store::bulk_write] instead of
-/// [Blockstore] to avoid tons of unneccesary allocations
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<Vec<Cid>>
 where
     R: futures::AsyncRead + Send + Unpin,
-    DB: Store + Sync + Send + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     // 1GB
     const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
@@ -202,7 +198,7 @@ where
         tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;
     while let Some(block) = car_reader.next_block().await? {
-        tx.send((block.cid.to_bytes(), block.data))?;
+        tx.send((block.cid, block.data))?;
     }
     drop(tx);
     write_task.await??;

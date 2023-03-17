@@ -200,7 +200,7 @@ impl RollingDB {
         let old_db_path = self.db_root.join(&db_index_inner_mut.old);
         db_index_inner_mut.old = db_index_inner_mut.current.clone();
         db_index_inner_mut.current = new_db_name;
-        db_index.flush_to_file()?;
+        db_index.sync()?;
         delete_db(&old_db_path);
 
         Ok(())
@@ -228,8 +228,11 @@ impl RollingDB {
 }
 
 fn load_dbs(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(FileBacked<DbIndex>, Db, Db)> {
-    let mut db_index =
-        FileBacked::load_from_file_or_create(db_root.join("db_index.yaml"), Default::default)?;
+    let mut db_index = FileBacked::load_from_file_or_create(
+        db_root.join("db_index.yaml"),
+        Default::default,
+        None,
+    )?;
     let db_index_mut: &mut DbIndex = db_index.inner_mut();
     if db_index_mut.current.is_empty() {
         db_index_mut.current = Uuid::new_v4().simple().to_string();
@@ -239,7 +242,7 @@ fn load_dbs(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(FileBacked<
     }
     let current = open_db(&db_root.join(&db_index_mut.current), db_config)?;
     let old = open_db(&db_root.join(&db_index_mut.old), db_config)?;
-    db_index.flush_to_file()?;
+    db_index.sync()?;
     Ok((db_index, current, old))
 }
 

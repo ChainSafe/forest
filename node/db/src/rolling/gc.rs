@@ -68,12 +68,12 @@ use std::{
 use chrono::Utc;
 use forest_blocks::Tipset;
 use forest_ipld::util::*;
+use forest_utils::db::BlockstoreBufferedWriteExt;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use tokio::sync::Mutex;
 
 use super::*;
-use crate::StoreExt;
 
 pub struct DbGarbageCollector<F>
 where
@@ -200,8 +200,9 @@ where
                     .get(&cid)?
                     .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
 
-                let pair = (cid.to_bytes(), block.clone());
-                reachable_bytes.fetch_add(pair.0.len() + pair.1.len(), atomic::Ordering::Relaxed);
+                let pair = (cid, block.clone());
+                // Key size is 32 bytes in paritydb
+                reachable_bytes.fetch_add(32 + pair.1.len(), atomic::Ordering::Relaxed);
                 if !db.current().has(&cid)? {
                     tx.send_async(pair).await?;
                 }
