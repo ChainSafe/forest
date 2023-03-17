@@ -25,12 +25,7 @@ function cleanup {
 
   $FOREST_CLI_PATH shutdown --force
 
-  sleep 10s
-  set +e
-  if pgrep -x forest; then
-    echo "Forest is still running"
-    exit 1
-  fi
+  timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
 }
 trap cleanup EXIT
 
