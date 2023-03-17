@@ -142,8 +142,7 @@ impl Blockstore for ParityDb {
     {
         let values = blocks
             .into_iter()
-            .map(|(k, v)| (k.to_bytes(), v.as_ref().to_vec()))
-            .collect::<Vec<_>>();
+            .map(|(k, v)| (k.to_bytes(), v.as_ref().to_vec()));
         self.bulk_write(values).map_err(|e| e.into())
     }
 }

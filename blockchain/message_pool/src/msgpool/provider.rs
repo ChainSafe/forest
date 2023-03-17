@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
-use forest_db::Store;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
 use forest_shim::{
@@ -61,11 +60,11 @@ pub struct MpoolRpcProvider<DB> {
 
 impl<DB> MpoolRpcProvider<DB>
 where
-    DB: Blockstore + Store + Clone + Sync + Send,
+    DB: Blockstore + Clone + Sync + Send,
 {
     pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
-        DB: Blockstore + Store + Clone,
+        DB: Blockstore + Clone,
     {
         MpoolRpcProvider { subscriber, sm }
     }
@@ -74,7 +73,7 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
 {
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()

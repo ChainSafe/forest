@@ -65,7 +65,6 @@ chrono = { version = "0.4", default-features = false, features = [] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
-cs_serde_bytes = "0.12.2"
 derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
@@ -143,16 +142,7 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
-fil_actor_account_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_cron_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_init_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_market_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_miner_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_multisig_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_power_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_reward_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }

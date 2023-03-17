@@ -16,7 +16,6 @@ forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_chain_sync.workspace = true
-forest_db.workspace = true
 forest_fil_types.workspace = true
 forest_interpreter.workspace = true
 forest_key_management.workspace = true
