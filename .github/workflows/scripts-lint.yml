@@ -1,4 +1,4 @@
-name: Scripts
+name: Script linters
 
 on:
   pull_request:
@@ -12,8 +12,7 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
     - name: Run shellcheck
       uses: ludeeus/action-shellcheck@2.0.0
       env:
@@ -31,13 +30,25 @@ jobs:
           gem install rubocop --no-document
           rubocop scripts/
   run-js-linters:
-    name: Run linters
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - run: |
         lerna bootstrap
         lerna run lint
+  docker-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: validate compose file
+      run: docker-compose -f .maintain/monitoring/docker-compose.yml config
+    - uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: "Dockerfile*"
+        recursive: true
+        # https://github.com/hadolint/hadolint/wiki/DL3008
+        # https://github.com/hadolint/hadolint/wiki/DL3018
+        ignore: DL3008,DL3018
   markdown-lint:
     runs-on: ubuntu-latest
     steps:
