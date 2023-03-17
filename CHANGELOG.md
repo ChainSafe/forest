@@ -76,6 +76,7 @@ Notable updates:
 
 ### Fixed
 
+- [daemon] Daemon could get stuck in an infinite loop during shutdown
 - [libp2p] Properly cancel bitswap queries that are not responded to after a
   period. [#2399](https://github.com/ChainSafe/forest/pull/2399)
 - [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot

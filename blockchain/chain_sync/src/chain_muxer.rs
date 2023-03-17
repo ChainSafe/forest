@@ -889,9 +889,6 @@ where
 
                         match why {
                             ChainMuxerError::P2PEventStreamReceive(_s) => {
-                                // if s == "receiving on a closed channel" {
-                                //     return Poll::Pending;
-                                // }
                                 return Poll::Pending
                             }
                             _ => (),
