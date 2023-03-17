@@ -36,12 +36,27 @@ admin token can also be set using `--token` flag:
 forest-cli --token eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjczMjEwMTkzfQ.xxhmqtG9O3XNTIrOEB2_TWnVkq0JkqzRdw63BdosV0c <subcommand>
 ```
 
-When the Forest daemon is started, an admin token will be displayed
-(alternatively, use `--save-token <token>` flag to save it on disk).
+## Sending Filecoin tokens from your wallet
+
+For sending Filecoin tokens, the Forest daemon must be running. You can do so by
+running:
+
+`forest --chain calibnet`
+
+Next, send Filecoin tokens to a wallet address:
+
+`forest-cli --token <admin_token> send <wallet-address> <amount in attoFIL>`
+
+where 1 attoFIL = $10^{−18}$ FIL.
 
 ## Wallet
 
-All wallet commands require write permissions to interact with the keystore
+Filecoin wallets are stored under the Forest data directory (e.g.,
+`~/.local/share/forest` in the case of Linux) in a `keystore` file.
+
+All wallet commands require write permissions and an admin token (`--token`) to
+interact with the keystore. The admin token can be retrieved from forest startup
+logs or by running it with `--save-token <PATH>`.
 
 Balance Retrieve the FIL balance of a given address Usage:
 `forest-cli wallet balance <address>`
@@ -67,7 +82,7 @@ to get formatted keys for importing. Usage:
 
 Export Export a key by address. Use a wallet address to export a key. Returns a
 formatted key to be used to import on another node, or into a new keystore.
-Usage: `forest-cli wallet export <address>`
+Usage: forest-cli wallet export <address>
 
 Sign Use an address to sign a vector of bytes Usage:
 `forest-cli wallet sign -m <hex message> -a <address>`
