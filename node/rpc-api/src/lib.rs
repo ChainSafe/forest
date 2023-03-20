@@ -273,7 +273,7 @@ pub mod wallet_api {
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
     pub type WalletDefaultAddressParams = ();
-    pub type WalletDefaultAddressResult = String;
+    pub type WalletDefaultAddressResult = Option<String>;
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
     pub type WalletExportParams = (String,);
