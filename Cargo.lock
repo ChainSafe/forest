@@ -683,7 +683,6 @@ dependencies = [
  "ec-gpu",
  "ec-gpu-gen",
  "ff",
- "fs2",
  "group",
  "log",
  "memmap2",
@@ -1313,25 +1312,6 @@ dependencies = [
  "crypto-common",
  "inout",
  "zeroize",
-]
-
-[[package]]
-name = "cl-sys"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8573fa3ff8acd6c49e8e113296c54277e82376b96c6ca6307848632cce38e44"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "cl3"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9f2217b5993b54a819ac8e8569cc429702c8975a88d52c73e530f1f813576a3"
-dependencies = [
- "cl-sys",
- "libc",
 ]
 
 [[package]]
@@ -2289,7 +2269,6 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "rayon",
- "rust-gpu-tools",
  "sha2 0.10.6",
  "thiserror",
  "yastl",
@@ -3190,7 +3169,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3303ea3c462ab949ab95b49f6e6d255d8d9396ebd4f1626ccb34c7037615aa8f"
 dependencies = [
  "blake2b_simd",
- "ec-gpu",
  "ff",
  "group",
  "lazy_static",
@@ -6755,8 +6733,6 @@ dependencies = [
  "blake2s_simd 0.5.11",
  "blstrs",
  "byteorder",
- "ec-gpu",
- "ec-gpu-gen",
  "ff",
  "fil_pasta_curves",
  "generic-array",
@@ -7076,16 +7052,6 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
-name = "opencl3"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "931cc2ab3068142384dbdaba142681c11b315cf3b96c7a59e8480d062363387f"
-dependencies = [
- "cl3",
- "libc",
-]
 
 [[package]]
 name = "openssl-probe"
@@ -8329,23 +8295,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-gpu-tools"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b2838e99bd4c9b3e6a963194440c6c5b66721d3f127625d709236ecaa1a730f"
-dependencies = [
- "dirs",
- "hex",
- "lazy_static",
- "log",
- "once_cell",
- "opencl3",
- "sha2 0.10.6",
- "temp-env",
- "thiserror",
-]
-
-[[package]]
 name = "rust-ini"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9469,15 +9418,6 @@ name = "target-lexicon"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ae9980cab1db3fceee2f6c6f643d5d8de2997c58ee8d25fb0cc8a9e9e7348e5"
-
-[[package]]
-name = "temp-env"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45107136c2ddf8c4b87453c02294fd0adf41751796e81e8ba3f7fd951977ab57"
-dependencies = [
- "once_cell",
-]
 
 [[package]]
 name = "tempfile"
