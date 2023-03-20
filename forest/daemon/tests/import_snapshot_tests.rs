@@ -5,7 +5,7 @@ pub mod tests;
 
 use anyhow::Result;
 
-use crate::tests::{cli, create_tmp_config, CommonArgs};
+use crate::tests::{cli, create_tmp_config};
 
 //#[cfg(feature = "slow_tests")]
 #[test]
@@ -14,7 +14,10 @@ fn importing_bad_snapshot_should_fail() -> Result<()> {
     let temp_file = data_dir.path().join("bad-snapshot.car");
     std::fs::write(&temp_file, "bad-snpashot")?;
     cli()?
-        .common_args()
+        .arg("--rpc-address")
+        .arg("127.0.0.0:0")
+        .arg("--metrics-address")
+        .arg("127.0.0.0:0")
         .arg("--config")
         .arg(config_file)
         .arg("--encrypt-keystore")
