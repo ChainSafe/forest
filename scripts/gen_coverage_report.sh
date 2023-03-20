@@ -73,8 +73,13 @@ cov forest-cli --token "$READ_TOKEN" wallet list && { echo "must fail"; return 1
 # Verifying a message should still work with the read-only token
 cov forest-cli --token "$READ_TOKEN" wallet verify -a "$NEW_ADDR" -m deadbeef -s "$SIGNATURE" | grep true
 
-# Kill forest and generate coverage report
+# Kill forest
 timeout 15 killall --wait --signal SIGINT forest
+
+# Statediff
+cov forest_statediff chain --chain calibnet bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 > /dev/null
+
+# Generate codecov report
 cargo llvm-cov report --lcov --output-path lcov.info
 
 echo "Coverage data collected. You can view the report by running: genhtml lcov.info --output-directory=html"

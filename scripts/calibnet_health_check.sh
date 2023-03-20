@@ -24,7 +24,6 @@ function cleanup {
 
   timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
 }
-trap cleanup EXIT
 
 echo "$1" > preloaded_wallet.key
 
@@ -139,6 +138,11 @@ fi
 echo "Get and print metrics and logs and stop forest"
 wget -O metrics.log http://localhost:6116/metrics
 
+echo "Shutting down forest"
+cleanup
+
 echo "--- Forest STDOUT ---"; cat forest.out
 echo "--- Forest STDERR ---"; cat forest.err
 echo "--- Forest Prometheus metrics ---"; cat metrics.log
+echo "--- Statediff ---"
+cargo run -p forest_statediff --release -- chain --chain calibnet bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 > /dev/null
