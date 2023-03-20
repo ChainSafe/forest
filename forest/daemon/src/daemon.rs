@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time::Duration};
+use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -339,12 +339,10 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     tokio::select! {
         ret = sync_from_snapshot(&config, &state_manager).fuse() => {
             if let Err(err) = ret {
-                error!(
+                anyhow::bail!(
                     "Failed miserably while importing chain from snapshot {}: {err}",
                     path.display()
                 );
-                services.shutdown().await;
-                return Ok(db);
             }
         },
         _ = tokio::signal::ctrl_c() => {
@@ -485,24 +483,36 @@ async fn prompt_snapshot_or_die(
     }
 }
 
-async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>) -> Result<(), anyhow::Error>
+async fn sync_from_snapshot<DB>(
+    config: &Config,
+    state_manager: &Arc<StateManager<DB>>,
+) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
 {
     if let Some(path) = &config.client.snapshot_path {
+        let stopwatch = time::Instant::now();
         let validate_height = if config.client.snapshot {
             config.client.snapshot_height
         } else {
             Some(0)
         };
 
-        return import_chain::<_>(
+        match import_chain::<_>(
             state_manager,
             &path.display().to_string(),
             validate_height,
             config.client.skip_load,
         )
-        .await 
+        .await
+        {
+            Ok(_) => {
+                info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
     }
     Ok(())
 }
