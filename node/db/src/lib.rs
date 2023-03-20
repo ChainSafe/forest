@@ -117,14 +117,8 @@ pub mod db_engine {
         chain_data_root.join(DIR_NAME)
     }
 
-    #[cfg(feature = "rocksdb")]
     pub(crate) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
-        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
-    }
-
-    #[cfg(feature = "paritydb")]
-    pub(crate) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
-        crate::parity_db::ParityDb::open(path.into(), config).map_err(Into::into)
+        Db::open(path, config).map_err(Into::into)
     }
 
     pub fn open_proxy_db(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<RollingDB> {
