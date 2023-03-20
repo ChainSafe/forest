@@ -339,10 +339,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     tokio::select! {
         ret = sync_from_snapshot(&config, &state_manager).fuse() => {
             if let Err(err) = ret {
-                anyhow::bail!(
-                    "Failed miserably while importing chain from snapshot {}: {err}",
-                    path.display()
-                );
+                services.shutdown().await;
+                return Err(err);
             }
         },
         _ = tokio::signal::ctrl_c() => {
@@ -510,7 +508,10 @@ where
                 info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
             }
             Err(err) => {
-                return Err(err);
+                anyhow::bail!(
+                    "Failed miserably while importing chain from snapshot {}: {err}",
+                    path.display()
+                );
             }
         }
     }
