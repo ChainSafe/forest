@@ -29,7 +29,6 @@ members = [
   "node/forest_libp2p",
   "node/forest_libp2p/bitswap",
   "node/forest_libp2p/bitswap/examples/*",
-  # "encoding",
   "ipld",
   "key_management",
   "tests/serialization_tests",

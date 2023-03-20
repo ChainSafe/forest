@@ -24,7 +24,6 @@ forest_chain.workspace = true
 forest_chain_sync.workspace = true
 forest_cli_shared.workspace = true
 forest_db = { workspace = true }
-# forest_encoding.workspace = true
 forest_genesis.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true

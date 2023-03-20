@@ -16,7 +16,6 @@ cid.workspace = true
 const_format = "0.2.26"
 digest.workspace = true
 serde_ipld_dagcbor.workspace = true
-# forest_encoding.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
