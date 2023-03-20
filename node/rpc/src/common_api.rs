@@ -3,7 +3,6 @@
 #![allow(clippy::unused_async)]
 
 use forest_beacon::Beacon;
-use forest_db::Store;
 use forest_rpc_api::{
     common_api::*,
     data_types::{APIVersion, RPCState, Version},
@@ -34,10 +33,7 @@ pub(crate) async fn shutdown(shutdown_send: Sender<()>) -> Result<ShutdownResult
 }
 
 /// gets start time from network
-pub(crate) async fn start_time<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
+pub(crate) async fn start_time<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<StartTimeResult, JsonRpcError> {
     Ok(data.start_time)

@@ -20,7 +20,7 @@ use forest_shim::{
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
 };
-use forest_utils::io::read_file_to_string;
+use forest_utils::io::{parser::FormattingMode, read_file_to_string};
 use num::BigInt;
 use rpassword::read_password;
 use rust_decimal::prelude::*;
@@ -29,26 +29,6 @@ use rust_decimal_macros::dec;
 use super::{handle_rpc_err, Config};
 
 const NUM_SIGNIFICANT_DIGITS: u32 = 4;
-
-#[allow(clippy::enum_variant_names)]
-pub enum FormattingMode {
-    /// mode to show data in `FIL` units
-    /// in full accuracy
-    /// E.g. 0.50023677980 `FIL`
-    ExactFixed,
-    /// mode to show data in `FIL` units
-    /// with 4 significant digits
-    /// E.g. 0.5002 `FIL`
-    NotExactFixed,
-    /// mode to show data in SI units
-    /// in full accuracy
-    /// E.g. 500.2367798 `milli FIL`
-    ExactNotFixed,
-    /// mode to show data in SI units
-    /// with 4 significant digits
-    /// E.g. ~500.2 milli `FIL`
-    NotExactNotFixed,
-}
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {

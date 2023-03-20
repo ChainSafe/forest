@@ -10,6 +10,7 @@ use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
 use forest_shim::econ::TokenAmount;
+use forest_utils::io::parser::FormattingMode;
 use time::OffsetDateTime;
 
 use super::Config;
@@ -30,7 +31,8 @@ enum SyncStatus {
 pub struct NodeStatusInfo {
     /// timestamp of how far behind the node is with respect to syncing to head
     behind: u64,
-    /// Chain health calculated as percentage: amount of blocks in last finality
+    /// Chain health calculated as percentage:
+    /// amount of blocks in last finality /
     /// very healthy amount of blocks in a finality (900 epochs * 5 blocks per
     /// tipset)
     health: usize,
@@ -63,8 +65,6 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     };
 
     let base_fee = chain_head.0.min_ticket_block().parent_base_fee().clone();
-    // .atto()
-    // .clone();
 
     // chain health
     let blocks_per_tipset_last_finality = if epoch > chain_finality {
@@ -118,10 +118,8 @@ impl InfoCommand {
 
         let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?.to_hms();
         let health = node_status.health;
-        let base_fee = format_balance_string(
-            node_status.base_fee,
-            crate::cli::wallet_cmd::FormattingMode::NotExactNotFixed,
-        )?;
+        let base_fee =
+            format_balance_string(node_status.base_fee, FormattingMode::NotExactNotFixed)?;
         let sync_status = node_status.sync_status;
         let epoch = node_status.epoch;
 
@@ -136,17 +134,11 @@ impl InfoCommand {
         println!("Uptime: {start_time}");
         println!("Chain: {chain_status}");
 
-        match health {
-            0..=85 => {
-                let chain_health = format!("{health}%\n\n").red();
-                println!("Chain health: {chain_health}");
-            }
-            (86..) => {
-                let chain_health = format!("{health}%\n\n").green();
-                println!("Chain health: {chain_health}");
-            }
-            _ => {}
+        let mut chain_health = format!("{health}%\n\n").red();
+        if health > 85 {
+            chain_health = chain_health.green();
         }
+        println!("Chain health: {chain_health}");
 
         // Wallet info
         let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
