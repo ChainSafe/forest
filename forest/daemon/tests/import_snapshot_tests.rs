@@ -7,7 +7,7 @@ use anyhow::Result;
 
 use crate::tests::{cli, create_tmp_config};
 
-//#[cfg(feature = "slow_tests")]
+#[cfg(feature = "slow_tests")]
 #[test]
 fn importing_bad_snapshot_should_fail() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
@@ -24,6 +24,7 @@ fn importing_bad_snapshot_should_fail() -> Result<()> {
         .arg("false")
         .arg("--import-snapshot")
         .arg(temp_file)
+        .arg("--halt-after-import")
         .assert()
         .failure();
 
