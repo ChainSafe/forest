@@ -22,6 +22,7 @@ fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_tuple.workspace = true
 sha2 = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread"] }
 

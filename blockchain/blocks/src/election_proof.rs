@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_json::vrf::VRFProof;
-use forest_utils::{blake2b_256, tuple::*};
+use forest_utils::blake2b_256;
 use fvm_shared::BLOCKS_PER_EPOCH;
 use lazy_static::lazy_static;
 use num::{
     bigint::{ParseBigIntError, Sign},
     BigInt, Integer,
 };
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;

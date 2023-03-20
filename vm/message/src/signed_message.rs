@@ -7,10 +7,10 @@ use forest_shim::{
     econ::TokenAmount,
     message::Message,
 };
-use forest_utils::tuple::*;
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 // use fvm_ipld_encoding3::tuple::Deserialize_tuple;
 use super::Message as MessageTrait;

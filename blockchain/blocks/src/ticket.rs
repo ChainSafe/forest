@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_json::vrf::VRFProof;
-use forest_utils::tuple::*;
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated

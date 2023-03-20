@@ -4,7 +4,7 @@
 use cid::Cid;
 use forest_message::SignedMessage;
 use forest_shim::message::Message;
-use forest_utils::tuple::*;
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::BlockHeader;
 

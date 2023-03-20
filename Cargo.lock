@@ -3383,6 +3383,7 @@ dependencies = [
  "rustyline",
  "serde",
  "serde_json",
+ "serde_tuple",
  "strfmt",
  "tempfile",
  "ticker",
@@ -3472,6 +3473,7 @@ dependencies = [
  "quickcheck_macros",
  "serde",
  "serde_json",
+ "serde_tuple",
  "sha2 0.10.6",
  "tokio",
 ]
@@ -3503,6 +3505,7 @@ dependencies = [
  "quickcheck_macros",
  "serde",
  "serde_json",
+ "serde_tuple",
  "thiserror",
 ]
 
@@ -3907,6 +3910,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
+ "serde_tuple",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -3954,6 +3958,7 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "serde",
+ "serde_tuple",
 ]
 
 [[package]]

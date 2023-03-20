@@ -18,6 +18,7 @@ fvm_shared = { workspace = true, default-features = false, features = ["testing"
 fvm_shared3 = { workspace = true, default-features = false, features = ["testing"] }
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_tuple.workspace = true
 
 [dev-dependencies]
 rand.workspace = true

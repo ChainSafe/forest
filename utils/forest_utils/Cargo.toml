@@ -32,7 +32,7 @@ quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde_repr.workspace = true
-serde_tuple = "0.5"
+serde_tuple.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["compat", "io-util"] }

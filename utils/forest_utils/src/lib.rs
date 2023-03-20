@@ -8,27 +8,18 @@ pub mod json;
 pub mod macros;
 pub mod net;
 
-pub mod tuple {
-    pub use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
-}
-
-pub mod repr {
-    pub use serde_repr::{Deserialize_repr, Serialize_repr};
-}
-
 use blake2b_simd::Params;
 use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
-/// lotus use cbor-gen for generating codec for types, it has a length limit for
-/// byte array as `2 << 20`
-///
-/// <https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L16>
-pub const BYTE_ARRAY_MAX_LEN: usize = 2 << 20;
-
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {
     use super::*;
+    /// lotus use cbor-gen for generating codec for types, it has a length limit
+    /// for byte array as `2 << 20`
+    ///
+    /// <https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L16>
+    pub const BYTE_ARRAY_MAX_LEN: usize = 2 << 20;
 
     /// checked if `input > crate::BYTE_ARRAY_MAX_LEN`
     pub fn serialize<T, S>(bytes: &T, serializer: S) -> Result<S::Ok, S::Error>
@@ -93,6 +84,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
+    use crate::serde_byte_array::BYTE_ARRAY_MAX_LEN;
 
     #[test]
     fn vector_hashing() {

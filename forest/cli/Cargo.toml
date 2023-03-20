@@ -50,6 +50,7 @@ rust_decimal_macros = "1.28.1"
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+serde_tuple.workspace = true
 strfmt = "0.2.2"
 tempfile.workspace = true
 ticker = "0.1"
