@@ -6,7 +6,6 @@ use std::{sync::Arc, time};
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_db::Store;
 use forest_state_manager::StateManager;
 use forest_utils::{db::BlockstoreExt, net::FetchProgress};
 use fvm_ipld_blockstore::Blockstore;
@@ -107,7 +106,7 @@ pub async fn import_chain<DB>(
     skip_load: bool,
 ) -> Result<(), anyhow::Error>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
@@ -145,8 +144,6 @@ where
     // Update head with snapshot header tipset
     sm.chain_store().set_heaviest_tipset(ts.clone())?;
 
-    sm.blockstore().flush()?;
-
     if let Some(height) = validate_height {
         let height = if height > 0 {
             height
@@ -170,7 +167,7 @@ async fn load_and_retrieve_header<DB, R>(
     skip_load: bool,
 ) -> anyhow::Result<Vec<Cid>>
 where
-    DB: Store,
+    DB: Blockstore,
     R: AsyncRead + Send + Unpin,
 {
     let mut compat = reader.compat();
@@ -184,14 +181,10 @@ where
     Ok(result)
 }
 
-/// Optimizations:
-/// 1. ParityDB could benefit from a larger buffer. It's hard coded as 1000
-/// blocks in [fvm_ipld_car::load_car] 2. Use [Store::bulk_write] instead of
-/// [Blockstore] to avoid tons of unneccesary allocations
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<Vec<Cid>>
 where
     R: futures::AsyncRead + Send + Unpin,
-    DB: Store,
+    DB: Blockstore,
 {
     // 1GB
     const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
@@ -201,12 +194,12 @@ where
     let mut buffer = vec![];
     while let Some(block) = car_reader.next_block().await? {
         estimated_size += 64 + block.data.len();
-        buffer.push((block.cid.to_bytes(), block.data));
+        buffer.push((block.cid, block.data));
         if estimated_size >= BUFFER_CAPCITY_BYTES {
-            store.bulk_write(std::mem::take(&mut buffer))?;
+            store.put_many_keyed(std::mem::take(&mut buffer))?;
             estimated_size = 0;
         }
     }
-    store.bulk_write(buffer)?;
+    store.put_many_keyed(buffer)?;
     Ok(car_reader.header.roots)
 }

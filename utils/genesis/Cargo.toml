@@ -13,7 +13,6 @@ testing = []
 anyhow.workspace = true
 cid.workspace = true
 forest_blocks.workspace = true
-forest_db.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true

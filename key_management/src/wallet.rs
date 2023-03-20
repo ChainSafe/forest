@@ -160,10 +160,13 @@ impl Wallet {
 }
 
 /// Return the default address for `KeyStore`
-pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
-    let key_info = keystore.get("default")?;
-    let k = Key::try_from(key_info)?;
-    Ok(k.address)
+pub fn get_default(keystore: &KeyStore) -> Result<Option<Address>, Error> {
+    if let Ok(key_info) = keystore.get("default") {
+        let k = Key::try_from(key_info)?;
+        Ok(Some(k.address))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Return vector of addresses sorted by their string representation in
@@ -173,11 +176,10 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     all.sort();
     let mut out = Vec::new();
     for i in all {
-        if i.starts_with("wallet-") {
-            // TODO replace this with strip_prefix after it has been added to stable rust
-            let name = i.trim_start_matches("wallet-");
-            let addr = Address::from_str(name).map_err(|err| Error::Other(err.to_string()))?;
-            out.push(addr);
+        if let Some(addr_str) = i.strip_prefix("wallet-") {
+            if let Ok(addr) = Address::from_str(addr_str) {
+                out.push(addr);
+            }
         }
     }
     Ok(out)

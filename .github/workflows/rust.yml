@@ -143,48 +143,10 @@ jobs:
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
-      - name: fetch params
-        run: forest-cli fetch-params --keys
-      - name: download snapshot
-        run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
-      - name: import snapshot and run Forest
-        run: |
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
-          forest-cli --chain calibnet db stats
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --log-dir log --detach
-      - name: Validate checkpoint tipset hashes
-        run: forest-cli chain validate-tipset-checkpoints
-      - name: wait for sync and check health
-        timeout-minutes: 30
-        run: |
-          forest-cli --chain calibnet sync wait
-          forest-cli --chain calibnet db stats
-      - name: export snapshot
-        run: |
-          forest-cli --chain calibnet snapshot export
-          sha256sum -c *.sha256sum
-      - name: js console
-        run: forest-cli attach --exec 'showPeers()'
-      - name: net subcommand
-        run: |
-          forest-cli net listen
-          forest-cli net peers
-      - name: validate snapshot
-        run: |
-          forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
-          { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
-          forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
-      - name: print forest logs
-        run: |
-          wget -O metrics.log http://localhost:6116/metrics
-          pkill forest
-          echo "--- Forest STDOUT ---"; cat forest.out
-          echo "--- Forest STDERR ---"; cat forest.err
-          echo "--- Forest Prometheus metrics ---"; cat metrics.log
-      - name: print forest log files
-        run: |
-          ls -hl log
-          cat log/*
+      - name: Calibnet health check
+        env:
+          CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
+        run: ./scripts/calibnet_health_check.sh "$CALIBNET_WALLET"
 
   dependencies-check:
     name: Check cargo files for duplicates
