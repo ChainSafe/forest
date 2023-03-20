@@ -4,6 +4,7 @@
 use std::fs::read_dir;
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
+use anyhow::*;
 use assert_cmd::Command;
 use forest_cli_shared::cli::{Client, Config};
 use rand::Rng;
@@ -97,7 +98,7 @@ fn test_reading_configuration_from_file() {
 }
 
 #[test]
-fn test_config_env_var() {
+fn test_config_env_var() -> Result<()> {
     let expected_config = Config {
         client: Client {
             rpc_token: Some("some_rpc_token".into()),
@@ -107,10 +108,10 @@ fn test_config_env_var() {
         ..Config::default()
     };
 
-    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
+    let mut config_file = tempfile::Builder::new().tempfile()?;
     config_file
-        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
-        .expect("Failed writing configuration!");
+        .write_all(toml::to_string(&expected_config)?.as_bytes())
+        .context("Failed writing configuration!")?;
 
     let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
@@ -121,10 +122,12 @@ fn test_config_env_var() {
         .success();
 
     let output = &cmd.get_output().stdout;
-    let actual_config = toml::from_str::<Config>(std::str::from_utf8(output).unwrap())
-        .expect("Invalid configuration!");
+    let actual_config =
+        toml::from_str::<Config>(std::str::from_utf8(output)?).context("Invalid configuration!")?;
 
-    assert!(expected_config == actual_config);
+    ensure!(expected_config == actual_config);
+
+    Ok(())
 }
 
 #[test]
