@@ -39,7 +39,7 @@ ARG TARGETPLATFORM
 
 # Install those packages for the target architecture
 RUN xx-apt-get update && \
-    xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
+    xx-apt-get install -y libc6-dev g++
 
 WORKDIR /forest
 COPY . .
@@ -68,7 +68,7 @@ ARG DATA_DIR=/home/forest/.local/share/forest
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y ocl-icd-libopencl1 aria2 ca-certificates && \
+    apt-get install --no-install-recommends -y aria2 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 RUN update-ca-certificates
 
