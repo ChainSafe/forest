@@ -90,8 +90,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_DISCONNECT, Access::Write);
 
     // DB API
-    // FIXME: Use Read for testing, change this to Write later
-    access.insert(db_api::DB_GC, Access::Read);
+    access.insert(db_api::DB_GC, Access::Write);
 
     access
 });
