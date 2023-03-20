@@ -337,15 +337,16 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     tokio::select! {
-        err = propagate_snapshot_error(&config, &state_manager) => {
-            error!(
+        ret = sync_from_snapshot(&config, &state_manager).fuse() => {
+            if let Err(err) = ret {
+                error!(
                     "Failed miserably while importing chain from snapshot {}: {err}",
                     path.display()
                 );
-            services.shutdown().await;
-            return Ok(db);
-            },
-        Ok(()) = sync_from_snapshot(&config, &state_manager) => {},
+                services.shutdown().await;
+                return Ok(db);
+            }
+        },
         _ = tokio::signal::ctrl_c() => {
             services.shutdown().await;
             return Ok(db);
@@ -401,31 +402,6 @@ fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> a
     }
 
     Ok(())
-}
-
-// propogates snapshot import error to `tokio::select!` poll
-// in case snapshot imports without an error, sleeps for more than 2 years
-// while waiting for CTRL-C signal
-async fn propagate_snapshot_error<DB>(
-    config: &Config,
-    state_manager: &Arc<StateManager<DB>>,
-) -> anyhow::Error
-where
-    DB: Store + Send + Clone + Sync + Blockstore + 'static,
-{
-    select! {
-        result = sync_from_snapshot(config, state_manager).fuse() => {
-            if let Err(error_message) = result {
-                return error_message
-            }
-        },
-    }
-    // In case snapshot imports with no error, we are still willing
-    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
-    // a limit of approximately 2.2 years we have to loop
-    loop {
-        tokio::time::sleep(Duration::new(64000000, 0)).await;
-    }
 }
 
 // returns the first error with which any of the services end
@@ -509,10 +485,7 @@ async fn prompt_snapshot_or_die(
     }
 }
 
-async fn sync_from_snapshot<DB>(
-    config: &Config,
-    state_manager: &Arc<StateManager<DB>>,
-) -> Result<(), anyhow::Error>
+async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
 {
@@ -529,7 +502,7 @@ where
             validate_height,
             config.client.skip_load,
         )
-        .await;
+        .await 
     }
     Ok(())
 }
