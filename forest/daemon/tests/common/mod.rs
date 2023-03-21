@@ -18,10 +18,21 @@ pub trait CommonArgs {
 impl CommonArgs for Command {
     fn common_args(&mut self) -> &mut Self {
         self.arg("--rpc-address")
-            .arg("127.0.0.0:0")
+            .arg("127.0.0.1:0")
             .arg("--metrics-address")
-            .arg("127.0.0.0:0")
+            .arg("127.0.0.1:0")
             .arg("--exit-after-init");
+        self
+    }
+}
+
+pub trait CommonEnv {
+    fn common_env(&mut self) -> &mut Self;
+}
+
+impl CommonEnv for Command {
+    fn common_env(&mut self) -> &mut Self {
+        self.env("FIL_PROOFS_PARAMETER_CACHE", "/tmp/forest-test-fil-proofs");
         self
     }
 }

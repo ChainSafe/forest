@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod tests;
+pub mod common;
 
 use anyhow::Result;
 use forest_auth::{verify_token, JWT_IDENTIFIER};
@@ -9,7 +9,7 @@ use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
 
-use crate::tests::{cli, create_tmp_config, CommonArgs};
+use crate::common::{cli, create_tmp_config, CommonArgs};
 
 // https://github.com/ChainSafe/forest/issues/2499
 #[test]
