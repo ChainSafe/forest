@@ -15,6 +15,11 @@ use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use human_repr::HumanCount;
 use log::info;
 
+/// DB key size in bytes for estimating reachable data size. Use parity-db value
+/// for simplicity. The actual value for other underlying DB might be slightly
+/// different but that is negligible for calculating the total reachable data
+/// size
+pub const DB_KEY_BYTES: usize = 32;
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
     /// Get typed object from block store by CID
@@ -88,8 +93,8 @@ pub trait BlockstoreBufferedWriteExt: Blockstore + Sized {
         let mut buffer = vec![];
         while let Ok((key, value)) = rx.recv_async().await {
             // Key is stored in 32 bytes in paritydb
-            estimated_buffer_bytes += 32 + value.len();
-            total_bytes += 32 + value.len();
+            estimated_buffer_bytes += DB_KEY_BYTES + value.len();
+            total_bytes += DB_KEY_BYTES + value.len();
             total_entries += 1;
             buffer.push((key, value));
             if estimated_buffer_bytes >= buffer_capacity_bytes {

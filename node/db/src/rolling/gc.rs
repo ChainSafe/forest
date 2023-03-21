@@ -68,7 +68,7 @@ use std::{
 use chrono::Utc;
 use forest_blocks::Tipset;
 use forest_ipld::util::*;
-use forest_utils::db::BlockstoreBufferedWriteExt;
+use forest_utils::db::{BlockstoreBufferedWriteExt, DB_KEY_BYTES};
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use tokio::sync::Mutex;
@@ -201,8 +201,7 @@ where
                     .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
 
                 let pair = (cid, block.clone());
-                // Key size is 32 bytes in paritydb
-                reachable_bytes.fetch_add(32 + pair.1.len(), atomic::Ordering::Relaxed);
+                reachable_bytes.fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
                 if !db.current().has(&cid)? {
                     tx.send_async(pair).await?;
                 }
