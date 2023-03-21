@@ -21,8 +21,7 @@ impl CommonArgs for Command {
             .arg("127.0.0.1:0")
             .arg("--metrics-address")
             .arg("127.0.0.1:0")
-            .arg("--exit-after-init");
-        self
+            .arg("--exit-after-init")
     }
 }
 
@@ -31,9 +30,10 @@ pub trait CommonEnv {
 }
 
 impl CommonEnv for Command {
+    // Always downloads proofs to same location to lower the overall test time
+    // (by reducing multiple "fetching param file" steps).
     fn common_env(&mut self) -> &mut Self {
-        self.env("FIL_PROOFS_PARAMETER_CACHE", "/tmp/forest-test-fil-proofs");
-        self
+        self.env("FIL_PROOFS_PARAMETER_CACHE", "/tmp/forest-test-fil-proofs")
     }
 }
 
