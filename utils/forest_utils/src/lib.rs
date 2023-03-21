@@ -11,7 +11,6 @@ pub mod net;
 use blake2b_simd::Params;
 use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
-
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {
     use super::*;
