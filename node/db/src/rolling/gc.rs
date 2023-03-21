@@ -59,6 +59,13 @@
 //! when the `current` DB space is very large, it tends to trigger DB re-index
 //! more frequently, each DB re-index could pause the GC process for a few
 //! minutes. The same behaviour is observed during snapshot import as well.
+//!
+//! ### Sample mainnet log
+//! ```
+//! 2023-03-16T19:50:40.323860Z  INFO forest_db::rolling::gc: Garbage collection started at epoch 2689660
+//! 2023-03-16T22:27:36.484245Z  INFO forest_db::rolling::gc: Garbage collection finished at epoch 2689660, took 9416s, reachable data size: 135.71GB
+//! 2023-03-16T22:27:38.793717Z  INFO forest_db::rolling::impls: Deleted database under /root/.local/share/forest/mainnet/paritydb/14d0f80992374fb8b20e3b1bd70d5d7b, size: 139.01GB
+//! ```
 
 use std::{
     sync::atomic::{self, AtomicU64, AtomicUsize},
