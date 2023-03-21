@@ -74,8 +74,11 @@ echo "Wallet tests"
 
 # The following steps does basic wallet handling tests.
 
-# Amount to send to
+#TODO: add FIL and attoFIL units; modify FIL_AMT amount
+# Amount to send in FIL
 FIL_AMT=500
+# Amount to send in attoFIL
+#ATTOFIL_AMT=
 # Admin token used when interacting with wallet
 ADMIN_TOKEN=$(cat admin_token)
 # Set environment variable
@@ -115,6 +118,10 @@ $FOREST_CLI_PATH --chain calibnet wallet list
 
 echo "Sending FIL to the above address"
 $FOREST_CLI_PATH --chain calibnet send "$ADDR_TWO" "$FIL_AMT"
+
+#TODO: create 3rd address and verify amount at 3rd address matches sent amt
+#echo "Sending attoFIL to the above address"
+#$FOREST_CLI_PATH --chain calibnet send "$ADDR_THREE" "$ATTOFIL_AMT"
 
 echo "Checking balance of $ADDR_TWO..."
 
