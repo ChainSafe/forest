@@ -3,8 +3,10 @@
 
 pub mod tests;
 
+#[cfg(feature = "slow_tests")]
 use anyhow::Result;
 
+#[cfg(feature = "slow_tests")]
 use crate::tests::{cli, create_tmp_config};
 
 #[cfg(feature = "slow_tests")]
