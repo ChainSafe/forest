@@ -5,10 +5,10 @@ use std::{convert::TryFrom, sync::Arc};
 
 use cid::Cid;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
-use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use forest_shim::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;

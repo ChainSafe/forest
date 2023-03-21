@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::{serde_byte_array, tuple::*};
+use forest_utils::encoding::serde_byte_array;
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that

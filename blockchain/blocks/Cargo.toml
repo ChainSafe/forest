@@ -13,7 +13,6 @@ base64.workspace = true
 cid.workspace = true
 derive_builder.workspace = true
 forest_beacon.workspace = true
-forest_encoding.workspace = true
 forest_json.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_shim.workspace = true
@@ -27,6 +26,7 @@ num.workspace = true
 once_cell.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_tuple.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
