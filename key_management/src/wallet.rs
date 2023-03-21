@@ -160,10 +160,13 @@ impl Wallet {
 }
 
 /// Return the default address for `KeyStore`
-pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
-    let key_info = keystore.get("default")?;
-    let k = Key::try_from(key_info)?;
-    Ok(k.address)
+pub fn get_default(keystore: &KeyStore) -> Result<Option<Address>, Error> {
+    if let Ok(key_info) = keystore.get("default") {
+        let k = Key::try_from(key_info)?;
+        Ok(Some(k.address))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Return vector of addresses sorted by their string representation in

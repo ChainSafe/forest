@@ -53,7 +53,7 @@ where
     let keystore = data.keystore.read().await;
 
     let addr = forest_key_management::get_default(&keystore)?;
-    Ok(addr.to_string())
+    Ok(addr.map(|s| s.to_string()))
 }
 
 /// Export `KeyInfo` from the Wallet given its address
