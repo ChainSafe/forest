@@ -15,7 +15,6 @@ blake2b_simd.workspace = true
 cid.workspace = true
 const_format = "0.2.26"
 digest.workspace = true
-serde_ipld_dagcbor.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
@@ -29,6 +28,7 @@ pbr = "1.1"
 pin-project-lite.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 serde_repr.workspace = true
 serde_tuple.workspace = true

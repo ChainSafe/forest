@@ -12,7 +12,6 @@ use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-// use fvm_ipld_encoding3::tuple::Deserialize_tuple;
 use super::Message as MessageTrait;
 
 /// Represents a wrapped message with signature bytes.
