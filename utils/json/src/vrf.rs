@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::{blake2b_256, serde_byte_array};
+use forest_utils::encoding::{blake2b_256, serde_byte_array};
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.

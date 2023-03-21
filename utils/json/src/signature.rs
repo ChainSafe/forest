@@ -3,9 +3,8 @@
 
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
-    use forest_encoding::de;
     use forest_shim::crypto::{Signature, SignatureType};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.
     #[derive(Deserialize, Serialize)]

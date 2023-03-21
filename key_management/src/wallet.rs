@@ -160,10 +160,13 @@ impl Wallet {
 }
 
 /// Return the default address for `KeyStore`
-pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
-    let key_info = keystore.get("default")?;
-    let k = Key::try_from(key_info)?;
-    Ok(k.address)
+pub fn get_default(keystore: &KeyStore) -> Result<Option<Address>, Error> {
+    if let Ok(key_info) = keystore.get("default") {
+        let k = Key::try_from(key_info)?;
+        Ok(Some(k.address))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Return vector of addresses sorted by their string representation in
@@ -234,7 +237,7 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Addr
 #[cfg(test)]
 mod tests {
     use anyhow::ensure;
-    use forest_encoding::blake2b_256;
+    use forest_utils::encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;
