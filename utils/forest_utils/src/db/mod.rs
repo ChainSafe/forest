@@ -9,11 +9,11 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use human_repr::HumanCount;
 use log::info;
+use serde::{de::DeserializeOwned, ser::Serialize};
 
 /// DB key size in bytes for estimating reachable data size. Use parity-db value
 /// for simplicity. The actual value for other underlying DB might be slightly

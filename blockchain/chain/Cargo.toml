@@ -18,7 +18,6 @@ flume.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_db.workspace = true
-forest_encoding.workspace = true
 forest_interpreter.workspace = true
 forest_ipld.workspace = true
 forest_libp2p_bitswap.workspace = true
