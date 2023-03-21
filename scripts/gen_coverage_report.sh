@@ -78,14 +78,14 @@ TIPSET_CID=$(curl -X POST \
     --header 'Content-Type: application/json' \
     --data '{"jsonrpc":"2.0","method":"Filecoin.SyncState","params":null,"id":null}' \
     http://localhost:1234/rpc/v0 \
-    | jq -r --arg SLASH "/" .result.ActiveSyncs[0].Base.Cids[0][$SLASH])
+    | jq -r --arg SLASH "/" .result.ActiveSyncs[0].Base.Cids[0]["$SLASH"])
 echo "TIPSET_CID: $TIPSET_CID"
 
 # Kill forest
 timeout 15 killall --wait --signal SIGINT forest
 
 # Statediff
-cov forest_statediff chain --chain calibnet $TIPSET_CID $TIPSET_CID > /dev/null
+cov forest_statediff chain --chain calibnet "$TIPSET_CID" "$TIPSET_CID" > /dev/null
 
 # Generate codecov report
 cargo llvm-cov report --lcov --output-path lcov.info
