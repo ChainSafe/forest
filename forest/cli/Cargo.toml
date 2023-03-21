@@ -24,7 +24,6 @@ forest_chain.workspace = true
 forest_chain_sync.workspace = true
 forest_cli_shared.workspace = true
 forest_db = { workspace = true }
-forest_encoding.workspace = true
 forest_genesis.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
@@ -50,6 +49,7 @@ rust_decimal_macros = "1.28.1"
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+serde_tuple.workspace = true
 strfmt = "0.2.2"
 tempfile.workspace = true
 ticker = "0.1"

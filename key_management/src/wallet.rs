@@ -237,7 +237,7 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Addr
 #[cfg(test)]
 mod tests {
     use anyhow::ensure;
-    use forest_encoding::blake2b_256;
+    use forest_utils::encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;

@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::tuple::*;
 use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -11,6 +10,7 @@ use forest_shim::{
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
+use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::Message as MessageTrait;
 

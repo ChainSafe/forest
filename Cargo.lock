@@ -3411,7 +3411,6 @@ dependencies = [
  "forest_chain_sync",
  "forest_cli_shared",
  "forest_db",
- "forest_encoding",
  "forest_genesis",
  "forest_ipld",
  "forest_json",
@@ -3438,6 +3437,7 @@ dependencies = [
  "rustyline",
  "serde",
  "serde_json",
+ "serde_tuple",
  "strfmt",
  "tempfile",
  "ticker",
@@ -3518,7 +3518,6 @@ dependencies = [
  "base64 0.21.0",
  "bls-signatures",
  "byteorder",
- "forest_encoding",
  "forest_shim",
  "forest_utils",
  "fvm_shared 2.0.0",
@@ -3528,6 +3527,7 @@ dependencies = [
  "quickcheck_macros",
  "serde",
  "serde_json",
+ "serde_tuple",
  "sha2 0.10.6",
  "tokio",
 ]
@@ -3542,7 +3542,6 @@ dependencies = [
  "cid",
  "derive_builder 0.12.0",
  "forest_beacon",
- "forest_encoding",
  "forest_json",
  "forest_message",
  "forest_shim",
@@ -3560,6 +3559,7 @@ dependencies = [
  "quickcheck_macros",
  "serde",
  "serde_json",
+ "serde_tuple",
  "thiserror",
 ]
 
@@ -3578,7 +3578,6 @@ dependencies = [
  "forest_beacon",
  "forest_blocks",
  "forest_db",
- "forest_encoding",
  "forest_interpreter",
  "forest_ipld",
  "forest_libp2p_bitswap",
@@ -3621,7 +3620,6 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_db",
- "forest_encoding",
  "forest_json",
  "forest_libp2p",
  "forest_message",
@@ -3748,22 +3746,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
-]
-
-[[package]]
-name = "forest_encoding"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "blake2b_simd",
- "cs_serde_bytes",
- "fvm_ipld_encoding 0.3.3",
- "rand 0.8.5",
- "serde",
- "serde_ipld_dagcbor",
- "serde_json",
- "serde_repr",
- "serde_tuple",
 ]
 
 [[package]]
@@ -3899,7 +3881,6 @@ dependencies = [
  "base64 0.21.0",
  "cid",
  "data-encoding",
- "forest_encoding",
  "forest_message",
  "forest_shim",
  "forest_test_utils",
@@ -3927,7 +3908,6 @@ dependencies = [
  "argon2",
  "base64 0.21.0",
  "bls-signatures",
- "forest_encoding",
  "forest_json",
  "forest_shim",
  "forest_utils",
@@ -3957,7 +3937,6 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_db",
- "forest_encoding",
  "forest_genesis",
  "forest_libp2p_bitswap",
  "forest_message",
@@ -3984,6 +3963,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor",
  "serde_json",
+ "serde_tuple",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -4022,7 +4002,6 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "cid",
- "forest_encoding",
  "forest_shim",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
@@ -4031,6 +4010,7 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "serde",
+ "serde_tuple",
 ]
 
 [[package]]
@@ -4258,7 +4238,6 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_db",
- "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
  "forest_json",
@@ -4355,13 +4334,15 @@ dependencies = [
  "anyhow",
  "async-trait",
  "atty",
+ "blake2b_simd",
  "cid",
  "const_format",
+ "cs_serde_bytes",
  "digest 0.10.6",
- "forest_encoding",
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
+ "fvm_ipld_encoding 0.3.3",
  "hyper",
  "hyper-rustls",
  "libc",
@@ -4374,6 +4355,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_derive",
+ "serde_ipld_dagcbor",
  "serde_json",
  "sha2 0.10.6",
  "tempfile",

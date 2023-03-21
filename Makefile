@@ -57,7 +57,6 @@ clean:
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
-	@cargo clean -p forest_encoding
 	@cargo clean -p forest_ipld
 	@cargo clean -p forest_json
 	@cargo clean -p forest_fil_types
