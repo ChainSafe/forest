@@ -10,7 +10,7 @@
 //! scenarios.
 //!
 //! ## GC algorithm
-//! We choose `semi-space` GC algorithm for simplicity and sufficiency
+//! We chose the `semi-space` GC algorithm for simplicity and sufficiency
 //! Besides `semi-space`, `mark-and-sweep` was also considered and evaluated.
 //! However, it's not feasible because of the limitations of the underlying DB
 //! we use, more specifically, limitations in iterating the DB and retrieving the original key. See <https://github.com/paritytech/parity-db/issues/187>
@@ -31,7 +31,7 @@
 //!
 //! ## Disk usage
 //! During `walk_snapshot`, data from the `old` DB is duplicated in the
-//! `current` DB, which uses extra disk space of up-to 100% of the snapshot file
+//! `current` DB, which uses extra disk space of up to 100% of the snapshot file
 //! size
 //!
 //! ## Memory usage
@@ -42,7 +42,7 @@
 //! 1. GC is triggered automatically when total DB size is greater than 2x of
 //! the last reachable data size
 //! 2. GC can be triggered manually by `forest-cli db gc` command
-//! 3. There's global GC lock to ensure at most one GC job is running
+//! 3. There's a global GC lock to ensure at most one GC job is running
 //!
 //! ## Performance
 //! GC performance is typically 1x-1.5x of `snapshot export`, depending on
@@ -55,7 +55,7 @@
 //! performance regression has been observed
 //!
 //! ### Write performance
-//! DB write performance is typically on-par with `snapshot import`, note that
+//! DB write performance is typically on par with `snapshot import`. Note that
 //! when the `current` DB space is very large, it tends to trigger DB re-index
 //! more frequently, each DB re-index could pause the GC process for a few
 //! minutes. The same behaviour is observed during snapshot import as well.
