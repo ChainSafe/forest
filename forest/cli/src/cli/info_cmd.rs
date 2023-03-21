@@ -140,10 +140,12 @@ impl InfoCommand {
         println!("Chain health: {chain_health}");
 
         // Wallet info
-        let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
+        if let Some(default_wallet_address) = wallet_default_address((), &config.client.rpc_token)
             .await
-            .map_err(handle_rpc_err)?;
-        println!("Default wallet address: {}", default_wallet_address.bold());
+            .map_err(handle_rpc_err)?
+        {
+            println!("Default wallet address: {}", default_wallet_address.bold());
+        }
 
         Ok(())
     }
