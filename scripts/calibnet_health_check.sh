@@ -138,6 +138,14 @@ fi
 echo "Get and print metrics and logs and stop forest"
 wget -O metrics.log http://localhost:6116/metrics
 
+echo "Fetching TIPSET_CID"
+TIPSET_CID=$(curl -X POST \
+    --header 'Content-Type: application/json' \
+    --data '{"jsonrpc":"2.0","method":"Filecoin.SyncState","params":null,"id":null}' \
+    http://localhost:1234/rpc/v0 \
+    | jq -r --arg SLASH "/" .result.ActiveSyncs[0].Base.Cids[0][$SLASH])
+echo "TIPSET_CID: $TIPSET_CID"
+
 echo "Shutting down forest"
 cleanup
 
@@ -145,4 +153,4 @@ echo "--- Forest STDOUT ---"; cat forest.out
 echo "--- Forest STDERR ---"; cat forest.err
 echo "--- Forest Prometheus metrics ---"; cat metrics.log
 echo "--- Statediff ---"
-cargo run -p forest_statediff --release -- chain --chain calibnet bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 > /dev/null
+cargo run -p forest_statediff --release -- chain --chain calibnet $TIPSET_CID $TIPSET_CID > /dev/null

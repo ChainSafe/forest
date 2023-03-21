@@ -73,11 +73,19 @@ cov forest-cli --token "$READ_TOKEN" wallet list && { echo "must fail"; return 1
 # Verifying a message should still work with the read-only token
 cov forest-cli --token "$READ_TOKEN" wallet verify -a "$NEW_ADDR" -m deadbeef -s "$SIGNATURE" | grep true
 
+# Get tipset cid
+TIPSET_CID=$(curl -X POST \
+    --header 'Content-Type: application/json' \
+    --data '{"jsonrpc":"2.0","method":"Filecoin.SyncState","params":null,"id":null}' \
+    http://localhost:1234/rpc/v0 \
+    | jq -r --arg SLASH "/" .result.ActiveSyncs[0].Base.Cids[0][$SLASH])
+echo "TIPSET_CID: $TIPSET_CID"
+
 # Kill forest
 timeout 15 killall --wait --signal SIGINT forest
 
 # Statediff
-cov forest_statediff chain --chain calibnet bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4 > /dev/null
+cov forest_statediff chain --chain calibnet $TIPSET_CID $TIPSET_CID > /dev/null
 
 # Generate codecov report
 cargo llvm-cov report --lcov --output-path lcov.info
