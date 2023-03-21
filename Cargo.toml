@@ -29,7 +29,6 @@ members = [
   "node/forest_libp2p",
   "node/forest_libp2p/bitswap",
   "node/forest_libp2p/bitswap/examples/*",
-  "encoding",
   "ipld",
   "key_management",
   "tests/serialization_tests",
@@ -123,7 +122,7 @@ rpassword = "7.2"
 serde = { version = "1.0", default-features = false }
 serde_ipld_dagcbor = "0.2"
 serde_json = "1.0"
-serde_repr = "0.1.8"
+serde_tuple = "0.5"
 serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2 = { version = "0.10.5", default-features = false }
 tempfile = "3.4"
@@ -152,7 +151,6 @@ forest_chain_sync = { path = "./blockchain/chain_sync" }
 forest_cli_shared = { path = "./forest/shared" }
 forest_db = { path = "./node/db" }
 forest_deleg_cns = { path = "./blockchain/consensus/deleg_cns" }
-forest_encoding = { path = "./encoding" }
 forest_fil_cns = { path = "./blockchain/consensus/fil_cns" }
 forest_fil_types = { path = "./types" }
 forest_genesis = { path = "./utils/genesis" }

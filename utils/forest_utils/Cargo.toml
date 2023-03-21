@@ -11,13 +11,14 @@ ahash.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 atty.workspace = true
+blake2b_simd.workspace = true
 cid.workspace = true
 const_format = "0.2.26"
 digest.workspace = true
-forest_encoding.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
+fvm_ipld_encoding3.workspace = true
 hyper-rustls.workspace = true
 hyper.workspace = true
 libc = "0.2"
@@ -27,6 +28,7 @@ pbr = "1.1"
 pin-project-lite.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs"] }
@@ -35,6 +37,7 @@ toml.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+cs_serde_bytes = "0.12.2"
 multihash = { version = "0.16", default-features = false, features = ["sha2"] }
 rand.workspace = true
 serde = { workspace = true, features = ["derive"] }

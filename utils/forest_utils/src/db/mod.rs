@@ -7,9 +7,9 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
+use serde::{de::DeserializeOwned, ser::Serialize};
 
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
