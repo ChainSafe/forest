@@ -17,7 +17,7 @@ use forest_shim::{
     sector::PoStProof,
     version::NetworkVersion,
 };
-use forest_utils::blake2b_256;
+use forest_utils::encoding::blake2b_256;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::clock::ChainEpoch;
 use num::BigInt;

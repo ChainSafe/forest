@@ -34,7 +34,6 @@ use forest_utils::{
         file_backed_obj::{FileBacked, SYNC_PERIOD},
         BlockstoreExt,
     },
-    de::DeserializeOwned,
     io::Checksum,
 };
 use futures::Future;
@@ -46,7 +45,7 @@ use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     io::AsyncWrite,
     sync::{

@@ -6,7 +6,7 @@ use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
 };
-use forest_utils::blake2b_256;
+use forest_utils::encoding::blake2b_256;
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 

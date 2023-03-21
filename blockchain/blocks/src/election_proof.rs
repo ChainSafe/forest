@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_json::vrf::VRFProof;
-use forest_utils::blake2b_256;
+use forest_utils::encoding::blake2b_256;
 use fvm_shared::BLOCKS_PER_EPOCH;
 use lazy_static::lazy_static;
 use num::{

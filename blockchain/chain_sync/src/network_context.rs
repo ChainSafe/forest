@@ -22,10 +22,11 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
-use forest_utils::{db::BlockstoreExt, de::DeserializeOwned};
+use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
+use serde::de::DeserializeOwned;
 use tokio::task::JoinSet;
 
 /// Timeout for response from an RPC request
