@@ -108,7 +108,11 @@ where
             .await
     } {
         Ok(checksum) if !dry_run => {
-            tmp_file.persist(&output_path)?;
+            if let Err(e) = tmp_file.persist(&output_path) {
+                // Temporary files cannot be persisted across filesystems, so we fallback to a
+                // copy in case it happens.
+                tokio::fs::copy(e.file, &output_path).await?;
+            }
             if !skip_checksum {
                 save_checksum(&output_path, checksum).await?;
             }
