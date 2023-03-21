@@ -887,14 +887,8 @@ where
                         metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
 
-                        if let ChainMuxerError::P2PEventStreamReceive(s) = why {
-                            // When tokio runtime is shutting down, we can get infinite looping with
-                            // this error. This would block `ChainMuxer` task from beeing cancelled
-                            // so we just need to return from the `pool` method.
-                            if s == "receiving on a closed channel" {
-                                return Poll::Pending;
-                            }
-                        }
+                        // By default bail on errors
+                        return Poll::Ready(why);
                     }
                     Poll::Pending => return Poll::Pending,
                 },
