@@ -90,6 +90,8 @@ Notable updates:
 - [forest-cli] corrected counts displayed when using
   `forest-cli --chain <chain> sync wait`.
   [#2654](https://github.com/ChainSafe/forest/pull/2654)
+- [forest-cli] Fix snapshot export when running on a system with a separate
+  temporary filesystem. [#2693](https://github.com/ChainSafe/forest/pull/2693)
 
 ## Forest v0.6.0 (2023-01-06)
 
