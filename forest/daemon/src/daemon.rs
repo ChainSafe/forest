@@ -600,7 +600,7 @@ mod test {
 
     use super::*;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
             .await
@@ -608,20 +608,20 @@ mod test {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn import_snapshot_from_file_invalid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("Cargo.toml").await.is_err());
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn import_snapshot_from_file_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("dummy.car").await.is_err());
         Ok(())
     }
 
     #[cfg(feature = "slow_tests")]
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
             .await
@@ -654,7 +654,7 @@ mod test {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn import_chain_from_file() -> anyhow::Result<()> {
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
