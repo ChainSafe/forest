@@ -15,6 +15,7 @@ cid.workspace = true
 const_format = "0.2.26"
 digest.workspace = true
 forest_encoding.workspace = true
+forest_shim.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
@@ -26,6 +27,8 @@ parking_lot.workspace = true
 pbr = "1.1"
 pin-project-lite.workspace = true
 quickcheck.workspace = true
+rust_decimal = "1.28.1"
+rust_decimal_macros = "1.28.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true

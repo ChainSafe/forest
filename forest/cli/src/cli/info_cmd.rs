@@ -10,11 +10,11 @@ use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
 use forest_shim::econ::TokenAmount;
-use forest_utils::io::parser::FormattingMode;
+use forest_utils::io::parser::{format_balance_string, FormattingMode};
 use time::OffsetDateTime;
 
 use super::Config;
-use crate::cli::{handle_rpc_err, wallet_cmd::format_balance_string};
+use crate::cli::handle_rpc_err;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -31,10 +31,9 @@ enum SyncStatus {
 pub struct NodeStatusInfo {
     /// timestamp of how far behind the node is with respect to syncing to head
     behind: u64,
-    /// Chain health calculated as percentage:
-    /// amount of blocks in last finality /
-    /// very healthy amount of blocks in a finality (900 epochs * 5 blocks per
-    /// tipset)
+    /// Chain health is defined as the amount of blocks in last finality divided
+    /// by healthy amount of blocks in a finality (900 epochs * 5 blocks per
+    /// tipset).
     health: usize,
     /// epoch the node is currently at
     epoch: i64,
@@ -85,7 +84,7 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
         0
     };
 
-    let health = 100 * (900 * blocks_per_tipset_last_finality) / (900 * 5);
+    let health = 100 * blocks_per_tipset_last_finality / 5;
 
     Ok(NodeStatusInfo {
         behind,
