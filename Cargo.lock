@@ -3434,8 +3434,6 @@ dependencies = [
  "num",
  "rand 0.8.5",
  "rpassword",
- "rust_decimal",
- "rust_decimal_macros",
  "rustyline",
  "serde",
  "serde_json",
