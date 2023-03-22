@@ -52,7 +52,7 @@ pub mod serde_byte_array {
 ///
 /// # Example
 /// ```
-/// use forest_utils::blake2b_256;
+/// use forest_utils::encoding::blake2b_256;
 ///
 /// let ingest: Vec<u8> = vec![];
 /// let hash = blake2b_256(&ingest);
