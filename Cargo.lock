@@ -4193,7 +4193,6 @@ dependencies = [
  "forest_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.3.0",
  "libipld-core 0.14.0",
  "serde",
  "serde_json",

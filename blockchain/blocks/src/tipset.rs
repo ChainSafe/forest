@@ -10,6 +10,7 @@ use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use super::{Block, BlockHeader, Error, Ticket};
 
@@ -31,6 +32,13 @@ impl TipsetKeys {
     /// Returns tipset header `cids`
     pub fn cids(&self) -> &[Cid] {
         &self.cids
+    }
+}
+
+impl fmt::Display for TipsetKeys {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = self.cids().into_iter().map(|cid| cid.to_string()).collect::<Vec<_>>().join(", ");
+        write!(f, "[{}]", s)
     }
 }
 
@@ -216,9 +224,9 @@ impl Tipset {
                 ticket.vrfproof < other_ticket.vrfproof
             });
         if broken {
-            info!("weight tie broken in favour of {:?}", self.key());
+            info!("Weight tie broken in favour of {}", self.key());
         } else {
-            info!("weight tie left unbroken, default to {:?}", other.key());
+            info!("Weight tie left unbroken, default to {}", other.key());
         }
         broken
     }
