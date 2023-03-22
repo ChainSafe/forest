@@ -23,6 +23,8 @@ Notable updates:
   [#2579](https://github.com/ChainSafe/forest/pull/2579)
 - [forest-cli info] Added forest info command.
   [#2578](https://github.com/ChainSafe/forest/pull/2578)
+- [forest daemon] Automatic database garbage collection.
+  [#2638](https://github.com/ChainSafe/forest/pull/2638)
 
 ### Changed
 

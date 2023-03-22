@@ -30,25 +30,7 @@ fn mem_db_does_not_exist() {
 }
 
 #[test]
-fn mem_db_delete() {
-    let db = MemoryDB::default();
-    subtests::delete(&db);
-}
-
-#[test]
 fn mem_db_bulk_write() {
     let db = MemoryDB::default();
     subtests::bulk_write(&db);
-}
-
-#[test]
-fn mem_db_bulk_read() {
-    let db = MemoryDB::default();
-    subtests::bulk_read(&db);
-}
-
-#[test]
-fn mem_db_bulk_delete() {
-    let db = MemoryDB::default();
-    subtests::bulk_delete(&db);
 }

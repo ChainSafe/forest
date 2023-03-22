@@ -44,6 +44,7 @@ where
     pub start_time: OffsetDateTime,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
+    pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -25,9 +25,16 @@ paritydb = ["dep:parity-db"]
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
 cid.workspace = true
+flume.workspace = true
+forest_blocks.workspace = true
+forest_ipld.workspace = true
 forest_libp2p_bitswap.workspace = true
+forest_utils.workspace = true
+fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
+human-repr.workspace = true
 lazy_static.workspace = true
 libipld.workspace = true
 log.workspace = true
@@ -35,11 +42,15 @@ num_cpus.workspace = true
 parking_lot.workspace = true
 prometheus = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+uuid = { version = "1.3", features = ["v4"] }
 
 # optional
 parity-db = { version = "0.4.6", default-features = false, optional = true }
 rocksdb = { version = "0.20", default-features = false, optional = true }
 
 [dev-dependencies]
+rand.workspace = true
 tempfile.workspace = true

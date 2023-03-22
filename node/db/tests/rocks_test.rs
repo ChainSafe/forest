@@ -37,26 +37,8 @@ mod rocksdb_tests {
     }
 
     #[test]
-    fn db_delete() {
-        let db = TempRocksDB::new();
-        subtests::delete(&*db);
-    }
-
-    #[test]
     fn db_bulk_write() {
         let db = TempRocksDB::new();
         subtests::bulk_write(&*db);
-    }
-
-    #[test]
-    fn db_bulk_read() {
-        let db = TempRocksDB::new();
-        subtests::bulk_read(&*db);
-    }
-
-    #[test]
-    fn db_bulk_delete() {
-        let db = TempRocksDB::new();
-        subtests::bulk_delete(&*db);
     }
 }

@@ -7,7 +7,10 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_state_manager::StateManager;
-use forest_utils::{db::BlockstoreExt, net::FetchProgress};
+use forest_utils::{
+    db::{BlockstoreBufferedWriteExt, BlockstoreExt},
+    net::FetchProgress,
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
@@ -117,12 +120,12 @@ where
         info!("Downloading file...");
         let url = Url::parse(path)?;
         let reader = FetchProgress::fetch_from_url(url).await?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
         let file = File::open(&path).await?;
         let reader = FetchProgress::fetch_from_file(file).await?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
 
     info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
@@ -162,12 +165,12 @@ where
 /// Loads car file into database, and returns the block header CIDs from the CAR
 /// header.
 async fn load_and_retrieve_header<DB, R>(
-    store: &DB,
+    store: DB,
     reader: FetchProgress<R>,
     skip_load: bool,
 ) -> anyhow::Result<Vec<Cid>>
 where
-    DB: Blockstore,
+    DB: Blockstore + Send + Sync + 'static,
     R: AsyncRead + Send + Unpin,
 {
     let mut compat = reader.compat();
@@ -184,22 +187,20 @@ where
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<Vec<Cid>>
 where
     R: futures::AsyncRead + Send + Unpin,
-    DB: Blockstore,
+    DB: Blockstore + Send + Sync + 'static,
 {
     // 1GB
     const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
 
+    let (tx, rx) = flume::bounded(100);
+    #[allow(clippy::redundant_async_block)]
+    let write_task =
+        tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;
-    let mut estimated_size = 0;
-    let mut buffer = vec![];
     while let Some(block) = car_reader.next_block().await? {
-        estimated_size += 64 + block.data.len();
-        buffer.push((block.cid, block.data));
-        if estimated_size >= BUFFER_CAPCITY_BYTES {
-            store.put_many_keyed(std::mem::take(&mut buffer))?;
-            estimated_size = 0;
-        }
+        tx.send_async((block.cid, block.data)).await?;
     }
-    store.put_many_keyed(buffer)?;
+    drop(tx);
+    write_task.await??;
     Ok(car_reader.header.roots)
 }
