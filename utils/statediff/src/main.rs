@@ -4,7 +4,7 @@ use cid::Cid;
 use clap::Parser;
 use directories::ProjectDirs;
 use forest_cli_shared::cli::HELP_MESSAGE;
-use forest_db::db_engine::{db_path, open_db, DbConfig};
+use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_statediff::print_state_diff;
 
 impl crate::Subcommand {
@@ -19,7 +19,7 @@ impl crate::Subcommand {
                 let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
                     .ok_or(anyhow::Error::msg("no such path"))?;
                 let chain_path = dir.data_dir().join(chain);
-                let blockstore = open_db(&db_path(&chain_path), &DbConfig::default())?;
+                let blockstore = open_proxy_db(db_root(&chain_path), Default::default())?;
 
                 if let Err(err) = print_state_diff(&blockstore, pre, post, *depth) {
                     eprintln!("Failed to print state diff: {err}");

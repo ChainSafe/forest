@@ -3268,6 +3268,7 @@ dependencies = [
  "atty",
  "base64 0.21.0",
  "boa_engine",
+ "chrono",
  "cid",
  "clap",
  "convert_case 0.6.0",
@@ -3454,7 +3455,6 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "forest_utils",
- "futures",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
@@ -3575,9 +3575,16 @@ version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "chrono",
  "cid",
+ "flume",
+ "forest_blocks",
+ "forest_ipld",
  "forest_libp2p_bitswap",
+ "forest_utils",
+ "fs_extra",
  "fvm_ipld_blockstore",
+ "human-repr",
  "lazy_static",
  "libipld",
  "log",
@@ -3585,10 +3592,14 @@ dependencies = [
  "parity-db",
  "parking_lot 0.12.1",
  "prometheus",
+ "rand 0.8.5",
  "rocksdb",
  "serde",
+ "serde_yaml",
  "tempfile",
  "thiserror",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -3665,6 +3676,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "cid",
+ "flume",
  "forest_blocks",
  "forest_state_manager",
  "forest_utils",
@@ -3722,6 +3734,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "cid",
+ "forest_blocks",
  "forest_db",
  "forest_json",
  "forest_utils",
@@ -4203,14 +4216,17 @@ dependencies = [
  "async-trait",
  "atty",
  "blake2b_simd",
+ "chrono",
  "cid",
  "const_format",
  "cs_serde_bytes",
  "digest 0.10.6",
+ "flume",
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
+ "human-repr",
  "hyper",
  "hyper-rustls",
  "libc",
@@ -8742,6 +8758,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f82e6c8c047aa50a7328632d067bcae6ef38772a79e28daf32f735e0e4f3dd10"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "serialization_tests"
 version = "0.6.0"
 dependencies = [
@@ -10013,6 +10042,12 @@ dependencies = [
  "crypto-common",
  "subtle",
 ]
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad2024452afd3874bf539695e04af6732ba06517424dbf958fdb16a01f3bef6c"
 
 [[package]]
 name = "unsigned-varint"

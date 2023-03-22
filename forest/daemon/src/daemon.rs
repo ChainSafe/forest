@@ -17,7 +17,8 @@ use forest_cli_shared::{
     },
 };
 use forest_db::{
-    db_engine::{db_path, open_db, Db},
+    db_engine::{db_root, open_proxy_db},
+    rolling::{DbGarbageCollector, RollingDB},
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -67,7 +68,7 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 }
 
 /// Starts daemon process
-pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
+pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<RollingDB> {
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
@@ -119,8 +120,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-
-    let db = open_db(&db_path(&chain_data_path), config.db_config())?;
+    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
 
     let mut services = JoinSet::new();
 
@@ -133,8 +133,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-
-        let db_directory = forest_db::db_engine::db_path(&chain_data_path);
+        let db_directory = forest_db::db_engine::db_root(&chain_path(&config));
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -162,6 +161,23 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     )?);
 
     chain_store.set_genesis(&genesis_header)?;
+    let db_garbage_collector = {
+        let db = db.clone();
+        let chain_store = chain_store.clone();
+        let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
+        Arc::new(DbGarbageCollector::new(db, get_tipset))
+    };
+
+    #[allow(clippy::redundant_async_block)]
+    services.spawn({
+        let db_garbage_collector = db_garbage_collector.clone();
+        async move { db_garbage_collector.collect_loop_passive().await }
+    });
+    #[allow(clippy::redundant_async_block)]
+    services.spawn({
+        let db_garbage_collector = db_garbage_collector.clone();
+        async move { db_garbage_collector.collect_loop_event().await }
+    });
 
     let publisher = chain_store.publisher();
 
@@ -292,6 +308,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
+        let gc_event_tx = db_garbage_collector.get_tx();
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
@@ -304,11 +321,11 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
-                                                                  * this itself from the
-                                                                  * StateManager */
+                    // TODO: the RPCState can fetch this itself from the StateManager
+                    beacon: rpc_state_manager.beacon_schedule(),
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
+                    gc_event_tx,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),

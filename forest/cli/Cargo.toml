@@ -13,6 +13,7 @@ anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
 boa_engine = { version = "0.16.0", features = ["console"] }
+chrono.workspace = true
 cid.workspace = true
 clap.workspace = true
 convert_case = "0.6.0"
