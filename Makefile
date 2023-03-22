@@ -132,6 +132,8 @@ test:
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
 	cargo nextest run -p forest_libp2p_bitswap --all-features
 	cargo check --tests --features slow_tests
+	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+	cargo test --doc
 
 test-slow:
 	cargo nextest run -p forest_message_pool --features slow_tests
