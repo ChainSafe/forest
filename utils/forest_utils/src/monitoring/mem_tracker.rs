@@ -10,7 +10,6 @@ use human_repr::HumanCount;
 use log::info;
 use memory_stats::memory_stats;
 
-#[derive(Default)]
 pub struct MemStatsTracker {
     check_interval: Duration,
     peak_physical_mem: AtomicUsize,
@@ -19,6 +18,8 @@ pub struct MemStatsTracker {
 
 impl MemStatsTracker {
     pub fn new(check_interval: Duration) -> Self {
+        assert!(check_interval > Duration::default());
+
         Self {
             check_interval,
             peak_physical_mem: Default::default(),
@@ -35,6 +36,12 @@ impl MemStatsTracker {
             }
             tokio::time::sleep(self.check_interval).await;
         }
+    }
+}
+
+impl Default for MemStatsTracker {
+    fn default() -> Self {
+        Self::new(Duration::from_millis(1000))
     }
 }
 
