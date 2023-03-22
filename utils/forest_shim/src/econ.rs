@@ -106,6 +106,12 @@ impl From<TokenAmount> for TokenAmount_v3 {
     }
 }
 
+impl From<&TokenAmount> for TokenAmount_v3 {
+    fn from(other: &TokenAmount) -> TokenAmount_v3 {
+        other.0.clone()
+    }
+}
+
 impl From<TokenAmount> for TokenAmount_v2 {
     fn from(other: TokenAmount) -> TokenAmount_v2 {
         TokenAmount_v2::from_atto(other.atto().clone())
