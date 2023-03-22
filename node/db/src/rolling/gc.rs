@@ -142,7 +142,7 @@ where
                 self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
             ) {
                 let should_collect = if last_reachable_bytes > 0 {
-                    total_size > 2 * last_reachable_bytes
+                    total_size > (gc_trigger_factor() * last_reachable_bytes as f64) as _
                 } else {
                     total_size > 0 && current_size * 3 > total_size
                 };
@@ -232,5 +232,15 @@ where
 
         db.next_current()?;
         Ok(())
+    }
+}
+
+fn gc_trigger_factor() -> f64 {
+    const DEFAULT_GC_TRIGGER_FACTOR: f64 = 2.0;
+
+    if let Ok(factor) = std::env::var("FOREST_GC_TRIGGER_FACTOR") {
+        factor.parse().unwrap_or(DEFAULT_GC_TRIGGER_FACTOR)
+    } else {
+        DEFAULT_GC_TRIGGER_FACTOR
     }
 }
