@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-pub use utils::is_valid_for_sending;
+pub use utils::{is_valid_for_sending, verify_winning_post};
 
 mod vm_circ_supply;
 
