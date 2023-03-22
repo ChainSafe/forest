@@ -10,7 +10,6 @@ edition.workspace = true
 base64.workspace = true
 cid.workspace = true
 data-encoding = "2.3"
-forest_encoding.workspace = true
 forest_message.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true

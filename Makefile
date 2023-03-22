@@ -31,7 +31,7 @@ install-with-mimalloc:
 
 install-deps:
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev aria2 cmake
+	apt-get install --no-install-recommends -y build-essential clang aria2 cmake
 
 install-lint-tools:
 	cargo install --locked taplo-cli
@@ -57,7 +57,6 @@ clean:
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
-	@cargo clean -p forest_encoding
 	@cargo clean -p forest_ipld
 	@cargo clean -p forest_json
 	@cargo clean -p forest_fil_types

@@ -64,7 +64,6 @@ Install [rustup](https://rustup.rs/)
 
 - OS Base-Devel/Build-Essential
 - Clang compiler
-- OpenCL bindings
 
 ### Ubuntu (20.04)
 
@@ -75,25 +74,25 @@ sudo make install-deps
 or
 
 ```
-sudo apt install build-essential clang ocl-icd-opencl-dev cmake
+sudo apt install build-essential clang cmake
 ```
 
 ### Archlinux
 
 ```
-sudo pacman -S base-devel clang ocl-icd openssl
+sudo pacman -S base-devel clang
 ```
 
 ### Fedora (36)
 
 ```
-sudo dnf install -y clang-devel ocl-icd-devel cmake
+sudo dnf install -y clang-devel cmake
 ```
 
 ### Alpine
 
 ```
-apk add git curl make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
+apk add git curl make cmake gcc clang clang-dev musl-dev
 ```
 
 ## Installation

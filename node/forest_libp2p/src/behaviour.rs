@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::{HashMap, HashSet};
-use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
+use forest_utils::encoding::blake2b_256;
 use libp2p::{
     core::identity::Keypair,
     gossipsub::{

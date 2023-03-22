@@ -13,7 +13,6 @@ use std::{
 use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
-use forest_encoding::de::DeserializeOwned;
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -27,6 +26,7 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
+use serde::de::DeserializeOwned;
 use tokio::task::JoinSet;
 
 /// Timeout for response from an RPC request
