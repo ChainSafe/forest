@@ -6,9 +6,61 @@ use std::str::FromStr;
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
-use num::BigInt;
+use lazy_static::lazy_static;
+use num::{rational::Ratio, BigInt};
+use regex::Regex;
 
 use super::{handle_rpc_err, Config};
+
+lazy_static! {
+    static ref FIL_REG: Regex = Regex::new(r"^(?:\d*\.)?\d+").unwrap();
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FILAmount {
+    value: BigInt,
+    units: String,
+}
+
+impl FromStr for FILAmount {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let suffix = FIL_REG.replace(s, "");
+        let val = s.trim_end_matches(&suffix.to_string());
+        let mut is_attofil = false;
+        if !suffix.is_empty() {
+            let suffix_match = suffix.trim().to_lowercase();
+            match suffix_match.as_str() {
+                "attofil" | "afil" => {
+                    is_attofil = true;
+                }
+                "fil" | "" => {}
+                _ => {
+                    return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix_match));
+                }
+            }
+        }
+        if val.chars().count() > 50 {
+            return Err(anyhow::anyhow!(
+                "string length too large: {}",
+                val.chars().count()
+            ));
+        }
+        if Ratio::from_float(val.parse::<f64>().unwrap()).is_none() {
+            return Err(anyhow::anyhow!(
+                "failed to parse {} as a decimal number",
+                val.chars().count()
+            ));
+        }
+        if !is_attofil {}
+        //TODO: update fields when finished with this section
+        Ok(FILAmount {
+            value: val.parse::<BigInt>().unwrap(),
+            units: "".to_string(),
+        })
+    }
+}
 
 #[derive(Debug, clap::Args)]
 pub struct SendCommand {
@@ -18,7 +70,7 @@ pub struct SendCommand {
     from: Option<Address>,
     target_address: Address,
     /// token amount in attoFIL
-    amount: BigInt,
+    amount: FILAmount,
     /// specify gas fee cap to use in attoFIL
     #[arg(long)]
     gas_feecap: Option<BigInt>,
@@ -47,10 +99,14 @@ impl SendCommand {
             )?
         };
 
+        // let amount = if self.amount ==  {
+
+        // };
+
         let message = Message {
             from,
             to: self.target_address,
-            value: TokenAmount::from_atto(self.amount.clone()),
+            value: TokenAmount::from_atto(self.amount.value.clone()),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit.unwrap_or_default(),
             gas_fee_cap: TokenAmount::from_atto(self.gas_feecap.clone().unwrap_or_default()),

@@ -74,11 +74,11 @@ echo "Wallet tests"
 
 # The following steps does basic wallet handling tests.
 
-#TODO: add FIL and attoFIL units; modify FIL_AMT amount
+#TODO: add FIL and attoFIL units; check FIL_AMT amount and add FIL roundtrip
 # Amount to send in FIL
-FIL_AMT=500
+FIL_AMT=0.000005
 # Amount to send in attoFIL
-#ATTOFIL_AMT=
+#ATTOFIL_AMT=500
 # Admin token used when interacting with wallet
 ADMIN_TOKEN=$(cat admin_token)
 # Set environment variable

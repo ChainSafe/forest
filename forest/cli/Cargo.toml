@@ -40,9 +40,11 @@ fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
 jsonrpc-v2.workspace = true
+lazy_static.workspace = true
 log.workspace = true
 multibase.workspace = true
 num.workspace = true
+regex.workspace = true
 rpassword.workspace = true
 rust_decimal = "1.28.1"
 rust_decimal_macros = "1.28.1"
