@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    sync::{
-        atomic::{self, AtomicBool, AtomicUsize},
-        Arc,
-    },
+    sync::atomic::{self, AtomicBool, AtomicUsize},
     time::Duration,
 };
 
@@ -13,10 +10,11 @@ use human_repr::HumanCount;
 use log::info;
 use memory_stats::memory_stats;
 
+#[derive(Default)]
 pub struct MemStatsTracker {
-    peak_physical_mem: Arc<AtomicUsize>,
-    cancelled: Arc<AtomicBool>,
     check_interval: Duration,
+    peak_physical_mem: AtomicUsize,
+    cancelled: AtomicBool,
 }
 
 impl MemStatsTracker {
@@ -28,24 +26,15 @@ impl MemStatsTracker {
         }
     }
 
-    pub fn run_async(&self) {
-        let peak_physical_mem = self.peak_physical_mem.clone();
-        let cancelled = self.cancelled.clone();
-        let check_interval = self.check_interval;
-        tokio::spawn(async move {
-            while !cancelled.load(atomic::Ordering::Relaxed) {
-                if let Some(usage) = memory_stats() {
-                    peak_physical_mem.fetch_max(usage.physical_mem, atomic::Ordering::Relaxed);
-                }
-                tokio::time::sleep(check_interval).await;
+    /// A blocking loop that records peak RRS periodically
+    pub async fn run_loop(&self) {
+        while !self.cancelled.load(atomic::Ordering::Relaxed) {
+            if let Some(usage) = memory_stats() {
+                self.peak_physical_mem
+                    .fetch_max(usage.physical_mem, atomic::Ordering::Relaxed);
             }
-        });
-    }
-}
-
-impl Default for MemStatsTracker {
-    fn default() -> Self {
-        Self::new(Duration::from_millis(100))
+            tokio::time::sleep(self.check_interval).await;
+        }
     }
 }
 

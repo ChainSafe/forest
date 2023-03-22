@@ -74,15 +74,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
 
     set_sigint_handler();
 
-    let mem_stats_tracker = if opts.track_peak_rss {
-        Some(MemStatsTracker::default())
-    } else {
-        None
-    };
-    if let Some(mem_stats_tracker) = &mem_stats_tracker {
-        mem_stats_tracker.run_async();
-    }
-
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
@@ -133,6 +124,14 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let db = open_db(&db_path(&chain_data_path), config.db_config())?;
 
     let mut services = JoinSet::new();
+
+    if opts.track_peak_rss {
+        let mem_stats_tracker = MemStatsTracker::default();
+        services.spawn(async move {
+            mem_stats_tracker.run_loop().await;
+            Ok(())
+        });
+    }
 
     {
         // Start Prometheus server port
