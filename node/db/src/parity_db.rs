@@ -46,7 +46,7 @@ impl ParityDb {
                     ..Default::default()
                 })
                 .collect(),
-            compression_threshold: Default::default(),
+            compression_threshold: [(0, 128)].into_iter().collect(),
         })
     }
 
