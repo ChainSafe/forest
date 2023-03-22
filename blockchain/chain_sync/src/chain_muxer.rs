@@ -886,6 +886,9 @@ where
                         );
                         metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
+
+                        // By default bail on errors
+                        return Poll::Ready(why);
                     }
                     Poll::Pending => return Poll::Pending,
                 },
