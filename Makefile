@@ -31,7 +31,7 @@ install-with-mimalloc:
 
 install-deps:
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev aria2 cmake
+	apt-get install --no-install-recommends -y build-essential clang aria2 cmake
 
 install-lint-tools:
 	cargo install --locked taplo-cli
