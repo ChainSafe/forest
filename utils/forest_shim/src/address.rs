@@ -126,6 +126,12 @@ impl From<&Address_v2> for Address {
     }
 }
 
+impl From<&Address_v3> for Address {
+    fn from(other: &Address_v3) -> Self {
+        Address(*other)
+    }
+}
+
 impl From<Address> for Address_v3 {
     fn from(other: Address) -> Self {
         other.0
