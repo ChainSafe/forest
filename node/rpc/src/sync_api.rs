@@ -151,6 +151,7 @@ mod tests {
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
+        let (gc_event_tx, _) = flume::unbounded();
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
@@ -162,6 +163,7 @@ mod tests {
             chain_store: cs_for_chain,
             beacon,
             new_mined_block_tx,
+            gc_event_tx,
         });
         (state, network_rx)
     }

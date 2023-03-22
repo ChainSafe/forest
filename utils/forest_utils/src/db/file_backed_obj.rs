@@ -26,6 +26,11 @@ impl<T: FileBackedObject> FileBacked<T> {
         &self.inner
     }
 
+    /// Gets a mutable borrow of the inner object
+    pub fn inner_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+
     /// Sets the inner object and try sync to file
     pub fn set_inner(&mut self, inner: T) -> anyhow::Result<()> {
         self.inner = inner;
@@ -90,13 +95,13 @@ impl<T: FileBackedObject> FileBacked<T> {
     }
 
     /// Syncs the object to the file
-    fn sync(&self) -> anyhow::Result<()> {
+    pub fn sync(&self) -> anyhow::Result<()> {
         let bytes = self.inner().serialize()?;
         Ok(std::fs::write(&self.path, bytes)?)
     }
 
     /// Try to sync to file if there is some sync period, otherwise syncs
-    fn try_sync(&mut self) -> anyhow::Result<()> {
+    pub fn try_sync(&mut self) -> anyhow::Result<()> {
         if let Some(sync_period) = self.sync_period {
             let now = SystemTime::now();
             if let Some(last_sync) = self.last_sync {
