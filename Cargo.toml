@@ -175,6 +175,9 @@ forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
 
+[patch.crates-io]
+fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
+
 [profile.dev]
 debug = 0
 split-debuginfo = "unpacked"
