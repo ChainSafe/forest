@@ -337,7 +337,12 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     tokio::select! {
-        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        ret = sync_from_snapshot(&config, &state_manager).fuse() => {
+            if let Err(err) = ret {
+                services.shutdown().await;
+                return Err(err);
+            }
+        },
         _ = tokio::signal::ctrl_c() => {
             services.shutdown().await;
             return Ok(db);
@@ -476,7 +481,10 @@ async fn prompt_snapshot_or_die(
     }
 }
 
-async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>)
+async fn sync_from_snapshot<DB>(
+    config: &Config,
+    state_manager: &Arc<StateManager<DB>>,
+) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
 {
@@ -500,13 +508,14 @@ where
                 info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
             }
             Err(err) => {
-                error!(
+                anyhow::bail!(
                     "Failed miserably while importing chain from snapshot {}: {err}",
                     path.display()
-                )
+                );
             }
         }
     }
+    Ok(())
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
