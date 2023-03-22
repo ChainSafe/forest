@@ -33,7 +33,7 @@ pub mod json;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use fvm_shared::address::Address;
+/// use forest_shim::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;

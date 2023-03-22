@@ -222,10 +222,9 @@ mod tests {
     use cid::{multihash::Code::Blake2b256, Cid};
     use fil_actor_account_v10::State as AccountState;
     use forest_db::MemoryDB;
-    use forest_shim::{econ::TokenAmount, state_tree::ActorState};
+    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
     use forest_utils::db::BlockstoreExt;
     use fvm_ipld_blockstore::Blockstore;
-    use fvm_shared::address::Address;
 
     use super::pp_actor_state;
 
@@ -250,7 +249,7 @@ mod tests {
         let db = MemoryDB::default();
 
         let account_state = AccountState {
-            address: Address::new_id(0xdeadbeef),
+            address: Address::new_id(0xdeadbeef).into(),
         };
         let state = mk_account_v10(&db, &account_state);
 
@@ -263,7 +262,7 @@ mod tests {
                     code: Cid(bafk2bzaceampw4romta75hyz5p4cqriypmpbgnkxncgxgqn6zptv5lsp2w2bo), \
                     state: Cid(bafy2bzaceaiws3hdhmfyxyfjzmbaxv5aw6eywwbipeae4n5jjg5smmfxsaeic), \
                     sequence: 0, balance: TokenAmount(0.0), delegated_address: None })\n\
-            V10(State { address: Address { network: Mainnet, payload: ID(3735928559) } })"
+            V10(State { address: Address { payload: ID(3735928559) } })"
         );
     }
 
@@ -274,7 +273,7 @@ mod tests {
         let db = MemoryDB::default();
 
         let account_state = AccountState {
-            address: Address::new_id(0xdeadbeef),
+            address: *Address::new_id(0xdeadbeef),
         };
         let mut state = mk_account_v10(&db, &account_state);
         state.code = Cid::default(); // Use an unknown actor CID to force parsing to fail.
