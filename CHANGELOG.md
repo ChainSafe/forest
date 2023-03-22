@@ -21,6 +21,7 @@ Notable updates:
 - [forest daemon] Support for NV18.
   [#2558](https://github.com/ChainSafe/forest/pull/2558)
   [#2579](https://github.com/ChainSafe/forest/pull/2579)
+- [forest daemon] Add `--track-peak-rss` to forest daemon
 
 ### Changed
 

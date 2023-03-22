@@ -30,7 +30,7 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::{io::write_to_file, retry};
+use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, retry};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
@@ -73,6 +73,16 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     }
 
     set_sigint_handler();
+
+    let mem_stats_tracker = if opts.track_peak_rss {
+        Some(MemStatsTracker::default())
+    } else {
+        None
+    };
+    if let Some(mem_stats_tracker) = &mem_stats_tracker {
+        mem_stats_tracker.run_async();
+    }
+
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
