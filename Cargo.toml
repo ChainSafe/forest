@@ -32,7 +32,6 @@ members = [
   "ipld",
   "key_management",
   "tests/serialization_tests",
-  # "types",
   "networks",
   "utils/auth",
   "utils/genesis",
