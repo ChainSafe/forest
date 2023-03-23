@@ -8,4 +8,5 @@ pub mod encoding;
 pub mod io;
 pub mod json;
 pub mod macros;
+pub mod monitoring;
 pub mod net;

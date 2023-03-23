@@ -31,7 +31,7 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::{io::write_to_file, retry};
+use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, retry};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
@@ -74,6 +74,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     }
 
     set_sigint_handler();
+
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
@@ -123,6 +124,14 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
 
     let mut services = JoinSet::new();
+
+    if opts.track_peak_rss {
+        let mem_stats_tracker = MemStatsTracker::default();
+        services.spawn(async move {
+            mem_stats_tracker.run_loop().await;
+            Ok(())
+        });
+    }
 
     {
         // Start Prometheus server port
