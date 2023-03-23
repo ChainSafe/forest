@@ -2,23 +2,24 @@
 
 Notable updates:
 
-- Support for nv18.
+- Support for NV18.
 - Automatic database garbage collection.
 - A JavaScript console to interact with Filecoin API.
 - Switched to ParityDb as the default backend for the Forest daemon.
 
 ### Added
 
-- Added support for NV18.
-- Added Automatic database garbage collection.
-- Added ParityDb statistics to the stats endpoint.
+- Support for NV18.
+- Automatic database garbage collection.
+- ParityDb statistics to the stats endpoint.
 - A JavaScript console to interact with Filecoin API.
 - Multi-platform Docker image support.
-- Added `--dry-run` flag to `snapshot export` command.
-- Added `--exit-after-init` and `--save-token` flags.
-- Added `--track-peak-rss` to forest daemon to get peak RSS usage.
-- Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown`
+- `--dry-run` flag to forest-cli `snapshot export` command.
+- `--exit-after-init` and `--save-token` flags to daemon.
+- `--track-peak-rss` to forest daemon to get peak RSS usage.
+- RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown`
   subcommand.
+- Added retry capabilities to failing snapshot fetch.
 
 ### Changed
 
@@ -58,13 +59,12 @@ Notable updates:
 - `Scanning Blockchain` progess bar never hitting 100% during snapshot
   import.
 - Forest daeamon crashing on sending bitswap requests.
-- All binaries and crates in the project to follow a standard version, 
-  based on the release tag.
-- Added retry capabilities to failing snapshot fetch resulting in daemon crash.
 - Corrected counts displayed when using
   `forest-cli --chain <chain> sync wait`.
-- Fix snapshot export when running on a system with a separate
+- Snapshot export issue when running on a system with a separate
   temporary filesystem.
+- All binaries and crates in the project to follow a standard version, 
+  based on the release tag.
 
 ### Security
 
