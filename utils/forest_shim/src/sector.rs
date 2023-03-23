@@ -15,8 +15,8 @@ use fvm_shared3::sector::{
 
 use crate::{version::NetworkVersion, Inner};
 
-/// Represents a shim over RegisteredSealProof from fvm_shared with convenience
-/// methods to convert to an older version of the type
+/// Represents a shim over `RegisteredSealProof` from `fvm_shared` with
+/// convenience methods to convert to an older version of the type
 ///
 /// # Examples
 /// ```
@@ -75,8 +75,8 @@ impl From<RegisteredSealProof> for RegisteredSealProofV2 {
     }
 }
 
-/// Represents a shim over SectorInfo from fvm_shared with convenience methods
-/// to convert to an older version of the type
+/// Represents a shim over `SectorInfo` from `fvm_shared` with convenience
+/// methods to convert to an older version of the type
 pub struct SectorInfo(SectorInfoV3);
 
 impl From<SectorInfoV3> for SectorInfo {
@@ -157,7 +157,7 @@ impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
     }
 }
 
-/// SectorSize indicates one of a set of possible sizes in the network.
+/// `SectorSize` indicates one of a set of possible sizes in the network.
 #[derive(Clone, Debug, PartialEq, Copy, serde::Serialize, serde::Deserialize)]
 pub struct SectorSize(SectorSizeV3);
 

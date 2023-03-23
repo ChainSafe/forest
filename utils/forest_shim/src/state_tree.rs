@@ -28,7 +28,7 @@ impl<S> StateTree<S>
 where
     S: Blockstore + Clone,
 {
-    /// Constructor for a hamt state tree given an IPLD store
+    /// Constructor for a HAMT state tree given an IPLD store
     pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::V3(st))
@@ -123,7 +123,7 @@ where
     }
 }
 
-/// Newtype to wrap different versions of `fvm::state_tree::ActorState`
+/// `Newtype` to wrap different versions of `fvm::state_tree::ActorState`
 ///
 /// # Examples
 /// ```
