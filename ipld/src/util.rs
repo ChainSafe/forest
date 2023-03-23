@@ -54,7 +54,7 @@ where
     Ok(())
 }
 
-/// Load and hash cids and resolve recursively.
+/// Load and hash CIDs and resolve recursively.
 pub async fn recurse_links_hash<F, T>(
     walked: &mut CidHashSet,
     root: Cid,

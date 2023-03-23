@@ -11,18 +11,18 @@ use libp2p::{
 
 use crate::{codec::*, protocol::*, request_manager::*, *};
 
-/// `libp2p` swarm network behaviour event of `bitswap`
+/// `libp2p` swarm network behavior event of `bitswap`
 pub type BitswapBehaviourEvent = request_response::Event<Vec<BitswapMessage>, ()>;
 
 /// A `go-bitswap` compatible protocol that is built on top of
-/// [request_response::Behaviour].
+/// [`request_response::Behaviour`].
 pub struct BitswapBehaviour {
     inner: request_response::Behaviour<BitswapRequestResponseCodec>,
     request_manager: Arc<BitswapRequestManager>,
 }
 
 impl BitswapBehaviour {
-    /// Creates a [BitswapBehaviour] instance
+    /// Creates a [`BitswapBehaviour`] instance
     pub fn new(protocols: &[&'static [u8]], cfg: request_response::Config) -> Self {
         assert!(!protocols.is_empty(), "protocols cannot be empty");
 
@@ -36,12 +36,12 @@ impl BitswapBehaviour {
         }
     }
 
-    /// Gets mutable borrow of the inner [request_response::Behaviour]
+    /// Gets mutable borrow of the inner [`request_response::Behaviour`]
     pub fn inner_mut(&mut self) -> &mut request_response::Behaviour<BitswapRequestResponseCodec> {
         &mut self.inner
     }
 
-    /// Sends a [BitswapRequest] to a peer
+    /// Sends a [`BitswapRequest`] to a peer
     pub fn send_request(&mut self, peer: &PeerId, request: BitswapRequest) -> RequestId {
         if request.cancel {
             metrics::message_counter_outbound_request_cancel().inc();
@@ -55,7 +55,7 @@ impl BitswapBehaviour {
             .send_request(peer, vec![BitswapMessage::Request(request)])
     }
 
-    /// Sends a [BitswapResponse] to a peer
+    /// Sends a [`BitswapResponse`] to a peer
     pub fn send_response(&mut self, peer: &PeerId, response: (Cid, BitswapResponse)) -> RequestId {
         match response.1 {
             BitswapResponse::Have(..) => metrics::message_counter_outbound_response_have().inc(),
@@ -68,12 +68,12 @@ impl BitswapBehaviour {
 
 // Request Manager related API(s)
 impl BitswapBehaviour {
-    /// Gets the associated [BitswapRequestManager]
+    /// Gets the associated [`BitswapRequestManager`]
     pub fn request_manager(&self) -> Arc<BitswapRequestManager> {
         self.request_manager.clone()
     }
 
-    /// Hook the `bitswap` network event into its [BitswapRequestManager]
+    /// Hook the `bitswap` network event into its [`BitswapRequestManager`]
     pub fn handle_event<S: BitswapStoreRead>(
         &mut self,
         store: &S,

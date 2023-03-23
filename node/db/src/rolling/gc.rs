@@ -39,26 +39,26 @@
 //! used to speed up the database write operation
 //!
 //! ## Scheduling
-//! 1. GC is triggered automatically when total DB size is greater than 2x of
+//! 1. GC is triggered automatically when total DB size is greater than `2x` of
 //! the last reachable data size
 //! 2. GC can be triggered manually by `forest-cli db gc` command
 //! 3. There's a global GC lock to ensure at most one GC job is running
 //!
 //! ## Performance
-//! GC performance is typically 1x-1.5x of `snapshot export`, depending on
+//! GC performance is typically `1x-1.5x` of `snapshot export`, depending on
 //! number of write operations to the `current` DB space.
 //!
 //! ### Look up performance
 //! DB lookup performance is almost on-par between from single DB and two DBs.
-//! Time cost of `forest-cli snapshot export --dry-run` on DO droplet with 16GiB
-//! ram is between `9000s` to `11000s` for both scenarios, no significant
+//! Time cost of `forest-cli snapshot export --dry-run` on DO droplet with 16
+//! GiB RAM is between `9000s` to `11000s` for both scenarios, no significant
 //! performance regression has been observed
 //!
 //! ### Write performance
 //! DB write performance is typically on par with `snapshot import`. Note that
 //! when the `current` DB space is very large, it tends to trigger DB re-index
 //! more frequently, each DB re-index could pause the GC process for a few
-//! minutes. The same behaviour is observed during snapshot import as well.
+//! minutes. The same behavior is observed during snapshot import as well.
 //!
 //! ### Sample mainnet log
 //! ```text
@@ -116,7 +116,7 @@ where
     }
 
     /// This loop automatically triggers `collect_once` when the total DB size
-    /// is greater than 2x of the last reachable data size
+    /// is greater than `2x` of the last reachable data size
     pub async fn collect_loop_passive(&self) -> anyhow::Result<()> {
         loop {
             // Check every 10 mins

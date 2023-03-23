@@ -27,7 +27,7 @@ impl MemStatsTracker {
         }
     }
 
-    /// A blocking loop that records peak RRS periodically
+    /// A blocking loop that records peak resident set size periodically
     pub async fn run_loop(&self) {
         while !self.cancelled.load(atomic::Ordering::Relaxed) {
             if let Some(usage) = memory_stats() {

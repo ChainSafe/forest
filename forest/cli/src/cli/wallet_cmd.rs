@@ -34,19 +34,19 @@ const NUM_SIGNIFICANT_DIGITS: u32 = 4;
 enum FormattingMode {
     /// mode to show data in `FIL` units
     /// in full accuracy
-    /// E.g. 0.50023677980 `FIL`
+    /// E.g. `0.50023677980 FIL`
     ExactFixed,
     /// mode to show data in `FIL` units
     /// with 4 significant digits
-    /// E.g. 0.5002 `FIL`
+    /// E.g. `0.5002 FIL`
     NotExactFixed,
     /// mode to show data in SI units
     /// in full accuracy
-    /// E.g. 500.2367798 `milli FIL`
+    /// E.g. `500.2367798 milli FIL`
     ExactNotFixed,
     /// mode to show data in SI units
     /// with 4 significant digits
-    /// E.g. ~500.2 milli `FIL`
+    /// E.g. `~500.2 milli FIL`
     NotExactNotFixed,
 }
 
@@ -84,18 +84,18 @@ pub enum WalletCommands {
     List {
         /// flag to force full accuracy,
         /// not just default 4 significant digits
-        /// E.g. 500.2367798 `milli FIL` instead of 500.2 `milli FIL`
+        /// E.g. `500.2367798 milli FIL` instead of `500.2 milli FIL`
         /// In combination with `--fixed-unit` flag
         /// it will show exact data in `FIL` units
-        /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
+        /// E.g. `0.0000002367798 FIL` instead of `~0 FIL`
         #[arg(short, long)]
         exact_balance: bool,
         /// flag to force the balance to be in `FIL`
         /// without SI unit prefixes (like `atto` or `micro`)
-        /// E.g. 0.5002 `FIL` instead of 500.2367 `milli FIL`
+        /// E.g. `0.5002 FIL` instead of `500.2367 milli FIL`
         /// In combination with `--exact-balance` flag
         /// it will show exact data in `FIL` units
-        /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
+        /// E.g. `0.0000002367798 FIL` instead of `~0 FIL`
         #[arg(short, long)]
         fixed_unit: bool,
     },
@@ -296,7 +296,7 @@ impl WalletCommands {
     }
 }
 
-/// Function to format `TokenAmount` accoding to `FormattingMode`:
+/// Function to format `TokenAmount` according to `FormattingMode`:
 /// mode to show data in `FIL` units
 /// in full accuracy for `ExactFixed` mode,
 /// mode to show data in `FIL` units
