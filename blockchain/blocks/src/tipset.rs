@@ -40,7 +40,7 @@ impl fmt::Display for TipsetKeys {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
             .cids()
-            .into_iter()
+            .iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
             .join(", ");
