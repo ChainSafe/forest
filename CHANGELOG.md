@@ -23,6 +23,8 @@ Notable updates:
   [#2579](https://github.com/ChainSafe/forest/pull/2579)
 - [forest daemon] Automatic database garbage collection.
   [#2638](https://github.com/ChainSafe/forest/pull/2638)
+- [forest daemon] Add `--track-peak-rss` to forest daemon
+  [#2696](https://github.com/ChainSafe/forest/pull/2696)
 
 ### Changed
 

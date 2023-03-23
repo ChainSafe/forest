@@ -4240,6 +4240,7 @@ dependencies = [
  "hyper-rustls",
  "libc",
  "log",
+ "memory-stats",
  "multihash 0.16.3",
  "parking_lot 0.12.1",
  "pbr",
@@ -6450,6 +6451,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "memory-stats"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34f79cf9964c5c9545493acda1263f1912f8d2c56c8a2ffee2606cb960acaacc"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]

@@ -1,10 +1,10 @@
 [package]
-name = "forest_utils"
-license.workspace = true
-repository.workspace = true
-version.workspace = true
 authors.workspace = true
 edition.workspace = true
+license.workspace = true
+name = "forest_utils"
+repository.workspace = true
+version.workspace = true
 
 [dependencies]
 ahash.workspace = true
@@ -26,6 +26,7 @@ hyper-rustls.workspace = true
 hyper.workspace = true
 libc = "0.2"
 log.workspace = true
+memory-stats = "1.1"
 parking_lot.workspace = true
 pbr = "1.1"
 pin-project-lite.workspace = true
