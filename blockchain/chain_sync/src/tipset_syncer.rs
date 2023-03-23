@@ -996,7 +996,7 @@ fn sync_tipset<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
         )
         .await
         {
-            error!("Sync messages check state failed for single tipset");
+            warn!("Sync messages check state failed for single tipset");
             return Err(e);
         }
 
