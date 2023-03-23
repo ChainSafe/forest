@@ -83,6 +83,7 @@ Notable updates:
 ### Fixed
 
 - Daemon getting stuck in an infinite loop during shutdown.
+  [#2672](https://github.com/ChainSafe/forest/issues/2672)
 - `Scanning Blockchain` progess bar never hitting 100% during snapshot import.
   [#2404](https://github.com/ChainSafe/forest/issues/2404)
 - bitswap queries cancellation that do not respond after a period.
