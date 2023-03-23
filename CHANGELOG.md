@@ -1,102 +1,75 @@
 ## Forest unreleased
 
-Notable updates:
-
-- Support for nv18.
-
 ### Added
-
-- [database] added ParityDb statistics to the stats endpoint.
-  [#2444](https://github.com/ChainSafe/forest/pull/2444)
-- [api|cli] Add RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown`
-  subcommand. [#2538](https://github.com/ChainSafe/forest/pull/2538)
-- [cli] A JavaScript console to interact with Filecoin API.
-  [#2492](https://github.com/ChainSafe/forest/pull/2492)
-- [docker] Multi-platform Docker image support.
-  [#2552](https://github.com/ChainSafe/forest/pull/2552)
-- [forest-cli] added `--dry-run` flag to `snapshot export` command.
-  [#2549](https://github.com/ChainSafe/forest/pull/2549)
-- [forest daemon] Added `--exit-after-init` and `--save-token` flags.
-  [#2577](https://github.com/ChainSafe/forest/pull/2577)
-- [forest daemon] Support for NV18.
-  [#2558](https://github.com/ChainSafe/forest/pull/2558)
-  [#2579](https://github.com/ChainSafe/forest/pull/2579)
-- [forest daemon] Automatic database garbage collection.
-  [#2638](https://github.com/ChainSafe/forest/pull/2638)
-- [forest daemon] Add `--track-peak-rss` to forest daemon
-  [#2696](https://github.com/ChainSafe/forest/pull/2696)
 
 ### Changed
 
-- [database] Move blockstore meta-data to standalone files.
-  [2635](https://github.com/ChainSafe/forest/pull/2635)
-  [2652](https://github.com/ChainSafe/forest/pull/2652)
-- [cli] Remove Forest ctrl-c hard shutdown behavior on subsequent ctrl-c
-  signals. [#2538](https://github.com/ChainSafe/forest/pull/2538)
-- [libp2p] Use in house bitswap implementation.
-  [#2445](https://github.com/ChainSafe/forest/pull/2445)
-- [libp2p] Ban peers with duration. Banned peers are automatically unbanned
-  after a period of 1h. [#2396](https://github.com/ChainSafe/forest/pull/2396)
-- [libp2p] Support multiple listen addr.
-  [#2570](https://github.com/ChainSafe/forest/pull/2570)
-- [libp2p] Upgrade to v0.51.
-  [#2598](https://github.com/ChainSafe/forest/pull/2598)
-- [config] `stats` and `compression` keys in `parity_db` section were renamed to
-  `enable_statistics` and `compression_type` respectively.
-  [#2444](https://github.com/ChainSafe/forest/pull/2444)
-- [forest cli] changed how balances are displayed, defaulting to
-
-  - adding metric prefix when it's appropriate to do so, consequently CLI flag
-    `--fixed-unit` added to force to show in original `FIL` unit
-  - 4 significant digits, consequently CLI flag `--exact-balance` added to force
-    full accuracy. [#2385](https://github.com/ChainSafe/forest/pull/2385)
-
-- [config] `download-snapshot` flag was renamed to `auto-download-snapshot`.
-  `download_snapshot` key in `client` section in configuration renamed to
-  `auto_download_snapshot`.
-  [#257](https://github.com/ChainSafe/forest/pull/2457)
-- [docker|security] the Forest image is no longer running on a root user but a
-  dedicated one. [#2463](https://github.com/ChainSafe/forest/pull/2463)
-- [keystore] Allow specifying the encryption passphrase via environmental
-  variable. [#2514](https://github.com/ChainSafe/forest/pull/2514)
-- [forest daemon] The `--skip-load` flag must be now called with a boolean
-  indicating its value. [#2577](https://github.com/ChainSafe/forest/pull/2577)
-- [cli] Calibnet network needs to be specified for most commands, including
-  `sync wait` and `snapshot export`.
-  [#2579](https://github.com/ChainSafe/forest/pull/2579)
-- [daemon] Switch to ParityDb as the default backend for the Forest daemon. All
-  clients must re-import the snapshot. The old database must be deleted
-  manually - it is located in
-  `$(forest-cli config dump | grep data_dir | cut -d' ' -f3)/<NETWORK>/rocksdb`.
-  [#2606](https://github.com/ChainSafe/forest/pull/2606)
-- [database] Move the genesis header and heaviest tipset keys from the database
-  to files. [#2635](https://github.com/ChainSafe/forest/pull/2635)
-
 ### Removed
-
-- [forest daemon] Removed `--halt-after-import` and `--auto-download-snapshot`
-  from configuration. They are now strictly a CLI option.
-  [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 ### Fixed
 
-- [daemon] Daemon could get stuck in an infinite loop during shutdown
-- [libp2p] Properly cancel bitswap queries that are not responded to after a
-  period. [#2399](https://github.com/ChainSafe/forest/pull/2399)
-- [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot
-  import. [#2403](https://github.com/ChainSafe/forest/pull/2403)
-- [forest daemon] forest daeamon crashes on sending bitswap requests.
-  [#2419](https://github.com/ChainSafe/forest/pull/2419)
-- [version] The version shown in `--help` was stuck at `0.4.1`. Now all binaries
-  and crates in the project will follow a standard version, based on the release
-  tag. [#2487](https://github.com/ChainSafe/forest/pull/2487)
-- [forest] Failing snapshot fetch resulting in daemon crash in one attempt.
-  [#2571](https://github.com/ChainSafe/forest/pull/2571)
-- [forest-cli] corrected counts displayed when using
-  `forest-cli --chain <chain> sync wait`.
-  [#2654](https://github.com/ChainSafe/forest/pull/2654)
-- [forest-cli] Fix snapshot export when running on a system with a separate
-  temporary filesystem. [#2693](https://github.com/ChainSafe/forest/pull/2693)
+## Forest v0.7.0 (2023-03-23)
+
+Notable updates:
+
+- Support for NV18.
+- Automatic database garbage collection.
+- A JavaScript console to interact with Filecoin API.
+- Switched to ParityDb as the default backend for Forest daemon.
+
+### Added
+
+- Support for NV18.
+- Automatic database garbage collection.
+- ParityDb statistics to the stats endpoint.
+- A JavaScript console to interact with Filecoin API.
+- Multi-platform Docker image support.
+- `--dry-run` flag to forest-cli `snapshot export` command.
+- `--exit-after-init` and `--save-token` flags to daemon.
+- `--track-peak-rss` to forest daemon to get peak RSS usage.
+- RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand.
+- Added retry capabilities to failing snapshot fetch.
+
+### Changed
+
+- Network needs to be specified for most commands(eg Calibnet), including
+  `sync wait` and `snapshot export`.
+- Switched to ParityDb as the default backend for Forest daemon. All clients
+  must re-import the snapshot. The old database must be deleted manually - it is
+  located in
+  `$(forest-cli config dump | grep data_dir | cut -d' ' -f3)/<NETWORK>/rocksdb`.
+- Revised how balances are displayed, defaulting to:
+  - adding metric prefix when it's required, consequently CLI flag
+    `--fixed-unit` added to force to show in original `FIL` unit
+  - 4 significant digits, consequently CLI flag `--exact-balance` added to force
+    full accuracy.
+- `stats` and `compression` keys in `parity_db` section were renamed to
+  `enable_statistics` and `compression_type` respectively.
+- `download_snapshot` key in `client` section configuration renamed to
+  `auto_download_snapshot`.
+- `--skip-load` flag must be now called with a boolean indicating its value.
+- Ban peers with duration, Banned peers are automatically unbanned after a
+  period of 1h.
+- Added support for multiple listen addr.
+- Allowed specifying the encryption passphrase via environmental variable.
+- Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c` signals
+
+### Removed
+
+- Removed `--halt-after-import` and `--auto-download-snapshot` from
+  configuration. They are now strictly a CLI option.
+
+### Fixed
+
+- Daemon getting stuck in an infinite loop during shutdown.
+- `Scanning Blockchain` progess bar never hitting 100% during snapshot import.
+- bitswap queries cancellation that do not respond after a period.
+- Forest daeamon crashing on sending bitswap requests.
+- Corrected counts displayed when using `forest-cli --chain <chain> sync wait`.
+- Snapshot export issue when running on a system with a separate temporary
+  filesystem.
+- All binaries and crates in the project to follow a standard version, based on
+  the release tag.
 
 ## Forest v0.6.0 (2023-01-06)
 
