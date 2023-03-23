@@ -7,7 +7,7 @@ use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use lazy_static::lazy_static;
-use num::{rational::Ratio, BigInt};
+use num::{rational::Ratio, BigInt, CheckedMul};
 use regex::Regex;
 
 use super::{handle_rpc_err, Config};
@@ -15,6 +15,8 @@ use super::{handle_rpc_err, Config};
 lazy_static! {
     static ref FIL_REG: Regex = Regex::new(r"^(?:\d*\.)?\d+").unwrap();
 }
+
+const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FILAmount {
@@ -29,6 +31,7 @@ impl FromStr for FILAmount {
         let suffix = FIL_REG.replace(s, "");
         let val = s.trim_end_matches(&suffix.to_string());
         let mut is_attofil = false;
+
         if !suffix.is_empty() {
             let suffix_match = suffix.trim().to_lowercase();
             match suffix_match.as_str() {
@@ -41,19 +44,36 @@ impl FromStr for FILAmount {
                 }
             }
         }
+
         if val.chars().count() > 50 {
             return Err(anyhow::anyhow!(
                 "string length too large: {}",
                 val.chars().count()
             ));
         }
-        if Ratio::from_float(val.parse::<f64>().unwrap()).is_none() {
+
+        let mut r = if Ratio::from_float(val.parse::<f64>().unwrap()).is_none() {
             return Err(anyhow::anyhow!(
                 "failed to parse {} as a decimal number",
-                val.chars().count()
+                val
             ));
+        } else {
+            Ratio::from_float(val.parse::<f64>().unwrap()).unwrap()
+        };
+
+        if !is_attofil {
+            r = Ratio::checked_mul(&r, &Ratio::new(FILECOIN_PRECISION.into(), BigInt::from(1)))
+                .unwrap();
         }
-        if !is_attofil {}
+
+        if !Ratio::is_integer(&r) {
+            let mut prefix = "";
+            if is_attofil {
+                prefix = "atto";
+            }
+            return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val));
+        }
+
         //TODO: update fields when finished with this section
         Ok(FILAmount {
             value: val.parse::<BigInt>().unwrap(),
