@@ -38,7 +38,7 @@ $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --hei
 echo "Checking DB stats"
 $FOREST_CLI_PATH --chain calibnet db stats
 echo "Running forest in detached mode"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token
+$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
 
 echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
