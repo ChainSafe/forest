@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::fmt;
+
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use forest_shim::address::Address;
@@ -10,7 +12,6 @@ use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 use super::{Block, BlockHeader, Error, Ticket};
 
@@ -37,7 +38,12 @@ impl TipsetKeys {
 
 impl fmt::Display for TipsetKeys {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = self.cids().into_iter().map(|cid| cid.to_string()).collect::<Vec<_>>().join(", ");
+        let s = self
+            .cids()
+            .into_iter()
+            .map(|cid| cid.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         write!(f, "[{}]", s)
     }
 }
