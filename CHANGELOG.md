@@ -17,54 +17,49 @@ Notable updates:
 - `--dry-run` flag to forest-cli `snapshot export` command.
 - `--exit-after-init` and `--save-token` flags to daemon.
 - `--track-peak-rss` to forest daemon to get peak RSS usage.
-- RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown`
-  subcommand.
+- RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand.
 - Added retry capabilities to failing snapshot fetch.
 
 ### Changed
 
 - Network needs to be specified for most commands(eg Calibnet), including
   `sync wait` and `snapshot export`.
-- Switched to ParityDb as the default backend for Forest daemon. All
-  clients must re-import the snapshot. The old database must be deleted
-  manually - it is located in
+- Switched to ParityDb as the default backend for Forest daemon. All clients
+  must re-import the snapshot. The old database must be deleted manually - it is
+  located in
   `$(forest-cli config dump | grep data_dir | cut -d' ' -f3)/<NETWORK>/rocksdb`.
 - Revised how balances are displayed, defaulting to:
   - adding metric prefix when it's required, consequently CLI flag
     `--fixed-unit` added to force to show in original `FIL` unit
-  - 4 significant digits, consequently CLI flag `--exact-balance` added to force full accuracy.
+  - 4 significant digits, consequently CLI flag `--exact-balance` added to force
+    full accuracy.
 - `stats` and `compression` keys in `parity_db` section were renamed to
   `enable_statistics` and `compression_type` respectively.
 - `download_snapshot` key in `client` section configuration renamed to
   `auto_download_snapshot`.
-- `--skip-load` flag must be now called with a boolean
-  indicating its value.
-- Ban peers with duration, Banned peers are automatically unbanned
-  after a period of 1h.
+- `--skip-load` flag must be now called with a boolean indicating its value.
+- Ban peers with duration, Banned peers are automatically unbanned after a
+  period of 1h.
 - Added support for multiple listen addr.
-- Allowed specifying the encryption passphrase via environmental
-  variable.
-- Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c`
-  signals
+- Allowed specifying the encryption passphrase via environmental variable.
+- Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c` signals
 
 ### Removed
 
-- Removed `--halt-after-import` and `--auto-download-snapshot`
-  from configuration. They are now strictly a CLI option.
+- Removed `--halt-after-import` and `--auto-download-snapshot` from
+  configuration. They are now strictly a CLI option.
 
 ### Fixed
 
 - Daemon getting stuck in an infinite loop during shutdown.
-- `Scanning Blockchain` progess bar never hitting 100% during snapshot
-  import.
+- `Scanning Blockchain` progess bar never hitting 100% during snapshot import.
 - bitswap queries cancellation that do not respond after a period.
 - Forest daeamon crashing on sending bitswap requests.
-- Corrected counts displayed when using
-  `forest-cli --chain <chain> sync wait`.
-- Snapshot export issue when running on a system with a separate
-  temporary filesystem.
-- All binaries and crates in the project to follow a standard version, 
-  based on the release tag.
+- Corrected counts displayed when using `forest-cli --chain <chain> sync wait`.
+- Snapshot export issue when running on a system with a separate temporary
+  filesystem.
+- All binaries and crates in the project to follow a standard version, based on
+  the release tag.
 
 ## Forest v0.6.0 (2023-01-06)
 
