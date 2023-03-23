@@ -5,7 +5,7 @@ Notable updates:
 - Support for NV18.
 - Automatic database garbage collection.
 - A JavaScript console to interact with Filecoin API.
-- Switched to ParityDb as the default backend for the Forest daemon.
+- Switched to ParityDb as the default backend for Forest daemon.
 
 ### Added
 
@@ -25,7 +25,7 @@ Notable updates:
 
 - Network needs to be specified for most commands(eg Calibnet), including
   `sync wait` and `snapshot export`.
-- Switched to ParityDb as the default backend for the Forest daemon. All
+- Switched to ParityDb as the default backend for Forest daemon. All
   clients must re-import the snapshot. The old database must be deleted
   manually - it is located in
   `$(forest-cli config dump | grep data_dir | cut -d' ' -f3)/<NETWORK>/rocksdb`.
@@ -55,9 +55,9 @@ Notable updates:
 ### Fixed
 
 - Daemon getting stuck in an infinite loop during shutdown.
-- Properly cancel bitswap queries that do not respond after a period.
 - `Scanning Blockchain` progess bar never hitting 100% during snapshot
   import.
+- bitswap queries cancellation that do not respond after a period.
 - Forest daeamon crashing on sending bitswap requests.
 - Corrected counts displayed when using
   `forest-cli --chain <chain> sync wait`.
