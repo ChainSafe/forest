@@ -66,11 +66,6 @@ Notable updates:
 - All binaries and crates in the project to follow a standard version, 
   based on the release tag.
 
-### Security
-
-- The Forest image is no longer running on a root user but a
-  dedicated one.
-
 ## Forest v0.6.0 (2023-01-06)
 
 Notable updates:
