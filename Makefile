@@ -16,13 +16,13 @@ install: install-cli install-daemon
 
 # Installs Forest binaries with RocksDb backend
 install-with-rocksdb:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,rocksdb
-	cargo install --locked --path forest/cli --force --no-default-features --features rocksdb
+	cargo install --locked --path forest/daemon --force --features rocksdb
+	cargo install --locked --path forest/cli --features rocksdb
 
-# Installs Forest binaries with Jemalloc global allocator
-install-with-jemalloc:
-	cargo install --locked --path forest/daemon --force --features jemalloc
-	cargo install --locked --path forest/cli --force --features jemalloc
+# Installs Forest binaries with default rust global allocator
+install-with-rustalloc:
+	cargo install --locked --path forest/daemon --force --features rustalloc
+	cargo install --locked --path forest/cli --force --features rustalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:

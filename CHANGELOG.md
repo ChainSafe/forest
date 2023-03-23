@@ -23,6 +23,7 @@ Notable updates:
   [#2579](https://github.com/ChainSafe/forest/pull/2579)
 - [forest daemon] Automatic database garbage collection.
   [#2638](https://github.com/ChainSafe/forest/pull/2638)
+- [forest daemon] Use jemalloc as the default global allocator
 
 ### Changed
 
