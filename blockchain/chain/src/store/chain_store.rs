@@ -271,7 +271,7 @@ where
 
         if new_weight > curr_weight {
             // TODO potentially need to deal with re-orgs here
-            info!("New heaviest tipset: {:?}", ts.key());
+            info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())
