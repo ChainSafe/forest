@@ -28,7 +28,7 @@ use super::errors::Error;
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
-/// Environmental variable which holds the keystore encryption phrase.
+/// Environmental variable which holds the `KeyStore` encryption phrase.
 pub const FOREST_KEYSTORE_PHRASE_ENV: &str = "FOREST_KEYSTORE_PHRASE";
 
 type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];

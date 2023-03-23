@@ -32,11 +32,11 @@ use super::Config;
 
 #[derive(Debug, clap::Args)]
 pub struct AttachCommand {
-    /// Set a library directory for the Javascript scripts
+    /// Set a library directory for the JavaScript scripts
     #[arg(long)]
     jspath: Option<PathBuf>,
 
-    /// Execute Javascript code non-interactively
+    /// Execute JavaScript code non-interactively
     #[arg(long)]
     exec: Option<String>,
 }
