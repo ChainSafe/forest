@@ -31,7 +31,7 @@ similar = "2.2.1"
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
-fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/libp2p-removal" }
+fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/bump-ipld-encoding" }
 
 [features]
 paritydb = ["forest_db/paritydb"]
