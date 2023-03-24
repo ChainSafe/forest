@@ -15,7 +15,7 @@ pub fn parse_duration(arg: &str) -> anyhow::Result<Duration> {
 }
 
 #[allow(clippy::enum_variant_names)]
-enum FormattingMode {
+pub enum FormattingMode {
     /// mode to show data in `FIL` units
     /// in full accuracy
     /// E.g. `0.50023677980 FIL`
