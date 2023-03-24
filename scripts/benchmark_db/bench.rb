@@ -139,13 +139,15 @@ def format_import_table_row(key, value)
   elapsed = value[:import][:elapsed] || 'n/a'
   rss = value[:import][:rss]
   rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
+  vsz = value[:import][:vsz]
+  vsz_max = vsz ? (vsz.max * 1024).to_bibyte : 'n/a'
   db_size = value[:import][:db_size] || 'n/a'
-  "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
+  "#{key} | #{elapsed} | #{rss_max} | #{vsz_max} | #{db_size}\n"
 end
 
 def format_import_table(metrics)
-  result = "Bench | Import Time | Import RSS | DB Size\n"
-  result += "-|-|-|-\n"
+  result = "Bench | Import Time | Import RSS | Import VSZ | DB Size\n"
+  result += "-|-|-|-|-\n"
 
   metrics.each do |key, value|
     result += format_import_table_row(key, value)
@@ -155,14 +157,16 @@ def format_import_table(metrics)
 end
 
 def format_validate_table(metrics)
-  result = "Bench | Validate Time | Validate RSS\n"
-  result += "-|-|-\n"
+  result = "Bench | Validate Time | Validate RSS | Validate VSZ\n"
+  result += "-|-|-|-\n"
 
   metrics.each do |key, value|
     elapsed = value[:validate][:elapsed] || 'n/a'
     rss = value[:validate][:rss]
     rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
-    result += "#{key} | #{elapsed} | #{rss_max}\n"
+    vsz = value[:validate][:vsz]
+    vsz_max = vsz ? (vsz.max * 1024).to_bibyte : 'n/a'
+    result += "#{key} | #{elapsed} | #{rss_max} | #{vsz_max}\n"
   end
 
   result
