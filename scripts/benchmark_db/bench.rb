@@ -298,6 +298,7 @@ class Benchmark
 
     puts '(I) Clean and build client'
     Dir.chdir(repository_name) do
+      checkout_command
       clean_command
       build_command
     end
@@ -415,7 +416,9 @@ class ForestBenchmark < Benchmark
     exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name])
   end
 
-  def checkout_command(); end
+  def checkout_command()
+    exec_command(%w[git checkout hm/ship-jemalloc])
+  end
 
   def clean_command
     exec_command(%w[cargo clean])
@@ -463,22 +466,20 @@ class ForestBenchmark < Benchmark
   end
 end
 
-# Benchmark class for Forest with ParityDb backend and Jemalloc allocator
-class JemallocBenchmark < ForestBenchmark
+# Benchmark class for Forest with the system allocator
+class SysAllocBenchmark < ForestBenchmark
   def build_command
     exec_command(
-      ['cargo', 'build', '--release', '--no-default-features', '--features',
-       'forest_fil_cns,jemalloc']
+      ['cargo', 'build', '--release', '--features', 'rustalloc']
     )
   end
 end
 
-# Benchmark class for Forest with ParityDb backend and Mimalloc allocator
+# Benchmark class for Forest with Mimalloc allocator
 class MimallocBenchmark < ForestBenchmark
   def build_command
     exec_command(
-      ['cargo', 'build', '--release', '--no-default-features', '--features',
-       'forest_fil_cns,mimalloc']
+      ['cargo', 'build', '--release', '--features', 'mimalloc']
     )
   end
 end
@@ -599,7 +600,7 @@ end
 
 FOREST_BENCHMARKS = [
   ForestBenchmark.new(name: 'baseline'),
-  JemallocBenchmark.new(name: 'jemalloc'),
+  SysAllocBenchmark.new(name: 'sysalloc'),
   MimallocBenchmark.new(name: 'mimalloc')
 ].freeze
 
