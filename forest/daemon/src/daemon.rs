@@ -303,7 +303,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+    let follow = chain_muxer.follow(None);
+    services.spawn(async { Err(anyhow::anyhow!("{:?}", follow.await)) });
 
     // Start services
     if config.client.enable_rpc {
