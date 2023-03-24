@@ -16,7 +16,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod cli;
 mod daemon;
 
-use std::{cmp::max, fs::File, process, sync::Arc, time::Duration};
+use std::{cmp::max, fs::File, process, time::Duration};
 
 use anyhow::Context;
 use clap::Parser;
@@ -26,10 +26,10 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use forest_db::{db_engine::Db, Store};
+use forest_db::Store;
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
-use log::{error, info, warn};
+use log::{info, warn};
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
@@ -170,21 +170,12 @@ fn main() -> anyhow::Result<()> {
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let db: Db = rt.block_on(daemon::start(opts, cfg))?;
-
+            let db = rt.block_on(daemon::start(opts, cfg))?;
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs(10));
-
             db.flush()?;
-            let db_weak_ref = Arc::downgrade(&db.db);
             drop(db);
 
-            if db_weak_ref.strong_count() != 0 {
-                error!(
-                    "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-                    db_weak_ref.strong_count()
-                );
-            }
             info!("Forest finish shutdown");
         }
     }

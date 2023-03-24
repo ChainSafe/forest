@@ -32,7 +32,6 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fvm_shared.workspace = true
 
 [features]
 paritydb = ["forest_db/paritydb"]

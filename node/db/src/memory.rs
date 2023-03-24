@@ -30,14 +30,6 @@ impl Store for MemoryDB {
         Ok(())
     }
 
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        self.db.write().remove(key.as_ref());
-        Ok(())
-    }
-
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,

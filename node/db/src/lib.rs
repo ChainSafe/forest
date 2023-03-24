@@ -17,6 +17,9 @@ pub mod rocks_config;
 pub use errors::Error;
 pub use memory::MemoryDB;
 
+#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
+pub mod rolling;
+
 /// Store interface used as a KV store implementation
 pub trait Store {
     /// Read single value from data store and return `None` if key doesn't
@@ -31,23 +34,10 @@ pub trait Store {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
 
-    /// Delete value at key.
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>;
-
     /// Returns `Ok(true)` if key exists in store
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>;
-
-    /// Read slice of keys and return a vector of optional values.
-    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        keys.iter().map(|key| self.read(key)).collect()
-    }
 
     /// Write slice of KV pairs.
     fn bulk_write(
@@ -57,14 +47,6 @@ pub trait Store {
         values
             .into_iter()
             .try_for_each(|(key, value)| self.write(key.into(), value.into()))
-    }
-
-    /// Bulk delete keys from the data store.
-    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        keys.iter().try_for_each(|key| self.delete(key))
     }
 
     /// Flush writing buffer if there is any. Default implementation is blank
@@ -89,13 +71,6 @@ impl<BS: Store> Store for &BS {
         (*self).write(key, value)
     }
 
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).delete(key)
-    }
-
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,
@@ -103,25 +78,11 @@ impl<BS: Store> Store for &BS {
         (*self).exists(key)
     }
 
-    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).bulk_read(keys)
-    }
-
     fn bulk_write(
         &self,
         values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
     ) -> Result<(), Error> {
         (*self).bulk_write(values)
-    }
-
-    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).bulk_delete(keys)
     }
 }
 
@@ -132,35 +93,35 @@ pub trait DBStatistics {
     }
 }
 
-#[cfg(feature = "rocksdb")]
+#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
+    use crate::rolling::*;
+
+    #[cfg(feature = "rocksdb")]
     pub type Db = crate::rocks::RocksDb;
-    pub type DbConfig = crate::rocks_config::RocksDbConfig;
-
-    pub fn db_path(path: &Path) -> PathBuf {
-        path.join("rocksdb")
-    }
-
-    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
-        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
-    }
-}
-
-#[cfg(feature = "paritydb")]
-pub mod db_engine {
-    use std::path::{Path, PathBuf};
-
+    #[cfg(feature = "paritydb")]
     pub type Db = crate::parity_db::ParityDb;
+    #[cfg(feature = "rocksdb")]
+    pub type DbConfig = crate::rocks_config::RocksDbConfig;
+    #[cfg(feature = "paritydb")]
     pub type DbConfig = crate::parity_db_config::ParityDbConfig;
 
-    pub fn db_path(path: &Path) -> PathBuf {
-        path.join("paritydb")
+    #[cfg(feature = "rocksdb")]
+    const DIR_NAME: &str = "rocksdb";
+    #[cfg(feature = "paritydb")]
+    const DIR_NAME: &str = "paritydb";
+
+    pub fn db_root(chain_data_root: &Path) -> PathBuf {
+        chain_data_root.join(DIR_NAME)
     }
 
-    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
-        use crate::parity_db::ParityDb;
-        ParityDb::open(path.to_owned(), config)
+    pub(crate) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
+        Db::open(path, config).map_err(Into::into)
+    }
+
+    pub fn open_proxy_db(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<RollingDB> {
+        RollingDB::load_or_create(db_root, db_config)
     }
 }

@@ -38,13 +38,24 @@ $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --hei
 echo "Checking DB stats"
 $FOREST_CLI_PATH --chain calibnet db stats
 echo "Running forest in detached mode"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token
+$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
 
 echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
 
 echo "Waiting for sync and check health"
 timeout 30m $FOREST_CLI_PATH --chain calibnet sync wait && $FOREST_CLI_PATH --chain calibnet db stats
+
+# Admin token used when interacting with wallet
+ADMIN_TOKEN=$(cat admin_token)
+# Set environment variable
+export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
+
+echo "Running database garbage collection"
+du -hS ~/.local/share/forest/calibnet
+$FOREST_CLI_PATH --chain calibnet db gc
+du -hS ~/.local/share/forest/calibnet
+
 echo "Exporting snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot export
 
@@ -76,10 +87,6 @@ echo "Wallet tests"
 
 # Amount to send to
 FIL_AMT=500
-# Admin token used when interacting with wallet
-ADMIN_TOKEN=$(cat admin_token)
-# Set environment variable
-export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
 
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH --chain calibnet wallet import preloaded_wallet.key
