@@ -397,7 +397,7 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
-        Randomness::new(rand.to_vec()).into(),
+        Randomness::new(rand.to_vec()),
         header.winning_post_proof(),
         sectors.as_slice(),
         id,
