@@ -80,7 +80,7 @@ impl From<GasV3> for Gas {
 pub struct GasCharge(GasChargeV3);
 
 impl GasCharge {
-    /// Calculates total gas charge (in milligas) by summing compute and
+    /// Calculates total gas charge (in `milligas`) by summing compute and
     /// storage gas associated with this charge.
     pub fn total(&self) -> Gas {
         self.0.total().into()
