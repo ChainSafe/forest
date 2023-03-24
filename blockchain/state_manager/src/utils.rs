@@ -153,7 +153,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 }
 
 /// Generates sector challenge indexes for use in winning PoSt verification.
-pub fn generate_winning_post_sector_challenge(
+fn generate_winning_post_sector_challenge(
     proof: RegisteredPoStProof,
     prover_id: u64,
     mut rand: Randomness,

@@ -437,7 +437,7 @@ enum ProofType {
     // Window,
 }
 
-pub fn verify_winning_post(
+fn verify_winning_post(
     mut rand: Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
