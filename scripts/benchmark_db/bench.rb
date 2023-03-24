@@ -21,7 +21,7 @@ SNAPSHOT_REGEXES = [
   %r{/(?<height>\d+)_*}
 ].freeze
 
-HEIGHTS_TO_VALIDATE = 5
+HEIGHTS_TO_VALIDATE = 40
 
 MINUTE = 60
 HOUR = MINUTE * MINUTE
