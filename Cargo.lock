@@ -3421,6 +3421,7 @@ dependencies = [
  "forest_rpc-client",
  "forest_shim",
  "forest_utils",
+ "fraction",
  "fs_extra",
  "fvm_ipld_blockstore",
  "fvm_shared 2.0.0",
@@ -4389,6 +4390,16 @@ dependencies = [
  "byteorder",
  "ff",
  "thiserror",
+]
+
+[[package]]
+name = "fraction"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3027ae1df8d41b4bed2241c8fdad4acc1e7af60c8e17743534b545e77182d678"
+dependencies = [
+ "lazy_static",
+ "num",
 ]
 
 [[package]]

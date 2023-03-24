@@ -5,9 +5,10 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
+use fraction::BigFraction;
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use lazy_static::lazy_static;
-use num::{rational::Ratio, BigInt, CheckedMul};
+use num::{bigint::Sign, BigInt, BigUint, CheckedMul};
 use regex::Regex;
 
 use super::{handle_rpc_err, Config};
@@ -16,12 +17,11 @@ lazy_static! {
     static ref FIL_REG: Regex = Regex::new(r"^(?:\d*\.)?\d+").unwrap();
 }
 
-const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
+const FILECOIN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FILAmount {
     value: BigInt,
-    units: String,
 }
 
 impl FromStr for FILAmount {
@@ -52,21 +52,25 @@ impl FromStr for FILAmount {
             ));
         }
 
-        let mut r = if Ratio::from_float(val.parse::<f64>().unwrap()).is_none() {
-            return Err(anyhow::anyhow!(
-                "failed to parse {} as a decimal number",
-                val
-            ));
-        } else {
-            Ratio::from_float(val.parse::<f64>().unwrap()).unwrap()
+        let mut r = match BigFraction::from_str(val) {
+            Ok(r) => r,
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "failed to parse {} as a decimal number",
+                    val
+                ))
+            }
         };
 
         if !is_attofil {
-            r = Ratio::checked_mul(&r, &Ratio::new(FILECOIN_PRECISION.into(), BigInt::from(1)))
-                .unwrap();
+            r = BigFraction::checked_mul(
+                &r,
+                &BigFraction::new(BigUint::from(FILECOIN_PRECISION), BigUint::from(1_u64)),
+            )
+            .unwrap();
         }
 
-        if !Ratio::is_integer(&r) {
+        if r.numer().unwrap() % r.denom().unwrap() != BigUint::from(0_u64) {
             let mut prefix = "";
             if is_attofil {
                 prefix = "atto";
@@ -74,10 +78,8 @@ impl FromStr for FILAmount {
             return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val));
         }
 
-        //TODO: update fields when finished with this section
         Ok(FILAmount {
-            value: val.parse::<BigInt>().unwrap(),
-            units: "".to_string(),
+            value: BigInt::from_biguint(Sign::Plus, r.numer().unwrap() / r.denom().unwrap()),
         })
     }
 }
@@ -119,10 +121,7 @@ impl SendCommand {
             )?
         };
 
-        // let amount = if self.amount ==  {
-
-        // };
-
+        //TODO: update value field and update integration tests
         let message = Message {
             from,
             to: self.target_address,
@@ -143,4 +142,64 @@ impl SendCommand {
 
         Ok(())
     }
+}
+
+#[test]
+fn invalid_attofil_amount() {
+    //attoFIL with fractional value fails (fractional FIL values allowed)
+    let amount = "1.234attofil";
+    assert!(FILAmount::from_str(amount).is_err());
+}
+
+#[test]
+fn valid_fil_amount_without_suffix() {
+    //defaults to FIL if no suffix is provided
+    let amount = "1234";
+    assert!(FILAmount::from_str(amount).is_ok());
+}
+
+#[test]
+fn valid_fil_amount_with_suffix() {
+    //properly parses amount with "FIL" suffix
+    let amount = "1234FIL";
+    assert!(FILAmount::from_str(amount).is_ok());
+}
+
+#[test]
+fn invalid_fil_amount() {
+    //bad amount fails
+    let amount = "0.0.0FIL";
+    assert!(FILAmount::from_str(amount).is_err());
+}
+
+#[test]
+fn test_fractional_fil_amount() {
+    //fil with fractional value succeeds
+    let amount = "1.234FIL";
+    assert!(FILAmount::from_str(amount).is_ok());
+}
+
+#[test]
+fn fil_amount_too_long() {
+    //fil amount with length>50 fails
+    let amount = "100000000000000000000000000000000000000000000000000FIL";
+    assert!(FILAmount::from_str(amount).is_err());
+}
+
+#[test]
+fn convert_fil_to_attofil() {
+    //expected attofil amount matches actual amount after conversion from FIL
+    let fil_amount = "1FIL";
+    let attofil_amount = BigInt::from(FILECOIN_PRECISION);
+    assert_eq!(
+        FILAmount::from_str(fil_amount).unwrap().value,
+        attofil_amount
+    );
+}
+
+#[test]
+fn invalid_fil_suffix() {
+    //test with bad suffix
+    let amount = "42fiascos";
+    assert!(FILAmount::from_str(amount).is_err());
 }
