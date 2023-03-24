@@ -12,7 +12,6 @@ use forest_shim::{
     version::NetworkVersion,
 };
 use forest_utils::encoding::prover_id_from_u64;
-// use forest_utils::validation::generate_winning_post_sector_challenge;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
@@ -81,8 +80,7 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids =
-            generate_winning_post_sector_challenge(wpt.into(), m_id, rand.into(), num_prov_sect)?;
+        let ids = generate_winning_post_sector_challenge(wpt.into(), m_id, rand, num_prov_sect)?;
 
         let mut iter = proving_sectors.iter();
 
