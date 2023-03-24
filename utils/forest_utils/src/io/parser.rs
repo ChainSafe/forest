@@ -30,7 +30,7 @@ pub enum FormattingMode {
     ExactNotFixed,
     /// mode to show data in SI units
     /// with 4 significant digits
-    /// E.g. ~ 500.2 mill `FIL`
+    /// E.g. ~500.2 mill `FIL`
     NotExactNotFixed,
 }
 
