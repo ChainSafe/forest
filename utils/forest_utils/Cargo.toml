@@ -1,6 +1,6 @@
 [package]
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 license.workspace = true
 name = "forest_utils"
 repository.workspace = true

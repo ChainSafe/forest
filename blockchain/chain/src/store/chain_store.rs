@@ -91,7 +91,7 @@ pub struct ChainStore<DB> {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    /// File backed genesis block cid
+    /// File backed genesis block CID
     file_backed_genesis: Mutex<FileBacked<Cid>>,
 
     /// File backed heaviest tipset keys

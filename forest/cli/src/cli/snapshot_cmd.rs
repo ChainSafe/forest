@@ -330,7 +330,7 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
 
     let read_dir = match fs::read_dir(snapshot_dir) {
         Ok(read_dir) => read_dir,
-        // basically have the same behaviour as in `rm -f` which doesn't fail if the target
+        // basically have the same behavior as in `rm -f` which doesn't fail if the target
         // directory doesn't exist.
         Err(_) if force => {
             println!("Target directory not accessible. Skipping.");

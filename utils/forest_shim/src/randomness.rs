@@ -7,8 +7,8 @@ use fvm_shared::randomness::Randomness as Randomness_v2;
 use fvm_shared3::randomness::Randomness as Randomness_v3;
 use serde::{Deserialize, Serialize};
 
-/// Represents a shim over Randomness from fvm_shared with convenience methods
-/// to convert to an older version of the type
+/// Represents a shim over `Randomness` from `fvm_shared` with convenience
+/// methods to convert to an older version of the type
 ///
 /// # Examples
 /// ```
