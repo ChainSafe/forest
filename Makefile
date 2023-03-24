@@ -16,13 +16,13 @@ install: install-cli install-daemon
 
 # Installs Forest binaries with RocksDb backend
 install-with-rocksdb:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,rocksdb
-	cargo install --locked --path forest/cli --force --no-default-features --features rocksdb
+	cargo install --locked --path forest/daemon --force --features rocksdb
+	cargo install --locked --path forest/cli --features rocksdb
 
-# Installs Forest binaries with Jemalloc global allocator
-install-with-jemalloc:
-	cargo install --locked --path forest/daemon --force --features jemalloc
-	cargo install --locked --path forest/cli --force --features jemalloc
+# Installs Forest binaries with default rust global allocator
+install-with-rustalloc:
+	cargo install --locked --path forest/daemon --force --features rustalloc
+	cargo install --locked --path forest/cli --force --features rustalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
@@ -87,8 +87,17 @@ lint: license clean lint-clippy
 	taplo lint
 	
 lint-clippy:
-	cargo clippy --features mimalloc
-	cargo clippy --features jemalloc
+	# Default features: paritydb,jemalloc,forest_fil_cns
+	cargo clippy -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override jemalloc with rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --features rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override jemalloc with mimalloc
+	cargo clippy --features mimalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override forest_fil_cns with forest_deleg_cns
+	cargo clippy --features forest_deleg_cns -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override paritydb with rocksdb
+	cargo clippy --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else

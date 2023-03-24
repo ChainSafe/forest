@@ -50,12 +50,15 @@ use super::cli::set_sigint_handler;
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
 
-// Default consensus
-// Custom consensus.
-#[cfg(feature = "forest_deleg_cns")]
-use forest_deleg_cns::composition as cns;
-#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
-use forest_fil_cns::composition as cns;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "forest_deleg_cns")] {
+        // Custom consensus.
+        use forest_deleg_cns::composition as cns;
+    } else {
+        // Default consensus
+        use forest_fil_cns::composition as cns;
+    }
+}
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = super::ipc_shmem_conf().open()?;

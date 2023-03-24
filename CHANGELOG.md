@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Use jemalloc as the default global allocator
+
 ### Removed
 
 ### Fixed

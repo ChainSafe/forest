@@ -5,12 +5,16 @@ mod errors;
 mod memory;
 mod metrics;
 
-#[cfg(feature = "rocksdb")]
-pub mod rocks;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rocksdb")] {
+        pub mod rocks;
+    } else if #[cfg(feature = "paritydb")] {
+        pub mod parity_db;
+    }
+}
 
-#[cfg(feature = "paritydb")]
-pub mod parity_db;
-
+// Not using conditional compilation here because DB config types are used in
+// forest config
 pub mod parity_db_config;
 pub mod rocks_config;
 
@@ -99,19 +103,19 @@ pub mod db_engine {
 
     use crate::rolling::*;
 
-    #[cfg(feature = "rocksdb")]
-    pub type Db = crate::rocks::RocksDb;
-    #[cfg(feature = "paritydb")]
-    pub type Db = crate::parity_db::ParityDb;
-    #[cfg(feature = "rocksdb")]
-    pub type DbConfig = crate::rocks_config::RocksDbConfig;
-    #[cfg(feature = "paritydb")]
-    pub type DbConfig = crate::parity_db_config::ParityDbConfig;
-
-    #[cfg(feature = "rocksdb")]
-    const DIR_NAME: &str = "rocksdb";
-    #[cfg(feature = "paritydb")]
-    const DIR_NAME: &str = "paritydb";
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "rocksdb")] {
+            pub type Db = crate::rocks::RocksDb;
+            pub type DbConfig = crate::rocks_config::RocksDbConfig;
+            pub(crate) type DbError = rocksdb::Error;
+            const DIR_NAME: &str = "rocksdb";
+        } else if #[cfg(feature = "paritydb")] {
+            pub type Db = crate::parity_db::ParityDb;
+            pub type DbConfig = crate::parity_db_config::ParityDbConfig;
+            pub(crate) type DbError = parity_db::Error;
+            const DIR_NAME: &str = "paritydb";
+        }
+    }
 
     pub fn db_root(chain_data_root: &Path) -> PathBuf {
         chain_data_root.join(DIR_NAME)

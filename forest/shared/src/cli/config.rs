@@ -187,14 +187,16 @@ pub struct Config {
 }
 
 impl Config {
-    #[cfg(feature = "rocksdb")]
-    pub fn db_config(&self) -> &DbConfig {
-        &self.rocks_db
-    }
-
-    #[cfg(feature = "paritydb")]
-    pub fn db_config(&self) -> &DbConfig {
-        &self.parity_db
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "rocksdb")] {
+            pub fn db_config(&self) -> &DbConfig {
+                &self.rocks_db
+            }
+        } else if #[cfg(feature = "paritydb")] {
+            pub fn db_config(&self) -> &DbConfig {
+                &self.parity_db
+            }
+        }
     }
 }
 
