@@ -144,11 +144,19 @@ where
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
         ));
-        let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
-            chain_data_root.join("HEAD"),
-            || TipsetKeys::new(vec![*genesis_block_header.cid()]),
-            None,
-        )?);
+        let file_backed_heaviest_tipset_keys = Mutex::new({
+            let mut head_store = FileBacked::load_from_file_or_create(
+                chain_data_root.join("HEAD"),
+                || TipsetKeys::new(vec![*genesis_block_header.cid()]),
+                None,
+            )?;
+            let is_valid = tipset_from_keys(&ts_cache, &db, head_store.inner()).is_ok();
+            if !is_valid {
+                // If the stored HEAD is invalid, reset it to the genesis tipset.
+                head_store.set_inner(TipsetKeys::new(vec![*genesis_block_header.cid()]))?;
+            }
+            head_store
+        });
         let file_backed_validated_blocks = Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("VALIDATED_BLOCKS"),
             HashSet::default,
