@@ -142,8 +142,8 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/libp2p-removal" }
+fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "shashank/libp2p-removal" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
 forest_blocks = { path = "./blockchain/blocks" }
