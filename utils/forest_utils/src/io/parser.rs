@@ -30,7 +30,7 @@ pub enum FormattingMode {
     ExactNotFixed,
     /// mode to show data in SI units
     /// with 4 significant digits
-    /// E.g. ~500.2 milli `FIL`
+    /// E.g. ~ 500.2 mill `FIL`
     NotExactNotFixed,
 }
 
@@ -46,7 +46,7 @@ pub fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
     }
 }
 
-/// Function to format `TokenAmount` accoding to `FormattingMode`:
+/// Function to format `TokenAmount` according to `FormattingMode`:
 /// mode to show data in `FIL` units
 /// in full accuracy for `ExactFixed` mode,
 /// mode to show data in `FIL` units
