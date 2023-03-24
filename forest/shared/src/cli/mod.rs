@@ -138,6 +138,9 @@ pub struct CliOpts {
     /// If provided, indicates the file to which to save the admin token.
     #[arg(long)]
     pub save_token: Option<PathBuf>,
+    /// Track peak physical memory usage and print on exit
+    #[arg(long)]
+    pub track_peak_rss: bool,
 }
 
 impl CliOpts {

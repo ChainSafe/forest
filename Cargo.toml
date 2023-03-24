@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -175,6 +175,9 @@ forest_state_manager = { path = "./blockchain/state_manager" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
+
+[patch.crates-io]
+fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
 
 [profile.dev]
 debug = 0

@@ -63,18 +63,18 @@ pub enum WalletCommands {
     List {
         /// flag to force full accuracy,
         /// not just default 4 significant digits
-        /// E.g. 500.2367798 `milli FIL` instead of 500.2 `milli FIL`
+        /// E.g. `500.2367798 milli FIL` instead of `500.2 milli FIL`
         /// In combination with `--fixed-unit` flag
         /// it will show exact data in `FIL` units
-        /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
+        /// E.g. `0.0000002367798 FIL` instead of `~0 FIL`
         #[arg(short, long)]
         exact_balance: bool,
         /// flag to force the balance to be in `FIL`
         /// without SI unit prefixes (like `atto` or `micro`)
-        /// E.g. 0.5002 `FIL` instead of 500.2367 `milli FIL`
+        /// E.g. `0.5002 FIL` instead of `500.2367 milli FIL`
         /// In combination with `--exact-balance` flag
         /// it will show exact data in `FIL` units
-        /// E.g. 0.0000002367798 `FIL` instead of ~0 `FIL`
+        /// E.g. `0.0000002367798 FIL` instead of `~0 FIL`
         #[arg(short, long)]
         fixed_unit: bool,
     },

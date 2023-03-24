@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Inner;
 
-/// Newtype wrapper for FVM `ExitCode`.
+/// `Newtype` wrapper for the FVM `ExitCode`.
 ///
 /// # Examples
 /// ```
