@@ -19,57 +19,83 @@ Notable updates:
 
 ### Added
 
-- Support for NV18.
+- Support for NV18. [#2596](https://github.com/ChainSafe/forest/issues/2596)
 - Automatic database garbage collection.
+  [#2292](https://github.com/ChainSafe/forest/issues/2292)
+  [#1708](https://github.com/ChainSafe/forest/issues/1708)
 - ParityDb statistics to the stats endpoint.
+  [#2433](https://github.com/ChainSafe/forest/issues/2433)
 - A JavaScript console to interact with Filecoin API.
+  [#2492](https://github.com/ChainSafe/forest/pull/2492)
 - Multi-platform Docker image support.
+  [#2476](https://github.com/ChainSafe/forest/issues/2476)
 - `--dry-run` flag to forest-cli `snapshot export` command.
+  [#2550](https://github.com/ChainSafe/forest/issues/2550)
 - `--exit-after-init` and `--save-token` flags to daemon.
+  [#2528](https://github.com/ChainSafe/forest/issues/2528)
 - `--track-peak-rss` to forest daemon to get peak RSS usage.
+  [#2696](https://github.com/ChainSafe/forest/pull/2696)
 - RPC `Filecoin.Shutdown` endpoint and `forest-cli shutdown` subcommand.
+  [#2402](https://github.com/ChainSafe/forest/issues/2402)
 - Added retry capabilities to failing snapshot fetch.
+  [#2544](https://github.com/ChainSafe/forest/issues/2544)
 
 ### Changed
 
 - Network needs to be specified for most commands(eg Calibnet), including
   `sync wait` and `snapshot export`.
+  [#2596](https://github.com/ChainSafe/forest/issues/2596)
 - Switched to ParityDb as the default backend for Forest daemon. All clients
   must re-import the snapshot. The old database must be deleted manually - it is
   located in
   `$(forest-cli config dump | grep data_dir | cut -d' ' -f3)/<NETWORK>/rocksdb`.
+  [#2576](https://github.com/ChainSafe/forest/issues/2576)
 - Revised how balances are displayed, defaulting to:
+  [#2323](https://github.com/ChainSafe/forest/issues/2323)
   - adding metric prefix when it's required, consequently CLI flag
     `--fixed-unit` added to force to show in original `FIL` unit
   - 4 significant digits, consequently CLI flag `--exact-balance` added to force
     full accuracy.
 - `stats` and `compression` keys in `parity_db` section were renamed to
   `enable_statistics` and `compression_type` respectively.
+  [#2433](https://github.com/ChainSafe/forest/issues/2433)
 - `download_snapshot` key in `client` section configuration renamed to
   `auto_download_snapshot`.
+  [#2457](https://github.com/ChainSafe/forest/pull/2457)
 - `--skip-load` flag must be now called with a boolean indicating its value.
+  [#2573](https://github.com/ChainSafe/forest/issues/2573)
 - Ban peers with duration, Banned peers are automatically unbanned after a
-  period of 1h.
+  period of 1h. [#2391](https://github.com/ChainSafe/forest/issues/2391)
 - Added support for multiple listen addr.
+  [#2551](https://github.com/ChainSafe/forest/issues/2551)
 - Allowed specifying the encryption passphrase via environmental variable.
-- Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c` signals
+  [#2499](https://github.com/ChainSafe/forest/issues/2499)
+- Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c` signals.
+  [#2538](https://github.com/ChainSafe/forest/pull/2538)
 
 ### Removed
 
 - Removed `--halt-after-import` and `--auto-download-snapshot` from
   configuration. They are now strictly a CLI option.
+  [#2528](https://github.com/ChainSafe/forest/issues/2528)
+  [#2573](https://github.com/ChainSafe/forest/issues/2573)
 
 ### Fixed
 
 - Daemon getting stuck in an infinite loop during shutdown.
+  [#2672](https://github.com/ChainSafe/forest/issues/2672)
 - `Scanning Blockchain` progess bar never hitting 100% during snapshot import.
+  [#2404](https://github.com/ChainSafe/forest/issues/2404)
 - bitswap queries cancellation that do not respond after a period.
+  [#2398](https://github.com/ChainSafe/forest/issues/2398)
 - Forest daeamon crashing on sending bitswap requests.
+  [#2405](https://github.com/ChainSafe/forest/issues/2405)
 - Corrected counts displayed when using `forest-cli --chain <chain> sync wait`.
+  [#2429](https://github.com/ChainSafe/forest/issues/2429)
 - Snapshot export issue when running on a system with a separate temporary
-  filesystem.
+  filesystem. [#2693](https://github.com/ChainSafe/forest/pull/2693)
 - All binaries and crates in the project to follow a standard version, based on
-  the release tag.
+  the release tag. [#2493](https://github.com/ChainSafe/forest/issues/2493)
 
 ## Forest v0.6.0 (2023-01-06)
 
