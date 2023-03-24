@@ -810,7 +810,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 
 /// Builds the transport stack that libp2p will communicate over. When support
 /// of other protocols like `udp`, `quic`, `http` are added, remember to update
-/// code comment in [Libp2pConfig].
+/// code comment in [`Libp2pConfig`].
 ///
 /// As a reference `lotus` uses the default `go-libp2p` transport builder which
 /// has all above protocols enabled.

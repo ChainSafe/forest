@@ -37,7 +37,7 @@ impl<T: FileBackedObject> FileBacked<T> {
         self.try_sync()
     }
 
-    /// Calls func with inner mutable reference and try sync to file
+    /// Calls function with inner mutable reference and try sync to file
     pub fn with_inner<F>(&mut self, func: F) -> anyhow::Result<()>
     where
         F: FnOnce(&mut T),
@@ -124,7 +124,7 @@ pub trait FileBackedObject: Sized {
     /// Serializes into a byte array
     fn serialize(&self) -> anyhow::Result<Vec<u8>>;
 
-    /// Deserializes from a byte array
+    /// De-serializes from a byte array
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self>;
 }
 
