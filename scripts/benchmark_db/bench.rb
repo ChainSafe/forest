@@ -420,7 +420,7 @@ class ForestBenchmark < Benchmark
     exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name])
   end
 
-  def checkout_command()
+  def checkout_command
     exec_command(%w[git checkout hm/ship-jemalloc])
   end
 
