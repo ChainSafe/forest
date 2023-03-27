@@ -421,7 +421,7 @@ class ForestBenchmark < Benchmark
   end
 
   def checkout_command
-    exec_command(%w[git checkout hm/ship-jemalloc])
+    exec_command(%w[git checkout main])
   end
 
   def clean_command
