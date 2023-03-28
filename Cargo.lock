@@ -3297,6 +3297,8 @@ dependencies = [
  "log",
  "multibase",
  "num",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.5",
  "regex",
  "rpassword",

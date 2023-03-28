@@ -9,6 +9,7 @@ use fraction::BigFraction;
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use lazy_static::lazy_static;
 use num::{bigint::Sign, BigInt, BigUint, CheckedMul};
+use quickcheck_macros::quickcheck;
 use regex::Regex;
 
 use super::{handle_rpc_err, Config};
@@ -21,7 +22,7 @@ const FILECOIN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FILAmount {
-    value: BigInt,
+    value: TokenAmount,
 }
 
 impl FromStr for FILAmount {
@@ -79,7 +80,10 @@ impl FromStr for FILAmount {
         }
 
         Ok(FILAmount {
-            value: BigInt::from_biguint(Sign::Plus, r.numer().unwrap() / r.denom().unwrap()),
+            value: TokenAmount::from_atto(BigInt::from_biguint(
+                Sign::Plus,
+                r.numer().unwrap() / r.denom().unwrap(),
+            )),
         })
     }
 }
@@ -125,7 +129,7 @@ impl SendCommand {
         let message = Message {
             from,
             to: self.target_address,
-            value: TokenAmount::from_atto(self.amount.value.clone()),
+            value: self.amount.value.clone(),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit.unwrap_or_default(),
             gas_fee_cap: TokenAmount::from_atto(self.gas_feecap.clone().unwrap_or_default()),
@@ -190,7 +194,7 @@ fn fil_amount_too_long() {
 fn convert_fil_to_attofil() {
     //expected attofil amount matches actual amount after conversion from FIL
     let fil_amount = "1FIL";
-    let attofil_amount = BigInt::from(FILECOIN_PRECISION);
+    let attofil_amount = TokenAmount::from_atto(BigInt::from(FILECOIN_PRECISION));
     assert_eq!(
         FILAmount::from_str(fil_amount).unwrap().value,
         attofil_amount
@@ -202,4 +206,9 @@ fn invalid_fil_suffix() {
     //test with bad suffix
     let amount = "42fiascos";
     assert!(FILAmount::from_str(amount).is_err());
+}
+
+#[quickcheck]
+fn fil_quickcheck_test() {
+    todo!();
 }
