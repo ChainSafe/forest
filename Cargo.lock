@@ -3649,16 +3649,17 @@ dependencies = [
  "cid",
  "fil_actor_interface",
  "fil_actors_runtime_v9",
+ "filecoin-proofs-api",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",
  "forest_chain_sync",
- "forest_fil_types",
  "forest_interpreter",
  "forest_key_management",
  "forest_networks",
  "forest_shim",
  "forest_state_manager",
+ "forest_utils",
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
@@ -3670,17 +3671,6 @@ dependencies = [
  "prometheus",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "forest_fil_types"
-version = "0.7.0"
-dependencies = [
- "anyhow",
- "filecoin-proofs-api",
- "forest_shim",
- "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.3.0",
 ]
 
 [[package]]
@@ -4128,11 +4118,11 @@ dependencies = [
  "cid",
  "fil_actor_interface",
  "fil_actors_runtime_v9",
+ "filecoin-proofs-api",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",
  "forest_db",
- "forest_fil_types",
  "forest_interpreter",
  "forest_json",
  "forest_message",
@@ -4233,7 +4223,9 @@ dependencies = [
  "const_format",
  "cs_serde_bytes",
  "digest 0.10.6",
+ "filecoin-proofs-api",
  "flume",
+ "forest_shim",
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
