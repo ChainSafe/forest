@@ -19,7 +19,8 @@ You need to run the script at the root of the repository. Ie:
 $ ./benchmark_db/bench.rb 2369040_2022_11_25t12_00_00z.car
 ```
 
-You can create a selection of benchmarks using the `--pattern` flag. If used in conjunction with `--dry-run` you will see what commands will be run:
+You can create a selection of benchmarks using the `--pattern` flag. If used in
+conjunction with `--dry-run` you will see what commands will be run:
 
 ```
 $ ./scripts/benchmark_db/bench.rb 2369040_2022_11_25t12_00_00z.car --pattern 'baseline*,paritydb' --dry-run

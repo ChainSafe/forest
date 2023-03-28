@@ -5,6 +5,8 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+pub use utils::is_valid_for_sending;
+
 mod vm_circ_supply;
 
 use std::{num::NonZeroUsize, sync::Arc};
@@ -12,12 +14,11 @@ use std::{num::NonZeroUsize, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actors_runtime_v9::runtime::Policy;
-use forest_actor_interface::*;
+use fil_actor_interface::*;
+use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
-use forest_db::Store;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
@@ -41,6 +42,7 @@ use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
+use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
@@ -211,7 +213,7 @@ pub struct StateManager<DB> {
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
@@ -378,7 +380,7 @@ where
         let db = self.blockstore().clone();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
-        let create_vm = |state_root, epoch| {
+        let create_vm = |state_root, epoch, timestamp| {
             VM::new(
                 state_root,
                 self.blockstore().clone(),
@@ -392,15 +394,22 @@ where
                 &self.engine_v2,
                 &self.engine_v3,
                 Arc::clone(self.chain_config()),
-                tipset.min_timestamp(),
+                timestamp,
             )
         };
 
         let mut parent_state = *p_state;
+        let genesis_timestamp = Lazy::new(|| {
+            self.chain_store()
+                .genesis()
+                .expect("could not find genesis block!")
+                .timestamp()
+        });
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
-                let mut vm = create_vm(parent_state, epoch_i)?;
+                let timestamp = *genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
                     error!("Beginning of epoch cron failed to run: {}", e);
@@ -414,7 +423,7 @@ where
             }
         }
 
-        let mut vm = create_vm(parent_state, epoch)?;
+        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // Apply tipset messages
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
@@ -929,7 +938,7 @@ where
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>
     where
-        DB: Blockstore + Store + Clone + Send + Sync + 'static,
+        DB: Blockstore + Clone + Send + Sync + 'static,
     {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -1150,7 +1159,7 @@ where
         ts: &Arc<Tipset>,
     ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
-            Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
+            Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated => return Ok(*addr),
             Protocol::Actor => {
                 return Err(
                     Error::Other("cannot resolve actor address to key address".to_string()).into(),
@@ -1158,6 +1167,15 @@ where
             }
             _ => {}
         };
+
+        // First try to resolve the actor in the parent state, so we don't have to
+        // compute anything.
+        let state = StateTree::new_from_root(self.blockstore(), ts.parent_state())?;
+        if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
+            return Ok(addr);
+        }
+
+        // If that fails, compute the tip-set and try again.
         let (st, _) = self.tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
@@ -1244,7 +1262,7 @@ fn chain_epoch_root<DB>(
     tipset: Arc<Tipset>,
 ) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
         let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;

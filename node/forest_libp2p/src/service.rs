@@ -13,7 +13,6 @@ use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
-use forest_db::Store;
 use forest_libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
@@ -25,10 +24,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
-    core,
-    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
-    identity::{ed25519, Keypair},
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping,
@@ -195,7 +192,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: Blockstore + Store + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
+    DB: Blockstore + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,
@@ -676,7 +673,7 @@ async fn handle_chain_exchange_event<DB>(
         ChainExchangeResponse,
     )>,
 ) where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
 {
     match ce_event {
         request_response::Event::Message { peer, message } => {
@@ -762,7 +759,7 @@ async fn handle_forest_behaviour_event<DB>(
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
-    DB: Blockstore + Store + BitswapStoreRead + Clone + Sync + Send + 'static,
+    DB: Blockstore + BitswapStoreRead + Clone + Sync + Send + 'static,
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
@@ -813,7 +810,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 
 /// Builds the transport stack that libp2p will communicate over. When support
 /// of other protocols like `udp`, `quic`, `http` are added, remember to update
-/// code comment in [Libp2pConfig].
+/// code comment in [`Libp2pConfig`].
 ///
 /// As a reference `lotus` uses the default `go-libp2p` transport builder which
 /// has all above protocols enabled.
@@ -846,10 +843,10 @@ pub fn get_keypair(path: &Path) -> Option<Keypair> {
             trace!("Error {:?}", e);
             None
         }
-        Ok(mut vec) => match ed25519::Keypair::decode(&mut vec) {
+        Ok(mut vec) => match Keypair::ed25519_from_bytes(&mut vec) {
             Ok(kp) => {
                 info!("Recovered libp2p keypair from {:?}", &path);
-                Some(Keypair::Ed25519(kp))
+                Some(kp)
             }
             Err(e) => {
                 info!("Could not decode networking keystore!");

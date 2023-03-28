@@ -234,13 +234,6 @@ impl Store for RocksDb {
         Ok(self.db.put_opt(key, value, &WRITE_OPT_NO_WAL)?)
     }
 
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        Ok(self.db.delete(key)?)
-    }
-
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,

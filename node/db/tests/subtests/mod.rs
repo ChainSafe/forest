@@ -43,20 +43,6 @@ where
     assert!(!res);
 }
 
-pub fn delete<DB>(db: &DB)
-where
-    DB: Store,
-{
-    let key = [0];
-    let value = [1];
-    db.write(key, value).unwrap();
-    let res = db.exists(key).unwrap();
-    assert!(res);
-    db.delete(key).unwrap();
-    let res = db.exists(key).unwrap();
-    assert!(!res);
-}
-
 pub fn bulk_write<DB>(db: &DB)
 where
     DB: Store,
@@ -66,45 +52,5 @@ where
     for (k, _) in values.iter() {
         let res = db.exists(*k).unwrap();
         assert!(res);
-    }
-}
-
-pub fn bulk_read<DB>(db: &DB)
-where
-    DB: Store,
-{
-    let keys = [[0], [1], [2]];
-    let values = [[0], [1], [2]];
-    let kvs: Vec<_> = keys
-        .iter()
-        .zip(values.iter())
-        .map(|(k, v)| (k.to_vec(), v.to_vec()))
-        .collect();
-    db.bulk_write(kvs).unwrap();
-    let results = db.bulk_read(&keys).unwrap();
-    for (result, value) in results.iter().zip(values.iter()) {
-        match result {
-            Some(v) => assert_eq!(v, value),
-            None => panic!("No values found!"),
-        }
-    }
-}
-
-pub fn bulk_delete<DB>(db: &DB)
-where
-    DB: Store,
-{
-    let keys = [[0], [1], [2]];
-    let values = [[0], [1], [2]];
-    let kvs: Vec<_> = keys
-        .iter()
-        .zip(values.iter())
-        .map(|(k, v)| (k.to_vec(), v.to_vec()))
-        .collect();
-    db.bulk_write(kvs).unwrap();
-    db.bulk_delete(&keys).unwrap();
-    for k in keys.iter() {
-        let res = db.exists(*k).unwrap();
-        assert!(!res);
     }
 }

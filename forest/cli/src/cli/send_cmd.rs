@@ -38,7 +38,12 @@ impl SendCommand {
             Address::from_str(
                 &wallet_default_address((), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)?,
+                    .map_err(handle_rpc_err)?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "No default wallet address selected. Please set a default address."
+                        )
+                    })?,
             )?
         };
 

@@ -37,3 +37,6 @@ rustflags = ["-Zshare-generics=y", "--cfg", "tokio_unstable"]
 [net]
 git-fetch-with-cli = true
 retry = 5
+
+[registries.crates-io]
+protocol = "sparse"

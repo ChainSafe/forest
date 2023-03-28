@@ -14,6 +14,12 @@ use crate::{address::Address, econ::TokenAmount};
 #[serde(transparent)]
 pub struct Message(Message_v3);
 
+impl quickcheck::Arbitrary for Message {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Message(Message_v3::arbitrary(g))
+    }
+}
+
 impl Deref for Message {
     type Target = Message_v3;
 

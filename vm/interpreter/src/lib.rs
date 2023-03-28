@@ -9,7 +9,7 @@ mod instrumented_kernel;
 mod metrics;
 mod vm;
 
-use forest_actor_interface::account;
+use fil_actor_interface::account;
 use forest_shim::{
     address::{Address, Protocol},
     state_tree::StateTree,
@@ -29,13 +29,21 @@ where
     BS: Blockstore,
     S: Blockstore + Clone,
 {
-    if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
+    if addr.protocol() == Protocol::BLS
+        || addr.protocol() == Protocol::Secp256k1
+        || addr.protocol() == Protocol::Delegated
+    {
         return Ok(*addr);
     }
 
     let act = st
         .get_actor(addr)?
         .ok_or_else(|| anyhow::anyhow!("Failed to retrieve actor: {}", addr))?;
+
+    // If there _is_ an f4 address, return it as "key" address
+    if let Some(address) = act.delegated_address {
+        return Ok(address.into());
+    }
 
     let acc_st = account::State::load(store, &act.into())?;
 

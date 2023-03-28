@@ -9,18 +9,16 @@ use std::{
 };
 
 use cid::Cid;
-use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
-use forest_db::Store;
 use forest_libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
 };
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
-use forest_shim::message::Message;
+use forest_shim::{clock::EPOCHS_IN_DAY, message::Message};
 use forest_state_manager::StateManager;
 use futures::{
     future::{try_join_all, Future},
@@ -160,7 +158,7 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -839,7 +837,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -888,6 +886,9 @@ where
                         );
                         metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
+
+                        // By default bail on errors
+                        return Poll::Ready(why);
                     }
                     Poll::Pending => return Poll::Pending,
                 },

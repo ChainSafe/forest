@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_db::Store;
 use forest_key_management::KeyStore;
 use forest_shim::econ::TokenAmount;
 use forest_state_manager::StateManager;
@@ -32,7 +31,7 @@ pub async fn consensus<DB, MP>(
     services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<FullConsensus>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     MP: MessagePoolApi + Send + Sync + 'static,
 {
     let consensus = DelegatedConsensus::default();

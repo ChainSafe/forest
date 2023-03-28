@@ -11,9 +11,9 @@ use crate::{ActorMigration, ActorMigrationInput};
 use crate::{MigrationError, MigrationOutput, MigrationResult};
 use cid::multihash::Code::Blake2b256;
 use cid::Cid;
-use forest_actor_interface::actorv3::miner::State as V3State;
-use forest_actor_interface::actorv4::miner::State as V4State;
-use forest_db::Store;
+use fil_actor_interface::actorv3::miner::State as V3State;
+use fil_actor_interface::actorv4::miner::State as V4State;
+
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 

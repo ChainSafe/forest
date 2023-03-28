@@ -17,22 +17,21 @@ use forest_cli_shared::{
     },
 };
 use forest_db::{
-    db_engine::{db_path, open_db, Db},
+    db_engine::{db_root, open_proxy_db},
+    rolling::{DbGarbageCollector, RollingDB},
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use forest_libp2p::{
-    ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
-};
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::{io::write_to_file, retry};
+use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, retry};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
@@ -51,12 +50,15 @@ use super::cli::set_sigint_handler;
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
 
-// Default consensus
-// Custom consensus.
-#[cfg(feature = "forest_deleg_cns")]
-use forest_deleg_cns::composition as cns;
-#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
-use forest_fil_cns::composition as cns;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "forest_deleg_cns")] {
+        // Custom consensus.
+        use forest_deleg_cns::composition as cns;
+    } else {
+        // Default consensus
+        use forest_fil_cns::composition as cns;
+    }
+}
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = super::ipc_shmem_conf().open()?;
@@ -69,12 +71,13 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 }
 
 /// Starts daemon process
-pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
+pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<RollingDB> {
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
 
     set_sigint_handler();
+
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
@@ -87,13 +90,21 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let net_keypair = match get_keypair(&path.join("keypair")) {
         Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
         None => {
-            let gen_keypair = ed25519::Keypair::generate();
+            let gen_keypair = forest_libp2p::Keypair::generate_ed25519();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
+            let file = write_to_file(
+                &gen_keypair
+                    .clone()
+                    .into_ed25519()
+                    .ok_or(anyhow::anyhow!("couldn't convert keypair to ed25519"))?
+                    .encode(),
+                &path,
+                "keypair",
+            )?;
             // Restrict permissions on files containing private keys
             forest_utils::io::set_user_perm(&file)?;
-            Ok(Keypair::Ed25519(gen_keypair))
+            Ok(gen_keypair)
         }
     }?;
 
@@ -112,9 +123,18 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
 
     let keystore = Arc::new(RwLock::new(keystore));
 
-    let db = open_db(&db_path(&chain_path(&config)), config.db_config())?;
+    let chain_data_path = chain_path(&config);
+    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
 
     let mut services = JoinSet::new();
+
+    if opts.track_peak_rss {
+        let mem_stats_tracker = MemStatsTracker::default();
+        services.spawn(async move {
+            mem_stats_tracker.run_loop().await;
+            Ok(())
+        });
+    }
 
     {
         // Start Prometheus server port
@@ -125,7 +145,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = forest_db::db_engine::db_path(&chain_path(&config));
+        let db_directory = forest_db::db_engine::db_root(&chain_path(&config));
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -149,9 +169,27 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
         db.clone(),
         config.chain.clone(),
         &genesis_header,
+        chain_data_path.as_path(),
     )?);
 
     chain_store.set_genesis(&genesis_header)?;
+    let db_garbage_collector = {
+        let db = db.clone();
+        let chain_store = chain_store.clone();
+        let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
+        Arc::new(DbGarbageCollector::new(db, get_tipset))
+    };
+
+    #[allow(clippy::redundant_async_block)]
+    services.spawn({
+        let db_garbage_collector = db_garbage_collector.clone();
+        async move { db_garbage_collector.collect_loop_passive().await }
+    });
+    #[allow(clippy::redundant_async_block)]
+    services.spawn({
+        let db_garbage_collector = db_garbage_collector.clone();
+        async move { db_garbage_collector.collect_loop_event().await }
+    });
 
     let publisher = chain_store.publisher();
 
@@ -282,6 +320,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
+        let gc_event_tx = db_garbage_collector.get_tx();
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
@@ -294,11 +333,11 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
-                                                                  * this itself from the
-                                                                  * StateManager */
+                    // TODO: the RPCState can fetch this itself from the StateManager
+                    beacon: rpc_state_manager.beacon_schedule(),
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
+                    gc_event_tx,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
@@ -327,7 +366,12 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     tokio::select! {
-        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        ret = sync_from_snapshot(&config, &state_manager).fuse() => {
+            if let Err(err) = ret {
+                services.shutdown().await;
+                return Err(err);
+            }
+        },
         _ = tokio::signal::ctrl_c() => {
             services.shutdown().await;
             return Ok(db);
@@ -341,6 +385,12 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
             return Ok(db);
         },
     }
+
+    // For convenience, flush the database after we've potentially loaded a new
+    // snapshot. This ensures the snapshot won't have to be re-imported if
+    // Forest is interrupted. As of writing, flushing only affects RocksDB and
+    // is a no-op with ParityDB.
+    state_manager.blockstore().flush()?;
 
     // Halt
     if opts.halt_after_import {
@@ -460,7 +510,10 @@ async fn prompt_snapshot_or_die(
     }
 }
 
-async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>)
+async fn sync_from_snapshot<DB>(
+    config: &Config,
+    state_manager: &Arc<StateManager<DB>>,
+) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
 {
@@ -484,13 +537,14 @@ where
                 info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
             }
             Err(err) => {
-                error!(
+                anyhow::bail!(
                     "Failed miserably while importing chain from snapshot {}: {err}",
                     path.display()
-                )
+                );
             }
         }
     }
+    Ok(())
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
@@ -563,6 +617,7 @@ mod test {
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
     use forest_shim::address::Address;
+    use tempfile::TempDir;
 
     use super::*;
 
@@ -604,7 +659,13 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header)?);
+        let chain_data_root = TempDir::new().unwrap();
+        let cs = Arc::new(ChainStore::new(
+            db,
+            chain_config.clone(),
+            &genesis_header,
+            chain_data_root.path(),
+        )?);
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
@@ -623,7 +684,13 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header)?);
+        let chain_data_root = TempDir::new()?;
+        let cs = Arc::new(ChainStore::new(
+            db,
+            chain_config.clone(),
+            &genesis_header,
+            chain_data_root.path(),
+        )?);
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,

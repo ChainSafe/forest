@@ -7,8 +7,8 @@ pub use miner::miner_migrator_v4;
 
 use crate::nil_migrator;
 use crate::StateMigration;
-use forest_actor_interface::{actorv3, actorv4};
-use forest_db::Store;
+use fil_actor_interface::{actorv3, actorv4};
+
 use fvm_ipld_blockstore::Blockstore;
 
 impl<BS: Blockstore + Send + Sync> StateMigration<BS> {

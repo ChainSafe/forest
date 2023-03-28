@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use fil_actors_runtime_v9::runtime::Policy;
+use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
@@ -13,8 +13,14 @@ pub mod calibnet;
 mod drand;
 pub mod mainnet;
 
+// As per https://github.com/ethereum-lists/chains
+// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314.json
+const MAINNET_ETH_CHAIN_ID: u64 = 314;
+// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
+const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
+
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -109,6 +115,7 @@ pub struct ChainConfig {
     pub height_infos: Vec<HeightInfo>,
     #[serde(default = "default_policy")]
     pub policy: Policy,
+    pub eth_chain_id: u64,
 }
 
 impl ChainConfig {
@@ -121,6 +128,7 @@ impl ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
+            eth_chain_id: CALIBNET_ETH_CHAIN_ID,
         }
     }
 
@@ -185,6 +193,7 @@ impl Default for ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
+            eth_chain_id: MAINNET_ETH_CHAIN_ID,
         }
     }
 }

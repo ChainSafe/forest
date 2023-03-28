@@ -46,12 +46,12 @@ impl ParityDb {
                     ..Default::default()
                 })
                 .collect(),
-            compression_threshold: Default::default(),
+            compression_threshold: [(0, 128)].into_iter().collect(),
         })
     }
 
-    pub fn open(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Self> {
-        let opts = Self::to_options(path, config)?;
+    pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
+        let opts = Self::to_options(path.into(), config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
             statistics_enabled: opts.stats,
@@ -76,7 +76,7 @@ impl Store for ParityDb {
         self.db.commit(tx).map_err(Error::from)
     }
 
-    /// [parity_db::Db::commit] API is doing extra allocations on keys,
+    /// [`parity_db::Db::commit`] API is doing extra allocations on keys,
     /// See <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
     fn bulk_write(
         &self,
@@ -104,14 +104,6 @@ impl Store for ParityDb {
         //     }))
         // }
         // ```
-    }
-
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        let tx = [(0, key.as_ref(), None)];
-        self.db.commit(tx).map_err(Error::from)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>
@@ -142,8 +134,7 @@ impl Blockstore for ParityDb {
     {
         let values = blocks
             .into_iter()
-            .map(|(k, v)| (k.to_bytes(), v.as_ref().to_vec()))
-            .collect::<Vec<_>>();
+            .map(|(k, v)| (k.to_bytes(), v.as_ref().to_vec()));
         self.bulk_write(values).map_err(|e| e.into())
     }
 }

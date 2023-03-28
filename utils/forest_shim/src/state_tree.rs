@@ -28,7 +28,7 @@ impl<S> StateTree<S>
 where
     S: Blockstore + Clone,
 {
-    /// Constructor for a hamt state tree given an IPLD store
+    /// Constructor for a HAMT state tree given an IPLD store
     pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::V3(st))
@@ -123,7 +123,7 @@ where
     }
 }
 
-/// Newtype to wrap different versions of `fvm::state_tree::ActorState`
+/// `Newtype` to wrap different versions of `fvm::state_tree::ActorState`
 ///
 /// # Examples
 /// ```
@@ -146,6 +146,23 @@ where
 #[serde(transparent)]
 pub struct ActorState(ActorStateV3);
 
+impl ActorState {
+    pub fn new(
+        code: Cid,
+        state: Cid,
+        balance: TokenAmount,
+        sequence: u64,
+        address: Option<Address>,
+    ) -> Self {
+        Self(ActorStateV3::new(
+            code,
+            state,
+            balance.into(),
+            sequence,
+            address.map(Into::into),
+        ))
+    }
+}
 impl Inner for ActorState {
     type FVM = ActorStateV3;
 }
@@ -208,6 +225,17 @@ impl From<ActorState> for ActorStateV3 {
 
 impl From<ActorState> for ActorStateV2 {
     fn from(other: ActorState) -> ActorStateV2 {
+        ActorStateV2 {
+            code: other.code,
+            state: other.state,
+            sequence: other.sequence,
+            balance: TokenAmount::from(&other.balance).into(),
+        }
+    }
+}
+
+impl From<&ActorState> for ActorStateV2 {
+    fn from(other: &ActorState) -> ActorStateV2 {
         ActorStateV2 {
             code: other.code,
             state: other.state,

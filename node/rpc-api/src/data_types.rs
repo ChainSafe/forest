@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ahash::HashSet;
 use cid::Cid;
-use forest_actor_interface::market::{DealProposal, DealState};
+use fil_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
 use forest_chain::ChainStore;
@@ -42,6 +42,7 @@ where
     pub network_name: String,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
+    pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

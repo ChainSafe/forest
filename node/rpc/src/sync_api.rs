@@ -74,6 +74,7 @@ mod tests {
     use forest_state_manager::StateManager;
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;
+    use tempfile::TempDir;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -100,7 +101,16 @@ mod tests {
             .build()
             .unwrap();
 
-        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header).unwrap());
+        let chain_data_root = TempDir::new().unwrap();
+        let cs_arc = Arc::new(
+            ChainStore::new(
+                db,
+                chain_config.clone(),
+                &genesis_header,
+                chain_data_root.path(),
+            )
+            .unwrap(),
+        );
 
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(
@@ -141,6 +151,7 @@ mod tests {
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
+        let (gc_event_tx, _) = flume::unbounded();
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
@@ -152,6 +163,7 @@ mod tests {
             chain_store: cs_for_chain,
             beacon,
             new_mined_block_tx,
+            gc_event_tx,
         });
         (state, network_rx)
     }

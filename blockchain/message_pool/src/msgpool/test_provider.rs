@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use cid::Cid;
 use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
-use forest_crypto::VRFProof;
+use forest_json::vrf::VRFProof;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use num::BigInt;
@@ -147,12 +147,15 @@ impl Provider for TestApi {
             sequence += 1;
         }
         let actor = <ActorState as forest_shim::Inner>::FVM::new(
-            Cid::default(),
+            // Account Actor code (v10, calibnet)
+            Cid::try_from("bafk2bzacebhfuz3sv7duvk653544xsxhdn4lsmy7ol7k6gdgancyctvmd7lnq")
+                .unwrap(),
             Cid::default(),
             balance.into(),
             sequence,
             None,
         );
+
         Ok(actor.into())
     }
 

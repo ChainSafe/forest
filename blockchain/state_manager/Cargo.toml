@@ -4,7 +4,7 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 
 [dependencies]
 ahash.workspace = true
@@ -12,14 +12,13 @@ anyhow.workspace = true
 blake2b_simd.workspace = true
 byteorder.workspace = true
 cid.workspace = true
-fil_actors_runtime_v9.workspace = true
-forest_actor_interface.workspace = true
+fil_actor_interface.workspace = true
+fil_actors_runtime_v10.workspace = true
+filecoin-proofs-api = { workspace = true }
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
-forest_encoding.workspace = true
-forest_fil_types.workspace = true
 forest_interpreter.workspace = true
 forest_json.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
@@ -39,6 +38,7 @@ lazy_static.workspace = true
 lru.workspace = true
 num-traits.workspace = true
 num.workspace = true
+once_cell.workspace = true
 parking_lot.workspace = true
 prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }
