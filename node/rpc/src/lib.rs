@@ -5,6 +5,7 @@ mod auth_api;
 mod beacon_api;
 mod chain_api;
 mod common_api;
+mod db_api;
 mod gas_api;
 mod mpool_api;
 mod net_api;
@@ -21,8 +22,8 @@ use axum::routing::{get, post};
 use forest_beacon::Beacon;
 use forest_chain::Scale;
 use forest_rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, gas_api::*,
-    mpool_api::*, net_api::*, state_api::*, sync_api::*, wallet_api::*,
+    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
+    gas_api::*, mpool_api::*, net_api::*, state_api::*, sync_api::*, wallet_api::*,
 };
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
@@ -126,6 +127,8 @@ where
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)
             .with_method(NET_CONNECT, net_api::net_connect::<DB, B>)
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB, B>)
+            // DB API
+            .with_method(DB_GC, db_api::db_gc::<DB, B>)
             .finish_unwrapped(),
     );
 

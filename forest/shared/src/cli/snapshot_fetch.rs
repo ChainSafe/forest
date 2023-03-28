@@ -118,7 +118,7 @@ pub fn is_car_or_tmp(path: &Path) -> bool {
     ext == "car" || ext == "tmp" || ext == "aria2"
 }
 
-/// gets the size of a snapshot from filecoin.
+/// gets the size of a snapshot from Filecoin.
 pub async fn snapshot_fetch_size(config: &Config) -> anyhow::Result<u64> {
     let service_url = match config.chain.name.to_lowercase().as_ref() {
         "mainnet" => config.snapshot_fetch.filecoin.mainnet.clone(),
@@ -705,7 +705,7 @@ mod test {
 
     /// Serves a random file over HTTP.
     /// Returns:
-    /// - url of the served file,
+    /// - URL of the served file,
     /// - service channel,
     /// - expected SHA-256 of the file,
     /// - handle to the temporary directory in which the file is created.

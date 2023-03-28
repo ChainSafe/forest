@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use fil_actors_runtime_v9::runtime::Policy;
+use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
