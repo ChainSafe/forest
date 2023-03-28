@@ -104,8 +104,8 @@ pub struct CliOpts {
     #[arg(long)]
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
-    #[arg(long, default_value = "mainnet")]
-    pub chain: String,
+    #[arg(long)]
+    pub chain: Option<String>,
     /// Daemonize Forest process
     #[arg(long)]
     pub detach: bool,
@@ -156,9 +156,10 @@ impl CliOpts {
             None => Config::default(),
         };
 
-        if self.chain == "calibnet" {
+        match &self.chain {
             // override the chain configuration
-            cfg.chain = Arc::new(ChainConfig::calibnet());
+            Some(name) if name == "calibnet" => cfg.chain = Arc::new(ChainConfig::calibnet()),
+            _ => cfg.chain = Arc::new(ChainConfig::mainnet()),
         }
 
         if let Some(genesis_file) = &self.genesis {

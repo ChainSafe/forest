@@ -3,20 +3,24 @@
 
 use std::sync::Arc;
 
+use forest_cli_shared::cli::CliOpts;
 use forest_networks::ChainConfig;
 use forest_rpc_client::chain_get_name;
 
 use super::cli::{Config, Subcommand};
 
 /// Process CLI sub-command
-pub(super) async fn process(command: Subcommand, mut config: Config) -> anyhow::Result<()> {
-    if config.client.enable_rpc {
-        if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
-            if name == "calibnet" {
-                // override the chain configuration
-                config.chain = Arc::new(ChainConfig::calibnet());
-            }
-        }
+pub(super) async fn process(
+    command: Subcommand,
+    mut config: Config,
+    opts: &CliOpts,
+) -> anyhow::Result<()> {
+    match &opts.chain {
+        Some(name) if name == "calibnet" => config.chain = Arc::new(ChainConfig::calibnet()),
+        _ => match chain_get_name((), &config.client.rpc_token).await {
+            Ok(name) if name == "calibnet" => config.chain = Arc::new(ChainConfig::calibnet()),
+            _ => config.chain = Arc::new(ChainConfig::mainnet()),
+        },
     }
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
