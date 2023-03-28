@@ -15,7 +15,7 @@ use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::*;
-use fil_actors_runtime_v9::runtime::Policy;
+use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
