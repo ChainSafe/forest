@@ -103,6 +103,10 @@ where
             continue;
         }
 
+        if !should_save_block_to_snapshot(&next) {
+            continue;
+        }
+
         let data = load_block(next).await?;
 
         let h = BlockHeader::unmarshal_cbor(&data)?;
@@ -133,7 +137,7 @@ where
     Ok(())
 }
 
-pub fn should_save_block_to_snapshot(cid: &Cid) -> bool {
+fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.
