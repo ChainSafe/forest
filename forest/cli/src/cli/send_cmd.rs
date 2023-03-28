@@ -7,16 +7,10 @@ use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
 use fraction::BigFraction;
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
-use lazy_static::lazy_static;
 use num::{bigint::Sign, BigInt, BigUint, CheckedMul};
 use quickcheck_macros::quickcheck;
-use regex::Regex;
 
 use super::{handle_rpc_err, Config};
-
-lazy_static! {
-    static ref FIL_REG: Regex = Regex::new(r"^(?:\d*\.)?\d+").unwrap();
-}
 
 const FILECOIN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
@@ -29,8 +23,11 @@ impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let suffix = FIL_REG.replace(s, "");
-        let val = s.trim_end_matches(&suffix.to_string());
+        let suffix_idx = s.rfind(char::is_numeric);
+        let (val, suffix) = match suffix_idx {
+            Some(idx) => s.split_at(idx + 1),
+            None => return Err(anyhow::anyhow!("failed to parse string: {}", s)),
+        };
         let mut is_attofil = false;
 
         if !suffix.is_empty() {
