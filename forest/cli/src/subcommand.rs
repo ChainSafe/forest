@@ -15,12 +15,12 @@ pub(super) async fn process(
     mut config: Config,
     opts: &CliOpts,
 ) -> anyhow::Result<()> {
-    match &opts.chain {
-        Some(name) if name == "calibnet" => config.chain = Arc::new(ChainConfig::calibnet()),
-        _ => match chain_get_name((), &config.client.rpc_token).await {
-            Ok(name) if name == "calibnet" => config.chain = Arc::new(ChainConfig::calibnet()),
-            _ => config.chain = Arc::new(ChainConfig::mainnet()),
-        },
+    if opts.chain.is_none() {
+        if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
+            if name == "calibnet" {
+                config.chain = Arc::new(ChainConfig::calibnet());
+            }
+        }
     }
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
