@@ -31,14 +31,13 @@ impl FromStr for FILAmount {
         let mut is_attofil = false;
 
         if !suffix.is_empty() {
-            let suffix_match = suffix.trim().to_lowercase();
-            match suffix_match.as_str() {
-                "attofil" | "afil" => {
+            match suffix.trim().to_lowercase().strip_suffix("fil") {
+                Some("atto" | "a") => {
                     is_attofil = true;
                 }
-                "fil" | "" => {}
+                Some("femto" | "pico" | "nano" | "micro" | "milli" | "" | " ") => {}
                 _ => {
-                    return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix_match));
+                    return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix));
                 }
             }
         }
@@ -149,6 +148,20 @@ impl SendCommand {
 fn invalid_attofil_amount() {
     //attoFIL with fractional value fails (fractional FIL values allowed)
     let amount = "1.234attofil";
+    assert!(FILAmount::from_str(amount).is_err());
+}
+
+#[test]
+fn valid_attofil_amount() {
+    //valid attofil amount passes
+    let amount = "1234 attofil";
+    assert!(FILAmount::from_str(amount).is_ok());
+}
+
+#[test]
+fn suffix_with_no_amount() {
+    //fails if no amount specified
+    let amount = "fil";
     assert!(FILAmount::from_str(amount).is_err());
 }
 
