@@ -141,6 +141,9 @@ pub struct CliOpts {
     /// Track peak physical memory usage and print on exit
     #[arg(long)]
     pub track_peak_rss: bool,
+    /// Disable the automatic database garbage collection.
+    #[arg(long)]
+    pub no_gc: bool,
 }
 
 impl CliOpts {
