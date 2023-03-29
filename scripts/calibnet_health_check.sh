@@ -75,7 +75,7 @@ $FOREST_CLI_PATH --chain mainnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car -
 set -e
 
 echo "Validating as calibnet snapshot"
-$FOREST_CLI_PATH snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force
+$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force
 
 echo "Print forest log files"
 ls -hl "$LOG_DIRECTORY"
