@@ -242,6 +242,19 @@ where
             .expect("Failed to load heaviest tipset")
     }
 
+    /// Returns the heaviest finalized tipset by walking back from the currently
+    /// tracked heaviest tipset by FINALITY(900) epochs.
+    pub fn heaviest_finalized_tipset(&self) -> anyhow::Result<Arc<Tipset>> {
+        const FINALITY_EPOCHS: i64 = 900;
+
+        let mut ts = self.heaviest_tipset();
+        for _i in 0..FINALITY_EPOCHS {
+            ts = self.tipset_from_keys(ts.parents())?;
+        }
+
+        Ok(ts)
+    }
+
     /// Returns a reference to the publisher of head changes.
     pub fn publisher(&self) -> &Publisher<HeadChange> {
         &self.publisher
