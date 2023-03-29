@@ -27,12 +27,27 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.7.1 (2023-03-29)
+
+Notable updates:
+
+- Fix CD task for image publishing on new tagged releases
+
+### Added
+
 - [#2721](https://github.com/ChainSafe/forest/issues/2721): Add `--no-gc` flag
   to daemon.
 
 ### Changed
 
-- Use jemalloc as the default global allocator
+- [#2607](https://github.com/ChainSafe/forest/issues/2607): Use jemalloc as the
+  default global allocator
 
 ### Removed
 
