@@ -27,6 +27,9 @@
 
 ### Added
 
+- [#2721](https://github.com/ChainSafe/forest/issues/2721): Add `--no-gc` flag
+  to daemon.
+
 ### Changed
 
 - Use jemalloc as the default global allocator

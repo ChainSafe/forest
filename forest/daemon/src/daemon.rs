@@ -180,11 +180,13 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         Arc::new(DbGarbageCollector::new(db, get_tipset))
     };
 
-    #[allow(clippy::redundant_async_block)]
-    services.spawn({
-        let db_garbage_collector = db_garbage_collector.clone();
-        async move { db_garbage_collector.collect_loop_passive().await }
-    });
+    if !opts.no_gc {
+        #[allow(clippy::redundant_async_block)]
+        services.spawn({
+            let db_garbage_collector = db_garbage_collector.clone();
+            async move { db_garbage_collector.collect_loop_passive().await }
+        });
+    }
     #[allow(clippy::redundant_async_block)]
     services.spawn({
         let db_garbage_collector = db_garbage_collector.clone();

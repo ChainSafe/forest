@@ -118,6 +118,7 @@ where
     /// This loop automatically triggers `collect_once` when the total DB size
     /// is greater than `2x` of the last reachable data size
     pub async fn collect_loop_passive(&self) -> anyhow::Result<()> {
+        info!("Running automatic database garbage collection task");
         loop {
             // Check every 10 mins
             tokio::time::sleep(Duration::from_secs(10 * 60)).await;
@@ -159,6 +160,7 @@ where
     /// This loop listens on events emitted by `forest-cli db gc` and triggers
     /// `collect_once`
     pub async fn collect_loop_event(self: &Arc<Self>) -> anyhow::Result<()> {
+        info!("Listening on database garbage collection events");
         while let Ok(responder) = self.gc_rx.recv_async().await {
             let this = self.clone();
             let tipset = (self.get_tipset)();
