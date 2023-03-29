@@ -5,6 +5,8 @@ use ahash::{HashMap, HashSet};
 use forest_libp2p_bitswap::BitswapBehaviour;
 use forest_utils::encoding::blake2b_256;
 use libp2p::{
+    allow_block_list::{self, BlockedPeers},
+    connection_limits::{self, ConnectionLimits},
     core::identity::Keypair,
     gossipsub::{
         self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
@@ -36,6 +38,8 @@ pub(crate) struct ForestBehaviour {
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
     identify: identify::Behaviour,
+    connection_limits: connection_limits::Behaviour,
+    pub(super) blocked_peers: allow_block_list::Behaviour<BlockedPeers>,
     pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
@@ -53,7 +57,12 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
 }
 
 impl ForestBehaviour {
-    pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
+    pub fn new(
+        local_key: &Keypair,
+        config: &Libp2pConfig,
+        network_name: &str,
+        connection_limits: ConnectionLimits,
+    ) -> Self {
         let mut gs_config_builder = gossipsub::ConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
@@ -104,6 +113,8 @@ impl ForestBehaviour {
                 "ipfs/0.1.0".into(),
                 local_key.public(),
             )),
+            connection_limits: connection_limits::Behaviour::new(connection_limits),
+            blocked_peers: Default::default(),
             bitswap,
             hello: HelloBehaviour::default(),
             chain_exchange: ChainExchangeBehaviour::default(),
