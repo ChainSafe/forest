@@ -84,7 +84,7 @@ use super::*;
 
 pub struct DbGarbageCollector<F>
 where
-    F: Fn() -> Tipset + Send + Sync + 'static,
+    F: Fn() -> anyhow::Result<Tipset> + Send + Sync + 'static,
 {
     db: RollingDB,
     get_tipset: F,
@@ -96,7 +96,7 @@ where
 
 impl<F> DbGarbageCollector<F>
 where
-    F: Fn() -> Tipset + Send + Sync + 'static,
+    F: Fn() -> anyhow::Result<Tipset> + Send + Sync + 'static,
 {
     pub fn new(db: RollingDB, get_tipset: F) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
@@ -123,7 +123,13 @@ where
             tokio::time::sleep(Duration::from_secs(10 * 60)).await;
 
             // Bypass size checking during import
-            let tipset = (self.get_tipset)();
+            let tipset = match (self.get_tipset)() {
+                Ok(ts) => ts,
+                Err(err) => {
+                    warn!("Failed to retrieve network head: {err}");
+                    continue;
+                }
+            };
             if tipset.epoch() == 0 {
                 continue;
             }
@@ -161,7 +167,13 @@ where
     pub async fn collect_loop_event(self: &Arc<Self>) -> anyhow::Result<()> {
         while let Ok(responder) = self.gc_rx.recv_async().await {
             let this = self.clone();
-            let tipset = (self.get_tipset)();
+            let tipset = match (self.get_tipset)() {
+                Ok(ts) => ts,
+                Err(err) => {
+                    warn!("Failed to retrieve network head: {err}");
+                    continue;
+                }
+            };
             tokio::spawn(async move {
                 let result = this.collect_once(tipset).await;
                 if let Err(e) = responder.send(result) {

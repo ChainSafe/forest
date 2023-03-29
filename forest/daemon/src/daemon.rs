@@ -176,7 +176,20 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     let db_garbage_collector = {
         let db = db.clone();
         let chain_store = chain_store.clone();
-        let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
+        let get_tipset = move || {
+            let ts = chain_store.heaviest_tipset().as_ref().clone();
+            let current_db = &chain_store.blockstore().current();
+            if ts
+                .key()
+                .cids()
+                .iter()
+                .all(|cid| current_db.has(cid).unwrap_or_default())
+            {
+                Ok(ts)
+            } else {
+                anyhow::bail!("heaviest tipset is not stored in the current db space.");
+            }
+        };
         Arc::new(DbGarbageCollector::new(db, get_tipset))
     };
 
