@@ -87,6 +87,7 @@ where
     F: Fn() -> anyhow::Result<Tipset> + Send + Sync + 'static,
 {
     db: RollingDB,
+    /// Gets the tipset that `fn walk_snapshot` walks back from
     get_tipset: F,
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
