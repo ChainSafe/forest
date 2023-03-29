@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blake2b_simd::Params;
+use filecoin_proofs_api::ProverId;
+use forest_shim::address::Address;
 use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
@@ -68,6 +70,13 @@ pub fn blake2b_256(ingest: &[u8]) -> [u8; 32] {
     let mut ret = [0u8; 32];
     ret.clone_from_slice(digest.as_bytes());
     ret
+}
+
+pub fn prover_id_from_u64(id: u64) -> ProverId {
+    let mut prover_id = ProverId::default();
+    let prover_bytes = Address::new_id(id).payload().to_raw_bytes();
+    prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+    prover_id
 }
 
 #[cfg(test)]

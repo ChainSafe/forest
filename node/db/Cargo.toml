@@ -25,6 +25,7 @@ paritydb = ["dep:parity-db"]
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+cfg-if.workspace = true
 chrono.workspace = true
 cid.workspace = true
 flume.workspace = true
