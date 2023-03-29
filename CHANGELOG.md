@@ -27,8 +27,8 @@
 
 ### Added
 
-- `--no-gc` flag to daemon.
-  [#2721](https://github.com/ChainSafe/forest/issues/2721)
+- [#2721](https://github.com/ChainSafe/forest/issues/2721): Add `--no-gc` flag
+  to daemon.
 
 ### Changed
 
