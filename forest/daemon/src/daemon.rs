@@ -179,7 +179,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         let get_tipset = move || {
             let ts = chain_store.heaviest_tipset().as_ref().clone();
             let current_db = &chain_store.blockstore().current();
-            // Make sure the tipset is stored in the current database space and not being deleted. block GC otherwise
+            // Make sure the tipset is stored in the current database space and not being
+            // deleted. block GC otherwise
             if ts
                 .key()
                 .cids()
