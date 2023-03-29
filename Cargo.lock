@@ -3281,6 +3281,7 @@ dependencies = [
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
+ "forest_networks",
  "forest_paramfetch",
  "forest_rpc-api",
  "forest_rpc-client",

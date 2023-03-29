@@ -44,7 +44,7 @@ echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
 
 echo "Waiting for sync and check health"
-timeout 30m $FOREST_CLI_PATH --chain calibnet sync wait && $FOREST_CLI_PATH --chain calibnet db stats
+timeout 30m $FOREST_CLI_PATH sync wait && $FOREST_CLI_PATH db stats
 
 # Admin token used when interacting with wallet
 ADMIN_TOKEN=$(cat admin_token)
@@ -53,11 +53,11 @@ export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
 
 echo "Running database garbage collection"
 du -hS ~/.local/share/forest/calibnet
-$FOREST_CLI_PATH --chain calibnet db gc
+$FOREST_CLI_PATH db gc
 du -hS ~/.local/share/forest/calibnet
 
 echo "Exporting snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot export
+$FOREST_CLI_PATH snapshot export
 
 echo "Verifing snapshot checksum"
 sha256sum -c ./*.sha256sum
@@ -89,15 +89,15 @@ echo "Wallet tests"
 FIL_AMT=500
 
 echo "Importing preloaded wallet key"
-$FOREST_CLI_PATH --chain calibnet wallet import preloaded_wallet.key
+$FOREST_CLI_PATH wallet import preloaded_wallet.key
 
 # The preloaded address
-ADDR_ONE=$($FOREST_CLI_PATH --chain calibnet wallet list | tail -1 | cut -d ' ' -f1)
+ADDR_ONE=$($FOREST_CLI_PATH wallet list | tail -1 | cut -d ' ' -f1)
 
 sleep 5s
 
 echo "Exporting key"
-$FOREST_CLI_PATH --chain calibnet wallet export "$ADDR_ONE" > preloaded_wallet.test.key
+$FOREST_CLI_PATH wallet export "$ADDR_ONE" > preloaded_wallet.test.key
 if ! cmp -s preloaded_wallet.key preloaded_wallet.test.key; then
     echo ".key files should match"
     exit 1
@@ -110,18 +110,18 @@ sleep 5s
 
 # Show balances
 echo "Listing wallet balances"
-$FOREST_CLI_PATH --chain calibnet wallet list
+$FOREST_CLI_PATH wallet list
 
 echo "Creating a new address to send FIL to"
-ADDR_TWO=$($FOREST_CLI_PATH --chain calibnet wallet new)
+ADDR_TWO=$($FOREST_CLI_PATH wallet new)
 echo "$ADDR_TWO"
-$FOREST_CLI_PATH --chain calibnet wallet set-default "$ADDR_ONE"
+$FOREST_CLI_PATH wallet set-default "$ADDR_ONE"
 
 echo "Listing wallet balances"
-$FOREST_CLI_PATH --chain calibnet wallet list
+$FOREST_CLI_PATH wallet list
 
 echo "Sending FIL to the above address"
-$FOREST_CLI_PATH --chain calibnet send "$ADDR_TWO" "$FIL_AMT"
+$FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT"
 
 echo "Checking balance of $ADDR_TWO..."
 
@@ -132,11 +132,11 @@ while [[ $i != 10 && $ADDR_TWO_BALANCE == 0 ]]; do
   
   echo "Checking balance $i/10"
   sleep 30s
-  ADDR_TWO_BALANCE=$($FOREST_CLI_PATH --chain calibnet wallet balance "$ADDR_TWO")
+  ADDR_TWO_BALANCE=$($FOREST_CLI_PATH wallet balance "$ADDR_TWO")
 done
 
 # wallet list should contain address two with transfered FIL amount
-$FOREST_CLI_PATH --chain calibnet wallet list
+$FOREST_CLI_PATH wallet list
 
 if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
   echo "FIL amount should match"
