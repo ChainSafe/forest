@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
         Ok((cfg, _)) => {
             logger::setup_logger(&cfg.log, &opts);
             ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
-            subcommand::process(cmd, cfg).await
+            subcommand::process(cmd, cfg, &opts).await
         }
         Err(e) => {
             logger::setup_logger(&LogConfig::default(), &opts);
