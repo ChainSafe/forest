@@ -51,7 +51,7 @@ impl DBCommands {
                 Ok(())
             }
             Self::Clean { force } => {
-                let dir = db_root(&chain_path(config));
+                let dir = chain_path(config);
                 if !dir.is_dir() {
                     println!(
                         "Aborted. Database path {} is not a valid directory",

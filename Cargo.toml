@@ -32,7 +32,6 @@ members = [
   "ipld",
   "key_management",
   "tests/serialization_tests",
-  "types",
   "networks",
   "utils/auth",
   "utils/genesis",
@@ -143,7 +142,7 @@ url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
 fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actors_runtime_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
 forest_blocks = { path = "./blockchain/blocks" }
@@ -153,7 +152,6 @@ forest_cli_shared = { path = "./forest/shared" }
 forest_db = { path = "./node/db" }
 forest_deleg_cns = { path = "./blockchain/consensus/deleg_cns" }
 forest_fil_cns = { path = "./blockchain/consensus/fil_cns" }
-forest_fil_types = { path = "./types" }
 forest_genesis = { path = "./utils/genesis" }
 forest_interpreter = { path = "./vm/interpreter" }
 forest_ipld = { path = "./ipld" }

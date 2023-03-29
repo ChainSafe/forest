@@ -50,12 +50,15 @@ use super::cli::set_sigint_handler;
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
 
-// Default consensus
-// Custom consensus.
-#[cfg(feature = "forest_deleg_cns")]
-use forest_deleg_cns::composition as cns;
-#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
-use forest_fil_cns::composition as cns;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "forest_deleg_cns")] {
+        // Custom consensus.
+        use forest_deleg_cns::composition as cns;
+    } else {
+        // Default consensus
+        use forest_fil_cns::composition as cns;
+    }
+}
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = super::ipc_shmem_conf().open()?;
@@ -177,11 +180,13 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         Arc::new(DbGarbageCollector::new(db, get_tipset))
     };
 
-    #[allow(clippy::redundant_async_block)]
-    services.spawn({
-        let db_garbage_collector = db_garbage_collector.clone();
-        async move { db_garbage_collector.collect_loop_passive().await }
-    });
+    if !opts.no_gc {
+        #[allow(clippy::redundant_async_block)]
+        services.spawn({
+            let db_garbage_collector = db_garbage_collector.clone();
+            async move { db_garbage_collector.collect_loop_passive().await }
+        });
+    }
     #[allow(clippy::redundant_async_block)]
     services.spawn({
         let db_garbage_collector = db_garbage_collector.clone();
