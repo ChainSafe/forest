@@ -20,4 +20,5 @@
   - [Release checklist](./developer_documentation/release_checklist.md)
   - [Smoke testing](./developer_documentation/smoke_testing.md)
   - [State migration](./developer_documentation/state_migration.md)
+  - [State migration spike NV17-NV18](./developer_documentation/state_migration_spike.md)
   - [Test plan](./developer_documentation/test_plan.md)

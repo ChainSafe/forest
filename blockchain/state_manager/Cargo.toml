@@ -13,7 +13,7 @@ blake2b_simd.workspace = true
 byteorder.workspace = true
 cid.workspace = true
 fil_actor_interface.workspace = true
-fil_actors_runtime_v9.workspace = true
+fil_actors_runtime_v10.workspace = true
 filecoin-proofs-api = { workspace = true }
 forest_beacon.workspace = true
 forest_blocks.workspace = true

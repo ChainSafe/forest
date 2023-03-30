@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use cid::Cid;
 use fil_actor_interface::power;
-use fil_actors_runtime_v9::runtime::DomainSeparationTag;
+use fil_actors_runtime_v10::runtime::DomainSeparationTag;
 use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
