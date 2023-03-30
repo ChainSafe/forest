@@ -2,6 +2,11 @@
   "name": "root",
   "private": true,
   "devDependencies": {
-    "lerna": "^6.4.1"
+    "lerna": "^6.4.1",
+    "prettier": "^2.8.4"
+  },
+  "scripts": {
+    "md-fmt": "prettier --write '**/*.md'",
+    "md-check": "prettier --check '**/*.md'"
   }
 }

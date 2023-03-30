@@ -11,7 +11,8 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use libp2p::{
-    core::{Multiaddr, PeerId, PublicKey},
+    core::Multiaddr,
+    identity::{PeerId, PublicKey},
     kad::{record::store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent, QueryId},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,

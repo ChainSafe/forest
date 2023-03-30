@@ -55,7 +55,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 | `Filecoin.GasEstimateMessageGas`                     | `MessageJson` | `UnsignedMessageJson`
 | `Filecoin.StateNetworkName`                          | `String` | `dNetworkName`
 | `Filecoin.WalletBalance`                             | `String` | `BigInt`
-| `Filecoin.WalletDefaultAddress`                      | `String` | `Address`
+| `Filecoin.WalletDefaultAddress`                      | `Option<String>` | `Address`
 | `Filecoin.WalletImport`                              | `String` | `Address`
 | `Filecoin.WalletNew`                                 | `String` | `Address`
 
@@ -223,7 +223,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.SyncUnmarkBad`                             | `-` | `-` |
 |   ❌    | `Filecoin.SyncValidateTipset`                        | `-` | `-` |
 |   ✔️    | `Filecoin.WalletBalance`                             | `(String)` | `String` |
-|   ✔️    | `Filecoin.WalletDefaultAddress`                      | `()` | `String` |
+|   ✔️    | `Filecoin.WalletDefaultAddress`                      | `()` | `Option<String>` |
 |   ❌    | `Filecoin.WalletDelete`                              | `-` | `-` |
 |   ✔️    | `Filecoin.WalletExport`                              | `(String)` | `KeyInfoJson` |
 |   ✔️    | `Filecoin.WalletHas`                                 | `(String)` | `bool` |

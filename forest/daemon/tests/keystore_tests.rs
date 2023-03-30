@@ -1,15 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
+pub mod common;
 
 use anyhow::Result;
-use assert_cmd::Command;
 use forest_auth::{verify_token, JWT_IDENTIFIER};
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
-use tempfile::TempDir;
+
+use crate::common::{cli, create_tmp_config, CommonArgs};
 
 // https://github.com/ChainSafe/forest/issues/2499
 #[test]
@@ -85,43 +85,4 @@ fn should_create_jwt_admin_token() -> Result<()> {
     assert!(allow.contains(&"admin".to_owned()));
 
     Ok(())
-}
-
-fn cli() -> Result<Command> {
-    Ok(Command::cargo_bin("forest")?)
-}
-
-trait CommonArgs {
-    fn common_args(&mut self) -> &mut Self;
-}
-
-impl CommonArgs for Command {
-    fn common_args(&mut self) -> &mut Self {
-        self.arg("--rpc-address")
-            .arg("127.0.0.0:0")
-            .arg("--metrics-address")
-            .arg("127.0.0.0:0")
-            .arg("--exit-after-init");
-        self
-    }
-}
-
-fn create_tmp_config() -> Result<(PathBuf, TempDir)> {
-    let temp_dir = tempfile::tempdir()?;
-
-    let config = format!(
-        r#"
-[client]
-data_dir = "{}"
-
-[chain]
-name = "calibnet"
-"#,
-        temp_dir.path().display()
-    );
-
-    let config_file = temp_dir.path().join("config.toml");
-    std::fs::write(&config_file, config)?;
-
-    Ok((config_file, temp_dir))
 }

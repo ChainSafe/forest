@@ -31,10 +31,12 @@ cargo llvm-cov --workspace --no-report --features slow_tests
 cov forest-cli --chain calibnet db clean --force
 cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
-cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach
+cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss
 cov forest-cli sync wait
 cov forest-cli sync status
 cov forest-cli chain validate-tipset-checkpoints
+cov forest-cli --chain calibnet db gc
+cov forest-cli --chain calibnet db stats
 cov forest-cli snapshot export
 cov forest-cli attach --exec 'showPeers()'
 cov forest-cli net listen

@@ -9,7 +9,6 @@ use cid::{
 };
 use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
-use forest_encoding::blake2b_256;
 use forest_shim::{
     address::Address,
     bigint::{BigIntDe, BigIntSer},
@@ -18,6 +17,7 @@ use forest_shim::{
     sector::PoStProof,
     version::NetworkVersion,
 };
+use forest_utils::encoding::blake2b_256;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::clock::ChainEpoch;
 use num::BigInt;
@@ -33,7 +33,7 @@ pub mod json;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use fvm_shared::address::Address;
+/// use forest_shim::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;

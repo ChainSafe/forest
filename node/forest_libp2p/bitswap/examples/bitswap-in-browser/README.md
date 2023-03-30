@@ -1,6 +1,7 @@
 # Bitswap WASM example
 
-1. Start the server, the program will print its address and some random block CIDs that are available in its in-memory blockstore
+1. Start the server, the program will print its address and some random block
+   CIDs that are available in its in-memory blockstore
 
 ```console
 cargo run

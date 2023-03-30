@@ -5,7 +5,7 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 
 [dependencies]
 ahash.workspace = true
@@ -13,6 +13,8 @@ anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
 boa_engine = { version = "0.16.0", features = ["console"] }
+cfg-if.workspace = true
+chrono.workspace = true
 cid.workspace = true
 clap.workspace = true
 convert_case = "0.6.0"
@@ -24,12 +26,12 @@ forest_chain.workspace = true
 forest_chain_sync.workspace = true
 forest_cli_shared.workspace = true
 forest_db = { workspace = true }
-forest_encoding.workspace = true
 forest_genesis.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
 forest_key_management.workspace = true
 forest_libp2p.workspace = true
+forest_networks.workspace = true
 forest_paramfetch.workspace = true
 forest_rpc-api.workspace = true
 forest_rpc-client.workspace = true
@@ -50,6 +52,7 @@ rust_decimal_macros = "1.28.1"
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+serde_tuple.workspace = true
 strfmt = "0.2.2"
 tempfile.workspace = true
 ticker = "0.1"
@@ -63,9 +66,10 @@ assert_cmd.workspace = true
 rand.workspace = true
 
 [features]
-default = ["paritydb"]
+default = ["paritydb", "jemalloc"]
 rocksdb = ["forest_cli_shared/rocksdb", "forest_db/rocksdb"]
 paritydb = ["forest_cli_shared/paritydb", "forest_db/paritydb"]
 slow_tests = []
 jemalloc = ["forest_cli_shared/jemalloc", "forest_db/jemalloc"]
 mimalloc = ["forest_cli_shared/mimalloc"]
+rustalloc = []

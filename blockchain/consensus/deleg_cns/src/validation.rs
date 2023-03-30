@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use forest_blocks::{Block, BlockHeader, Tipset};
-use forest_db::Store;
 use forest_networks::ChainConfig;
 use forest_shim::address::Address;
 use forest_state_manager::StateManager;
@@ -21,7 +20,7 @@ use crate::DelegatedConsensusError;
 /// * Timestamps
 /// * The block was proposed by the only only miner eligible
 #[allow(clippy::unused_async)]
-pub(crate) async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static>(
+pub(crate) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static>(
     chosen_one: &Address,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
@@ -94,7 +93,7 @@ fn validate_miner<DB>(
     chosen_one: &Address,
 ) -> Result<(), Box<DelegatedConsensusError>>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     use DelegatedConsensusError::*;
     let miner_addr = header.miner_address();

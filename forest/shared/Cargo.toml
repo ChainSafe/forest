@@ -5,13 +5,14 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 byte-unit = "4.0"
+cfg-if.workspace = true
 chrono.workspace = true
 clap.workspace = true
 console-subscriber.workspace = true

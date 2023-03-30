@@ -1,6 +1,7 @@
 # Summary
 
 # User Guide
+
 - [Introduction](./introduction.md)
   - [Basic Usage](./basic_usage.md)
   - [Command-line interface](./cli.md)

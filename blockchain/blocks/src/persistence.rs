@@ -29,7 +29,7 @@ mod tests {
     fn tipset_keys_round_trip() -> Result<()> {
         let path = Path::new("tests/calibnet/HEAD");
         let obj1: FileBacked<TipsetKeys> =
-            FileBacked::load_from_file_or_create(path.into(), Default::default)?;
+            FileBacked::load_from_file_or_create(path.into(), Default::default, None)?;
         let serialized = obj1.inner().serialize()?;
         let deserialized = TipsetKeys::deserialize(&serialized)?;
 

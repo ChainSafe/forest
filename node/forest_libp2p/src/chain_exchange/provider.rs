@@ -5,7 +5,6 @@ use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::{ChainStore, Error as ChainError};
-use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
 use log::debug;
 
@@ -20,7 +19,7 @@ pub fn make_chain_exchange_response<DB>(
     request: &ChainExchangeRequest,
 ) -> ChainExchangeResponse
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 
@@ -89,7 +88,7 @@ where
 // Builds CompactedMessages for given Tipset.
 fn compact_messages<DB>(db: &DB, tipset: &Tipset) -> Result<CompactedMessages, ChainError>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Clone,
 {
     let mut bls_messages_order = HashMap::new();
     let mut secp_messages_order = HashMap::new();

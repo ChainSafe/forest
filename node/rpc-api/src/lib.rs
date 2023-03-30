@@ -89,6 +89,9 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
 
+    // DB API
+    access.insert(db_api::DB_GC, Access::Write);
+
     access
 });
 
@@ -273,7 +276,7 @@ pub mod wallet_api {
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
     pub type WalletDefaultAddressParams = ();
-    pub type WalletDefaultAddressResult = String;
+    pub type WalletDefaultAddressResult = Option<String>;
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
     pub type WalletExportParams = (String,);
@@ -410,4 +413,11 @@ pub mod net_api {
     pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
     pub type NetDisconnectParams = (String,);
     pub type NetDisconnectResult = ();
+}
+
+/// DB API
+pub mod db_api {
+    pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
+    pub type DBGCParams = ();
+    pub type DBGCResult = ();
 }

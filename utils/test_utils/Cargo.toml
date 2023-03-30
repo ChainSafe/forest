@@ -4,13 +4,13 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 
 [dependencies]
 base64.workspace = true
 cid.workspace = true
 forest_blocks.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
+forest_json.workspace = true
 forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_shim.workspace = true
