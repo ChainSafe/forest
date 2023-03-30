@@ -192,6 +192,7 @@ impl RollingDB {
     /// the dangling `old` DB.
     pub(super) fn next_current(&self, current_epoch: i64) -> anyhow::Result<()> {
         let new_db_name = Uuid::new_v4().simple().to_string();
+        info!("Setting {new_db_name} as current db");
         let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
         *self.old.write() = self.current.read().clone();
         *self.current.write() = db;

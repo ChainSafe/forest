@@ -151,7 +151,7 @@ where
                 };
 
                 if should_collect {
-                    if let Err(err) = self.collect_once(tipset).await {
+                    if let Err(err) = self.collect_once().await {
                         warn!("Garbage collection failed: {err}");
                     }
                 }
@@ -165,9 +165,8 @@ where
         info!("Listening on database garbage collection events");
         while let Ok(responder) = self.gc_rx.recv_async().await {
             let this = self.clone();
-            let tipset = (self.get_tipset)();
             tokio::spawn(async move {
-                let result = this.collect_once(tipset).await;
+                let result = this.collect_once().await;
                 if let Err(e) = responder.send(result) {
                     warn!("{e}");
                 }
@@ -183,7 +182,9 @@ where
     /// 2. writes blocks that are absent from the `current` database to it
     /// 3. delete `old` database(s)
     /// 4. sets `current` database to a newly created one
-    async fn collect_once(&self, tipset: Tipset) -> anyhow::Result<()> {
+    async fn collect_once(&self) -> anyhow::Result<()> {
+        let tipset = (self.get_tipset)();
+
         if self.db.current_creation_epoch() + self.chain_finality >= tipset.epoch() {
             anyhow::bail!("Cancelling GC: the old DB space contains non-finalized chain parts");
         }
@@ -238,7 +239,9 @@ where
             reachable_bytes.human_count_bytes(),
         );
 
-        db.next_current(tipset.epoch())?;
+        // Use the latest head here
+        self.db.next_current((self.get_tipset)().epoch())?;
+
         Ok(())
     }
 }
