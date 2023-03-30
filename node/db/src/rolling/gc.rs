@@ -182,6 +182,19 @@ where
     /// 2. writes blocks that are absent from the `current` database to it
     /// 3. delete `old` database(s)
     /// 4. sets `current` database to a newly created one
+    ///
+    /// ## Data Safety
+    /// The blockchain consists of an immutable part (tipsets that are at least
+    /// 900 epochs older than the current head) and a mutable part (tipsets
+    /// that are within the most recent 900 epochs). Deleting data from the
+    /// mutable part of the chain can be problematic, so that we record the
+    /// exact epoch at which a new current db space is created, and only perform
+    /// garbage collection when this creation epoch has become immutable (at
+    /// least 900 epochs older than the current head), thus the old db space
+    /// that will be deleted at the end of garbage collection only contains
+    /// immutable or finalized part of the chain, from which all block data that
+    /// is marked as unreachable will not become reachable because of the
+    /// chain being mutated later
     async fn collect_once(&self) -> anyhow::Result<()> {
         let tipset = (self.get_tipset)();
 
