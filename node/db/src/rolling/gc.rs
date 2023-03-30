@@ -187,7 +187,7 @@ where
     /// The blockchain consists of an immutable part (tipsets that are at least
     /// 900 epochs older than the current head) and a mutable part (tipsets
     /// that are within the most recent 900 epochs). Deleting data from the
-    /// mutable part of the chain can be problematic, so that we record the
+    /// mutable part of the chain can be problematic, therefore we record the
     /// exact epoch at which a new current db space is created, and only perform
     /// garbage collection when this creation epoch has become immutable (at
     /// least 900 epochs older than the current head), thus the old db space
