@@ -186,7 +186,7 @@ where
         let tipset = (self.get_tipset)();
 
         if self.db.current_creation_epoch() + self.chain_finality >= tipset.epoch() {
-            anyhow::bail!("Cancelling GC: the old DB space contains non-finalized chain parts");
+            anyhow::bail!("Cancelling GC: the old DB space contains unfinalized chain parts");
         }
 
         let guard = self.lock.try_lock();
