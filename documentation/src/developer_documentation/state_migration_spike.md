@@ -3,7 +3,8 @@
 ### What is state migration?
 
 State migration is a process where the `StateTree` contents are transformed from
-an older form to a newer form. Certain Actors may need to be created or migrated as well.
+an older form to a newer form. Certain Actors may need to be created or migrated
+as well.
 
 ### Why do we need to migrate?
 
@@ -19,8 +20,14 @@ https://github.com/filecoin-project/ref-fvm/pull/1062
 We need to upgrade the `StateTree` which is represented as
 `HAMT<Cid, ActorState>` to the latest version.
 
-On top of that, we need to migrate certain actors. In the case of NV18 upgrade, it's the [init](https://github.com/filecoin-project/go-state-types/blob/d8fdbda2ad86de55bcde7f567c6da9c5f430c7a1/builtin/v10/migration/init.go#L32) and [system](https://github.com/filecoin-project/go-state-types/blob/master/builtin/v10/migration/system.go#L24) actor.
-[EAM](https://github.com/filecoin-project/go-state-types/blob/master/builtin/v10/migration/eam.go) actor needs to be created.
+On top of that, we need to migrate certain actors. In the case of NV18 upgrade,
+it's the
+[init](https://github.com/filecoin-project/go-state-types/blob/d8fdbda2ad86de55bcde7f567c6da9c5f430c7a1/builtin/v10/migration/init.go#L32)
+and
+[system](https://github.com/filecoin-project/go-state-types/blob/master/builtin/v10/migration/system.go#L24)
+actor.
+[EAM](https://github.com/filecoin-project/go-state-types/blob/master/builtin/v10/migration/eam.go)
+actor needs to be created.
 
 ### When to upgrade?
 
