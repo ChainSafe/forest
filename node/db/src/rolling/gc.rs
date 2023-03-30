@@ -88,6 +88,7 @@ where
 {
     db: RollingDB,
     get_tipset: F,
+    chain_finality: i64,
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
@@ -98,12 +99,13 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(db: RollingDB, get_tipset: F) -> Self {
+    pub fn new(db: RollingDB, chain_finality: i64, get_tipset: F) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {
             db,
             get_tipset,
+            chain_finality,
             lock: Default::default(),
             gc_tx,
             gc_rx,
@@ -182,6 +184,10 @@ where
     /// 3. delete `old` database(s)
     /// 4. sets `current` database to a newly created one
     async fn collect_once(&self, tipset: Tipset) -> anyhow::Result<()> {
+        if self.db.current_creation_epoch() + self.chain_finality >= tipset.epoch() {
+            anyhow::bail!("Cancelling GC: the old DB space contains non-finalized chain parts");
+        }
+
         let guard = self.lock.try_lock();
         if guard.is_err() {
             anyhow::bail!("Another garbage collection task is in progress.");
@@ -232,7 +238,7 @@ where
             reachable_bytes.human_count_bytes(),
         );
 
-        db.next_current()?;
+        db.next_current(tipset.epoch())?;
         Ok(())
     }
 }
