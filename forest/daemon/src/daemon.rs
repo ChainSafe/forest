@@ -177,7 +177,11 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         let db = db.clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
-        Arc::new(DbGarbageCollector::new(db, get_tipset))
+        Arc::new(DbGarbageCollector::new(
+            db,
+            config.chain.policy.chain_finality,
+            get_tipset,
+        ))
     };
 
     if !opts.no_gc {
