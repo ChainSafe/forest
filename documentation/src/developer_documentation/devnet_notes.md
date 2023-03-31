@@ -36,8 +36,10 @@
 
 # Send data to miner:
 
-./lotus client query-ask t01000 ./lotus client import LICENSE-APACHE ./lotus
-client deal ./lotus client retrieve [CID from import] test.txt
+    ./lotus client query-ask t01000
+    ./lotus client import LICENSE-APACHE
+    ./lotus client deal
+    ./lotus client retrieve [CID from import] test.txt # data has to be on chain first
 
 # Get data on chain:
 
