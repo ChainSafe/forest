@@ -32,10 +32,11 @@ enum SyncStatus {
 pub struct NodeStatusInfo {
     /// timestamp of how far behind the node is with respect to syncing to head
     behind: u64,
-    /// Chain health is defined as the amount of blocks in last finality divided
-    /// by healthy amount of blocks in a finality (900 epochs * 5 blocks per
-    /// tipset).
-    health: usize,
+    /// Chain health is the percentage denoting how close we are to having an
+    /// average of 5 blocks per tipset in the last couple of hours.
+    /// The number of blocks per tipset is non-deterministic but averaging at 5
+    /// is considered healthy.
+    health: f64,
     /// epoch the node is currently at
     epoch: i64,
     /// base fee
