@@ -103,56 +103,87 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
 
 impl InfoCommand {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
-        let node_status = node_status(&config).await?;
+        let NodeStatusInfo {
+            health,
+            behind,
+            epoch,
+            base_fee,
+            sync_status,
+        } = node_status(&config).await?;
 
         // uptime
         let start_time = start_time(&config.client.rpc_token)
             .await
-            .map(|t| {
-                let start_time = t.to_hms();
-                format!(
-                    "{}h {}m {}s (Started at: {})",
-                    start_time.0, start_time.1, start_time.2, t
-                )
-            })
             .map_err(handle_rpc_err)?;
 
         let network = chain_get_name((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
 
-        let behind = OffsetDateTime::from_unix_timestamp(node_status.behind as i64)?.to_hms();
-        let health = node_status.health;
-        let base_fee =
-            format_balance_string(node_status.base_fee, FormattingMode::NotExactNotFixed)?;
-        let sync_status = node_status.sync_status;
-        let epoch = node_status.epoch;
-
-        let behind_time = format!("{}h {}m {}s", behind.0, behind.1, behind.2);
-
-        let chain_status = format!(
-            "[sync: {sync_status}! ({behind_time} behind)] [basefee: {base_fee}] [epoch: {epoch}]"
-        )
-        .blue();
-
-        println!("Network: {}", network.green());
-        println!("Uptime: {start_time}");
-        println!("Chain: {chain_status}");
-
-        let mut chain_health = format!("{health}%\n\n").red();
-        if health > 85. {
-            chain_health = chain_health.green();
-        }
-        println!("Chain health: {chain_health:.2}");
-
         // Wallet info
-        if let Some(default_wallet_address) = wallet_default_address((), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?
+        let default_wallet_address = if let Some(default_wallet_address) =
+            wallet_default_address((), &config.client.rpc_token)
+                .await
+                .map_err(handle_rpc_err)?
         {
-            println!("Default wallet address: {}", default_wallet_address.bold());
-        }
+            Some(default_wallet_address)
+        } else {
+            None
+        };
+
+        display_info(
+            health,
+            start_time,
+            sync_status,
+            &network,
+            behind,
+            epoch,
+            base_fee,
+            default_wallet_address,
+        )?;
 
         Ok(())
     }
+}
+
+fn display_info(
+    health: f64,
+    start_time: OffsetDateTime,
+    sync_status: SyncStatus,
+    network: &str,
+    behind: u64,
+    epoch: i64,
+    base_fee: TokenAmount,
+    default_wallet_address: Option<String>,
+) -> anyhow::Result<()> {
+    let start_time = {
+        let st = start_time.to_hms();
+        format!("{}h {}m {}s (Started at: {})", st.0, st.1, st.2, start_time)
+    };
+    let base_fee = format_balance_string(base_fee, FormattingMode::NotExactNotFixed)?;
+    let behind = {
+        let b = OffsetDateTime::from_unix_timestamp(behind as i64)?.to_hms();
+        format!("{}h {}m {}s", b.0, b.1, b.2)
+    };
+    let chain_status =
+        format!("[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]")
+            .blue();
+
+    println!("Network: {}", network.green());
+    println!("Uptime: {start_time}");
+    println!("Chain: {chain_status}");
+
+    let mut chain_health = format!("{health:.2}%\n\n").red();
+    if health > 85. {
+        chain_health = chain_health.green();
+    }
+
+    println!("Chain health: {chain_health}");
+
+    println!(
+        "Default wallet address: {}",
+        default_wallet_address.unwrap_or("-".to_string()).bold()
+    );
+
+    Ok(())
 }
