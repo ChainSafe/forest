@@ -188,13 +188,13 @@ where
     /// 900 epochs older than the current head) and a mutable part (tipsets
     /// that are within the most recent 900 epochs). Deleting data from the
     /// mutable part of the chain can be problematic; therefore, we record the
-    /// exact epoch at which a new current database space is created, and only perform
-    /// garbage collection when this creation epoch has become immutable (at
-    /// least 900 epochs older than the current head), thus the old database space
-    /// that will be deleted at the end of garbage collection only contains
-    /// immutable or finalized part of the chain, from which all block data that
-    /// is marked as unreachable will not become reachable because of the
-    /// chain being mutated later.
+    /// exact epoch at which a new current database space is created, and only
+    /// perform garbage collection when this creation epoch has become
+    /// immutable (at least 900 epochs older than the current head), thus
+    /// the old database space that will be deleted at the end of garbage
+    /// collection only contains immutable or finalized part of the chain,
+    /// from which all block data that is marked as unreachable will not
+    /// become reachable because of the chain being mutated later.
     async fn collect_once(&self) -> anyhow::Result<()> {
         let tipset = (self.get_tipset)();
 
