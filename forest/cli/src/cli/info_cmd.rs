@@ -146,10 +146,7 @@ fn display_info(
         sync_status,
     } = node_status;
 
-    let use_color = match color {
-        LoggingColor::Auto | LoggingColor::Always => true,
-        LoggingColor::Never => false,
-    };
+    let use_color = color.coloring_enabled();
 
     let start_time = {
         let st = start_time.to_hms();

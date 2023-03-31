@@ -19,7 +19,7 @@ pub enum LoggingColor {
 }
 
 impl LoggingColor {
-    fn coloring_enabled(&self) -> bool {
+    pub fn coloring_enabled(&self) -> bool {
         match self {
             LoggingColor::Auto => atty::is(Stream::Stdout),
             LoggingColor::Always => true,
