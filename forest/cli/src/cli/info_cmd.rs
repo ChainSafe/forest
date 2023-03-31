@@ -73,19 +73,19 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     // chain health
     let mut num_tipsets = 1;
     let mut block_count = 0;
-    let blocks_per_tipset_last_finality = if epoch > chain_finality {
-        let mut ts = chain_head.0;
 
-        for _ in 0..chain_finality {
-            block_count += ts.blocks().len();
-            let tsk = ts.parents();
-            let tsk = TipsetKeysJson(tsk.clone());
-            if let Ok(tsjson) = chain_get_tipset((tsk,), &config.client.rpc_token).await {
-                ts = tsjson.0;
-                num_tipsets += 1;
-            }
+    let mut ts = chain_head.0;
+    for _ in 0..chain_finality {
+        block_count += ts.blocks().len();
+        let tsk = ts.parents();
+        let tsk = TipsetKeysJson(tsk.clone());
+        if let Ok(tsjson) = chain_get_tipset((tsk,), &config.client.rpc_token).await {
+            ts = tsjson.0;
+            num_tipsets += 1;
         }
+    }
 
+    let blocks_per_tipset_last_finality = if epoch > chain_finality {
         block_count as f64 / chain_finality as f64
     } else {
         block_count as f64 / num_tipsets as f64
@@ -104,14 +104,6 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
 
 impl InfoCommand {
     pub async fn run(&self, config: Config, opts: &CliOpts) -> anyhow::Result<()> {
-        let NodeStatusInfo {
-            health,
-            behind,
-            epoch,
-            base_fee,
-            sync_status,
-        } = node_status(&config).await?;
-
         // uptime
         let start_time = start_time(&config.client.rpc_token)
             .await
@@ -122,24 +114,15 @@ impl InfoCommand {
             .map_err(handle_rpc_err)?;
 
         // Wallet info
-        let default_wallet_address = if let Some(default_wallet_address) =
-            wallet_default_address((), &config.client.rpc_token)
-                .await
-                .map_err(handle_rpc_err)?
-        {
-            Some(default_wallet_address)
-        } else {
-            None
-        };
+        let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
+            .await
+            .map_err(handle_rpc_err)?
+            .map(|default_wallet_address| default_wallet_address);
 
         display_info(
-            health,
+            &node_status(&config).await?,
             start_time,
-            sync_status,
             &network,
-            behind,
-            epoch,
-            base_fee,
             default_wallet_address,
             &opts.color,
         )?;
@@ -149,16 +132,20 @@ impl InfoCommand {
 }
 
 fn display_info(
-    health: f64,
+    node_status: &NodeStatusInfo,
     start_time: OffsetDateTime,
-    sync_status: SyncStatus,
     network: &str,
-    behind: u64,
-    epoch: i64,
-    base_fee: TokenAmount,
     default_wallet_address: Option<String>,
     color: &LoggingColor,
 ) -> anyhow::Result<()> {
+    let NodeStatusInfo {
+        health,
+        behind,
+        epoch,
+        base_fee,
+        sync_status,
+    } = node_status;
+
     let use_color = match color {
         LoggingColor::Auto | LoggingColor::Always => true,
         LoggingColor::Never => false,
@@ -169,9 +156,9 @@ fn display_info(
         format!("{}h {}m {}s (Started at: {})", st.0, st.1, st.2, start_time)
     };
 
-    let base_fee = format_balance_string(base_fee, FormattingMode::NotExactNotFixed)?;
+    let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let b = OffsetDateTime::from_unix_timestamp(behind as i64)?.to_hms();
+        let b = OffsetDateTime::from_unix_timestamp(*behind as i64)?.to_hms();
         format!("{}h {}m {}s", b.0, b.1, b.2)
     };
     let chain_status =
@@ -197,7 +184,7 @@ fn display_info(
     let chain_health = {
         let s = format!("{health:.2}%\n\n");
         if use_color {
-            if health > 85. {
+            if *health > 85. {
                 s.green()
             } else {
                 s.red()
