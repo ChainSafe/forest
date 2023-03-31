@@ -70,8 +70,9 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     let base_fee = chain_head.0.min_ticket_block().parent_base_fee().clone();
 
     // chain health
+    let mut num_tipsets = 1;
+    let mut block_count = 0;
     let blocks_per_tipset_last_finality = if epoch > chain_finality {
-        let mut block_count = 0;
         let mut ts = chain_head.0;
 
         for _ in 0..chain_finality {
@@ -80,15 +81,16 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
             let tsk = TipsetKeysJson(tsk.clone());
             if let Ok(tsjson) = chain_get_tipset((tsk,), &config.client.rpc_token).await {
                 ts = tsjson.0;
+                num_tipsets += 1;
             }
         }
 
-        block_count / chain_finality as usize
+        block_count as f64 / chain_finality as f64
     } else {
-        0
+        block_count as f64 / num_tipsets as f64
     };
 
-    let health = 100 * blocks_per_tipset_last_finality / 5;
+    let health = 100. * blocks_per_tipset_last_finality / BLOCKS_PER_EPOCH as f64;
 
     Ok(NodeStatusInfo {
         behind,
@@ -138,10 +140,10 @@ impl InfoCommand {
         println!("Chain: {chain_status}");
 
         let mut chain_health = format!("{health}%\n\n").red();
-        if health > 85 {
+        if health > 85. {
             chain_health = chain_health.green();
         }
-        println!("Chain health: {chain_health}");
+        println!("Chain health: {chain_health:.2}");
 
         // Wallet info
         if let Some(default_wallet_address) = wallet_default_address((), &config.client.rpc_token)
