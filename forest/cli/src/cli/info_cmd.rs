@@ -11,6 +11,7 @@ use forest_rpc_client::{
 };
 use forest_shim::econ::TokenAmount;
 use forest_utils::io::parser::{format_balance_string, FormattingMode};
+use fvm_shared::{clock::EPOCH_DURATION_SECONDS, BLOCKS_PER_EPOCH};
 use time::OffsetDateTime;
 
 use super::Config;
@@ -55,9 +56,11 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     let delta = ts - now;
     let behind = delta;
 
-    let sync_status = if delta < 30 * 3 / 2 {
+    let sync_status = if delta < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
+        // within 1.5 epochs
         SyncStatus::Ok
     } else if delta < 30 * 5 {
+        // within 5 epochs
         SyncStatus::Slow
     } else {
         SyncStatus::Behind
