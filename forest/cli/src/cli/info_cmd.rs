@@ -6,6 +6,7 @@ use std::time::Instant;
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_cli_shared::{cli::CliOpts, logger::LoggingColor};
 use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
 };
@@ -102,7 +103,7 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
 }
 
 impl InfoCommand {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(&self, config: Config, opts: &CliOpts) -> anyhow::Result<()> {
         let NodeStatusInfo {
             health,
             behind,
@@ -140,6 +141,7 @@ impl InfoCommand {
             epoch,
             base_fee,
             default_wallet_address,
+            &opts.color,
         )?;
 
         Ok(())
@@ -155,34 +157,66 @@ fn display_info(
     epoch: i64,
     base_fee: TokenAmount,
     default_wallet_address: Option<String>,
+    color: &LoggingColor,
 ) -> anyhow::Result<()> {
+    let use_color = match color {
+        LoggingColor::Auto | LoggingColor::Always => true,
+        LoggingColor::Never => false,
+    };
+
     let start_time = {
         let st = start_time.to_hms();
         format!("{}h {}m {}s (Started at: {})", st.0, st.1, st.2, start_time)
     };
+
     let base_fee = format_balance_string(base_fee, FormattingMode::NotExactNotFixed)?;
     let behind = {
         let b = OffsetDateTime::from_unix_timestamp(behind as i64)?.to_hms();
         format!("{}h {}m {}s", b.0, b.1, b.2)
     };
     let chain_status =
-        format!("[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]")
-            .blue();
+        format!("[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]");
 
-    println!("Network: {}", network.green());
+    let chain_status = if use_color {
+        chain_status.blue()
+    } else {
+        chain_status.normal()
+    };
+
+    println!(
+        "Network: {}",
+        if use_color {
+            network.green()
+        } else {
+            network.normal()
+        }
+    );
     println!("Uptime: {start_time}");
     println!("Chain: {chain_status}");
 
-    let mut chain_health = format!("{health:.2}%\n\n").red();
-    if health > 85. {
-        chain_health = chain_health.green();
-    }
+    let chain_health = {
+        let s = format!("{health:.2}%\n\n");
+        if use_color {
+            if health > 85. {
+                s.green()
+            } else {
+                s.red()
+            }
+        } else {
+            s.normal()
+        }
+    };
 
     println!("Chain health: {chain_health}");
 
+    let default_wallet_address = default_wallet_address.unwrap_or("-".to_string());
     println!(
         "Default wallet address: {}",
-        default_wallet_address.unwrap_or("-".to_string()).bold()
+        if use_color {
+            default_wallet_address.bold()
+        } else {
+            default_wallet_address.normal()
+        }
     );
 
     Ok(())
