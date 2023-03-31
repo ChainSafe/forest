@@ -16,10 +16,7 @@ use libp2p::{
     kad::{record::store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent, QueryId},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,
-    swarm::{
-        behaviour::toggle::Toggle, derive_prelude::*, NetworkBehaviour, NetworkBehaviourAction,
-        PollParameters,
-    },
+    swarm::{behaviour::toggle::Toggle, derive_prelude::*, NetworkBehaviour, PollParameters},
 };
 use log::{debug, error, trace, warn};
 use tokio::time::Interval;
@@ -316,10 +313,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         &mut self,
         cx: &mut Context,
         params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, libp2p::swarm::THandlerInEvent<Self>>> {
+    ) -> Poll<ToSwarm<Self::OutEvent, libp2p::swarm::THandlerInEvent<Self>>> {
         // Immediately process the content of `discovered`.
         if let Some(ev) = self.pending_events.pop_front() {
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(ev));
+            return Poll::Ready(ToSwarm::GenerateEvent(ev));
         }
 
         // Poll the stream that fires when we need to start a random Kademlia query.
@@ -349,7 +346,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         // Poll Kademlia.
         while let Poll::Ready(ev) = self.kademlia.poll(cx, params) {
             match ev {
-                NetworkBehaviourAction::GenerateEvent(ev) => match ev {
+                ToSwarm::GenerateEvent(ev) => match ev {
                     // Adding to Kademlia buckets is automatic with our config,
                     // no need to do manually.
                     KademliaEvent::RoutingUpdated { .. } => {}
@@ -361,31 +358,28 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         trace!("Libp2p => Unhandled Kademlia event: {:?}", other)
                     }
                 },
-                NetworkBehaviourAction::Dial { opts } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial { opts });
+                ToSwarm::Dial { opts } => {
+                    return Poll::Ready(ToSwarm::Dial { opts });
                 }
-                NetworkBehaviourAction::NotifyHandler {
+                ToSwarm::NotifyHandler {
                     peer_id,
                     handler,
                     event,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                    return Poll::Ready(ToSwarm::NotifyHandler {
                         peer_id,
                         handler,
                         event,
                     })
                 }
-                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                        address,
-                        score,
-                    })
+                ToSwarm::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score })
                 }
-                NetworkBehaviourAction::CloseConnection {
+                ToSwarm::CloseConnection {
                     peer_id,
                     connection,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    return Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
                     })
@@ -396,7 +390,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         // Poll mdns.
         while let Poll::Ready(ev) = self.mdns.poll(cx, params) {
             match ev {
-                NetworkBehaviourAction::GenerateEvent(event) => match event {
+                ToSwarm::GenerateEvent(event) => match event {
                     MdnsEvent::Discovered(list) => {
                         if self.n_node_connected >= self.target_peer_count {
                             // Already over discovery max, don't add discovered peers.
@@ -414,20 +408,17 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     }
                     MdnsEvent::Expired(_) => {}
                 },
-                NetworkBehaviourAction::Dial { .. } => {}
+                ToSwarm::Dial { .. } => {}
                 // Nothing to notify handler
-                NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
-                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                        address,
-                        score,
-                    })
+                ToSwarm::NotifyHandler { event, .. } => match event {},
+                ToSwarm::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score })
                 }
-                NetworkBehaviourAction::CloseConnection {
+                ToSwarm::CloseConnection {
                     peer_id,
                     connection,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    return Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
                     })
@@ -437,7 +428,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         // Poll pending events
         if let Some(ev) = self.pending_events.pop_front() {
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(ev));
+            return Poll::Ready(ToSwarm::GenerateEvent(ev));
         }
 
         Poll::Pending

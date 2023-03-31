@@ -95,7 +95,7 @@ lazy_static = "1.4"
 libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core = "0.14"
 libipld-macro = "0.14"
-libp2p = { version = "0.51", default-features = false }
+libp2p = { version = "0.51.2", default-features = false }
 libsecp256k1 = "0.7"
 log = "0.4"
 lru = "0.9"
