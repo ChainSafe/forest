@@ -66,6 +66,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
     access.insert(state_api::STATE_REPLAY, Access::Read);
+    access.insert(state_api::STATE_GET_ACTOR, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
@@ -226,13 +227,12 @@ pub mod mpool_api {
         message::json::MessageJson,
         signed_message::json::SignedMessageJson,
     };
-    use forest_message::SignedMessage;
 
     use crate::data_types::MessageSendSpec;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
-    pub type MpoolPendingResult = Vec<SignedMessage>;
+    pub type MpoolPendingResult = Vec<SignedMessageJson>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub type MpoolPushParams = (SignedMessageJson,);
@@ -316,8 +316,8 @@ pub mod state_api {
     use ahash::HashMap;
     use forest_blocks::tipset_keys_json::TipsetKeysJson;
     use forest_json::{
-        address::json::AddressJson, cid::CidJson, message::json::MessageJson,
-        message_receipt::json::ReceiptJson,
+        actor_state::json::ActorStateJson, address::json::AddressJson, cid::CidJson,
+        message::json::MessageJson, message_receipt::json::ReceiptJson,
     };
     use forest_shim::version::NetworkVersion;
     use forest_state_manager::{InvocResult, MarketBalance};
@@ -339,6 +339,10 @@ pub mod state_api {
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
     pub type StateNetworkVersionParams = (TipsetKeysJson,);
     pub type StateNetworkVersionResult = NetworkVersion;
+
+    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
+    pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
+    pub type StateGetActorResult = Option<ActorStateJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);

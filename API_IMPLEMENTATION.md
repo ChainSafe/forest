@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 45
+- Forest method count: 46
 - Lotus method count: 173
-- API coverage: 26.01%
+- API coverage: 26.59%
 
 ## Forest-only Methods
 
@@ -130,7 +130,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.MpoolClear`                                | `-` | `-` |
 |   ❌    | `Filecoin.MpoolGetConfig`                            | `-` | `-` |
 |   ❌    | `Filecoin.MpoolGetNonce`                             | `-` | `-` |
-|   ✔️    | `Filecoin.MpoolPending`                              | `(CidJsonVec)` | `Vec<SignedMessage>` |
+|   ✔️    | `Filecoin.MpoolPending`                              | `(CidJsonVec)` | `Vec<SignedMessageJson>` |
 |   ✔️    | `Filecoin.MpoolPush`                                 | `(SignedMessageJson)` | `CidJson` |
 |   ✔️    | `Filecoin.MpoolPushMessage`                          | `(MessageJson, Option<MessageSendSpec>)` | `SignedMessageJson` |
 |   ❌    | `Filecoin.MpoolPushUntrusted`                        | `-` | `-` |
@@ -177,7 +177,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.StateCompute`                              | `-` | `-` |
 |   ❌    | `Filecoin.StateDealProviderCollateralBounds`         | `-` | `-` |
 |   ❌    | `Filecoin.StateDecodeParams`                         | `-` | `-` |
-|   ❌    | `Filecoin.StateGetActor`                             | `-` | `-` |
+|   ✔️    | `Filecoin.StateGetActor`                             | `(AddressJson, TipsetKeysJson)` | `Option<ActorStateJson>` |
 |   ❌    | `Filecoin.StateListActors`                           | `-` | `-` |
 |   ❌    | `Filecoin.StateListMessages`                         | `-` | `-` |
 |   ❌    | `Filecoin.StateListMiners`                           | `-` | `-` |
