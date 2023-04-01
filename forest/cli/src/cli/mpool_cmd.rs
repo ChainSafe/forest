@@ -4,6 +4,7 @@
 use ahash::HashSet;
 use clap::Subcommand;
 use forest_json::cid::vec::CidJsonVec;
+use forest_message::Message;
 use forest_rpc_client::{mpool_ops::mpool_pending, wallet_ops::wallet_list};
 use forest_shim::address::Address;
 use fvm_ipld_encoding::Cbor;
@@ -52,26 +53,22 @@ impl MpoolCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let wallet_addrs = if local {
+                let local_addrs = if local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
-                    Some(HashSet::from_iter(
-                        response.iter().filter_map(|addr| addr.0.cid().ok()),
-                    ))
+                    Some(HashSet::from_iter(response.iter().map(|addr| addr.0)))
                 } else {
                     None
                 };
 
                 let filtered_messages = messages.iter().filter(|msg| {
-                    wallet_addrs
+                    local_addrs
                         .as_ref()
-                        .map(|addrs| !addrs.contains(&msg.0.cid().unwrap()))
+                        .map(|addrs| addrs.contains(&msg.0.from()))
                         .unwrap_or(true)
-                        && to.map(|addr| msg.0.message().to == *addr).unwrap_or(true)
-                        && from
-                            .map(|addr| msg.0.message().from == *addr)
-                            .unwrap_or(true)
+                        && to.map(|addr| msg.0.to() == addr).unwrap_or(true)
+                        && from.map(|addr| msg.0.from() == addr).unwrap_or(true)
                 });
                 for msg in filtered_messages {
                     if cids {
