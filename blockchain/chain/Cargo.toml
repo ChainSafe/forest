@@ -14,12 +14,14 @@ blake2b_simd.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
 digest.workspace = true
+lazy_static.workspace = true
 flume.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_db.workspace = true
 forest_interpreter.workspace = true
 forest_ipld.workspace = true
+serde_yaml.workspace = true
 forest_libp2p_bitswap.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
