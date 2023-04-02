@@ -12,11 +12,13 @@ How to compute a new checkpoint for calibnet:
 1. Install Forest and connect to the calibnet: `forest --chain calibnet --encrypt-keystore false`
 2. Wait for Forest to catch up to the network: `forest-cli sync wait`
 3. Compute new checkpoint hash: `forest-cli chain tipset-hash`
-4. Add the checkpoint hash to the checkpoint yaml file.
+4. Add the checkpoint hash to the checkpoint [yaml file][yaml].
 
 For mainnet, run the same commands but use `--chain mainnet` instead of `--chain calibnet`.
 
 Issue TODOs:
 
-- [ ]: Add calibnet checkpoint to yaml file.
-- [ ]: Add mainnet checkpoint to yaml file.
+- [ ]: Add calibnet checkpoint to the [yaml file][yaml].
+- [ ]: Add mainnet checkpoint to the [yaml file][yaml].
+
+[yaml]: https://github.com/ChainSafe/forest/blob/main/blockchain/chain/src/store/known_checkpoints.yaml
