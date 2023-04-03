@@ -39,6 +39,19 @@ install-lint-tools:
 	cargo install --locked cargo-spellcheck
 	cargo install --locked cargo-udeps
 
+install-lint-tools-ci:
+	wget https://github.com/tamasfe/taplo/releases/download/0.8.0/taplo-full-linux-x86_64.gz
+	gunzip taplo-full-linux-x86_64.gz
+	cp taplo-full-linux-x86_64 ~/.cargo/bin/taplo
+
+	wget https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz
+	tar xzvf cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz
+	cp ./cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu/cargo-udeps ~/.cargo/bin/cargo-udeps
+
+	wget -o ~/.cargo/bin/cargo-spellcheck https://github.com/drahnr/cargo-spellcheck/releases/download/v0.12.4/cargo-spellcheck-v0.12.4-x86_64-unknown-linux-gnu
+
+	cargo install --locked cargo-audit
+
 install-doc-tools:
 	cargo install --locked mdbook
 	cargo install --locked mdbook-linkcheck
