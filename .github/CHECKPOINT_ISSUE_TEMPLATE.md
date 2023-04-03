@@ -3,7 +3,7 @@ title: Create new snapshot checkpoints
 labels: Enhancement, "Priority: 3 - Medium"
 ---
 
-Forest uses checkpoint to improve performance when loading a snapshot. Without checkpoints, the blockchain has to be fully traversed to verify we have the right genesis block. Checkpoints short-circuit this search and shaves off tens of minutes in boot time.
+Forest uses checkpoints to improve performance when loading a snapshot. Without checkpoints, the blockchain has to be fully traversed to verify we have the right genesis block. Checkpoints short-circuit this search and shave off tens of minutes in boot time.
 
 Checkpoints have to be regularly updated, though, and this issue is automatically created once per month. To close this issue, follow the procedure for computing new checkpoint hashes and add them to the checkpoints yaml file.
 
