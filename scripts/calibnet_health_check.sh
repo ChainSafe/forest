@@ -81,6 +81,9 @@ echo "Print forest log files"
 ls -hl "$LOG_DIRECTORY"
 cat "$LOG_DIRECTORY"/*
 
+# Get the checkpoint hash at epoch 424000. This output isn't affected by the
+# number of recent state roots we store (2k at the time of writing) and this
+# output should never change.
 echo "Checkpoint hash test"
 EXPECTED_HASH="Chain:           calibnet
 Epoch:           424000
