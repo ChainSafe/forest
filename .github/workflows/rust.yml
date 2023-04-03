@@ -51,7 +51,7 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: buildjet-4vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
