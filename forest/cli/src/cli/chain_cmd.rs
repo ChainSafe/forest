@@ -69,7 +69,7 @@ impl ChainCommands {
                     .await
                     .map_err(handle_rpc_err)?;
                 // Use the given epoch or HEAD-1. We can't use HEAD since more
-                // blocks are likely (changing the checkpoint hash)
+                // blocks are likely to be received (changing the checkpoint hash)
                 let target_epoch = epoch.unwrap_or(head.epoch() - 1);
                 let TipsetJson(target) = chain_get_tipset_by_height(
                     (target_epoch, head.key().clone()),
