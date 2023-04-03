@@ -51,7 +51,7 @@ install-lint-tools-ci:
 	chmod +x ~/.cargo/bin/cargo-udeps
 	rm -fr ./cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu/
 
-	wget -o ~/.cargo/bin/cargo-spellcheck https://github.com/drahnr/cargo-spellcheck/releases/download/v0.12.4/cargo-spellcheck-v0.12.4-x86_64-unknown-linux-gnu
+	wget --output-document ~/.cargo/bin/cargo-spellcheck https://github.com/drahnr/cargo-spellcheck/releases/download/v0.12.4/cargo-spellcheck-v0.12.4-x86_64-unknown-linux-gnu
 	chmod +x ~/.cargo/bin/cargo-spellcheck
 
 	cargo install --locked cargo-audit
