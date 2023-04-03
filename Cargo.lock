@@ -3465,7 +3465,6 @@ dependencies = [
  "lru",
  "multihash 0.16.3",
  "num",
- "once_cell",
  "parking_lot 0.12.1",
  "serde",
  "serde_yaml",

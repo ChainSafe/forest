@@ -14,14 +14,12 @@ blake2b_simd.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
 digest.workspace = true
-lazy_static.workspace = true
 flume.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_db.workspace = true
 forest_interpreter.workspace = true
 forest_ipld.workspace = true
-serde_yaml.workspace = true
 forest_libp2p_bitswap.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
@@ -34,13 +32,14 @@ fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 fvm_shared3 = { workspace = true, default-features = false }
+lazy_static.workspace = true
 libipld.workspace = true
 log.workspace = true
 lru.workspace = true
 num.workspace = true
-once_cell.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
