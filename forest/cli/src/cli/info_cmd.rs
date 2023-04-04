@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use clap::Subcommand;
@@ -56,10 +56,21 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo> {
     let chain_finality = config.chain.policy.chain_finality;
     let epoch = chain_head.0.epoch();
     let ts = chain_head.0.min_timestamp();
-    let now = Instant::now().elapsed().as_secs();
-    let delta = ts - now;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    log::info!("ts: {ts}, now: {now}");
+    let delta = if ts > now {
+        // Allows system time to be 1 second slower
+        if ts <= now + 1 {
+            0
+        } else {
+            anyhow::bail!(
+                "System time should not be behind tipset timestamp, please sync the system clock."
+            );
+        }
+    } else {
+        now - ts
+    };
     let behind = delta;
-
     let sync_status = if delta < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
         // within 1.5 epochs
         SyncStatus::Ok
