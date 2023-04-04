@@ -3,6 +3,7 @@
 
 use std::time::Instant;
 
+use anyhow::Context;
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
@@ -46,10 +47,11 @@ pub struct NodeStatusInfo {
     sync_status: SyncStatus,
 }
 
-pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyhow::Error> {
+pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo> {
     let chain_head = chain_head(&config.client.rpc_token)
         .await
-        .map_err(|_| anyhow::Error::msg("couldn't fetch chain head, is the node running?"))?;
+        .map_err(handle_rpc_err)
+        .context("couldn't fetch chain head, is the node running?")?;
 
     let chain_finality = config.chain.policy.chain_finality;
     let epoch = chain_head.0.epoch();
@@ -61,7 +63,7 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     let sync_status = if delta < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
         // within 1.5 epochs
         SyncStatus::Ok
-    } else if delta < 30 * 5 {
+    } else if delta < EPOCH_DURATION_SECONDS as u64 * 5 {
         // within 5 epochs
         SyncStatus::Slow
     } else {
@@ -71,27 +73,26 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo, anyh
     let base_fee = chain_head.0.min_ticket_block().parent_base_fee().clone();
 
     // chain health
-    let mut num_tipsets = 1;
-    let mut block_count = 0;
-
     let mut ts = chain_head.0;
-    for _ in 0..chain_finality {
+
+    let mut num_tipsets = 1;
+    let mut block_count = ts.blocks().len();
+
+    for _ in 0..(chain_finality - 1).min(ts.epoch()) {
+        let parent_tipset_keys = TipsetKeysJson(ts.parents().clone());
+        let tsjson = chain_get_tipset((parent_tipset_keys,), &config.client.rpc_token)
+            .await
+            .map_err(handle_rpc_err)
+            .context("Failed to fetch tipset.")?;
+        ts = tsjson.0;
+        num_tipsets += 1;
         block_count += ts.blocks().len();
-        let tsk = ts.parents();
-        let tsk = TipsetKeysJson(tsk.clone());
-        if let Ok(tsjson) = chain_get_tipset((tsk,), &config.client.rpc_token).await {
-            ts = tsjson.0;
-            num_tipsets += 1;
-        }
     }
 
-    let blocks_per_tipset_last_finality = if epoch > chain_finality {
-        block_count as f64 / chain_finality as f64
-    } else {
-        block_count as f64 / num_tipsets as f64
-    };
-
-    let health = 100. * blocks_per_tipset_last_finality / BLOCKS_PER_EPOCH as f64;
+    let health = (100 * block_count) as f64 / (num_tipsets * BLOCKS_PER_EPOCH) as f64;
+    log::debug!(
+        "[Health data] health: {health}, block_count: {block_count}, num_tipsets: {num_tipsets}"
+    );
 
     Ok(NodeStatusInfo {
         behind,
