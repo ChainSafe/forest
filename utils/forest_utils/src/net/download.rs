@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use async_compression::futures::bufread::ZstdDecoder;
 use futures::{
     io::BufReader,
     stream::{IntoAsyncRead, MapErr},
@@ -31,12 +32,6 @@ pin_project! {
         #[pin]
         pub inner: R,
         pub progress_bar: ProgressBar,
-    }
-}
-
-impl<R> FetchProgress<R> {
-    pub fn finish(&mut self) {
-        self.progress_bar.finish();
     }
 }
 
@@ -93,7 +88,7 @@ impl FetchProgress<DownloadStream> {
 }
 
 impl FetchProgress<BufReader<async_fs::File>> {
-    pub async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
+    async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
         let total_size = file.metadata().await?.len();
 
         let pb = ProgressBar::new(total_size);
@@ -106,4 +101,25 @@ impl FetchProgress<BufReader<async_fs::File>> {
             inner: BufReader::new(file),
         })
     }
+}
+
+impl FetchProgress<ZstdDecoder<BufReader<async_fs::File>>> {
+    async fn fetch_from_zstd_compressed_file(file: async_fs::File) -> anyhow::Result<Self> {
+        let total_size = file.metadata().await?.len();
+
+        let pb = ProgressBar::new(total_size);
+        pb.message("Importing snapshot ");
+        pb.set_units(crate::io::progress_bar::Units::Bytes);
+        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
+
+        Ok(FetchProgress {
+            progress_bar: pb,
+            inner: ZstdDecoder::new(BufReader::new(file)),
+        })
+    }
+}
+
+pub async fn get_fetch_progress_from_file(file: async_fs::File) -> anyhow::Result<impl AsyncRead> {
+    // FetchProgress::fetch_from_file(file).await
+    FetchProgress::fetch_from_zstd_compressed_file(file).await
 }
