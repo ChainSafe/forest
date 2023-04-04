@@ -22,3 +22,4 @@
   - [State migration](./developer_documentation/state_migration.md)
   - [State migration spike NV17-NV18](./developer_documentation/state_migration_spike.md)
   - [Test plan](./developer_documentation/test_plan.md)
+  - [Devnet Notes](./developer_documentation/devnet_notes.md)
