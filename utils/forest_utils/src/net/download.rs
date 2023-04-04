@@ -8,16 +8,12 @@ use std::{
 };
 
 use futures::{
+    io::BufReader,
     stream::{IntoAsyncRead, MapErr},
-    TryStreamExt,
+    AsyncRead, TryStreamExt,
 };
 use pin_project_lite::pin_project;
 use thiserror::Error;
-use tokio::{
-    fs::File,
-    io::{AsyncRead, BufReader, ReadBuf},
-};
-use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
 
 use super::https_client;
@@ -48,20 +44,17 @@ impl<R: AsyncRead + Unpin> AsyncRead for FetchProgress<R> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        let prev_len = buf.filled().len();
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
         let r = Pin::new(&mut self.inner).poll_read(cx, buf);
-        if let Poll::Ready(Ok(())) = r {
-            self.progress_bar
-                .add((buf.filled().len() - prev_len) as u64);
+        if let Poll::Ready(Ok(size)) = r {
+            self.progress_bar.add(size as u64);
         }
         r
     }
 }
 
-type DownloadStream =
-    Compat<IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futures::io::Error>>>;
+type DownloadStream = IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futures::io::Error>>;
 
 impl FetchProgress<DownloadStream> {
     pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream>> {
@@ -90,11 +83,7 @@ impl FetchProgress<DownloadStream> {
 
         let map_err: fn(hyper::Error) -> futures::io::Error =
             |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
-        let stream = response
-            .into_body()
-            .map_err(map_err)
-            .into_async_read()
-            .compat();
+        let stream = response.into_body().map_err(map_err).into_async_read();
 
         Ok(FetchProgress {
             progress_bar: pb,
@@ -103,8 +92,8 @@ impl FetchProgress<DownloadStream> {
     }
 }
 
-impl FetchProgress<BufReader<File>> {
-    pub async fn fetch_from_file(file: File) -> anyhow::Result<Self> {
+impl FetchProgress<BufReader<async_fs::File>> {
+    pub async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
         let total_size = file.metadata().await?.len();
 
         let pb = ProgressBar::new(total_size);

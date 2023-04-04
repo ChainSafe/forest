@@ -10,6 +10,7 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-fs.workspace = true
 atty = "0.2"
 base64.workspace = true
 boa_engine = { version = "0.16.0", features = ["console"] }
@@ -58,7 +59,6 @@ tempfile.workspace = true
 ticker = "0.1"
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
-tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
 
 [dev-dependencies]
