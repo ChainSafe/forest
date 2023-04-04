@@ -40,21 +40,11 @@ install-lint-tools:
 	cargo install --locked cargo-udeps
 
 install-lint-tools-ci:
-	wget https://github.com/tamasfe/taplo/releases/download/0.8.0/taplo-full-linux-x86_64.gz
-	gunzip taplo-full-linux-x86_64.gz
-	cp taplo-full-linux-x86_64 ~/.cargo/bin/taplo
-	chmod +x ~/.cargo/bin/taplo
+	wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
+	tar xzf cargo-binstall-x86_64-unknown-linux-musl.tgz
+	cp cargo-binstall ~/.cargo/bin/cargo-binstall
 
-	wget https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz
-	tar xzvf cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz
-	cp ./cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu/cargo-udeps ~/.cargo/bin/cargo-udeps
-	chmod +x ~/.cargo/bin/cargo-udeps
-	rm -fr ./cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu/
-
-	wget --output-document ~/.cargo/bin/cargo-spellcheck https://github.com/drahnr/cargo-spellcheck/releases/download/v0.12.4/cargo-spellcheck-v0.12.4-x86_64-unknown-linux-gnu
-	chmod +x ~/.cargo/bin/cargo-spellcheck
-
-	cargo install --locked cargo-audit
+	cargo binstall --no-confirm taplo-cli cargo-udeps cargo-spellcheck cargo-audit
 
 install-doc-tools:
 	cargo install --locked mdbook
