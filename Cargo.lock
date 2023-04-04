@@ -3336,7 +3336,6 @@ dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "assert_cmd",
- "async-fs",
  "atty",
  "base64 0.21.0",
  "boa_engine",
@@ -3741,7 +3740,6 @@ name = "forest_genesis"
 version = "0.7.1"
 dependencies = [
  "anyhow",
- "async-fs",
  "cid",
  "flume",
  "forest_blocks",
