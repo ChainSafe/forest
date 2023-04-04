@@ -116,8 +116,7 @@ impl InfoCommand {
         // Wallet info
         let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
             .await
-            .map_err(handle_rpc_err)?
-            .map(|default_wallet_address| default_wallet_address);
+            .map_err(handle_rpc_err)?;
 
         display_info(
             &node_status(&config).await?,
