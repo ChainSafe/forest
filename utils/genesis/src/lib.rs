@@ -121,8 +121,7 @@ where
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
-        let file = async_fs::File::open(&path).await?;
-        let reader = get_fetch_progress_from_file(file).await?;
+        let reader = get_fetch_progress_from_file(&path).await?;
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
 
