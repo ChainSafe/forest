@@ -6,7 +6,7 @@ on:
     - cron: "0 0 1 * *" # The 1st of every month
 
 jobs:
-  stuff:
+  checkpoint_issue:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
