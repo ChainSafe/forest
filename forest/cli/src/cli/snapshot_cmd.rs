@@ -23,7 +23,6 @@ use strfmt::strfmt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio::time::sleep;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -408,9 +407,9 @@ async fn validate(
         )?);
 
         let cids = {
-            let file = tokio::fs::File::open(&snapshot).await?;
+            let file = async_fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
-            forest_load_car(chain_store.blockstore().clone(), reader.compat()).await?
+            forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
