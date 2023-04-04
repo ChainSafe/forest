@@ -384,7 +384,7 @@ where
             )));
         }
 
-        if !checkpoint_tipsets::validate_genesis_cid(ts.key(), &network) {
+        if !checkpoint_tipsets::validate_genesis_cid(&ts, &network) {
             return Err(Error::Other(format!(
                 "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
                 ts.key().cid()
