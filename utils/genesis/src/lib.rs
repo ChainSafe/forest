@@ -121,7 +121,7 @@ where
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
-        let file = File::open(&path).await?;
+        let file = async_fs::File::open(&path).await?;
         let reader = FetchProgress::fetch_from_file(file).await?;
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
@@ -171,7 +171,6 @@ where
     DB: Blockstore + Send + Sync + 'static,
     R: AsyncRead + Send + Unpin,
 {
-    // let mut compat = reader.compat();
     let result = if skip_load {
         CarReader::new(&mut reader).await?.header.roots
     } else {

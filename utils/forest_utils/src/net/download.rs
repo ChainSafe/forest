@@ -14,8 +14,6 @@ use futures::{
 };
 use pin_project_lite::pin_project;
 use thiserror::Error;
-use tokio::fs::File;
-use tokio_util::compat::{Compat, TokioAsyncReadCompatExt};
 use url::Url;
 
 use super::https_client;
@@ -94,8 +92,8 @@ impl FetchProgress<DownloadStream> {
     }
 }
 
-impl FetchProgress<BufReader<Compat<File>>> {
-    pub async fn fetch_from_file(file: File) -> anyhow::Result<Self> {
+impl FetchProgress<BufReader<async_fs::File>> {
+    pub async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
         let total_size = file.metadata().await?.len();
 
         let pb = ProgressBar::new(total_size);
@@ -105,7 +103,7 @@ impl FetchProgress<BufReader<Compat<File>>> {
 
         Ok(FetchProgress {
             progress_bar: pb,
-            inner: BufReader::new(file.compat()),
+            inner: BufReader::new(file),
         })
     }
 }

@@ -11,6 +11,7 @@ testing = []
 
 [dependencies]
 anyhow.workspace = true
+async-fs.workspace = true
 cid.workspace = true
 flume.workspace = true
 forest_blocks.workspace = true

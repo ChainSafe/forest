@@ -9,6 +9,7 @@ version.workspace = true
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-fs.workspace = true
 async-trait.workspace = true
 atty.workspace = true
 blake2b_simd.workspace = true
@@ -38,7 +39,6 @@ serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs"] }
-tokio-util = { workspace = true, features = ["compat", "io-util"] }
 toml.workspace = true
 url.workspace = true
 

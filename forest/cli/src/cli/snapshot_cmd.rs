@@ -407,7 +407,7 @@ async fn validate(
         )?);
 
         let cids = {
-            let file = tokio::fs::File::open(&snapshot).await?;
+            let file = async_fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
             forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
