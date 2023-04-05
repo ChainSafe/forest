@@ -8,6 +8,7 @@ use forest_rpc_client::{mpool_push_message, wallet_default_address};
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use num::BigInt;
 use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 
 use super::{handle_rpc_err, Config};
 
@@ -25,19 +26,43 @@ impl FromStr for FILAmount {
             Some(idx) => s.split_at(idx + 1),
             None => return Err(anyhow::anyhow!("failed to parse string: {}", s)),
         };
-        let mut is_attofil = false;
 
-        if !suffix.is_empty() {
+        let mut multiplier = dec!(1.0);
+        let prefix = if !suffix.is_empty() {
             match suffix.trim().to_lowercase().strip_suffix("fil") {
-                Some("atto" | "a") => {
-                    is_attofil = true;
+                Some("atto" | "a") => "atto",
+                Some("femto") => {
+                    multiplier = multiplier * dec!(1_000);
+                    "femto"
                 }
-                Some("femto" | "pico" | "nano" | "micro" | "milli" | "" | " ") => {}
+                Some("pico") => {
+                    multiplier = multiplier * dec!(1_000_000);
+                    "pico"
+                }
+                Some("nano") => {
+                    multiplier = multiplier * dec!(1_000_000_000);
+                    "nano"
+                }
+                Some("micro") => {
+                    multiplier = multiplier * dec!(1_000_000_000_000);
+                    "micro"
+                }
+                Some("milli") => {
+                    multiplier = multiplier * dec!(1_000_000_000_000_000);
+                    "milli"
+                }
+                Some("" | " ") => {
+                    multiplier = multiplier * dec!(1_000_000_000_000_000_000);
+                    ""
+                }
                 _ => {
                     return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix));
                 }
             }
-        }
+        } else {
+            multiplier = multiplier * dec!(1_000_000_000_000_000_000);
+            ""
+        };
 
         if val.chars().count() > 50 {
             return Err(anyhow::anyhow!(
@@ -46,7 +71,7 @@ impl FromStr for FILAmount {
             ));
         }
 
-        let parsed_val = match val.parse::<f64>() {
+        let parsed_val = match Decimal::from_str(val) {
             Ok(value) => value,
             Err(_) => {
                 return Err(anyhow::anyhow!(
@@ -56,31 +81,15 @@ impl FromStr for FILAmount {
             }
         };
 
-        let token_amount = if is_attofil && parsed_val.fract() != 0.0 {
-            return Err(anyhow::anyhow!("invalid attoFIL value: {}", val));
-        } else if is_attofil {
-            TokenAmount::from_atto(BigInt::from_f64(parsed_val).unwrap())
+        let attofil_val = if (parsed_val * multiplier).fract() != dec!(0.0) {
+            return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val));
         } else {
-            match suffix.trim().to_lowercase().strip_suffix("fil") {
-                Some("femto") => {
-                    TokenAmount::from_atto(BigInt::from_f64(parsed_val * 1_000.0).unwrap())
-                }
-                Some("pico") => {
-                    TokenAmount::from_atto(BigInt::from_f64(parsed_val * 1_000_000.0).unwrap())
-                }
-                Some("nano") => {
-                    TokenAmount::from_atto(BigInt::from_f64(parsed_val * 1_000_000_000.0).unwrap())
-                }
-                Some("micro") => TokenAmount::from_atto(
-                    BigInt::from_f64(parsed_val * 1_000_000_000_000.0).unwrap(),
-                ),
-                Some("milli") => TokenAmount::from_atto(
-                    BigInt::from_f64(parsed_val * 1_000_000_000_000_000.0).unwrap(),
-                ),
-                _ => TokenAmount::from_atto(
-                    BigInt::from_f64(parsed_val * 1_000_000_000_000_000_000.0).unwrap(),
-                ),
-            }
+            (parsed_val * multiplier).trunc().to_u128()
+        };
+
+        let token_amount = match attofil_val {
+            Some(attofil_amt) => TokenAmount::from_atto(BigInt::from(attofil_amt)),
+            None => return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val)),
         };
 
         Ok(FILAmount {
