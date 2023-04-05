@@ -102,7 +102,6 @@ echo "Wallet tests"
 # Amount to send to
 FIL_AMT=500
 
-
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH wallet import preloaded_wallet.key
 
@@ -137,10 +136,6 @@ $FOREST_CLI_PATH wallet list
 
 echo "Sending FIL to the above address"
 $FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT"
-
-#TODO: create 3rd address and verify amount at 3rd address matches sent amt
-#echo "Sending attoFIL to the above address"
-#$FOREST_CLI_PATH --chain calibnet send "$ADDR_THREE" "$ATTOFIL_AMT"
 
 echo "Checking balance of $ADDR_TWO..."
 
