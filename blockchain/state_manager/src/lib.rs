@@ -5,7 +5,6 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-use forest_state_migration::{Migrator, PostMigrationAction, StateMigration};
 pub use utils::is_valid_for_sending;
 
 mod vm_circ_supply;
@@ -13,7 +12,7 @@ mod vm_circ_supply;
 use std::{num::NonZeroUsize, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::*;
@@ -24,22 +23,22 @@ use forest_chain::{ChainStore, HeadChange};
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
-use forest_networks::{calibnet::HEIGHT_INFOS, ChainConfig, Height, Height::Hygge};
+use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
     message::Message,
-    state_tree::{ActorState, StateTree, StateTreeVersion},
+    state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
-use futures::{channel::oneshot, future::err, select, FutureExt};
-use fvm::{externs::Rand, machine::Manifest};
+use futures::{channel::oneshot, select, FutureExt};
+use fvm::externs::Rand;
 use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{ipld_block::IpldBlock, Cbor, CborStore};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
@@ -384,7 +383,6 @@ where
 
         let db = self.blockstore().clone();
 
-        let turbo_height = self.chain_config.epoch(Height::Turbo);
         let create_vm = |state_root, epoch, timestamp| {
             VM::new(
                 state_root,
@@ -453,7 +451,11 @@ where
             x if x == self.chain_config.epoch(Height::Hygge) => {
                 info!("Running Hygge migration at epoch {epoch}");
                 let start_time = time::Instant::now();
-                let new_state = run_nv18_migration(self.blockstore(), parent_state, epoch)?;
+                let new_state = forest_state_migration::run_nv18_migration(
+                    self.blockstore(),
+                    parent_state,
+                    epoch,
+                )?;
                 let elapsed = start_time.elapsed().as_secs_f32();
                 if new_state != *parent_state {
                     info!("state migration successful, took: {elapsed}s");
@@ -1284,68 +1286,6 @@ where
             self.beacon.clone(),
         )
     }
-}
-
-fn run_nv18_migration<DB>(blockstore: &DB, state: &Cid, epoch: ChainEpoch) -> anyhow::Result<Cid>
-where
-    DB: 'static + Blockstore + Clone + Send + Sync,
-{
-    let state_tree = StateTree::new_from_root(blockstore, state)?;
-
-    let new_manifest_cid =
-        Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")?;
-    let (_, new_manifest_data): (u32, Cid) = state_tree
-        .store()
-        .get_cbor(&new_manifest_cid)?
-        .ok_or_else(|| anyhow!("could not find old state migration manifest"))?;
-
-    let verifier = Arc::new(forest_state_migration::nv18::verifier::Verifier::default());
-    let create_eam_actor = |_store: &DB, actors_out: &mut StateTree<DB>| {
-        let eam_actor = forest_state_migration::nv18::eam::create_eam_actor();
-        actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
-        Ok(())
-    };
-    let create_eth_account_actor = |store: &DB, actors_out: &mut StateTree<DB>| {
-        let init_actor = actors_out
-            .get_actor(&Address::INIT_ACTOR)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
-        let init_state: fil_actor_init_v10::State = store
-            .get_obj(&init_actor.state)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
-
-        let eth_zero_addr =
-            Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;
-        let eth_zero_addr_id = init_state
-            .resolve_address(&store, &eth_zero_addr.into())?
-            .ok_or_else(|| anyhow!("failed to get eth zero actor"))?;
-
-        let eth_account_actor = ActorState::new(
-            *forest_state_migration::nv18::calibnet::v10::ETH_ACCOUNT,
-            fil_actors_runtime_v10::runtime::EMPTY_ARR_CID,
-            Default::default(),
-            0,
-            Some(eth_zero_addr),
-        );
-
-        actors_out.set_actor(&eth_zero_addr_id.into(), eth_account_actor)?;
-        Ok(())
-    };
-    let post_migration_actions = [create_eam_actor, create_eth_account_actor]
-        .into_iter()
-        .map(|action| Arc::new(action) as PostMigrationAction<DB>)
-        .collect();
-
-    let mut migration =
-        StateMigration::<DB>::new(new_manifest_data, Some(verifier), post_migration_actions);
-    migration.add_nil_migrations();
-    migration.add_nv_18_migrations();
-
-    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
-    let new_state =
-        migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
-
-    Ok(new_state)
 }
 
 fn chain_epoch_root<DB>(

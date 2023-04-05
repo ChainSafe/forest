@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod eam;
 mod init;
+pub mod migration;
 mod system;
 pub mod verifier;
 
