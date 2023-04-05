@@ -27,6 +27,9 @@ pub mod nv18;
 
 pub type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 
+/// Trait to be implemented by migration verifications.
+/// The implementation should verify that the migration specification is
+/// correct. This is to prevent accidental migration errors.
 pub trait ActorMigrationVerifier<BS> {
     fn verify_migration(
         &self,
@@ -36,7 +39,11 @@ pub trait ActorMigrationVerifier<BS> {
     ) -> anyhow::Result<()>;
 }
 
+/// Type implementing the `ActorMigrationVerifier` trait.
 pub type MigrationVerifier<BS> = Arc<dyn ActorMigrationVerifier<BS> + Send + Sync>;
+
+pub type PostMigrationAction<BS> =
+    Arc<dyn Fn(&BS, &mut StateTree<BS>) -> anyhow::Result<()> + Send + Sync>;
 
 /// StateMigration handles several cases of migration:
 /// - nil migrations, essentially maping one Actor to another,
@@ -47,28 +54,37 @@ pub struct StateMigration<BS> {
     new_manifest_data: Cid,
     /// Verifies correctness of the migration specification.
     verifier: Option<MigrationVerifier<BS>>,
+    /// Post migration actions. This may include new actor creation.
+    post_migration_actions: Vec<PostMigrationAction<BS>>,
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
-    pub fn new(new_manifest_data: Cid, verifier: Option<MigrationVerifier<BS>>) -> Self {
+    pub fn new(
+        new_manifest_data: Cid,
+        verifier: Option<MigrationVerifier<BS>>,
+        post_migration_actions: Vec<PostMigrationAction<BS>>,
+    ) -> Self {
         Self {
             migrations: HashMap::new(),
             new_manifest_data,
             verifier,
+            post_migration_actions,
         }
     }
 
+    /// Inserts a new migrator into the migration specification.
     pub fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
         self.migrations.insert(prior_cid, migrator);
     }
 
     pub fn migrate_state_tree(
-        &mut self,
+        &self,
         store: BS,
         prior_epoch: ChainEpoch,
         actors_in: StateTree<BS>,
         mut actors_out: StateTree<BS>,
     ) -> anyhow::Result<Cid> {
+        // Checks if the migration specification is correct
         if let Some(verifier) = &self.verifier {
             verifier.verify_migration(&store, &self.migrations, &actors_in)?;
         }
@@ -98,7 +114,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             let actors_in_counter_clone = actors_in_counter.clone();
 
             s.spawn(move |_| {
-                // TODO: actors_in (StateTree) could use an iterator here.
                 actors_in
                     .for_each(|addr, state| {
                         state_tx
@@ -154,33 +169,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         dbg!(*actors_in_counter.lock(), *actors_out_counter.lock());
 
-        // TODO this is NV18 specific, should be abstracted away. Or, like in Go code,
-        // copied so that each migration is completely distinct.
-        let eam_actor = create_eam_actor();
-        actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
-
-        let init_actor = actors_out
-            .get_actor(&Address::INIT_ACTOR)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
-        let init_state: StateV10 = store
-            .get_obj(&init_actor.state)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
-
-        let eth_zero_addr =
-            Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;
-        let eth_zero_addr_id = init_state
-            .resolve_address(&store, &eth_zero_addr.into())?
-            .ok_or_else(|| anyhow!("failed to get eth zero actor"))?;
-
-        let eth_account_actor = ActorState::new(
-            *ETH_ACCOUNT,
-            EMPTY_ARR_CID,
-            Default::default(),
-            0,
-            Some(eth_zero_addr),
-        );
-
-        actors_out.set_actor(&eth_zero_addr_id.into(), eth_account_actor)?;
+        // execute post migration actions, e.g., create new actors
+        for action in self.post_migration_actions.iter() {
+            action(&store, &mut actors_out)?;
+        }
 
         actors_out.flush()
     }

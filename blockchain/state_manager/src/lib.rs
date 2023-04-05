@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-use forest_state_migration::{Migrator, StateMigration};
+use forest_state_migration::{Migrator, PostMigrationAction, StateMigration};
 pub use utils::is_valid_for_sending;
 
 mod vm_circ_supply;
@@ -1292,25 +1292,51 @@ where
 {
     let state_tree = StateTree::new_from_root(blockstore, state)?;
 
-    // TODO the manifest may not be there, need another way to get it. Perhaps
-    // loading the previous bundle.
-    //    let old_manifest_cid =
-    //        Cid::try_from("
-    // bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy")?;
     let new_manifest_cid =
         Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")?;
-    //    let (_, old_manifest_data): (u32, Cid) = state_tree
-    //        .store()
-    //        .get_cbor(&old_manifest_cid)?
-    //        .ok_or_else(|| anyhow!("could not find old state migration
-    // manifest"))?;
     let (_, new_manifest_data): (u32, Cid) = state_tree
         .store()
         .get_cbor(&new_manifest_cid)?
         .ok_or_else(|| anyhow!("could not find old state migration manifest"))?;
 
     let verifier = Arc::new(forest_state_migration::nv18::verifier::Verifier::default());
-    let mut migration = StateMigration::<DB>::new(new_manifest_data, Some(verifier));
+    let create_eam_actor = |_store: &DB, actors_out: &mut StateTree<DB>| {
+        let eam_actor = forest_state_migration::nv18::eam::create_eam_actor();
+        actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
+        Ok(())
+    };
+    let create_eth_account_actor = |store: &DB, actors_out: &mut StateTree<DB>| {
+        let init_actor = actors_out
+            .get_actor(&Address::INIT_ACTOR)?
+            .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
+        let init_state: fil_actor_init_v10::State = store
+            .get_obj(&init_actor.state)?
+            .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
+
+        let eth_zero_addr =
+            Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;
+        let eth_zero_addr_id = init_state
+            .resolve_address(&store, &eth_zero_addr.into())?
+            .ok_or_else(|| anyhow!("failed to get eth zero actor"))?;
+
+        let eth_account_actor = ActorState::new(
+            *forest_state_migration::nv18::calibnet::v10::ETH_ACCOUNT,
+            fil_actors_runtime_v10::runtime::EMPTY_ARR_CID,
+            Default::default(),
+            0,
+            Some(eth_zero_addr),
+        );
+
+        actors_out.set_actor(&eth_zero_addr_id.into(), eth_account_actor)?;
+        Ok(())
+    };
+    let post_migration_actions = [create_eam_actor, create_eth_account_actor]
+        .into_iter()
+        .map(|action| Arc::new(action) as PostMigrationAction<DB>)
+        .collect();
+
+    let mut migration =
+        StateMigration::<DB>::new(new_manifest_data, Some(verifier), post_migration_actions);
     migration.add_nil_migrations();
     migration.add_nv_18_migrations();
 

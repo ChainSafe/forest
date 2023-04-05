@@ -42,6 +42,7 @@ num.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true
 prometheus.workspace = true
+fil_actor_init_v10.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
