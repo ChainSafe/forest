@@ -3,6 +3,7 @@
 pub mod eam;
 mod init;
 mod system;
+pub mod verifier;
 
 use fvm_ipld_blockstore::Blockstore;
 

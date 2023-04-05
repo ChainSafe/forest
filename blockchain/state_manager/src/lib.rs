@@ -1309,7 +1309,8 @@ where
         .get_cbor(&new_manifest_cid)?
         .ok_or_else(|| anyhow!("could not find old state migration manifest"))?;
 
-    let mut migration = StateMigration::<DB>::new(new_manifest_data);
+    let verifier = Arc::new(forest_state_migration::nv18::verifier::Verifier::default());
+    let mut migration = StateMigration::<DB>::new(new_manifest_data, Some(verifier));
     migration.add_nil_migrations();
     migration.add_nv_18_migrations();
 
