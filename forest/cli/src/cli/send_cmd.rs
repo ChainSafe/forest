@@ -235,14 +235,14 @@ mod tests {
 
     #[test]
     fn invalid_fil_suffix() {
-        //test with bad suffix
+        //fails with bad suffix
         let amount = "42fiascos";
         assert!(FILAmount::from_str(amount).is_err());
     }
 
     #[test]
     fn negative_fil_value() {
-        //test with bad suffix
+        //fails with negative value
         let amount = "-1FIL";
         assert!(FILAmount::from_str(amount).is_err());
     }
