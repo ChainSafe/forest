@@ -5,14 +5,11 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
-use fraction::BigFraction;
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
-use num::{bigint::Sign, BigInt, BigUint, CheckedMul};
-use quickcheck_macros::quickcheck;
+use num::BigInt;
+use rust_decimal::prelude::*;
 
 use super::{handle_rpc_err, Config};
-
-const FILECOIN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FILAmount {
@@ -49,8 +46,8 @@ impl FromStr for FILAmount {
             ));
         }
 
-        let mut r = match BigFraction::from_str(val) {
-            Ok(r) => r,
+        let parsed_val = match val.parse::<f64>() {
+            Ok(value) => value,
             Err(_) => {
                 return Err(anyhow::anyhow!(
                     "failed to parse {} as a decimal number",
@@ -59,27 +56,35 @@ impl FromStr for FILAmount {
             }
         };
 
-        if !is_attofil {
-            r = BigFraction::checked_mul(
-                &r,
-                &BigFraction::new(BigUint::from(FILECOIN_PRECISION), BigUint::from(1_u64)),
-            )
-            .unwrap();
-        }
-
-        if r.numer().unwrap() % r.denom().unwrap() != BigUint::from(0_u64) {
-            let mut prefix = "";
-            if is_attofil {
-                prefix = "atto";
+        let token_amount = if is_attofil && parsed_val.fract() != 0.0 {
+            return Err(anyhow::anyhow!("invalid attoFIL value: {}", val));
+        } else if is_attofil {
+            TokenAmount::from_atto(BigInt::from_f64(parsed_val).unwrap())
+        } else {
+            match suffix.trim().to_lowercase().strip_suffix("fil") {
+                Some("femto") => {
+                    TokenAmount::from_atto(BigInt::from_f64(parsed_val * 1_000.0).unwrap())
+                }
+                Some("pico") => {
+                    TokenAmount::from_atto(BigInt::from_f64(parsed_val * 1_000_000.0).unwrap())
+                }
+                Some("nano") => {
+                    TokenAmount::from_atto(BigInt::from_f64(parsed_val * 1_000_000_000.0).unwrap())
+                }
+                Some("micro") => TokenAmount::from_atto(
+                    BigInt::from_f64(parsed_val * 1_000_000_000_000.0).unwrap(),
+                ),
+                Some("milli") => TokenAmount::from_atto(
+                    BigInt::from_f64(parsed_val * 1_000_000_000_000_000.0).unwrap(),
+                ),
+                _ => TokenAmount::from_atto(
+                    BigInt::from_f64(parsed_val * 1_000_000_000_000_000_000.0).unwrap(),
+                ),
             }
-            return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val));
-        }
+        };
 
         Ok(FILAmount {
-            value: TokenAmount::from_atto(BigInt::from_biguint(
-                Sign::Plus,
-                r.numer().unwrap() / r.denom().unwrap(),
-            )),
+            value: token_amount,
         })
     }
 }
@@ -144,81 +149,89 @@ impl SendCommand {
     }
 }
 
-#[test]
-fn invalid_attofil_amount() {
-    //attoFIL with fractional value fails (fractional FIL values allowed)
-    let amount = "1.234attofil";
-    assert!(FILAmount::from_str(amount).is_err());
-}
+#[cfg(test)]
+mod tests {
+    use quickcheck_macros::quickcheck;
 
-#[test]
-fn valid_attofil_amount() {
-    //valid attofil amount passes
-    let amount = "1234 attofil";
-    assert!(FILAmount::from_str(amount).is_ok());
-}
+    use super::*;
+    use crate::cli::wallet_cmd::{bool_pair_to_mode, format_balance_string};
+    const FILECOIN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
-#[test]
-fn suffix_with_no_amount() {
-    //fails if no amount specified
-    let amount = "fil";
-    assert!(FILAmount::from_str(amount).is_err());
-}
+    #[test]
+    fn invalid_attofil_amount() {
+        //attoFIL with fractional value fails (fractional FIL values allowed)
+        let amount = "1.234attofil";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
 
-#[test]
-fn valid_fil_amount_without_suffix() {
-    //defaults to FIL if no suffix is provided
-    let amount = "1234";
-    assert!(FILAmount::from_str(amount).is_ok());
-}
+    #[test]
+    fn valid_attofil_amount() {
+        //valid attofil amount passes
+        let amount = "1234 attofil";
+        assert!(FILAmount::from_str(amount).is_ok());
+    }
 
-#[test]
-fn valid_fil_amount_with_suffix() {
-    //properly parses amount with "FIL" suffix
-    let amount = "1234FIL";
-    assert!(FILAmount::from_str(amount).is_ok());
-}
+    #[test]
+    fn suffix_with_no_amount() {
+        //fails if no amount specified
+        let amount = "fil";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
+    #[test]
+    fn valid_fil_amount_without_suffix() {
+        //defaults to FIL if no suffix is provided
+        let amount = "1234";
+        assert!(FILAmount::from_str(amount).is_ok());
+    }
 
-#[test]
-fn invalid_fil_amount() {
-    //bad amount fails
-    let amount = "0.0.0FIL";
-    assert!(FILAmount::from_str(amount).is_err());
-}
+    #[test]
+    fn valid_fil_amount_with_suffix() {
+        //properly parses amount with "FIL" suffix
+        let amount = "1234FIL";
+        assert!(FILAmount::from_str(amount).is_ok());
+    }
 
-#[test]
-fn test_fractional_fil_amount() {
-    //fil with fractional value succeeds
-    let amount = "1.234FIL";
-    assert!(FILAmount::from_str(amount).is_ok());
-}
+    #[test]
+    fn invalid_fil_amount() {
+        //bad amount fails
+        let amount = "0.0.0FIL";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
 
-#[test]
-fn fil_amount_too_long() {
-    //fil amount with length>50 fails
-    let amount = "100000000000000000000000000000000000000000000000000FIL";
-    assert!(FILAmount::from_str(amount).is_err());
-}
+    #[test]
+    fn test_fractional_fil_amount() {
+        //fil with fractional value succeeds
+        let amount = "1.234FIL";
+        assert!(FILAmount::from_str(amount).is_ok());
+    }
 
-#[test]
-fn convert_fil_to_attofil() {
-    //expected attofil amount matches actual amount after conversion from FIL
-    let fil_amount = "1FIL";
-    let attofil_amount = TokenAmount::from_atto(BigInt::from(FILECOIN_PRECISION));
-    assert_eq!(
-        FILAmount::from_str(fil_amount).unwrap().value,
-        attofil_amount
-    );
-}
+    #[test]
+    fn fil_amount_too_long() {
+        //fil amount with length>50 fails
+        let amount = "100000000000000000000000000000000000000000000000000FIL";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
 
-#[test]
-fn invalid_fil_suffix() {
-    //test with bad suffix
-    let amount = "42fiascos";
-    assert!(FILAmount::from_str(amount).is_err());
-}
+    #[test]
+    fn convert_fil_to_attofil() {
+        //expected attofil amount matches actual amount after conversion from FIL
+        let fil_amount = "1FIL";
+        let attofil_amount = TokenAmount::from_atto(BigInt::from(FILECOIN_PRECISION));
+        assert_eq!(
+            FILAmount::from_str(fil_amount).unwrap().value,
+            attofil_amount
+        );
+    }
 
-#[quickcheck]
-fn fil_quickcheck_test() {
-    todo!();
+    #[test]
+    fn invalid_fil_suffix() {
+        //test with bad suffix
+        let amount = "42fiascos";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
+
+    #[quickcheck]
+    fn fil_quickcheck_test() {
+        todo!();
+    }
 }
