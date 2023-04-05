@@ -26,33 +26,34 @@ impl FromStr for FILAmount {
             Some(idx) => s.split_at(idx + 1),
             None => return Err(anyhow::anyhow!("failed to parse string: {}", s)),
         };
+        let suffix = suffix.replace(' ', "");
 
         let mut multiplier = dec!(1.0);
         let prefix = if !suffix.is_empty() {
             match suffix.trim().to_lowercase().strip_suffix("fil") {
                 Some("atto" | "a") => "atto",
                 Some("femto") => {
-                    multiplier = multiplier * dec!(1_000);
+                    multiplier *= dec!(1_000);
                     "femto"
                 }
                 Some("pico") => {
-                    multiplier = multiplier * dec!(1_000_000);
+                    multiplier *= dec!(1_000_000);
                     "pico"
                 }
                 Some("nano") => {
-                    multiplier = multiplier * dec!(1_000_000_000);
+                    multiplier *= dec!(1_000_000_000);
                     "nano"
                 }
                 Some("micro") => {
-                    multiplier = multiplier * dec!(1_000_000_000_000);
+                    multiplier *= dec!(1_000_000_000_000);
                     "micro"
                 }
                 Some("milli") => {
-                    multiplier = multiplier * dec!(1_000_000_000_000_000);
+                    multiplier *= dec!(1_000_000_000_000_000);
                     "milli"
                 }
                 Some("" | " ") => {
-                    multiplier = multiplier * dec!(1_000_000_000_000_000_000);
+                    multiplier *= dec!(1_000_000_000_000_000_000);
                     ""
                 }
                 _ => {
@@ -60,7 +61,7 @@ impl FromStr for FILAmount {
                 }
             }
         } else {
-            multiplier = multiplier * dec!(1_000_000_000_000_000_000);
+            multiplier *= dec!(1_000_000_000_000_000_000);
             ""
         };
 
@@ -239,8 +240,19 @@ mod tests {
         assert!(FILAmount::from_str(amount).is_err());
     }
 
+    #[test]
+    fn negative_fil_value() {
+        //test with bad suffix
+        let amount = "-1FIL";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
+
     #[quickcheck]
-    fn fil_quickcheck_test() {
-        todo!();
+    fn fil_quickcheck_test(n: u64) {
+        let token_amount = TokenAmount::from_atto(n);
+        let formatted =
+            format_balance_string(token_amount.clone(), bool_pair_to_mode(true, false)).unwrap();
+        let parsed = FILAmount::from_str(&formatted).unwrap().value;
+        assert_eq!(token_amount, parsed);
     }
 }

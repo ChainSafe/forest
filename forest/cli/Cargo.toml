@@ -36,20 +36,15 @@ forest_rpc-api.workspace = true
 forest_rpc-client.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true
-fraction.workspace = true
 fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
 jsonrpc-v2.workspace = true
-lazy_static.workspace = true
 log.workspace = true
 multibase.workspace = true
 num.workspace = true
-quickcheck.workspace = true
-quickcheck_macros.workspace = true
-regex.workspace = true
 rpassword.workspace = true
 rust_decimal = "1.28.1"
 rust_decimal_macros = "1.28.1"
@@ -67,6 +62,8 @@ toml.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]

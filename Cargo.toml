@@ -69,7 +69,6 @@ digest = "0.10.5"
 directories = "4.0.1"
 filecoin-proofs-api = { version = "13.0", default-features = false }
 flume = "0.10"
-fraction = "0.13.1"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
