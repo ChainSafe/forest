@@ -23,8 +23,6 @@ use parking_lot::Mutex;
 
 use crate::nv18::{calibnet::v10::ETH_ACCOUNT, eam::create_eam_actor};
 
-// pub mod nv12;
-
 pub mod nv18;
 
 pub type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
