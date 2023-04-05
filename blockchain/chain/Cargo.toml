@@ -32,13 +32,14 @@ fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 fvm_shared3 = { workspace = true, default-features = false }
+lazy_static.workspace = true
 libipld.workspace = true
 log.workspace = true
 lru.workspace = true
 num.workspace = true
-once_cell.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }

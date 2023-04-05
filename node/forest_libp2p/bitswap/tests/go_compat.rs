@@ -14,8 +14,11 @@ mod tests {
         Cid,
     };
     use libp2p::{
-        core, futures::StreamExt, identity, noise, request_response, swarm::SwarmEvent, tcp, yamux,
-        PeerId, Swarm, Transport,
+        core,
+        futures::StreamExt,
+        identity, noise, request_response,
+        swarm::{SwarmBuilder, SwarmEvent},
+        tcp, yamux, PeerId, Transport,
     };
 
     const TIMEOUT: Duration = Duration::from_secs(60);
@@ -37,7 +40,7 @@ mod tests {
             .timeout(TIMEOUT)
             .boxed();
         let behaviour = BitswapBehaviour::new(&[b"/test/ipfs/bitswap/1.2.0"], Default::default());
-        let mut swarm = Swarm::with_tokio_executor(transport, behaviour, peer_id);
+        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, peer_id).build();
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let expected_inbound_request_cid_str = "bitswap_request_from_go";
         let expected_inbound_request_cid = Cid::new_v0(
