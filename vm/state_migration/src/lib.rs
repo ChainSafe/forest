@@ -4,12 +4,13 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
-use std::sync::{atomic::AtomicU32, Arc};
+use std::sync::Arc;
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use anyhow::{anyhow, bail};
+use ahash::{HashMap, HashMapExt};
+use anyhow::anyhow;
 use cid::Cid;
 use fil_actor_init_v10::State as StateV10;
+use fil_actor_system_v9::State as SystemStateV9;
 use fil_actors_runtime_v10::runtime::EMPTY_ARR_CID;
 use forest_shim::{
     address::Address,
@@ -19,34 +20,32 @@ use forest_shim::{
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
+use log::{info, warn};
 use parking_lot::Mutex;
 
-use crate::nv18::{
-    calibnet::v10::{EAM, ETH_ACCOUNT},
-    eam::create_eam_actor,
-};
+use crate::nv18::{calibnet::v10::ETH_ACCOUNT, eam::create_eam_actor};
 
 // pub mod nv12;
 
 pub mod nv18;
 
-// TODO it's not same across versions, need to handle it in a more sophisticated
-// way.
-pub const ACTORS_COUNT: usize = 11;
-
 pub type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 
+/// StateMigration handles several cases of migration:
+/// - nil migrations, essentially maping one Actor to another,
+/// - migrations where state upgrade is required,
+/// - creating new actors that were not present in the prior network version.
 pub struct StateMigration<BS> {
     migrations: HashMap<Cid, Migrator<BS>>,
-    deferred_code_ids: HashSet<Cid>,
+    new_manifest_data: Cid,
+    // TODO verifier: Option<MigrationVerifier<BS>>,
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(new_manifest_data: Cid) -> Self {
         Self {
             migrations: HashMap::new(),
-            deferred_code_ids: HashSet::new(),
+            new_manifest_data,
         }
     }
 
@@ -61,13 +60,25 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         actors_in: StateTree<BS>,
         mut actors_out: StateTree<BS>,
     ) -> anyhow::Result<Cid> {
-        // need to make it variable
-        //if self.migrations.len() + self.deferred_code_ids.len() != ACTORS_COUNT {
-        //    bail!(
-        //        "Incomplete migration spec. Count: {}",
-        //        self.migrations.len()
-        //    );
-        //}
+        // load old manifest data
+        let system_actor = actors_in
+            .get_actor(&Address::new_id(0))?
+            .ok_or_else(|| anyhow!("system actor not found"))?;
+
+        let system_actor_state = store
+            .get_obj::<SystemStateV9>(&system_actor.state)?
+            .ok_or_else(|| anyhow!("system actor state not found"))?;
+        let old_manifest_data = system_actor_state.builtin_actors;
+
+        let old_manifest = forest_shim::machine::ManifestV2::load(&store, &old_manifest_data, 1)?;
+        let old_manifest_actors_count = old_manifest.builtin_actor_codes().count();
+        if old_manifest_actors_count != self.migrations.len() {
+            warn!(
+                "Incomplete migration spec. Count: {}, expected: {}",
+                self.migrations.len(),
+                old_manifest_actors_count
+            );
+        }
 
         let cpus = num_cpus::get();
         let chan_size = cpus / 2;
@@ -152,7 +163,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         // TODO this is NV18 specific, should be abstracted away. Or, like in Go code,
         // copied so that each migration is completely distinct.
-        let eam_actor = ActorState::new_empty(*EAM, None);
+        let eam_actor = create_eam_actor();
         actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
 
         let init_actor = actors_out

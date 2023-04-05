@@ -442,6 +442,8 @@ where
         Ok((state_root, receipt_root))
     }
 
+    /// Handles state migrations. Returns the new state root if a migration was
+    /// run.
     fn handle_state_migrations(
         &self,
         parent_state: &Cid,
@@ -449,14 +451,14 @@ where
     ) -> anyhow::Result<Option<Cid>> {
         match epoch {
             x if x == self.chain_config.epoch(Height::Hygge) => {
+                info!("Running Hygge migration at epoch {epoch}");
                 let start_time = time::Instant::now();
-                info!("Running Hygge migration");
                 let new_state = run_nv18_migration(self.blockstore(), parent_state, epoch)?;
                 let elapsed = start_time.elapsed().as_secs_f32();
                 if new_state != *parent_state {
-                    info!("state migration successful, took: {elapsed}s",);
+                    info!("state migration successful, took: {elapsed}s");
                 } else {
-                    bail!("State post migration must not match. Previous state: {}, new state: {}. Took {elapsed}s", parent_state, new_state);
+                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
                 }
                 Ok(Some(new_state))
             }
@@ -1288,7 +1290,26 @@ fn run_nv18_migration<DB>(blockstore: &DB, state: &Cid, epoch: ChainEpoch) -> an
 where
     DB: 'static + Blockstore + Clone + Send + Sync,
 {
-    let mut migration = StateMigration::<DB>::new();
+    let state_tree = StateTree::new_from_root(blockstore, state)?;
+
+    // TODO the manifest may not be there, need another way to get it. Perhaps
+    // loading the previous bundle.
+    //    let old_manifest_cid =
+    //        Cid::try_from("
+    // bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy")?;
+    let new_manifest_cid =
+        Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")?;
+    //    let (_, old_manifest_data): (u32, Cid) = state_tree
+    //        .store()
+    //        .get_cbor(&old_manifest_cid)?
+    //        .ok_or_else(|| anyhow!("could not find old state migration
+    // manifest"))?;
+    let (_, new_manifest_data): (u32, Cid) = state_tree
+        .store()
+        .get_cbor(&new_manifest_cid)?
+        .ok_or_else(|| anyhow!("could not find old state migration manifest"))?;
+
+    let mut migration = StateMigration::<DB>::new(new_manifest_data);
     migration.add_nil_migrations();
     migration.add_nv_18_migrations();
 
