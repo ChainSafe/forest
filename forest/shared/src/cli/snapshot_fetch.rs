@@ -32,10 +32,21 @@ use super::Config;
 use crate::cli::to_size_string;
 
 /// Snapshot fetch service provider
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SnapshotServer {
     Forest,
     Filecoin,
+}
+
+impl SnapshotServer {
+    pub fn try_get_default(chain: impl AsRef<str>) -> anyhow::Result<Self> {
+        let chain = chain.as_ref();
+        Ok(match chain.to_lowercase().as_str() {
+            "mainnet" => SnapshotServer::Filecoin,
+            "calibnet" => SnapshotServer::Forest,
+            _ => anyhow::bail!("Fetch not supported for chain {chain}"),
+        })
+    }
 }
 
 impl FromStr for SnapshotServer {
@@ -159,12 +170,8 @@ pub async fn snapshot_fetch(
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let server = match provider {
-        Some(s) => s,
-        None => match config.chain.name.to_lowercase().as_str() {
-            "mainnet" => &SnapshotServer::Filecoin,
-            "calibnet" => &SnapshotServer::Forest,
-            _ => anyhow::bail!("Fetch not supported for chain {}", config.chain.name),
-        },
+        Some(s) => *s,
+        None => SnapshotServer::try_get_default(&config.chain.name)?,
     };
     match server {
         SnapshotServer::Forest => {
