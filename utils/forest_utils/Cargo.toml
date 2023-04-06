@@ -9,6 +9,7 @@ version.workspace = true
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-compression.workspace = true
 async-fs.workspace = true
 async-trait.workspace = true
 atty.workspace = true
