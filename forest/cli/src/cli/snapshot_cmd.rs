@@ -63,7 +63,7 @@ pub enum SnapshotCommands {
         /// Snapshot trusted source
         #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
-        /// Download zstd compressed snapshot, only supported by the filecoin
+        /// Download zstd compressed snapshot, only supported by the Filecoin
         /// provider for now. default is false.
         #[arg(long)]
         compressed: bool,
