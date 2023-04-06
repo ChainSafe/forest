@@ -184,7 +184,7 @@ impl<L: AsyncRead + Unpin, R: AsyncRead + Unpin> AsyncRead for Either<L, R> {
         } else if let Some(right) = self.right_mut() {
             Pin::new(right).poll_read(cx, buf)
         } else {
-            unimplemented!("This branch should never be hit")
+            panic!("This branch should never be hit")
         }
     }
 }
