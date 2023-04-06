@@ -26,7 +26,7 @@ function cov {
     cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
 }
 
-aria2c -x5 -d "$TMP_DIR" -o calibnet_snapshot.zst https://snapshots.calibrationnet.filops.net/minimal/latest.zst
+cov forest-cli --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$TMP_DIR"
 cargo llvm-cov --workspace clean
 cargo llvm-cov --workspace --no-report --features slow_tests
 cov forest-cli --chain calibnet db clean --force
