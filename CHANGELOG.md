@@ -27,6 +27,9 @@
 
 ### Added
 
+- [#2741](https://github.com/ChainSafe/forest/issues/2741): Support importing
+  zstd compressed snapshot car files
+
 ### Changed
 
 ### Removed

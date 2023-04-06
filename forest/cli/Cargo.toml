@@ -10,7 +10,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-fs.workspace = true
 atty = "0.2"
 base64.workspace = true
 boa_engine = { version = "0.16.0", features = ["console"] }

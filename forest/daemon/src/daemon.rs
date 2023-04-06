@@ -636,6 +636,14 @@ mod test {
     }
 
     #[tokio::test]
+    async fn import_snapshot_from_compressed_file_valid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car.zst")
+            .await
+            .is_ok());
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn import_snapshot_from_file_invalid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("Cargo.toml").await.is_err());
         Ok(())
