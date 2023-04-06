@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::ops::{Deref, DerefMut};
+use std::{
+    hash::{Hash, Hasher},
+    ops::{Deref, DerefMut},
+};
 
 pub use fvm_shared::version::NetworkVersion as NetworkVersion_v2;
 pub use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
@@ -22,6 +25,12 @@ use serde::{Deserialize, Serialize};
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct NetworkVersion(pub NetworkVersion_v3);
+
+impl Hash for NetworkVersion {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        u32::from(self.0).hash(state)
+    }
+}
 
 impl NetworkVersion {
     pub const V0: Self = Self(NetworkVersion_v3::new(0));

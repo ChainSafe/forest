@@ -46,7 +46,6 @@ pub type PostMigrationAction<BS> =
 /// - creating new actors that were not present in the prior network version.
 pub struct StateMigration<BS> {
     migrations: HashMap<Cid, Migrator<BS>>,
-    new_manifest_data: Cid,
     /// Verifies correctness of the migration specification.
     verifier: Option<MigrationVerifier<BS>>,
     /// Post migration actions. This may include new actor creation.
@@ -55,13 +54,11 @@ pub struct StateMigration<BS> {
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn new(
-        new_manifest_data: Cid,
         verifier: Option<MigrationVerifier<BS>>,
         post_migration_actions: Vec<PostMigrationAction<BS>>,
     ) -> Self {
         Self {
             migrations: HashMap::new(),
-            new_manifest_data,
             verifier,
             post_migration_actions,
         }

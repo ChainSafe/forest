@@ -3,6 +3,8 @@
 
 use std::sync::Arc;
 
+use ahash::HashMap;
+use cid::Cid;
 use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
@@ -116,6 +118,7 @@ pub struct ChainConfig {
     #[serde(default = "default_policy")]
     pub policy: Policy,
     pub eth_chain_id: u64,
+    pub manifests: HashMap<NetworkVersion, Cid>,
 }
 
 impl ChainConfig {
@@ -129,6 +132,13 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
             eth_chain_id: MAINNET_ETH_CHAIN_ID,
+            manifests: [(
+                NetworkVersion::V18,
+                Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos")
+                    .unwrap(),
+            )]
+            .into_iter()
+            .collect(),
         }
     }
     pub fn calibnet() -> Self {
@@ -141,6 +151,13 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
+            manifests: [(
+                NetworkVersion::V18,
+                Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")
+                    .unwrap(),
+            )]
+            .into_iter()
+            .collect(),
         }
     }
 

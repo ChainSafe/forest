@@ -4009,7 +4009,9 @@ dependencies = [
 name = "forest_networks"
 version = "0.7.1"
 dependencies = [
+ "ahash 0.8.3",
  "anyhow",
+ "cid",
  "fil_actors_runtime_v10",
  "forest_beacon",
  "forest_shim",
@@ -4220,6 +4222,7 @@ dependencies = [
  "fil_actor_system_v10",
  "fil_actor_system_v9",
  "fil_actors_runtime_v10",
+ "forest_networks",
  "forest_shim",
  "forest_utils",
  "fvm_ipld_blockstore",

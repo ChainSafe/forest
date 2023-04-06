@@ -5,10 +5,12 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use cid::Cid;
+use forest_networks::ChainConfig;
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
     state_tree::{ActorState, StateTree, StateTreeVersion},
+    version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -17,17 +19,25 @@ use fvm_ipld_encoding::CborStore;
 use super::{calibnet, eam::create_eam_actor, verifier::Verifier};
 use crate::{PostMigrationAction, StateMigration};
 
-pub fn run_migration<DB>(blockstore: &DB, state: &Cid, epoch: ChainEpoch) -> anyhow::Result<Cid>
+pub fn run_migration<DB>(
+    chain_config: &ChainConfig,
+    blockstore: &DB,
+    state: &Cid,
+    epoch: ChainEpoch,
+) -> anyhow::Result<Cid>
 where
     DB: 'static + Blockstore + Clone + Send + Sync,
 {
     let state_tree = StateTree::new_from_root(blockstore, state)?;
 
-    let new_manifest_cid =
-        Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")?;
+    let new_manifest_cid = chain_config
+        .manifests
+        .get(&NetworkVersion::V18)
+        .ok_or_else(|| anyhow!("no manifest for network version NV18"))?;
+
     let (_, new_manifest_data): (u32, Cid) = state_tree
         .store()
-        .get_cbor(&new_manifest_cid)?
+        .get_cbor(new_manifest_cid)?
         .ok_or_else(|| anyhow!("could not find old state migration manifest"))?;
 
     let verifier = Arc::new(Verifier::default());
@@ -66,8 +76,7 @@ where
         .map(|action| Arc::new(action) as PostMigrationAction<DB>)
         .collect();
 
-    let mut migration =
-        StateMigration::<DB>::new(new_manifest_data, Some(verifier), post_migration_actions);
+    let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
     migration.add_nil_migrations();
     migration.add_nv_18_migrations();
 

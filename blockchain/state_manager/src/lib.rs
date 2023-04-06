@@ -452,6 +452,7 @@ where
                 info!("Running Hygge migration at epoch {epoch}");
                 let start_time = time::Instant::now();
                 let new_state = forest_state_migration::run_nv18_migration(
+                    &self.chain_config,
                     self.blockstore(),
                     parent_state,
                     epoch,
