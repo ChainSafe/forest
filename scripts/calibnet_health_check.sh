@@ -107,7 +107,7 @@ echo "Wallet tests"
 # The following steps does basic wallet handling tests.
 
 # Amount to send to
-FIL_AMT=500attoFIL
+FIL_AMT="500 atto FIL"
 
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH wallet import preloaded_wallet.key
