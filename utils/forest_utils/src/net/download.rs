@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
+    io::SeekFrom,
+    path::Path,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
 
+use async_compression::futures::bufread::ZstdDecoder;
 use futures::{
     io::BufReader,
     stream::{IntoAsyncRead, MapErr},
-    AsyncRead, TryStreamExt,
+    AsyncRead, AsyncReadExt, AsyncSeekExt, TryStreamExt,
 };
 use pin_project_lite::pin_project;
 use thiserror::Error;
@@ -31,12 +34,6 @@ pin_project! {
         #[pin]
         pub inner: R,
         pub progress_bar: ProgressBar,
-    }
-}
-
-impl<R> FetchProgress<R> {
-    pub fn finish(&mut self) {
-        self.progress_bar.finish();
     }
 }
 
@@ -93,7 +90,7 @@ impl FetchProgress<DownloadStream> {
 }
 
 impl FetchProgress<BufReader<async_fs::File>> {
-    pub async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
+    async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
         let total_size = file.metadata().await?.len();
 
         let pb = ProgressBar::new(total_size);
@@ -105,5 +102,89 @@ impl FetchProgress<BufReader<async_fs::File>> {
             progress_bar: pb,
             inner: BufReader::new(file),
         })
+    }
+}
+
+impl FetchProgress<ZstdDecoder<BufReader<async_fs::File>>> {
+    async fn fetch_from_zstd_compressed_file(file: async_fs::File) -> anyhow::Result<Self> {
+        let total_size = file.metadata().await?.len();
+
+        let pb = ProgressBar::new(total_size);
+        pb.message("Importing snapshot ");
+        pb.set_units(crate::io::progress_bar::Units::Bytes);
+        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
+
+        let inner = ZstdDecoder::new(BufReader::new(file));
+
+        Ok(FetchProgress {
+            progress_bar: pb,
+            inner,
+        })
+    }
+}
+
+pub async fn get_fetch_progress_from_file(
+    file_path: impl AsRef<Path>,
+) -> anyhow::Result<
+    Either<
+        FetchProgress<BufReader<async_fs::File>>,
+        FetchProgress<ZstdDecoder<BufReader<async_fs::File>>>,
+    >,
+> {
+    let mut file = async_fs::File::open(file_path.as_ref()).await?;
+    let is_zstd_compressed = {
+        let mut header = [0; 4];
+        file.read_exact(&mut header).await?;
+        file.seek(SeekFrom::Start(0)).await?;
+        // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
+        header == [0x28, 0xb5, 0x2f, 0xfd]
+    };
+    log::info!(
+        "Loading {}, is_zstd_compressed: {is_zstd_compressed}",
+        file_path.as_ref().display()
+    );
+    if is_zstd_compressed {
+        Ok(Either::Right(
+            FetchProgress::fetch_from_zstd_compressed_file(file).await?,
+        ))
+    } else {
+        Ok(Either::Left(FetchProgress::fetch_from_file(file).await?))
+    }
+}
+
+pub enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
+impl<L, R> Either<L, R> {
+    fn left_mut(&mut self) -> Option<&mut L> {
+        match self {
+            Self::Left(left) => Some(left),
+            _ => None,
+        }
+    }
+
+    fn right_mut(&mut self) -> Option<&mut R> {
+        match self {
+            Self::Right(right) => Some(right),
+            _ => None,
+        }
+    }
+}
+
+impl<L: AsyncRead + Unpin, R: AsyncRead + Unpin> AsyncRead for Either<L, R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        if let Some(left) = self.left_mut() {
+            Pin::new(left).poll_read(cx, buf)
+        } else if let Some(right) = self.right_mut() {
+            Pin::new(right).poll_read(cx, buf)
+        } else {
+            panic!("This branch should never be hit")
+        }
     }
 }
