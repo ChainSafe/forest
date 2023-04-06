@@ -464,10 +464,9 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        // FIXME: change this to `config.chain.name == "mainnet"` once https://github.com/ChainSafe/forest/pull/2748 is merged
-        // And to `true` once zstd compressed snapshots is supported by the forest
-        // provider
-        let use_compressed = false; // config.chain.name == "mainnet";
+        // FIXME: change this to `true` once zstd compressed snapshots is supported by
+        // the forest provider
+        let use_compressed = config.chain.name == "mainnet";
         let path = retry!(
             snapshot_fetch,
             config.daemon.default_retry,
