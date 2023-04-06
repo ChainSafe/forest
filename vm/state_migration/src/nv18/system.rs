@@ -8,15 +8,21 @@ use fil_actor_system_v10::State as StateV10;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use super::calibnet;
 use crate::{ActorMigration, ActorMigrationInput, MigrationOutput};
 
-pub struct SystemMigrator(Cid);
+pub struct SystemMigrator {
+    new_builtin_actors_cid: Cid,
+    new_code_cid: Cid,
+}
 
 pub fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
-    cid: Cid,
+    new_builtin_actors_cid: Cid,
+    new_code_cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
-    Arc::new(SystemMigrator(cid))
+    Arc::new(SystemMigrator {
+        new_builtin_actors_cid,
+        new_code_cid,
+    })
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for SystemMigrator {
@@ -25,16 +31,13 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for SystemMigrator
         store: BS,
         _input: ActorMigrationInput,
     ) -> anyhow::Result<MigrationOutput> {
-        // TODO get it in a sane way from manifest
         let state = StateV10 {
-            builtin_actors: Cid::try_from(
-                "bafy2bzacec4ayvs43rn4j3ve3usnk4f2mor6wbxqkahjyokvd6ti2rclq35du",
-            )?,
+            builtin_actors: self.new_builtin_actors_cid,
         };
         let new_head = store.put_obj(&state, Blake2b256)?;
 
         Ok(MigrationOutput {
-            new_code_cid: self.0,
+            new_code_cid: self.new_code_cid,
             new_head,
         })
     }

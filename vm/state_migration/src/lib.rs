@@ -15,10 +15,10 @@ use forest_shim::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
+pub use nv18::migration::run_migration as run_nv18_migration;
 use parking_lot::Mutex;
 
 mod nv18;
-pub use nv18::migration::run_migration as run_nv18_migration;
 
 pub type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 

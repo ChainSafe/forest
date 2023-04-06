@@ -29,17 +29,17 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigrationVerifier<BS> for Verifi
         let system_actor_state = store
             .get_obj::<SystemStateV9>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
-        let previous_manifest_data = system_actor_state.builtin_actors;
+        let manifest_data = system_actor_state.builtin_actors;
 
-        let previous_manifest = ManifestV2::load(&store, &previous_manifest_data, 1)?;
-        let previous_manifest_actors_count = previous_manifest.builtin_actor_codes().count();
-        if previous_manifest_actors_count == migrations.len() {
+        let manifest = ManifestV2::load(&store, &manifest_data, 1)?;
+        let manifest_actors_count = manifest.builtin_actor_codes().count();
+        if manifest_actors_count == migrations.len() {
             debug!("Migration spec is correct.");
         } else {
             warn!(
                 "Incomplete migration spec. Count: {}, expected: {}",
                 migrations.len(),
-                previous_manifest_actors_count
+                manifest_actors_count
             );
         }
 

@@ -652,7 +652,8 @@ async fn get_actors_bundle(config: &Config) -> anyhow::Result<BufReader<File>> {
     }
 
     info!("Downloading actors bundle...");
-    let url = "https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car";
+    // TODO handle this mess somehow
+    let url = "https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car";
     let reader = FetchProgress::fetch_from_url(url.try_into()?).await?.inner;
 
     let file = File::create(&bundle_path).await?;
