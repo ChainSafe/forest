@@ -76,11 +76,10 @@ end
 
 def get_last_epoch(benchmark)
   epoch = nil
-  loop do
+  while epoch.nil?
+    # epoch can be nil (e.g. if the client is in the "fetchting messages" stage)
     epoch = benchmark.epoch_command
     sleep 0.5
-    # epoch can be nil (e.g. if client is in "fetchting messages" stage)
-    break if epoch
   end
   epoch
 end
