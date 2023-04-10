@@ -21,7 +21,8 @@ during `bundle install` on a \*nix machine, it may also be necessary to execute
 `apt-get update && apt-get install -y build-essential`.
 
 The daily benchmarks also require the installation of
-[aria2](https://github.com/aria2/aria2), as well as dependencies required for
+[aria2](https://github.com/aria2/aria2) and
+[zstd](https://github.com/facebook/zstd), as well as dependencies required for
 the installation of [Forest](https://github.com/ChainSafe/forest) and
 [Lotus](https://github.com/filecoin-project/lotus) (note that the script handles
 installation of the Forest and Lotus binaries).
