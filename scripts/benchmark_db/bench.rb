@@ -247,8 +247,8 @@ def download_snapshot(output_dir: WORKING_DIR, chain: 'calibnet', url: nil)
   download_and_move(url, output_dir)
 end
 
-# Base benchmark class
-class Benchmark
+# Base benchmark class (not usable on its own)
+class BenchmarkBase
   attr_reader :name, :metrics
   attr_accessor :dry_run, :snapshot_path, :heights, :chain
 
@@ -380,7 +380,7 @@ class Benchmark
 end
 
 # Forest benchmark class
-class ForestBenchmark < Benchmark
+class ForestBenchmark < BenchmarkBase
   def default_config
     toml_str = syscall(target_cli, '--chain', @chain, 'config', 'dump')
 
@@ -488,7 +488,7 @@ class MimallocBenchmark < ForestBenchmark
 end
 
 # Lotus benchmark class
-class LotusBenchmark < Benchmark
+class LotusBenchmark < BenchmarkBase
   def default_config
     toml_str = syscall(target, 'config', 'default')
 

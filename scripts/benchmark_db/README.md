@@ -8,9 +8,10 @@ tipsets/min).
 ## Install dependencies
 
 [Install Ruby](https://www.ruby-lang.org/en/documentation/installation/) first.
-Then go into `scripts/benchmark_db` and execute:
+Then go into `scripts/benchmark_db` and execute the following commands:
 
 ```
+$ bundle config set --local path 'vendor/bundle'
 $ bundle install
 ```
 
