@@ -45,6 +45,7 @@ macro_rules! retry {
                         info!("Maximum retries exceeded.");
                         break Err(err);
                     }
+                    log::warn!("{err:?}");
                     info!("Retry attempt {} started with delay {:#?}.", retry_count, $delay);
                     sleep($delay).await;
                 }
