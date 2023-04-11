@@ -26,14 +26,14 @@ function cov {
     cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
 }
 
-aria2c -x5 -d "$TMP_DIR" -o calibnet_snapshot.zst https://snapshots.calibrationnet.filops.net/minimal/latest.zst
 cargo llvm-cov --workspace clean
 cargo llvm-cov --workspace --no-report --features slow_tests
 cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
+cov forest-cli --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.zst | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --halt-after-import --height=-200 --track-peak-rss
 cov forest-cli --chain calibnet db clean --force
+cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss
 cov forest-cli sync wait
