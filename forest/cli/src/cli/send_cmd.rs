@@ -24,7 +24,7 @@ impl FromStr for FILAmount {
         let suffix_idx = s.rfind(char::is_numeric);
         let (val, suffix) = match suffix_idx {
             Some(idx) => s.split_at(idx + 1),
-            None => return Err(anyhow::anyhow!("failed to parse string: {}", s)),
+            None => anyhow::bail!("failed to parse string: {}", s),
         };
 
         let mut multiplier = dec!(1.0);
@@ -56,7 +56,7 @@ impl FromStr for FILAmount {
                 ""
             }
             _ => {
-                return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix));
+                anyhow::bail!("unrecognized suffix: {}", suffix);
             }
         };
 
@@ -68,10 +68,7 @@ impl FromStr for FILAmount {
             .map_err(|_| anyhow::anyhow!("failed to parse {} as a decimal number", val))?;
 
         let attofil_val = if (parsed_val * multiplier).normalize().scale() != 0 {
-            return Err(anyhow::anyhow!(
-                "{} must convert to a whole attoFIL value",
-                &s
-            ));
+            anyhow::bail!("{} must convert to a whole attoFIL value", &s);
         } else {
             (parsed_val * multiplier).trunc().to_u128()
         };
@@ -79,10 +76,7 @@ impl FromStr for FILAmount {
         let token_amount = match attofil_val {
             Some(attofil_amt) => TokenAmount::from_atto(BigInt::from(attofil_amt)),
             None => {
-                return Err(anyhow::anyhow!(
-                    "{} must convert to a whole attoFIL value",
-                    &s
-                ))
+                anyhow::bail!("{} must convert to a whole attoFIL value", &s)
             }
         };
 
