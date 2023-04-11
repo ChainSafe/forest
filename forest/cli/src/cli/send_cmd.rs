@@ -30,7 +30,7 @@ impl FromStr for FILAmount {
 
         let mut multiplier = dec!(1.0);
         let suffix = suffix.trim().to_lowercase();
-        let prefix = match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
+        match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
             "atto" | "a" => "atto",
             "femto" => {
                 multiplier *= dec!(1e3);
@@ -68,15 +68,15 @@ impl FromStr for FILAmount {
         let parsed_val = Decimal::from_str(val)
             .map_err(|_| anyhow::anyhow!("failed to parse {} as a decimal number", val))?;
 
-        let attofil_val = if (parsed_val * multiplier).fract() != dec!(0.0) {
-            return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val));
+        let attofil_val = if (parsed_val * multiplier).normalize().scale() != 0 {
+            return Err(anyhow::anyhow!("{} must convert to a whole attoFIL value", &s));
         } else {
             (parsed_val * multiplier).trunc().to_u128()
         };
 
         let token_amount = match attofil_val {
             Some(attofil_amt) => TokenAmount::from_atto(BigInt::from(attofil_amt)),
-            None => return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val)),
+            None => return Err(anyhow::anyhow!("{} must convert to a whole attoFIL value", &s)),
         };
 
         Ok(FILAmount {
