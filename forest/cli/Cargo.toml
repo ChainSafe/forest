@@ -47,6 +47,7 @@ human-repr.workspace = true
 jsonrpc-v2.workspace = true
 log.workspace = true
 multibase.workspace = true
+num-bigint.workspace = true
 num.workspace = true
 rpassword.workspace = true
 rust_decimal = "1.28.1"
