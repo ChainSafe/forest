@@ -7,12 +7,10 @@ mod tests {
 
     use forest_cli::cli::{
         send_cmd::FILAmount,
-        wallet_cmd::{bool_pair_to_mode, format_balance_string},
+        wallet_cmd::{format_balance_string, FormattingMode},
     };
     use fvm_shared::econ::TokenAmount;
-    use num::BigInt;
     use quickcheck_macros::quickcheck;
-    const FILECOIN_PRECISION: u64 = 1_000_000_000_000_000_000;
 
     #[test]
     fn invalid_attofil_amount() {
