@@ -79,7 +79,7 @@ where
             .chain_store()
             .tipset_from_keys(ts.parents())?;
     }
-    return Ok(pending.into_iter().map(SignedMessageJson::from).collect());
+    Ok(pending.into_iter().map(SignedMessageJson::from).collect())
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
