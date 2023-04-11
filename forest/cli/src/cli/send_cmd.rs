@@ -29,40 +29,36 @@ impl FromStr for FILAmount {
         let suffix = suffix.replace(' ', "");
 
         let mut multiplier = dec!(1.0);
-        let prefix = if !suffix.is_empty() {
-            match suffix.trim().to_lowercase().strip_suffix("fil") {
-                Some("atto" | "a") => "atto",
-                Some("femto") => {
-                    multiplier *= dec!(1_000);
-                    "femto"
-                }
-                Some("pico") => {
-                    multiplier *= dec!(1_000_000);
-                    "pico"
-                }
-                Some("nano") => {
-                    multiplier *= dec!(1_000_000_000);
-                    "nano"
-                }
-                Some("micro") => {
-                    multiplier *= dec!(1_000_000_000_000);
-                    "micro"
-                }
-                Some("milli") => {
-                    multiplier *= dec!(1_000_000_000_000_000);
-                    "milli"
-                }
-                Some("" | " ") => {
-                    multiplier *= dec!(1_000_000_000_000_000_000);
-                    ""
-                }
-                _ => {
-                    return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix));
-                }
+        let suffix = suffix.trim().to_lowercase();
+        let prefix = match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
+            "atto" | "a" => "atto",
+            "femto" => {
+                multiplier *= dec!(1e3);
+                "femto"
             }
-        } else {
-            multiplier *= dec!(1_000_000_000_000_000_000);
-            ""
+            "pico" => {
+                multiplier *= dec!(1e6);
+                "pico"
+            }
+            "nano" => {
+                multiplier *= dec!(1e9);
+                "nano"
+            }
+            "micro" => {
+                multiplier *= dec!(1e12);
+                "micro"
+            }
+            "milli" => {
+                multiplier *= dec!(1e15);
+                "milli"
+            }
+            "" => {
+                multiplier *= dec!(1e18);
+                ""
+            }
+            _ => {
+                return Err(anyhow::anyhow!("unrecognized suffix: {}", suffix));
+            }
         };
 
         if val.chars().count() > 50 {
