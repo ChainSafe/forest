@@ -4,9 +4,8 @@
 use std::sync::Arc;
 
 use ahash::HashSet;
-use anyhow::bail;
 use cid::Cid;
-use fil_actor_interface::{cron, reward, system::State, AwardBlockRewardParams, NETWORK_MANIFESTS};
+use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use forest_shim::{
@@ -15,7 +14,7 @@ use forest_shim::{
     error::ExitCode,
     executor::{ApplyRet, Receipt},
     message::{Message, Message_v3},
-    state_tree::{ActorState, StateTree},
+    state_tree::ActorState,
     version::NetworkVersion,
     Inner,
 };
@@ -35,9 +34,8 @@ use fvm3::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_ipld_encoding3::{CborStore, RawBytes};
+use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
-use log::info;
 use num::Zero;
 
 use crate::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};

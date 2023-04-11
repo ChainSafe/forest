@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! This module contains the migration logic for the NV18 upgrade for the Init
+//! actor.
+
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -11,18 +14,16 @@ use forest_shim::{address::Address, state_tree::ActorID};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::{ActorMigration, ActorMigrationInput, MigrationOutput};
+use crate::common::{ActorMigration, ActorMigrationInput, MigrationOutput};
 
 pub struct InitMigrator(Cid);
 
-pub fn init_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(crate) fn init_migrator<BS: Blockstore + Clone + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(InitMigrator(cid))
 }
 
-// each actor's state migration is read from blockstore, changes state tree, and
-// writes back to the blockstore.
 impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
     fn migrate_state(
         &self,

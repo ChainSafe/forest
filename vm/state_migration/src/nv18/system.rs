@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! This module contains the migration logic for the NV18 upgrade for the System
+//! actor.
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -8,14 +10,14 @@ use fil_actor_system_v10::State as StateV10;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::{ActorMigration, ActorMigrationInput, MigrationOutput};
+use crate::common::{ActorMigration, ActorMigrationInput, MigrationOutput};
 
-pub struct SystemMigrator {
+pub(crate) struct SystemMigrator {
     new_builtin_actors_cid: Cid,
     new_code_cid: Cid,
 }
 
-pub fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(crate) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
     new_builtin_actors_cid: Cid,
     new_code_cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {

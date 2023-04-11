@@ -25,8 +25,8 @@ forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
 forest_networks.workspace = true
 forest_shim.workspace = true
-forest_utils.workspace = true
 forest_state_migration.workspace = true
+forest_utils.workspace = true
 futures.workspace = true
 fvm.workspace = true
 fvm3.workspace = true
@@ -42,7 +42,6 @@ num.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true
 prometheus.workspace = true
-fil_actor_init_v10.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }

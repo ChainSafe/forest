@@ -4172,7 +4172,6 @@ dependencies = [
  "blake2b_simd",
  "byteorder",
  "cid",
- "fil_actor_init_v10",
  "fil_actor_interface",
  "fil_actors_runtime_v10",
  "filecoin-proofs-api",
@@ -4227,13 +4226,9 @@ dependencies = [
  "forest_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.3.0",
- "lazy_static",
  "log",
  "num_cpus",
- "parking_lot 0.12.1",
  "rayon",
- "thiserror",
 ]
 
 [[package]]

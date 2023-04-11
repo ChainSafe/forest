@@ -10,7 +10,7 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, warn};
 
-use crate::{ActorMigrationVerifier, Migrator};
+use crate::common::{verifier::ActorMigrationVerifier, Migrator};
 
 #[derive(Default)]
 pub struct Verifier {}

@@ -35,7 +35,7 @@ use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, net::FetchProgress, retry};
-use futures::{select, FutureExt, TryStreamExt};
+use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
