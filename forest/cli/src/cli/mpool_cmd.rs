@@ -87,8 +87,7 @@ impl MpoolCommands {
             } => {
                 let tipset_json = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
                 let tipset = tipset_json.0;
 
                 let current_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
@@ -102,8 +101,7 @@ impl MpoolCommands {
                         &config.client.rpc_token,
                     )
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap()
+                    .map_err(handle_rpc_err)?
                     .0;
 
                     if current_tipset.blocks()[0].parent_base_fee() < &min_base_fee {
@@ -112,8 +110,7 @@ impl MpoolCommands {
 
                     let wallet_response = wallet_list((), &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)
-                        .unwrap();
+                        .map_err(handle_rpc_err)?;
 
                     let mut addresses = Vec::new();
 
@@ -126,8 +123,7 @@ impl MpoolCommands {
 
                     let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)
-                        .unwrap();
+                        .map_err(handle_rpc_err)?;
 
                     struct StatBucket {
                         messages: HashMap<u64, SignedMessage>,
