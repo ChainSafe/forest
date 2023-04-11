@@ -27,33 +27,26 @@ impl FromStr for FILAmount {
             None => anyhow::bail!("failed to parse string: {}", s),
         };
 
-        let mut multiplier = dec!(1.0);
         let suffix = suffix.replacen(' ', "", 1).trim().to_lowercase();
-        match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
-            "atto" | "a" => "atto",
+        let multiplier = match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
+            "atto" | "a" => dec!(1e0),
             "femto" => {
-                multiplier *= dec!(1e3);
-                "femto"
+                dec!(1e3)
             }
             "pico" => {
-                multiplier *= dec!(1e6);
-                "pico"
+                dec!(1e6)
             }
             "nano" => {
-                multiplier *= dec!(1e9);
-                "nano"
+                dec!(1e9)
             }
             "micro" => {
-                multiplier *= dec!(1e12);
-                "micro"
+                dec!(1e12)
             }
             "milli" => {
-                multiplier *= dec!(1e15);
-                "milli"
+                dec!(1e15)
             }
             "" => {
-                multiplier *= dec!(1e18);
-                ""
+                dec!(1e18)
             }
             _ => {
                 anyhow::bail!("unrecognized suffix: {}", suffix);
