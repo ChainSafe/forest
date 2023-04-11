@@ -86,6 +86,13 @@ mod tests {
     }
 
     #[test]
+    fn malformatted_fil_suffix() {
+        //fails with bad suffix
+        let amount = "42 fem to fil";
+        assert!(FILAmount::from_str(amount).is_err());
+    }
+
+    #[test]
     fn negative_fil_value() {
         //fails with negative value
         let amount = "-1FIL";
