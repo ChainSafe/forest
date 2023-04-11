@@ -9,15 +9,13 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_state_manager::StateManager;
 use forest_utils::{
     db::{BlockstoreBufferedWriteExt, BlockstoreExt},
-    net::FetchProgress,
+    net::{get_fetch_progress_from_file, FetchProgress},
 };
+use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
-use tokio::{
-    fs::File,
-    io::{AsyncRead, BufReader},
-};
+use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
@@ -38,14 +36,14 @@ where
         Some(path) => {
             let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader, db).await?
+            process_car(reader.compat(), db).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader, db).await?
+            process_car(reader.compat(), db).await?
         }
     };
 
@@ -88,7 +86,7 @@ where
     BS: Blockstore + Send + Sync,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(db, reader.compat()).await?;
+    let genesis_cids: Vec<Cid> = load_car(db, reader).await?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
@@ -123,8 +121,7 @@ where
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
-        let file = File::open(&path).await?;
-        let reader = FetchProgress::fetch_from_file(file).await?;
+        let reader = get_fetch_progress_from_file(&path).await?;
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
 
@@ -166,20 +163,18 @@ where
 /// header.
 async fn load_and_retrieve_header<DB, R>(
     store: DB,
-    reader: FetchProgress<R>,
+    mut reader: R,
     skip_load: bool,
 ) -> anyhow::Result<Vec<Cid>>
 where
     DB: Blockstore + Send + Sync + 'static,
     R: AsyncRead + Send + Unpin,
 {
-    let mut compat = reader.compat();
     let result = if skip_load {
-        CarReader::new(&mut compat).await?.header.roots
+        CarReader::new(&mut reader).await?.header.roots
     } else {
-        forest_load_car(store, &mut compat).await?
+        forest_load_car(store, &mut reader).await?
     };
-    compat.into_inner().finish();
 
     Ok(result)
 }

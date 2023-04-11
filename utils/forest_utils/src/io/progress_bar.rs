@@ -82,7 +82,7 @@ impl ProgressBar {
         }
     }
 
-    pub fn finish(&self) {
+    pub(self) fn finish(&self) {
         if self.display {
             self.inner.borrow_mut().finish();
         }
@@ -106,6 +106,12 @@ impl ProgressBar {
             ProgressBarVisibility::Auto => atty::is(atty::Stream::Stdout),
             ProgressBarVisibility::Never => false,
         }
+    }
+}
+
+impl Drop for ProgressBar {
+    fn drop(&mut self) {
+        self.finish()
     }
 }
 

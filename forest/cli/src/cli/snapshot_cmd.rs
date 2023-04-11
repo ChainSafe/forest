@@ -16,14 +16,13 @@ use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet, DEFAULT_RECENT_STATE_ROOTS};
 use forest_rpc_api::chain_api::ChainExportParams;
 use forest_rpc_client::chain_ops::*;
-use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
+use forest_utils::{io::parser::parse_duration, net::get_fetch_progress_from_file, retry};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio::time::sleep;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -408,9 +407,8 @@ async fn validate(
         )?);
 
         let cids = {
-            let file = tokio::fs::File::open(&snapshot).await?;
-            let reader = FetchProgress::fetch_from_file(file).await?;
-            forest_load_car(chain_store.blockstore().clone(), reader.compat()).await?
+            let reader = get_fetch_progress_from_file(&snapshot).await?;
+            forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
@@ -492,7 +490,8 @@ where
         pb.set((ts.epoch() - tipset.epoch()) as u64);
     }
 
-    pb.finish();
+    drop(pb);
+
     println!("Snapshot is valid");
 
     Ok(())

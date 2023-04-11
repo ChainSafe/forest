@@ -168,7 +168,7 @@ impl NetworkBehaviour for ChainExchangeBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl PollParameters,
-    ) -> std::task::Poll<NetworkBehaviourAction<Self::OutEvent, THandlerInEvent<Self>>> {
+    ) -> std::task::Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
         self.inner.poll(cx, params)
     }
 }

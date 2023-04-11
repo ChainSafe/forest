@@ -30,6 +30,13 @@ echo "$1" > preloaded_wallet.key
 
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
+echo "Downloading zstd compressed snapshot"
+aria2c -x5 -d "$SNAPSHOT_DIRECTORY" -o calibnet_snapshot.zst https://snapshots.calibrationnet.filops.net/minimal/latest.zst
+echo "Importing zstd compressed snapshot"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+
 echo "Downloading snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
 
@@ -80,6 +87,20 @@ $FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car 
 echo "Print forest log files"
 ls -hl "$LOG_DIRECTORY"
 cat "$LOG_DIRECTORY"/*
+
+# Get the checkpoint hash at epoch 424000. This output isn't affected by the
+# number of recent state roots we store (2k at the time of writing) and this
+# output should never change.
+echo "Checkpoint hash test"
+EXPECTED_HASH="Chain:           calibnet
+Epoch:           424000
+Checkpoint hash: 8cab45fd441c1fb68d2fd7e45d5e9ef9a5d3b45f68b414ab3e244233dd8e37fc4dacffc8966b2dc8804d4abf92c8a57efda743e26db6805a77a4feac19478293"
+ACTUAL_HASH=$($FOREST_CLI_PATH --chain calibnet chain tipset-hash 424000)
+if [[ $EXPECTED_HASH != "$ACTUAL_HASH" ]]; then
+  printf "Invalid tipset hash:\n%s" "$ACTUAL_HASH"
+  printf "Expected:\n%s" "$EXPECTED_HASH"
+  exit 1
+fi
 
 echo "Wallet tests"
 
