@@ -73,7 +73,7 @@ mod tests {
     fn convert_fil_to_attofil() {
         //expected attofil amount matches actual amount after conversion from FIL
         let fil_amount = "1FIL";
-        let attofil_amount = TokenAmount::from_atto(BigInt::from(FILECOIN_PRECISION));
+        let attofil_amount = TokenAmount::from_whole(1);
         assert_eq!(
             FILAmount::from_str(fil_amount).unwrap().value,
             attofil_amount
@@ -98,7 +98,7 @@ mod tests {
     fn fil_quickcheck_test(n: u64) {
         let token_amount = TokenAmount::from_atto(n);
         let formatted =
-            format_balance_string(token_amount.clone(), bool_pair_to_mode(true, false)).unwrap();
+            format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
         let parsed = FILAmount::from_str(&formatted).unwrap().value;
         assert_eq!(token_amount, parsed);
     }

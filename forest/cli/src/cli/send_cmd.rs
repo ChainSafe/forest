@@ -66,21 +66,16 @@ impl FromStr for FILAmount {
         };
 
         if val.chars().count() > 50 {
-            return Err(anyhow::anyhow!(
+            anyhow::bail!!(
                 "string length too large: {}",
                 val.chars().count()
             ));
         }
 
-        let parsed_val = match Decimal::from_str(val) {
-            Ok(value) => value,
-            Err(_) => {
-                return Err(anyhow::anyhow!(
+        let parsed_val = Decimal::from_str(val).map_err(|_| anyhow::anyhow!(
                     "failed to parse {} as a decimal number",
-                    val
-                ))
-            }
-        };
+                    val)
+                )?;
 
         let attofil_val = if (parsed_val * multiplier).fract() != dec!(0.0) {
             return Err(anyhow::anyhow!("invalid {}FIL value: {}", prefix, val));
