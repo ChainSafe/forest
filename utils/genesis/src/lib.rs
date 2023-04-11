@@ -9,7 +9,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_state_manager::StateManager;
 use forest_utils::{
     db::{BlockstoreBufferedWriteExt, BlockstoreExt},
-    net::FetchProgress,
+    net::{get_fetch_progress_from_file, FetchProgress},
 };
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
@@ -121,8 +121,7 @@ where
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
-        let file = async_fs::File::open(&path).await?;
-        let reader = FetchProgress::fetch_from_file(file).await?;
+        let reader = get_fetch_progress_from_file(&path).await?;
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
 
@@ -164,7 +163,7 @@ where
 /// header.
 async fn load_and_retrieve_header<DB, R>(
     store: DB,
-    mut reader: FetchProgress<R>,
+    mut reader: R,
     skip_load: bool,
 ) -> anyhow::Result<Vec<Cid>>
 where
@@ -176,7 +175,6 @@ where
     } else {
         forest_load_car(store, &mut reader).await?
     };
-    reader.finish();
 
     Ok(result)
 }
