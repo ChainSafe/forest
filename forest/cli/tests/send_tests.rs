@@ -107,4 +107,14 @@ mod tests {
         let parsed = FILAmount::from_str(&formatted).unwrap().value;
         assert_eq!(token_amount, parsed);
     }
+
+    #[quickcheck]
+    fn attofil_quickcheck_test(n: u64) {
+        let norm_n = n as f64 / u64::MAX as f64 * 1000.0;
+        let token_amount = TokenAmount::from_atto(norm_n as u64);
+        let formatted =
+            format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
+        let parsed = FILAmount::from_str(&formatted).unwrap().value;
+        assert_eq!(token_amount, parsed);
+    }
 }
