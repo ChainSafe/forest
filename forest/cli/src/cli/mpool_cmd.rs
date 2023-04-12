@@ -21,19 +21,19 @@ pub enum MpoolCommands {
         /// Print pending messages for addresses in local wallet only
         #[arg(long)]
         local: bool,
-        /// Only print cids of messages in output
+        /// Only print `CIDs` of messages in output
         #[arg(long)]
         cids: bool,
         /// Return messages to a given address
         #[arg(long)]
         to: Option<Address>,
-        /// Return messages from a given addres
+        /// Return messages from a given address
         #[arg(long)]
         from: Option<Address>,
     },
     /// Print mempool stats
     Stat {
-        /// Number of blocks to look back for minimum basefee
+        /// Number of blocks to look back for minimum `basefee`
         #[arg(short, default_value = "60")]
         base_fee_lookback: u32,
         /// Print stats for addresses in local wallet only
