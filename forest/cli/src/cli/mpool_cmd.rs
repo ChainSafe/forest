@@ -103,10 +103,8 @@ impl MpoolCommands {
                         .map_err(handle_rpc_err)?
                         .0;
 
-                        let new_base_fee = current_tipset.blocks()[0].parent_base_fee().clone();
-                        if new_base_fee < min_base_fee {
-                            min_base_fee = new_base_fee;
-                        }
+                        min_base_fee = min_base_fee
+                            .min(current_tipset.blocks()[0].parent_base_fee().to_owned());
                     }
                     min_base_fee
                 };
