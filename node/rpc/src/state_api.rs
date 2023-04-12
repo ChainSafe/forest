@@ -86,6 +86,13 @@ pub(crate) async fn state_get_network_version<
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
+pub(crate) async fn state_get_actor<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateGetActorParams>,
+) -> Result<StateGetActorResult, JsonRpcError> {
+    todo!()
+}
+
 /// looks up the Escrow and Locked balances of the given address in the Storage
 /// Market
 pub(crate) async fn state_market_balance<
