@@ -33,7 +33,10 @@ mod tests {
     fn valid_attofil_amount_test2() {
         //valid attofil amount passes
         let amount = "1234 afil";
-        assert!(FILAmount::from_str(amount).is_ok());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_atto(1234)
+        );
     }
 
     #[test]
