@@ -8,6 +8,8 @@ use std::{
 };
 
 use anyhow::Result;
+use async_compression::futures::write::ZstdEncoder;
+use async_fs::File as AsyncFile;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -23,16 +25,13 @@ use forest_utils::{
     db::BlockstoreExt,
     io::{AsyncWriterWithChecksum, VoidAsyncWriterWithNoChecksum},
 };
+use futures::{io::BufWriter, AsyncWriteExt};
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
 use tempfile::NamedTempFile;
-use tokio::{
-    fs::File,
-    io::{AsyncWriteExt, BufWriter},
-    sync::Mutex,
-};
+use tokio::sync::Mutex;
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -58,7 +57,8 @@ pub(crate) async fn chain_export<DB, B>(
         recent_roots,
         output_path,
         tipset_keys: TipsetKeysJson(tsk),
-        skip_checksum,
+        compressed,
+        mut skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
 ) -> Result<ChainExportResult, JsonRpcError>
@@ -66,6 +66,11 @@ where
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
+    // Skip checksum when in compression mode
+    if !skip_checksum && compressed {
+        skip_checksum = true;
+    }
+
     lazy_static::lazy_static! {
         static ref LOCK: Mutex<()> = Mutex::new(());
     }
@@ -98,22 +103,32 @@ where
             )
             .await
     } else {
-        let file = File::from_std(tmp_file.reopen()?);
-        data.chain_store
-            .export(
-                &start_ts,
-                recent_roots,
-                AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file)),
-            )
-            .await
+        let file = async_fs::File::from(tmp_file.reopen()?);
+        if compressed {
+            data.chain_store
+                .export(
+                    &start_ts,
+                    recent_roots,
+                    AsyncWriterWithChecksum::<Sha256, _>::new(ZstdEncoder::new(file), false),
+                )
+                .await
+        } else {
+            data.chain_store
+                .export(
+                    &start_ts,
+                    recent_roots,
+                    AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file), !skip_checksum),
+                )
+                .await
+        }
     } {
-        Ok(checksum) if !dry_run => {
+        Ok(checksum_opt) if !dry_run => {
             if let Err(e) = tmp_file.persist(&output_path) {
                 // Temporary files cannot be persisted across filesystems, so we fallback to a
                 // copy in case it happens.
                 tokio::fs::copy(e.file, &output_path).await?;
             }
-            if !skip_checksum {
+            if let Some(checksum) = checksum_opt {
                 save_checksum(&output_path, checksum).await?;
             }
         }
@@ -134,7 +149,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
 
-    let mut checksum_file = File::create(&checksum_path).await?;
+    let mut checksum_file = AsyncFile::create(&checksum_path).await?;
     checksum_file.write_all(encoded_hash.as_bytes()).await?;
     checksum_file.flush().await?;
     log::info!(
