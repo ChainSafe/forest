@@ -31,6 +31,9 @@
   zstd compressed snapshot car files
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support fetching
   zstd compressed snapshots with filecoin provider via `--compressed` option
+- [#2741](https://github.com/ChainSafe/forest/issues/2741): Support exporting
+  zstd compressed snapshots with via `--compressed` option in
+  `forest-cli snapshot export` subcommand
 
 ### Changed
 
