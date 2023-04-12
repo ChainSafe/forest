@@ -11,6 +11,7 @@ mod tests {
     };
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
+    use rand::Rng;
 
     #[test]
     fn invalid_attofil_amount() {
@@ -142,9 +143,10 @@ mod tests {
     }
 
     #[quickcheck]
-    fn attofil_quickcheck_test(n: u64) {
-        let norm_n = n as f64 / u64::MAX as f64 * 1000.0;
-        let token_amount = TokenAmount::from_atto(norm_n as u64);
+    fn scaled_fil_quickcheck_test(n: u64) {
+        let rand_num = rand::thread_rng().gen_range(0..20);
+        let scaled_n = n % u64::pow(10, rand_num);
+        let token_amount = TokenAmount::from_atto(scaled_n);
         let formatted =
             format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
         let parsed = FILAmount::from_str(&formatted).unwrap().value;
