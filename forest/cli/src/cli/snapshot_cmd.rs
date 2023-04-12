@@ -38,8 +38,8 @@ pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
         /// Snapshot output path. Default to
-        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
-        /// Date is in ISO 8601 date format.
+        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car(.
+        /// zst)` Date is in ISO 8601 date format.
         /// Arguments:
         ///  - chain - chain name e.g. `mainnet`
         ///  - year

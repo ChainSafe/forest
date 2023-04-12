@@ -9,7 +9,6 @@ use std::{
 
 use anyhow::Result;
 use async_compression::futures::write::ZstdEncoder;
-use async_fs::File as AsyncFile;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -149,7 +148,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
 
-    let mut checksum_file = AsyncFile::create(&checksum_path).await?;
+    let mut checksum_file = async_fs::File::create(&checksum_path).await?;
     checksum_file.write_all(encoded_hash.as_bytes()).await?;
     checksum_file.flush().await?;
     log::info!(
