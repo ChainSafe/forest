@@ -13,7 +13,7 @@ use forest_cli_shared::{
     chain_path,
     cli::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
-        to_size_string, CliOpts, Client, Config, FOREST_VERSION_STRING,
+        to_size_string, CliOpts, Client, Config, SnapshotServer, FOREST_VERSION_STRING,
     },
 };
 use forest_db::{
@@ -464,13 +464,18 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
+        let provider = SnapshotServer::try_get_default(&config.chain.name)?;
+        // FIXME: change this to `true` once zstd compressed snapshots is supported by
+        // the forest provider
+        let use_compressed = provider == SnapshotServer::Filecoin;
         let path = retry!(
             snapshot_fetch,
             config.daemon.default_retry,
             config.daemon.default_delay,
             &snapshot_path,
             &config,
-            &None,
+            &Some(provider),
+            use_compressed,
             is_aria2_installed()
         )?;
         Ok(Config {

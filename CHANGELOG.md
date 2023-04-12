@@ -29,6 +29,8 @@
 
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support importing
   zstd compressed snapshot car files
+- [#2741](https://github.com/ChainSafe/forest/issues/2741): Support fetching
+  zstd compressed snapshots with filecoin provider via `--compressed` option
 
 ### Changed
 

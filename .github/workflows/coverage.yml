@@ -23,7 +23,7 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
       - name: Setup sccache
