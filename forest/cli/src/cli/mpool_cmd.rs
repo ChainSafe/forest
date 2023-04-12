@@ -93,6 +93,7 @@ impl MpoolCommands {
                 let min_base_fee = {
                     let mut current_tipset = tipset.clone();
                     let mut min_base_fee = current_base_fee.clone();
+                    // TODO: fix perf issue, this loop is super slow
                     for _ in 0..basefee_lookback {
                         current_tipset = chain_get_tipset(
                             (current_tipset.parents().to_owned().into(),),
@@ -179,6 +180,7 @@ impl MpoolCommands {
                     }
 
                     let mut stat = MpStat::default();
+                    stat.address = address.to_string();
 
                     for (_, msg) in bucket {
                         if msg.sequence() < actor_state.sequence {
@@ -202,7 +204,7 @@ impl MpoolCommands {
                     stats.push(stat);
                 }
 
-                stats.sort_by(|a, b| a.address.cmp(&b.address));
+                //stats.sort_by(|a, b| a.address.cmp(&b.address));
 
                 let mut total = MpStat {
                     address: String::new(),

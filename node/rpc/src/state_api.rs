@@ -8,7 +8,7 @@ use fil_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_ipld::json::IpldJson;
-use forest_json::cid::CidJson;
+use forest_json::{actor_state::json::ActorStateJson, address::json::AddressJson, cid::CidJson};
 use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
@@ -90,7 +90,12 @@ pub(crate) async fn state_get_actor<DB: Blockstore + Clone + Send + Sync + 'stat
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateGetActorParams>,
 ) -> Result<StateGetActorResult, JsonRpcError> {
-    todo!()
+    let (AddressJson(addr), TipsetKeysJson(tsk)) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let state = data.state_manager.get_actor(&addr, *ts.parent_state());
+    state
+        .map(|opt| opt.map(|st| ActorStateJson(st.into())))
+        .map_err(|e| e.into())
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage
