@@ -13,8 +13,7 @@ pin_project! {
     pub struct AsyncWriterWithChecksum<D, W> {
         #[pin]
         inner: W,
-        hasher: D,
-        checksum_enabled: bool,
+        hasher: Option<D>,
     }
 }
 
@@ -31,8 +30,10 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
         buf: &[u8],
     ) -> std::task::Poll<std::io::Result<usize>> {
         let w = Pin::new(&mut self.inner).poll_write(cx, buf);
-        if let Poll::Ready(Ok(size)) = w {
-            self.hasher.update(&buf[0..size]);
+        if let Some(hasher) = &mut self.hasher {
+            if let Poll::Ready(Ok(size)) = w {
+                hasher.update(&buf[..size]);
+            }
         }
         w
     }
@@ -54,8 +55,8 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
 
 impl<D: Digest, W> Checksum<D> for AsyncWriterWithChecksum<D, W> {
     fn finalize(&mut self) -> Option<Output<D>> {
-        if self.checksum_enabled {
-            let hasher = std::mem::replace(&mut self.hasher, D::new());
+        if let Some(hasher) = &mut self.hasher {
+            let hasher = std::mem::replace(hasher, D::new());
             Some(hasher.finalize())
         } else {
             None
@@ -67,8 +68,11 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
     pub fn new(writer: W, checksum_enabled: bool) -> Self {
         Self {
             inner: writer,
-            hasher: Digest::new(),
-            checksum_enabled,
+            hasher: if checksum_enabled {
+                Some(Digest::new())
+            } else {
+                None
+            },
         }
     }
 }
@@ -125,14 +129,19 @@ mod test {
 
         let mut writer = AsyncWriterWithChecksum::<Sha256, _>::new(writer, true);
 
-        for old_god in ["cthulhu", "azathoth", "dagon"] {
-            writer.write_all(old_god.as_bytes()).await.unwrap();
-        }
+        let data = ["cthulhu", "azathoth", "dagon"];
 
-        assert_eq!(
-            "3386191dc5c285074c3827452f4e3b685e3253f5b9ca7c4c2bb3f44d1263aef1",
-            format!("{:x}", writer.finalize().unwrap())
-        );
+        // Repeat to make sure the inner hasher can be properly reset
+        for _ in 0..2 {
+            for old_god in &data {
+                writer.write_all(old_god.as_bytes()).await.unwrap();
+            }
+
+            assert_eq!(
+                "3386191dc5c285074c3827452f4e3b685e3253f5b9ca7c4c2bb3f44d1263aef1",
+                format!("{:x}", writer.finalize().unwrap())
+            );
+        }
     }
 
     #[tokio::test]
