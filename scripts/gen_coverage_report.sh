@@ -14,6 +14,7 @@
 set +e
 
 TMP_DIR=$(mktemp --directory)
+TOKEN_PATH="$TMP_DIR/forest_admin_token"
 
 function cleanup {
   # echo Removing temporary directory $TMP_DIR
@@ -35,7 +36,7 @@ cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHO
 cov forest-cli --chain calibnet db clean --force
 cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
-cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss
+cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss --save-token "$TOKEN_PATH"
 cov forest-cli sync wait
 cov forest-cli sync status
 cov forest-cli chain validate-tipset-checkpoints
@@ -46,8 +47,8 @@ cov forest-cli attach --exec 'showPeers()'
 cov forest-cli net listen
 cov forest-cli net peers
 
-# This is rather ugly. Is there a better way of managing the tokens?
-TOKEN=$(grep "Admin token" forest.out  | cut -d ' ' -f 7)
+# Load the admin token
+TOKEN=$(cat "$TOKEN_PATH")
 
 # Get default address
 DEFAULT_ADDR=$(cov forest-cli --token "$TOKEN" wallet default)
