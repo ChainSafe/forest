@@ -14,7 +14,7 @@
 set +e
 
 TMP_DIR=$(mktemp --directory)
-TOKEN_PATH="/tmp/forest_admin_token"
+TOKEN_PATH="$TMP_DIR/forest_admin_token"
 
 function cleanup {
   # echo Removing temporary directory $TMP_DIR
