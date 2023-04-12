@@ -46,7 +46,7 @@ pub enum SnapshotCommands {
         ///  - month
         ///  - day
         ///  - height - the epoch
-        #[arg(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
+        #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
         /// Export in zstd compressed format
         #[arg(long)]
