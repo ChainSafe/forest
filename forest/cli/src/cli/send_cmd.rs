@@ -27,7 +27,7 @@ impl FromStr for FILAmount {
             None => anyhow::bail!("failed to parse string: {}", s),
         };
 
-        let suffix = suffix.replacen(' ', "", 1).trim().to_lowercase();
+        let suffix = suffix.trim().to_lowercase();
         let multiplier = match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
             "atto" | "a" => dec!(1e0),
             "femto" => {
@@ -53,6 +53,7 @@ impl FromStr for FILAmount {
             }
         };
 
+        // string length check to match Lotus logic
         if val.chars().count() > 50 {
             anyhow::bail!("string length too large: {}", val.chars().count());
         }
@@ -60,18 +61,15 @@ impl FromStr for FILAmount {
         let parsed_val = Decimal::from_str(val)
             .map_err(|_| anyhow::anyhow!("failed to parse {} as a decimal number", val))?;
 
-        let attofil_val = if (parsed_val * multiplier).normalize().scale() != 0 {
+        let val = parsed_val * multiplier;
+        if val.normalize().scale() > 0 {
             anyhow::bail!("{} must convert to a whole attoFIL value", &s);
-        } else {
-            (parsed_val * multiplier).trunc().to_u128()
-        };
+        }
+        let attofil_val = val.trunc().to_u128().ok_or(anyhow::Error::msg(
+            "Could not covert amount input to send into an attoFIL value.",
+        ))?;
 
-        let token_amount = match attofil_val {
-            Some(attofil_amt) => TokenAmount::from_atto(BigInt::from(attofil_amt)),
-            None => {
-                anyhow::bail!("{} must convert to a whole attoFIL value", &s)
-            }
-        };
+        let token_amount = TokenAmount::from_atto(BigInt::from(attofil_val));
 
         Ok(FILAmount {
             value: token_amount,

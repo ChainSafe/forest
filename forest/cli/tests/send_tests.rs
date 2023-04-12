@@ -20,9 +20,19 @@ mod tests {
     }
 
     #[test]
-    fn valid_attofil_amount() {
+    fn valid_attofil_amount_test1() {
         //valid attofil amount passes
         let amount = "1234 attofil";
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_atto(1234)
+        );
+    }
+
+    #[test]
+    fn valid_attofil_amount_test2() {
+        //valid attofil amount passes
+        let amount = "1234 afil";
         assert!(FILAmount::from_str(amount).is_ok());
     }
 
@@ -86,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn malformatted_fil_suffix() {
+    fn malformatted_fil_suffix_test1() {
         //fails with bad suffix
         let amount = "42 fem to fil";
         assert!(FILAmount::from_str(amount).is_err());
