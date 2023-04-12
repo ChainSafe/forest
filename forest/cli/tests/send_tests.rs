@@ -40,6 +40,26 @@ mod tests {
     }
 
     #[test]
+    fn valid_attofil_amount_test3() {
+        //valid attofil amount passes
+        let amount = "1234 a fil";
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_atto(1234)
+        );
+    }
+
+    #[test]
+    fn valid_attofil_amount_test4() {
+        //valid attofil amount passes
+        let amount = "1234 a";
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_atto(1234)
+        );
+    }
+
+    #[test]
     fn suffix_with_no_amount() {
         //fails if no amount specified
         let amount = "fil";
