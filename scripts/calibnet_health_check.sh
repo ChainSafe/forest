@@ -142,19 +142,24 @@ echo "Listing wallet balances"
 $FOREST_CLI_PATH wallet list
 
 echo "Sending FIL to the above address"
-$FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT"
+JSON_MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
+echo "$JSON_MSG"
 
 echo "Checking balance of $ADDR_TWO..."
 
 ADDR_TWO_BALANCE=0
 i=0
-while [[ $i != 10 && $ADDR_TWO_BALANCE == 0 ]]; do
+while [[ $i != 15 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
   
-  echo "Checking balance $i/10"
+  echo "Checking balance $i/15"
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_CLI_PATH wallet balance "$ADDR_TWO")
 done
+
+echo "Check pending messages"
+$FOREST_CLI_PATH mpool pending
+$FOREST_CLI_PATH mpool stat
 
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH wallet list
