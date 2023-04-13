@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! This module contains the migration logic for the NV18 upgrade for the System
-//! actor.
+//! This module contains the migration logic for the `NV18` upgrade for the
+//! System actor.
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};

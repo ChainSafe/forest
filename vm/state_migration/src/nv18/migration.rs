@@ -64,7 +64,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     }
 }
 
-/// Runs the migration for NV18. Returns the new state root.
+/// Runs the migration for `NV18`. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
     blockstore: &DB,

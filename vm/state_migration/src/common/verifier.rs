@@ -9,7 +9,6 @@ use forest_shim::state_tree::StateTree;
 
 use super::Migrator;
 
-/// Trait to be implemented by migration verifications.
 /// The implementation should verify that the migration specification is
 /// correct. This is to prevent accidental migration errors.
 pub(crate) trait ActorMigrationVerifier<BS> {

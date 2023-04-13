@@ -22,17 +22,11 @@ use crate::{address::Address, econ::TokenAmount, Inner};
 )]
 #[repr(u64)]
 pub enum StateTreeVersion {
-    /// Corresponds to actors < v2
     V0,
-    /// Corresponds to actors = v2
     V1,
-    /// Corresponds to actors = v3
     V2,
-    /// Corresponds to actors = v4
     V3,
-    /// Corresponds to actors >= v5
     V4,
-    /// Corresponding to actors >= v10
     V5,
 }
 

@@ -8,12 +8,14 @@ use fvm_ipld_blockstore::Blockstore;
 
 use super::{ActorMigration, ActorMigrationInput};
 
+/// Defines migration result for a single actor migration.
 #[derive(Debug)]
 pub(crate) struct MigrationJobOutput {
     pub address: Address,
     pub actor_state: ActorState,
 }
 
+/// Defines migration job for a single actor migration.
 pub(crate) struct MigrationJob<BS: Blockstore> {
     pub address: Address,
     pub actor_state: ActorState,
@@ -35,7 +37,6 @@ impl<BS: Blockstore + Clone + Send + Sync> MigrationJob<BS> {
                     balance: self.actor_state.balance.clone().into(),
                     head: self.actor_state.state,
                     prior_epoch,
-                    // TODO: Lotus adds some kind of a cache, may need to investigate it
                 },
             )
             .map_err(|e| {

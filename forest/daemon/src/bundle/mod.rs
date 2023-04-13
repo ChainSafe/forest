@@ -38,7 +38,7 @@ where
 
 /// Downloads the actors bundle (if not already downloaded) and returns a reader
 /// to it.
-/// TODO: Get it from IPFS instead of GitHub.
+// TODO Get it from IPFS instead of GitHub.
 pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Result<BufReader<File>> {
     let bundle_info = config.chain.height_infos[height as usize]
         .bundle
