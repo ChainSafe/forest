@@ -31,7 +31,7 @@ where
             1,
             "expected one root when loading actors bundle"
         );
-        println!("Loaded actors bundle with CID: {}", result[0]);
+        info!("Loaded actors bundle with CID: {}", result[0]);
     }
     Ok(())
 }

@@ -118,7 +118,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 19] = [
         height: Height::Hygge,
         epoch: 322_354,
         bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
+            manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap()
     }),
     },

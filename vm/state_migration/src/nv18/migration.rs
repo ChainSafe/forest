@@ -6,13 +6,12 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use cid::Cid;
 use fil_actor_system_v9::State as SystemStateV9;
-use forest_networks::ChainConfig;
+use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
     machine::{Manifest, ManifestV2},
     state_tree::{StateTree, StateTreeVersion},
-    version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -76,11 +75,15 @@ where
     DB: 'static + Blockstore + Clone + Send + Sync,
 {
     let new_manifest_cid = chain_config
-        .manifests
-        .get(&NetworkVersion::V18)
-        .ok_or_else(|| anyhow!("no manifest for network version NV18"))?;
+        .height_infos
+        .get(Height::Hygge as usize)
+        .ok_or_else(|| anyhow!("no height info for network version NV18"))?
+        .bundle
+        .as_ref()
+        .ok_or_else(|| anyhow!("no bundle info for network version NV18"))?
+        .manifest;
 
-    blockstore.get(new_manifest_cid)?.ok_or_else(|| {
+    blockstore.get(&new_manifest_cid)?.ok_or_else(|| {
         anyhow!(
             "manifest for network version NV18 not found in blockstore: {}",
             new_manifest_cid
@@ -97,7 +100,7 @@ where
         .collect();
 
     let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
-    migration.add_nv18_migrations(blockstore.clone(), state, new_manifest_cid)?;
+    migration.add_nv18_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
