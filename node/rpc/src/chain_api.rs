@@ -66,9 +66,7 @@ where
     B: Beacon,
 {
     // Skip checksum when in compression mode
-    if !skip_checksum && compressed {
-        skip_checksum = true;
-    }
+    skip_checksum |= compressed;
 
     lazy_static::lazy_static! {
         static ref LOCK: Mutex<()> = Mutex::new(());
