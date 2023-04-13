@@ -7,6 +7,8 @@ on:
 
 env:
   CACHE_TIMEOUT_MINUTES: 5
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   codecov:
@@ -27,13 +29,9 @@ jobs:
         with:
           go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
+        uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-        with:
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-codecov-${{ hashFiles('rust-toolchain.toml') }}
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
