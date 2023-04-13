@@ -12,6 +12,8 @@ env:
   # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
   RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
   CACHE_TIMEOUT_MINUTES: 5
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   check-publish-docs:
@@ -38,18 +40,9 @@ jobs:
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
+        uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-        with:
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
-          # true: always save cache
-          # false: only save when cache is not found
-          # this option is only available in the forked action
-          # the original action has no activities for years so we
-          # just keep using the fork
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc

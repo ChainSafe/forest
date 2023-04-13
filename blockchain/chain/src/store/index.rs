@@ -26,39 +26,11 @@ const SKIP_LENGTH: ChainEpoch = 20;
 pub(super) mod checkpoint_tipsets {
     use std::str::FromStr;
 
-    use ahash::{HashMap, HashMapExt, HashSet};
+    use ahash::HashSet;
     use cid::Cid;
-    use forest_blocks::TipsetKeys;
-    use once_cell::sync::Lazy;
+    use forest_blocks::{Tipset, TipsetKeys};
+    use serde::{Deserialize, Serialize};
 
-    macro_rules! add_calibnet {
-        ($map: ident, $key_hash:expr) => {
-            $map.insert(
-                $key_hash,
-                // calibnet genesis tipset keys
-                TipsetKeys::new(vec![
-                    Cid::from_str(forest_networks::calibnet::GENESIS_CID).unwrap()
-                ]),
-            );
-        };
-    }
-
-    macro_rules! add_mainnet {
-        ($map: ident, $key_hash:expr) => {
-            $map.insert(
-                $key_hash,
-                // mainnet genesis tipset keys
-                TipsetKeys::new(vec![
-                    Cid::from_str(forest_networks::mainnet::GENESIS_CID).unwrap()
-                ]),
-            );
-        };
-    }
-
-    // The hashes for these checkpoints is obtained by passing the tipset keys' cids
-    // (tipset.cids()) through a blake2b hasher.
-    type TipsetKeyHash = &'static str;
-    type GenesisTipsetCids = TipsetKeys;
     // Represents a static map of validated tipset hashes which helps to remove the
     // need to validate the tipset back to genesis if it has been validated
     // before, thereby reducing boot times. NB: Add desired tipset checkpoints
@@ -66,57 +38,51 @@ pub(super) mod checkpoint_tipsets {
     // and one can use forest-cli chain validate-tipset-checkpoints to validate
     // tipset hashes for entries that fall within the range of epochs in current
     // downloaded snapshot file.
-    type TipsetCheckpointsRegistry = HashMap<TipsetKeyHash, GenesisTipsetCids>;
-    pub static CALIBNET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
-        let mut map = HashMap::new();
-        const CALIBNET_CHECKPOINT_41000: TipsetKeyHash = "1a11a07d427348cc14eaa901de1ba9c6a4e18400bb557f5a0fabbcb22352319e31a7bc988a92525339f84275c0ef6dfbffcb50bb9d9843701875eecfa3ccb069";
-        const CALIBNET_CHECKPOINT_84000: TipsetKeyHash = "326a645e679bc590118c80778588ff8d4e4a13eb7db25fe7a2fc3fbdcd97cf751fc4ee6c11f9f2ee97717eb15cb98771b944581ef329cb0dc6802dc81190e017";
-        const CALIBNET_CHECKPOINT_424000: TipsetKeyHash = "8cab45fd441c1fb68d2fd7e45d5e9ef9a5d3b45f68b414ab3e244233dd8e37fc4dacffc8966b2dc8804d4abf92c8a57efda743e26db6805a77a4feac19478293";
-        add_calibnet!(map, CALIBNET_CHECKPOINT_41000);
-        add_calibnet!(map, CALIBNET_CHECKPOINT_84000);
-        add_calibnet!(map, CALIBNET_CHECKPOINT_424000);
-        map
-    });
+    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+    struct KnownCheckpoints {
+        calibnet: HashSet<String>,
+        mainnet: HashSet<String>,
+    }
 
-    pub static MAINNET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
-        let mut map = HashMap::new();
-        const MAINNET_CHECKPOINT_2325300: TipsetKeyHash = "319f2351ceaf78fbcc8688dc75a19bdf8ee6e895e547ff5cc2f7b18a3a36b65ff94c1860733137d0244352f82ba6fd9672aec14deee358e7cf6e088bf89a28b1";
-        const MAINNET_CHECKPOINT_2386000: TipsetKeyHash = "44d12c308ed84a9d07c3edd46934107723216f314b044f6c1cb10a1731a24fd80fb07982a9f895fed3540da9e3b84773f9daa7668a798a219569eebfd0c50c2f";
-        add_mainnet!(map, MAINNET_CHECKPOINT_2325300);
-        add_mainnet!(map, MAINNET_CHECKPOINT_2386000);
-        map
-    });
+    lazy_static::lazy_static! {
+        static ref KNOWN_CHECKPOINTS: KnownCheckpoints = serde_yaml::from_str(include_str!("known_checkpoints.yaml")).unwrap();
+    }
+
+    type GenesisTipsetCids = TipsetKeys;
 
     pub(super) fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
-        MAINNET_CHECKPOINTS
-            .get(tipset_hash(tsk).as_str())
-            .or_else(|| CALIBNET_CHECKPOINTS.get(tipset_hash(tsk).as_str()))
-            .cloned()
+        let key = tipset_hash(tsk);
+        if KNOWN_CHECKPOINTS.mainnet.contains(&key) {
+            return Some(TipsetKeys::new(vec![Cid::from_str(
+                forest_networks::mainnet::GENESIS_CID,
+            )
+            .unwrap()]));
+        }
+        if KNOWN_CHECKPOINTS.calibnet.contains(&key) {
+            return Some(TipsetKeys::new(vec![Cid::from_str(
+                forest_networks::calibnet::GENESIS_CID,
+            )
+            .unwrap()]));
+        }
+        None
     }
 
     pub fn get_tipset_hashes(network: &str) -> Option<HashSet<String>> {
         match network {
-            "mainnet" => {
-                let keys = MAINNET_CHECKPOINTS.keys().map(|s| s.to_string());
-                Some(HashSet::from_iter(keys))
-            }
-            "calibnet" => {
-                let keys = CALIBNET_CHECKPOINTS.keys().map(|s| s.to_string());
-                Some(HashSet::from_iter(keys))
-            }
+            "mainnet" => Some(KNOWN_CHECKPOINTS.mainnet.clone()),
+            "calibnet" => Some(KNOWN_CHECKPOINTS.calibnet.clone()),
             _ => None, // skip and pass through if an unsupported network found
         }
     }
 
-    pub fn validate_genesis_cid(ts: &TipsetKeys, network: &str) -> bool {
+    // Validate that the genesis tipset matches our hard-coded values
+    pub fn validate_genesis_cid(ts: &Tipset, network: &str) -> bool {
         match network {
             "mainnet" => {
-                let mut values = MAINNET_CHECKPOINTS.values();
-                values.all(|gen_cid| gen_cid == ts)
+                ts.min_ticket_block().cid().to_string() == forest_networks::mainnet::GENESIS_CID
             }
             "calibnet" => {
-                let mut values = CALIBNET_CHECKPOINTS.values();
-                values.all(|gen_cid| gen_cid == ts)
+                ts.min_ticket_block().cid().to_string() == forest_networks::calibnet::GENESIS_CID
             }
             _ => true, // skip and pass through if an unsupported network found
         }
