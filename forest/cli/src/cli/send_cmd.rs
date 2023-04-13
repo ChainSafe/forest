@@ -21,11 +21,15 @@ impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let suffix_idx = s.rfind(char::is_numeric);
-        let (val, suffix) = match suffix_idx {
-            Some(idx) => s.split_at(idx + 1),
-            None => anyhow::bail!("failed to parse string: {}", s),
-        };
+        let suffix_idx = s
+            .rfind(char::is_numeric)
+            .ok_or_else(|| anyhow::anyhow!("failed to parse fil amount: {}. No digits.", s))?;
+        let (val, suffix) = s.split_at(suffix_idx + 1);
+
+        // string length check to match Lotus logic
+        if val.chars().count() > 50 {
+            anyhow::bail!("string length too large: {}", val.chars().count());
+        }
 
         let suffix = suffix.trim().to_lowercase();
         let multiplier = match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
@@ -40,11 +44,6 @@ impl FromStr for FILAmount {
                 anyhow::bail!("unrecognized suffix: {}", suffix);
             }
         };
-
-        // string length check to match Lotus logic
-        if val.chars().count() > 50 {
-            anyhow::bail!("string length too large: {}", val.chars().count());
-        }
 
         let parsed_val = Decimal::from_str(val)
             .map_err(|_| anyhow::anyhow!("failed to parse {} as a decimal number", val))?;
