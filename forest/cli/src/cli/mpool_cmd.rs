@@ -33,10 +33,10 @@ pub enum MpoolCommands {
     /// Print mempool stats
     Stat {
         /// Number of blocks to look back for minimum `basefee`
-        #[arg(short, default_value = "60")]
+        #[arg(long, default_value = "60")]
         basefee_lookback: u32,
         /// Print stats for addresses in local wallet only
-        #[arg(short)]
+        #[arg(long)]
         local: bool,
     },
 }
