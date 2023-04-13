@@ -22,7 +22,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -49,7 +49,7 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: buildjet-4vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -63,7 +63,7 @@ jobs:
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install Lint tools
-        run: make install-lint-tools
+        run: make install-lint-tools-ci
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Setup sccache
@@ -107,7 +107,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
