@@ -23,6 +23,8 @@ use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+#[allow(deprecated)]
+use libp2p::swarm::ConnectionLimits;
 use libp2p::{
     core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
@@ -30,7 +32,7 @@ use libp2p::{
     multiaddr::Protocol,
     noise, ping,
     request_response::{self, RequestId, ResponseChannel},
-    swarm::{ConnectionLimits, SwarmBuilder, SwarmEvent},
+    swarm::{SwarmBuilder, SwarmEvent},
     yamux::YamuxConfig,
     PeerId, Swarm, Transport,
 };
@@ -207,6 +209,7 @@ where
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
+        #[allow(deprecated)]
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
             .with_max_pending_outgoing(Some(30))
@@ -358,10 +361,12 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
     match peer_ops {
         Ban(peer_id, reason) => {
             warn!("Banning {peer_id}, reason: {reason}");
+            #[allow(deprecated)]
             swarm.ban_peer_id(peer_id);
         }
         Unban(peer_id) => {
             info!("Unbanning {peer_id}");
+            #[allow(deprecated)]
             swarm.unban_peer_id(peer_id);
         }
     }

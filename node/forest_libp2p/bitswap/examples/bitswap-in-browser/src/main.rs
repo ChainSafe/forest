@@ -23,6 +23,7 @@ async fn main() -> anyhow::Result<()> {
     let (transport, _, local_peer_id) = TransportBuilder::new().build()?;
     let behaviour = DemoBehaviour::default();
     let bitswap_request_manager = behaviour.bitswap.request_manager();
+    #[allow(deprecated)]
     let mut swarm = Swarm::with_tokio_executor(transport, behaviour, local_peer_id);
     swarm.listen_on("/ip4/127.0.0.1/tcp/0/ws".parse()?)?;
     let local_peer_addr = loop {
