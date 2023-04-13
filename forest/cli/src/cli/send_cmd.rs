@@ -262,22 +262,20 @@ mod tests {
         assert!(FILAmount::from_str(amount).is_err());
     }
 
-    #[quickcheck]
     fn fil_quickcheck_test(n: u64) {
         let token_amount = TokenAmount::from_atto(n);
-        let formatted =
+        let formatted_not_fixed =
             format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
-        let parsed = FILAmount::from_str(&formatted).unwrap().value;
-        assert_eq!(token_amount, parsed);
+        let formatted_fixed =
+            format_balance_string(token_amount.clone(), FormattingMode::ExactFixed).unwrap();
+        let parsed_not_fixed = FILAmount::from_str(&formatted_not_fixed).unwrap().value;
+        let parsed_fixed = FILAmount::from_str(&formatted_fixed).unwrap().value;
+        assert!(token_amount == parsed_not_fixed && token_amount == parsed_fixed);
     }
 
     #[quickcheck]
     fn scaled_fil_quickcheck_test(n: u64, rand_num: u32) {
         let scaled_n = n % u64::pow(10, rand_num % 20);
-        let token_amount = TokenAmount::from_atto(scaled_n);
-        let formatted =
-            format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
-        let parsed = FILAmount::from_str(&formatted).unwrap().value;
-        assert_eq!(token_amount, parsed);
+        fil_quickcheck_test(scaled_n);
     }
 }
