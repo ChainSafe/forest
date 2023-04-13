@@ -30,24 +30,12 @@ impl FromStr for FILAmount {
         let suffix = suffix.trim().to_lowercase();
         let multiplier = match suffix.strip_suffix("fil").map(str::trim).unwrap_or(&suffix) {
             "atto" | "a" => dec!(1e0),
-            "femto" => {
-                dec!(1e3)
-            }
-            "pico" => {
-                dec!(1e6)
-            }
-            "nano" => {
-                dec!(1e9)
-            }
-            "micro" => {
-                dec!(1e12)
-            }
-            "milli" => {
-                dec!(1e15)
-            }
-            "" => {
-                dec!(1e18)
-            }
+            "femto" => dec!(1e3),
+            "pico" => dec!(1e6),
+            "nano" => dec!(1e9),
+            "micro" => dec!(1e12),
+            "milli" => dec!(1e15),
+            "" => dec!(1e18),
             _ => {
                 anyhow::bail!("unrecognized suffix: {}", suffix);
             }
@@ -66,7 +54,7 @@ impl FromStr for FILAmount {
             anyhow::bail!("{} must convert to a whole attoFIL value", &s);
         }
         let attofil_val = val.trunc().to_u128().ok_or(anyhow::Error::msg(
-            "Could not covert amount input to send into an attoFIL value.",
+            "Could not covert amount input to send into an attoFIL value (note that negative FIL amounts are not valid).",
         ))?;
 
         let token_amount = TokenAmount::from_atto(BigInt::from(attofil_val));

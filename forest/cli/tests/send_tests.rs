@@ -11,7 +11,6 @@ mod tests {
     };
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
-    use rand::Rng;
 
     #[test]
     fn invalid_attofil_amount() {
@@ -70,14 +69,20 @@ mod tests {
     fn valid_fil_amount_without_suffix() {
         //defaults to FIL if no suffix is provided
         let amount = "1234";
-        assert!(FILAmount::from_str(amount).is_ok());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_whole(1234)
+        );
     }
 
     #[test]
     fn valid_fil_amount_with_suffix() {
         //properly parses amount with "FIL" suffix
         let amount = "1234FIL";
-        assert!(FILAmount::from_str(amount).is_ok());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_whole(1234)
+        );
     }
 
     #[test]
@@ -89,9 +94,12 @@ mod tests {
 
     #[test]
     fn test_fractional_fil_amount() {
-        //fil with fractional value succeeds
+        //properly parses fil with fractional value
         let amount = "1.234FIL";
-        assert!(FILAmount::from_str(amount).is_ok());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap().value,
+            TokenAmount::from_atto(1_234_000_000_000_000_000i64)
+        );
     }
 
     #[test]
@@ -105,10 +113,9 @@ mod tests {
     fn convert_fil_to_attofil() {
         //expected attofil amount matches actual amount after conversion from FIL
         let fil_amount = "1FIL";
-        let attofil_amount = TokenAmount::from_whole(1);
         assert_eq!(
             FILAmount::from_str(fil_amount).unwrap().value,
-            attofil_amount
+            TokenAmount::from_whole(1)
         );
     }
 
@@ -120,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn malformatted_fil_suffix_test1() {
+    fn malformatted_fil_suffix_test() {
         //fails with bad suffix
         let amount = "42 fem to fil";
         assert!(FILAmount::from_str(amount).is_err());
@@ -143,9 +150,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn scaled_fil_quickcheck_test(n: u64) {
-        let rand_num = rand::thread_rng().gen_range(0..20);
-        let scaled_n = n % u64::pow(10, rand_num);
+    fn scaled_fil_quickcheck_test(n: u64, rand_num: u32) {
+        let scaled_n = n % u64::pow(10, rand_num % 20);
         let token_amount = TokenAmount::from_atto(scaled_n);
         let formatted =
             format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
