@@ -5785,17 +5785,15 @@ dependencies = [
 
 [[package]]
 name = "libp2p"
-version = "0.51.2"
+version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab78d6d2201578bb3a33dff33c540af6b8f0bdcd751b4028e798e868c2ca0722"
+checksum = "53e068bb83ef4e0bed45de5ca4a4118018ac1f70ea3ecb1f4878742d08a97473"
 dependencies = [
  "bytes 1.4.0",
  "futures",
  "futures-timer",
  "getrandom 0.2.8",
  "instant",
- "libp2p-allow-block-list",
- "libp2p-connection-limits",
  "libp2p-core",
  "libp2p-dns",
  "libp2p-gossipsub",
@@ -5816,30 +5814,6 @@ dependencies = [
  "libp2p-yamux",
  "multiaddr",
  "pin-project",
-]
-
-[[package]]
-name = "libp2p-allow-block-list"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0c54073648b20bb47335164544a4e5694434f44530f47a4f6618f5f585f3ff5"
-dependencies = [
- "libp2p-core",
- "libp2p-identity",
- "libp2p-swarm",
- "void",
-]
-
-[[package]]
-name = "libp2p-connection-limits"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4caa33f1d26ed664c4fe2cca81a08c8e07d4c1c04f2f4ac7655c2dd85467fda0"
-dependencies = [
- "libp2p-core",
- "libp2p-identity",
- "libp2p-swarm",
- "void",
 ]
 
 [[package]]
@@ -6100,9 +6074,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.42.1"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd1e223f02fcd7e3790f9b954e2e81791810e3512daeb27fa97df7652e946bc2"
+checksum = "92c22a83d70703d140092c969c1ca06ecdffff8ca7ce8ac2fd3b7eb2c1f0da86"
 dependencies = [
  "either",
  "fnv",
@@ -6111,11 +6085,12 @@ dependencies = [
  "getrandom 0.2.8",
  "instant",
  "libp2p-core",
- "libp2p-identity",
  "libp2p-swarm-derive",
  "log",
+ "pin-project",
  "rand 0.8.5",
  "smallvec",
+ "thiserror",
  "tokio",
  "void",
  "wasm-bindgen-futures",
