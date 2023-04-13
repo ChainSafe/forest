@@ -46,7 +46,7 @@ impl FromStr for FILAmount {
         };
 
         let parsed_val = Decimal::from_str(val)
-            .map_err(|_| anyhow::anyhow!("failed to parse {} as a decimal number", val))?;
+            .map_err(|e| anyhow::anyhow!("failed to parse fil amount: {}. {}.", &s, e))?;
 
         let val = parsed_val * multiplier;
         if val.normalize().scale() > 0 {
