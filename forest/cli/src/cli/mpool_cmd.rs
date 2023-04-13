@@ -89,22 +89,22 @@ impl MpoolCommands {
                     .map_err(handle_rpc_err)?
                     .0;
 
-                let current_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
+                let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
                 let min_base_fee = {
-                    let mut current_tipset = tipset.clone();
-                    let mut min_base_fee = current_base_fee.clone();
+                    let mut curr_tipset = tipset.clone();
+                    let mut min_base_fee = curr_base_fee.clone();
                     // TODO: fix perf issue, this loop is super slow
                     for _ in 0..basefee_lookback {
-                        current_tipset = chain_get_tipset(
-                            (current_tipset.parents().to_owned().into(),),
+                        curr_tipset = chain_get_tipset(
+                            (curr_tipset.parents().to_owned().into(),),
                             &config.client.rpc_token,
                         )
                         .await
                         .map_err(handle_rpc_err)?
                         .0;
 
-                        min_base_fee = min_base_fee
-                            .min(current_tipset.blocks()[0].parent_base_fee().to_owned());
+                        min_base_fee =
+                            min_base_fee.min(curr_tipset.blocks()[0].parent_base_fee().to_owned());
                     }
                     min_base_fee
                 };
@@ -172,24 +172,26 @@ impl MpoolCommands {
                         }
                     };
 
-                    let mut current = actor_state.sequence;
-                    while bucket.get(&current).is_some() {
-                        current += 1;
+                    let mut curr_sequence = actor_state.sequence;
+                    while bucket.get(&curr_sequence).is_some() {
+                        curr_sequence += 1;
                     }
 
-                    let mut stat = MpStat::default();
-                    stat.address = address.to_string();
+                    let mut stat = MpStat {
+                        address: address.to_string(),
+                        ..Default::default()
+                    };
 
                     for (_, msg) in bucket {
                         if msg.sequence() < actor_state.sequence {
                             stat.past += 1;
-                        } else if msg.sequence() > current {
+                        } else if msg.sequence() > curr_sequence {
                             stat.future += 1;
                         } else {
                             stat.current += 1;
                         }
 
-                        if msg.gas_fee_cap() < current_base_fee {
+                        if msg.gas_fee_cap() < curr_base_fee {
                             stat.below_current += 1;
                         }
                         if msg.gas_fee_cap() < min_base_fee {
@@ -202,17 +204,9 @@ impl MpoolCommands {
                     stats.push(stat);
                 }
 
-                //stats.sort_by(|a, b| a.address.cmp(&b.address));
+                stats.sort_by(|a, b| a.address.cmp(&b.address));
 
-                let mut total = MpStat {
-                    address: String::new(),
-                    past: 0,
-                    current: 0,
-                    future: 0,
-                    below_current: 0,
-                    below_past: 0,
-                    gas_limit: BigInt::from(0),
-                };
+                let mut total = MpStat::default();
 
                 for stat in stats {
                     total.past += stat.past;
