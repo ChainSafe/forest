@@ -14,12 +14,12 @@ mod db_cmd;
 mod fetch_params_cmd;
 mod mpool_cmd;
 mod net_cmd;
-pub mod send_cmd;
+mod send_cmd;
 mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
-pub mod wallet_cmd;
+mod wallet_cmd;
 
 use std::io::{self, Write};
 
