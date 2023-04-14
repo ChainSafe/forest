@@ -23,6 +23,7 @@ use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+// https://github.com/ChainSafe/forest/issues/2762
 #[allow(deprecated)]
 use libp2p::swarm::ConnectionLimits;
 use libp2p::{
@@ -209,6 +210,7 @@ where
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
+        // https://github.com/ChainSafe/forest/issues/2762
         #[allow(deprecated)]
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -361,11 +363,13 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
     match peer_ops {
         Ban(peer_id, reason) => {
             warn!("Banning {peer_id}, reason: {reason}");
+            // https://github.com/ChainSafe/forest/issues/2762
             #[allow(deprecated)]
             swarm.ban_peer_id(peer_id);
         }
         Unban(peer_id) => {
             info!("Unbanning {peer_id}");
+            // https://github.com/ChainSafe/forest/issues/2762
             #[allow(deprecated)]
             swarm.unban_peer_id(peer_id);
         }
