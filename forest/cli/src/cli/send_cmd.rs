@@ -19,10 +19,10 @@ pub struct FILAmount {
 
 /// `FILAmount::from_str` adds support for parsing a string (input to the
 /// 'amount' field of the the `send` command) with all units supported by forest
-/// wallet ("attoFIL", "femtoFIL", "picoFIL", "nanoFIL", "microFIL", "milliFIL",
-/// and "FIL") and converting the amount into an attoFIL `TokenAmount`. To match
+/// wallet (`attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`, `milliFIL`,
+/// and `FIL`) and converting the amount into an attoFIL `TokenAmount`. To match
 /// the current behavior in Lotus, the default units (if no units are specified
-/// in the command line) are "FIL".
+/// in the command line) are `FIL`.
 impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
