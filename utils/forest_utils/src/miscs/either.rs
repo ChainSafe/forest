@@ -20,7 +20,7 @@ impl<L: AsyncRead + Unpin, R: AsyncRead + Unpin> AsyncRead for Either<L, R> {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
-        match self.deref_mut() {
+        match Pin::into_inner(self) {
             Self::Left(left) => Pin::new(left).poll_read(cx, buf),
             Self::Right(right) => Pin::new(right).poll_read(cx, buf),
         }
