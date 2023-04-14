@@ -56,6 +56,19 @@ type DownloadStream = IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futu
 impl FetchProgress<DownloadStream> {
     pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream>> {
         let client = https_client();
+
+        let url = {
+            let head_response = client
+                .request(hyper::Request::head(url.as_str()).body("".into())?)
+                .await?;
+
+            // Use the redirect if available.
+            match head_response.headers().get("location") {
+                Some(url) => url.to_str()?.try_into()?,
+                None => url,
+            }
+        };
+
         let total_size = {
             let resp = client
                 .request(hyper::Request::head(url.as_str()).body("".into())?)
@@ -74,7 +87,7 @@ impl FetchProgress<DownloadStream> {
         let response = client.get(url.as_str().try_into()?).await?;
 
         let pb = ProgressBar::new(total_size);
-        pb.message("Downloading/Importing snapshot ");
+        pb.message("Downloading/Importing");
         pb.set_units(crate::io::progress_bar::Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 

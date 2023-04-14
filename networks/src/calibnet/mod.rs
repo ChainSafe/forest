@@ -1,7 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
+use lazy_static::lazy_static;
+use url::Url;
+
 use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
+use crate::ActorBundleInfo;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -16,85 +21,109 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWFWUqE9jgXvcKHWieYs9nhyp6NF4ftwLGAHm4sCv73jjK",
 ];
 
+lazy_static! {
 /// Height epochs.
-pub const HEIGHT_INFOS: [HeightInfo; 19] = [
+pub static ref HEIGHT_INFOS: [HeightInfo; 19] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: -1,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Smoke,
         epoch: -2,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Ignition,
         epoch: -3,
+        bundle: None,
     },
     HeightInfo {
         height: Height::ActorsV2,
         epoch: 30,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Tape,
         epoch: 60,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Liftoff,
         epoch: -5,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Kumquat,
         epoch: 90,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Calico,
         epoch: 120,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Persian,
         epoch: 130,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Orange,
         epoch: 300,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Trust,
         epoch: 330,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Norwegian,
         epoch: 360,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Turbo,
         epoch: 390,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Hyperdrive,
         epoch: 420,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Chocolate,
         epoch: 450,
+        bundle: None,
     },
     HeightInfo {
         height: Height::OhSnap,
         epoch: 480,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Skyr,
         epoch: 510,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Shark,
         epoch: 16_800,
+        bundle: None,
     },
     HeightInfo {
         height: Height::Hygge,
         epoch: 322_354,
+        bundle: Some(ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap()
+    }),
     },
 ];
+}
 
 pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
     height: 0,

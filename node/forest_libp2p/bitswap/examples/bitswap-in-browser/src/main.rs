@@ -11,12 +11,7 @@ use cid::{
 };
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use libipld::Block;
-use libp2p::{
-    futures::StreamExt,
-    multiaddr::Protocol,
-    swarm::{SwarmBuilder, SwarmEvent},
-    Swarm,
-};
+use libp2p::{futures::StreamExt, multiaddr::Protocol, swarm::SwarmEvent, Swarm};
 use parking_lot::RwLock;
 use rand::{rngs::OsRng, Rng};
 use tokio::select;
@@ -28,7 +23,9 @@ async fn main() -> anyhow::Result<()> {
     let (transport, _, local_peer_id) = TransportBuilder::new().build()?;
     let behaviour = DemoBehaviour::default();
     let bitswap_request_manager = behaviour.bitswap.request_manager();
-    let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, local_peer_id).build();
+    // https://github.com/ChainSafe/forest/issues/2762
+    #[allow(deprecated)]
+    let mut swarm = Swarm::with_tokio_executor(transport, behaviour, local_peer_id);
     swarm.listen_on("/ip4/127.0.0.1/tcp/0/ws".parse()?)?;
     let local_peer_addr = loop {
         let event = swarm.select_next_some().await;

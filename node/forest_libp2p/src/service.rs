@@ -23,8 +23,10 @@ use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+// https://github.com/ChainSafe/forest/issues/2762
+#[allow(deprecated)]
+use libp2p::swarm::ConnectionLimits;
 use libp2p::{
-    connection_limits::ConnectionLimits,
     core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
     metrics::{Metrics, Recorder},
@@ -208,7 +210,9 @@ where
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
-        let connection_limits = ConnectionLimits::default()
+        // https://github.com/ChainSafe/forest/issues/2762
+        #[allow(deprecated)]
+        let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
             .with_max_pending_outgoing(Some(30))
             .with_max_established_incoming(Some(config.target_peer_count))
@@ -217,9 +221,10 @@ where
 
         let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name, connection_limits),
+            ForestBehaviour::new(&net_keypair, &config, network_name),
             peer_id,
         )
+        .connection_limits(limits)
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .per_connection_event_buffer_size(64)
         .build();
@@ -358,11 +363,15 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
     match peer_ops {
         Ban(peer_id, reason) => {
             warn!("Banning {peer_id}, reason: {reason}");
-            swarm.behaviour_mut().blocked_peers.block_peer(peer_id);
+            // https://github.com/ChainSafe/forest/issues/2762
+            #[allow(deprecated)]
+            swarm.ban_peer_id(peer_id);
         }
         Unban(peer_id) => {
             info!("Unbanning {peer_id}");
-            swarm.behaviour_mut().blocked_peers.unblock_peer(peer_id);
+            // https://github.com/ChainSafe/forest/issues/2762
+            #[allow(deprecated)]
+            swarm.unban_peer_id(peer_id);
         }
     }
 }
@@ -799,8 +808,6 @@ async fn handle_forest_behaviour_event<DB>(
             )
             .await
         }
-        ForestBehaviourEvent::ConnectionLimits(_) => {}
-        ForestBehaviourEvent::BlockedPeers(_) => {}
     }
 }
 
