@@ -8,12 +8,20 @@ edition = "2021"
 
 [dependencies]
 ahash.workspace = true
+anyhow.workspace = true
 cid.workspace = true
 crossbeam-channel = "0.5"
+forest_networks.workspace = true
 forest_shim.workspace = true
+forest_utils.workspace = true
 fvm_ipld_blockstore.workspace = true
-fvm_shared = { workspace = true, default-features = false }
+fvm_ipld_encoding.workspace = true
 log.workspace = true
 num_cpus.workspace = true
 rayon.workspace = true
-thiserror.workspace = true
+
+fil_actor_init_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actors_runtime_v10.workspace = true
