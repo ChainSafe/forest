@@ -20,7 +20,7 @@ use thiserror::Error;
 use url::Url;
 
 use super::https_client;
-use crate::io::ProgressBar;
+use crate::{io::ProgressBar, miscs::Either};
 
 #[derive(Debug, Error)]
 enum DownloadError {
@@ -55,39 +55,15 @@ type DownloadStream = IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futu
 
 impl FetchProgress<DownloadStream> {
     pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream>> {
-        let client = https_client();
-        let total_size = {
-            let resp = client
-                .request(hyper::Request::head(url.as_str()).body("".into())?)
-                .await?;
-            if resp.status().is_success() {
-                resp.headers()
-                    .get("content-length")
-                    .and_then(|ct_len| ct_len.to_str().ok())
-                    .and_then(|ct_len| ct_len.parse().ok())
-                    .unwrap_or(0)
-            } else {
-                return Err(anyhow::anyhow!(DownloadError::HeaderError));
-            }
-        };
-
-        let response = client.get(url.as_str().try_into()?).await?;
-
-        let pb = ProgressBar::new(total_size);
-        pb.message("Downloading/Importing snapshot ");
-        pb.set_units(crate::io::progress_bar::Units::Bytes);
-        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
-
-        let map_err: fn(hyper::Error) -> futures::io::Error =
-            |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
-        let stream = response.into_body().map_err(map_err).into_async_read();
-
+        let (inner, progress_bar) = fetch_stream_from_url(url).await?;
         Ok(FetchProgress {
-            progress_bar: pb,
-            inner: stream,
+            inner,
+            progress_bar,
         })
     }
 }
+
+impl FetchProgress<ZstdDecoder<DownloadStream>> {}
 
 impl FetchProgress<BufReader<async_fs::File>> {
     async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
@@ -152,39 +128,33 @@ pub async fn get_fetch_progress_from_file(
     }
 }
 
-pub enum Either<L, R> {
-    Left(L),
-    Right(R),
-}
-
-impl<L, R> Either<L, R> {
-    fn left_mut(&mut self) -> Option<&mut L> {
-        match self {
-            Self::Left(left) => Some(left),
-            _ => None,
-        }
-    }
-
-    fn right_mut(&mut self) -> Option<&mut R> {
-        match self {
-            Self::Right(right) => Some(right),
-            _ => None,
-        }
-    }
-}
-
-impl<L: AsyncRead + Unpin, R: AsyncRead + Unpin> AsyncRead for Either<L, R> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
-        if let Some(left) = self.left_mut() {
-            Pin::new(left).poll_read(cx, buf)
-        } else if let Some(right) = self.right_mut() {
-            Pin::new(right).poll_read(cx, buf)
+async fn fetch_stream_from_url(url: Url) -> anyhow::Result<(DownloadStream, ProgressBar)> {
+    let client = https_client();
+    let total_size = {
+        let resp = client
+            .request(hyper::Request::head(url.as_str()).body("".into())?)
+            .await?;
+        if resp.status().is_success() {
+            resp.headers()
+                .get("content-length")
+                .and_then(|ct_len| ct_len.to_str().ok())
+                .and_then(|ct_len| ct_len.parse().ok())
+                .unwrap_or(0)
         } else {
-            panic!("This branch should never be hit")
+            return Err(anyhow::anyhow!(DownloadError::HeaderError));
         }
-    }
+    };
+
+    let response = client.get(url.as_str().try_into()?).await?;
+
+    let pb = ProgressBar::new(total_size);
+    pb.message("Downloading/Importing snapshot ");
+    pb.set_units(crate::io::progress_bar::Units::Bytes);
+    pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
+
+    let map_err: fn(hyper::Error) -> futures::io::Error =
+        |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
+    let stream = response.into_body().map_err(map_err).into_async_read();
+
+    Ok((stream, pb))
 }
