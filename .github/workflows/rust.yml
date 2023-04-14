@@ -65,7 +65,6 @@ jobs:
           command: |
             sudo make install-deps
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
-      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install Lint tools
         run: make install-lint-tools-ci
         env:
