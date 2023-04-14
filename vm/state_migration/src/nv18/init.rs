@@ -10,7 +10,10 @@ use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_init_v10::State as StateV10;
 use fil_actor_init_v9::State as StateV9;
 use fil_actors_runtime_v10::{make_map_with_root, Map};
-use forest_shim::{address::Address, state_tree::ActorID};
+use forest_shim::{
+    address::{Address, PAYLOAD_HASH_LEN},
+    state_tree::ActorID,
+};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -38,8 +41,10 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
         let actor_id = in_state.next_id;
-        let eth_zero_addr =
-            Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;
+        let eth_zero_addr = Address::new_delegated(
+            Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
+            &[0; PAYLOAD_HASH_LEN],
+        )?;
         in_addr_map.set(eth_zero_addr.to_bytes().into(), actor_id)?;
 
         let out_state = StateV10 {
