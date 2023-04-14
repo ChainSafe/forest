@@ -134,6 +134,7 @@ mod tests {
     use std::str::FromStr;
 
     use fvm_shared::econ::TokenAmount;
+    use jsonrpc_v2::ErrorLike;
     use quickcheck_macros::quickcheck;
 
     use super::*;
@@ -143,7 +144,11 @@ mod tests {
     fn invalid_attofil_amount() {
         //attoFIL with fractional value fails (fractional FIL values allowed)
         let amount = "1.234attofil";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap_err().message(),
+            "failed to parse fil amount: 1.234attofil. must convert to a whole attoFIL value."
+                .to_string()
+        );
     }
 
     #[test]
@@ -190,7 +195,10 @@ mod tests {
     fn suffix_with_no_amount() {
         //fails if no amount specified
         let amount = "fil";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap_err().message(),
+            "failed to parse fil amount: fil. no digits.".to_string()
+        );
     }
     #[test]
     fn valid_fil_amount_without_suffix() {
@@ -216,7 +224,11 @@ mod tests {
     fn invalid_fil_amount() {
         //bad amount fails
         let amount = "0.0.0FIL";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap_err().message(),
+            "failed to parse fil amount: 0.0.0FIL. Invalid decimal: two decimal points."
+                .to_string()
+        )
     }
 
     #[test]
@@ -233,7 +245,7 @@ mod tests {
     fn fil_amount_too_long() {
         //fil amount with length>50 fails
         let amount = "100000000000000000000000000000000000000000000000000FIL";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(FILAmount::from_str(amount).unwrap_err().message(), "failed to parse fil amount: 100000000000000000000000000000000000000000000000000FIL. string length too large.".to_string())
     }
 
     #[test]
@@ -250,21 +262,30 @@ mod tests {
     fn invalid_fil_suffix() {
         //fails with bad suffix
         let amount = "42fiascos";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap_err().message(),
+            "failed to parse fil amount: 42fiascos. unrecognized suffix.".to_string()
+        );
     }
 
     #[test]
     fn malformatted_fil_suffix_test() {
         //fails with bad suffix
         let amount = "42 fem to fil";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap_err().message(),
+            "failed to parse fil amount: 42 fem to fil. unrecognized suffix.".to_string()
+        );
     }
 
     #[test]
     fn negative_fil_value() {
         //fails with negative value
         let amount = "-1FIL";
-        assert!(FILAmount::from_str(amount).is_err());
+        assert_eq!(
+            FILAmount::from_str(amount).unwrap_err().message(),
+            "failed to parse fil amount: -1FIL. negative FIL amounts are not valid.".to_string()
+        );
     }
 
     fn fil_quickcheck_test(n: u64) {
