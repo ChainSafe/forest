@@ -22,6 +22,9 @@ use url::Url;
 use super::https_client;
 use crate::{io::ProgressBar, miscs::Either};
 
+// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
+const ZSTD_MAGIC_HEADER: [u8; 4] = [0x28, 0xb5, 0x2f, 0xfd];
+
 #[derive(Debug, Error)]
 enum DownloadError {
     #[error("Cannot read a file header")]
@@ -54,7 +57,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for FetchProgress<R> {
 type DownloadStream = IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futures::io::Error>>;
 
 impl FetchProgress<DownloadStream> {
-    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream>> {
+    pub async fn fetch_from_url(url: &Url) -> anyhow::Result<Self> {
         let (inner, progress_bar) = fetch_stream_from_url(url).await?;
         Ok(FetchProgress {
             inner,
@@ -63,7 +66,16 @@ impl FetchProgress<DownloadStream> {
     }
 }
 
-impl FetchProgress<ZstdDecoder<DownloadStream>> {}
+impl FetchProgress<ZstdDecoder<DownloadStream>> {
+    pub async fn fetch_zstd_compressed_from_url(url: &Url) -> anyhow::Result<Self> {
+        let (inner, progress_bar) = fetch_stream_from_url(url).await?;
+        let inner = ZstdDecoder::new(inner);
+        Ok(FetchProgress {
+            inner,
+            progress_bar,
+        })
+    }
+}
 
 impl FetchProgress<BufReader<async_fs::File>> {
     async fn fetch_from_file(file: async_fs::File) -> anyhow::Result<Self> {
@@ -112,8 +124,7 @@ pub async fn get_fetch_progress_from_file(
         let mut header = [0; 4];
         file.read_exact(&mut header).await?;
         file.seek(SeekFrom::Start(0)).await?;
-        // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
-        header == [0x28, 0xb5, 0x2f, 0xfd]
+        header == ZSTD_MAGIC_HEADER
     };
     log::info!(
         "Loading {}, is_zstd_compressed: {is_zstd_compressed}",
@@ -128,8 +139,39 @@ pub async fn get_fetch_progress_from_file(
     }
 }
 
-async fn fetch_stream_from_url(url: Url) -> anyhow::Result<(DownloadStream, ProgressBar)> {
+pub async fn get_fetch_progress_from_url(
+    url: &Url,
+) -> anyhow::Result<Either<FetchProgress<DownloadStream>, FetchProgress<ZstdDecoder<DownloadStream>>>>
+{
+    let (mut stream, _) = fetch_stream_from_url(url).await?;
+    let is_zstd_compressed = {
+        let mut header = [0; 4];
+        stream.read_exact(&mut header).await?;
+        header == ZSTD_MAGIC_HEADER
+    };
+    log::info!("Loading {url}, is_zstd_compressed: {is_zstd_compressed}");
+    if is_zstd_compressed {
+        Ok(Either::Right(
+            FetchProgress::fetch_zstd_compressed_from_url(url).await?,
+        ))
+    } else {
+        Ok(Either::Left(FetchProgress::fetch_from_url(url).await?))
+    }
+}
+
+async fn fetch_stream_from_url(url: &Url) -> anyhow::Result<(DownloadStream, ProgressBar)> {
     let client = https_client();
+    let url = {
+        let head_response = client
+            .request(hyper::Request::head(url.as_str()).body("".into())?)
+            .await?;
+
+        // Use the redirect if available.
+        match head_response.headers().get("location") {
+            Some(url) => url.to_str()?.try_into()?,
+            None => url.clone(),
+        }
+    };
     let total_size = {
         let resp = client
             .request(hyper::Request::head(url.as_str()).body("".into())?)
