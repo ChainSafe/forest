@@ -35,12 +35,9 @@ impl<L: AsyncRead + Unpin, R: AsyncRead + Unpin> AsyncRead for Either<L, R> {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
-        if let Some(left) = self.left_mut() {
-            Pin::new(left).poll_read(cx, buf)
-        } else if let Some(right) = self.right_mut() {
-            Pin::new(right).poll_read(cx, buf)
-        } else {
-            panic!("This branch should never be hit")
+        match self.deref_mut() {
+            Self::Left(left) => Pin::new(left).poll_read(cx, buf),
+            Self::Right(right) => Pin::new(right).poll_read(cx, buf),
         }
     }
 }
