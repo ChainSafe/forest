@@ -47,10 +47,12 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: ghcr.io/chainsafe/forest
+          flavor: |
+            latest=auto
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
             type=ref,event=tag
+            type=edge
 
       - name: Build image and push to GitHub Container Registry
         uses: docker/build-push-action@v4
