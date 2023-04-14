@@ -51,6 +51,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
             type=ref,event=tag
+            type=semver,value=stable
 
       - name: Build image and push to GitHub Container Registry
         uses: docker/build-push-action@v4
