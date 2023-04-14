@@ -17,10 +17,20 @@ pub struct FILAmount {
     pub value: TokenAmount,
 }
 
+/// `FILAmount::from_str` adds support for parsing a string (input to the
+/// 'amount' field of the the `send` command) with all units supported by forest
+/// wallet ("attoFIL", "femtoFIL", "picoFIL", "nanoFIL", "microFIL", "milliFIL",
+/// and "FIL") and converting the amount into an attoFIL `TokenAmount`. To match
+/// the current behavior in Lotus, the default units (if no units are specified
+/// in the command line) are "FIL".
 impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fn error_call<T: std::fmt::Display>(s: &str, e: T) -> anyhow::Error {
+            anyhow::anyhow!("failed to parse fil amount: {}. {}.", &s, e)
+        }
+
         let suffix_idx = s
             .rfind(char::is_numeric)
             .ok_or_else(|| anyhow::anyhow!("failed to parse fil amount: {}. No digits.", s))?;
@@ -28,7 +38,10 @@ impl FromStr for FILAmount {
 
         // string length check to match Lotus logic
         if val.chars().count() > 50 {
-            anyhow::bail!("string length too large: {}", val.chars().count());
+            return Err(error_call(
+                s,
+                anyhow::Error::msg(format!("string length too large: {}", val.chars().count())),
+            ));
         }
 
         let suffix = suffix.trim().to_lowercase();
@@ -41,19 +54,24 @@ impl FromStr for FILAmount {
             "milli" => dec!(1e15),
             "" => dec!(1e18),
             _ => {
-                anyhow::bail!("unrecognized suffix: {}", suffix);
+                return Err(error_call(
+                    s,
+                    anyhow::Error::msg(format!("unrecognized suffix: {}", suffix)),
+                ));
             }
         };
 
-        let parsed_val = Decimal::from_str(val)
-            .map_err(|e| anyhow::anyhow!("failed to parse fil amount: {}. {}.", &s, e))?;
+        let parsed_val = Decimal::from_str(val).map_err(|e| error_call(s, e))?;
 
         let val = parsed_val * multiplier;
         if val.normalize().scale() > 0 {
-            anyhow::bail!("{} must convert to a whole attoFIL value", &s);
+            return Err(error_call(
+                s,
+                anyhow::Error::msg(format!("{} must convert to a whole attoFIL value", &val)),
+            ));
         }
-        let attofil_val = val.trunc().to_u128().ok_or(anyhow::Error::msg(
-            "Could not covert amount input to send into an attoFIL value (note that negative FIL amounts are not valid).",
+        let attofil_val = val.trunc().to_u128().ok_or(error_call(s, anyhow::Error::msg(
+            "Could not covert amount input to send into an attoFIL value (note that negative FIL amounts are not valid)"),
         ))?;
 
         let token_amount = TokenAmount::from_atto(BigInt::from(attofil_val));
@@ -101,7 +119,6 @@ impl SendCommand {
             )?
         };
 
-        //TODO: update value field and update integration tests
         let message = Message {
             from,
             to: self.target_address,
