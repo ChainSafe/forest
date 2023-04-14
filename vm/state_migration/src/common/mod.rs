@@ -30,8 +30,11 @@ pub(crate) struct ActorMigrationInput {
     pub prior_epoch: ChainEpoch,
 }
 
-pub(crate) struct MigrationOutput {
+/// Output of actor migration job.
+pub(crate) struct ActorMigrationOutput {
+    /// New CID for the actor
     pub new_code_cid: Cid,
+    /// New state head CID
     pub new_head: Cid,
 }
 
@@ -41,7 +44,7 @@ pub(crate) trait ActorMigration<BS: Blockstore + Clone + Send + Sync> {
         &self,
         store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<MigrationOutput>;
+    ) -> anyhow::Result<ActorMigrationOutput>;
 }
 
 /// Post migration action to be executed after the state migration.

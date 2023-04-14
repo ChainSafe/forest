@@ -10,7 +10,7 @@ use fil_actor_system_v10::State as StateV10;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::common::{ActorMigration, ActorMigrationInput, MigrationOutput};
+use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
 pub(crate) struct SystemMigrator {
     new_builtin_actors_cid: Cid,
@@ -32,13 +32,13 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for SystemMigrator
         &self,
         store: BS,
         _input: ActorMigrationInput,
-    ) -> anyhow::Result<MigrationOutput> {
+    ) -> anyhow::Result<ActorMigrationOutput> {
         let state = StateV10 {
             builtin_actors: self.new_builtin_actors_cid,
         };
         let new_head = store.put_obj(&state, Blake2b256)?;
 
-        Ok(MigrationOutput {
+        Ok(ActorMigrationOutput {
             new_code_cid: self.new_code_cid,
             new_head,
         })

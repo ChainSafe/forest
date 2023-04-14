@@ -6,7 +6,7 @@ use std::sync::Arc;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
-use super::{ActorMigration, ActorMigrationInput, MigrationOutput};
+use super::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
 /// Migrator which preserves the head CID and provides a fixed result code CID.
 /// This is used to migrate actors which do not require any state migration.
@@ -17,8 +17,8 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for NilMigrator {
         &self,
         _store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<MigrationOutput> {
-        Ok(MigrationOutput {
+    ) -> anyhow::Result<ActorMigrationOutput> {
+        Ok(ActorMigrationOutput {
             new_code_cid: self.0,
             new_head: input.head,
         })

@@ -17,7 +17,7 @@ use forest_shim::{
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::common::{ActorMigration, ActorMigrationInput, MigrationOutput};
+use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
 pub struct InitMigrator(Cid);
 
@@ -32,7 +32,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
         &self,
         store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<MigrationOutput> {
+    ) -> anyhow::Result<ActorMigrationOutput> {
         let in_state: StateV9 = store
             .get_obj(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
@@ -55,7 +55,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
 
         let new_head = store.put_obj(&out_state, Blake2b256)?;
 
-        Ok(MigrationOutput {
+        Ok(ActorMigrationOutput {
             new_code_cid: self.0,
             new_head,
         })
