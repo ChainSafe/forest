@@ -17,15 +17,15 @@ pub struct FILAmount {
     pub value: TokenAmount,
 }
 
-/// `FILAmount::from_str` parses a string (input to the 'amount' field of the
-/// the `send` command) with all units supported by forest wallet (`attoFIL`,
-/// `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`, `milliFIL`, and `FIL`) and
-/// converts the amount into an `attoFIL` `TokenAmount`. To match the current
-/// behavior in Lotus, the default units (if no units are specified
-/// in the command line) are `FIL`.
 impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
+    /// `FILAmount::from_str` parses a string (input to the 'amount' field of
+    /// the the `send` command) with all units supported by forest wallet
+    /// (`attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`,
+    /// `milliFIL`, and `FIL`) and converts the amount into an `attoFIL`
+    /// `TokenAmount`. To match the current behavior in Lotus, the default
+    /// units (if no units are specified in the command line) are `FIL`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let error_call = |e| anyhow::anyhow!("failed to parse fil amount: {}. {}.", &s, e);
 
