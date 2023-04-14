@@ -121,7 +121,7 @@ pub async fn get_fetch_progress_from_file(
 > {
     let mut file = async_fs::File::open(file_path.as_ref()).await?;
     let is_zstd_compressed = {
-        let mut header = [0; 4];
+        let mut header = [0; ZSTD_MAGIC_HEADER.len()];
         file.read_exact(&mut header).await?;
         file.seek(SeekFrom::Start(0)).await?;
         header == ZSTD_MAGIC_HEADER
@@ -145,7 +145,7 @@ pub async fn get_fetch_progress_from_url(
 {
     let (mut stream, _) = fetch_stream_from_url(url).await?;
     let is_zstd_compressed = {
-        let mut header = [0; 4];
+        let mut header = [0; ZSTD_MAGIC_HEADER.len()];
         stream.read_exact(&mut header).await?;
         header == ZSTD_MAGIC_HEADER
     };
