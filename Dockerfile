@@ -59,8 +59,6 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 ##
 FROM ubuntu:22.04
 
-# Link package to the repository
-LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 ARG SERVICE_USER=forest
 ARG SERVICE_GROUP=forest
 ARG DATA_DIR=/home/forest/.local/share/forest

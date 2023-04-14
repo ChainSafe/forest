@@ -39,6 +39,13 @@ install-lint-tools:
 	cargo install --locked cargo-spellcheck
 	cargo install --locked cargo-udeps
 
+install-lint-tools-ci:
+	wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
+	tar xzf cargo-binstall-x86_64-unknown-linux-musl.tgz
+	cp cargo-binstall ~/.cargo/bin/cargo-binstall
+
+	cargo binstall --no-confirm taplo-cli cargo-udeps cargo-spellcheck cargo-audit
+
 install-doc-tools:
 	cargo install --locked mdbook
 	cargo install --locked mdbook-linkcheck

@@ -9,14 +9,14 @@ use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
-    default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
+    default_snapshot_dir, is_car_or_zst_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet, DEFAULT_RECENT_STATE_ROOTS};
 use forest_rpc_api::chain_api::ChainExportParams;
 use forest_rpc_client::chain_ops::*;
-use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
+use forest_utils::{io::parser::parse_duration, net::get_fetch_progress_from_file, retry};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
@@ -63,6 +63,10 @@ pub enum SnapshotCommands {
         /// Snapshot trusted source
         #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
+        /// Download zstd compressed snapshot, only supported by the Filecoin
+        /// provider for now. default is false.
+        #[arg(long)]
+        compressed: bool,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[arg(long)]
         aria2: bool,
@@ -204,6 +208,7 @@ impl SnapshotCommands {
             Self::Fetch {
                 snapshot_dir,
                 provider,
+                compressed: use_compressed,
                 aria2: use_aria2,
                 max_retries,
                 delay,
@@ -218,6 +223,7 @@ impl SnapshotCommands {
                     &snapshot_dir,
                     &config,
                     provider,
+                    *use_compressed,
                     *use_aria2
                 ) {
                     Ok(out) => {
@@ -281,7 +287,7 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     let snapshot_path = snapshot_dir.join(filename);
-    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_tmp(&snapshot_path) {
+    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_zst_or_tmp(&snapshot_path) {
         println!("Deleting {}", snapshot_path.display());
         if !force && !prompt_confirm() {
             println!("Aborted.");
@@ -341,7 +347,7 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     let snapshots_to_delete: Vec<_> = read_dir
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| is_car_or_tmp(p))
+        .filter(|p| is_car_or_zst_or_tmp(p))
         .collect();
 
     if snapshots_to_delete.is_empty() {
@@ -407,8 +413,7 @@ async fn validate(
         )?);
 
         let cids = {
-            let file = async_fs::File::open(&snapshot).await?;
-            let reader = FetchProgress::fetch_from_file(file).await?;
+            let reader = get_fetch_progress_from_file(&snapshot).await?;
             forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
 
@@ -491,7 +496,8 @@ where
         pb.set((ts.epoch() - tipset.epoch()) as u64);
     }
 
-    pb.finish();
+    drop(pb);
+
     println!("Snapshot is valid");
 
     Ok(())

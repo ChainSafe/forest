@@ -1,4 +1,4 @@
-51
+67
 Algorand/M
 API/M
 APIs
@@ -66,3 +66,4 @@ verifier
 VM
 VRF
 WebSocket
+zstd

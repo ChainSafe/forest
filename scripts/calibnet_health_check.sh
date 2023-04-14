@@ -30,6 +30,13 @@ echo "$1" > preloaded_wallet.key
 
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
+echo "Downloading zstd compressed snapshot"
+$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$SNAPSHOT_DIRECTORY"
+echo "Importing zstd compressed snapshot"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+
 echo "Downloading snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
 
