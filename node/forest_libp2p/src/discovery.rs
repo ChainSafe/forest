@@ -16,7 +16,9 @@ use libp2p::{
     kad::{record::store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent, QueryId},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,
-    swarm::{behaviour::toggle::Toggle, derive_prelude::*, NetworkBehaviour, PollParameters},
+    swarm::{
+        behaviour::toggle::Toggle, derive_prelude::*, NetworkBehaviour, PollParameters, ToSwarm,
+    },
 };
 use log::{debug, error, trace, warn};
 use tokio::time::Interval;
