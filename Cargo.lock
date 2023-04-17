@@ -3434,6 +3434,7 @@ dependencies = [
  "tempfile",
  "time 0.3.20",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4022,12 +4023,15 @@ name = "forest_networks"
 version = "0.7.1"
 dependencies = [
  "anyhow",
+ "cid",
  "fil_actors_runtime_v10",
  "forest_beacon",
  "forest_shim",
  "fvm_shared 2.3.0",
+ "lazy_static",
  "serde",
- "toml 0.7.3",
+ "strum_macros",
+ "url",
 ]
 
 [[package]]
@@ -4164,7 +4168,9 @@ dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
  "fvm_shared 3.1.0",
+ "num",
  "num-bigint",
+ "num-derive",
  "num-traits",
  "quickcheck",
  "serde",
@@ -4193,6 +4199,7 @@ dependencies = [
  "forest_metrics",
  "forest_networks",
  "forest_shim",
+ "forest_state_migration",
  "forest_utils",
  "futures",
  "fvm 2.3.0",
@@ -4220,15 +4227,22 @@ name = "forest_state_migration"
 version = "0.7.1"
 dependencies = [
  "ahash 0.8.3",
+ "anyhow",
  "cid",
  "crossbeam-channel",
+ "fil_actor_init_v10",
+ "fil_actor_init_v9",
+ "fil_actor_system_v10",
+ "fil_actor_system_v9",
+ "fil_actors_runtime_v10",
+ "forest_networks",
  "forest_shim",
+ "forest_utils",
  "fvm_ipld_blockstore",
- "fvm_shared 2.3.0",
+ "fvm_ipld_encoding 0.2.3",
  "log",
  "num_cpus",
  "rayon",
- "thiserror",
 ]
 
 [[package]]
@@ -9347,6 +9361,19 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "strum_macros"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "stun"

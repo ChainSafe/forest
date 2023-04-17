@@ -193,6 +193,7 @@ where
         tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;
     while let Some(block) = car_reader.next_block().await? {
+        debug!("Importing block: {}", block.cid);
         tx.send_async((block.cid, block.data)).await?;
     }
     drop(tx);
