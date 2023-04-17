@@ -25,6 +25,7 @@ forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
 forest_networks.workspace = true
 forest_shim.workspace = true
+forest_state_migration.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm.workspace = true

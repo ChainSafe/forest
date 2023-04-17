@@ -12,6 +12,7 @@ use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
     current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    PAYLOAD_HASH_LEN,
 };
 use serde::{Deserialize, Serialize};
 
