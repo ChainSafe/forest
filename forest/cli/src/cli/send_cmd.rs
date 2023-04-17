@@ -27,16 +27,16 @@ impl FromStr for FILAmount {
     /// `TokenAmount`. To match the current behavior in Lotus, the default
     /// units (if no units are specified in the command line) are `FIL`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let error_call = |e| anyhow::anyhow!("failed to parse fil amount: {}. {}.", &s, e);
+        let error_call = |e: &str| anyhow::anyhow!("failed to parse fil amount: {}. {}.", s, e);
 
         let suffix_idx = s
             .rfind(char::is_numeric)
-            .ok_or_else(|| error_call("no digits".to_string()))?;
+            .ok_or_else(|| error_call("no digits"))?;
         let (val, suffix) = s.split_at(suffix_idx + 1);
 
         // string length check to match Lotus logic
         if val.chars().count() > 50 {
-            return Err(error_call("string length too large".to_string()));
+            return Err(error_call("string length too large"));
         }
 
         let suffix = suffix.trim().to_lowercase();
@@ -48,21 +48,19 @@ impl FromStr for FILAmount {
             "micro" => dec!(1e12),
             "milli" => dec!(1e15),
             "" => dec!(1e18),
-            _ => return Err(error_call("unrecognized suffix".to_string())),
+            _ => return Err(error_call("unrecognized suffix")),
         };
 
-        let parsed_val = Decimal::from_str(val).map_err(|e| error_call(e.to_string()))?;
+        let parsed_val = Decimal::from_str(val).map_err(|e| error_call(&e.to_string()))?;
 
         let val = parsed_val * multiplier;
         if val.normalize().scale() > 0 {
-            return Err(error_call(
-                "must convert to a whole attoFIL value".to_string(),
-            ));
+            return Err(error_call("must convert to a whole attoFIL value"));
         }
         let attofil_val = val
             .trunc()
             .to_u128()
-            .ok_or(error_call("negative FIL amounts are not valid".to_string()))?;
+            .ok_or(error_call("negative FIL amounts are not valid"))?;
 
         Ok(FILAmount {
             value: TokenAmount::from_atto(attofil_val),
@@ -147,7 +145,6 @@ mod tests {
         assert_eq!(
             FILAmount::from_str(amount).unwrap_err().message(),
             "failed to parse fil amount: 1.234attofil. must convert to a whole attoFIL value."
-                .to_string()
         );
     }
 
@@ -197,7 +194,7 @@ mod tests {
         let amount = "fil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap_err().message(),
-            "failed to parse fil amount: fil. no digits.".to_string()
+            "failed to parse fil amount: fil. no digits."
         );
     }
     #[test]
@@ -227,7 +224,6 @@ mod tests {
         assert_eq!(
             FILAmount::from_str(amount).unwrap_err().message(),
             "failed to parse fil amount: 0.0.0FIL. Invalid decimal: two decimal points."
-                .to_string()
         )
     }
 
@@ -245,7 +241,7 @@ mod tests {
     fn fil_amount_too_long() {
         //fil amount with length>50 fails
         let amount = "100000000000000000000000000000000000000000000000000FIL";
-        assert_eq!(FILAmount::from_str(amount).unwrap_err().message(), "failed to parse fil amount: 100000000000000000000000000000000000000000000000000FIL. string length too large.".to_string())
+        assert_eq!(FILAmount::from_str(amount).unwrap_err().message(), "failed to parse fil amount: 100000000000000000000000000000000000000000000000000FIL. string length too large.")
     }
 
     #[test]
@@ -264,7 +260,7 @@ mod tests {
         let amount = "42fiascos";
         assert_eq!(
             FILAmount::from_str(amount).unwrap_err().message(),
-            "failed to parse fil amount: 42fiascos. unrecognized suffix.".to_string()
+            "failed to parse fil amount: 42fiascos. unrecognized suffix."
         );
     }
 
@@ -274,7 +270,7 @@ mod tests {
         let amount = "42 fem to fil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap_err().message(),
-            "failed to parse fil amount: 42 fem to fil. unrecognized suffix.".to_string()
+            "failed to parse fil amount: 42 fem to fil. unrecognized suffix."
         );
     }
 
@@ -284,7 +280,7 @@ mod tests {
         let amount = "-1FIL";
         assert_eq!(
             FILAmount::from_str(amount).unwrap_err().message(),
-            "failed to parse fil amount: -1FIL. negative FIL amounts are not valid.".to_string()
+            "failed to parse fil amount: -1FIL. negative FIL amounts are not valid."
         );
     }
 
