@@ -34,6 +34,8 @@
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support exporting
   zstd compressed snapshots via `--compressed` option in
   `forest-cli snapshot export` subcommand
+- [#1454](https://github.com/ChainSafe/forest/issues/1454): Added state
+  migration support for NV18.
 
 ### Changed
 

@@ -16,6 +16,7 @@ use forest_cli_shared::{
         to_size_string, CliOpts, Client, Config, SnapshotServer, FOREST_VERSION_STRING,
     },
 };
+use forest_daemon::bundle::load_bundles;
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
     rolling::{DbGarbageCollector, RollingDB},
@@ -254,6 +255,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     } else {
         false
     };
+
+    load_bundles(epoch, &config, db.clone()).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
