@@ -104,9 +104,8 @@ impl MsgSet {
                 }
             }
             return;
-        } else {
-            metrics::MPOOL_MESSAGE_TOTAL.dec();
-        };
+        }
+        metrics::MPOOL_MESSAGE_TOTAL.dec();
 
         // adjust next sequence
         if applied {
