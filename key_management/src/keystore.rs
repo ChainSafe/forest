@@ -439,13 +439,15 @@ impl EncryptedKeyStore {
         };
 
         let mut param_builder = ParamsBuilder::new();
+        // #define crypto_pwhash_argon2id_MEMLIMIT_INTERACTIVE 67108864U
+        // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L70>
+        const CRYPTO_PWHASH_ARGON2ID_MEMLIMIT_INTERACTIVE: u32 = 67108864;
+        // #define crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE 2U
+        // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L66>
+        const CRYPTO_PWHASH_ARGON2ID_OPSLIMIT_INTERACTIVE: u32 = 2;
         param_builder
-            // #define crypto_pwhash_argon2id_MEMLIMIT_INTERACTIVE 67108864U
-            // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L70>
-            .m_cost(67108864 / 1024)
-            // #define crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE 2U
-            // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L66>
-            .t_cost(2);
+            .m_cost(CRYPTO_PWHASH_ARGON2ID_MEMLIMIT_INTERACTIVE / 1024)
+            .t_cost(CRYPTO_PWHASH_ARGON2ID_OPSLIMIT_INTERACTIVE);
         // https://docs.rs/sodiumoxide/latest/sodiumoxide/crypto/secretbox/xsalsa20poly1305/constant.KEYBYTES.html
         // KEYBYTES = 0x20
         // param_builder.output_len(32)?;
