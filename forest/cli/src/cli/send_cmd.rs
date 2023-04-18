@@ -20,12 +20,20 @@ pub struct FILAmount {
 impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
-    /// `FILAmount::from_str` parses a string (input to the 'amount' field of
-    /// the the `send` command) with all units supported by forest wallet
-    /// (`attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`,
-    /// `milliFIL`, and `FIL`) and converts the amount into an `attoFIL`
-    /// `TokenAmount`. To match the current behavior in Lotus, the default
-    /// units (if no units are specified in the command line) are `FIL`.
+    /// `FILAmount::from_str` parses a string slice and converts the amount into
+    /// an `attoFIL` `TokenAmount`, returning an error if the input: contains no
+    /// digits (e.g., `fil`), is not a valid number (e.g., `0.0.0fil`), is too
+    /// long (greater than `50` characters), is negative, or has an unrecognized
+    /// suffix. Fractional input values are valid unless the input units are
+    /// attoFIL (e.g., `1.234 attoFIL` is invalid while `1234 attoFIL` is valid
+    /// and parses to a `TokenAmount` corresponding to `1234` `attoFIL`). To
+    /// match the current behavior in Lotus, the default units are `FIL`
+    /// (e.g., `1` parses as `FIL` with a resulting `TokenAmount corresponding
+    /// to `1e18` `attoFIL`). The function also accepts all units currently
+    /// supported by forest wallet in the `format_balance_string` function
+    /// (`attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`, `milliFIL`,
+    /// and `FIL`), and the output of `FILAmount::from_str` can be used as input
+    /// to the `format_balance_string` function.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let error_call = |e: &str| anyhow::anyhow!("failed to parse fil amount: {}. {}.", s, e);
 
