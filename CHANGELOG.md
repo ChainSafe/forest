@@ -36,6 +36,9 @@
 
 ### Changed
 
+- [#2770](https://github.com/ChainSafe/forest/issues/2767): Use `latest` tag for
+  stable releases, and `edge` for latest development builds.
+
 ### Removed
 
 ### Fixed

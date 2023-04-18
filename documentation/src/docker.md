@@ -23,9 +23,10 @@ For the list of all available tags please refer to the
 
 Currently, the following tags are produced:
 
-- `latest` - latest build of the `main` branch.
+- `latest` - latest stable release,
+- `edge` - latest development build of the `main` branch,
 - `date-digest` e.g., `2023-02-17-5f27a62` - all builds that landed on the
-  `main` branch.
+  `main` branch,
 - release tags, available from `v.0.7.0` onwards.
 
 ## Security recommendations
