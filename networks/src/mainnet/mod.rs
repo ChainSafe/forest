@@ -41,7 +41,7 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 
 lazy_static! {
 /// Height epochs.
-pub static ref HEIGHT_INFOS: [HeightInfo; 19] = [
+pub static ref HEIGHT_INFOS: [HeightInfo; 20] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: 41_280,
@@ -138,6 +138,14 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 19] = [
         bundle: Some(ActorBundleInfo {
             manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap()
+    }),
+    },
+    HeightInfo {
+        height: Height::Lightning,
+        epoch: 9999999999, // TODO: update epoch and bundle url
+        bundle: Some(ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap()
     }),
     },
 
