@@ -4531,6 +4531,7 @@ dependencies = [
  "crossbeam-channel",
  "fil_actor_init_v10",
  "fil_actor_init_v9",
+ "fil_actor_miner_v10",
  "fil_actor_system_v10",
  "fil_actor_system_v9",
  "fil_actors_runtime_v10",
