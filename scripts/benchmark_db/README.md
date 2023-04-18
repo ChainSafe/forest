@@ -18,7 +18,7 @@ $ bundle install
 Note: depending upon your Ruby installation, it may be necessary to execute
 `gem install bundler` first. In case of any issues with "native extensions"
 during `bundle install` on a \*nix machine, it may also be necessary to execute
-`apt-get update && apt-get install -y build-essential`.
+`apt-get update && apt-get install -y build-essential ruby-dev`.
 
 The daily benchmarks also require the installation of
 [aria2](https://github.com/aria2/aria2) and
