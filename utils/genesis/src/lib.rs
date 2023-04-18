@@ -9,7 +9,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_state_manager::StateManager;
 use forest_utils::{
     db::{BlockstoreBufferedWriteExt, BlockstoreExt},
-    net::{get_fetch_progress_from_file, FetchProgress},
+    net::{get_fetch_progress_from_file, get_fetch_progress_from_url},
 };
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
@@ -117,7 +117,7 @@ where
     let cids = if is_remote_file {
         info!("Downloading file...");
         let url = Url::parse(path)?;
-        let reader = FetchProgress::fetch_from_url(url).await?;
+        let reader = get_fetch_progress_from_url(&url).await?;
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
