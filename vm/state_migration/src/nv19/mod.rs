@@ -12,6 +12,10 @@
 // mod system;
 // mod verifier;
 
+mod miner;
+mod power;
+mod system;
+
 /// Run migration for `NV19`. This should be the only exported method in this
 /// module.
 pub use migration::run_migration;
