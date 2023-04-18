@@ -28,7 +28,7 @@ impl FromStr for FILAmount {
     /// attoFIL (e.g., `1.234 attoFIL` is invalid while `1234 attoFIL` is valid
     /// and parses to a `TokenAmount` corresponding to `1234` `attoFIL`). To
     /// match the current behavior in Lotus, the default units are `FIL`
-    /// (e.g., `1` parses as `FIL` with a resulting `TokenAmount corresponding
+    /// (e.g., `1` parses as `FIL` with a resulting `TokenAmount` corresponding
     /// to `1e18` `attoFIL`). The function also accepts all units currently
     /// supported by forest wallet in the `format_balance_string` function
     /// (`attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`, `milliFIL`,
