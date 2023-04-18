@@ -143,7 +143,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 20] = [
     HeightInfo {
         height: Height::Lightning,
         epoch: 9999999999, // TODO: update epoch and bundle url
-        bundle: Some(ActorBundleInfo {
+        bundle: Some(ActorBundleInfo { // TODO: update url to mainnet and extract this into json file
             manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap()
     }),
