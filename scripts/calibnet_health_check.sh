@@ -36,6 +36,14 @@ echo "Importing zstd compressed snapshot"
 $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
 echo "Cleaning up database"
 $FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Importing snapshot from url"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Importing zstd compressed snapshot from url"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest.zst
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
 
 echo "Downloading snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
