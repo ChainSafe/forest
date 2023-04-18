@@ -7,10 +7,80 @@ use cid::Cid;
 use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
+use fvm_shared::state::StateTreeVersion as StateTreeVersionV2;
+use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
 pub use fvm_shared3::ActorID;
+use num::FromPrimitive;
+use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::{address::Address, econ::TokenAmount, Inner};
+
+#[derive(
+    Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
+)]
+#[repr(u64)]
+pub enum StateTreeVersion {
+    V0,
+    V1,
+    V2,
+    V3,
+    V4,
+    V5,
+}
+
+impl TryFrom<StateTreeVersionV3> for StateTreeVersion {
+    type Error = anyhow::Error;
+    fn try_from(value: StateTreeVersionV3) -> anyhow::Result<Self> {
+        if let Some(v) = FromPrimitive::from_u32(value as u32) {
+            Ok(v)
+        } else {
+            bail!("Invalid conversion");
+        }
+    }
+}
+
+impl TryFrom<StateTreeVersionV2> for StateTreeVersion {
+    type Error = anyhow::Error;
+    fn try_from(value: StateTreeVersionV2) -> anyhow::Result<Self> {
+        if let Some(v) = FromPrimitive::from_u32(value as u32) {
+            Ok(v)
+        } else {
+            bail!("Invalid conversion");
+        }
+    }
+}
+
+impl TryFrom<StateTreeVersion> for StateTreeVersionV2 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: StateTreeVersion) -> anyhow::Result<Self> {
+        Ok(match value {
+            StateTreeVersion::V0 => StateTreeVersionV2::V0,
+            StateTreeVersion::V1 => StateTreeVersionV2::V1,
+            StateTreeVersion::V2 => StateTreeVersionV2::V2,
+            StateTreeVersion::V3 => StateTreeVersionV2::V3,
+            StateTreeVersion::V4 => StateTreeVersionV2::V4,
+            StateTreeVersion::V5 => bail!("Impossible conversion"),
+        })
+    }
+}
+
+impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: StateTreeVersion) -> anyhow::Result<Self> {
+        Ok(match value {
+            StateTreeVersion::V0 => StateTreeVersionV3::V0,
+            StateTreeVersion::V1 => StateTreeVersionV3::V1,
+            StateTreeVersion::V2 => StateTreeVersionV3::V2,
+            StateTreeVersion::V3 => StateTreeVersionV3::V3,
+            StateTreeVersion::V4 => StateTreeVersionV3::V4,
+            StateTreeVersion::V5 => StateTreeVersionV3::V5,
+        })
+    }
+}
 
 /// FVM `StateTree` variant. The `new_from_root` constructor will try to resolve
 /// to a valid `StateTree` version or fail if we don't support it at the moment.
@@ -29,6 +99,16 @@ where
     S: Blockstore + Clone,
 {
     /// Constructor for a HAMT state tree given an IPLD store
+    pub fn new(store: S, version: StateTreeVersion) -> anyhow::Result<Self> {
+        if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
+            Ok(StateTree::V3(st))
+        } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
+            Ok(StateTree::V2(st))
+        } else {
+            bail!("Can't create a valid state tree for the given version.");
+        }
+    }
+
     pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::V3(st))
@@ -160,6 +240,13 @@ impl ActorState {
             balance.into(),
             sequence,
             address.map(Into::into),
+        ))
+    }
+    /// Construct a new empty actor with the specified code.
+    pub fn new_empty(code: Cid, delegated_address: Option<Address>) -> Self {
+        Self(ActorStateV3::new_empty(
+            code,
+            delegated_address.map(Into::into),
         ))
     }
 }

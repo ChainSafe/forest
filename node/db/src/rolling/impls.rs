@@ -190,8 +190,9 @@ impl RollingDB {
 
     /// Sets `current` as `old`, and sets a new DB as `current`, finally delete
     /// the dangling `old` DB.
-    pub(crate) fn next_current(&self) -> anyhow::Result<()> {
+    pub(super) fn next_current(&self, current_epoch: i64) -> anyhow::Result<()> {
         let new_db_name = Uuid::new_v4().simple().to_string();
+        info!("Setting {new_db_name} as current db");
         let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
         *self.old.write() = self.current.read().clone();
         *self.current.write() = db;
@@ -200,10 +201,15 @@ impl RollingDB {
         let old_db_path = self.db_root.join(&db_index_inner_mut.old);
         db_index_inner_mut.old = db_index_inner_mut.current.clone();
         db_index_inner_mut.current = new_db_name;
+        db_index_inner_mut.current_creation_epoch = current_epoch;
         db_index.sync()?;
         delete_db(&old_db_path);
 
         Ok(())
+    }
+
+    pub(super) fn current_creation_epoch(&self) -> i64 {
+        self.db_index.read().inner().current_creation_epoch
     }
 
     pub fn total_size_in_bytes(&self) -> anyhow::Result<u64> {
@@ -298,7 +304,7 @@ mod tests {
             if i == split_index {
                 sleep(Duration::from_millis(1));
                 println!("Creating a new current db");
-                rolling_db.next_current()?;
+                rolling_db.next_current(0)?;
                 println!("Created a new current db");
             }
             rolling_db.put_keyed(k, block)?;
@@ -312,7 +318,7 @@ mod tests {
             );
         }
 
-        rolling_db.next_current()?;
+        rolling_db.next_current(0)?;
 
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {

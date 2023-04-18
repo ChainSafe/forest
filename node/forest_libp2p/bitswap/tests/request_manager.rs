@@ -109,6 +109,8 @@ mod tests {
             .timeout(TIMEOUT)
             .boxed();
         let behaviour = BitswapBehaviour::new(&[b"/test/ipfs/bitswap/1.0.0"], Default::default());
+        // https://github.com/ChainSafe/forest/issues/2762
+        #[allow(deprecated)]
         let mut swarm = Swarm::with_tokio_executor(transport, behaviour, peer_id);
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let peer_addr = loop {

@@ -46,5 +46,7 @@ pub struct RollingDB {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct DbIndex {
     current: String,
+    #[serde(default = "Default::default")]
+    current_creation_epoch: i64,
     old: String,
 }

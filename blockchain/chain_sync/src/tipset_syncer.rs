@@ -908,7 +908,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
             parent_tipsets.push(tipset);
         }
     }
-    pb.finish();
+    drop(pb);
 
     // Unwrapping is safe here because we assume that the tipset
     // vector was initialized with a tipset that will not be removed

@@ -88,6 +88,7 @@ where
 {
     db: RollingDB,
     get_tipset: F,
+    chain_finality: i64,
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
@@ -98,12 +99,13 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(db: RollingDB, get_tipset: F) -> Self {
+    pub fn new(db: RollingDB, chain_finality: i64, get_tipset: F) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {
             db,
             get_tipset,
+            chain_finality,
             lock: Default::default(),
             gc_tx,
             gc_rx,
@@ -149,7 +151,7 @@ where
                 };
 
                 if should_collect {
-                    if let Err(err) = self.collect_once(tipset).await {
+                    if let Err(err) = self.collect_once().await {
                         warn!("Garbage collection failed: {err}");
                     }
                 }
@@ -163,9 +165,8 @@ where
         info!("Listening on database garbage collection events");
         while let Ok(responder) = self.gc_rx.recv_async().await {
             let this = self.clone();
-            let tipset = (self.get_tipset)();
             tokio::spawn(async move {
-                let result = this.collect_once(tipset).await;
+                let result = this.collect_once().await;
                 if let Err(e) = responder.send(result) {
                     warn!("{e}");
                 }
@@ -181,7 +182,26 @@ where
     /// 2. writes blocks that are absent from the `current` database to it
     /// 3. delete `old` database(s)
     /// 4. sets `current` database to a newly created one
-    async fn collect_once(&self, tipset: Tipset) -> anyhow::Result<()> {
+    ///
+    /// ## Data Safety
+    /// The blockchain consists of an immutable part (tipsets that are at least
+    /// 900 epochs older than the current head) and a mutable part (tipsets
+    /// that are within the most recent 900 epochs). Deleting data from the
+    /// mutable part of the chain can be problematic; therefore, we record the
+    /// exact epoch at which a new current database space is created, and only
+    /// perform garbage collection when this creation epoch has become
+    /// immutable (at least 900 epochs older than the current head), thus
+    /// the old database space that will be deleted at the end of garbage
+    /// collection only contains immutable or finalized part of the chain,
+    /// from which all block data that is marked as unreachable will not
+    /// become reachable because of the chain being mutated later.
+    async fn collect_once(&self) -> anyhow::Result<()> {
+        let tipset = (self.get_tipset)();
+
+        if self.db.current_creation_epoch() + self.chain_finality >= tipset.epoch() {
+            anyhow::bail!("Cancelling GC: the old DB space contains unfinalized chain parts");
+        }
+
         let guard = self.lock.try_lock();
         if guard.is_err() {
             anyhow::bail!("Another garbage collection task is in progress.");
@@ -232,7 +252,9 @@ where
             reachable_bytes.human_count_bytes(),
         );
 
-        db.next_current()?;
+        // Use the latest head here
+        self.db.next_current((self.get_tipset)().epoch())?;
+
         Ok(())
     }
 }

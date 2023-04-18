@@ -20,6 +20,13 @@ pub async fn chain_export(
     call(CHAIN_EXPORT, params, auth_token).await
 }
 
+pub async fn chain_get_tipset_by_height(
+    params: ChainGetTipsetByHeightParams,
+    auth_token: &Option<String>,
+) -> Result<ChainGetTipsetByHeightResult, Error> {
+    call(CHAIN_GET_TIPSET_BY_HEIGHT, params, auth_token).await
+}
+
 pub async fn chain_get_genesis(
     auth_token: &Option<String>,
 ) -> Result<ChainGetGenesisResult, Error> {

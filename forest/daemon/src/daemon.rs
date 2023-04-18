@@ -13,9 +13,10 @@ use forest_cli_shared::{
     chain_path,
     cli::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
-        to_size_string, CliOpts, Client, Config, FOREST_VERSION_STRING,
+        to_size_string, CliOpts, Client, Config, SnapshotServer, FOREST_VERSION_STRING,
     },
 };
+use forest_daemon::bundle::load_bundles;
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
     rolling::{DbGarbageCollector, RollingDB},
@@ -177,7 +178,11 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         let db = db.clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
-        Arc::new(DbGarbageCollector::new(db, get_tipset))
+        Arc::new(DbGarbageCollector::new(
+            db,
+            config.chain.policy.chain_finality,
+            get_tipset,
+        ))
     };
 
     if !opts.no_gc {
@@ -250,6 +255,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     } else {
         false
     };
+
+    load_bundles(epoch, &config, db.clone()).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -460,13 +467,18 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
+        let provider = SnapshotServer::try_get_default(&config.chain.name)?;
+        // FIXME: change this to `true` once zstd compressed snapshots is supported by
+        // the forest provider
+        let use_compressed = provider == SnapshotServer::Filecoin;
         let path = retry!(
             snapshot_fetch,
             config.daemon.default_retry,
             config.daemon.default_delay,
             &snapshot_path,
             &config,
-            &None,
+            &Some(provider),
+            use_compressed,
             is_aria2_installed()
         )?;
         Ok(Config {
@@ -626,6 +638,14 @@ mod test {
     #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
+            .await
+            .is_ok());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn import_snapshot_from_compressed_file_valid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car.zst")
             .await
             .is_ok());
         Ok(())

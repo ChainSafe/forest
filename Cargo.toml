@@ -49,6 +49,8 @@ resolver = "2"
 ahash = "0.8"
 anyhow = "1.0"
 assert_cmd = "2"
+async-compression = { version = "0.3", features = ["futures-io", "zstd"] }
+async-fs = "1"
 async-trait = "0.1"
 atty = "0.2"
 axum = "0.6"
@@ -95,7 +97,7 @@ lazy_static = "1.4"
 libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core = "0.14"
 libipld-macro = "0.14"
-libp2p = { version = "0.51", default-features = false }
+libp2p = { version = "=0.51.1", default-features = false }
 libsecp256k1 = "0.7"
 log = "0.4"
 lru = "0.9"
@@ -104,6 +106,7 @@ multihash = { version = "0.16", default-features = false }
 nonempty = "0.8.0"
 num = "0.4.0"
 num-bigint = "0.4"
+num-derive = "0.3"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
@@ -169,6 +172,7 @@ forest_rpc-api = { path = "./node/rpc-api" }
 forest_rpc-client = { path = "./node/rpc-client" }
 forest_shim = { path = "./utils/forest_shim" }
 forest_state_manager = { path = "./blockchain/state_manager" }
+forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
