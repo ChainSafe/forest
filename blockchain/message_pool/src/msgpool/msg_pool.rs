@@ -37,7 +37,7 @@ use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use crate::{
     config::MpoolConfig,
     errors::Error,
-    head_change,
+    head_change, metrics,
     msgpool::{
         recover_sig, republish_pending_messages, select_messages_for_block,
         BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, PROPAGATION_DELAY_SECS, RBF_DENOM, RBF_NUM,
@@ -87,7 +87,9 @@ impl MsgSet {
                 return Err(Error::DuplicateSequence);
             }
         }
-        self.msgs.insert(m.sequence(), m);
+        if self.msgs.insert(m.sequence(), m).is_none() {
+            metrics::MPOOL_MESSAGE_TOTAL.inc();
+        }
         Ok(())
     }
 
@@ -102,7 +104,8 @@ impl MsgSet {
                 }
             }
             return;
-        };
+        }
+        metrics::MPOOL_MESSAGE_TOTAL.dec();
 
         // adjust next sequence
         if applied {
@@ -299,7 +302,8 @@ where
         Ok(())
     }
 
-    /// Push a signed message to the `MessagePool`. Additionally performs
+    /// Push a signed message to the `MessagePool`. Additionally performs basic
+    /// checks on the validity of a message.
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
@@ -319,7 +323,6 @@ where
         Ok(cid)
     }
 
-    /// Basic checks on the validity of a message.
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
