@@ -59,10 +59,10 @@ jobs:
         continue-on-error: true
       - name: Install Lint tools
         run: make install-lint-tools-ci
-      - run: make lint-all
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
+      - run: make lint
+      - run: make audit
+      - run: make spellcheck
+      - run: make udeps
 
   build:
     name: Build
