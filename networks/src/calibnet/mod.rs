@@ -30,7 +30,7 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 
 lazy_static! {
 /// Height epochs.
-pub static ref HEIGHT_INFOS: [HeightInfo; 20] = [
+pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: -1,

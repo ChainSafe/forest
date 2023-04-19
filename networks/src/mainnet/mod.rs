@@ -41,7 +41,7 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 
 lazy_static! {
 /// Height epochs.
-pub static ref HEIGHT_INFOS: [HeightInfo; 20] = [
+pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: 41_280,
