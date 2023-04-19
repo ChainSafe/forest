@@ -27,6 +27,16 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.7.2 "Roberto" (2023-04-19)
+
+### Added
+
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support importing
   zstd compressed snapshot car files
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support fetching

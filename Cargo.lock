@@ -3332,7 +3332,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-cli"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3391,7 +3391,7 @@ dependencies = [
 
 [[package]]
 name = "forest-daemon"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anes",
  "anyhow",
@@ -3439,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "forest_auth"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "chrono",
  "forest_key_management",
@@ -3454,7 +3454,7 @@ dependencies = [
 
 [[package]]
 name = "forest_beacon"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3478,7 +3478,7 @@ dependencies = [
 
 [[package]]
 name = "forest_blocks"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3509,7 +3509,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3553,7 +3553,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain_sync"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3598,7 +3598,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cli_shared"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3648,7 +3648,7 @@ dependencies = [
 
 [[package]]
 name = "forest_db"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3682,7 +3682,7 @@ dependencies = [
 
 [[package]]
 name = "forest_deleg_cns"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3707,7 +3707,7 @@ dependencies = [
 
 [[package]]
 name = "forest_fil_cns"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3740,7 +3740,7 @@ dependencies = [
 
 [[package]]
 name = "forest_genesis"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "cid",
@@ -3769,7 +3769,7 @@ dependencies = [
 
 [[package]]
 name = "forest_interpreter"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3795,7 +3795,7 @@ dependencies = [
 
 [[package]]
 name = "forest_ipld"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3824,7 +3824,7 @@ dependencies = [
 
 [[package]]
 name = "forest_json"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "base64 0.21.0",
@@ -3850,7 +3850,7 @@ dependencies = [
 
 [[package]]
 name = "forest_key_management"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3875,7 +3875,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3921,7 +3921,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p_bitswap"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3947,7 +3947,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "cid",
@@ -3964,7 +3964,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message_pool"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4006,7 +4006,7 @@ dependencies = [
 
 [[package]]
 name = "forest_metrics"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4022,7 +4022,7 @@ dependencies = [
 
 [[package]]
 name = "forest_networks"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "cid",
@@ -4038,7 +4038,7 @@ dependencies = [
 
 [[package]]
 name = "forest_paramfetch"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4056,7 +4056,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4110,7 +4110,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-api"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4144,7 +4144,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-client"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "forest_libp2p",
  "forest_rpc-api",
@@ -4158,7 +4158,7 @@ dependencies = [
 
 [[package]]
 name = "forest_shim"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "cid",
@@ -4181,7 +4181,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_manager"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4226,7 +4226,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_migration"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4249,7 +4249,7 @@ dependencies = [
 
 [[package]]
 name = "forest_statediff"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4276,7 +4276,7 @@ dependencies = [
 
 [[package]]
 name = "forest_test_utils"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "base64 0.21.0",
  "cid",
@@ -4291,7 +4291,7 @@ dependencies = [
 
 [[package]]
 name = "forest_utils"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -8888,7 +8888,7 @@ dependencies = [
 
 [[package]]
 name = "serialization_tests"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "base64 0.21.0",
  "bls-signatures",
