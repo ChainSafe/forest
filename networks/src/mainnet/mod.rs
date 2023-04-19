@@ -148,7 +148,11 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 20] = [
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap()
     }),
     },
-
+    HeightInfo {
+        height: Height::Thunder,
+        epoch: 9999999999 + 1,
+        bundle: None,
+    },
 ];
 }
 
