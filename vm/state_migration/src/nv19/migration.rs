@@ -90,7 +90,7 @@ where
 
     blockstore.get(&new_manifest_cid)?.ok_or_else(|| {
         anyhow!(
-            "manifest for network version NV18 not found in blockstore: {}",
+            "manifest for network version NV19 not found in blockstore: {}",
             new_manifest_cid
         )
     })?;
@@ -99,7 +99,7 @@ where
     let verifier = Arc::new(Verifier::default());
 
     let mut migration = StateMigration::<DB>::new(Some(verifier), vec![]);
-    migration.add_nv18_migrations(blockstore.clone(), state, &new_manifest_cid)?;
+    migration.add_nv19_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
