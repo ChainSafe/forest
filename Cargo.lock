@@ -2714,7 +2714,7 @@ checksum = "e825f6987101665dea6ec934c09ec6d721de7bc1bf92248e1d5810c8cd636b77"
 [[package]]
 name = "fil_actor_account_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "frc42_dispatch",
  "fvm_ipld_encoding 0.3.3",
@@ -2725,22 +2725,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_account_v10"
-version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#fdfea207eeff10849a95ea2c2d0f77455bba85c1"
-dependencies = [
- "frc42_dispatch",
- "fvm_ipld_encoding 0.3.3",
- "fvm_shared 3.1.0",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_account_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
@@ -2752,7 +2739,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "frc42_dispatch",
  "fvm_ipld_encoding 0.3.3",
@@ -2765,7 +2752,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 3.2.0",
@@ -2777,7 +2764,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
@@ -2789,7 +2776,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
@@ -2801,7 +2788,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fil_actors_runtime_v10",
  "frc42_dispatch",
@@ -2817,7 +2804,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_shared_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fil_actors_runtime_v10",
  "fvm_ipld_encoding 0.3.3",
@@ -2830,7 +2817,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fil_actor_evm_shared_v10",
@@ -2846,7 +2833,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fil_actors_runtime_v10",
@@ -2862,7 +2849,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -2879,7 +2866,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fil_actors_runtime_v9",
@@ -2894,12 +2881,12 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "cid",
- "fil_actor_account_v10 1.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies)",
+ "fil_actor_account_v10",
  "fil_actor_account_v8",
  "fil_actor_account_v9",
  "fil_actor_cron_v10",
@@ -2947,7 +2934,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fil_actors_runtime_v10",
@@ -2965,7 +2952,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -2983,7 +2970,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3001,7 +2988,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3024,7 +3011,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3045,7 +3032,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3067,7 +3054,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fil_actors_runtime_v10",
@@ -3086,7 +3073,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3105,7 +3092,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fil_actors_runtime_v9",
@@ -3124,7 +3111,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3144,7 +3131,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3163,7 +3150,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3182,7 +3169,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 3.2.0",
@@ -3195,7 +3182,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
@@ -3208,7 +3195,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.3.0",
@@ -3221,7 +3208,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fvm_ipld_encoding 0.3.3",
@@ -3234,7 +3221,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fvm_ipld_encoding 0.3.3",
@@ -3247,7 +3234,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "cid",
  "fvm_ipld_encoding 0.3.3",
@@ -3260,7 +3247,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v10"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3284,7 +3271,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v8"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -3306,7 +3293,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v9"
 version = "1.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#977a7640900254039d795f86a2fa346cfb1b206b"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=lemmih/relax-dependencies#3ce33f0f5da10f117b07d760e229423a2e0f296c"
 dependencies = [
  "anyhow",
  "cid",
@@ -4438,7 +4425,7 @@ dependencies = [
  "clap",
  "colored",
  "directories",
- "fil_actor_account_v10 1.0.0 (git+https://github.com/ChainSafe/fil-actor-states)",
+ "fil_actor_account_v10",
  "fil_actor_interface",
  "forest_cli_shared",
  "forest_db",
@@ -5072,35 +5059,6 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "lazy_static",
  "libsecp256k1",
- "log",
- "multihash 0.16.3",
- "num-bigint",
- "num-derive",
- "num-integer",
- "num-traits",
- "serde",
- "serde_repr",
- "serde_tuple",
- "thiserror",
- "unsigned-varint",
-]
-
-[[package]]
-name = "fvm_shared"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45742ae0f445a80121a97e9ee36fd0112f56e19daa5865fe458452ec6ff358f2"
-dependencies = [
- "anyhow",
- "bitflags",
- "blake2b_simd",
- "byteorder",
- "cid",
- "data-encoding",
- "data-encoding-macro",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.3.3",
- "lazy_static",
  "log",
  "multihash 0.16.3",
  "num-bigint",
@@ -6560,9 +6518,9 @@ checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f508063cc7bb32987c71511216bd5a32be15bccb6a80b52df8b9d7f01fc3aa2"
+checksum = "9b085a4f2cde5781fc4b1717f2e86c62f5cda49de7ba99a7c2eae02b61c9064c"
 
 [[package]]
 name = "lock_api"
@@ -8664,7 +8622,7 @@ dependencies = [
  "errno 0.3.1",
  "io-lifetimes 1.0.10",
  "libc",
- "linux-raw-sys 0.3.2",
+ "linux-raw-sys 0.3.3",
  "windows-sys 0.48.0",
 ]
 

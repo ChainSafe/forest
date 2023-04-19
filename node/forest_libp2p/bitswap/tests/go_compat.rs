@@ -23,6 +23,7 @@ mod tests {
     const GO_APP_DIR: &str = "tests/go-app";
 
     #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "This test requires golang"]
     async fn bitswap_go_compat_test() {
         bitswap_go_compat_test_impl().await.unwrap()
     }
@@ -144,9 +145,10 @@ mod tests {
         Command::new("go")
             .args(["mod", "vendor"])
             .current_dir(GO_APP_DIR)
-            .spawn()?
+            .spawn()
+            .context("Fail to compile `go-bitswap` test app, make sure you have `Go1.19.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>")?
             .wait()
-            .context("Fail to compile `go-bitswap` test app, make sure you have `Go1.19.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>")?;
+            ?;
         Ok(())
     }
 
