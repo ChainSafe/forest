@@ -7,8 +7,8 @@
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
+use fil_actor_miner_v10::{MinerInfo, State as StateV10};
 use fil_actor_miner_v11::State as StateV11;
-use fil_actor_miner_v10::{State as StateV10, MinerInfo};
 use fil_actors_runtime_v11::{make_map_with_root, Map};
 use forest_shim::{
     address::{Address, PAYLOAD_HASH_LEN},
@@ -41,9 +41,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             .get_obj(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;
 
-        let out_proof_type = convert_window_post_proof_v1p1_to_v1(
-            in_info.window_post_proof_type
-        );
+        let out_proof_type = convert_window_post_proof_v1p1_to_v1(in_info.window_post_proof_type);
 
         let out_info = MinerInfo {
             // TODO: check if we need to pass pending worker key

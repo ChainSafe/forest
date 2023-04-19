@@ -464,7 +464,7 @@ where
                     bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
                 }
                 Ok(Some(new_state))
-            },
+            }
             x if x == self.chain_config.epoch(Height::Lightning) => {
                 info!("Running Lightning migration at epoch {epoch}");
                 let start_time = time::Instant::now();

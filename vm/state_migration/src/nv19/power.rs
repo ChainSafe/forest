@@ -7,18 +7,20 @@
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
-use fil_actor_power_v11::State as StateV11;
 use fil_actor_power_v10::State as StateV10;
+use fil_actor_power_v11::State as StateV11;
 // TODO: use v11, but should somewhat work with v10
-use fil_actors_runtime_v10::{make_map_with_root_and_bitwidth, make_empty_map, Map, HAMT_BIT_WIDTH};
+use fil_actors_runtime_v10::{
+    make_empty_map, make_map_with_root_and_bitwidth, Map, HAMT_BIT_WIDTH,
+};
 use forest_shim::{
     address::{Address, PAYLOAD_HASH_LEN},
     state_tree::ActorID,
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-// TODO: get convert_window_post_proof_v1p1_to_v1 from v11 miner
 
+// TODO: get convert_window_post_proof_v1p1_to_v1 from v11 miner
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
 pub struct PowerMigrator(Cid);
@@ -50,16 +52,13 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
 
         in_claims.for_each(|key, claim| {
             let address = Address::from_bytes(key)?;
-            let new_proof_type = convert_window_post_proof_v1p1_to_v1(
-                claim.window_post_proof_type
-            );
+            let new_proof_type = convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type);
             // TODO: use v11 Claim
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
                 ..claim
             };
-            out_claims
-                .set(address.to_bytes().into(), out_claim)?;
+            out_claims.set(address.to_bytes().into(), out_claim)?;
             Ok(())
         })?;
 
