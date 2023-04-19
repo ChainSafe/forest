@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.7.1"
+version = "0.7.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
