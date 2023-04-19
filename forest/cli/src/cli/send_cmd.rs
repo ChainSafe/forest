@@ -20,20 +20,59 @@ pub struct FILAmount {
 impl FromStr for FILAmount {
     type Err = anyhow::Error;
 
-    /// `FILAmount::from_str` parses a string slice and converts the amount into
-    /// an `attoFIL` `TokenAmount`, returning an error if the input: contains no
-    /// digits (e.g., `fil`), is not a valid number (e.g., `0.0.0fil`), is too
-    /// long (greater than `50` characters), is negative, or has an unrecognized
-    /// suffix. Fractional input values are valid unless the input units are
-    /// attoFIL (e.g., `1.234 attoFIL` is invalid while `1234 attoFIL` is valid
-    /// and parses to a `TokenAmount` corresponding to `1234` `attoFIL`). To
-    /// match the current behavior in Lotus, the default units are `FIL`
-    /// (e.g., `1` parses as `FIL` with a resulting `TokenAmount` corresponding
-    /// to `1e18` `attoFIL`). The function also accepts all units currently
-    /// supported by forest wallet in the `format_balance_string` function
-    /// (`attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`, `microFIL`, `milliFIL`,
-    /// and `FIL`), and the output of `FILAmount::from_str` can be used as input
-    /// to the `format_balance_string` function.
+    /// Parse a string like `10 attoFIL` or `0.5 milliFIL` into a `TokenAmount`.
+    /// All exact outputs of `format_balance_string` can be parsed by this
+    /// function, therefore this function accepts all input strings with
+    /// these units: `aFIL`, `attoFIL`, `femtoFIL`, `picoFIL`, `nanoFIL`,
+    /// `microFIL`, and `milliFIL`.
+
+    /// The `FIL` suffix may be omitted. The parsed `TokenAmount` may not be
+    /// negative, contain a fractional number of attoFIL, or be longer than 50
+    /// digits. Any input parseable by Lotus is considered to be valid.
+
+    /// Examples:
+    /// ```rust
+    /// // Without a unit, numbers are interpreted as FIL
+    /// # use forest_cli::cli::send_cmd::FILAmount;
+    /// # use std::str::FromStr;
+    /// assert_eq!(
+    /// FILAmount::from_str("1.5").unwrap(),
+    /// FILAmount::from_str("1.5 FIL").unwrap(),
+    /// );
+    /// ```
+
+    /// ```rust
+    /// // aFIL is a synonym of attoFIL
+    /// # use forest_cli::cli::send_cmd::FILAmount;
+    /// # use std::str::FromStr;
+    /// assert_eq!(
+    /// FILAmount::from_str("10 attoFIL").unwrap(),
+    /// FILAmount::from_str("10 aFIL").unwrap(),
+    /// );
+    /// ```
+
+    /// ```rust
+    /// // Suffixes are case insensitive and may omit `FIL`
+    /// # use forest_cli::cli::send_cmd::FILAmount;
+    /// # use std::str::FromStr;
+    /// assert_eq!(
+    /// FILAmount::from_str("0.5 milli").unwrap(),
+    /// FILAmount::from_str("0.5 MiLlI FIL").unwrap(),
+    /// );
+    /// ```
+    /// ```rust
+    /// // Negative values are invalid
+    /// # use forest_cli::cli::send_cmd::FILAmount;
+    /// # use std::str::FromStr;
+    /// assert!(FILAmount::from_str("-0.5 FIL").is_err());
+    /// ```
+
+    /// ```rust
+    /// // Fractional attoFIL amounts are invalid
+    /// # use forest_cli::cli::send_cmd::FILAmount;
+    /// # use std::str::FromStr;
+    /// assert!(FILAmount::from_str("0.0001 femtoFIL").is_err());
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let error_call = |e: &str| anyhow::anyhow!("failed to parse fil amount: {}. {}.", s, e);
 
