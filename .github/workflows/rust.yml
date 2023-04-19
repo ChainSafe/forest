@@ -57,13 +57,6 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Apt Dependencies
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: |
-            # sudo make install-deps
       - name: Install Lint tools
         run: make install-lint-tools-ci
       - run: make lint-all
