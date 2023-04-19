@@ -98,13 +98,7 @@ where
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
 
-    // Add post-migration steps
-    let post_migration_actions = [create_eam_actor, create_eth_account_actor]
-        .into_iter()
-        .map(|action| Arc::new(action) as PostMigrationAction<DB>)
-        .collect();
-
-    let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
+    let mut migration = StateMigration::<DB>::new(Some(verifier), vec![]);
     migration.add_nv18_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
