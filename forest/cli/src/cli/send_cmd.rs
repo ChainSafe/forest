@@ -28,7 +28,7 @@ impl FromStr for FILAmount {
 
     /// The `FIL` suffix may be omitted. The parsed `TokenAmount` may not be
     /// negative, contain a fractional number of attoFIL, or be longer than 50
-    /// digits. Any input parseable by Lotus is considered to be valid.
+    /// digits. Any input parsable by Lotus is considered to be valid.
 
     /// Examples:
     /// ```rust
@@ -346,6 +346,11 @@ mod tests {
         );
     }
 
+    // Generates a `TokenAmount` from a positive 64-bit integer and formats this
+    // `TokenAmount` in two modes (`ExactFixed` and `ExactNotFixed`) using the
+    // `format_balance_string` function, then parses these two output strings with
+    // `FILAmount::from_str` and checks that the roundtrip results are the same
+    // as the input `TokenAmount`
     fn fil_quickcheck_test(n: u64) {
         let token_amount = TokenAmount::from_atto(n);
         let formatted_not_fixed =
@@ -357,6 +362,16 @@ mod tests {
         assert!(token_amount == parsed_not_fixed && token_amount == parsed_fixed);
     }
 
+    // We want the `fil_quickcheck_test` to take an integer with an equal
+    // probability of being any of the possible `FIL` units. However, because the
+    // probability of `quickcheck` randomly generating an integer in the `attoFIL`
+    // range is very low, while the probability of generating an integer in the
+    // `FIL` range is very high, we need to flatten this skewed distribution
+    // equally across the different unit types. This scaling function generates two
+    // uniform distributions: the first is composed of random, positive 64-bit
+    // integers and the second is composed of random, positive 32-bit integers.
+    // In each instance, this function uses the second value to cap the digits
+    // of the first value at 19 digits or fewer.
     #[quickcheck]
     fn scaled_fil_quickcheck_test(n: u64, rand_num: u32) {
         let scaled_n = n % u64::pow(10, rand_num % 20);
