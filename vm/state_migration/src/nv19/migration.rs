@@ -81,11 +81,11 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::Hygge as usize)
-        .ok_or_else(|| anyhow!("no height info for network version NV18"))?
+        .get(Height::Lightning as usize)
+        .ok_or_else(|| anyhow!("no height info for network version NV19"))?
         .bundle
         .as_ref()
-        .ok_or_else(|| anyhow!("no bundle info for network version NV18"))?
+        .ok_or_else(|| anyhow!("no bundle info for network version NV19"))?
         .manifest;
 
     blockstore.get(&new_manifest_cid)?.ok_or_else(|| {
