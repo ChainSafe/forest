@@ -63,7 +63,7 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: |
-            sudo make install-deps
+            # sudo make install-deps
       - name: Install Lint tools
         run: make install-lint-tools-ci
         env:
