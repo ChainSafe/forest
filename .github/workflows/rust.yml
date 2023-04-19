@@ -64,7 +64,6 @@ jobs:
           max_attempts: 3
           command: |
             sudo make install-deps
-            sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - name: Install Lint tools
         run: make install-lint-tools-ci
         env:
