@@ -12,7 +12,7 @@ use fil_actor_power_v11::{Claim as ClaimV11, State as StateV11};
 use fil_actors_runtime_v11::{
     builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth,
 };
-use forest_shim::{address::Address, sector::convert_window_post_proof_v1_to_v1p1};
+use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -46,7 +46,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
             make_map_with_root_and_bitwidth(&empty_claims, &store, HAMT_BIT_WIDTH)?;
 
         in_claims.for_each(|key, claim: &ClaimV10| {
-            let address = Address::from_bytes(key)?;
             let new_proof_type = convert_window_post_proof_v1_to_v1p1(claim.window_post_proof_type)
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             let out_claim = ClaimV11 {
@@ -54,7 +53,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
                 raw_byte_power: claim.raw_byte_power.clone(),
                 quality_adj_power: claim.quality_adj_power.clone(),
             };
-            out_claims.set(address.to_bytes().into(), out_claim)?;
+            out_claims.set(key.to_owned(), out_claim)?;
             Ok(())
         })?;
 
@@ -77,11 +76,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
             claims: out_claims_root,
             proof_validation_batch: in_state.proof_validation_batch,
         };
-        // let out_state = StateV11 {
-        //     // TODO: check if we need to pass the filter estimate
-        //     claims: out_claims_root,
-        //     ..in_state
-        // };
 
         let new_head = store.put_obj(&out_state, Blake2b256)?;
 
