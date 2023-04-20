@@ -6,44 +6,16 @@
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_v10::{MinerInfo, State as StateV10};
-use fil_actor_miner_v11::{convert_window_post_proof_v1p1_to_v1, State as StateV11};
-use fil_actors_runtime_v11::{make_map_with_root, Map};
+use fil_actor_miner_v11::{State as StateV11};
 use forest_shim::{
-    address::{Address, PAYLOAD_HASH_LEN},
-    state_tree::ActorID, 
-    sector::RegisteredPostProofLightning as RegisteredPoStProof
+    sector::convert_window_post_proof_v1_to_v1p1,
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
-
-pub fn convert_window_post_proof_v1_to_v1p1(
-    rpp: RegisteredPoStProof,
-) -> anyhow::Result<RegisteredPoStProof> {
-    match rpp {
-        RegisteredPoStProof::StackedDRGWindow2KiBV1 => {
-            Ok(RegisteredPoStProof::StackedDRGWindow2KiBV1P1)
-        }
-        RegisteredPoStProof::StackedDRGWindow8MiBV1 => {
-            Ok(RegisteredPoStProof::StackedDRGWindow8MiBV1P1)
-        }
-        RegisteredPoStProof::StackedDRGWindow512MiBV1 => {
-            Ok(RegisteredPoStProof::StackedDRGWindow512MiBV1P1)
-        }
-        RegisteredPoStProof::StackedDRGWindow32GiBV1 => {
-            Ok(RegisteredPoStProof::StackedDRGWindow32GiBV1P1)
-        }
-        RegisteredPoStProof::StackedDRGWindow64GiBV1 => {
-            Ok(RegisteredPoStProof::StackedDRGWindow64GiBV1P1)
-        }
-        // TODO proper handle that
-        v => Ok(v)
-    }
-}
 
 pub struct MinerMigrator(Cid);
 

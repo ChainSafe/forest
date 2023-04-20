@@ -15,8 +15,6 @@ use fvm_shared3::sector::{
 
 use crate::{version::NetworkVersion, Inner};
 
-pub use fvm_shared3::sector::RegisteredPoStProof as RegisteredPostProofLightning;
-
 /// Represents a shim over `RegisteredSealProof` from `fvm_shared` with
 /// convenience methods to convert to an older version of the type
 ///
@@ -229,6 +227,34 @@ impl Deref for PoStProof {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+pub fn convert_window_post_proof_v1_to_v1p1(
+    rpp: RegisteredPoStProofV3,
+) -> anyhow::Result<RegisteredPoStProofV3> {
+    match rpp {
+        RegisteredPoStProofV3::StackedDRGWindow2KiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow2KiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow2KiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow8MiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow8MiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow8MiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow512MiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow512MiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow512MiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow32GiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow32GiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow32GiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow64GiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow64GiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow64GiBV1P1)
+        }
+        other => anyhow::bail!("Invalid proof type: {other:?}"),
     }
 }
 

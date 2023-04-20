@@ -7,23 +7,19 @@
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
-use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1;
 use fil_actor_power_v10::{Claim as ClaimV10, State as StateV10};
 use fil_actor_power_v11::{Claim as ClaimV11, State as StateV11};
 use fil_actors_runtime_v11::{
-    builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth, Map,
+    builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth, 
 };
 use forest_shim::{
-    address::{Address, PAYLOAD_HASH_LEN},
-    state_tree::ActorID,
+    address::Address,
+    sector::convert_window_post_proof_v1_to_v1p1,
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-// TODO: get convert_window_post_proof_v1p1_to_v1 from v11 miner
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
-
-use super::miner::convert_window_post_proof_v1_to_v1p1;
 
 pub struct PowerMigrator(Cid);
 
