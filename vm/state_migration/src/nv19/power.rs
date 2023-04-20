@@ -35,6 +35,7 @@ pub(crate) fn power_migrator<BS: Blockstore + Clone + Send + Sync>(
     Arc::new(PowerMigrator(cid))
 }
 
+// original golang code: https://github.com/filecoin-project/go-state-types/blob/master/builtin/v11/migration/power.go
 impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator {
     fn migrate_state(
         &self,
