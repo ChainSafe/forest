@@ -45,15 +45,15 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
         //
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 
-        let empty_claims = make_empty_map(&store, HAMT_BIT_WIDTH).flush()?;
+        let empty_claims = make_empty_map::<_, ()>(&store, HAMT_BIT_WIDTH).flush()?;
 
         let mut out_claims =
             make_map_with_root_and_bitwidth(&empty_claims, &store, HAMT_BIT_WIDTH)?;
 
         in_claims.for_each(|key, claim: &ClaimV10| {
             let address = Address::from_bytes(key)?;
-            let new_proof_type =
-                convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type)?;
+            let new_proof_type = convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
                 raw_byte_power: claim.raw_byte_power,
