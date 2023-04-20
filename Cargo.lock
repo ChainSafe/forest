@@ -4925,7 +4925,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "3.2.0"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#ab50e332273d4c074de054297de7f4ecd26e044f"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#e2be962c332fdc69f541176d06f96718869a1351"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -5210,7 +5210,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "3.2.0"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#ab50e332273d4c074de054297de7f4ecd26e044f"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#e2be962c332fdc69f541176d06f96718869a1351"
 dependencies = [
  "anyhow",
  "arbitrary",

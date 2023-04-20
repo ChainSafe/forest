@@ -10,16 +10,14 @@ use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::{Manifest},
+    machine::Manifest,
     state_tree::{StateTree, StateTreeVersion},
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{
-    system, verifier::Verifier,
-};
+use super::{miner, power, system, verifier::Verifier};
 use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv19_migrations(

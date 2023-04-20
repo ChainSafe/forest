@@ -56,8 +56,8 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
-                raw_byte_power: claim.raw_byte_power,
-                quality_adj_power: claim.quality_adj_power,
+                raw_byte_power: claim.raw_byte_power.clone(),
+                quality_adj_power: claim.quality_adj_power.clone(),
             };
             out_claims.set(address.to_bytes().into(), out_claim)?;
             Ok(())
@@ -82,6 +82,11 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
             claims: out_claims_root,
             proof_validation_batch: in_state.proof_validation_batch,
         };
+        // let out_state = StateV11 {
+        //     // TODO: check if we need to pass the filter estimate
+        //     claims: out_claims_root,
+        //     ..in_state
+        // };
 
         let new_head = store.put_obj(&out_state, Blake2b256)?;
 
