@@ -39,7 +39,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["fs"] }
+tokio.workspace = true
 toml.workspace = true
 url.workspace = true
 

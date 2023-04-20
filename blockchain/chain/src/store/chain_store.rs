@@ -32,6 +32,7 @@ use forest_utils::{
     },
     io::Checksum,
 };
+use futures::AsyncWrite;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -41,14 +42,10 @@ use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::{
-    io::AsyncWrite,
-    sync::{
-        broadcast::{self, Sender as Publisher},
-        Mutex as TokioMutex,
-    },
+use tokio::sync::{
+    broadcast::{self, Sender as Publisher},
+    Mutex as TokioMutex,
 };
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 use super::{
     index::{checkpoint_tipsets, ChainIndex},
@@ -541,7 +538,7 @@ where
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
-        let writer = Arc::new(TokioMutex::new(writer.compat_write()));
+        let writer = Arc::new(TokioMutex::new(writer));
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
@@ -602,7 +599,6 @@ where
         let digest = writer
             .lock()
             .await
-            .get_mut()
             .finalize()
             .await
             .map_err(|e| Error::Other(e.to_string()))?;

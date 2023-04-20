@@ -3530,6 +3530,7 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "forest_utils",
+ "futures",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
@@ -3548,7 +3549,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -4060,6 +4060,7 @@ version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-fs",
  "axum",
  "base64 0.21.0",
  "cid",

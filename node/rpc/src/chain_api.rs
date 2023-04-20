@@ -23,16 +23,13 @@ use forest_utils::{
     db::BlockstoreExt,
     io::{AsyncWriterWithChecksum, VoidAsyncWriterWithNoChecksum},
 };
+use futures::io::BufWriter;
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
 use tempfile::NamedTempFile;
-use tokio::{
-    fs::File,
-    io::{AsyncWriteExt, BufWriter},
-    sync::Mutex,
-};
+use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -98,7 +95,7 @@ where
             )
             .await
     } else {
-        let file = File::from_std(tmp_file.reopen()?);
+        let file = async_fs::File::from(tmp_file.reopen()?);
         data.chain_store
             .export(
                 &start_ts,

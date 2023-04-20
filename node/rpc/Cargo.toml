@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-fs.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
 cid.workspace = true
@@ -58,5 +59,3 @@ tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 forest_db.workspace = true
-futures.workspace = true
-hex.workspace = true

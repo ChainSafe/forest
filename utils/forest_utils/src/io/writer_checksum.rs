@@ -4,8 +4,8 @@ use std::{marker::PhantomData, pin::Pin, task::Poll};
 
 use async_trait::async_trait;
 use digest::{Digest, Output};
+use futures::{io::BufWriter, AsyncWrite, AsyncWriteExt};
 use pin_project_lite::pin_project;
-use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pin_project! {
     /// Wrapper `AsyncWriter` implementation that calculates the checksum on the fly.
@@ -45,11 +45,11 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
         Pin::new(&mut self.inner).poll_flush(cx)
     }
 
-    fn poll_shutdown(
+    fn poll_close(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), std::io::Error>> {
-        Pin::new(&mut self.inner).poll_shutdown(cx)
+        Pin::new(&mut self.inner).poll_close(cx)
     }
 }
 
@@ -94,7 +94,7 @@ impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
         std::task::Poll::Ready(Ok(()))
     }
 
-    fn poll_shutdown(
+    fn poll_close(
         self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), std::io::Error>> {
@@ -113,16 +113,15 @@ mod test {
     use anyhow::ensure;
     use rand::{rngs::OsRng, RngCore};
     use sha2::{Sha256, Sha512};
-    use tokio::io::{AsyncWriteExt, BufWriter};
 
     use super::*;
 
     #[tokio::test]
     async fn file_writer_tokio_fs_buf_writer() -> anyhow::Result<()> {
         let temp_file_path = tempfile::Builder::new().tempfile()?;
-        let temp_file = tokio::fs::File::create(temp_file_path.path()).await?;
+        let temp_file = async_fs::File::create(temp_file_path.path()).await?;
         let mut temp_file_writer =
-            AsyncWriterWithChecksum::<Sha256, _>::new(tokio::io::BufWriter::new(temp_file));
+            AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(temp_file));
         for _ in 0..(1024 * 256) {
             let mut bytes = [0; 1024];
             OsRng.fill_bytes(&mut bytes);
