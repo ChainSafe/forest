@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! This module contains the migration logic for the `NV19` upgrade for the Power
-//! actor.
+//! This module contains the migration logic for the `NV19` upgrade for the
+//! Power actor.
 
 use std::sync::Arc;
 
