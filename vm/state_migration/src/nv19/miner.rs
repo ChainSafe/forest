@@ -43,7 +43,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             .map_err(|e| anyhow::anyhow!(e))?;
 
         let out_info = MinerInfo {
-            // TODO: check if we need to pass pending worker key
             window_post_proof_type: out_proof_type,
             ..in_info
         };

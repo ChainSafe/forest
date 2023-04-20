@@ -23,7 +23,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigrationVerifier<BS> for Verifi
         actors_in: &StateTree<BS>,
     ) -> anyhow::Result<()> {
         let system_actor = actors_in
-            .get_actor(&Address::new_id(0))?
+            .get_actor(&Address::SYSTEM_ACTOR)?
             .ok_or_else(|| anyhow!("system actor not found"))?;
 
         let system_actor_state = store
