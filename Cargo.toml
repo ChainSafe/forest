@@ -47,6 +47,7 @@ resolver = "2"
 
 [workspace.dependencies]
 ahash = "0.8"
+anes = "0.1.6"
 anyhow = "1.0"
 assert_cmd = "2"
 async-compression = { version = "0.3", features = ["futures-io", "zstd"] }

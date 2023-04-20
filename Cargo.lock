@@ -3632,6 +3632,7 @@ name = "forest-cli"
 version = "0.7.2"
 dependencies = [
  "ahash 0.8.3",
+ "anes",
  "anyhow",
  "assert_cmd",
  "atty",
