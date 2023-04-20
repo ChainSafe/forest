@@ -11,15 +11,16 @@ use fil_actor_power_v10::State as StateV10;
 use fil_actor_power_v11::State as StateV11;
 // TODO: use v11, but should somewhat work with v10
 use fil_actors_runtime_v10::{
-    make_empty_map, make_map_with_root_and_bitwidth, Map, HAMT_BIT_WIDTH,
+    make_empty_map, make_map_with_root_and_bitwidth, Map,
 };
+use fil_actors_runtime_v11::builtin::HAMT_BIT_WIDTH;
 use forest_shim::{
     address::{Address, PAYLOAD_HASH_LEN},
     state_tree::ActorID,
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1; 
+use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1;
 
 // TODO: get convert_window_post_proof_v1p1_to_v1 from v11 miner
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
