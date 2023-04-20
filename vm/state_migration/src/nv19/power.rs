@@ -10,12 +10,9 @@ use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_power_v10::{Claim as ClaimV10, State as StateV10};
 use fil_actor_power_v11::{Claim as ClaimV11, State as StateV11};
 use fil_actors_runtime_v11::{
-    builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth, 
+    builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth,
 };
-use forest_shim::{
-    address::Address,
-    sector::convert_window_post_proof_v1_to_v1p1,
-};
+use forest_shim::{address::Address, sector::convert_window_post_proof_v1_to_v1p1};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 

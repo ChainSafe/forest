@@ -8,10 +8,8 @@ use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_v10::{MinerInfo, State as StateV10};
-use fil_actor_miner_v11::{State as StateV11, MinerInfo as MinerInfoV11};
-use forest_shim::{
-    sector::convert_window_post_proof_v1_to_v1p1,
-};
+use fil_actor_miner_v11::{MinerInfo as MinerInfoV11, State as StateV11};
+use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -61,10 +59,10 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             pending_owner_address: in_info.pending_owner_address,
             beneficiary: in_info.beneficiary,
             beneficiary_term: fil_actor_miner_v11::BeneficiaryTerm {
-                    quota: in_info.beneficiary_term.quota,
-                    used_quota: in_info.beneficiary_term.used_quota,
-                    expiration: in_info.beneficiary_term.expiration,
-            } ,
+                quota: in_info.beneficiary_term.quota,
+                used_quota: in_info.beneficiary_term.used_quota,
+                expiration: in_info.beneficiary_term.expiration,
+            },
             pending_beneficiary_term: in_info.pending_beneficiary_term.map(|term| {
                 fil_actor_miner_v11::PendingBeneficiaryChange {
                     new_beneficiary: term.new_beneficiary,
@@ -73,7 +71,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
                     approved_by_beneficiary: term.approved_by_beneficiary,
                     approved_by_nominee: term.approved_by_nominee,
                 }
-            })
+            }),
         };
 
         let out_info_cid = store.put_obj(&out_info, Blake2b256)?;
