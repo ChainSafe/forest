@@ -31,17 +31,14 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
         store: BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
-        println!("in statev10 miner migration");
         let in_state: StateV10 = store
             .get_obj(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Miner actor: could not read v10 state"))?;
 
-        println!("in_info =");
         let in_info: MinerInfo = store
             .get_obj(&in_state.info)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;
 
-        println!("out_proof_type = ");
         let out_proof_type = convert_window_post_proof_v1_to_v1p1(in_info.window_post_proof_type)
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -51,7 +48,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             ..in_info
         };
 
-        println!("out_info_cid = ");
         let out_info_cid = store.put_obj(&out_info, Blake2b256)?;
 
         let out_state = StateV11 {
@@ -72,7 +68,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             deadline_cron_active: in_state.deadline_cron_active,
         };
 
-        println!("new head");
         let new_head = store.put_obj(&out_state, Blake2b256)?;
 
         Ok(ActorMigrationOutput {
