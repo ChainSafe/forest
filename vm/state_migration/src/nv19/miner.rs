@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! This module contains the migration logic for the `NV18` upgrade for the Init
+//! This module contains the migration logic for the `NV19` upgrade for the Miner
 //! actor.
 
 use std::sync::Arc;
