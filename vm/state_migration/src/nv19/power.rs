@@ -10,9 +10,9 @@ use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1;
 use fil_actor_power_v10::{Claim as ClaimV10, State as StateV10};
 use fil_actor_power_v11::{Claim as ClaimV11, State as StateV11};
-// TODO: use v11, but should somewhat work with v10
-use fil_actors_runtime_v10::{make_empty_map, make_map_with_root_and_bitwidth, Map};
-use fil_actors_runtime_v11::builtin::HAMT_BIT_WIDTH;
+use fil_actors_runtime_v11::{
+    builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth, Map,
+};
 use forest_shim::{
     address::{Address, PAYLOAD_HASH_LEN},
     state_tree::ActorID,
@@ -45,10 +45,8 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
         //
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 
-        // TODO: should be v11
         let empty_claims = make_empty_map(&store, HAMT_BIT_WIDTH).flush()?;
 
-        // TODO: should be v11
         let mut out_claims =
             make_map_with_root_and_bitwidth(&empty_claims, &store, HAMT_BIT_WIDTH)?;
 
@@ -56,7 +54,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
             let address = Address::from_bytes(key)?;
             let new_proof_type =
                 convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type)?;
-            // TODO: use v11 Claim
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
                 raw_byte_power: claim.raw_byte_power,
