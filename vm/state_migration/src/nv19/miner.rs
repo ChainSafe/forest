@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_v10::{MinerInfo, State as StateV10};
-use fil_actor_miner_v11::State as StateV11;
+use fil_actor_miner_v11::{convert_window_post_proof_v1p1_to_v1, State as StateV11};
 use fil_actors_runtime_v11::{make_map_with_root, Map};
 use forest_shim::{
     address::{Address, PAYLOAD_HASH_LEN},
@@ -16,7 +16,6 @@ use forest_shim::{
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1; 
 
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
@@ -42,7 +41,8 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             .get_obj(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;
 
-        let out_proof_type = convert_window_post_proof_v1p1_to_v1(in_info.window_post_proof_type);
+        let out_proof_type = convert_window_post_proof_v1p1_to_v1(in_info.window_post_proof_type)
+            .map_err(|e| anyhow::anyhow!(e))?;
 
         let out_info = MinerInfo {
             // TODO: check if we need to pass pending worker key
@@ -54,7 +54,20 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
 
         let out_state = StateV11 {
             info: out_info_cid,
-            ..in_state
+            pre_commit_deposits: in_state.pre_commit_deposits,
+            locked_funds: in_state.locked_funds,
+            vesting_funds: in_state.vesting_funds,
+            fee_debt: in_state.fee_debt,
+            initial_pledge: in_state.initial_pledge,
+            pre_committed_sectors: in_state.pre_committed_sectors,
+            pre_committed_sectors_cleanup: in_state.pre_committed_sectors_cleanup,
+            allocated_sectors: in_state.allocated_sectors,
+            sectors: in_state.sectors,
+            proving_period_start: in_state.proving_period_start,
+            current_deadline: in_state.current_deadline,
+            deadlines: in_state.deadlines,
+            early_terminations: in_state.early_terminations,
+            deadline_cron_active: in_state.deadline_cron_active,
         };
 
         let new_head = store.put_obj(&out_state, Blake2b256)?;
