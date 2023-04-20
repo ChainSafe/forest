@@ -106,10 +106,39 @@ impl<D: Digest> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
 
 #[cfg(test)]
 mod test {
+    use anyhow::ensure;
+    use rand::{rngs::OsRng, RngCore};
     use sha2::{Sha256, Sha512};
     use tokio::io::{AsyncWriteExt, BufWriter};
 
     use super::*;
+
+    #[tokio::test]
+    async fn file_writer_tokio_fs_buf_writer() -> anyhow::Result<()> {
+        let temp_file_path = tempfile::Builder::new().tempfile()?;
+        let temp_file = tokio::fs::File::create(temp_file_path.path()).await?;
+        let mut temp_file_writer =
+            AsyncWriterWithChecksum::<Sha256, _>::new(tokio::io::BufWriter::new(temp_file));
+        for _ in 0..(1024 * 256) {
+            let mut bytes = [0; 1024];
+            OsRng.fill_bytes(&mut bytes);
+            temp_file_writer.write_all(&bytes).await?;
+        }
+
+        let checksum = temp_file_writer.finalize();
+        drop(temp_file_writer);
+
+        let file_hash = {
+            let mut hasher = Sha256::default();
+            let bytes = std::fs::read(temp_file_path.path())?;
+            hasher.update(&bytes);
+            hasher.finalize()
+        };
+
+        ensure!(checksum == file_hash);
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum() {
