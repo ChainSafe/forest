@@ -47,7 +47,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 
         // TODO: should be v11
-        let empty_claims = make_empty_map(&store, HAMT_BIT_WIDTH);
+        let empty_claims = make_empty_map(&store, HAMT_BIT_WIDTH).flush()?;
 
         // TODO: should be v11
         let out_claims = make_map_with_root_and_bitwidth(&empty_claims, &store, HAMT_BIT_WIDTH)?;
