@@ -16,6 +16,7 @@ use forest_shim::{
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1; 
 
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 

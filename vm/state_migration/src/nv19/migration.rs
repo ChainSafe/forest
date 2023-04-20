@@ -18,7 +18,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 use super::{
-    eam::create_eam_actor, eth_account::create_eth_account_actor, init, system, verifier::Verifier,
+    system, verifier::Verifier,
 };
 use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {

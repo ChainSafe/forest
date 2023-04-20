@@ -8,9 +8,9 @@
 // mod eam;
 // mod eth_account;
 // mod init;
-// mod migration;
+mod migration;
 // mod system;
-// mod verifier;
+mod verifier;
 
 mod miner;
 mod power;
