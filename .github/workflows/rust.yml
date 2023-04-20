@@ -18,7 +18,7 @@ env:
   SNAPSHOT_DIRECTORY: /tmp/snapshots
   # SCCACHE_GHA_ENABLED: "true"
   SCCACHE_ENDPOINT: "fra1.digitaloceanspaces.com"
-  SCCACHE_BUCKET: "sccache"
+  SCCACHE_BUCKET: "forest-sccache"
   RUSTC_WRAPPER: "sccache"
 
 jobs:
