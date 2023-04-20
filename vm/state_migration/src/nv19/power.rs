@@ -21,6 +21,7 @@ use forest_shim::{
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fil_actor_miner_v11::convert_window_post_proof_v1p1_to_v1;
+use fil_actor_power_v10::Claim as ClaimV10;
 use fil_actor_power_v11::Claim as ClaimV11;
 
 // TODO: get convert_window_post_proof_v1p1_to_v1 from v11 miner
@@ -53,13 +54,14 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
         // TODO: should be v11
         let out_claims = make_map_with_root_and_bitwidth(&empty_claims, &store, HAMT_BIT_WIDTH)?;
 
-        in_claims.for_each(|key, claim: &ClaimV11| {
+        in_claims.for_each(|key, claim: &ClaimV10| {
             let address = Address::from_bytes(key)?;
-            let new_proof_type = convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type);
+            let new_proof_type = convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type)?;
             // TODO: use v11 Claim
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
-                ..claim
+                raw_byte_power: claim.raw_byte_power,
+                quality_adj_power: claim.quality_adj_power,
             };
             out_claims.set(address.to_bytes().into(), out_claim)?;
             Ok(())
