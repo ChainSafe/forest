@@ -91,7 +91,7 @@ lint: license clean lint-clippy
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
-	
+
 lint-clippy:
 	# Default features: paritydb,jemalloc,forest_fil_cns
 	cargo clippy -- -D warnings -W clippy::unused_async -W clippy::redundant_else
