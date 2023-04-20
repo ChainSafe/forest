@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-pub use utils::{is_valid_for_sending,reveal_five_trees};
+pub use utils::{is_valid_for_sending, reveal_five_trees};
 
 mod vm_circ_supply;
 

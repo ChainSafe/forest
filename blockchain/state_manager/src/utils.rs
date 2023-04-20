@@ -15,9 +15,9 @@ use forest_utils::encoding::prover_id_from_u64;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
+use tracing::info;
 
 use crate::{errors::*, StateManager};
-use tracing::info;
 
 impl<DB> StateManager<DB>
 where
@@ -156,7 +156,8 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 /// Reveals five trees arranged in an order that resemble the forest logo.
 /// To be used at anyone's convenience.
 pub fn reveal_five_trees() -> () {
-    info!(r###"
+    info!(
+        r###"
 
                                         ▄
                                        ██
@@ -179,7 +180,8 @@ pub fn reveal_five_trees() -> () {
          ▐█▌            ▐█             ▐█             █▌             █▌
          ▐█▌            ▐█             ▐█             █▌             █▌
 
-"###);
+"###
+    );
     return ();
 }
 
