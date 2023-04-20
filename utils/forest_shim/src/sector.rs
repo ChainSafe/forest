@@ -15,6 +15,8 @@ use fvm_shared3::sector::{
 
 use crate::{version::NetworkVersion, Inner};
 
+pub use fvm_shared3::sector::RegisteredPoStProof as RegisteredPostProofLightning;
+
 /// Represents a shim over `RegisteredSealProof` from `fvm_shared` with
 /// convenience methods to convert to an older version of the type
 ///

@@ -23,6 +23,8 @@ use fvm_ipld_blockstore::Blockstore;
 // TODO: get convert_window_post_proof_v1p1_to_v1 from v11 miner
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
+use super::miner::convert_window_post_proof_v1_to_v1p1;
+
 pub struct PowerMigrator(Cid);
 
 pub(crate) fn power_migrator<BS: Blockstore + Clone + Send + Sync>(
@@ -52,7 +54,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
 
         in_claims.for_each(|key, claim: &ClaimV10| {
             let address = Address::from_bytes(key)?;
-            let new_proof_type = convert_window_post_proof_v1p1_to_v1(claim.window_post_proof_type)
+            let new_proof_type = convert_window_post_proof_v1_to_v1p1(claim.window_post_proof_type)
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             let out_claim = ClaimV11 {
                 window_post_proof_type: new_proof_type,
