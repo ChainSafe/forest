@@ -599,7 +599,13 @@ where
                 .as_secs()
         );
 
-        let digest = writer.lock().await.get_mut().finalize();
+        let digest = writer
+            .lock()
+            .await
+            .get_mut()
+            .finalize()
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
         Ok(digest)
     }
 }

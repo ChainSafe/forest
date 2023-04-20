@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{marker::PhantomData, pin::Pin, task::Poll};
 
+use async_trait::async_trait;
 use digest::{Digest, Output};
 use pin_project_lite::pin_project;
-use tokio::io::AsyncWrite;
+use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pin_project! {
     /// Wrapper `AsyncWriter` implementation that calculates the checksum on the fly.
@@ -12,15 +13,16 @@ pin_project! {
     /// structures, e.g. `BufWriter` and `Sha256`.
     pub struct AsyncWriterWithChecksum<D, W> {
         #[pin]
-        inner: W,
+        inner: BufWriter<W>,
         hasher: D,
     }
 }
 
 /// Trait marking the object that is collecting a kind of a checksum.
+#[async_trait]
 pub trait Checksum<D: Digest> {
     /// Return the checksum and resets the internal hasher.
-    fn finalize(&mut self) -> Output<D>;
+    async fn finalize(&mut self) -> std::io::Result<Output<D>>;
 }
 
 impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D, W> {
@@ -51,15 +53,17 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
     }
 }
 
-impl<D: Digest, W> Checksum<D> for AsyncWriterWithChecksum<D, W> {
-    fn finalize(&mut self) -> Output<D> {
+#[async_trait]
+impl<D: Digest + Send, W: AsyncWrite + Send + Unpin> Checksum<D> for AsyncWriterWithChecksum<D, W> {
+    async fn finalize(&mut self) -> std::io::Result<Output<D>> {
+        self.inner.flush().await?;
         let hasher = std::mem::replace(&mut self.hasher, D::new());
-        hasher.finalize()
+        Ok(hasher.finalize())
     }
 }
 
 impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
-    pub fn new(writer: W) -> Self {
+    pub fn new(writer: BufWriter<W>) -> Self {
         Self {
             inner: writer,
             hasher: Digest::new(),
@@ -97,10 +101,10 @@ impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
         std::task::Poll::Ready(Ok(()))
     }
 }
-
-impl<D: Digest> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
-    fn finalize(&mut self) -> Output<D> {
-        Default::default()
+#[async_trait]
+impl<D: Digest + Send> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
+    async fn finalize(&mut self) -> std::io::Result<Output<D>> {
+        Ok(Default::default())
     }
 }
 
@@ -125,7 +129,7 @@ mod test {
             temp_file_writer.write_all(&bytes).await?;
         }
 
-        let checksum = temp_file_writer.finalize();
+        let checksum = temp_file_writer.finalize().await?;
         drop(temp_file_writer);
 
         let file_hash = {
@@ -153,7 +157,7 @@ mod test {
 
         assert_eq!(
             "3386191dc5c285074c3827452f4e3b685e3253f5b9ca7c4c2bb3f44d1263aef1",
-            format!("{:x}", writer.finalize())
+            format!("{:x}", writer.finalize().await.unwrap())
         );
     }
 
@@ -166,7 +170,7 @@ mod test {
 
         assert_eq!(
             "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-            format!("{:x}", writer.finalize())
+            format!("{:x}", writer.finalize().await.unwrap())
         );
     }
 }
