@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_v10::{MinerInfo, State as StateV10};
-use fil_actor_miner_v11::{State as StateV11};
+use fil_actor_miner_v11::{State as StateV11, MinerInfo as MinerInfoV11};
 use forest_shim::{
     sector::convert_window_post_proof_v1_to_v1p1,
 };
@@ -42,9 +42,38 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
         let out_proof_type = convert_window_post_proof_v1_to_v1p1(in_info.window_post_proof_type)
             .map_err(|e| anyhow::anyhow!(e))?;
 
-        let out_info = MinerInfo {
+        let out_info = MinerInfoV11 {
+            owner: in_info.owner,
+            worker: in_info.worker,
+            control_addresses: in_info.control_addresses,
+            pending_worker_key: in_info.pending_worker_key.map(|key| {
+                fil_actor_miner_v11::WorkerKeyChange {
+                    new_worker: key.new_worker,
+                    effective_at: key.effective_at,
+                }
+            }),
+            peer_id: in_info.peer_id,
+            multi_address: in_info.multi_address,
             window_post_proof_type: out_proof_type,
-            ..in_info
+            sector_size: in_info.sector_size,
+            window_post_partition_sectors: in_info.window_post_partition_sectors,
+            consensus_fault_elapsed: in_info.consensus_fault_elapsed,
+            pending_owner_address: in_info.pending_owner_address,
+            beneficiary: in_info.beneficiary,
+            beneficiary_term: fil_actor_miner_v11::BeneficiaryTerm {
+                    quota: in_info.beneficiary_term.quota,
+                    used_quota: in_info.beneficiary_term.used_quota,
+                    expiration: in_info.beneficiary_term.expiration,
+            } ,
+            pending_beneficiary_term: in_info.pending_beneficiary_term.map(|term| {
+                fil_actor_miner_v11::PendingBeneficiaryChange {
+                    new_beneficiary: term.new_beneficiary,
+                    new_quota: term.new_quota,
+                    new_expiration: term.new_expiration,
+                    approved_by_beneficiary: term.approved_by_beneficiary,
+                    approved_by_nominee: term.approved_by_nominee,
+                }
+            })
         };
 
         let out_info_cid = store.put_obj(&out_info, Blake2b256)?;
