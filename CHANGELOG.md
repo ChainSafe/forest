@@ -27,6 +27,16 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.7.2 "Roberto" (2023-04-19)
+
+### Added
+
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support importing
   zstd compressed snapshot car files
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support fetching
@@ -35,6 +45,9 @@
   migration support for NV18.
 
 ### Changed
+
+- [#2770](https://github.com/ChainSafe/forest/issues/2767): Use `latest` tag for
+  stable releases, and `edge` for latest development builds.
 
 ### Removed
 
