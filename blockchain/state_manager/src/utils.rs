@@ -155,7 +155,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 
 /// Reveals five trees arranged in an order that resemble the forest logo.
 /// To be used at anyone's convenience.
-pub fn reveal_five_trees() -> () {
+pub fn reveal_five_trees() {
     info!(
         r###"
 
@@ -182,7 +182,6 @@ pub fn reveal_five_trees() -> () {
 
 "###
     );
-    return ();
 }
 
 /// Generates sector challenge indexes for use in winning PoSt verification.
