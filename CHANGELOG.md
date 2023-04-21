@@ -33,6 +33,13 @@
 
 ### Fixed
 
+## Forest v0.8.0 "Jungle Speed" (2023-04-21)
+
+### Added
+
+- [#2763](https://github.com/ChainSafe/forest/issues/2763): Support NV19 and
+  NV20. ⛈️
+
 ## Forest v0.7.2 "Roberto" (2023-04-19)
 
 ### Added

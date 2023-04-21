@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-pub use utils::is_valid_for_sending;
+pub use utils::{is_valid_for_sending, reveal_five_trees};
 
 mod vm_circ_supply;
 
@@ -459,6 +459,7 @@ where
                 )?;
                 let elapsed = start_time.elapsed().as_secs_f32();
                 if new_state != *parent_state {
+                    reveal_five_trees();
                     info!("State migration successful, took: {elapsed}s");
                 } else {
                     bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
@@ -476,6 +477,7 @@ where
                 )?;
                 let elapsed = start_time.elapsed().as_secs_f32();
                 if new_state != *parent_state {
+                    reveal_five_trees();
                     info!("State migration successful, took: {elapsed}s");
                 } else {
                     bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
