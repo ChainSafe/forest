@@ -230,6 +230,34 @@ impl Deref for PoStProof {
     }
 }
 
+pub fn convert_window_post_proof_v1_to_v1p1(
+    rpp: RegisteredPoStProofV3,
+) -> anyhow::Result<RegisteredPoStProofV3> {
+    match rpp {
+        RegisteredPoStProofV3::StackedDRGWindow2KiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow2KiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow2KiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow8MiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow8MiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow8MiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow512MiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow512MiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow512MiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow32GiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow32GiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow32GiBV1P1)
+        }
+        RegisteredPoStProofV3::StackedDRGWindow64GiBV1
+        | RegisteredPoStProofV3::StackedDRGWindow64GiBV1P1 => {
+            Ok(RegisteredPoStProofV3::StackedDRGWindow64GiBV1P1)
+        }
+        other => anyhow::bail!("Invalid proof type: {other:?}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

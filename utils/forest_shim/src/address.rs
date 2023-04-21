@@ -61,6 +61,10 @@ impl Address {
     pub fn into_payload(self) -> Payload {
         self.0.into_payload()
     }
+
+    pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
+        Address_v3::from_bytes(bz).map(Address)
+    }
 }
 
 impl quickcheck::Arbitrary for Address {
