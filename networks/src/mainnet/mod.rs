@@ -39,9 +39,9 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstarp-0.1475.io/tcp/61256/p2p/12D3KooWRzCVDwHUkgdK7eRgnoXbjDAELhxPErjHzbRLguSV1aRt"
 ];
 
-/// The rollover period is the duration between nv19 and nv20 which both old
-/// proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
-/// network.
+// The rollover period is the duration between nv19 and nv20 which both old
+// proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
+// network.
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 2880 * 21;
 
 lazy_static! {
