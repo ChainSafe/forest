@@ -4531,9 +4531,15 @@ dependencies = [
  "crossbeam-channel",
  "fil_actor_init_v10",
  "fil_actor_init_v9",
+ "fil_actor_miner_v10",
+ "fil_actor_miner_v11",
+ "fil_actor_power_v10",
+ "fil_actor_power_v11",
  "fil_actor_system_v10",
+ "fil_actor_system_v11",
  "fil_actor_system_v9",
  "fil_actors_runtime_v10",
+ "fil_actors_runtime_v11",
  "forest_networks",
  "forest_shim",
  "forest_utils",
@@ -4919,7 +4925,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "3.2.0"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#ab50e332273d4c074de054297de7f4ecd26e044f"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#e2be962c332fdc69f541176d06f96718869a1351"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -5204,7 +5210,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "3.2.0"
-source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#ab50e332273d4c074de054297de7f4ecd26e044f"
+source = "git+https://github.com/ChainSafe/ref-fvm?branch=lemmih-wibbles#e2be962c332fdc69f541176d06f96718869a1351"
 dependencies = [
  "anyhow",
  "arbitrary",

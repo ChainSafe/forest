@@ -47,6 +47,8 @@ pub enum Height {
     Skyr,
     Shark,
     Hygge,
+    Lightning,
+    Thunder,
 }
 
 impl Default for Height {
@@ -77,6 +79,8 @@ impl From<Height> for NetworkVersion {
             Height::Skyr => NetworkVersion::V16,
             Height::Shark => NetworkVersion::V17,
             Height::Hygge => NetworkVersion::V18,
+            Height::Lightning => NetworkVersion::V19,
+            Height::Thunder => NetworkVersion::V20,
         }
     }
 }

@@ -459,7 +459,24 @@ where
                 )?;
                 let elapsed = start_time.elapsed().as_secs_f32();
                 if new_state != *parent_state {
-                    info!("state migration successful, took: {elapsed}s");
+                    info!("State migration successful, took: {elapsed}s");
+                } else {
+                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                }
+                Ok(Some(new_state))
+            }
+            x if x == self.chain_config.epoch(Height::Lightning) => {
+                info!("Running Lightning migration at epoch {epoch}");
+                let start_time = time::Instant::now();
+                let new_state = forest_state_migration::run_nv19_migration(
+                    &self.chain_config,
+                    self.blockstore(),
+                    parent_state,
+                    epoch,
+                )?;
+                let elapsed = start_time.elapsed().as_secs_f32();
+                if new_state != *parent_state {
+                    info!("State migration successful, took: {elapsed}s");
                 } else {
                     bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
                 }
