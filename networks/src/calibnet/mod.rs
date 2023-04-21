@@ -23,9 +23,9 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 
 const LIGHTNING_EPOCH: i64 = 489_094;
 
-/// The rollover period is the duration between nv19 and nv20 which both old
-/// proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
-/// network.
+// The rollover period is the duration between nv19 and nv20 which both old
+// proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
+// network.
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 
 lazy_static! {
