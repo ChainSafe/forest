@@ -49,8 +49,8 @@ backend metrics.
 
 On many machines, running the script with `--chain mainnet` may require more
 space than allocated to the `tmp` partition. To address this, specify the
-`--tempdir` flag with a user-defined directory (important note: the user must
-manually create this directory prior to running the script).
+`--tempdir` flag with a user-defined directory (which will automatically be
+created if it does not already exist).
 
 To create a selection of benchmarks, use the `--pattern` flag (current defined
 patterns are `'*'`, `'baseline'`, `'jemalloc'`, and `'mimalloc'`). Using
