@@ -90,26 +90,17 @@ impl Signature {
 
     /// Checks if a signature is valid given data and address.
     pub fn verify(&self, data: &[u8], addr: &crate::address::Address) -> Result<(), String> {
-        verify(self.sig_type, &self.bytes, data, addr)
+        use fvm_shared3::crypto::signature::ops::{verify_bls_sig, verify_secp256k1_sig};
+        match self.sig_type {
+            SignatureType::BLS => verify_bls_sig(&self.bytes, data, addr),
+            SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
+            SignatureType::Delegated => Ok(()),
+        }
     }
 
     /// Returns reference to signature bytes.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
-    }
-}
-
-fn verify(
-    sig_type: SignatureType,
-    sig_data: &[u8],
-    data: &[u8],
-    addr: &crate::address::Address,
-) -> Result<(), String> {
-    use fvm_shared3::crypto::signature::ops::{verify_bls_sig, verify_secp256k1_sig};
-    match sig_type {
-        SignatureType::BLS => verify_bls_sig(sig_data, data, addr),
-        SignatureType::Secp256k1 => verify_secp256k1_sig(sig_data, data, addr),
-        SignatureType::Delegated => Ok(()),
     }
 }
 
