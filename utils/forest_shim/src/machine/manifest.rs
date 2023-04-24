@@ -31,48 +31,7 @@ pub struct Manifest {
     by_code: HashMap<Cid, u32>,
 }
 
-/// Create an "id CID" (for testing).
-#[cfg(any(feature = "testing", test))]
-const fn id_cid(name: &[u8]) -> Cid {
-    use std::mem;
-
-    use cid::multihash::Multihash;
-    use fvm_shared3::{IDENTITY_HASH, IPLD_RAW};
-
-    // This code is ugly because const fns are a bit ugly right now:
-    //
-    // 1. Compiler can't drop the result, we need to forget it manually.
-    //    https://doc.rust-lang.org/error-index.html#E0493
-    // 2. We can't unwrap, we need to explicitly panic.
-    // 3. Rust can't figure out that "panic" will prevent a drop of the error case.
-    let result = Multihash::wrap(IDENTITY_HASH, name);
-    let k = if let Ok(mh) = &result {
-        Cid::new_v1(IPLD_RAW, *mh)
-    } else {
-        panic!();
-    };
-    mem::forget(result); // This is const, so we don't really care about "leaks".
-
-    k
-}
-
 impl Manifest {
-    #[cfg(any(feature = "testing", test))]
-    pub const DUMMY_CODES: &'static [(&'static str, Cid)] = &[
-        ("system", id_cid(b"fil/test/system")),
-        ("init", id_cid(b"fil/test/init")),
-        ("eam", id_cid(b"fil/test/eam")),
-        ("ethaccount", id_cid(b"fil/test/ethaccount")),
-        ("cron", id_cid(b"fil/test/cron")),
-        ("account", id_cid(b"fil/test/account")),
-        ("placeholder", id_cid(b"fil/test/placeholder")),
-    ];
-
-    #[cfg(any(feature = "testing", test))]
-    pub fn dummy() -> Self {
-        Self::new(Self::DUMMY_CODES.iter().copied()).unwrap()
-    }
-
     /// Load a manifest from the blockstore.
     pub fn load<B: Blockstore>(bs: &B, root_cid: &Cid, ver: u32) -> anyhow::Result<Manifest> {
         if ver != 1 {
