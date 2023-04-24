@@ -11,3 +11,4 @@ pub mod macros;
 pub mod miscs;
 pub mod monitoring;
 pub mod net;
+pub mod version;
