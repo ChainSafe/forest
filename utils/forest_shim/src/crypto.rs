@@ -191,13 +191,3 @@ impl quickcheck::Arbitrary for SignatureType {
         .unwrap()
     }
 }
-
-impl From<SignatureType> for SignatureType_v2 {
-    fn from(other: SignatureType) -> SignatureType_v2 {
-        match other {
-            SignatureType::Secp256k1 => SignatureType_v2::Secp256k1,
-            SignatureType::BLS => SignatureType_v2::BLS,
-            SignatureType::Delegated => panic!("Delegated signature type not possible in fvm2"),
-        }
-    }
-}
