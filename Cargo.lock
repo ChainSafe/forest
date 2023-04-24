@@ -4457,6 +4457,7 @@ dependencies = [
 name = "forest_shim"
 version = "0.8.0"
 dependencies = [
+ "ahash 0.8.3",
  "anyhow",
  "bls-signatures",
  "cid",

@@ -65,10 +65,7 @@ impl<'de> de::Deserialize<'de> for Signature {
 
 impl Signature {
     pub fn new(sig_type: SignatureType, bytes: Vec<u8>) -> Self {
-        Signature {
-            sig_type: sig_type,
-            bytes,
-        }
+        Signature { sig_type, bytes }
     }
 
     /// Creates a BLS Signature given the raw bytes.

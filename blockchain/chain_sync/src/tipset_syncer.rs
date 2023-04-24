@@ -1551,7 +1551,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
             .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr.into())
+            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr)
             .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
     }
 
