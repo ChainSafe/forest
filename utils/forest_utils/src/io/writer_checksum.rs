@@ -129,7 +129,6 @@ mod test {
         }
 
         let checksum = temp_file_writer.finalize().await?;
-        drop(temp_file_writer);
 
         let file_hash = {
             let mut hasher = Sha256::default();
