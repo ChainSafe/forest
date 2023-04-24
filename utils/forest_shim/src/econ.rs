@@ -24,7 +24,10 @@ impl quickcheck::Arbitrary for TokenAmount {
         // a value of 128; need to constrain the corresponding length during
         // `Arbitrary` generation of `BigInt` in `TokenAmount` to below
         // MAX_BIGINT_SIZE.
-        let bigint_upper_limit = BigInt::from(1) << ((MAX_BIGINT_SIZE - 1) * 8);
+        // The 'significant_bits' variable changes the distribution from uniform
+        // to log-scaled.
+        let significant_bits = usize::arbitrary(g) % ((MAX_BIGINT_SIZE - 1) * 8);
+        let bigint_upper_limit = BigInt::from(1) << significant_bits;
         TokenAmount::from_atto(BigInt::arbitrary(g) % bigint_upper_limit)
     }
 }
