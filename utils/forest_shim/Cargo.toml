@@ -7,7 +7,9 @@ authors.workspace = true
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
+bls-signatures.workspace = true
 cid.workspace = true
 filecoin-proofs-api.workspace = true
 fvm.workspace = true
@@ -17,6 +19,7 @@ fvm_ipld_encoding.workspace = true
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
 fvm_shared.workspace = true
 fvm_shared3 = { workspace = true, features = ["proofs", "arb"] }
+lazy_static.workspace = true
 num-bigint.workspace = true
 num-derive.workspace = true
 num-traits.workspace = true

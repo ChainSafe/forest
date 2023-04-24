@@ -327,6 +327,11 @@ where
 
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        // set the current network to mainnet. This doesn't affect message execution but
+        // it does get around a bug in the FVM. The code can be deleted once the FVM has
+        // been fixed.
+        let prev_network = forest_shim::address::current_network();
+        forest_shim::address::set_current_network(forest_shim::address::Network::Mainnet);
         let ret: ApplyRet = match self {
             VM::VM2 { fvm_executor, .. } => fvm_executor
                 .execute_message(
@@ -343,6 +348,7 @@ where
                 )?
                 .into(),
         };
+        forest_shim::address::set_current_network(prev_network);
 
         let exit_code = ret.msg_receipt().exit_code();
 
