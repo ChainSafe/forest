@@ -4458,6 +4458,7 @@ name = "forest_shim"
 version = "0.8.0"
 dependencies = [
  "anyhow",
+ "bls-signatures",
  "cid",
  "filecoin-proofs-api 14.0.0",
  "fvm 2.3.0",

@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+bls-signatures.workspace = true
 cid.workspace = true
 filecoin-proofs-api.workspace = true
 fvm.workspace = true
