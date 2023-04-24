@@ -18,6 +18,7 @@ pub struct TokenAmount(TokenAmount_v3);
 impl quickcheck::Arbitrary for TokenAmount {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         use fvm_shared3::bigint::MAX_BIGINT_SIZE;
+        use num::BigUint;
         // During serialization/deserialization, permissible length of the byte
         // representation (plus a leading positive sign byte for non-zero
         // values) of BigInts is currently set to a max of MAX_BIGINT_SIZE with
@@ -27,8 +28,8 @@ impl quickcheck::Arbitrary for TokenAmount {
         // The 'significant_bits' variable changes the distribution from uniform
         // to log-scaled.
         let significant_bits = usize::arbitrary(g) % ((MAX_BIGINT_SIZE - 1) * 8);
-        let bigint_upper_limit = BigInt::from(1) << significant_bits;
-        TokenAmount::from_atto(BigInt::arbitrary(g) % bigint_upper_limit)
+        let bigint_upper_limit = BigUint::from(1u8) << significant_bits;
+        TokenAmount::from_atto(BigUint::arbitrary(g) % bigint_upper_limit)
     }
 }
 
