@@ -75,15 +75,15 @@ fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = { version = "~2.3", default-features = false }
-fvm3 = { package = "fvm", default-features = false, git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
+fvm3 = { package = "fvm", default-features = false, version = "~3.3" }
 fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_shared = { version = "2.0", default-features = false }
-fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles", default-features = false }
+fvm_shared = { version = "~2.3", default-features = false }
+fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
@@ -188,9 +188,6 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
-
-[patch.crates-io]
-fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
 
 [profile.dev]
 debug = 0
