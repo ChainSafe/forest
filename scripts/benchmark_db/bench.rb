@@ -41,6 +41,7 @@ OptionParser.new do |opts|
   opts.on('--daily', 'Run snapshot import and validation time metrics') { |v| options[:daily] = v }
 end.parse!
 
+FileUtils.mkdir_p options[:tempdir] unless options[:tempdir].nil?
 WORKING_DIR = if options[:tempdir].nil?
                 Dir.mktmpdir('benchmark-')
               else
