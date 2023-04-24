@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct Libp2pConfig {
-    /// Local addresses. Tcp and websocket with dns are supported. By making it
-    /// empty, the libp2p node will not be capable of working as a dialee but
+    /// Local addresses. TCP and WebSocket with DNS are supported. By making it
+    /// empty, the libp2p node will not be capable of working as a callee but
     /// can still work as a dialer
     pub listening_multiaddrs: Vec<Multiaddr>,
     /// Bootstrap peer list.

@@ -13,7 +13,6 @@ use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
-use forest_db::Store;
 use forest_libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
@@ -24,6 +23,9 @@ use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+// https://github.com/ChainSafe/forest/issues/2762
+#[allow(deprecated)]
+use libp2p::swarm::ConnectionLimits;
 use libp2p::{
     core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
@@ -31,7 +33,7 @@ use libp2p::{
     multiaddr::Protocol,
     noise, ping,
     request_response::{self, RequestId, ResponseChannel},
-    swarm::{ConnectionLimits, SwarmBuilder, SwarmEvent},
+    swarm::{SwarmBuilder, SwarmEvent},
     yamux::YamuxConfig,
     PeerId, Swarm, Transport,
 };
@@ -193,7 +195,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: Blockstore + Store + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
+    DB: Blockstore + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,
@@ -208,6 +210,8 @@ where
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
+        // https://github.com/ChainSafe/forest/issues/2762
+        #[allow(deprecated)]
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
             .with_max_pending_outgoing(Some(30))
@@ -359,10 +363,14 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
     match peer_ops {
         Ban(peer_id, reason) => {
             warn!("Banning {peer_id}, reason: {reason}");
+            // https://github.com/ChainSafe/forest/issues/2762
+            #[allow(deprecated)]
             swarm.ban_peer_id(peer_id);
         }
         Unban(peer_id) => {
             info!("Unbanning {peer_id}");
+            // https://github.com/ChainSafe/forest/issues/2762
+            #[allow(deprecated)]
             swarm.unban_peer_id(peer_id);
         }
     }
@@ -674,7 +682,7 @@ async fn handle_chain_exchange_event<DB>(
         ChainExchangeResponse,
     )>,
 ) where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Clone + Sync + Send + 'static,
 {
     match ce_event {
         request_response::Event::Message { peer, message } => {
@@ -760,7 +768,7 @@ async fn handle_forest_behaviour_event<DB>(
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
-    DB: Blockstore + Store + BitswapStoreRead + Clone + Sync + Send + 'static,
+    DB: Blockstore + BitswapStoreRead + Clone + Sync + Send + 'static,
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
@@ -811,7 +819,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 
 /// Builds the transport stack that libp2p will communicate over. When support
 /// of other protocols like `udp`, `quic`, `http` are added, remember to update
-/// code comment in [Libp2pConfig].
+/// code comment in [`Libp2pConfig`].
 ///
 /// As a reference `lotus` uses the default `go-libp2p` transport builder which
 /// has all above protocols enabled.

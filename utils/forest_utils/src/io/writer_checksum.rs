@@ -67,7 +67,8 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
     }
 }
 
-/// A void writer that does nothing but implements [AsyncWrite] and [Checksum]
+/// A void writer that does nothing but implements [`AsyncWrite`] and
+/// [`Checksum`]
 #[derive(Debug, Clone, Default)]
 pub struct VoidAsyncWriterWithNoChecksum<D> {
     _d: PhantomData<D>,

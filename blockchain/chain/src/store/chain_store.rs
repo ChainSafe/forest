@@ -1,30 +1,24 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
+use std::{num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
 
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{
-    multihash::{Code, Code::Blake2b256},
-    Cid,
-};
+use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_db::Store;
-use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
-use forest_ipld::{recurse_links_hash, CidHashSet};
+use forest_ipld::{should_save_block_to_snapshot, walk_snapshot};
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
 use forest_shim::{
     address::Address,
-    clock::EPOCHS_IN_DAY,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     executor::Receipt,
@@ -32,10 +26,12 @@ use forest_shim::{
     state_tree::StateTree,
 };
 use forest_utils::{
-    db::{file_backed_obj::FileBacked, BlockstoreExt},
+    db::{
+        file_backed_obj::{FileBacked, SYNC_PERIOD},
+        BlockstoreExt,
+    },
     io::Checksum,
 };
-use futures::Future;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -44,7 +40,7 @@ use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     io::AsyncWrite,
     sync::{
@@ -60,8 +56,6 @@ use super::{
     Error,
 };
 use crate::Scale;
-
-const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -97,11 +91,14 @@ pub struct ChainStore<DB> {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    /// File backed genesis block cid
+    /// File backed genesis block CID
     file_backed_genesis: Mutex<FileBacked<Cid>>,
 
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
+
+    /// File backed validated blocks
+    file_backed_validated_blocks: Mutex<FileBacked<HashSet<Cid>>>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -130,7 +127,7 @@ where
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     pub fn new(
         db: DB,
@@ -147,11 +144,25 @@ where
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
         ));
-
-        let file_backed_heaviest_tipset_keys = Mutex::new(FileBacked::load_from_file_or_create(
-            chain_data_root.join("HEAD"),
-            || TipsetKeys::new(vec![*genesis_block_header.cid()]),
+        let file_backed_heaviest_tipset_keys = Mutex::new({
+            let mut head_store = FileBacked::load_from_file_or_create(
+                chain_data_root.join("HEAD"),
+                || TipsetKeys::new(vec![*genesis_block_header.cid()]),
+                None,
+            )?;
+            let is_valid = tipset_from_keys(&ts_cache, &db, head_store.inner()).is_ok();
+            if !is_valid {
+                // If the stored HEAD is invalid, reset it to the genesis tipset.
+                head_store.set_inner(TipsetKeys::new(vec![*genesis_block_header.cid()]))?;
+            }
+            head_store
+        });
+        let file_backed_validated_blocks = Mutex::new(FileBacked::load_from_file_or_create(
+            chain_data_root.join("VALIDATED_BLOCKS"),
+            HashSet::default,
+            Some(SYNC_PERIOD),
         )?);
+
         let cs = Self {
             publisher,
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
@@ -160,6 +171,7 @@ where
             ts_cache,
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
+            file_backed_validated_blocks,
         };
 
         cs.set_genesis(genesis_block_header)?;
@@ -267,26 +279,31 @@ where
 
         if new_weight > curr_weight {
             // TODO potentially need to deal with re-orgs here
-            info!("New heaviest tipset: {:?}", ts.key());
+            info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())
     }
 
-    /// Checks store if block has already been validated. Key based on the block
-    /// validation prefix.
+    /// Checks metadata file if block has already been validated.
     pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
-        let key = block_validation_key(cid);
-
-        Ok(self.db.exists(key)?)
+        let validated = self
+            .file_backed_validated_blocks
+            .lock()
+            .inner()
+            .contains(cid);
+        if validated {
+            log::debug!("Block {cid} was previously validated");
+        }
+        Ok(validated)
     }
 
-    /// Marks block as validated in the store. This is retrieved using the block
-    /// validation prefix.
+    /// Marks block as validated in the metadata file.
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
-        let key = block_validation_key(cid);
-
-        Ok(self.db.write(key, [])?)
+        let mut file = self.file_backed_validated_blocks.lock();
+        Ok(file.with_inner(|inner| {
+            inner.insert(*cid);
+        })?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -367,7 +384,7 @@ where
             )));
         }
 
-        if !checkpoint_tipsets::validate_genesis_cid(ts.key(), &network) {
+        if !checkpoint_tipsets::validate_genesis_cid(&ts, &network) {
             return Err(Error::Other(format!(
                 "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
                 ts.key().cid()
@@ -548,7 +565,7 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.
-        Self::walk_snapshot(tipset, recent_roots, |cid| {
+        walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
                 let block = self
@@ -556,15 +573,10 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                // Don't include identity CIDs.
-                // We only include raw and dagcbor, for now.
-                // Raw for "code" CIDs.
-                if u64::from(Code::Identity) != cid.hash().code()
-                    && (cid.codec() == fvm_shared::IPLD_RAW
-                        || cid.codec() == fvm_ipld_encoding::DAG_CBOR)
-                {
+                if should_save_block_to_snapshot(&cid) {
                     tx_clone.send_async((cid, block.clone())).await?;
                 }
+
                 Ok(block)
             }
         })
@@ -589,60 +601,6 @@ where
 
         let digest = writer.lock().await.get_mut().finalize();
         Ok(digest)
-    }
-
-    /// Walks over tipset and state data and loads all blocks not yet seen.
-    /// This is tracked based on the callback function loading blocks.
-    pub async fn walk_snapshot<F, T>(
-        tipset: &Tipset,
-        recent_roots: ChainEpoch,
-        mut load_block: F,
-    ) -> Result<(), Error>
-    where
-        F: FnMut(Cid) -> T + Send,
-        T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
-    {
-        let mut seen = CidHashSet::default();
-        let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
-        let mut current_min_height = tipset.epoch();
-        let incl_roots_epoch = tipset.epoch() - recent_roots;
-
-        while let Some(next) = blocks_to_walk.pop_front() {
-            if !seen.insert(&next) {
-                continue;
-            }
-
-            let data = load_block(next).await?;
-
-            let h = BlockHeader::unmarshal_cbor(&data)?;
-
-            if current_min_height > h.epoch() {
-                current_min_height = h.epoch();
-                if current_min_height % EPOCHS_IN_DAY == 0 {
-                    info!(target: "chain_api", "export at: {}", current_min_height);
-                }
-            }
-
-            if h.epoch() > incl_roots_epoch {
-                recurse_links_hash(&mut seen, *h.messages(), &mut load_block).await?;
-            }
-
-            if h.epoch() > 0 {
-                for p in h.parents().cids() {
-                    blocks_to_walk.push_back(*p);
-                }
-            } else {
-                for p in h.parents().cids() {
-                    load_block(*p).await?;
-                }
-            }
-
-            if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links_hash(&mut seen, *h.state_root(), &mut load_block).await?;
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -681,14 +639,6 @@ where
         .with_label_values(&[metrics::values::TIPSET])
         .inc();
     Ok(ts)
-}
-
-/// Helper to ensure consistent CID to db key translation.
-fn block_validation_key(cid: &Cid) -> Vec<u8> {
-    let mut key = Vec::new();
-    key.extend_from_slice(BLOCK_VAL_PREFIX);
-    key.extend(cid.to_bytes());
-    key
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages

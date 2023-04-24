@@ -16,13 +16,13 @@ install: install-cli install-daemon
 
 # Installs Forest binaries with RocksDb backend
 install-with-rocksdb:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,rocksdb
-	cargo install --locked --path forest/cli --force --no-default-features --features rocksdb
+	cargo install --locked --path forest/daemon --force --features rocksdb
+	cargo install --locked --path forest/cli --features rocksdb
 
-# Installs Forest binaries with Jemalloc global allocator
-install-with-jemalloc:
-	cargo install --locked --path forest/daemon --force --features jemalloc
-	cargo install --locked --path forest/cli --force --features jemalloc
+# Installs Forest binaries with default rust global allocator
+install-with-rustalloc:
+	cargo install --locked --path forest/daemon --force --features rustalloc
+	cargo install --locked --path forest/cli --force --features rustalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
@@ -31,13 +31,20 @@ install-with-mimalloc:
 
 install-deps:
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev aria2 cmake
+	apt-get install --no-install-recommends -y build-essential clang aria2 cmake
 
 install-lint-tools:
 	cargo install --locked taplo-cli
 	cargo install --locked cargo-audit
 	cargo install --locked cargo-spellcheck
 	cargo install --locked cargo-udeps
+
+install-lint-tools-ci:
+	wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
+	tar xzf cargo-binstall-x86_64-unknown-linux-musl.tgz
+	cp cargo-binstall ~/.cargo/bin/cargo-binstall
+
+	cargo binstall --no-confirm taplo-cli cargo-udeps cargo-spellcheck cargo-audit
 
 install-doc-tools:
 	cargo install --locked mdbook
@@ -57,10 +64,8 @@ clean:
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
-	@cargo clean -p forest_encoding
 	@cargo clean -p forest_ipld
 	@cargo clean -p forest_json
-	@cargo clean -p forest_fil_types
 	@cargo clean -p forest_rpc
 	@cargo clean -p forest_key_management
 	@cargo clean -p forest_utils
@@ -88,12 +93,25 @@ lint: license clean lint-clippy
 	taplo lint
 	
 lint-clippy:
-	cargo clippy --features mimalloc
-	cargo clippy --features jemalloc
+	# Default features: paritydb,jemalloc,forest_fil_cns
+	cargo clippy -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override jemalloc with rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --features rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override jemalloc with mimalloc
+	cargo clippy --features mimalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override forest_fil_cns with forest_deleg_cns
+	cargo clippy --features forest_deleg_cns -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	# Override paritydb with rocksdb
+	cargo clippy --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+
+DOCKERFILES=$(wildcard Dockerfile*)
+lint-docker: $(DOCKERFILES)
+	docker run --rm -i hadolint/hadolint < $<
 
 # Formats Rust, TOML and Markdown files.
 fmt:
@@ -129,6 +147,8 @@ test:
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
 	cargo nextest run -p forest_libp2p_bitswap --all-features
 	cargo check --tests --features slow_tests
+	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
+	cargo test --doc
 
 test-slow:
 	cargo nextest run -p forest_message_pool --features slow_tests
@@ -170,4 +190,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --no-deps
 
-.PHONY: clean clean-all lint lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc

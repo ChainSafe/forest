@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use forest_blocks::{Block, Tipset};
 use forest_chain::{Error as ChainStoreError, Scale, Weight};
 use forest_chain_sync::consensus::Consensus;
-use forest_db::Store;
 use forest_key_management::KeyStore;
 use forest_shim::address::Address;
 use forest_state_manager::{Error as StateManagerError, StateManager};
@@ -98,7 +97,7 @@ impl DelegatedConsensus {
         state_manager: &Arc<StateManager<DB>>,
     ) -> anyhow::Result<Option<DelegatedProposer>>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
     {
         let genesis = state_manager.chain_store().genesis()?;
         let state_cid = genesis.state_root();
@@ -143,7 +142,7 @@ impl Consensus for DelegatedConsensus {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: Blockstore + Store + Clone + Sync + Send + 'static,
+        DB: Blockstore + Clone + Sync + Send + 'static,
     {
         crate::validation::validate_block(&self.chosen_one, state_manager, block)
             .await

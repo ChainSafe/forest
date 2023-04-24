@@ -12,6 +12,7 @@ use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
     current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    PAYLOAD_HASH_LEN,
 };
 use serde::{Deserialize, Serialize};
 
@@ -59,6 +60,10 @@ impl Address {
 
     pub fn into_payload(self) -> Payload {
         self.0.into_payload()
+    }
+
+    pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
+        Address_v3::from_bytes(bz).map(Address)
     }
 }
 
@@ -123,6 +128,12 @@ impl From<&Address_v2> for Address {
             Address_v3::from_bytes(&other.to_bytes())
                 .expect("Couldn't convert between FVM2 and FVM3 addresses."),
         )
+    }
+}
+
+impl From<&Address_v3> for Address {
+    fn from(other: &Address_v3) -> Self {
+        Address(*other)
     }
 }
 

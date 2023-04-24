@@ -31,7 +31,7 @@ macro_rules! const_option {
     };
 }
 
-/// Retries a function call until max_retries is exceeded with a delay
+/// Retries a function call until `max_retries` is exceeded with a delay
 #[macro_export]
 macro_rules! retry {
     ($func:ident, $max_retries:expr, $delay:expr $(, $arg:expr)*) => {{
@@ -45,6 +45,7 @@ macro_rules! retry {
                         info!("Maximum retries exceeded.");
                         break Err(err);
                     }
+                    log::warn!("{err:?}");
                     info!("Retry attempt {} started with delay {:#?}.", retry_count, $delay);
                     sleep($delay).await;
                 }

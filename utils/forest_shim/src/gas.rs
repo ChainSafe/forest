@@ -80,7 +80,7 @@ impl From<GasV3> for Gas {
 pub struct GasCharge(GasChargeV3);
 
 impl GasCharge {
-    /// Calculates total gas charge (in milligas) by summing compute and
+    /// Calculates total gas charge (in `milligas`) by summing compute and
     /// storage gas associated with this charge.
     pub fn total(&self) -> Gas {
         self.0.total().into()
@@ -163,8 +163,9 @@ impl From<&'static PriceListV3> for PriceList {
 }
 
 pub fn price_list_by_network_version(network_version: NetworkVersion) -> PriceList {
-    match network_version {
-        NetworkVersion::V18 => price_list_by_network_version_v3(network_version.into()).into(),
-        _ => price_list_by_network_version_v2(network_version.into()).into(),
+    if network_version < NetworkVersion::V18 {
+        price_list_by_network_version_v2(network_version.into()).into()
+    } else {
+        price_list_by_network_version_v3(network_version.into()).into()
     }
 }

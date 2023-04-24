@@ -9,21 +9,20 @@ use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
-    default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
+    default_snapshot_dir, is_car_or_zst_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
-use forest_db::{db_engine::open_db, Store};
+use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
-use forest_ipld::{recurse_links_hash, CidHashSet};
+use forest_ipld::{recurse_links_hash, CidHashSet, DEFAULT_RECENT_STATE_ROOTS};
 use forest_rpc_api::chain_api::ChainExportParams;
 use forest_rpc_client::chain_ops::*;
-use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
+use forest_utils::{io::parser::parse_duration, net::get_fetch_progress_from_file, retry};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio::time::sleep;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -35,12 +34,6 @@ pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
-        /// Tipset to start the export from, default is the chain head
-        #[arg(short, long)]
-        tipset: Option<i64>,
-        /// Specify the number of recent state roots to include in the export.
-        #[arg(short, long, default_value = "2000")]
-        recent_stateroots: i64,
         /// Snapshot output path. Default to
         /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
@@ -70,6 +63,10 @@ pub enum SnapshotCommands {
         /// Snapshot trusted source
         #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
+        /// Download zstd compressed snapshot, only supported by the Filecoin
+        /// provider for now. default is false.
+        #[arg(long)]
+        compressed: bool,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[arg(long)]
         aria2: bool,
@@ -150,8 +147,6 @@ impl SnapshotCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Export {
-                tipset,
-                recent_stateroots,
                 output_path,
                 skip_checksum,
                 dry_run,
@@ -161,7 +156,7 @@ impl SnapshotCommands {
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
-                let epoch = tipset.unwrap_or(chain_head.epoch());
+                let epoch = chain_head.epoch();
 
                 let now = OffsetDateTime::now_utc();
 
@@ -196,7 +191,7 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: *recent_stateroots,
+                    recent_roots: DEFAULT_RECENT_STATE_ROOTS,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
                     skip_checksum: *skip_checksum,
@@ -213,6 +208,7 @@ impl SnapshotCommands {
             Self::Fetch {
                 snapshot_dir,
                 provider,
+                compressed: use_compressed,
                 aria2: use_aria2,
                 max_retries,
                 delay,
@@ -227,6 +223,7 @@ impl SnapshotCommands {
                     &snapshot_dir,
                     &config,
                     provider,
+                    *use_compressed,
                     *use_aria2
                 ) {
                     Ok(out) => {
@@ -290,7 +287,7 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     let snapshot_path = snapshot_dir.join(filename);
-    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_tmp(&snapshot_path) {
+    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_zst_or_tmp(&snapshot_path) {
         println!("Deleting {}", snapshot_path.display());
         if !force && !prompt_confirm() {
             println!("Aborted.");
@@ -338,7 +335,7 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
 
     let read_dir = match fs::read_dir(snapshot_dir) {
         Ok(read_dir) => read_dir,
-        // basically have the same behaviour as in `rm -f` which doesn't fail if the target
+        // basically have the same behavior as in `rm -f` which doesn't fail if the target
         // directory doesn't exist.
         Err(_) if force => {
             println!("Target directory not accessible. Skipping.");
@@ -350,7 +347,7 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     let snapshots_to_delete: Vec<_> = read_dir
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| is_car_or_tmp(p))
+        .filter(|p| is_car_or_zst_or_tmp(p))
         .collect();
 
     if snapshots_to_delete.is_empty() {
@@ -393,8 +390,13 @@ async fn validate(
 
     if confirm {
         let tmp_chain_data_path = TempDir::new()?;
-        let db_path = tmp_chain_data_path.path().join(&config.chain.name);
-        let db = open_db(&db_path, config.db_config())?;
+        let db_path = db_root(
+            tmp_chain_data_path
+                .path()
+                .join(&config.chain.name)
+                .as_path(),
+        );
+        let db = open_proxy_db(db_path, config.db_config().clone())?;
 
         let genesis = read_genesis_header(
             config.client.genesis_file.as_ref(),
@@ -411,9 +413,8 @@ async fn validate(
         )?);
 
         let cids = {
-            let file = tokio::fs::File::open(&snapshot).await?;
-            let reader = FetchProgress::fetch_from_file(file).await?;
-            forest_load_car(chain_store.blockstore(), reader.compat()).await?
+            let reader = get_fetch_progress_from_file(&snapshot).await?;
+            forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
@@ -441,7 +442,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     network: &str,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
+    DB: fvm_ipld_blockstore::Blockstore + Send + Sync,
 {
     let mut seen = CidHashSet::default();
     let upto = ts.epoch() - recent_stateroots;
@@ -495,7 +496,8 @@ where
         pb.set((ts.epoch() - tipset.epoch()) as u64);
     }
 
-    pb.finish();
+    drop(pb);
+
     println!("Snapshot is valid");
 
     Ok(())

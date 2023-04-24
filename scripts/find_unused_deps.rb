@@ -10,6 +10,12 @@ def get_pattern(crate_raw)
   Regexp.new("(\\buse\\s#{crate}\\b)|(\\b#{crate}::)")
 end
 
+# Special cases to suppress false positives.
+def excluded?(crates, crate)
+  # `quickcheck` is required implicitly by `quickcheck_macros`
+  crate == 'quickcheck' && crates.include?('quickcheck_macros')
+end
+
 Dir.glob('**/*.toml').each do |file|
   crate_dir = File.dirname(file)
   toml = TomlRB.load_file(file)
@@ -31,7 +37,7 @@ Dir.glob('**/*.toml').each do |file|
     Dir.glob("#{crate_dir}/**/*.rs").each do |rs|
       used |= File.read(rs).match?(pattern)
     end
-    unless used
+    unless used || excluded?(crates, crate)
       puts "Protentially unused: #{crate} in #{crate_dir}"
       exit_code = 1
     end
