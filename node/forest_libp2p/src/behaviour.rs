@@ -3,7 +3,7 @@
 
 use ahash::{HashMap, HashSet};
 use forest_libp2p_bitswap::BitswapBehaviour;
-use forest_utils::encoding::blake2b_256;
+use forest_utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use libp2p::{
     core::identity::Keypair,
     gossipsub::{
@@ -96,14 +96,15 @@ impl ForestBehaviour {
             .with_user_defined(config.bootstrap_peers.clone())
             .target_peer_count(config.target_peer_count as u64);
 
+        warn!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
         ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
             ping: Default::default(),
-            identify: identify::Behaviour::new(identify::Config::new(
-                "ipfs/0.1.0".into(),
-                local_key.public(),
-            )),
+            identify: identify::Behaviour::new(
+                identify::Config::new("ipfs/0.1.0".into(), local_key.public())
+                    .with_agent_version(FOREST_VERSION_STRING.to_string()),
+            ),
             bitswap,
             hello: HelloBehaviour::default(),
             chain_exchange: ChainExchangeBehaviour::default(),
