@@ -119,7 +119,7 @@ quickcheck = "1"
 quickcheck_macros = "1"
 rand = "0.8"
 rayon = "1.5"
-regex = "1.6"
+regex = "1.8"
 rpassword = "7.2"
 serde = { version = "1.0", default-features = false }
 serde_ipld_dagcbor = "0.2"
