@@ -129,7 +129,7 @@ impl TryFrom<&Signature> for BlsSignature {
     }
 }
 
-/// Aggregates and verifies bls signatures collectively.
+/// Aggregates and verifies BLS signatures collectively.
 pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature) -> bool {
     use bls_signatures::Serialize;
 

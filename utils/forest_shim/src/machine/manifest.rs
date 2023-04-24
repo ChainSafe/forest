@@ -33,7 +33,7 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    /// Load a manifest from the blockstore.
+    /// Load a manifest from the block store.
     pub fn load<B: Blockstore>(bs: &B, root_cid: &Cid, ver: u32) -> anyhow::Result<Manifest> {
         if ver != 1 {
             return Err(anyhow!("unsupported manifest version {}", ver));
@@ -49,7 +49,7 @@ impl Manifest {
         Manifest::new(vec)
     }
 
-    /// Construct a new manifest from actor name/cid tuples.
+    /// Construct a new manifest from actor name/CID tuples.
     pub fn new(iter: impl IntoIterator<Item = (impl Into<String>, Cid)>) -> anyhow::Result<Self> {
         let mut by_name = HashMap::new();
         let mut by_id = HashMap::new();
@@ -132,7 +132,7 @@ impl Manifest {
         &self.placeholder_code == cid
     }
 
-    /// Returns true id the passed code CID is the EthAccount actor.
+    /// Returns true id the passed code CID is the `EthAccount` actor.
     pub fn is_ethaccount_actor(&self, cid: &Cid) -> bool {
         &self.ethaccount_code == cid
     }
@@ -156,7 +156,7 @@ impl Manifest {
         &self.system_code
     }
 
-    /// Returns the code CID for the eam actor.
+    /// Returns the code CID for the `eam` actor.
     pub fn get_eam_code(&self) -> &Cid {
         &self.eam_code
     }
