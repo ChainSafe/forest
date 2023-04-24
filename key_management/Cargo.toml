@@ -4,7 +4,7 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 
 [package.metadata.docs.rs]
 features = ["json"]
@@ -12,10 +12,9 @@ features = ["json"]
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-argon2 = "0.4"
+argon2 = "0.5"
 base64.workspace = true
 bls-signatures.workspace = true
-forest_encoding.workspace = true
 forest_json.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true

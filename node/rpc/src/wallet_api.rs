@@ -5,7 +5,6 @@ use std::{convert::TryFrom, str::FromStr};
 
 use base64::{prelude::BASE64_STANDARD, Engine};
 use forest_beacon::Beacon;
-use forest_db::Store;
 use forest_json::{address::json::AddressJson, signature::json::SignatureJson};
 use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_rpc_api::{data_types::RPCState, wallet_api::*};
@@ -20,7 +19,7 @@ pub(crate) async fn wallet_balance<DB, B>(
     Params(params): Params<WalletBalanceParams>,
 ) -> Result<WalletBalanceResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
     let (addr_str,) = params;
@@ -54,7 +53,7 @@ where
     let keystore = data.keystore.read().await;
 
     let addr = forest_key_management::get_default(&keystore)?;
-    Ok(addr.to_string())
+    Ok(addr.map(|s| s.to_string()))
 }
 
 /// Export `KeyInfo` from the Wallet given its address
@@ -189,7 +188,7 @@ pub(crate) async fn wallet_sign<DB, B>(
     Params(params): Params<WalletSignParams>,
 ) -> Result<WalletSignResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
     let state_manager = &data.state_manager;

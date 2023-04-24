@@ -4,7 +4,7 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 authors.workspace = true
-edition.workspace = true
+edition = "2021"
 
 [dependencies]
 # Internal
@@ -42,4 +42,4 @@ tokio = { workspace = true, features = ["sync"] }
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-syn = "1.0"
+syn = "2.0"

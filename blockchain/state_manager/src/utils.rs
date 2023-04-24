@@ -3,23 +3,25 @@
 
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
-use forest_db::Store;
-use forest_fil_types::verifier::generate_winning_post_sector_challenge;
+use filecoin_proofs_api::post;
 use forest_shim::{
     address::{Address, Payload},
     randomness::Randomness,
-    sector::{RegisteredSealProof, SectorInfo},
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
     state_tree::ActorState,
     version::NetworkVersion,
 };
+use forest_utils::encoding::prover_id_from_u64;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::bytes_32;
+use tracing::info;
 
 use crate::{errors::*, StateManager};
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt`
     /// verification.
@@ -79,8 +81,7 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids =
-            generate_winning_post_sector_challenge(wpt.into(), m_id, rand.into(), num_prov_sect)?;
+        let ids = generate_winning_post_sector_challenge(wpt.into(), m_id, rand, num_prov_sect)?;
 
         let mut iter = proving_sectors.iter();
 
@@ -125,7 +126,11 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
     }
 
     // After nv18, we also support other kinds of senders.
-    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
+    if is_account_actor(&actor.code)
+        || is_eth_account_actor(&actor.code)
+        // XXX: Remove this once 'is_eth_account_actor' is fixed
+        || fil_actor_interface::ethaccount::is_v11_ethaccount_cid(&actor.code)
+    {
         return true;
     }
 
@@ -150,6 +155,55 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
     } else {
         false
     };
+}
+
+/// Reveals five trees arranged in an order that resemble the forest logo.
+/// To be used at anyone's convenience.
+pub fn reveal_five_trees() {
+    info!(
+        r###"
+
+                                        ▄
+                                       ██
+                                      ████
+                         █           ▄█████           ▄▄
+                        ███         ▐██████▌         ▄██▄
+                       █████        ████████▄       ▄████▄
+          █▄         ▄███████      ██████████      ▄██████▄          █▄
+        ▄███▄        █████████    ████████████    ▄████████▄       ▄████
+       ███████     ▄███████████  ▐█████████████  ███████████▄     ███████▄
+     ▄█████████▄  ▄████████████ ▐██████████████▌ ████████████▄  ▄█████████▄
+    ████████████ ▄████████████▀ ████████████████▄ ████████████▄ ████████████
+  ▄████████████ ▄████████████▌ ██████████████████ ▐████████████▄ ████████████▄
+ ▄████████████ ▄█████████████ ████████████████████ ▀████████████▄ █████████████
+▀█████████████ ▀████████████▄ ▀██████████████████▀ ▄████████████▀ ▄████████████▀
+   ▀████████████▄ ▀████████████  ▀████████████▀▀ ████████████▀  ████████████▀
+      ▀███████▀      ▀███████▀      ▀██████▀▀     ▀▀██████▀      ▀▀██████▀
+         ▀█▀            ██▀            ██▀           ▀██            ▀██
+         ▐█▌            ▐█             ▐█             █▌             █▌
+         ▐█▌            ▐█             ▐█             █▌             █▌
+         ▐█▌            ▐█             ▐█             █▌             █▌
+
+"###
+    );
+}
+
+/// Generates sector challenge indexes for use in winning PoSt verification.
+fn generate_winning_post_sector_challenge(
+    proof: RegisteredPoStProof,
+    prover_id: u64,
+    mut rand: Randomness,
+    eligible_sector_count: u64,
+) -> Result<Vec<u64>, anyhow::Error> {
+    // Necessary to be valid bls12 381 element.
+    rand.0[31] &= 0x3f;
+
+    post::generate_winning_post_sector_challenge(
+        proof.try_into()?,
+        &bytes_32(&rand.0),
+        eligible_sector_count,
+        prover_id_from_u64(prover_id),
+    )
 }
 
 #[cfg(test)]

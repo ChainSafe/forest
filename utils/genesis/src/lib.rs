@@ -6,16 +6,16 @@ use std::{sync::Arc, time};
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_db::Store;
 use forest_state_manager::StateManager;
-use forest_utils::{db::BlockstoreExt, net::FetchProgress};
+use forest_utils::{
+    db::{BlockstoreBufferedWriteExt, BlockstoreExt},
+    net::{get_fetch_progress_from_file, get_fetch_progress_from_url},
+};
+use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
-use tokio::{
-    fs::File,
-    io::{AsyncRead, BufReader},
-};
+use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
@@ -30,20 +30,20 @@ pub async fn read_genesis_header<DB>(
     db: &DB,
 ) -> Result<BlockHeader, anyhow::Error>
 where
-    DB: Blockstore + Store + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let genesis = match genesis_fp {
         Some(path) => {
             let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader, db).await?
+            process_car(reader.compat(), db).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader, db).await?
+            process_car(reader.compat(), db).await?
         }
     };
 
@@ -56,7 +56,7 @@ pub fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Clone + Send + Sync + 'static,
 {
     // Get network name from genesis state.
     let network_name = state_manager
@@ -70,7 +70,7 @@ pub async fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), anyhow::Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Clone + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let genesis =
@@ -83,10 +83,10 @@ where
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Store + Send + Sync,
+    BS: Blockstore + Send + Sync,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(db, reader.compat()).await?;
+    let genesis_cids: Vec<Cid> = load_car(db, reader).await?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
@@ -107,7 +107,7 @@ pub async fn import_chain<DB>(
     skip_load: bool,
 ) -> Result<(), anyhow::Error>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
@@ -117,13 +117,12 @@ where
     let cids = if is_remote_file {
         info!("Downloading file...");
         let url = Url::parse(path)?;
-        let reader = FetchProgress::fetch_from_url(url).await?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        let reader = get_fetch_progress_from_url(&url).await?;
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
-        let file = File::open(&path).await?;
-        let reader = FetchProgress::fetch_from_file(file).await?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        let reader = get_fetch_progress_from_file(&path).await?;
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
 
     info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
@@ -145,8 +144,6 @@ where
     // Update head with snapshot header tipset
     sm.chain_store().set_heaviest_tipset(ts.clone())?;
 
-    sm.blockstore().flush()?;
-
     if let Some(height) = validate_height {
         let height = if height > 0 {
             height
@@ -165,48 +162,41 @@ where
 /// Loads car file into database, and returns the block header CIDs from the CAR
 /// header.
 async fn load_and_retrieve_header<DB, R>(
-    store: &DB,
-    reader: FetchProgress<R>,
+    store: DB,
+    mut reader: R,
     skip_load: bool,
 ) -> anyhow::Result<Vec<Cid>>
 where
-    DB: Store,
+    DB: Blockstore + Send + Sync + 'static,
     R: AsyncRead + Send + Unpin,
 {
-    let mut compat = reader.compat();
     let result = if skip_load {
-        CarReader::new(&mut compat).await?.header.roots
+        CarReader::new(&mut reader).await?.header.roots
     } else {
-        forest_load_car(store, &mut compat).await?
+        forest_load_car(store, &mut reader).await?
     };
-    compat.into_inner().finish();
 
     Ok(result)
 }
 
-/// Optimizations:
-/// 1. ParityDB could benefit from a larger buffer. It's hard coded as 1000
-/// blocks in [fvm_ipld_car::load_car] 2. Use [Store::bulk_write] instead of
-/// [Blockstore] to avoid tons of unneccesary allocations
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<Vec<Cid>>
 where
     R: futures::AsyncRead + Send + Unpin,
-    DB: Store,
+    DB: Blockstore + Send + Sync + 'static,
 {
     // 1GB
     const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
 
+    let (tx, rx) = flume::bounded(100);
+    #[allow(clippy::redundant_async_block)]
+    let write_task =
+        tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;
-    let mut estimated_size = 0;
-    let mut buffer = vec![];
     while let Some(block) = car_reader.next_block().await? {
-        estimated_size += 64 + block.data.len();
-        buffer.push((block.cid.to_bytes(), block.data));
-        if estimated_size >= BUFFER_CAPCITY_BYTES {
-            store.bulk_write(std::mem::take(&mut buffer))?;
-            estimated_size = 0;
-        }
+        debug!("Importing block: {}", block.cid);
+        tx.send_async((block.cid, block.data)).await?;
     }
-    store.bulk_write(buffer)?;
+    drop(tx);
+    write_task.await??;
     Ok(car_reader.header.roots)
 }

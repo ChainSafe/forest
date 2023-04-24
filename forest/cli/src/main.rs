@@ -1,17 +1,18 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "jemalloc")]
-use forest_cli_shared::tikv_jemallocator::Jemalloc;
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
-
-#[cfg(feature = "mimalloc")]
-use forest_cli_shared::mimalloc::MiMalloc;
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rustalloc")] {
+    } else if #[cfg(feature = "mimalloc")] {
+        use forest_cli_shared::mimalloc::MiMalloc;
+        #[global_allocator]
+        static GLOBAL: MiMalloc = MiMalloc;
+    } else if #[cfg(feature = "jemalloc")] {
+        use forest_cli_shared::tikv_jemallocator::Jemalloc;
+        #[global_allocator]
+        static GLOBAL: Jemalloc = Jemalloc;
+    }
+}
 
 mod cli;
 mod subcommand;
@@ -30,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
         Ok((cfg, _)) => {
             logger::setup_logger(&cfg.log, &opts);
             ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
-            subcommand::process(cmd, cfg).await
+            subcommand::process(cmd, cfg, &opts).await
         }
         Err(e) => {
             logger::setup_logger(&LogConfig::default(), &opts);
