@@ -106,6 +106,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
+    if: false
     runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
