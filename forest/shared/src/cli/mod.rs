@@ -8,14 +8,13 @@ mod snapshot_fetch;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use ahash::HashSet;
 use byte_unit::Byte;
 use clap::Parser;
 use directories::ProjectDirs;
-use forest_networks::ChainConfig;
+use forest_networks::NetworkChain;
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
 use log::error;
 use num::BigInt;
@@ -98,7 +97,7 @@ pub struct CliOpts {
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
     #[arg(long)]
-    pub chain: Option<String>,
+    pub chain: Option<NetworkChain>,
     /// Daemonize Forest process
     #[arg(long)]
     pub detach: bool,
@@ -149,14 +148,15 @@ impl CliOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => Config::default(),
+            None => {
+                if let Some(chain) = &self.chain {
+                    Config::from_chain(chain)
+                } else {
+                    // Create the default `mainnet` configuration.
+                    Config::default()
+                }
+            }
         };
-
-        match &self.chain {
-            // override the chain configuration
-            Some(name) if name == "calibnet" => cfg.chain = Arc::new(ChainConfig::calibnet()),
-            _ => cfg.chain = Arc::new(ChainConfig::mainnet()),
-        }
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
