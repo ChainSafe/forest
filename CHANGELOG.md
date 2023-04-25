@@ -33,6 +33,14 @@
 
 ### Fixed
 
+## Forest v0.8.1 "Cold Exposure"
+
+### Fixed
+
+- [#2788](https://github.com/ChainSafe/forest/pull/2788): Move back to the
+  upstream `ref-fvm` and bump the dependency version so that it included the
+  latest critical [patch](https://github.com/filecoin-project/ref-fvm/pull/1750)
+
 ## Forest v0.8.0 "Jungle Speed" (2023-04-21)
 
 ### Added
