@@ -39,9 +39,14 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstarp-0.1475.io/tcp/61256/p2p/12D3KooWRzCVDwHUkgdK7eRgnoXbjDAELhxPErjHzbRLguSV1aRt"
 ];
 
+// The rollover period is the duration between nv19 and nv20 which both old
+// proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
+// network.
+const LIGHTNING_ROLLOVER_PERIOD: i64 = 2880 * 21;
+
 lazy_static! {
 /// Height epochs.
-pub static ref HEIGHT_INFOS: [HeightInfo; 19] = [
+pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: 41_280,
@@ -140,7 +145,19 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 19] = [
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap()
     }),
     },
-
+    HeightInfo {
+        height: Height::Lightning,
+        epoch: 2_809_800,
+        bundle: Some(ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzacebgfsebvidddy6l6zplsgmibmuqiyfwxotnvoxknvnnhxerjnrgke").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-mainnet.car").unwrap()
+    }),
+    },
+    HeightInfo {
+        height: Height::Thunder,
+        epoch: 2_809_800 + LIGHTNING_ROLLOVER_PERIOD,
+        bundle: None,
+    },
 ];
 }
 
