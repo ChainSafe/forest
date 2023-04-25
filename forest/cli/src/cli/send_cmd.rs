@@ -28,7 +28,7 @@ impl FromStr for FILAmount {
 
     /// The `FIL` suffix may be omitted. The parsed `TokenAmount` may not be
     /// negative, contain a fractional number of attoFIL, or be longer than 50
-    /// digits. Any input parseable by Lotus is considered to be valid.
+    /// digits. Any input parsable by Lotus is considered to be valid.
 
     /// Examples:
     /// ```rust
