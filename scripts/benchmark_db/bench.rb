@@ -8,6 +8,7 @@ require 'concurrent-ruby'
 require 'csv'
 require 'deep_merge'
 require 'fileutils'
+require 'logger'
 require 'open3'
 require 'optparse'
 require 'set'
@@ -76,66 +77,6 @@ def sample_proc(pid, metrics)
   output = output.split("\n").last.split
   metrics[:rss].push(output[0].to_i)
   metrics[:vsz].push(output[1].to_i)
-end
-
-def get_last_epoch(benchmark)
-  epoch = nil
-  while epoch.nil?
-    # epoch can be nil (e.g. if the client is in the "fetchting messages" stage)
-    epoch = benchmark.epoch_command
-    sleep 0.5
-  end
-  epoch
-end
-
-def measure_online_validation(benchmark, pid, metrics)
-  Thread.new do
-    first_epoch = nil
-    loop do
-      start, first_epoch = benchmark.start_online_validation_command
-      if start
-        puts 'Start measure'
-        break
-      end
-      sleep 0.1
-    end
-    sleep benchmark.online_validation_secs
-    last_epoch = get_last_epoch(benchmark)
-    metrics[:num_epochs] = last_epoch - first_epoch
-
-    puts 'Stopping process...'
-    benchmark.stop_command(pid)
-  end
-end
-
-def proc_monitor(pid, benchmark)
-  metrics = Concurrent::Hash.new
-  metrics[:rss] = []
-  metrics[:vsz] = []
-  measure_online_validation(benchmark, pid, metrics) if benchmark
-  handle = Thread.new do
-    loop do
-      sample_proc(pid, metrics)
-      sleep 0.5
-    rescue StandardError => _e
-      break
-    end
-  end
-  [handle, metrics]
-end
-
-def exec_command_aux(command, metrics, benchmark)
-  Open3.popen2(*command) do |i, o, t|
-    i.close
-
-    handle, proc_metrics = proc_monitor(t.pid, benchmark)
-    o.each_line do |l|
-      print l
-    end
-
-    handle.join
-    metrics.merge!(proc_metrics)
-  end
 end
 
 def format_import_table_row(key, value)
