@@ -140,6 +140,10 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
+        if self.config.is_some() && self.chain.is_some() {
+            anyhow::bail!("Can't use a config file and chain flag at the same time!")
+        }
+
         let path = find_config_path(self);
         let mut cfg: Config = match &path {
             Some(path) => {
