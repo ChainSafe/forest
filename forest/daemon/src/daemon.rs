@@ -13,7 +13,7 @@ use forest_cli_shared::{
     chain_path,
     cli::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
-        to_size_string, CliOpts, Client, Config, SnapshotServer, FOREST_VERSION_STRING,
+        to_size_string, CliOpts, Client, Config, SnapshotServer,
     },
 };
 use forest_daemon::bundle::load_bundles;
@@ -32,7 +32,9 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, retry};
+use forest_utils::{
+    io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
+};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};

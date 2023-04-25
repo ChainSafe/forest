@@ -17,18 +17,11 @@ use clap::Parser;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
-use git_version::git_version;
 use log::error;
 use num::BigInt;
-use once_cell::sync::Lazy;
 
 pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
-
-const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
-
-pub static FOREST_VERSION_STRING: Lazy<String> =
-    Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}

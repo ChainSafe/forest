@@ -21,16 +21,15 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
 use forest_shim::{
-    address::Address, gas::price_list_by_network_version, message::Message, state_tree::StateTree,
+    address::Address, crypto::verify_bls_aggregate, gas::price_list_by_network_version,
+    message::Message, state_tree::StateTree,
 };
 use forest_state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate, ALLOWABLE_CLOCK_DRIFT,
-};
+use fvm_shared::{clock::ChainEpoch, ALLOWABLE_CLOCK_DRIFT};
 use fvm_shared3::BLOCK_GAS_LIMIT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
@@ -1457,7 +1456,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
                 .map(|x| &x[..])
                 .collect::<Vec<&[u8]>>()
                 .as_slice(),
-            &sig.into(),
+            sig,
         ) {
             return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(
                 format!("{sig:?}"),
@@ -1552,7 +1551,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
             .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr.into())
+            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr)
             .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
     }
 
