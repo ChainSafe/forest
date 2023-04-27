@@ -30,6 +30,8 @@ HEIGHTS_TO_VALIDATE = 40
 MINUTE = 60
 HOUR = MINUTE * MINUTE
 
+@logger = Logger.new($stdout)
+
 options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
@@ -125,7 +127,7 @@ def write_markdown(metrics)
 
   filename = "result_#{Time.now.to_i}.md"
   File.write(filename, result)
-  puts "(I) Wrote #{filename}"
+  @logger.info "Wrote #{filename}"
 end
 
 def write_csv(metrics)
@@ -140,7 +142,7 @@ def write_csv(metrics)
       csv << [key, elapsed, tpm]
     end
   end
-  puts "Wrote #{filename}"
+  @logger.info "Wrote #{filename}"
 end
 
 def splice_args(command, args)
@@ -169,13 +171,13 @@ def download_and_move(url, output_dir)
 
   Dir.mktmpdir do |dir|
     # Download, decompress and verify checksums
-    puts '(I) Downloading checksum...'
+    @logger.info 'Downloading checksum...'
     syscall('aria2c', checksum_url, chdir: dir)
-    puts '(I) Downloading snapshot...'
+    @logger.info 'Downloading snapshot...'
     syscall('aria2c', '-x5', url, chdir: dir)
-    puts "(I) Decompressing #{filename}..."
+    @logger.info "Decompressing #{filename}..."
     syscall('zstd', '-d', filename, chdir: dir)
-    puts '(I) Verifying...'
+    @logger.info 'Verifying...'
     syscall('sha256sum', '--check', '--status', checksum_filename, chdir: dir)
 
     FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
@@ -184,10 +186,10 @@ def download_and_move(url, output_dir)
 end
 
 def download_snapshot(output_dir: WORKING_DIR, chain: 'calibnet', url: nil)
-  puts "output_dir: #{output_dir}"
-  puts "chain: #{chain}"
+  @logger.info "output_dir: #{output_dir}"
+  @logger.info "chain: #{chain}"
   url = get_url(chain, url)
-  puts "snapshot_url: #{url}"
+  @logger.info "snapshot_url: #{url}"
 
   download_and_move(url, output_dir)
 end
@@ -209,8 +211,8 @@ end
 def run_benchmarks(benchmarks, options)
   bench_metrics = Concurrent::Hash.new
   options[:snapshot_path] = File.expand_path(options[:snapshot_path])
-  puts "(I) Using snapshot: #{options[:snapshot_path]}"
-  puts "(I) WORKING_DIR: #{WORKING_DIR}"
+  @logger.info "Using snapshot: #{options[:snapshot_path]}"
+  @logger.info "WORKING_DIR: #{WORKING_DIR}"
   puts ''
   Dir.chdir(WORKING_DIR) do
     benchmarks_loop(benchmarks, options, bench_metrics)
@@ -232,13 +234,15 @@ snapshot_path = ARGV.pop
 raise "The file '#{snapshot_path}' does not exist" if snapshot_path && !File.file?(snapshot_path)
 
 if snapshot_path.nil?
-  puts '(I) No snapshot provided, downloading one'
+  @logger.info 'No snapshot provided, downloading one'
   snapshot_path = download_snapshot(chain: options[:chain])
-  puts snapshot_path
+  @logger.info "Snapshot successfully downloaded to: #{snapshot_path}"
   # if a fresh snapshot is downloaded, allow network to move ahead, otherwise
   # `message sync` phase may not be long enough for validation metric
-  puts 'Fresh snapshot; sleeping while network advances for 5 minutes...'
-  sleep 300 if options[:daily]
+  if options[:daily]
+    @logger.info 'Fresh snapshot; sleeping while network advances for 5 minutes...'
+    sleep 300
+  end
 end
 
 options[:snapshot_path] = snapshot_path
@@ -257,7 +261,7 @@ else
     end
   end
   if selection.empty?
-    puts '(I) Nothing to run'
+    @logger.info 'Nothing to run'
   else
     run_benchmarks(selection, options)
   end

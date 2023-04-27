@@ -18,7 +18,7 @@ module ExecCommands
       loop do
         start, first_epoch = benchmark.start_online_validation_command
         if start
-          puts 'Start measure'
+          @logger.info 'Start measure'
           break
         end
         sleep 0.1
@@ -27,7 +27,7 @@ module ExecCommands
       last_epoch = get_last_epoch(benchmark)
       metrics[:num_epochs] = last_epoch - first_epoch
 
-      puts 'Stopping process...'
+      @logger.info 'Stopping process...'
       benchmark.stop_command(pid)
     end
   end
@@ -63,7 +63,7 @@ module ExecCommands
   end
 
   def exec_command(command, benchmark = nil)
-    puts "$ #{command.join(' ')}"
+    @logger.info "$ #{command.join(' ')}"
     return {} if @dry_run
 
     metrics = Concurrent::Hash.new
@@ -100,14 +100,14 @@ module BuildCommands
 
   def build_client
     if Dir.exist?(repository_name)
-      puts "(W) Directory #{repository_name} is already present"
+      @logger.warn "Directory #{repository_name} is already present"
     else
-      puts '(I) Cloning repository'
+      @logger.info 'Cloning repository'
       clone_command
       Dir.mkdir(repository_name) if @dry_run
     end
 
-    puts '(I) Clean and build client'
+    @logger.info 'Clean and build client'
     Dir.chdir(repository_name) do
       checkout_command
       clean_command
@@ -116,7 +116,7 @@ module BuildCommands
   end
 
   def build_artefacts
-    puts '(I) Building artefacts...'
+    @logger.info 'Building artefacts...'
     build_client
 
     build_config_file unless @dry_run
@@ -142,7 +142,7 @@ module RunCommands
   end
 
   def run(daily)
-    puts "(I) Running bench: #{@name}"
+    @logger.info "Running bench: #{@name}"
 
     metrics = Concurrent::Hash.new
     args = build_artefacts
@@ -158,7 +158,7 @@ module RunCommands
 
     run_validation_step(daily, args, metrics)
 
-    puts '(I) Clean db'
+    @logger.info 'Cleaning database'
     clean_db
 
     @metrics = metrics
@@ -172,7 +172,7 @@ module RunCommands
     snapshot_height = snapshot_height(@snapshot_path)
     current = epoch_command
     if current
-      puts "@#{current}"
+      @logger.info "@#{current}"
       # Check if we can start the measure
       [current >= snapshot_height + 10, current]
     else
