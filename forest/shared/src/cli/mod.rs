@@ -433,15 +433,19 @@ mod tests {
     #[test]
     fn combination_of_following_flags_should_fail() {
         // Check for --chain and --config
-        let mut options = CliOpts::default();
-        options.config = Some("config.toml".into());
-        options.chain = Some(NetworkChain::Calibnet);
+        let options = CliOpts {
+            config: Some("config.toml".into()),
+            chain: Some(NetworkChain::Calibnet),
+            ..Default::default()
+        };
         assert!(options.to_config().is_err());
 
         // Check for --import_snapshot and --import_chain
-        let mut options = CliOpts::default();
-        options.import_snapshot = Some("snapshot.car".into());
-        options.import_chain = Some("snapshot.car".into());
+        let options = CliOpts {
+            import_snapshot: Some("snapshot.car".into()),
+            import_chain: Some("snapshot.car".into()),
+            ..Default::default()
+        };
         assert!(options.to_config().is_err());
     }
 }
