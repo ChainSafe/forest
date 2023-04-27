@@ -60,7 +60,7 @@ impl SendCommand {
         };
 
         let signed_msg_json = mpool_push_message(
-            (MessageJson(message.clone().into()), None),
+            (MessageJson(message.into()), None),
             &config.client.rpc_token,
         )
         .await
