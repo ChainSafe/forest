@@ -103,7 +103,7 @@ impl ForestBehaviour {
             ping: Default::default(),
             identify: identify::Behaviour::new(
                 identify::Config::new("ipfs/0.1.0".into(), local_key.public())
-                    .with_agent_version(FOREST_VERSION_STRING.to_string()),
+                    .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str())),
             ),
             bitswap,
             hello: HelloBehaviour::default(),
