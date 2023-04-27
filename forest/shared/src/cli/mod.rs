@@ -38,7 +38,7 @@ OPTIONS:
 ";
 
 /// CLI options
-#[derive(Debug, Parser)]
+#[derive(Default, Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[arg(short, long)]
@@ -428,5 +428,20 @@ mod tests {
                 (vec!["myth", "entities"], "baz"),
             ]
         );
+    }
+
+    #[test]
+    fn combination_of_following_flags_should_fail() {
+        // Check for --chain and --config
+        let mut options = CliOpts::default();
+        options.config = Some("config.toml".into());
+        options.chain = Some(NetworkChain::Calibnet);
+        assert!(options.to_config().is_err());
+
+        // Check for --import_snapshot and --import_chain
+        let mut options = CliOpts::default();
+        options.import_snapshot = Some("snapshot.car".into());
+        options.import_chain = Some("snapshot.car".into());
+        assert!(options.to_config().is_err());
     }
 }
