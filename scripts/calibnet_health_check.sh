@@ -156,10 +156,10 @@ echo "Checking balance of $ADDR_TWO..."
 
 ADDR_TWO_BALANCE=0
 i=0
-while [[ $i != 10 && $ADDR_TWO_BALANCE == 0 ]]; do
+while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
   
-  echo "Checking balance $i/10"
+  echo "Checking balance $i/20"
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_CLI_PATH wallet balance "$ADDR_TWO")
 done
