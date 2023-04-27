@@ -150,7 +150,9 @@ echo "Listing wallet balances"
 $FOREST_CLI_PATH wallet list
 
 echo "Sending FIL to the above address"
-$FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT"
+MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
+echo "Message cid:"
+echo "$MSG"
 
 echo "Checking balance of $ADDR_TWO..."
 
