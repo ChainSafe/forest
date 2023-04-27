@@ -41,7 +41,7 @@ impl FromStr for NetworkChain {
         match s {
             "mainnet" => Ok(NetworkChain::Mainnet),
             "calibnet" => Ok(NetworkChain::Calibnet),
-            _ => Err(anyhow::anyhow!("unsupported network chain")),
+            name => Err(anyhow::anyhow!("unsupported network chain: {name}")),
         }
     }
 }
