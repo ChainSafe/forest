@@ -1,158 +1,181 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::ops::{Deref, DerefMut};
+use std::borrow::Cow;
 
+use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
+use fvm_ipld_encoding3::{
+    de,
+    repr::{Deserialize_repr, Serialize_repr},
+    ser, strict_bytes,
+};
 pub use fvm_shared::crypto::signature::{
     Signature as Signature_v2, SignatureType as SignatureType_v2,
 };
 pub use fvm_shared3::crypto::signature::{
     Signature as Signature_v3, SignatureType as SignatureType_v3,
 };
-use serde::{Deserialize, Serialize};
+use num::FromPrimitive;
+use num_derive::FromPrimitive;
 
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, Hash)]
-#[repr(transparent)]
-#[serde(transparent)]
-pub struct Signature(pub Signature_v3);
+/// A cryptographic signature, represented in bytes, of any key protocol.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Signature {
+    pub sig_type: SignatureType,
+    pub bytes: Vec<u8>,
+}
+
+impl ser::Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ser::Serializer,
+    {
+        let mut bytes = Vec::with_capacity(self.bytes.len() + 1);
+        // Insert signature type byte
+        bytes.push(self.sig_type as u8);
+        bytes.extend_from_slice(&self.bytes);
+
+        strict_bytes::Serialize::serialize(&bytes, serializer)
+    }
+}
+
+impl<'de> de::Deserialize<'de> for Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let bytes: Cow<'de, [u8]> = strict_bytes::Deserialize::deserialize(deserializer)?;
+        if bytes.is_empty() {
+            return Err(de::Error::custom("Cannot deserialize empty bytes"));
+        }
+
+        // Remove signature type byte
+        let sig_type = SignatureType::from_u8(bytes[0]).ok_or_else(|| {
+            de::Error::custom(format!(
+                "Invalid signature type byte (must be 1, 2 or 3), was {}",
+                bytes[0]
+            ))
+        })?;
+
+        Ok(Signature {
+            bytes: bytes[1..].to_vec(),
+            sig_type,
+        })
+    }
+}
 
 impl Signature {
     pub fn new(sig_type: SignatureType, bytes: Vec<u8>) -> Self {
-        Signature(Signature_v3 {
-            sig_type: *sig_type,
-            bytes,
-        })
+        Signature { sig_type, bytes }
     }
 
     /// Creates a BLS Signature given the raw bytes.
     pub fn new_bls(bytes: Vec<u8>) -> Self {
-        Signature(Signature_v3::new_bls(bytes))
+        Self {
+            sig_type: SignatureType::BLS,
+            bytes,
+        }
     }
 
     /// Creates a SECP Signature given the raw bytes.
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
-        Signature(Signature_v3::new_secp256k1(bytes))
+        Self {
+            sig_type: SignatureType::Secp256k1,
+            bytes,
+        }
     }
 
     pub fn signature_type(&self) -> SignatureType {
-        self.0.signature_type().into()
+        self.sig_type
     }
+
+    /// Checks if a signature is valid given data and address.
+    pub fn verify(&self, data: &[u8], addr: &crate::address::Address) -> Result<(), String> {
+        use fvm_shared3::crypto::signature::ops::{verify_bls_sig, verify_secp256k1_sig};
+        match self.sig_type {
+            SignatureType::BLS => verify_bls_sig(&self.bytes, data, addr),
+            SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
+            SignatureType::Delegated => Ok(()),
+        }
+    }
+
+    /// Returns reference to signature bytes.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl TryFrom<&Signature> for BlsSignature {
+    type Error = anyhow::Error;
+    fn try_from(value: &Signature) -> Result<Self, Self::Error> {
+        use bls_signatures::Serialize;
+        match value.sig_type {
+            SignatureType::Secp256k1 => {
+                anyhow::bail!("cannot convert Secp256k1 signature to bls signature")
+            }
+            SignatureType::BLS => Ok(BlsSignature::from_bytes(&value.bytes)?),
+            SignatureType::Delegated => {
+                anyhow::bail!("cannot convert delegated signature to bls signature")
+            }
+        }
+    }
+}
+
+/// Aggregates and verifies BLS signatures collectively.
+pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature) -> bool {
+    use bls_signatures::Serialize;
+
+    // If the number of public keys and data does not match, then return false
+    if data.len() != pub_keys.len() {
+        return false;
+    }
+    if data.is_empty() {
+        return true;
+    }
+
+    let bls_sig = match sig.try_into() {
+        Ok(bls_sig) => bls_sig,
+        _ => return false,
+    };
+
+    let pk_map_results: Result<Vec<_>, _> =
+        pub_keys.iter().map(|x| BlsPubKey::from_bytes(x)).collect();
+
+    let pks = match pk_map_results {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+
+    // Does the aggregate verification
+    verify_messages(&bls_sig, data, &pks[..])
 }
 
 impl quickcheck::Arbitrary for Signature {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Signature(Signature_v3::arbitrary(g))
-    }
-}
-
-impl Deref for Signature {
-    type Target = Signature_v3;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Signature {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<Signature_v2> for Signature {
-    fn from(value: Signature_v2) -> Self {
-        let sig_type: SignatureType = value.signature_type().into();
-        let sig: Signature_v3 = Signature_v3 {
-            sig_type: sig_type.into(),
-            bytes: value.bytes().into(),
-        };
-        Signature(sig)
-    }
-}
-
-impl From<Signature_v3> for Signature {
-    fn from(value: Signature_v3) -> Self {
-        Signature(value)
-    }
-}
-
-impl From<Signature> for Signature_v3 {
-    fn from(other: Signature) -> Self {
-        Signature_v3 {
-            sig_type: other.signature_type().into(),
-            bytes: other.bytes().into(),
+        Self {
+            bytes: Vec::arbitrary(g),
+            sig_type: SignatureType::arbitrary(g),
         }
     }
 }
 
-impl From<&Signature> for Signature_v2 {
-    fn from(other: &Signature) -> Signature_v2 {
-        let sig_type: SignatureType = other.signature_type();
-        let sig: Signature_v2 = Signature_v2 {
-            sig_type: sig_type.into(),
-            bytes: other.bytes().into(),
-        };
-        sig
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
-#[repr(transparent)]
-#[serde(transparent)]
-pub struct SignatureType(pub SignatureType_v3);
-
-impl SignatureType {
-    pub const BLS: Self = Self(SignatureType_v3::BLS);
-    #[allow(non_upper_case_globals)]
-    pub const Secp256k1: Self = Self(SignatureType_v3::Secp256k1);
-    #[allow(non_upper_case_globals)]
-    pub const Delegated: Self = Self(SignatureType_v3::Delegated);
+/// Signature variants for Filecoin signatures.
+#[derive(
+    Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr, Hash,
+)]
+#[repr(u8)]
+pub enum SignatureType {
+    Secp256k1 = 1,
+    BLS = 2,
+    Delegated = 3,
 }
 
 impl quickcheck::Arbitrary for SignatureType {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        SignatureType(SignatureType_v3::arbitrary(g))
-    }
-}
-
-impl Deref for SignatureType {
-    type Target = SignatureType_v3;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for SignatureType {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<SignatureType_v2> for SignatureType {
-    fn from(value: SignatureType_v2) -> Self {
-        match value {
-            SignatureType_v2::Secp256k1 => SignatureType(SignatureType_v3::Secp256k1),
-            SignatureType_v2::BLS => SignatureType(SignatureType_v3::BLS),
-        }
-    }
-}
-
-impl From<SignatureType_v3> for SignatureType {
-    fn from(value: SignatureType_v3) -> Self {
-        SignatureType(value)
-    }
-}
-
-impl From<SignatureType> for SignatureType_v3 {
-    fn from(other: SignatureType) -> Self {
-        other.0
-    }
-}
-
-impl From<SignatureType> for SignatureType_v2 {
-    fn from(other: SignatureType) -> SignatureType_v2 {
-        match other.0 {
-            SignatureType_v3::Secp256k1 => SignatureType_v2::Secp256k1,
-            SignatureType_v3::BLS => SignatureType_v2::BLS,
-            SignatureType_v3::Delegated => panic!("Delegated signature type not possible in fvm2"),
-        }
+        *g.choose(&[
+            SignatureType::Secp256k1,
+            SignatureType::BLS,
+            SignatureType::Delegated,
+        ])
+        .unwrap()
     }
 }

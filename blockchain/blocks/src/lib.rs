@@ -12,11 +12,11 @@ pub mod tipset;
 
 pub use block::*;
 use cid::Cid;
-pub use election_proof::*;
+pub use election_proof::ElectionProof;
 pub use errors::*;
-pub use gossip_block::*;
-pub use header::*;
-pub use ticket::*;
+pub use gossip_block::GossipBlock;
+pub use header::BlockHeader;
+pub use ticket::Ticket;
 pub use tipset::*;
 
 #[derive(Clone)]

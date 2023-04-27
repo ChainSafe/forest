@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.7.1"
+version = "0.8.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -69,21 +69,21 @@ derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
-filecoin-proofs-api = { version = "13.0", default-features = false }
+filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = { version = "~2.3", default-features = false }
-fvm3 = { package = "fvm", default-features = false, git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
+fvm3 = { package = "fvm", default-features = false, version = "~3.3" }
 fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_shared = { version = "2.0", default-features = false }
-fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles", default-features = false }
+fvm_shared = { version = "~2.3", default-features = false }
+fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
@@ -119,7 +119,7 @@ quickcheck = "1"
 quickcheck_macros = "1"
 rand = "0.8"
 rayon = "1.5"
-regex = "1.6"
+regex = "1.8"
 rpassword = "7.2"
 serde = { version = "1.0", default-features = false }
 serde_ipld_dagcbor = "0.2"
@@ -144,8 +144,20 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
+fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_miner_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_miner_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_power_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_power_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actors_runtime_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actors_runtime_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
 forest_blocks = { path = "./blockchain/blocks" }
@@ -176,9 +188,6 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
-
-[patch.crates-io]
-fvm_shared3 = { package = "fvm_shared", git = "https://github.com/ChainSafe/ref-fvm", branch = "lemmih-wibbles" }
 
 [profile.dev]
 debug = 0

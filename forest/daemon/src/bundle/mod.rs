@@ -23,6 +23,10 @@ where
     if epoch < config.chain.epoch(Height::Hygge) {
         bundles.push(get_actors_bundle(config, Height::Hygge).await?);
     }
+    if epoch < config.chain.epoch(Height::Lightning) {
+        bundles.push(get_actors_bundle(config, Height::Lightning).await?);
+    }
+    // Nothing to do regarding Thunder since it's more like a "ghost" upgrade.
 
     for bundle in bundles {
         let result = forest_load_car(db.clone(), bundle.compat()).await?;
@@ -63,9 +67,7 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
 
     // Otherwise, download it.
     info!("Downloading actors bundle...");
-    let reader = FetchProgress::fetch_from_url(bundle_info.url.clone())
-        .await?
-        .inner;
+    let reader = FetchProgress::fetch_from_url(&bundle_info.url).await?.inner;
 
     let file = File::create(&bundle_path).await?;
     let mut writer = BufWriter::new(file);

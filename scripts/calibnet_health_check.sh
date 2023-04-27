@@ -36,6 +36,14 @@ echo "Importing zstd compressed snapshot"
 $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
 echo "Cleaning up database"
 $FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Importing snapshot from url"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Importing zstd compressed snapshot from url"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest.zst
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
 
 echo "Downloading snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
@@ -142,17 +150,18 @@ echo "Listing wallet balances"
 $FOREST_CLI_PATH wallet list
 
 echo "Sending FIL to the above address"
-JSON_MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
-echo "$JSON_MSG"
+MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
+echo "Message cid:"
+echo "$MSG"
 
 echo "Checking balance of $ADDR_TWO..."
 
 ADDR_TWO_BALANCE=0
 i=0
-while [[ $i != 15 && $ADDR_TWO_BALANCE == 0 ]]; do
+while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
   
-  echo "Checking balance $i/15"
+  echo "Checking balance $i/20"
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_CLI_PATH wallet balance "$ADDR_TWO")
 done

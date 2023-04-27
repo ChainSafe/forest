@@ -55,7 +55,7 @@ impl<BS: Blockstore + Clone + Send + Sync> MigrationJob<BS> {
                 result.new_head,
                 self.actor_state.balance.clone(),
                 self.actor_state.sequence,
-                None,
+                self.actor_state.delegated_address,
             )
             .into(),
         };
