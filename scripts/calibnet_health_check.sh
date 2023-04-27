@@ -32,17 +32,16 @@ echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
 echo "Downloading zstd compressed snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$SNAPSHOT_DIRECTORY"
-# Temporarily disabled because there might be a problem with the filecoin snapshots
-#echo "Importing zstd compressed snapshot"
-#$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
-#echo "Cleaning up database"
-#$FOREST_CLI_PATH --chain calibnet db clean --force
-#echo "Importing snapshot from url"
-#$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest
-#echo "Cleaning up database"
-#$FOREST_CLI_PATH --chain calibnet db clean --force
-#echo "Importing zstd compressed snapshot from url"
-#$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest.zst
+echo "Importing zstd compressed snapshot"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Importing snapshot from url"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest
+echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Importing zstd compressed snapshot from url"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest.zst
 echo "Cleaning up database"
 $FOREST_CLI_PATH --chain calibnet db clean --force
 
@@ -151,16 +150,18 @@ echo "Listing wallet balances"
 $FOREST_CLI_PATH wallet list
 
 echo "Sending FIL to the above address"
-$FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT"
+MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
+echo "Message cid:"
+echo "$MSG"
 
 echo "Checking balance of $ADDR_TWO..."
 
 ADDR_TWO_BALANCE=0
 i=0
-while [[ $i != 10 && $ADDR_TWO_BALANCE == 0 ]]; do
+while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
   
-  echo "Checking balance $i/10"
+  echo "Checking balance $i/20"
   sleep 30s
   ADDR_TWO_BALANCE=$($FOREST_CLI_PATH wallet balance "$ADDR_TWO")
 done
