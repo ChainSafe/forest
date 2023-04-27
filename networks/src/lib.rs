@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
+use anyhow::Error;
 use cid::Cid;
 use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
@@ -24,6 +25,26 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
+
+/// The `filecoin` network chain. In general only `mainnet` and its chain
+/// information should be considered stable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkChain {
+    Mainnet,
+    Calibnet,
+}
+
+impl FromStr for NetworkChain {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mainnet" => Ok(NetworkChain::Mainnet),
+            "calibnet" => Ok(NetworkChain::Calibnet),
+            name => Err(anyhow::anyhow!("unsupported network chain: {name}")),
+        }
+    }
+}
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
