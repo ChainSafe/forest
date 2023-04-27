@@ -29,9 +29,15 @@
 
 ### Changed
 
+- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Remove ability to use
+  at the same time `--chain` and `--config` flags for forest binary.
+
 ### Removed
 
 ### Fixed
+
+- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Fix issue when
+  running Forest on calibnet using a configuration file only.
 
 ## Forest v0.8.1 "Cold Exposure"
 
