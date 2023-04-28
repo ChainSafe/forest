@@ -29,9 +29,6 @@
 
 ### Changed
 
-- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Remove ability to use
-  at the same time `--chain` and `--config` flags for forest binary.
-
 ### Removed
 
 ### Fixed

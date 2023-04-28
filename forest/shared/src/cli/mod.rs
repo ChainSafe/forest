@@ -8,13 +8,14 @@ mod snapshot_fetch;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ahash::HashSet;
 use byte_unit::Byte;
 use clap::Parser;
 use directories::ProjectDirs;
-use forest_networks::NetworkChain;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
 use log::error;
 use num::BigInt;
@@ -140,10 +141,6 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        if self.config.is_some() && self.chain.is_some() {
-            anyhow::bail!("Can't use a config file and chain flag at the same time!")
-        }
-
         let path = find_config_path(self);
         let mut cfg: Config = match &path {
             Some(path) => {
@@ -152,15 +149,15 @@ impl CliOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => {
-                if let Some(chain) = &self.chain {
-                    Config::from_chain(chain)
-                } else {
-                    // Create the default `mainnet` configuration.
-                    Config::default()
-                }
-            }
+            None => Config::default(),
         };
+
+        match &self.chain {
+            // override the chain configuration
+            Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
+            Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
+            _ => {}
+        }
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
