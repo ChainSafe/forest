@@ -154,8 +154,8 @@ impl CliOpts {
 
         match &self.chain {
             // override the chain configuration
-            Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
-            Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
+            Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
+            Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
             _ => {}
         }
 
