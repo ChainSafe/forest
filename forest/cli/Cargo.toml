@@ -39,6 +39,7 @@ forest_shim.workspace = true
 forest_utils.workspace = true
 fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true

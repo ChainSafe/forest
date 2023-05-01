@@ -5,7 +5,8 @@ use std::io::Write;
 
 use anes::execute;
 use clap::Parser;
-use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING, HELP_MESSAGE};
+use forest_cli_shared::cli::{CliOpts, HELP_MESSAGE};
+use forest_utils::version::FOREST_VERSION_STRING;
 use tokio::{signal, task};
 
 /// CLI structure generated when interacting with Forest binary
