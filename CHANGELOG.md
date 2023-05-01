@@ -29,15 +29,16 @@
 
 ### Changed
 
-- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Remove ability to use
-  at the same time `--chain` and `--config` flags for forest binary.
-
 ### Removed
 
 ### Fixed
 
 - [#2796] (https://github.com/ChainSafe/forest/pull/2796): Fix issue when
   running Forest on calibnet using a configuration file only.
+- [#2807] (https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
+  actor CIDs.
+- [#2804] (https://github.com/ChainSafe/forest/pull/2804): Add work around for
+  FVM bug that caused `forest-cli sync wait` to fail.
 
 ## Forest v0.8.1 "Cold Exposure"
 
