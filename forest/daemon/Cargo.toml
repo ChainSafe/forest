@@ -16,7 +16,6 @@ anes = "0.1.6"
 anyhow.workspace = true
 atty.workspace = true
 cfg-if.workspace = true
-chrono.workspace = true
 clap.workspace = true
 daemonize-me = "2.0"
 dialoguer.workspace = true
