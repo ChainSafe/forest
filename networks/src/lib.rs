@@ -26,8 +26,8 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
-/// The `filecoin` network chain. In general only `mainnet` and its chain
-/// information should be considered stable.
+/// Forest builtin `filecoin` network chains. In general only `mainnet` and its
+/// chain information should be considered stable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkChain {
     Mainnet,
