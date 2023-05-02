@@ -23,16 +23,14 @@ use forest_utils::{
     db::BlockstoreExt,
     io::{AsyncWriterWithChecksum, VoidAsyncWriterWithNoChecksum},
 };
+use futures::io::BufWriter;
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
 use tempfile::NamedTempFile;
-use tokio::{
-    fs::File,
-    io::{AsyncWriteExt, BufWriter},
-    sync::Mutex,
-};
+use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -89,7 +87,7 @@ where
         code: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
         message: "Failed to determine snapshot export directory",
     })?;
-    let tmp_file = NamedTempFile::new_in(output_dir)?;
+    let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
@@ -102,21 +100,19 @@ where
             )
             .await
     } else {
-        let file = File::from_std(tmp_file.reopen()?);
+        let file = tokio::fs::File::create(&temp_path).await?;
         data.chain_store
             .export(
                 &start_ts,
                 recent_roots,
-                AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file)),
+                AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file.compat())),
             )
             .await
     } {
         Ok(checksum) if !dry_run => {
-            if let Err(e) = tmp_file.persist(&output_path) {
-                // Temporary files cannot be persisted across filesystems, so we fallback to a
-                // copy in case it happens.
-                tokio::fs::copy(e.file, &output_path).await?;
-            }
+            // `persist`is expected to succeed since we've made sure the temp-file is in the
+            // same folder as the final file.
+            temp_path.persist(&output_path)?;
             if !skip_checksum {
                 save_checksum(&output_path, checksum).await?;
             }

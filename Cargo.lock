@@ -3847,7 +3847,6 @@ version = "0.8.1"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "async-stream",
  "blake2b_simd",
  "bls-signatures",
  "cid",
@@ -3864,6 +3863,7 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "forest_utils",
+ "futures",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
@@ -3882,7 +3882,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -4438,6 +4437,7 @@ dependencies = [
  "sha2 0.10.6",
  "tempfile",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
