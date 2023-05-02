@@ -10,6 +10,7 @@ edition = "2021"
 ahash.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 cid.workspace = true
 flume.workspace = true
 forest_blocks.workspace = true
@@ -39,7 +40,6 @@ prometheus = { workspace = true, features = ["process"] }
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
 thiserror.workspace = true
-time = { workspace = true, features = ["serde"] }
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
