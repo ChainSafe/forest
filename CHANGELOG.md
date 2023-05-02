@@ -162,6 +162,11 @@ Notable updates:
   [#2499](https://github.com/ChainSafe/forest/issues/2499)
 - Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c` signals.
   [#2538](https://github.com/ChainSafe/forest/pull/2538)
+- Added support in the forest `send` command for all FIL units currently
+  supported in forest `wallet` ("attoFIL", "femtoFIL", "picoFIL", "nanoFIL",
+  "microFIL", "milliFIL", and "FIL"). Note that the default `send` units (i.e.,
+  if no units are specified) are now FIL to match the behavior in Lotus.
+  [#2668](https://github.com/ChainSafe/forest/issues/2668)
 
 ### Removed
 
