@@ -4391,6 +4391,7 @@ version = "0.8.1"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-compression",
  "axum",
  "base64 0.21.0",
  "cid",
@@ -10316,10 +10317,11 @@ checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
 
 [[package]]
 name = "tracing"
-version = "0.1.38"
+version = "0.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9cf6a813d3f40c88b0b6b6f29a5c95c6cdbf97c1f9cc53fb820200f5ad814d"
+checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
+ "cfg-if 1.0.0",
  "log",
  "pin-project-lite 0.2.9",
  "tracing-attributes",

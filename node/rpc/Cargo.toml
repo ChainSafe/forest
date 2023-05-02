@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-compression.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
 cid.workspace = true
@@ -54,7 +55,7 @@ serde = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace = true
 sha2 = { workspace = true, default-features = false }
 tempfile.workspace = true
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "fs"] }
 tokio-util = { workspace = true, features = ["compat"] }
 
 [dev-dependencies]

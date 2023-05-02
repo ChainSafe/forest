@@ -30,22 +30,29 @@ use crate::cli::{cli_error_and_die, handle_rpc_err};
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
 
+pub(crate) const OUTPUT_PATH_DEFAULT_COMPRESSED_FORMAT: &str =
+    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car.zst";
+
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
         /// Snapshot output path. Default to
-        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
-        /// Date is in ISO 8601 date format.
+        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car(.
+        /// zst)` Date is in ISO 8601 date format.
         /// Arguments:
         ///  - chain - chain name e.g. `mainnet`
         ///  - year
         ///  - month
         ///  - day
         ///  - height - the epoch
-        #[arg(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
+        #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
-        /// Skip creating the checksum file.
+        /// Export in zstd compressed format
+        #[arg(long)]
+        compressed: bool,
+        /// Skip creating the checksum file. Only valid when `--compressed` is
+        /// not supplied.
         #[arg(long)]
         skip_checksum: bool,
         /// Skip writing to the snapshot `.car` file specified by
@@ -148,6 +155,7 @@ impl SnapshotCommands {
         match self {
             Self::Export {
                 output_path,
+                compressed,
                 skip_checksum,
                 dry_run,
             } => {
@@ -177,7 +185,11 @@ impl SnapshotCommands {
                 ]);
 
                 let output_path = if output_path.is_dir() {
-                    output_path.join(OUTPUT_PATH_DEFAULT_FORMAT)
+                    output_path.join(if *compressed {
+                        OUTPUT_PATH_DEFAULT_COMPRESSED_FORMAT
+                    } else {
+                        OUTPUT_PATH_DEFAULT_FORMAT
+                    })
                 } else {
                     output_path.clone()
                 };
@@ -194,6 +206,7 @@ impl SnapshotCommands {
                     recent_roots: DEFAULT_RECENT_STATE_ROOTS,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
+                    compressed: *compressed,
                     skip_checksum: *skip_checksum,
                     dry_run: *dry_run,
                 };

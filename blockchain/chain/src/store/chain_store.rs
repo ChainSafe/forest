@@ -527,7 +527,7 @@ where
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         writer: W,
-    ) -> Result<digest::Output<D>, Error>
+    ) -> Result<Option<digest::Output<D>>, Error>
     where
         D: Digest,
         W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
