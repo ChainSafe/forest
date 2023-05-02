@@ -228,6 +228,6 @@ where
     let (addr, msg, SignatureJson(sig)) = params;
     let address = addr.0;
 
-    let ret = sig.verify(&msg, &address.into()).is_ok();
+    let ret = sig.verify(&msg, &address).is_ok();
     Ok(ret)
 }
