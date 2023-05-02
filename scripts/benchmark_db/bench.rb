@@ -246,7 +246,7 @@ begin
     end
   end
 rescue StandardError, Interrupt
-  FileUtils.remove_dir(WORKING_DIR)
+  FileUtils.rm_f(snapshot_path) unless snapshot_path.nil?
   exit
 end
 
