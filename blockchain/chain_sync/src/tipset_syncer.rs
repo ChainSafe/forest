@@ -1242,9 +1242,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
     let block_cid = block.cid();
 
     // Check block validation cache in store
-    let is_validated = chain_store
-        .is_block_validated(block_cid)
-        .map_err(|why| (*block_cid, why.into()))?;
+    let is_validated = chain_store.is_block_validated(block_cid);
     if is_validated {
         return Ok(block);
     }
