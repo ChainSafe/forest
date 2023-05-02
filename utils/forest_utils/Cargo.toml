@@ -54,4 +54,4 @@ serde_derive = "1.0"
 serde_json.workspace = true
 sha2 = { workspace = true, default-features = false }
 tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt", "fs"] }
+tokio = { workspace = true, features = ["macros", "rt", "fs", "io-util"] }

@@ -81,7 +81,12 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes())?;
+                        write!(
+                            stdout,
+                            "\r{}{}",
+                            anes::ClearLine::All,
+                            anes::MoveCursorUp(1)
+                        )?;
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {
@@ -125,7 +130,7 @@ impl SyncCommands {
                 println!("Height:\t{}", state.epoch());
 
                 if let Some(duration) = elapsed_time {
-                    println!("Elapsed time:\t{}s", duration.whole_seconds());
+                    println!("Elapsed time:\t{}s", duration.num_seconds());
                 }
                 Ok(())
             }
