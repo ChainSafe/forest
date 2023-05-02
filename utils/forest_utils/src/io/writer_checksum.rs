@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{marker::PhantomData, pin::Pin, task::Poll};
 
+use async_trait::async_trait;
 use digest::{Digest, Output};
-use futures::AsyncWrite;
+use futures::{io::BufWriter, AsyncWrite, AsyncWriteExt};
 use pin_project_lite::pin_project;
 
 pin_project! {
@@ -12,15 +13,16 @@ pin_project! {
     /// structures, e.g. `BufWriter` and `Sha256`.
     pub struct AsyncWriterWithChecksum<D, W> {
         #[pin]
-        inner: W,
-        hasher: Option<D>,
+        inner: BufWriter<W>,
+        hasher:Option<D>,
     }
 }
 
-/// Trait marking the object that is collecting a kind of an optional checksum.
+/// Trait marking the object that is collecting a kind of a checksum.
+#[async_trait]
 pub trait Checksum<D: Digest> {
     /// Return the checksum and resets the internal hasher.
-    fn finalize(&mut self) -> Option<Output<D>>;
+    async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>>;
 }
 
 impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D, W> {
@@ -30,9 +32,12 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
         buf: &[u8],
     ) -> std::task::Poll<std::io::Result<usize>> {
         let w = Pin::new(&mut self.inner).poll_write(cx, buf);
+
         if let Some(hasher) = &mut self.hasher {
             if let Poll::Ready(Ok(size)) = w {
-                hasher.update(&buf[..size]);
+                if size > 0 {
+                    hasher.update(&buf[..size]);
+                }
             }
         }
         w
@@ -53,19 +58,21 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
     }
 }
 
-impl<D: Digest, W> Checksum<D> for AsyncWriterWithChecksum<D, W> {
-    fn finalize(&mut self) -> Option<Output<D>> {
+#[async_trait]
+impl<D: Digest + Send, W: AsyncWrite + Send + Unpin> Checksum<D> for AsyncWriterWithChecksum<D, W> {
+    async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>> {
+        self.inner.flush().await?;
         if let Some(hasher) = &mut self.hasher {
             let hasher = std::mem::replace(hasher, D::new());
-            Some(hasher.finalize())
+            Ok(Some(hasher.finalize()))
         } else {
-            None
+            Ok(None)
         }
     }
 }
 
 impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
-    pub fn new(writer: W, checksum_enabled: bool) -> Self {
+    pub fn new(writer: BufWriter<W>, checksum_enabled: bool) -> Self {
         Self {
             inner: writer,
             hasher: if checksum_enabled {
@@ -107,10 +114,10 @@ impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
         std::task::Poll::Ready(Ok(()))
     }
 }
-
-impl<D: Digest> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
-    fn finalize(&mut self) -> Option<Output<D>> {
-        None
+#[async_trait]
+impl<D: Digest + Send> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
+    async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>> {
+        Ok(None)
     }
 }
 
@@ -118,12 +125,40 @@ impl<D: Digest> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
 mod test {
     use anyhow::ensure;
     use futures::{io::BufWriter, AsyncWriteExt};
+    use rand::{rngs::OsRng, RngCore};
     use sha2::{Sha256, Sha512};
 
     use super::*;
 
     #[tokio::test]
-    async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum() {
+    async fn file_writer_fs_buf_writer() -> anyhow::Result<()> {
+        let temp_file_path = tempfile::Builder::new().tempfile()?;
+        let temp_file = async_fs::File::create(temp_file_path.path()).await?;
+        let mut temp_file_writer =
+            AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(temp_file), true);
+        for _ in 0..(1024 * 256) {
+            let mut bytes = [0; 1024];
+            OsRng.fill_bytes(&mut bytes);
+            temp_file_writer.write_all(&bytes).await?;
+        }
+
+        let checksum = temp_file_writer.finalize().await?;
+
+        let file_hash = {
+            let mut hasher = Sha256::default();
+            let bytes = std::fs::read(temp_file_path.path())?;
+            hasher.update(&bytes);
+            Some(hasher.finalize())
+        };
+
+        ensure!(checksum == file_hash);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum(
+    ) -> anyhow::Result<()> {
         let buffer = Vec::new();
         let writer = BufWriter::new(buffer);
 
@@ -134,32 +169,35 @@ mod test {
         // Repeat to make sure the inner hasher can be properly reset
         for _ in 0..2 {
             for old_god in &data {
-                writer.write_all(old_god.as_bytes()).await.unwrap();
+                writer.write_all(old_god.as_bytes()).await?;
             }
 
             assert_eq!(
                 "3386191dc5c285074c3827452f4e3b685e3253f5b9ca7c4c2bb3f44d1263aef1",
-                format!("{:x}", writer.finalize().unwrap())
+                format!("{:x}", writer.finalize().await?.unwrap())
             );
         }
+
+        Ok(())
     }
 
     #[tokio::test]
     async fn digest_of_void_writer() -> anyhow::Result<()> {
         let mut writer = VoidAsyncWriterWithNoChecksum::<Sha512>::default();
-        ensure!(writer.finalize().is_none());
+        ensure!(writer.finalize().await?.is_none());
         Ok(())
     }
 
     #[tokio::test]
-    async fn digest_of_nothing() {
+    async fn digest_of_nothing() -> anyhow::Result<()> {
         let buffer = Vec::new();
         let writer = BufWriter::new(buffer);
         let mut writer = AsyncWriterWithChecksum::<Sha512, _>::new(writer, true);
         assert_eq!(
             "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-            format!("{:x}", writer.finalize().unwrap())
+            format!("{:x}", writer.finalize().await?.unwrap())
         );
+        Ok(())
     }
 
     #[tokio::test]
@@ -167,7 +205,7 @@ mod test {
         let buffer = Vec::new();
         let writer = BufWriter::new(buffer);
         let mut writer = AsyncWriterWithChecksum::<Sha512, _>::new(writer, false);
-        ensure!(writer.finalize().is_none());
+        ensure!(writer.finalize().await?.is_none());
         Ok(())
     }
 }

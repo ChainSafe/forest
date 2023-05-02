@@ -60,5 +60,3 @@ tokio-util = { workspace = true, features = ["compat"] }
 
 [dev-dependencies]
 forest_db.workspace = true
-futures.workspace = true
-hex.workspace = true

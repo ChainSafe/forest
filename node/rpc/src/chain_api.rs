@@ -92,7 +92,7 @@ where
         code: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
         message: "Failed to determine snapshot export directory",
     })?;
-    let tmp_file = NamedTempFile::new_in(output_dir)?;
+    let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
@@ -105,7 +105,7 @@ where
             )
             .await
     } else {
-        let file = tokio::fs::File::from_std(tmp_file.reopen()?);
+        let file = tokio::fs::File::create(&temp_path).await?;
         if compressed {
             data.chain_store
                 .export(
@@ -118,7 +118,6 @@ where
                 )
                 .await
         } else {
-            let file = tokio::fs::File::from_std(tmp_file.reopen()?);
             data.chain_store
                 .export(
                     &start_ts,
@@ -132,11 +131,9 @@ where
         }
     } {
         Ok(checksum_opt) if !dry_run => {
-            if let Err(e) = tmp_file.persist(&output_path) {
-                // Temporary files cannot be persisted across filesystems, so we fallback to a
-                // copy in case it happens.
-                tokio::fs::copy(e.file, &output_path).await?;
-            }
+            // `persist`is expected to succeed since we've made sure the temp-file is in the
+            // same folder as the final file.
+            temp_path.persist(&output_path)?;
             if let Some(checksum) = checksum_opt {
                 save_checksum(&output_path, checksum).await?;
             }

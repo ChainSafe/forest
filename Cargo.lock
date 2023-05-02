@@ -3847,7 +3847,6 @@ version = "0.8.1"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "async-stream",
  "blake2b_simd",
  "bls-signatures",
  "cid",
