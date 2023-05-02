@@ -233,16 +233,21 @@ FOREST_BENCHMARKS = [
 snapshot_path = ARGV.pop
 raise "The file '#{snapshot_path}' does not exist" if snapshot_path && !File.file?(snapshot_path)
 
-if snapshot_path.nil?
-  @logger.info 'No snapshot provided, downloading one'
-  snapshot_path = download_snapshot(chain: options[:chain])
-  @logger.info "Snapshot successfully downloaded to: #{snapshot_path}"
-  # if a fresh snapshot is downloaded, allow network to move ahead, otherwise
-  # `message sync` phase may not be long enough for validation metric
-  if options[:daily]
-    @logger.info 'Fresh snapshot; sleeping while network advances for 5 minutes...'
-    sleep 300
+begin
+  if snapshot_path.nil?
+    @logger.info 'No snapshot provided, downloading one'
+    snapshot_path = download_snapshot(chain: options[:chain])
+    @logger.info "Snapshot successfully downloaded to: #{snapshot_path}"
+    # if a fresh snapshot is downloaded, allow network to move ahead, otherwise
+    # `message sync` phase may not be long enough for validation metric
+    if options[:daily]
+      @logger.info 'Fresh snapshot; sleeping while network advances for 5 minutes...'
+      sleep 300
+    end
   end
+rescue StandardError, Interrupt
+  FileUtils.remove_dir(WORKING_DIR)
+  exit
 end
 
 options[:snapshot_path] = snapshot_path
