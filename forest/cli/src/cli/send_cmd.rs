@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use num::BigInt;
 
@@ -58,12 +59,14 @@ impl SendCommand {
             ..Default::default()
         };
 
-        mpool_push_message(
+        let signed_msg_json = mpool_push_message(
             (MessageJson(message.into()), None),
             &config.client.rpc_token,
         )
         .await
         .map_err(handle_rpc_err)?;
+
+        println!("{}", signed_msg_json.0.cid().unwrap());
 
         Ok(())
     }

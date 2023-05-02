@@ -15,20 +15,13 @@ use ahash::HashSet;
 use byte_unit::Byte;
 use clap::Parser;
 use directories::ProjectDirs;
-use forest_networks::ChainConfig;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
-use git_version::git_version;
 use log::error;
 use num::BigInt;
-use once_cell::sync::Lazy;
 
 pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
-
-const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
-
-pub static FOREST_VERSION_STRING: Lazy<String> =
-    Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}
@@ -46,7 +39,7 @@ OPTIONS:
 ";
 
 /// CLI options
-#[derive(Debug, Parser)]
+#[derive(Default, Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[arg(short, long)]
@@ -105,7 +98,7 @@ pub struct CliOpts {
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
     #[arg(long)]
-    pub chain: Option<String>,
+    pub chain: Option<NetworkChain>,
     /// Daemonize Forest process
     #[arg(long)]
     pub detach: bool,
@@ -161,8 +154,9 @@ impl CliOpts {
 
         match &self.chain {
             // override the chain configuration
-            Some(name) if name == "calibnet" => cfg.chain = Arc::new(ChainConfig::calibnet()),
-            _ => cfg.chain = Arc::new(ChainConfig::mainnet()),
+            Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
+            Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
+            _ => {}
         }
 
         if let Some(genesis_file) = &self.genesis {
@@ -431,5 +425,24 @@ mod tests {
                 (vec!["myth", "entities"], "baz"),
             ]
         );
+    }
+
+    #[test]
+    fn combination_of_following_flags_should_fail() {
+        // Check for --chain and --config
+        let options = CliOpts {
+            config: Some("config.toml".into()),
+            chain: Some(NetworkChain::Calibnet),
+            ..Default::default()
+        };
+        assert!(options.to_config().is_err());
+
+        // Check for --import_snapshot and --import_chain
+        let options = CliOpts {
+            import_snapshot: Some("snapshot.car".into()),
+            import_chain: Some("snapshot.car".into()),
+            ..Default::default()
+        };
+        assert!(options.to_config().is_err());
     }
 }

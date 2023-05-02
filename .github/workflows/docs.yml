@@ -12,6 +12,8 @@ env:
   # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
   RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
   CACHE_TIMEOUT_MINUTES: 5
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   check-publish-docs:
@@ -20,6 +22,10 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Apt Dependencies
         uses: nick-fields/retry@v2
         with:
@@ -27,7 +33,7 @@ jobs:
           max_attempts: 3
           command: sudo make install-deps
       - name: Link Checker (Repo)
-        uses: lycheeverse/lychee-action@v1.6.1
+        uses: lycheeverse/lychee-action@v1.7.0
         with:
           args: --verbose --timeout 60 --exclude twitter.com --no-progress 'README.md'
           # Fail action on broken links
@@ -37,19 +43,6 @@ jobs:
         run: make install-doc-tools
         env:
           RUSTFLAGS: "-Cstrip=symbols"
-      - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-        with:
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
-          # true: always save cache
-          # false: only save when cache is not found
-          # this option is only available in the forked action
-          # the original action has no activities for years so we
-          # just keep using the fork
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
@@ -58,7 +51,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Docs)
-        uses: lycheeverse/lychee-action@v1.6.1
+        uses: lycheeverse/lychee-action@v1.7.0
         with:
           # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'

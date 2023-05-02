@@ -54,7 +54,9 @@ Docker - works on Linux, macOS and Windows.
 ```
 
 For more in-depth usage and sample use cases, please refer to the Forest Docker
-documentation in the [Forest Book](https://chainsafe.github.io/forest/).
+documentation in the [Forest Book](https://chainsafe.github.io/forest/). Keep in
+mind that the `latest` tag is the latest stable release. If you want to current
+development build, use the `edge` tag.
 
 ## Dependencies
 

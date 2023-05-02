@@ -16,30 +16,28 @@ env:
   CARGO_INCREMENTAL: 1
   CACHE_TIMEOUT_MINUTES: 5
   SNAPSHOT_DIRECTORY: /tmp/snapshots
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   test:
     name: Test
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
+        uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-        with:
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
         uses: nick-fields/retry@v2
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
       - name: install nextest
@@ -51,10 +49,14 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: buildjet-4vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Apt Dependencies
         uses: nick-fields/retry@v2
         with:
@@ -63,19 +65,10 @@ jobs:
           command: |
             sudo make install-deps
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
-      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install Lint tools
-        run: make install-lint-tools
+        run: make install-lint-tools-ci
         env:
           RUSTFLAGS: "-Cstrip=symbols"
-      - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-        with:
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
         env:
           CC: "sccache clang"
@@ -91,14 +84,9 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
+        uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-        with:
-          # hard code release-name for macos, it always get rate limited when calling github api
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Install Apt Dependencies
         if: contains(matrix.os, 'ubuntu')
         run: |
@@ -118,26 +106,22 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Apt Dependencies
         uses: nick-fields/retry@v2
         with:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
-      - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.2.0
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-        with:
-          release-name: v0.3.1
-          cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
-          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
         run: make install
         env:

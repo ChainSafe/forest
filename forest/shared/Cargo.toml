@@ -25,11 +25,9 @@ forest_rpc-client.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 gethostname.workspace = true
-git-version.workspace = true
 hex.workspace = true
 log = { workspace = true, features = ["serde"] }
 num.workspace = true
-once_cell.workspace = true
 regex.workspace = true
 s3 = { package = "rust-s3", version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
 serde = { workspace = true, features = ["derive"] }
@@ -59,7 +57,7 @@ tokio.workspace = true
 tower-http = { workspace = true, features = ["fs"] }
 
 [features]
-rocksdb = []
-paritydb = []
+rocksdb = ["forest_db/rocksdb"]
+paritydb = ["forest_db/paritydb"]
 jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]

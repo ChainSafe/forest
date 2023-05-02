@@ -5,13 +5,14 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-pub use utils::is_valid_for_sending;
+pub use utils::{is_valid_for_sending, reveal_five_trees};
 
 mod vm_circ_supply;
 
 use std::{num::NonZeroUsize, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
+use anyhow::bail;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::*;
@@ -45,7 +46,10 @@ use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
+use tokio::{
+    sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock},
+    time,
+};
 use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
 
@@ -379,7 +383,6 @@ where
 
         let db = self.blockstore().clone();
 
-        let turbo_height = self.chain_config.epoch(Height::Turbo);
         let create_vm = |state_root, epoch, timestamp| {
             VM::new(
                 state_root,
@@ -418,8 +421,8 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if epoch_i == turbo_height {
-                todo!("cannot migrate state when using FVM - see https://github.com/ChainSafe/forest/issues/1454 for updates");
+            if let Some(new_state) = self.handle_state_migrations(&parent_state, epoch_i)? {
+                parent_state = new_state;
             }
         }
 
@@ -435,6 +438,54 @@ where
         let state_root = vm.flush()?;
 
         Ok((state_root, receipt_root))
+    }
+
+    /// Handles state migrations. Returns the new state root if a migration was
+    /// run.
+    fn handle_state_migrations(
+        &self,
+        parent_state: &Cid,
+        epoch: ChainEpoch,
+    ) -> anyhow::Result<Option<Cid>> {
+        match epoch {
+            x if x == self.chain_config.epoch(Height::Hygge) => {
+                info!("Running Hygge migration at epoch {epoch}");
+                let start_time = time::Instant::now();
+                let new_state = forest_state_migration::run_nv18_migration(
+                    &self.chain_config,
+                    self.blockstore(),
+                    parent_state,
+                    epoch,
+                )?;
+                let elapsed = start_time.elapsed().as_secs_f32();
+                if new_state != *parent_state {
+                    reveal_five_trees();
+                    info!("State migration successful, took: {elapsed}s");
+                } else {
+                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                }
+                Ok(Some(new_state))
+            }
+            x if x == self.chain_config.epoch(Height::Lightning) => {
+                info!("Running Lightning migration at epoch {epoch}");
+                let start_time = time::Instant::now();
+                let new_state = forest_state_migration::run_nv19_migration(
+                    &self.chain_config,
+                    self.blockstore(),
+                    parent_state,
+                    epoch,
+                )?;
+                let elapsed = start_time.elapsed().as_secs_f32();
+                if new_state != *parent_state {
+                    reveal_five_trees();
+                    info!("State migration successful, took: {elapsed}s");
+                } else {
+                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                }
+                Ok(Some(new_state))
+            }
+            _ => Ok(None),
+        }
     }
 
     /// Returns the pair of (parent state root, message receipt root). This will

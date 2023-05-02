@@ -32,10 +32,21 @@ use super::Config;
 use crate::cli::to_size_string;
 
 /// Snapshot fetch service provider
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SnapshotServer {
     Forest,
     Filecoin,
+}
+
+impl SnapshotServer {
+    pub fn try_get_default(chain: impl AsRef<str>) -> anyhow::Result<Self> {
+        let chain = chain.as_ref();
+        Ok(match chain.to_lowercase().as_str() {
+            "mainnet" => SnapshotServer::Filecoin,
+            "calibnet" => SnapshotServer::Forest,
+            _ => anyhow::bail!("Fetch not supported for chain {chain}"),
+        })
+    }
 }
 
 impl FromStr for SnapshotServer {
@@ -69,12 +80,12 @@ impl SnapshotStore {
     pub fn new(config: &Config, snapshot_dir: &PathBuf) -> SnapshotStore {
         let mut snapshots = Vec::new();
         let pattern = Regex::new(
-            r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car(.tmp|.aria2)?$",
+            r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+)\.car(\.zst)?(\.tmp|\.aria2)?$",
         ).unwrap();
         if let Ok(dir) = std::fs::read_dir(snapshot_dir) {
             dir.flatten()
                 .map(|entry| entry.path())
-                .filter(|p| is_car_or_tmp(p))
+                .filter(|p| is_car_or_zst_or_tmp(p))
                 .for_each(|path| {
                     if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
                         if let Some(captures) = pattern.captures(filename) {
@@ -113,9 +124,9 @@ impl SnapshotStore {
     }
 }
 
-pub fn is_car_or_tmp(path: &Path) -> bool {
+pub fn is_car_or_zst_or_tmp(path: &Path) -> bool {
     let ext = path.extension().unwrap_or_default();
-    ext == "car" || ext == "tmp" || ext == "aria2"
+    ext == "car" || ext == "zst" || ext == "tmp" || ext == "aria2"
 }
 
 /// gets the size of a snapshot from Filecoin.
@@ -155,20 +166,19 @@ pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
     provider: &Option<SnapshotServer>,
+    use_compressed: bool,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let server = match provider {
-        Some(s) => s,
-        None => match config.chain.name.to_lowercase().as_str() {
-            "mainnet" => &SnapshotServer::Filecoin,
-            "calibnet" => &SnapshotServer::Forest,
-            _ => anyhow::bail!("Fetch not supported for chain {}", config.chain.name),
-        },
+        Some(s) => *s,
+        None => SnapshotServer::try_get_default(&config.chain.name)?,
     };
     match server {
-        SnapshotServer::Forest => snapshot_fetch_forest(snapshot_out_dir, config, use_aria2).await,
+        SnapshotServer::Forest => {
+            snapshot_fetch_forest(snapshot_out_dir, config, use_compressed, use_aria2).await
+        }
         SnapshotServer::Filecoin => {
-            snapshot_fetch_filecoin(snapshot_out_dir, config, use_aria2).await
+            snapshot_fetch_filecoin(snapshot_out_dir, config, use_compressed, use_aria2).await
         }
     }
 }
@@ -184,8 +194,15 @@ pub fn is_aria2_installed() -> bool {
 async fn snapshot_fetch_forest(
     snapshot_out_dir: &Path,
     config: &Config,
+    use_compressed: bool,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
+    if use_compressed {
+        anyhow::bail!(
+            "It is not yet supported by the forest provider to download zstd compressed snapshots"
+        );
+    }
+
     let snapshot_fetch_config = match config.chain.name.to_lowercase().as_str() {
         "mainnet" => bail!(
             "Mainnet snapshot fetch service not provided by Forest yet. Suggestion: use `--provider=filecoin` to fetch from Filecoin server."
@@ -228,7 +245,13 @@ async fn snapshot_fetch_forest(
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
 
     if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(client, url, &snapshot_path).await?
+        download_snapshot_and_validate_checksum_if_needed_with_aria2(
+            client,
+            url,
+            &snapshot_path,
+            use_compressed,
+        )
+        .await?
     } else {
         let total_size = last_modified.size;
         download_snapshot_and_validate_checksum(
@@ -250,13 +273,27 @@ async fn snapshot_fetch_forest(
 async fn snapshot_fetch_filecoin(
     snapshot_out_dir: &Path,
     config: &Config,
+    use_compressed: bool,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let service_url = match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => config.snapshot_fetch.filecoin.mainnet.clone(),
-        "calibnet" => config.snapshot_fetch.filecoin.calibnet.clone(),
+        "mainnet" => {
+            if use_compressed {
+                config.snapshot_fetch.filecoin.mainnet_compressed.clone()
+            } else {
+                config.snapshot_fetch.filecoin.mainnet.clone()
+            }
+        }
+        "calibnet" => {
+            if use_compressed {
+                config.snapshot_fetch.filecoin.calibnet_compressed.clone()
+            } else {
+                config.snapshot_fetch.filecoin.calibnet.clone()
+            }
+        }
         _ => bail!("Fetch not supported for chain {}", config.chain.name,),
     };
+    info!("Snapshot url: {service_url}");
     let client = https_client();
 
     let snapshot_url = {
@@ -281,8 +318,13 @@ async fn snapshot_fetch_filecoin(
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
     // Download the file
     if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
-            .await?
+        download_snapshot_and_validate_checksum_if_needed_with_aria2(
+            client,
+            snapshot_url,
+            &snapshot_path,
+            use_compressed,
+        )
+        .await?
     } else {
         let total_size = snapshot_response
             .headers()
@@ -356,10 +398,11 @@ where
     Ok(())
 }
 
-async fn download_snapshot_and_validate_checksum_with_aria2<C>(
+async fn download_snapshot_and_validate_checksum_if_needed_with_aria2<C>(
     client: hyper::Client<C>,
     url: Url,
     snapshot_path: &Path,
+    use_compressed: bool,
 ) -> anyhow::Result<()>
 where
     C: Connect + Clone + Send + Sync + 'static,
@@ -371,16 +414,22 @@ where
         bail!("Command aria2c is not in PATH. To install aria2, refer to instructions on https://aria2.github.io/");
     }
 
-    let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
-    let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
-    if !checksum_response.status().is_success() {
-        bail!("Unable to get the checksum file. Url: {checksum_url}");
-    }
-    let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body()).await?
-        [..Sha256::output_size() * 2]
-        .to_vec();
-    let checksum_expected = String::from_utf8(checksum_bytes)?;
-    info!("Expected sha256 checksum: {checksum_expected}");
+    let checksum_expected = if use_compressed {
+        None
+    } else {
+        let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
+        let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
+        if !checksum_response.status().is_success() {
+            bail!("Unable to get the checksum file. Url: {checksum_url}");
+        }
+        let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body()).await?
+            [..Sha256::output_size() * 2]
+            .to_vec();
+        let checksum = String::from_utf8(checksum_bytes)?;
+        info!("Expected sha256 checksum: {checksum}");
+        Some(checksum)
+    };
+
     download_with_aria2(
         url.as_str(),
         snapshot_path
@@ -391,23 +440,30 @@ where
             .file_name()
             .and_then(|f| f.to_str())
             .unwrap_or_default(),
-        format!("sha-256={checksum_expected}").as_str(),
+        checksum_expected.map(|checksum| format!("sha-256={checksum}")),
     )
 }
 
-fn download_with_aria2(url: &str, dir: &str, out: &str, checksum: &str) -> anyhow::Result<()> {
-    let mut child = Command::new("aria2c")
-        .args([
-            "--continue=true",
-            "--max-connection-per-server=5",
-            "--split=5",
-            "--max-tries=0",
-            &format!("--checksum={checksum}"),
-            &format!("--dir={dir}",),
-            &format!("--out={out}",),
-            url,
-        ])
-        .spawn()?;
+fn download_with_aria2(
+    url: &str,
+    dir: &str,
+    out: &str,
+    checksum: Option<String>,
+) -> anyhow::Result<()> {
+    let mut args = vec![
+        "--continue=true".into(),
+        "--max-connection-per-server=5".into(),
+        "--split=5".into(),
+        "--max-tries=0".into(),
+        format!("--dir={dir}",),
+        format!("--out={out}",),
+        url.into(),
+    ];
+    if let Some(checksum) = checksum {
+        args.insert(0, format!("--checksum={checksum}"));
+    }
+
+    let mut child = Command::new("aria2c").args(args).spawn()?;
 
     let exit_code = child.wait()?;
     if exit_code.success() {
@@ -451,7 +507,7 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
 /// ```
 pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
     let pattern = Regex::new(
-        r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
+        r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z(?P<ext>\.car(\.zst)?)$",
     )
     .unwrap();
     if let Some(captures) = pattern.captures(filename) {
@@ -460,8 +516,9 @@ pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow
             &format_description::parse("[year]_[month]_[day]").unwrap(),
         )?;
         let height = captures.name("height").unwrap().as_str().parse::<i64>()?;
+        let ext = captures.name("ext").unwrap().as_str();
         Ok(format!(
-            "filecoin_snapshot_{network}_{}_height_{height}.car",
+            "filecoin_snapshot_{network}_{}_height_{height}{ext}",
             date.format(&format_description::parse("[year]-[month]-[day]").unwrap())?
         ))
     } else {
@@ -667,6 +724,24 @@ mod test {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn download_with_aria2_test_no_checksum() -> Result<()> {
+        if !is_github_action() && !is_aria2_installed() {
+            return Ok(());
+        }
+
+        let (url, shutdown_tx, _, _data_dir) = serve_random_file()?;
+        let r = download_with_aria2(
+            &url,
+            temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "test_no_checksum",
+            None,
+        );
+        ensure!(r.is_ok());
+        shutdown_tx.send(()).unwrap();
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn download_with_aria2_test_wrong_checksum() -> Result<()> {
         if !is_github_action() && !is_aria2_installed() {
             return Ok(());
@@ -676,8 +751,8 @@ mod test {
         let r = download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
-            "test",
-            "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
+            "test_wrong_checksum",
+            Some("sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64".into()),
         );
         ensure!(r.is_err());
         let err = r.unwrap_err().to_string();
@@ -696,8 +771,8 @@ mod test {
         download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
-            "test",
-            &format!("sha-256={}", hex::encode(shasum)),
+            "test_good_checksum",
+            Some(format!("sha-256={}", hex::encode(shasum))),
         )?;
         shutdown_tx.send(()).unwrap();
         Ok(())

@@ -31,7 +31,7 @@ similar = "2.2.1"
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
-fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_account_v10.workspace = true
 
 [features]
 paritydb = ["forest_db/paritydb"]

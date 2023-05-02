@@ -12,8 +12,18 @@ use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{
     current_network, set_current_network, Error, Network, Payload, Protocol, BLS_PUB_LEN,
+    PAYLOAD_HASH_LEN,
 };
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+
+// XXX: Copied from ref-fvm due to a bug in their definition.
+lazy_static! {
+    /// Zero address used to avoid allowing it to be used for verification.
+    /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
+    /// signature verification.
+    pub static ref ZERO_ADDRESS: Address_v3 = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
+}
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -59,6 +69,10 @@ impl Address {
 
     pub fn into_payload(self) -> Payload {
         self.0.into_payload()
+    }
+
+    pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
+        Address_v3::from_bytes(bz).map(Address)
     }
 }
 

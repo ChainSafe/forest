@@ -1,4 +1,4 @@
-51
+68
 Algorand/M
 API/M
 APIs
@@ -22,7 +22,8 @@ daemonize
 DB/S
 DNS
 Enum
-Filecoin
+Ethereum
+Filecoin/M
 FVM
 GC
 GiB
@@ -65,3 +66,4 @@ verifier
 VM
 VRF
 WebSocket
+zstd

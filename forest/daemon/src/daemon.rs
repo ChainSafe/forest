@@ -14,9 +14,10 @@ use forest_cli_shared::{
     chain_path,
     cli::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
-        to_size_string, CliOpts, Client, Config, FOREST_VERSION_STRING,
+        to_size_string, CliOpts, Client, Config, SnapshotServer,
     },
 };
+use forest_daemon::bundle::load_bundles;
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
     rolling::{DbGarbageCollector, RollingDB},
@@ -32,7 +33,9 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::{io::write_to_file, monitoring::MemStatsTracker, retry};
+use forest_utils::{
+    io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
+};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
@@ -73,6 +76,14 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 
 /// Starts daemon process
 pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<RollingDB> {
+    {
+        // UGLY HACK:
+        // This bypasses a bug in the FVM. Can be removed once the address parsing
+        // correctly takes the network into account.
+        use forest_shim::address::Network;
+        let bls_zero_addr = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
+        assert!(bls_zero_addr.is_bls_zero_address());
+    }
     if config.chain.name == "calibnet" {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
@@ -256,6 +267,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     } else {
         false
     };
+
+    load_bundles(epoch, &config, db.clone()).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -467,13 +480,18 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
+        let provider = SnapshotServer::try_get_default(&config.chain.name)?;
+        // FIXME: change this to `true` once zstd compressed snapshots is supported by
+        // the forest provider
+        let use_compressed = provider == SnapshotServer::Filecoin;
         let path = retry!(
             snapshot_fetch,
             config.daemon.default_retry,
             config.daemon.default_delay,
             &snapshot_path,
             &config,
-            &None,
+            &Some(provider),
+            use_compressed,
             is_aria2_installed()
         )?;
         Ok(Config {
@@ -633,6 +651,14 @@ mod test {
     #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
+            .await
+            .is_ok());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn import_snapshot_from_compressed_file_valid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car.zst")
             .await
             .is_ok());
         Ok(())

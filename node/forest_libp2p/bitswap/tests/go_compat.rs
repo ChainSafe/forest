@@ -14,11 +14,8 @@ mod tests {
         Cid,
     };
     use libp2p::{
-        core,
-        futures::StreamExt,
-        identity, noise, request_response,
-        swarm::{SwarmBuilder, SwarmEvent},
-        tcp, yamux, PeerId, Transport,
+        core, futures::StreamExt, identity, noise, request_response, swarm::SwarmEvent, tcp, yamux,
+        PeerId, Swarm, Transport,
     };
 
     const TIMEOUT: Duration = Duration::from_secs(60);
@@ -40,7 +37,9 @@ mod tests {
             .timeout(TIMEOUT)
             .boxed();
         let behaviour = BitswapBehaviour::new(&[b"/test/ipfs/bitswap/1.2.0"], Default::default());
-        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, peer_id).build();
+        // TODO https://github.com/ChainSafe/forest/issues/2762
+        #[allow(deprecated)]
+        let mut swarm = Swarm::with_tokio_executor(transport, behaviour, peer_id);
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let expected_inbound_request_cid_str = "bitswap_request_from_go";
         let expected_inbound_request_cid = Cid::new_v0(
@@ -142,12 +141,14 @@ mod tests {
     }
 
     fn prepare_go_bitswap() -> Result<()> {
+        const ERROR_CONTEXT: &str = "Fail to compile `go-bitswap` test app, make sure you have `Go1.19.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>";
         Command::new("go")
             .args(["mod", "vendor"])
             .current_dir(GO_APP_DIR)
-            .spawn()?
+            .spawn()
+            .context(ERROR_CONTEXT)?
             .wait()
-            .context("Fail to compile `go-bitswap` test app, make sure you have `Go1.19.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>")?;
+            .context(ERROR_CONTEXT)?;
         Ok(())
     }
 

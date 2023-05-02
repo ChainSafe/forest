@@ -28,6 +28,12 @@ impl LoggingColor {
     }
 }
 
+impl Default for LoggingColor {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
 impl FromStr for LoggingColor {
     type Err = anyhow::Error;
 
