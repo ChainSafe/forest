@@ -150,13 +150,18 @@ module RunCommands
 
     exec_command(@init_command) if @name == 'forest'
 
-    import_command = splice_args(@import_command, args)
-    metrics[:import] = exec_command(import_command)
+    begin
+      import_command = splice_args(@import_command, args)
+      metrics[:import] = exec_command(import_command)
 
-    # Save db size just after import
-    metrics[:import][:db_size] = db_size unless @dry_run
+      # Save db size just after import
+      metrics[:import][:db_size] = db_size unless @dry_run
 
-    run_validation_step(daily, args, metrics)
+      run_validation_step(daily, args, metrics)
+    rescue StandardError, Interrupt
+      clean_db
+      exit
+    end
 
     @logger.info 'Cleaning database'
     clean_db

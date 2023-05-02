@@ -205,6 +205,8 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
     bench_metrics[bench.name] = bench.metrics
 
     puts "\n"
+  rescue StandardError, Interrupt
+    exit
   end
 end
 
