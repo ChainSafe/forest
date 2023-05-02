@@ -81,7 +81,12 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes())?;
+                        write!(
+                            stdout,
+                            "\r{}{}",
+                            anes::ClearLine::All,
+                            anes::MoveCursorUp(1)
+                        )?;
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {
