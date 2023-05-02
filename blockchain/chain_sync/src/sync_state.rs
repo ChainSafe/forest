@@ -118,12 +118,12 @@ impl quickcheck::Arbitrary for SyncState {
             start: if bool::arbitrary(g) {
                 None
             } else {
-                Some(Utc.timestamp_opt(0, 0).unwrap())
+                Some(Utc.timestamp_nanos(0))
             },
             end: if bool::arbitrary(g) {
                 None
             } else {
-                Some(Utc.timestamp_opt(0, 0).unwrap())
+                Some(Utc.timestamp_nanos(0))
             },
             message: String::arbitrary(g),
         }
