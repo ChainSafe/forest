@@ -12,7 +12,7 @@ name = "forest"
 path = "src/main.rs"
 
 [dependencies]
-anes = "0.1.6"
+anes.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 cfg-if.workspace = true
