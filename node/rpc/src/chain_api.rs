@@ -30,6 +30,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
 use tempfile::NamedTempFile;
 use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -99,12 +100,12 @@ where
             )
             .await
     } else {
-        let file = async_fs::File::create(&temp_path).await?;
+        let file = tokio::fs::File::create(&temp_path).await?;
         data.chain_store
             .export(
                 &start_ts,
                 recent_roots,
-                AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file)),
+                AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file.compat())),
             )
             .await
     } {
