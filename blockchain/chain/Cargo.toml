@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-stream = "0.3.3"
 blake2b_simd.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
@@ -26,6 +25,7 @@ forest_metrics.workspace = true
 forest_networks.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true
+futures.workspace = true
 fvm_ipld_amt.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
@@ -43,7 +43,6 @@ serde_yaml.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
-tokio-util = { workspace = true, features = ["compat"] }
 
 [dev-dependencies]
 multihash = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }
