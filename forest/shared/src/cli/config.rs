@@ -7,7 +7,7 @@ use std::{path::PathBuf, sync::Arc};
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
-use forest_networks::ChainConfig;
+use forest_networks::{ChainConfig, NetworkChain};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -195,6 +195,18 @@ pub struct Config {
     pub log: LogConfig,
     pub snapshot_fetch: SnapshotFetchConfig,
     pub tokio: TokioConfig,
+}
+
+impl Config {
+    pub fn from_chain(network_type: &NetworkChain) -> Self {
+        match network_type {
+            NetworkChain::Mainnet => Config::default(),
+            NetworkChain::Calibnet => Config {
+                chain: Arc::new(ChainConfig::calibnet()),
+                ..Config::default()
+            },
+        }
+    }
 }
 
 impl Config {

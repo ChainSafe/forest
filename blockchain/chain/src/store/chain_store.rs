@@ -286,7 +286,7 @@ where
     }
 
     /// Checks metadata file if block has already been validated.
-    pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
+    pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self
             .file_backed_validated_blocks
             .lock()
@@ -295,7 +295,7 @@ where
         if validated {
             log::debug!("Block {cid} was previously validated");
         }
-        Ok(validated)
+        validated
     }
 
     /// Marks block as validated in the metadata file.
@@ -964,9 +964,9 @@ mod tests {
         let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
-        assert!(!cs.is_block_validated(&cid).unwrap());
+        assert!(!cs.is_block_validated(&cid));
 
         cs.mark_block_as_validated(&cid).unwrap();
-        assert!(cs.is_block_validated(&cid).unwrap());
+        assert!(cs.is_block_validated(&cid));
     }
 }

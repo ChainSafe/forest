@@ -9,7 +9,8 @@ pub fn valid_for_block_inclusion(
     min_gas: Gas,
     version: NetworkVersion,
 ) -> Result<(), anyhow::Error> {
-    use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
+    use forest_shim::address::ZERO_ADDRESS;
+    use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }
