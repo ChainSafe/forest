@@ -85,7 +85,11 @@ where
         ))?;
     }
 
-    let tmp_file = NamedTempFile::new()?;
+    let output_dir = output_path.parent().ok_or_else(|| JsonRpcError::Provided {
+        code: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
+        message: "Failed to determine snapshot export directory",
+    })?;
+    let tmp_file = NamedTempFile::new_in(output_dir)?;
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
