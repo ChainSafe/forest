@@ -33,7 +33,9 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
     ) -> std::task::Poll<std::io::Result<usize>> {
         let w = Pin::new(&mut self.inner).poll_write(cx, buf);
         if let Poll::Ready(Ok(size)) = w {
-            self.hasher.update(&buf[0..size]);
+            if size > 0 {
+                self.hasher.update(&buf[..size]);
+            }
         }
         w
     }
@@ -117,7 +119,7 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn file_writer_tokio_fs_buf_writer() -> anyhow::Result<()> {
+    async fn file_writer_fs_buf_writer() -> anyhow::Result<()> {
         let temp_file_path = tempfile::Builder::new().tempfile()?;
         let temp_file = async_fs::File::create(temp_file_path.path()).await?;
         let mut temp_file_writer =

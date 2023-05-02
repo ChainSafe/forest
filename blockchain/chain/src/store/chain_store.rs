@@ -1,11 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
+use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
-use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
@@ -544,15 +543,9 @@ where
         // Spawns task which receives blocks to write to the car writer.
         let write_task = tokio::task::spawn(async move {
             let mut writer = writer_clone.lock().await;
+            let mut stream = rx.stream();
             header
-                .write_stream_async(
-                    &mut *writer,
-                    &mut Box::pin(stream! {
-                        while let Ok(val) = rx.recv_async().await {
-                            yield val;
-                        }
-                    }),
-                )
+                .write_stream_async(writer.deref_mut(), &mut stream)
                 .await
                 .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
         });
