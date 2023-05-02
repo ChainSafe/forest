@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::bail;
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate};
 use forest_utils::{
     io::{progress_bar::Units, ProgressBar, TempFile},
     net::{
@@ -21,7 +21,6 @@ use log::info;
 use regex::Regex;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
-use time::{format_description, format_description::well_known::Iso8601, Date};
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufWriter},
@@ -66,7 +65,7 @@ impl FromStr for SnapshotServer {
 /// Snapshot attributes
 pub struct SnapshotInfo {
     pub network: String,
-    pub date: Date,
+    pub date: NaiveDate,
     pub height: i64,
     pub path: PathBuf,
 }
@@ -91,9 +90,9 @@ impl SnapshotStore {
                         if let Some(captures) = pattern.captures(filename) {
                             let network: String = captures.name("network").unwrap().as_str().into();
                             if network == config.chain.name {
-                                let date = Date::parse(
+                                let date = NaiveDate::parse_from_str(
                                     captures.name("date").unwrap().as_str(),
-                                    &Iso8601::DEFAULT,
+                                    "%Y-%m-%d",
                                 )
                                 .unwrap();
                                 let height = captures
@@ -511,15 +510,12 @@ pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow
     )
     .unwrap();
     if let Some(captures) = pattern.captures(filename) {
-        let date = Date::parse(
-            captures.name("date").unwrap().as_str(),
-            &format_description::parse("[year]_[month]_[day]").unwrap(),
-        )?;
+        let date = NaiveDate::parse_from_str(captures.name("date").unwrap().as_str(), "%Y_%m_%d")?;
         let height = captures.name("height").unwrap().as_str().parse::<i64>()?;
         let ext = captures.name("ext").unwrap().as_str();
         Ok(format!(
             "filecoin_snapshot_{network}_{}_height_{height}{ext}",
-            date.format(&format_description::parse("[year]-[month]-[day]").unwrap())?
+            date.format("%Y-%m-%d")
         ))
     } else {
         bail!("Cannot parse filename: {filename}");

@@ -4,6 +4,7 @@
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::bail;
+use chrono::{Datelike, Utc};
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
@@ -21,7 +22,6 @@ use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
 use tempfile::TempDir;
-use time::OffsetDateTime;
 use tokio::time::sleep;
 
 use super::*;
@@ -166,7 +166,7 @@ impl SnapshotCommands {
 
                 let epoch = chain_head.epoch();
 
-                let now = OffsetDateTime::now_utc();
+                let now = Utc::now();
 
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
