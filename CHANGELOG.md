@@ -33,6 +33,28 @@
 
 ### Fixed
 
+- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Fix issue when
+  running Forest on calibnet using a configuration file only.
+- [#2807] (https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
+  actor CIDs.
+- [#2804] (https://github.com/ChainSafe/forest/pull/2804): Add work around for
+  FVM bug that caused `forest-cli sync wait` to fail.
+
+## Forest v0.8.1 "Cold Exposure"
+
+### Fixed
+
+- [#2788](https://github.com/ChainSafe/forest/pull/2788): Move back to the
+  upstream `ref-fvm` and bump the dependency version so that it included the
+  latest critical [patch](https://github.com/filecoin-project/ref-fvm/pull/1750)
+
+## Forest v0.8.0 "Jungle Speed" (2023-04-21)
+
+### Added
+
+- [#2763](https://github.com/ChainSafe/forest/issues/2763): Support NV19 and
+  NV20. ⛈️
+
 ## Forest v0.7.2 "Roberto" (2023-04-19)
 
 ### Added

@@ -149,8 +149,8 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
         height: Height::Lightning,
         epoch: 2_809_800,
         bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacebgfsebvidddy6l6zplsgmibmuqiyfwxotnvoxknvnnhxerjnrgke").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-mainnet.car").unwrap()
+            manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-mainnet.car").unwrap()
     }),
     },
     HeightInfo {
