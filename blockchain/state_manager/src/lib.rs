@@ -258,7 +258,7 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
         state.get_actor(addr)
     }
 

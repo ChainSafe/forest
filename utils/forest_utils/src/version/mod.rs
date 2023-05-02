@@ -9,6 +9,6 @@ pub const GIT_HASH: &str =
     git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
 /// Current version of the Forest repository with git hash embedded
-/// E.g., `forest-0.8.0+git.e69baf3e4`
+/// E.g., `0.8.0+git.e69baf3e4`
 pub static FOREST_VERSION_STRING: Lazy<String> =
     Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
