@@ -86,7 +86,7 @@ where
         code: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
         message: "Failed to determine snapshot export directory",
     })?;
-    let tmp_file = NamedTempFile::new_in(output_dir)?;
+    let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
@@ -99,7 +99,7 @@ where
             )
             .await
     } else {
-        let file = async_fs::File::from(tmp_file.reopen()?);
+        let file = async_fs::File::create(&temp_path).await?;
         data.chain_store
             .export(
                 &start_ts,
@@ -109,11 +109,7 @@ where
             .await
     } {
         Ok(checksum) if !dry_run => {
-            if let Err(e) = tmp_file.persist(&output_path) {
-                // Temporary files cannot be persisted across filesystems, so we fallback to a
-                // copy in case it happens.
-                tokio::fs::copy(e.file, &output_path).await?;
-            }
+            temp_path.persist(&output_path)?;
             if !skip_checksum {
                 save_checksum(&output_path, checksum).await?;
             }

@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-stream = "0.3.3"
 blake2b_simd.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
