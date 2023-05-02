@@ -4393,7 +4393,6 @@ dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "async-compression",
- "async-fs",
  "axum",
  "base64 0.21.0",
  "cid",
@@ -4440,6 +4439,7 @@ dependencies = [
  "sha2 0.10.6",
  "tempfile",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

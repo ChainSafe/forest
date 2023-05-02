@@ -24,13 +24,14 @@ use forest_utils::{
     db::BlockstoreExt,
     io::{AsyncWriterWithChecksum, VoidAsyncWriterWithNoChecksum},
 };
-use futures::{io::BufWriter, AsyncWriteExt};
+use futures::io::BufWriter;
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
 use tempfile::NamedTempFile;
-use tokio::sync::Mutex;
+use tokio::{io::AsyncWriteExt, sync::Mutex};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -104,21 +105,28 @@ where
             )
             .await
     } else {
-        let file = async_fs::File::from(tmp_file.reopen()?);
+        let file = tokio::fs::File::from_std(tmp_file.reopen()?);
         if compressed {
             data.chain_store
                 .export(
                     &start_ts,
                     recent_roots,
-                    AsyncWriterWithChecksum::<Sha256, _>::new(ZstdEncoder::new(file), false),
+                    AsyncWriterWithChecksum::<Sha256, _>::new(
+                        BufWriter::new(ZstdEncoder::new(file.compat())),
+                        false,
+                    ),
                 )
                 .await
         } else {
+            let file = tokio::fs::File::from_std(tmp_file.reopen()?);
             data.chain_store
                 .export(
                     &start_ts,
                     recent_roots,
-                    AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file), !skip_checksum),
+                    AsyncWriterWithChecksum::<Sha256, _>::new(
+                        BufWriter::new(file.compat()),
+                        !skip_checksum,
+                    ),
                 )
                 .await
         }
@@ -127,7 +135,7 @@ where
             if let Err(e) = tmp_file.persist(&output_path) {
                 // Temporary files cannot be persisted across filesystems, so we fallback to a
                 // copy in case it happens.
-                async_fs::copy(e.file, &output_path).await?;
+                tokio::fs::copy(e.file, &output_path).await?;
             }
             if let Some(checksum) = checksum_opt {
                 save_checksum(&output_path, checksum).await?;
@@ -150,7 +158,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
 
-    let mut checksum_file = async_fs::File::create(&checksum_path).await?;
+    let mut checksum_file = tokio::fs::File::create(&checksum_path).await?;
     checksum_file.write_all(encoded_hash.as_bytes()).await?;
     checksum_file.flush().await?;
     log::info!(
