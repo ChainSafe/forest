@@ -1,12 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::Context;
 use clap::Subcommand;
 use colored::*;
-use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
 use forest_cli_shared::{cli::CliOpts, logger::LoggingColor};
 use forest_rpc_client::{
     chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
@@ -24,13 +27,14 @@ pub enum InfoCommand {
     Show,
 }
 
-#[derive(Debug, strum_macros::Display)]
+#[derive(Debug, strum_macros::Display, PartialEq)]
 enum SyncStatus {
     Ok,
     Slow,
     Behind,
 }
 
+#[derive(Debug)]
 pub struct NodeStatusInfo {
     /// timestamp of how far behind the node is with respect to syncing to head
     behind: u64,
@@ -47,17 +51,15 @@ pub struct NodeStatusInfo {
     sync_status: SyncStatus,
 }
 
-pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo> {
-    let chain_head = chain_head(&config.client.rpc_token)
-        .await
-        .map_err(handle_rpc_err)
-        .context("couldn't fetch chain head, is the node running?")?;
-
-    let chain_finality = config.chain.policy.chain_finality;
-    let epoch = chain_head.0.epoch();
-    let ts = chain_head.0.min_timestamp();
+fn get_node_status(
+    chain_head: &Arc<Tipset>,
+    block_count: usize,
+    num_tipsets: u64,
+) -> anyhow::Result<NodeStatusInfo> {
+    let epoch = chain_head.epoch();
+    let ts = chain_head.min_timestamp();
     let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    log::info!("ts: {ts}, now: {now}");
+    // log::info!("ts: {ts}, now: {now}");
     let delta = if ts > now {
         // Allows system time to be 1 second slower
         if ts <= now + 1 {
@@ -70,6 +72,7 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo> {
     } else {
         now - ts
     };
+
     let behind = delta;
     let sync_status = if delta < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
         // within 1.5 epochs
@@ -81,26 +84,10 @@ pub async fn node_status(config: &Config) -> anyhow::Result<NodeStatusInfo> {
         SyncStatus::Behind
     };
 
-    let base_fee = chain_head.0.min_ticket_block().parent_base_fee().clone();
-
-    // chain health
-    let mut ts = chain_head.0;
-
-    let mut num_tipsets = 1;
-    let mut block_count = ts.blocks().len();
-
-    for _ in 0..(chain_finality - 1).min(ts.epoch()) {
-        let parent_tipset_keys = TipsetKeysJson(ts.parents().clone());
-        let tsjson = chain_get_tipset((parent_tipset_keys,), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)
-            .context("Failed to fetch tipset.")?;
-        ts = tsjson.0;
-        num_tipsets += 1;
-        block_count += ts.blocks().len();
-    }
+    let base_fee = chain_head.min_ticket_block().parent_base_fee().clone();
 
     let health = (100 * block_count) as f64 / (num_tipsets * BLOCKS_PER_EPOCH) as f64;
+
     log::debug!(
         "[Health data] health: {health}, block_count: {block_count}, num_tipsets: {num_tipsets}"
     );
@@ -130,25 +117,61 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
-        display_info(
-            &node_status(&config).await?,
+        let chain_head = chain_head(&config.client.rpc_token)
+            .await
+            .map_err(handle_rpc_err)
+            .context("couldn't fetch chain head, is the node running?")?;
+
+        let mut ts = chain_head.0.clone();
+
+        let mut num_tipsets = 1;
+        let mut block_count = ts.blocks().len();
+
+        for _ in 0..(config.chain.policy.chain_finality - 1).min(ts.epoch()) {
+            let parent_tipset_keys = TipsetKeysJson(ts.parents().clone());
+            let tsjson = chain_get_tipset((parent_tipset_keys,), &config.client.rpc_token)
+                .await
+                .map_err(handle_rpc_err)
+                .context("Failed to fetch tipset.")?;
+            ts = tsjson.0;
+            num_tipsets += 1;
+            block_count += ts.blocks().len();
+        }
+
+        let node_status = get_node_status(&chain_head.0, block_count, num_tipsets)?;
+        let info = fmt_info(
+            &node_status,
             start_time,
             &network,
             default_wallet_address,
             &opts.color,
         )?;
 
+        println!("Network: {}", info.network);
+        println!("Uptime: {}", info.uptime);
+        println!("Chain: {}", info.chain_status);
+        println!("Chain health: {}", info.health);
+        println!("Default wallet address: {}", info.wallet_address);
+
         Ok(())
     }
 }
 
-fn display_info(
+struct NodeInfoOutput {
+    chain_status: ColoredString,
+    network: ColoredString,
+    uptime: String,
+    health: ColoredString,
+    wallet_address: ColoredString,
+}
+
+fn fmt_info(
     node_status: &NodeStatusInfo,
     start_time: OffsetDateTime,
     network: &str,
     default_wallet_address: Option<String>,
     color: &LoggingColor,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<NodeInfoOutput> {
     let NodeStatusInfo {
         health,
         behind,
@@ -156,10 +179,8 @@ fn display_info(
         base_fee,
         sync_status,
     } = node_status;
-
     let use_color = color.coloring_enabled();
-
-    let start_time = {
+    let uptime = {
         let st = start_time.to_hms();
         format!("{}h {}m {}s (Started at: {})", st.0, st.1, st.2, start_time)
     };
@@ -169,6 +190,7 @@ fn display_info(
         let b = OffsetDateTime::from_unix_timestamp(*behind as i64)?.to_hms();
         format!("{}h {}m {}s", b.0, b.1, b.2)
     };
+
     let chain_status =
         format!("[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]");
 
@@ -178,18 +200,13 @@ fn display_info(
         chain_status.normal()
     };
 
-    println!(
-        "Network: {}",
-        if use_color {
-            network.green()
-        } else {
-            network.normal()
-        }
-    );
-    println!("Uptime: {start_time}");
-    println!("Chain: {chain_status}");
+    let network = if use_color {
+        network.green()
+    } else {
+        network.normal()
+    };
 
-    let chain_health = {
+    let health = {
         let s = format!("{health:.2}%\n\n");
         if use_color {
             if *health > 85. {
@@ -202,17 +219,43 @@ fn display_info(
         }
     };
 
-    println!("Chain health: {chain_health}");
-
-    let default_wallet_address = default_wallet_address.unwrap_or("-".to_string());
-    println!(
-        "Default wallet address: {}",
+    let default_wallet_address = {
+        let addr = default_wallet_address.unwrap_or("-".to_string());
         if use_color {
-            default_wallet_address.bold()
+            addr.bold()
         } else {
-            default_wallet_address.normal()
+            addr.normal()
         }
-    );
+    };
 
-    Ok(())
+    Ok(NodeInfoOutput {
+        chain_status,
+        network,
+        uptime,
+        health,
+        wallet_address: default_wallet_address,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{str::FromStr, sync::Arc};
+
+    use forest_blocks::{BlockHeader, Tipset};
+    use forest_shim::address::Address;
+
+    use super::get_node_status;
+    use crate::cli::info_cmd::SyncStatus;
+
+    #[test]
+    fn node_status_with_null_tipset() {
+        let mock_header = BlockHeader::builder()
+            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
+            .build()
+            .unwrap();
+        let tipset = Tipset::from(&mock_header);
+        let node_status = get_node_status(&Arc::new(tipset), 0, 0).unwrap();
+        assert!(node_status.health.is_nan());
+        assert_eq!(node_status.sync_status, SyncStatus::Behind);
+    }
 }
