@@ -217,6 +217,10 @@ pub mod chain_api {
     pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
     pub type ChainGetNameParams = ();
     pub type ChainGetNameResult = String;
+
+    pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
+    pub type ChainSetHeadParams = (TipsetKeys,);
+    pub type ChainSetHeadResult = ();
 }
 
 /// Message Pool API
