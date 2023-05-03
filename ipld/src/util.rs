@@ -94,7 +94,8 @@ where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
 {
-    let bar = ProgressBar::new(1);
+    let tipset_epoch = tipset.epoch() as _;
+    let bar = ProgressBar::new(tipset_epoch);
     bar.message("Walking snapshot ");
     bar.set_units(progress_bar::Units::Default);
     bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
@@ -108,15 +109,13 @@ where
         if !seen.insert(&next) {
             continue;
         };
-        let current = bar.inc();
-        bar.set_total(current + blocks_to_walk.len() as u64);
 
         let data = load_block(next).await?;
-
         let h = BlockHeader::unmarshal_cbor(&data)?;
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
+            bar.set(tipset_epoch - current_min_height as u64);
         }
 
         if h.epoch() > incl_roots_epoch {
