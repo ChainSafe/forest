@@ -128,10 +128,10 @@ fi
 
 echo "Wallet tests"
 
-# The following steps does basic wallet handling tests.
+# The following steps do basic wallet handling tests.
 
-# Amount to send to
-FIL_AMT=500
+# Amount to send to 2nd address (note: `send` command defaults to FIL if no units are specified)
+FIL_AMT="500 atto FIL"
 
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH wallet import preloaded_wallet.key
@@ -186,6 +186,9 @@ done
 $FOREST_CLI_PATH wallet list
 
 # TODO: Uncomment this check once the send command is fixed
+# # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
+# # so we need to truncate units from `$FIL_AMT` for proper comparison
+# FIL_AMT=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
 # if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
 #   echo "FIL amount should match"
 #   exit 1

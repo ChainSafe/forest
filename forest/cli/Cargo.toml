@@ -63,6 +63,8 @@ toml.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]
