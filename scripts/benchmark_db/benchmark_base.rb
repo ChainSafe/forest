@@ -141,6 +141,21 @@ module RunCommands
     metrics[:validate_online] = new_metrics
   end
 
+  def import_and_validation(daily, args, metrics)
+    import_command = splice_args(@import_command, args)
+    metrics[:import] = exec_command(import_command)
+
+    # Save db size just after import
+    metrics[:import][:db_size] = db_size unless @dry_run
+
+    run_validation_step(daily, args, metrics)
+    metrics
+  rescue StandardError, Interrupt
+    @logger.error('Fiasco during benchmark run. Cleaning DB and exiting...')
+    clean_db
+    exit
+  end
+
   def run(daily)
     @logger.info "Running bench: #{@name}"
 
@@ -150,24 +165,10 @@ module RunCommands
 
     exec_command(@init_command) if @name == 'forest'
 
-    begin
-      import_command = splice_args(@import_command, args)
-      metrics[:import] = exec_command(import_command)
-
-      # Save db size just after import
-      metrics[:import][:db_size] = db_size unless @dry_run
-
-      run_validation_step(daily, args, metrics)
-    rescue StandardError, Interrupt
-      @logger.error('Fiasco during benchmark run. Cleaning DB and exiting...')
-      clean_db
-      exit
-    end
+    @metrics = import_and_validation(daily, args, metrics)
 
     @logger.info 'Cleaning database'
     clean_db
-
-    @metrics = metrics
   end
 
   def online_validation_secs

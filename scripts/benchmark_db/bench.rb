@@ -196,10 +196,7 @@ end
 
 def benchmarks_loop(benchmarks, options, bench_metrics)
   benchmarks.each do |bench|
-    bench.dry_run = options[:dry_run]
-    bench.snapshot_path = options[:snapshot_path]
-    bench.heights = options[:heights]
-    bench.chain = options[:chain]
+    bench.dry_run, bench.snapshot_path, bench.heights, bench.chain = bench_loop_assignments(options)
     bench.run(options[:daily])
 
     bench_metrics[bench.name] = bench.metrics
@@ -210,6 +207,10 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
     # TODO?: delete snapshot if downloaded, but not if user-provided
     exit
   end
+end
+
+def bench_loop_assignments(options)
+  [options[:dry_run], options[:snapshot_path], options[:heights], options[:chain]]
 end
 
 def run_benchmarks(benchmarks, options)
