@@ -1,10 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, future::Future};
+use std::{collections::VecDeque, future::Future, time::Duration};
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
+use forest_utils::io::{progress_bar, ProgressBar};
 use fvm_ipld_encoding::{from_slice, Cbor};
 
 use crate::{CidHashSet, Ipld};
@@ -93,6 +94,11 @@ where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
 {
+    let bar = ProgressBar::new(1);
+    bar.message("Walking snapshot ");
+    bar.set_units(progress_bar::Units::Default);
+    bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
+
     let mut seen = CidHashSet::default();
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
     let mut current_min_height = tipset.epoch();
@@ -101,7 +107,9 @@ where
     while let Some(next) = blocks_to_walk.pop_front() {
         if !seen.insert(&next) {
             continue;
-        }
+        };
+        let current = bar.inc();
+        bar.set_total(current + blocks_to_walk.len() as u64);
 
         let data = load_block(next).await?;
 
@@ -129,6 +137,8 @@ where
             recurse_links_hash(&mut seen, *h.state_root(), &mut load_block).await?;
         }
     }
+
+    bar.finish_println("Done walking snapshot ");
 
     Ok(())
 }

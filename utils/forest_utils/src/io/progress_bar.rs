@@ -60,9 +60,23 @@ impl ProgressBar {
         }
     }
 
+    pub fn set_total(&self, i: u64) {
+        if self.display {
+            self.inner.borrow_mut().total = i;
+        }
+    }
+
     pub fn add(&self, i: u64) -> u64 {
         if self.display {
             self.inner.borrow_mut().add(i)
+        } else {
+            0
+        }
+    }
+
+    pub fn inc(&self) -> u64 {
+        if self.display {
+            self.inner.borrow_mut().inc()
         } else {
             0
         }
