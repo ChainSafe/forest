@@ -206,6 +206,8 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
 
     puts "\n"
   rescue StandardError, Interrupt
+    @logger.error('Fiasco during benchmark run. Exiting...')
+    # TODO?: delete snapshot if downloaded, but not if user-provided
     exit
   end
 end
@@ -248,6 +250,7 @@ begin
     end
   end
 rescue StandardError, Interrupt
+  @logger.error('Fiasco during snapshot download. Deleting snapshot and exiting...')
   FileUtils.rm_f(snapshot_path) unless snapshot_path.nil?
   exit
 end

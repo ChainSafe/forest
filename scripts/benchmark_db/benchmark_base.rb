@@ -159,6 +159,7 @@ module RunCommands
 
       run_validation_step(daily, args, metrics)
     rescue StandardError, Interrupt
+      @logger.error('Fiasco during benchmark run. Cleaning DB and exiting...')
       clean_db
       exit
     end
