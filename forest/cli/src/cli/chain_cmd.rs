@@ -3,6 +3,7 @@
 
 use cid::Cid;
 use clap::Subcommand;
+use forest_blocks::TipsetKeys;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
 use forest_shim::clock::ChainEpoch;
@@ -48,9 +49,9 @@ pub enum ChainCommands {
         cid: String,
     },
 
-    /// Manually set the head. This invalidates blocks between the desired head
-    /// and the new head
-    SetHead { cid: Cid },
+    /// Manually set the head to the given tipset. This invalidates blocks
+    /// between the desired head and the new head
+    SetHead { cids: Vec<Cid> },
 }
 
 impl ChainCommands {
@@ -107,12 +108,12 @@ impl ChainCommands {
                 let cid: Cid = cid.parse()?; // TODO(aatifsyed): refactor
                 print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await)
             }
-            Self::SetHead { cid } => {
-                let params = todo!("convert from cid to tipsetkeys");
-                chain_set_head(params, &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)
-            }
+            Self::SetHead { cids } => chain_set_head(
+                (TipsetKeys { cids: cids.clone() },),
+                &config.client.rpc_token,
+            )
+            .await
+            .map_err(handle_rpc_err),
         }
     }
 }
