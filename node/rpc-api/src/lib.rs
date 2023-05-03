@@ -40,6 +40,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET_HASH, Access::Read);
     access.insert(chain_api::CHAIN_VALIDATE_TIPSET_CHECKPOINTS, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
+    access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
