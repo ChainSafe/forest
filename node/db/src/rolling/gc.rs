@@ -220,24 +220,31 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        walk_snapshot(&tipset, DEFAULT_RECENT_STATE_ROOTS, |cid| {
-            let db = db.clone();
-            let tx = tx.clone();
-            let reachable_bytes = reachable_bytes.clone();
-            async move {
-                let block = db
-                    .get(&cid)?
-                    .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
+        walk_snapshot(
+            &tipset,
+            DEFAULT_RECENT_STATE_ROOTS,
+            |cid| {
+                let db = db.clone();
+                let tx = tx.clone();
+                let reachable_bytes = reachable_bytes.clone();
+                async move {
+                    let block = db
+                        .get(&cid)?
+                        .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
 
-                let pair = (cid, block.clone());
-                reachable_bytes.fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
-                if !db.current().has(&cid)? {
-                    tx.send_async(pair).await?;
+                    let pair = (cid, block.clone());
+                    reachable_bytes
+                        .fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
+                    if !db.current().has(&cid)? {
+                        tx.send_async(pair).await?;
+                    }
+
+                    Ok(block)
                 }
-
-                Ok(block)
-            }
-        })
+            },
+            Some("Running DB GC "),
+            None,
+        )
         .await?;
         drop(tx);
         write_task.await??;

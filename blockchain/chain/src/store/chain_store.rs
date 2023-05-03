@@ -555,21 +555,26 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.
-        walk_snapshot(tipset, recent_roots, |cid| {
-            let tx_clone = tx.clone();
-            async move {
-                let block = self
-                    .blockstore()
-                    .get(&cid)?
-                    .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
+        walk_snapshot(
+            tipset,
+            recent_roots,
+            |cid| {
+                let tx_clone = tx.clone();
+                async move {
+                    let block = self.blockstore().get(&cid)?.ok_or_else(|| {
+                        Error::Other(format!("Cid {cid} not found in blockstore"))
+                    })?;
 
-                if should_save_block_to_snapshot(&cid) {
-                    tx_clone.send_async((cid, block.clone())).await?;
+                    if should_save_block_to_snapshot(&cid) {
+                        tx_clone.send_async((cid, block.clone())).await?;
+                    }
+
+                    Ok(block)
                 }
-
-                Ok(block)
-            }
-        })
+            },
+            Some("Exporting snapshot "),
+            None,
+        )
         .await?;
 
         // Drop sender, to close the channel to write task, which will end when finished

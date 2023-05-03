@@ -89,6 +89,8 @@ pub async fn walk_snapshot<F, T>(
     tipset: &Tipset,
     recent_roots: i64,
     mut load_block: F,
+    progress_bar_message: Option<&str>,
+    set_progress: Option<fn(u64, u64)>,
 ) -> anyhow::Result<()>
 where
     F: FnMut(Cid) -> T + Send,
@@ -96,7 +98,7 @@ where
 {
     let tipset_epoch = tipset.epoch() as _;
     let bar = ProgressBar::new(tipset_epoch);
-    bar.message("Walking snapshot ");
+    bar.message(progress_bar_message.unwrap_or("Walking snapshot "));
     bar.set_units(progress_bar::Units::Default);
     bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
@@ -115,7 +117,11 @@ where
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
-            bar.set(tipset_epoch - current_min_height as u64);
+            let progress = tipset_epoch - current_min_height as u64;
+            bar.set(progress);
+            if let Some(set_progress) = set_progress {
+                set_progress(progress, tipset_epoch);
+            }
         }
 
         if h.epoch() > incl_roots_epoch {
@@ -137,7 +143,7 @@ where
         }
     }
 
-    bar.finish_println("Done walking snapshot ");
+    bar.finish();
 
     Ok(())
 }

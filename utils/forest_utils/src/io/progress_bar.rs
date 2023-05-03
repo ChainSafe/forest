@@ -96,7 +96,7 @@ impl ProgressBar {
         }
     }
 
-    pub(self) fn finish(&self) {
+    pub fn finish(&self) {
         if self.display {
             self.inner.borrow_mut().finish();
         }
