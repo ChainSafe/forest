@@ -3707,6 +3707,8 @@ dependencies = [
  "log",
  "multibase",
  "num",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.5",
  "rpassword",
  "rust_decimal",
@@ -3718,7 +3720,6 @@ dependencies = [
  "strfmt",
  "tempfile",
  "ticker",
- "time 0.3.20",
  "tokio",
  "toml 0.7.3",
 ]
@@ -3766,7 +3767,6 @@ dependencies = [
  "serde_json",
  "shared_memory",
  "tempfile",
- "time 0.3.20",
  "tokio",
  "tokio-util",
 ]
@@ -3847,7 +3847,6 @@ version = "0.8.1"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "async-stream",
  "blake2b_simd",
  "bls-signatures",
  "cid",
@@ -3864,6 +3863,7 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "forest_utils",
+ "futures",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
@@ -3882,7 +3882,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -3893,6 +3892,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.21.0",
+ "chrono",
  "cid",
  "flume",
  "forest_blocks",
@@ -3926,7 +3926,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "time 0.3.20",
  "tokio",
 ]
 
@@ -3967,7 +3966,6 @@ dependencies = [
  "sha2 0.10.6",
  "tempfile",
  "tikv-jemallocator",
- "time 0.3.20",
  "tokio",
  "toml 0.7.3",
  "tower-http",
@@ -4392,6 +4390,7 @@ version = "0.8.1"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-compression",
  "axum",
  "base64 0.21.0",
  "cid",
@@ -4438,6 +4437,7 @@ dependencies = [
  "sha2 0.10.6",
  "tempfile",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -10316,10 +10316,11 @@ checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
 
 [[package]]
 name = "tracing"
-version = "0.1.38"
+version = "0.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9cf6a813d3f40c88b0b6b6f29a5c95c6cdbf97c1f9cc53fb820200f5ad814d"
+checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
+ "cfg-if 1.0.0",
  "log",
  "pin-project-lite 0.2.9",
  "tracing-attributes",

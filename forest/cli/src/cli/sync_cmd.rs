@@ -130,7 +130,7 @@ impl SyncCommands {
                 println!("Height:\t{}", state.epoch());
 
                 if let Some(duration) = elapsed_time {
-                    println!("Elapsed time:\t{}s", duration.whole_seconds());
+                    println!("Elapsed time:\t{}s", duration.num_seconds());
                 }
                 Ok(())
             }

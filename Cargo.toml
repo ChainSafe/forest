@@ -131,7 +131,6 @@ serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 tempfile = "3.4"
 thiserror = "1.0"
-time = "0.3"
 tokio = "1.24"
 tokio-stream = "0.1"
 tokio-util = "0.7.0"
