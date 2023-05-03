@@ -4133,7 +4133,6 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "cid",
- "flume",
  "forest_blocks",
  "forest_db",
  "forest_json",
