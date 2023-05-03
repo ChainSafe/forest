@@ -26,8 +26,8 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
-/// The `filecoin` network chain. In general only `mainnet` and its chain
-/// information should be considered stable.
+/// Forest builtin `filecoin` network chains. In general only `mainnet` and its
+/// chain information should be considered stable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkChain {
     Mainnet,
@@ -158,6 +158,7 @@ impl ChainConfig {
             eth_chain_id: MAINNET_ETH_CHAIN_ID,
         }
     }
+
     pub fn calibnet() -> Self {
         use calibnet::*;
         Self {
@@ -168,6 +169,13 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
+        }
+    }
+
+    pub fn from_chain(network_chain: &NetworkChain) -> Self {
+        match network_chain {
+            NetworkChain::Mainnet => Self::mainnet(),
+            NetworkChain::Calibnet => Self::calibnet(),
         }
     }
 
@@ -219,6 +227,10 @@ impl ChainConfig {
             "calibnet" => Some(calibnet::DEFAULT_GENESIS),
             _ => None,
         }
+    }
+
+    pub fn is_testnet(&self) -> bool {
+        !matches!(self.name.as_ref(), "mainnet")
     }
 }
 
