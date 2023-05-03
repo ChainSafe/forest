@@ -230,10 +230,7 @@ impl ChainConfig {
     }
 
     pub fn is_testnet(&self) -> bool {
-        match self.name.as_ref() {
-            "mainnet" => false,
-            _ => true,
-        }
+        !matches!(self.name.as_ref(), "mainnet")
     }
 }
 
