@@ -41,7 +41,13 @@ module ExecCommands
       loop do
         sample_proc(pid, metrics)
         sleep 0.5
+      # loop will error during clean and build steps, so need to break until
+      # client is running
       rescue StandardError => _e
+        break
+      # need to handle interrupt or `forest` process will continue on `ctrl-c`
+      rescue Interrupt
+        stop_command(pid)
         break
       end
     end
@@ -154,7 +160,6 @@ module RunCommands
   rescue StandardError, Interrupt
     @logger.error('Fiasco during benchmark run. Cleaning DB and stopping process...')
     clean_db
-    benchmark.stop_command(@pid)
     exit(1)
   end
 
