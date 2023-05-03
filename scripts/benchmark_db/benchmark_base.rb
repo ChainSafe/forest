@@ -50,9 +50,10 @@ module ExecCommands
 
   def exec_command_aux(command, metrics, benchmark)
     Open3.popen2(*command) do |i, o, t|
+      @pid = t.pid
       i.close
 
-      handle, proc_metrics = proc_monitor(t.pid, benchmark)
+      handle, proc_metrics = proc_monitor(@pid, benchmark)
       o.each_line do |l|
         print l
       end
@@ -151,9 +152,10 @@ module RunCommands
     run_validation_step(daily, args, metrics)
     metrics
   rescue StandardError, Interrupt
-    @logger.error('Fiasco during benchmark run. Cleaning DB and exiting...')
+    @logger.error('Fiasco during benchmark run. Cleaning DB and stopping process...')
     clean_db
-    exit
+    benchmark.stop_command(@pid)
+    exit(1)
   end
 
   def run(daily)

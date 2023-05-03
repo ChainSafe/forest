@@ -205,7 +205,8 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
   rescue StandardError, Interrupt
     @logger.error('Fiasco during benchmark run. Exiting...')
     # TODO?: delete snapshot if downloaded, but not if user-provided
-    exit
+    FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
+    exit(1)
   end
 end
 
@@ -235,14 +236,17 @@ FOREST_BENCHMARKS = [
   MimallocBenchmark.new(name: 'mimalloc')
 ].freeze
 
-snapshot_path = ARGV.pop
-raise "The file '#{snapshot_path}' does not exist" if snapshot_path && !File.file?(snapshot_path)
+@snapshot_path = ARGV.pop
+raise "The file '#{@snapshot_path}' does not exist" if @snapshot_path && !File.file?(@snapshot_path)
+
+@snapshot_downloaded = false
 
 begin
-  if snapshot_path.nil?
+  if @snapshot_path.nil?
     @logger.info 'No snapshot provided, downloading one'
-    snapshot_path = download_snapshot(chain: options[:chain])
-    @logger.info "Snapshot successfully downloaded to: #{snapshot_path}"
+    @snapshot_path = download_snapshot(chain: options[:chain])
+    @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
+    @snapshot_downloaded = true
     # if a fresh snapshot is downloaded, allow network to move ahead, otherwise
     # `message sync` phase may not be long enough for validation metric
     if options[:daily]
@@ -252,11 +256,12 @@ begin
   end
 rescue StandardError, Interrupt
   @logger.error('Fiasco during snapshot download. Deleting snapshot and exiting...')
-  FileUtils.rm_f(snapshot_path) unless snapshot_path.nil?
-  exit
+  # delete downloaded snapshot if it exists
+  FileUtils.rm_f(@snapshot_path) unless @snapshot_path.nil?
+  exit(1)
 end
 
-options[:snapshot_path] = snapshot_path
+options[:snapshot_path] = @snapshot_path
 
 if options[:daily]
   selection = Set[
