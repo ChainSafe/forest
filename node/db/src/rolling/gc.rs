@@ -243,7 +243,7 @@ where
                 }
             },
             Some("Running DB GC "),
-            None,
+            Some(WALK_SNAPSHOT_PROGRESS_DB_GC.clone()),
         )
         .await?;
         drop(tx);

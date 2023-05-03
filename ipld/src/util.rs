@@ -1,12 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, future::Future, time::Duration};
+use std::{
+    collections::VecDeque,
+    future::Future,
+    sync::{
+        atomic::{self, AtomicU64},
+        Arc,
+    },
+    time::Duration,
+};
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
 use forest_utils::io::{progress_bar, ProgressBar};
 use fvm_ipld_encoding::{from_slice, Cbor};
+use lazy_static::lazy_static;
 
 use crate::{CidHashSet, Ipld};
 
@@ -83,6 +92,13 @@ where
 
 pub const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
+lazy_static! {
+    pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: Arc<(AtomicU64, AtomicU64)> =
+        Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
+    pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: Arc<(AtomicU64, AtomicU64)> =
+        Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
+}
+
 /// Walks over tipset and state data and loads all blocks not yet seen.
 /// This is tracked based on the callback function loading blocks.
 pub async fn walk_snapshot<F, T>(
@@ -90,7 +106,7 @@ pub async fn walk_snapshot<F, T>(
     recent_roots: i64,
     mut load_block: F,
     progress_bar_message: Option<&str>,
-    set_progress: Option<fn(u64, u64)>,
+    progress_tracker: Option<Arc<(AtomicU64, AtomicU64)>>,
 ) -> anyhow::Result<()>
 where
     F: FnMut(Cid) -> T + Send,
@@ -119,8 +135,13 @@ where
             current_min_height = h.epoch();
             let progress = tipset_epoch - current_min_height as u64;
             bar.set(progress);
-            if let Some(set_progress) = set_progress {
-                set_progress(progress, tipset_epoch);
+            if let Some(progress_tracker) = &progress_tracker {
+                progress_tracker
+                    .0
+                    .store(progress, atomic::Ordering::Relaxed);
+                progress_tracker
+                    .1
+                    .store(tipset_epoch, atomic::Ordering::Relaxed);
             }
         }
 

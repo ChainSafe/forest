@@ -19,6 +19,7 @@ forest_utils.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 indexmap.workspace = true
+lazy_static.workspace = true
 libipld-core = { workspace = true, features = ["serde-codec"] }
 libipld-macro.workspace = true
 libipld.workspace = true

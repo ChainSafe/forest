@@ -11,7 +11,7 @@ use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_interpreter::BlockMessages;
-use forest_ipld::{should_save_block_to_snapshot, walk_snapshot};
+use forest_ipld::{should_save_block_to_snapshot, walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
@@ -573,7 +573,7 @@ where
                 }
             },
             Some("Exporting snapshot "),
-            None,
+            Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
         )
         .await?;
 
