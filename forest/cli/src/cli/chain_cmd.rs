@@ -47,6 +47,10 @@ pub enum ChainCommands {
         #[arg(short)]
         cid: String,
     },
+
+    /// Manually set the head. This invalidates blocks between the desired head
+    /// and the new head
+    SetHead { cid: Cid },
 }
 
 impl ChainCommands {
@@ -100,8 +104,14 @@ impl ChainCommands {
                 )
             }
             Self::ReadObj { cid } => {
-                let cid: Cid = cid.parse()?;
+                let cid: Cid = cid.parse()?; // TODO(aatifsyed): refactor
                 print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await)
+            }
+            Self::SetHead { cid } => {
+                let params = todo!("convert from cid to tipsetkeys");
+                chain_set_head(params, &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
             }
         }
     }
