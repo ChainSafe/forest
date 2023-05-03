@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(clippy::unused_async)]
+
 use std::sync::{
     atomic::{self, AtomicU64},
     Arc,
