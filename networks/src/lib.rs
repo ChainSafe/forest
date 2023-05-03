@@ -158,6 +158,7 @@ impl ChainConfig {
             eth_chain_id: MAINNET_ETH_CHAIN_ID,
         }
     }
+
     pub fn calibnet() -> Self {
         use calibnet::*;
         Self {
@@ -168,6 +169,13 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
+        }
+    }
+
+    pub fn from_chain(network_chain: &NetworkChain) -> Self {
+        match network_chain {
+            NetworkChain::Mainnet => Self::mainnet(),
+            NetworkChain::Calibnet => Self::calibnet(),
         }
     }
 
@@ -218,6 +226,13 @@ impl ChainConfig {
             "mainnet" => Some(mainnet::DEFAULT_GENESIS),
             "calibnet" => Some(calibnet::DEFAULT_GENESIS),
             _ => None,
+        }
+    }
+
+    pub fn is_testnet(&self) -> bool {
+        match self.name.as_ref() {
+            "mainnet" => false,
+            _ => true,
         }
     }
 }

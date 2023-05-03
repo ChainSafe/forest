@@ -152,11 +152,9 @@ impl CliOpts {
             None => Config::default(),
         };
 
-        match &self.chain {
+        if let Some(chain) = &self.chain {
             // override the chain configuration
-            Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
-            Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
-            _ => {}
+            cfg.chain = Arc::new(ChainConfig::from_chain(chain));
         }
 
         if let Some(genesis_file) = &self.genesis {
