@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use ahash::HashSet;
+use chrono::Local;
 use cid::Cid;
 use fil_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
@@ -23,7 +24,6 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 use tokio::sync::RwLock;
 
 /// This is where you store persistent data, or at least access to stateful
@@ -41,7 +41,7 @@ where
     pub sync_state: Arc<SyncRwLock<SyncState>>,
     pub network_send: flume::Sender<NetworkMessage>,
     pub network_name: String,
-    pub start_time: OffsetDateTime,
+    pub start_time: chrono::DateTime<Local>,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
     pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,

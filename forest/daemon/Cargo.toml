@@ -12,12 +12,13 @@ name = "forest"
 path = "src/main.rs"
 
 [dependencies]
-anes = "0.1.6"
+anes.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 cfg-if.workspace = true
 clap.workspace = true
 daemonize-me = "2.0"
+chrono.workspace = true
 dialoguer.workspace = true
 flume.workspace = true
 forest_auth.workspace = true
@@ -50,7 +51,6 @@ rpassword.workspace = true
 serde_json.workspace = true
 shared_memory = "0.12"
 tempfile.workspace = true
-time.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt", "signal"] }
 tokio-util = { workspace = true, features = ["compat"] }
 

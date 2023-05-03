@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::bail;
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate};
 use forest_utils::{
     io::{progress_bar::Units, ProgressBar, TempFile},
     net::{
@@ -21,7 +21,6 @@ use log::info;
 use regex::Regex;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
-use time::{format_description, format_description::well_known::Iso8601, Date};
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufWriter},
@@ -66,7 +65,7 @@ impl FromStr for SnapshotServer {
 /// Snapshot attributes
 pub struct SnapshotInfo {
     pub network: String,
-    pub date: Date,
+    pub date: NaiveDate,
     pub height: i64,
     pub path: PathBuf,
 }
@@ -91,9 +90,9 @@ impl SnapshotStore {
                         if let Some(captures) = pattern.captures(filename) {
                             let network: String = captures.name("network").unwrap().as_str().into();
                             if network == config.chain.name {
-                                let date = Date::parse(
+                                let date = NaiveDate::parse_from_str(
                                     captures.name("date").unwrap().as_str(),
-                                    &Iso8601::DEFAULT,
+                                    "%Y-%m-%d",
                                 )
                                 .unwrap();
                                 let height = captures
@@ -254,12 +253,13 @@ async fn snapshot_fetch_forest(
         .await?
     } else {
         let total_size = last_modified.size;
-        download_snapshot_and_validate_checksum(
+        download_snapshot_and_validate_checksum_if_needed(
             client,
             url,
             &snapshot_path,
             snapshot_response,
             total_size,
+            use_compressed,
         )
         .await?;
     }
@@ -333,12 +333,13 @@ async fn snapshot_fetch_filecoin(
             .and_then(|ct_len| ct_len.parse::<u64>().ok())
             .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
 
-        download_snapshot_and_validate_checksum(
+        download_snapshot_and_validate_checksum_if_needed(
             client,
             snapshot_url,
             &snapshot_path,
             snapshot_response,
             total_size,
+            use_compressed,
         )
         .await?;
     }
@@ -347,12 +348,13 @@ async fn snapshot_fetch_filecoin(
 
 /// Downloads snapshot to a file with a progress bar. Returns the digest of the
 /// downloaded file.
-async fn download_snapshot_and_validate_checksum<C>(
+async fn download_snapshot_and_validate_checksum_if_needed<C>(
     client: hyper::Client<C>,
     url: Url,
     snapshot_path: &Path,
     snapshot_response: Response<Body>,
     total_size: u64,
+    use_compressed: bool,
 ) -> anyhow::Result<()>
 where
     C: Connect + Clone + Send + Sync + 'static,
@@ -375,13 +377,20 @@ where
     let mut downloaded: u64 = 0;
     let mut stream = snapshot_response.into_body();
 
-    let mut snapshot_hasher = Sha256::new();
+    let mut snapshot_hasher = if use_compressed {
+        None
+    } else {
+        Some(Sha256::new())
+    };
+
     while let Some(item) = futures::StreamExt::next(&mut stream).await {
         let chunk = item?;
         writer.write_all(&chunk).await?;
         downloaded = total_size.min(downloaded + chunk.len() as u64);
         progress_bar.set(downloaded);
-        snapshot_hasher.update(chunk);
+        if let Some(snapshot_hasher) = &mut snapshot_hasher {
+            snapshot_hasher.update(chunk);
+        }
     }
     writer.flush().await?;
 
@@ -392,7 +401,10 @@ where
 
     progress_bar.finish_println("Finished downloading the snapshot.");
 
-    fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
+    if let Some(snapshot_hasher) = snapshot_hasher {
+        fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
+    }
+
     std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
 
     Ok(())
@@ -511,15 +523,12 @@ pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow
     )
     .unwrap();
     if let Some(captures) = pattern.captures(filename) {
-        let date = Date::parse(
-            captures.name("date").unwrap().as_str(),
-            &format_description::parse("[year]_[month]_[day]").unwrap(),
-        )?;
+        let date = NaiveDate::parse_from_str(captures.name("date").unwrap().as_str(), "%Y_%m_%d")?;
         let height = captures.name("height").unwrap().as_str().parse::<i64>()?;
         let ext = captures.name("ext").unwrap().as_str();
         Ok(format!(
             "filecoin_snapshot_{network}_{}_height_{height}{ext}",
-            date.format(&format_description::parse("[year]-[month]-[day]").unwrap())?
+            date.format("%Y-%m-%d")
         ))
     } else {
         bail!("Cannot parse filename: {filename}");

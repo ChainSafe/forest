@@ -9,6 +9,7 @@ edition = "2021"
 
 [dependencies]
 ahash.workspace = true
+anes.workspace = true
 anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
@@ -57,12 +58,15 @@ strfmt = "0.2.2"
 strum_macros = "0.24"
 tempfile.workspace = true
 ticker = "0.1"
-time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
+rust_decimal = "1.28.1"
+rust_decimal_macros = "1.28.1"
 
 [dev-dependencies]
 assert_cmd.workspace = true
+quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]

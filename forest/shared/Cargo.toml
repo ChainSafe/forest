@@ -33,7 +33,6 @@ s3 = { package = "rust-s3", version = "0.32", default-features = false, features
 serde = { workspace = true, features = ["derive"] }
 serde_with.workspace = true
 sha2.workspace = true
-time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
 tracing-appender.workspace = true

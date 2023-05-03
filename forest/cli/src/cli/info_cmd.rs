@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
+use chrono::{DateTime, Local, Timelike, Utc, TimeZone};
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
@@ -17,7 +18,7 @@ use forest_rpc_client::{
 use forest_shim::econ::TokenAmount;
 use forest_utils::io::parser::{format_balance_string, FormattingMode};
 use fvm_shared::{clock::EPOCH_DURATION_SECONDS, BLOCKS_PER_EPOCH};
-use time::OffsetDateTime;
+// use time::OffsetDateTime;
 
 use super::Config;
 use crate::cli::handle_rpc_err;
@@ -167,7 +168,7 @@ struct NodeInfoOutput {
 
 fn fmt_info(
     node_status: &NodeStatusInfo,
-    start_time: OffsetDateTime,
+    start_time: DateTime<Local>,
     network: &str,
     default_wallet_address: Option<String>,
     color: &LoggingColor,
@@ -181,14 +182,13 @@ fn fmt_info(
     } = node_status;
     let use_color = color.coloring_enabled();
     let uptime = {
-        let st = start_time.to_hms();
-        format!("{}h {}m {}s (Started at: {})", st.0, st.1, st.2, start_time)
+        format!("{}h {}m {}s (Started at: {})", start_time.hour(), start_time.minute(), start_time.second(), start_time)
     };
 
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let b = OffsetDateTime::from_unix_timestamp(*behind as i64)?.to_hms();
-        format!("{}h {}m {}s", b.0, b.1, b.2)
+        let b = Utc.timestamp_millis_opt(*behind as i64).unwrap();
+        format!("{}h {}m {}s", b.hour(), b.minute(), b.second())
     };
 
     let chain_status =

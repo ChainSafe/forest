@@ -15,7 +15,7 @@ mod fetch_params_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
-mod send_cmd;
+pub mod send_cmd;
 mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;

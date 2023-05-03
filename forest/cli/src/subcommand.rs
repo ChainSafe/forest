@@ -22,7 +22,7 @@ pub(super) async fn process(
             }
         }
     }
-    if config.chain.name == "calibnet" {
+    if config.chain.is_testnet() {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
     // Run command

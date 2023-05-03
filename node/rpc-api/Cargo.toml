@@ -21,7 +21,6 @@ forest_message = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace = true
 forest_shim.workspace = true
 forest_state_manager.workspace = true
-time.workspace = true
 
 # Public
 ahash.workspace = true

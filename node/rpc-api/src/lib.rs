@@ -169,6 +169,7 @@ pub mod chain_api {
         pub recent_roots: i64,
         pub output_path: PathBuf,
         pub tipset_keys: TipsetKeysJson,
+        pub compressed: bool,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }
@@ -384,6 +385,8 @@ pub mod gas_api {
 
 /// Common API
 pub mod common_api {
+    use chrono::Local;
+
     use super::data_types::APIVersion;
 
     pub const VERSION: &str = "Filecoin.Version";
@@ -396,7 +399,7 @@ pub mod common_api {
 
     pub const START_TIME: &str = "Filecoin.StateStartTime";
     pub type StartTimeParams = ();
-    pub type StartTimeResult = time::OffsetDateTime;
+    pub type StartTimeResult = chrono::DateTime<Local>;
 }
 
 /// Net API

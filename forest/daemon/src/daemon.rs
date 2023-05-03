@@ -3,7 +3,7 @@
 
 use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
-use ::time::OffsetDateTime;
+// use ::time::OffsetDateTime;
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
@@ -84,7 +84,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         let bls_zero_addr = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
         assert!(bls_zero_addr.is_bls_zero_address());
     }
-    if config.chain.name == "calibnet" {
+    if config.chain.is_testnet() {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
 
@@ -92,7 +92,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
-    let start_time = OffsetDateTime::now_utc();
+    let start_time = chrono::Local::now();
 
     info!(
         "Starting Forest daemon, version {}",
