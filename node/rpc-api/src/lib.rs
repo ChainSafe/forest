@@ -1,6 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+/// In general, `forest` wants to support the same RPC messages as `lotus` (go
+/// implementation of Filecoin). Current progress is tracked in
+/// `ARCHITECTURE.md`.
+///
+/// Follow the pattern set below, and don't forget to add an entry to the
+/// [`ACCESS_MAP`] with the relevant permissions (consult the go implementation,
+/// looking for a comment like `// perm: admin`)
 use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
 

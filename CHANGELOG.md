@@ -26,6 +26,8 @@
 ## Forest unreleased
 
 ### Added
+- `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head` subcommand.
+  [#2706](https://github.com/ChainSafe/forest/issues/2706)
 
 ### Changed
 
