@@ -80,8 +80,6 @@ where
     Ok(())
 }
 
-pub const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
-
 /// Walks over tipset and state data and loads all blocks not yet seen.
 /// This is tracked based on the callback function loading blocks.
 pub async fn walk_snapshot<F, T>(
