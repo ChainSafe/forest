@@ -197,7 +197,7 @@ end
 def benchmarks_loop(benchmarks, options, bench_metrics)
   benchmarks.each do |bench|
     bench.dry_run, bench.snapshot_path, bench.heights, bench.chain = bench_loop_assignments(options)
-    bench.run(options[:daily])
+    bench.run(options[:daily], @snapshot_downloaded)
 
     bench_metrics[bench.name] = bench.metrics
 

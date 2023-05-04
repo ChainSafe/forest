@@ -112,6 +112,7 @@ module BuildCommands
       @logger.info 'Cloning repository'
       clone_command
       Dir.mkdir(repository_name) if @dry_run
+      @created_repository = true
     end
 
     @logger.info 'Clean and build client'
@@ -158,24 +159,36 @@ module RunCommands
     run_validation_step(daily, args, metrics)
     metrics
   rescue StandardError, Interrupt
-    @logger.error('Fiasco during benchmark run. Cleaning DB and stopping process...')
+    @logger.error('Fiasco during benchmark run. Deleting downloaded files, cleaning DB and stopping process...')
+    FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
+    FileUtils.rm_rf(repository_name) if @created_repository
     clean_db
     exit(1)
   end
 
-  def run(daily)
-    @logger.info "Running bench: #{@name}"
+  def run(daily, snapshot_downloaded)
+    begin
+      @snapshot_downloaded = snapshot_downloaded
+      @logger.info "Running bench: #{@name}"
 
-    metrics = Concurrent::Hash.new
-    args = build_artefacts
-    @sync_status_command = splice_args(@sync_status_command, args)
+      metrics = Concurrent::Hash.new
+      args = build_artefacts
+      @sync_status_command = splice_args(@sync_status_command, args)
 
-    exec_command(@init_command) if @name == 'forest'
+      exec_command(@init_command) if @name == 'forest'
 
-    @metrics = import_and_validation(daily, args, metrics)
+      @metrics = import_and_validation(daily, args, metrics)
+    rescue StandardError, Interrupt
+      @logger.error('Fiasco during benchmark run. Deleting downloaded files and stopping process...')
+      FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
+      FileUtils.rm_rf(repository_name) if @created_repository
+      exit(1)
+    end
 
     @logger.info 'Cleaning database'
     clean_db
+    # TODO: delete repository after run
+    delete_repository
   end
 
   def online_validation_secs
@@ -203,6 +216,9 @@ module RunCommands
     FileUtils.mkdir_p path
     path
   end
+
+  # TODO: delete repository after run
+  def delete_repository; end
 end
 
 # Base benchmark class (not usable on its own)
@@ -217,5 +233,6 @@ class BenchmarkBase
     @name = name
     @config = config
     @logger = Logger.new($stdout)
+    @created_repository = false
   end
 end
