@@ -26,7 +26,6 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
-
 const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
