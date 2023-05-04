@@ -43,6 +43,7 @@ cov forest-cli chain validate-tipset-checkpoints
 cov forest-cli --chain calibnet db gc
 cov forest-cli --chain calibnet db stats
 cov forest-cli snapshot export
+cov forest-cli snapshot export --compressed
 cov forest-cli attach --exec 'showPeers()'
 cov forest-cli net listen
 cov forest-cli net peers

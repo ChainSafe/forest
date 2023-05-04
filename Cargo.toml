@@ -47,6 +47,7 @@ resolver = "2"
 
 [workspace.dependencies]
 ahash = "0.8"
+anes = "0.1.6"
 anyhow = "1.0"
 assert_cmd = "2"
 async-compression = { version = "0.3", features = ["futures-io", "zstd"] }
@@ -75,7 +76,7 @@ fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = { version = "~2.3", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.3" }
+fvm3 = { package = "fvm", default-features = false, version = "~3.3.1" }
 fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
@@ -130,7 +131,6 @@ serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 tempfile = "3.4"
 thiserror = "1.0"
-time = "0.3"
 tokio = "1.24"
 tokio-stream = "0.1"
 tokio-util = "0.7.0"

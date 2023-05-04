@@ -3,13 +3,15 @@
 
 use std::{fmt, sync::Arc};
 
+#[cfg(test)]
+use chrono::TimeZone;
+use chrono::{DateTime, Duration, Utc};
 use forest_blocks::{
     tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
 use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use time::{Duration, OffsetDateTime};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -100,8 +102,8 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
-    start: Option<OffsetDateTime>,
-    end: Option<OffsetDateTime>,
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
     message: String,
 }
 
@@ -116,12 +118,12 @@ impl quickcheck::Arbitrary for SyncState {
             start: if bool::arbitrary(g) {
                 None
             } else {
-                Some(OffsetDateTime::UNIX_EPOCH)
+                Some(Utc.timestamp_nanos(0))
             },
             end: if bool::arbitrary(g) {
                 None
             } else {
-                Some(OffsetDateTime::UNIX_EPOCH)
+                Some(Utc.timestamp_nanos(0))
             },
             message: String::arbitrary(g),
         }
@@ -135,7 +137,7 @@ impl SyncState {
         *self = Self {
             target: Some(target),
             base: Some(base),
-            start: Some(OffsetDateTime::now_utc()),
+            start: Some(Utc::now()),
             ..Default::default()
         }
     }
@@ -164,7 +166,7 @@ impl SyncState {
     /// Returns `None` if syncing has not started
     pub fn get_elapsed_time(&self) -> Option<Duration> {
         if let Some(start) = self.start {
-            let elapsed_time = OffsetDateTime::now_utc() - start;
+            let elapsed_time = Utc::now() - start;
             Some(elapsed_time)
         } else {
             None
@@ -175,7 +177,7 @@ impl SyncState {
     /// end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
-            self.end = Some(OffsetDateTime::now_utc());
+            self.end = Some(Utc::now());
         }
         self.stage = stage;
     }
@@ -189,7 +191,7 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        self.end = Some(OffsetDateTime::now_utc());
+        self.end = Some(Utc::now());
     }
 }
 
@@ -207,8 +209,8 @@ impl Serialize for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: &'a Option<OffsetDateTime>,
-            end: &'a Option<OffsetDateTime>,
+            start: &'a Option<DateTime<Utc>>,
+            end: &'a Option<DateTime<Utc>>,
             message: &'a str,
         }
 
@@ -240,8 +242,8 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: Option<OffsetDateTime>,
-            end: Option<OffsetDateTime>,
+            start: Option<DateTime<Utc>>,
+            end: Option<DateTime<Utc>>,
             message: String,
         }
 
