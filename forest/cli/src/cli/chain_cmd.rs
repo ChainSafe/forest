@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
 use forest_blocks::TipsetKeys;
@@ -57,6 +58,9 @@ pub enum ChainCommands {
         /// Negative numbers specify decrements from the current head.
         #[arg(long, conflicts_with = "cids", allow_hyphen_values = true)]
         epoch: Option<i64>,
+        /// Skip confirmation dialogue.
+        #[arg(long, alias = "yes", short_alias = 'y')]
+        no_confirm: bool,
     },
 }
 
@@ -110,7 +114,9 @@ impl ChainCommands {
             Self::SetHead {
                 cids,
                 epoch: Some(epoch),
+                no_confirm,
             } => {
+                maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
                 tipset_by_epoch_or_offset(*epoch, &config.client.rpc_token)
                     .and_then(|tipset| {
@@ -119,12 +125,19 @@ impl ChainCommands {
                     .await
                     .map_err(handle_rpc_err)
             }
-            Self::SetHead { cids, epoch: None } => chain_set_head(
-                (TipsetKeys { cids: cids.clone() },),
-                &config.client.rpc_token,
-            )
-            .await
-            .map_err(handle_rpc_err),
+            Self::SetHead {
+                cids,
+                epoch: None,
+                no_confirm,
+            } => {
+                maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
+                chain_set_head(
+                    (TipsetKeys { cids: cids.clone() },),
+                    &config.client.rpc_token,
+                )
+                .await
+                .map_err(handle_rpc_err)
+            }
         }
     }
 }
@@ -143,4 +156,22 @@ async fn tipset_by_epoch_or_offset(
     };
 
     chain_get_tipset_by_height((target_epoch, current_head.0.key().clone()), auth_token).await
+}
+
+const SET_HEAD_CONFIRMATION_MESSAGE: &str =
+    "Manually setting head is an unsafe operation that could brick the node! Continue?";
+
+fn maybe_confirm(no_confirm: bool, prompt: impl Into<String>) -> anyhow::Result<()> {
+    if no_confirm {
+        return Ok(());
+    }
+    let should_continue = dialoguer::Confirm::new()
+        .default(false)
+        .with_prompt(prompt)
+        .wait_for_newline(true)
+        .interact()?;
+    match should_continue {
+        true => Ok(()),
+        false => bail!("Operation cancelled by user"),
+    }
 }
