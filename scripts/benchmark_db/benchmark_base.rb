@@ -56,10 +56,10 @@ module ExecCommands
 
   def exec_command_aux(command, metrics, benchmark)
     Open3.popen2(*command) do |i, o, t|
-      @pid = t.pid
+      pid = t.pid
       i.close
 
-      handle, proc_metrics = proc_monitor(@pid, benchmark)
+      handle, proc_metrics = proc_monitor(pid, benchmark)
       o.each_line do |l|
         print l
       end
