@@ -528,8 +528,10 @@ where
             };
 
             for h in tipset.blocks() {
-                recurse_links_hash(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
-                recurse_links_hash(&mut seen, *h.messages(), &mut assert_cid_exists).await?;
+                recurse_links_hash(&mut seen, *h.state_root(), &mut assert_cid_exists, &|_| ())
+                    .await?;
+                recurse_links_hash(&mut seen, *h.messages(), &mut assert_cid_exists, &|_| ())
+                    .await?;
             }
         }
 
