@@ -17,7 +17,11 @@ use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet, DEFAULT_RECENT_STATE_ROOTS};
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progreess};
-use forest_utils::{io::parser::parse_duration, net::get_fetch_progress_from_file, retry};
+use forest_utils::{
+    io::{parser::parse_duration, ProgressBar},
+    net::get_fetch_progress_from_file,
+    retry,
+};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
@@ -212,7 +216,7 @@ impl SnapshotCommands {
                 };
 
                 let bar = Arc::new(tokio::sync::Mutex::new({
-                    let mut bar = pbr::ProgressBar::new(0);
+                    let bar = ProgressBar::new(0);
                     bar.message("Exporting snapshot ");
                     bar
                 }));
@@ -226,11 +230,11 @@ impl SnapshotCommands {
                             if let Ok((progress, total)) =
                                 get_progreess((GetProgressType::SnapshotExport,), &None).await
                             {
-                                let mut bar = bar.lock().await;
-                                if bar.is_finish {
+                                let bar = bar.lock().await;
+                                if bar.is_finish() {
                                     break;
                                 }
-                                bar.total = total;
+                                bar.set_total(total);
                                 bar.set(progress);
                             }
                         }

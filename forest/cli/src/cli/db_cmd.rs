@@ -9,6 +9,7 @@ use forest_cli_shared::{chain_path, cli::Config};
 use forest_db::db_engine::db_root;
 use forest_rpc_api::progress_api::GetProgressType;
 use forest_rpc_client::{db_ops::db_gc, progress_ops::get_progreess};
+use forest_utils::io::ProgressBar;
 use log::error;
 
 use crate::cli::{handle_rpc_err, prompt_confirm};
@@ -43,7 +44,7 @@ impl DBCommands {
                 let start = Utc::now();
 
                 let bar = Arc::new(tokio::sync::Mutex::new({
-                    let mut bar = pbr::ProgressBar::new(0);
+                    let bar = ProgressBar::new(0);
                     bar.message("Running database garbage collection ");
                     bar
                 }));
@@ -58,11 +59,11 @@ impl DBCommands {
                                 get_progreess((GetProgressType::DatabaseGarbageCollection,), &None)
                                     .await
                             {
-                                let mut bar = bar.lock().await;
-                                if bar.is_finish {
+                                let bar = bar.lock().await;
+                                if bar.is_finish() {
                                     break;
                                 }
-                                bar.total = total;
+                                bar.set_total(total);
                                 bar.set(progress);
                             }
                         }

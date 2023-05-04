@@ -97,6 +97,10 @@ impl ProgressBar {
         }
     }
 
+    pub fn is_finish(&self) -> bool {
+        self.inner.lock().is_finish
+    }
+
     pub fn finish(&self) {
         if self.display {
             self.inner.lock().finish();

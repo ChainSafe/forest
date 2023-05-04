@@ -3707,7 +3707,6 @@ dependencies = [
  "log",
  "multibase",
  "num",
- "pbr",
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.5",
