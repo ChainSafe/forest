@@ -4368,6 +4368,7 @@ dependencies = [
  "forest_shim",
  "fvm_shared 2.3.0",
  "lazy_static",
+ "multiaddr",
  "serde",
  "strum_macros",
  "url",
