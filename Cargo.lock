@@ -4110,7 +4110,7 @@ dependencies = [
  "forest_networks",
  "forest_shim",
  "fvm 2.3.0",
- "fvm 3.3.0",
+ "fvm 3.3.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
@@ -4313,7 +4313,7 @@ dependencies = [
  "forest_state_manager",
  "forest_utils",
  "futures",
- "fvm 3.3.0",
+ "fvm 3.3.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",
@@ -4498,7 +4498,7 @@ dependencies = [
  "cid",
  "filecoin-proofs-api 14.0.0",
  "fvm 2.3.0",
- "fvm 3.3.0",
+ "fvm 3.3.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
@@ -4540,7 +4540,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm 2.3.0",
- "fvm 3.3.0",
+ "fvm 3.3.1",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -4964,9 +4964,9 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "3.3.0"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f7ba8142f9f44bf2318c1462c9d346d4391095b3ca0272f56ca8e5eb97cc0bb"
+checksum = "8002580816862be6681259cf5ad4217f47046edace1d4a339e11e8682aad241b"
 dependencies = [
  "anyhow",
  "byteorder",
