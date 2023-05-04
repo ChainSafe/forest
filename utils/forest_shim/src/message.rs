@@ -16,7 +16,18 @@ pub struct Message(Message_v3);
 
 impl quickcheck::Arbitrary for Message {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Message(Message_v3::arbitrary(g))
+        Self(Message_v3 {
+            to: Address::arbitrary(g).into(),
+            from: Address::arbitrary(g).into(),
+            version: u64::arbitrary(g),
+            sequence: u64::arbitrary(g),
+            value: TokenAmount::arbitrary(g).into(),
+            method_num: u64::arbitrary(g),
+            params: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
+            gas_limit: u64::arbitrary(g),
+            gas_fee_cap: TokenAmount::arbitrary(g).into(),
+            gas_premium: TokenAmount::arbitrary(g).into(),
+        })
     }
 }
 

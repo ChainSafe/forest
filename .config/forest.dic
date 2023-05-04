@@ -23,7 +23,7 @@ DB/S
 DNS
 Enum
 Ethereum
-Filecoin
+Filecoin/M
 FVM
 GC
 GiB
@@ -44,6 +44,7 @@ MiB
 multisig
 mutex
 P2P
+parsable
 pointer/SM
 PoSt
 RPC

@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
+use anyhow::Error;
 use cid::Cid;
 use fil_actors_runtime_v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
@@ -25,7 +26,28 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
+
 const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+
+/// Forest builtin `filecoin` network chains. In general only `mainnet` and its
+/// chain information should be considered stable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkChain {
+    Mainnet,
+    Calibnet,
+}
+
+impl FromStr for NetworkChain {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mainnet" => Ok(NetworkChain::Mainnet),
+            "calibnet" => Ok(NetworkChain::Calibnet),
+            name => Err(anyhow::anyhow!("unsupported network chain: {name}")),
+        }
+    }
+}
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -49,6 +71,8 @@ pub enum Height {
     Skyr,
     Shark,
     Hygge,
+    Lightning,
+    Thunder,
 }
 
 impl Default for Height {
@@ -79,6 +103,8 @@ impl From<Height> for NetworkVersion {
             Height::Skyr => NetworkVersion::V16,
             Height::Shark => NetworkVersion::V17,
             Height::Hygge => NetworkVersion::V18,
+            Height::Lightning => NetworkVersion::V19,
+            Height::Thunder => NetworkVersion::V20,
         }
     }
 }
@@ -139,6 +165,7 @@ impl ChainConfig {
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
         }
     }
+
     pub fn calibnet() -> Self {
         use calibnet::*;
         Self {
@@ -150,6 +177,13 @@ impl ChainConfig {
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+        }
+    }
+
+    pub fn from_chain(network_chain: &NetworkChain) -> Self {
+        match network_chain {
+            NetworkChain::Mainnet => Self::mainnet(),
+            NetworkChain::Calibnet => Self::calibnet(),
         }
     }
 
@@ -201,6 +235,10 @@ impl ChainConfig {
             "calibnet" => Some(calibnet::DEFAULT_GENESIS),
             _ => None,
         }
+    }
+
+    pub fn is_testnet(&self) -> bool {
+        !matches!(self.name.as_ref(), "mainnet")
     }
 }
 

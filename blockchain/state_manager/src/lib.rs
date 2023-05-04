@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-pub use utils::is_valid_for_sending;
+pub use utils::{is_valid_for_sending, reveal_five_trees};
 
 mod vm_circ_supply;
 
@@ -258,7 +258,7 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
         state.get_actor(addr)
     }
 
@@ -459,7 +459,26 @@ where
                 )?;
                 let elapsed = start_time.elapsed().as_secs_f32();
                 if new_state != *parent_state {
-                    info!("state migration successful, took: {elapsed}s");
+                    reveal_five_trees();
+                    info!("State migration successful, took: {elapsed}s");
+                } else {
+                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                }
+                Ok(Some(new_state))
+            }
+            x if x == self.chain_config.epoch(Height::Lightning) => {
+                info!("Running Lightning migration at epoch {epoch}");
+                let start_time = time::Instant::now();
+                let new_state = forest_state_migration::run_nv19_migration(
+                    &self.chain_config,
+                    self.blockstore(),
+                    parent_state,
+                    epoch,
+                )?;
+                let elapsed = start_time.elapsed().as_secs_f32();
+                if new_state != *parent_state {
+                    reveal_five_trees();
+                    info!("State migration successful, took: {elapsed}s");
                 } else {
                     bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
                 }

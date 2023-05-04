@@ -35,6 +35,7 @@ in case of absence, passing the task to a different team member.
    in doubt about what has been accomplished, is in progress, or what's included
    in the future plans, ask in the #fil-devs slack channel and tag authors of
    related PRs.
+10. Make sure the `Cargo.lock` change is included in the pull request.
 
 [1]: https://github.com/ChainSafe/forest/wiki/Forest-Progress
 [2]: https://github.com/ChainSafe/forest/pkgs/container/forest
