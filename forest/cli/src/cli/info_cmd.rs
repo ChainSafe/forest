@@ -295,7 +295,7 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-        let node_status = get_node_status(&Arc::new(tipset.clone()), 0, 0).unwrap();
+        let node_status = get_node_status(&Arc::new(tipset), 0, 0).unwrap();
         assert!(node_status.health.is_nan());
         assert_eq!(node_status.sync_status, SyncStatus::Behind);
 
@@ -343,7 +343,7 @@ mod tests {
         let info = fmt_info(
             &node_status,
             start_time,
-            &network,
+            network,
             &default_wallet_address,
             &color,
         )
@@ -361,7 +361,7 @@ mod tests {
         let info = fmt_info(
             &node_status,
             start_time,
-            &network,
+            network,
             &default_wallet_address,
             &color,
         )
