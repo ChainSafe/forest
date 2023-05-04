@@ -75,7 +75,6 @@ mod tests {
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;
     use tempfile::TempDir;
-    use time::OffsetDateTime;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -152,7 +151,7 @@ mod tests {
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
-        let start_time = OffsetDateTime::now_utc();
+        let start_time = chrono::Local::now();
         let (gc_event_tx, _) = flume::unbounded();
 
         let state = Arc::new(RPCState {
