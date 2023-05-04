@@ -111,7 +111,7 @@ impl ChainCommands {
                 cids,
                 epoch: Some(epoch),
             } => {
-                assert_eq!(cids.len(), 0, "should be disallowed by clap");
+                assert!(cids.is_empty(), "should be disallowed by clap");
                 tipset_by_epoch_or_offset(*epoch, &config.client.rpc_token)
                     .and_then(|tipset| {
                         chain_set_head((tipset.0.key().clone(),), &config.client.rpc_token)
