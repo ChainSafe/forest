@@ -251,13 +251,18 @@ fn fmt_info(
 
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, sync::Arc};
+    use std::{
+        str::FromStr,
+        sync::Arc,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     use chrono::Local;
     use colored::*;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_cli_shared::logger::LoggingColor;
     use forest_shim::{address::Address, econ::TokenAmount};
+    use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 
     use super::{fmt_info, get_node_status, NodeStatusInfo};
     use crate::cli::info_cmd::{chain_status, SyncStatus};
@@ -284,14 +289,47 @@ mod tests {
 
     #[test]
     fn node_status_with_null_tipset() {
+        // out of sync
         let mock_header = BlockHeader::builder()
             .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-        let node_status = get_node_status(&Arc::new(tipset), 0, 0).unwrap();
+        let node_status = get_node_status(&Arc::new(tipset.clone()), 0, 0).unwrap();
         assert!(node_status.health.is_nan());
         assert_eq!(node_status.sync_status, SyncStatus::Behind);
+
+        // slow
+        let a = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let mock_header = BlockHeader::builder()
+            .timestamp(a - EPOCH_DURATION_SECONDS as u64 * 4)
+            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
+            .build()
+            .unwrap();
+        let tipset = Tipset::from(&mock_header);
+
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000).unwrap();
+        assert!(node_status.health.is_finite());
+        assert_eq!(node_status.sync_status, SyncStatus::Slow);
+
+        // ok
+        let a = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let mock_header = BlockHeader::builder()
+            .timestamp(a - EPOCH_DURATION_SECONDS as u64)
+            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
+            .build()
+            .unwrap();
+        let tipset = Tipset::from(&mock_header);
+
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000).unwrap();
+        assert!(node_status.health.is_finite());
+        assert_eq!(node_status.sync_status, SyncStatus::Ok);
     }
 
     #[test]
