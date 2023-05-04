@@ -3697,6 +3697,7 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "fs_extra",
+ "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",

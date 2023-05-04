@@ -7,6 +7,7 @@ use forest_blocks::TipsetKeys;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
 use forest_shim::clock::ChainEpoch;
+use futures::TryFutureExt;
 
 use super::*;
 
@@ -51,7 +52,15 @@ pub enum ChainCommands {
 
     /// Manually set the head to the given tipset. This invalidates blocks
     /// between the desired head and the new head
-    SetHead { cids: Vec<Cid> },
+    SetHead {
+        /// Construct the new head tipset from these CIDs
+        #[arg(num_args = 1.., required = true)]
+        cids: Vec<Cid>,
+        /// Use the tipset from this epoch as the new head.
+        /// Negative numbers specify decrements from the current head.
+        #[arg(long, conflicts_with = "cids", allow_hyphen_values = true)]
+        epoch: Option<i64>,
+    },
 }
 
 impl ChainCommands {
@@ -108,7 +117,19 @@ impl ChainCommands {
                 let cid: Cid = cid.parse()?; // TODO(aatifsyed): refactor
                 print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await)
             }
-            Self::SetHead { cids } => chain_set_head(
+            Self::SetHead {
+                cids,
+                epoch: Some(epoch),
+            } => {
+                assert_eq!(cids.len(), 0, "should be disallowed by clap");
+                tipset_by_epoch_or_offset(*epoch, &config.client.rpc_token)
+                    .and_then(|tipset| {
+                        chain_set_head((tipset.0.key().clone(),), &config.client.rpc_token)
+                    })
+                    .await
+                    .map_err(handle_rpc_err)
+            }
+            Self::SetHead { cids, epoch: None } => chain_set_head(
                 (TipsetKeys { cids: cids.clone() },),
                 &config.client.rpc_token,
             )
@@ -116,4 +137,20 @@ impl ChainCommands {
             .map_err(handle_rpc_err),
         }
     }
+}
+
+/// If `epoch_or_offset` is negative, get the tipset that many blocks before the
+/// current head. Else treat `epoch_or_offset` as an epoch, and get that tipset.
+async fn tipset_by_epoch_or_offset(
+    epoch_or_offset: i64,
+    auth_token: &Option<String>,
+) -> Result<TipsetJson, JsonRpcError> {
+    let current_head = chain_head(auth_token).await?;
+
+    let target_epoch = match epoch_or_offset.is_negative() {
+        true => current_head.0.epoch() + epoch_or_offset, // adding negative number
+        false => epoch_or_offset,
+    };
+
+    chain_get_tipset_by_height((target_epoch, current_head.0.key().clone()), auth_token).await
 }
