@@ -309,7 +309,6 @@ where
     pub fn unmark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
         let mut file = self.file_backed_validated_blocks.lock();
         Ok(file.with_inner(|inner| {
-            // TODO(aatifsyed): should we return an error if block doesn't exist?
             let _did_work = inner.remove(cid);
         })?)
     }

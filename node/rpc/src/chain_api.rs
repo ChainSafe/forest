@@ -324,7 +324,8 @@ where
     Ok(name)
 }
 
-// This is basically a port of the go implementation
+// This is basically a port of the reference implementation at
+// https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub(crate) async fn chain_set_head<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainSetHeadParams>,
@@ -340,8 +341,7 @@ where
         for cid in current.key().cids() {
             data.state_manager
                 .chain_store()
-                .unmark_block_as_validated(cid)?; // REVIEW(aatifsyed):
-                                                  // this error's bad
+                .unmark_block_as_validated(cid)?;
         }
         let parents = current.blocks()[0].parents();
         current = data.state_manager.chain_store().tipset_from_keys(parents)?;
