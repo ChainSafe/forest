@@ -8,13 +8,14 @@ mod snapshot_fetch;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ahash::HashSet;
 use byte_unit::Byte;
 use clap::Parser;
 use directories::ProjectDirs;
-use forest_networks::NetworkChain;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
 use log::error;
 use num::BigInt;
@@ -140,10 +141,6 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        if self.config.is_some() && self.chain.is_some() {
-            anyhow::bail!("Can't use a config file and chain flag at the same time!")
-        }
-
         let path = find_config_path(self);
         let mut cfg: Config = match &path {
             Some(path) => {
@@ -152,15 +149,13 @@ impl CliOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => {
-                if let Some(chain) = &self.chain {
-                    Config::from_chain(chain)
-                } else {
-                    // Create the default `mainnet` configuration.
-                    Config::default()
-                }
-            }
+            None => Config::default(),
         };
+
+        if let Some(chain) = &self.chain {
+            // override the chain configuration
+            cfg.chain = Arc::new(ChainConfig::from_chain(chain));
+        }
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
@@ -431,21 +426,31 @@ mod tests {
     }
 
     #[test]
-    fn combination_of_following_flags_should_fail() {
-        // Check for --chain and --config
-        let options = CliOpts {
-            config: Some("config.toml".into()),
-            chain: Some(NetworkChain::Calibnet),
-            ..Default::default()
-        };
-        assert!(options.to_config().is_err());
+    fn combination_of_import_snapshot_and_import_chain_should_fail() {
+        // Creating a config with default cli options should succeed
+        let options = CliOpts::default();
+        assert!(options.to_config().is_ok());
 
-        // Check for --import_snapshot and --import_chain
+        // Creating a config with both --import_snapshot and --import_chain should fail
         let options = CliOpts {
             import_snapshot: Some("snapshot.car".into()),
             import_chain: Some("snapshot.car".into()),
             ..Default::default()
         };
         assert!(options.to_config().is_err());
+
+        // Creating a config with only --import_snapshot should succeed
+        let options = CliOpts {
+            import_snapshot: Some("snapshot.car".into()),
+            ..Default::default()
+        };
+        assert!(options.to_config().is_ok());
+
+        // Creating a config with only --import_chain should succeed
+        let options = CliOpts {
+            import_chain: Some("snapshot.car".into()),
+            ..Default::default()
+        };
+        assert!(options.to_config().is_ok());
     }
 }

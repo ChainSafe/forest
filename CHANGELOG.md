@@ -27,10 +27,10 @@
 
 ### Added
 
-### Changed
+- [#2655](https://github.com/ChainSafe/forest/issues/2655): Configurable number
+  of default recent state roots included in memory/snapshots.
 
-- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Remove ability to use
-  at the same time `--chain` and `--config` flags for forest binary.
+### Changed
 
 ### Removed
 
@@ -38,6 +38,10 @@
 
 - [#2796] (https://github.com/ChainSafe/forest/pull/2796): Fix issue when
   running Forest on calibnet using a configuration file only.
+- [#2807] (https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
+  actor CIDs.
+- [#2804] (https://github.com/ChainSafe/forest/pull/2804): Add work around for
+  FVM bug that caused `forest-cli sync wait` to fail.
 
 ## Forest v0.8.1 "Cold Exposure"
 
@@ -62,6 +66,9 @@
   zstd compressed snapshot car files
 - [#2741](https://github.com/ChainSafe/forest/issues/2741): Support fetching
   zstd compressed snapshots with filecoin provider via `--compressed` option
+- [#2741](https://github.com/ChainSafe/forest/issues/2741): Support exporting
+  zstd compressed snapshots via `--compressed` option in
+  `forest-cli snapshot export` subcommand
 - [#1454](https://github.com/ChainSafe/forest/issues/1454): Added state
   migration support for NV18.
 
@@ -158,6 +165,11 @@ Notable updates:
   [#2499](https://github.com/ChainSafe/forest/issues/2499)
 - Removed Forest `ctrl-c` hard shutdown behavior on subsequent `ctrl-c` signals.
   [#2538](https://github.com/ChainSafe/forest/pull/2538)
+- Added support in the forest `send` command for all FIL units currently
+  supported in forest `wallet` ("attoFIL", "femtoFIL", "picoFIL", "nanoFIL",
+  "microFIL", "milliFIL", and "FIL"). Note that the default `send` units (i.e.,
+  if no units are specified) are now FIL to match the behavior in Lotus.
+  [#2668](https://github.com/ChainSafe/forest/issues/2668)
 
 ### Removed
 

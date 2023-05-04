@@ -1,18 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, path::Path, sync::Arc, time::SystemTime};
+use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
-use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_interpreter::BlockMessages;
-use forest_ipld::{should_save_block_to_snapshot, walk_snapshot};
+use forest_ipld::walk_snapshot;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
@@ -32,6 +31,7 @@ use forest_utils::{
     },
     io::Checksum,
 };
+use futures::AsyncWrite;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -41,14 +41,10 @@ use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::{
-    io::AsyncWrite,
-    sync::{
-        broadcast::{self, Sender as Publisher},
-        Mutex as TokioMutex,
-    },
+use tokio::sync::{
+    broadcast::{self, Sender as Publisher},
+    Mutex as TokioMutex,
 };
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 use super::{
     index::{checkpoint_tipsets, ChainIndex},
@@ -286,7 +282,7 @@ where
     }
 
     /// Checks metadata file if block has already been validated.
-    pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
+    pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self
             .file_backed_validated_blocks
             .lock()
@@ -295,7 +291,7 @@ where
         if validated {
             log::debug!("Block {cid} was previously validated");
         }
-        Ok(validated)
+        validated
     }
 
     /// Marks block as validated in the metadata file.
@@ -531,7 +527,7 @@ where
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         writer: W,
-    ) -> Result<digest::Output<D>, Error>
+    ) -> Result<Option<digest::Output<D>>, Error>
     where
         D: Digest,
         W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
@@ -541,21 +537,15 @@ where
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
-        let writer = Arc::new(TokioMutex::new(writer.compat_write()));
+        let writer = Arc::new(TokioMutex::new(writer));
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
         let write_task = tokio::task::spawn(async move {
             let mut writer = writer_clone.lock().await;
+            let mut stream = rx.stream();
             header
-                .write_stream_async(
-                    &mut *writer,
-                    &mut Box::pin(stream! {
-                        while let Ok(val) = rx.recv_async().await {
-                            yield val;
-                        }
-                    }),
-                )
+                .write_stream_async(writer.deref_mut(), &mut stream)
                 .await
                 .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
         });
@@ -573,9 +563,7 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                if should_save_block_to_snapshot(&cid) {
-                    tx_clone.send_async((cid, block.clone())).await?;
-                }
+                tx_clone.send_async((cid, block.clone())).await?;
 
                 Ok(block)
             }
@@ -599,7 +587,12 @@ where
                 .as_secs()
         );
 
-        let digest = writer.lock().await.get_mut().finalize();
+        let digest = writer
+            .lock()
+            .await
+            .finalize()
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
         Ok(digest)
     }
 }
@@ -964,9 +957,9 @@ mod tests {
         let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
-        assert!(!cs.is_block_validated(&cid).unwrap());
+        assert!(!cs.is_block_validated(&cid));
 
         cs.mark_block_as_validated(&cid).unwrap();
-        assert!(cs.is_block_validated(&cid).unwrap());
+        assert!(cs.is_block_validated(&cid));
     }
 }
