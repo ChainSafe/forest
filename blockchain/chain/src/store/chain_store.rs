@@ -11,7 +11,7 @@ use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_interpreter::BlockMessages;
-use forest_ipld::{should_save_block_to_snapshot, walk_snapshot};
+use forest_ipld::walk_snapshot;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
@@ -563,9 +563,7 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                if should_save_block_to_snapshot(&cid) {
-                    tx_clone.send_async((cid, block.clone())).await?;
-                }
+                tx_clone.send_async((cid, block.clone())).await?;
 
                 Ok(block)
             }
