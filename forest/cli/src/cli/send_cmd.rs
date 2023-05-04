@@ -186,12 +186,13 @@ impl SendCommand {
 mod tests {
     use std::str::FromStr;
 
+    use forest_utils::io::parser::{format_balance_string, FormattingMode};
     use fvm_shared::econ::TokenAmount;
     use jsonrpc_v2::ErrorLike;
     use quickcheck_macros::quickcheck;
 
     use super::*;
-    use crate::cli::wallet_cmd::{format_balance_string, FormattingMode};
+    // use crate::cli::wallet_cmd::{format_balance_string, FormattingMode};
 
     #[test]
     fn invalid_attofil_amount() {
@@ -357,9 +358,10 @@ mod tests {
     fn fil_quickcheck_test(n: u64) {
         let token_amount = TokenAmount::from_atto(n);
         let formatted_not_fixed =
-            format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
+            format_balance_string(token_amount.clone().into(), FormattingMode::ExactNotFixed)
+                .unwrap();
         let formatted_fixed =
-            format_balance_string(token_amount.clone(), FormattingMode::ExactFixed).unwrap();
+            format_balance_string(token_amount.clone().into(), FormattingMode::ExactFixed).unwrap();
         let parsed_not_fixed = FILAmount::from_str(&formatted_not_fixed).unwrap().value;
         let parsed_fixed = FILAmount::from_str(&formatted_fixed).unwrap().value;
         assert!(token_amount == parsed_not_fixed && token_amount == parsed_fixed);
