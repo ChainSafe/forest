@@ -59,8 +59,8 @@ pub enum ChainCommands {
         #[arg(long, conflicts_with = "cids", allow_hyphen_values = true)]
         epoch: Option<i64>,
         /// Skip confirmation dialogue.
-        #[arg(long, alias = "yes", short_alias = 'y')]
-        no_confirm: bool,
+        #[arg(short, long, aliases = ["yes", "no-confirm"], short_alias = 'y')]
+        force: bool,
     },
 }
 
@@ -114,7 +114,7 @@ impl ChainCommands {
             Self::SetHead {
                 cids,
                 epoch: Some(epoch),
-                no_confirm,
+                force: no_confirm,
             } => {
                 maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
@@ -128,7 +128,7 @@ impl ChainCommands {
             Self::SetHead {
                 cids,
                 epoch: None,
-                no_confirm,
+                force: no_confirm,
             } => {
                 maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 chain_set_head(
