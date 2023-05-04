@@ -191,6 +191,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         Arc::new(DbGarbageCollector::new(
             db,
             config.chain.policy.chain_finality,
+            config.chain.recent_state_roots,
             get_tipset,
         ))
     };
