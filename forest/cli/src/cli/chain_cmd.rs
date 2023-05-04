@@ -15,9 +15,8 @@ use super::*;
 pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
     Block {
-        /// Input a valid CID
         #[arg(short)]
-        cid: String,
+        cid: Cid,
     },
 
     /// Prints out the genesis tipset
@@ -37,17 +36,15 @@ pub enum ChainCommands {
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
     Message {
-        /// Input a valid CID
         #[arg(short)]
-        cid: String,
+        cid: Cid,
     },
 
     /// Reads and prints out IPLD nodes referenced by the specified CID from
     /// chain block store and returns raw bytes
     ReadObj {
-        /// Input a valid CID
         #[arg(short)]
-        cid: String,
+        cid: Cid,
     },
 
     /// Manually set the head to the given tipset. This invalidates blocks
@@ -66,12 +63,9 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => {
-                let cid: Cid = cid.parse()?;
-                print_rpc_res_pretty(
-                    chain_get_block((CidJson(cid),), &config.client.rpc_token).await,
-                )
-            }
+            Self::Block { cid } => print_rpc_res_pretty(
+                chain_get_block((CidJson(*cid),), &config.client.rpc_token).await,
+            ),
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
             }
@@ -107,15 +101,11 @@ impl ChainCommands {
                 let result = chain_validate_tipset_checkpoints((), &config.client.rpc_token).await;
                 print_rpc_res(result)
             }
-            Self::Message { cid } => {
-                let cid: Cid = cid.parse()?;
-                print_rpc_res_pretty(
-                    chain_get_message((CidJson(cid),), &config.client.rpc_token).await,
-                )
-            }
+            Self::Message { cid } => print_rpc_res_pretty(
+                chain_get_message((CidJson(*cid),), &config.client.rpc_token).await,
+            ),
             Self::ReadObj { cid } => {
-                let cid: Cid = cid.parse()?; // TODO(aatifsyed): refactor
-                print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await)
+                print_rpc_res(chain_read_obj((CidJson(*cid),), &config.client.rpc_token).await)
             }
             Self::SetHead {
                 cids,
