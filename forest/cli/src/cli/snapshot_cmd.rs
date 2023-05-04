@@ -425,7 +425,7 @@ async fn validate(
             tmp_chain_data_path.path(),
         )?);
 
-        let cids = {
+        let (cids, _n_records) = {
             let reader = get_fetch_progress_from_file(&snapshot).await?;
             forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
