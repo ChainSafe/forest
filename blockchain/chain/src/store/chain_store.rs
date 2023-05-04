@@ -164,7 +164,7 @@ where
         let file_backed_chain_meta = Arc::new(Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("meta.yaml"),
             ChainMeta::default,
-            Some(SYNC_PERIOD),
+            None,
         )?));
 
         let cs = Self {
