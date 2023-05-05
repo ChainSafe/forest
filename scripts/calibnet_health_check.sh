@@ -87,11 +87,11 @@ $FOREST_CLI_PATH snapshot export
 echo "Verifing snapshot checksum"
 sha256sum -c ./*.sha256sum
 
-echo "Test subcommand: chain set-head"
-$FOREST_CLI_PATH --token "$ADMIN_TOKEN" chain set-head --epoch -100 --force
-
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export --compressed
+
+echo "Test subcommand: chain set-head"
+$FOREST_CLI_PATH --token "$ADMIN_TOKEN" chain set-head --epoch -10 --force
 
 echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
