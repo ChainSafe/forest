@@ -6,7 +6,7 @@ use jsonrpc_v2::Error;
 
 use crate::call;
 
-pub async fn get_progreess(
+pub async fn get_progress(
     params: GetProgressParams,
     auth_token: &Option<String>,
 ) -> Result<GetProgressResult, Error> {
