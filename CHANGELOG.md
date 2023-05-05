@@ -27,6 +27,16 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.8.2 "The Way"
+
+### Added
+
 - [#2655](https://github.com/ChainSafe/forest/issues/2655): Configurable number
   of default recent state roots included in memory/snapshots.
 
