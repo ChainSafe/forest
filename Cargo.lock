@@ -1540,6 +1540,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "520fbf3c07483f94e3e3ca9d0cfd913d7718ef2483d2cfd91c0d9e91474ab913"
 
 [[package]]
+name = "const-str"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b62c6d3ea43cbe0bc5a081f276fd477e4291d168aacc9f9d98073325333c0d4"
+
+[[package]]
 name = "const_format"
 version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4356,11 +4362,13 @@ version = "0.8.1"
 dependencies = [
  "anyhow",
  "cid",
+ "const-str",
  "fil_actors_runtime_v10",
  "forest_beacon",
  "forest_shim",
  "fvm_shared 2.3.0",
  "lazy_static",
+ "multiaddr",
  "serde",
  "strum_macros",
  "url",
