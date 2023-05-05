@@ -107,12 +107,14 @@ pub async fn walk_snapshot<F, T>(
     mut load_block: F,
     progress_bar_message: Option<&str>,
     progress_tracker: Option<Arc<(AtomicU64, AtomicU64)>>,
+    estimated_total_records: Option<u64>,
 ) -> anyhow::Result<usize>
 where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
 {
-    let bar = ProgressBar::new(0);
+    let estimated_total_records = estimated_total_records.unwrap_or_default();
+    let bar = ProgressBar::new(estimated_total_records);
     bar.message(progress_bar_message.unwrap_or("Walking snapshot "));
     bar.set_units(progress_bar::Units::Default);
     bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
@@ -127,14 +129,18 @@ where
         let progress_tracker = progress_tracker.clone();
         move |len: usize| {
             let progress = len as _;
+            let total = if progress > estimated_total_records {
+                progress
+            } else {
+                estimated_total_records
+            };
             bar.set(progress);
+            bar.set_total(total);
             if let Some(progress_tracker) = &progress_tracker {
                 progress_tracker
                     .0
                     .store(progress, atomic::Ordering::Relaxed);
-                progress_tracker
-                    .1
-                    .store(progress, atomic::Ordering::Relaxed);
+                progress_tracker.1.store(total, atomic::Ordering::Relaxed);
             }
         }
     };

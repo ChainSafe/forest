@@ -567,6 +567,12 @@ where
         let global_pre_time = SystemTime::now();
         info!("chain export started");
 
+        let estimated_reachable_records = Some(
+            self.file_backed_chain_meta()
+                .lock()
+                .inner()
+                .estimated_reachable_records as _,
+        );
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.
         let n_records = walk_snapshot(
@@ -584,6 +590,7 @@ where
             },
             Some("Exporting snapshot "),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
+            estimated_reachable_records,
         )
         .await?;
 
