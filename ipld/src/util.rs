@@ -86,7 +86,7 @@ pub async fn walk_snapshot<F, T>(
     tipset: &Tipset,
     recent_roots: i64,
     mut load_block: F,
-) -> anyhow::Result<()>
+) -> anyhow::Result<usize>
 where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
@@ -132,7 +132,7 @@ where
         }
     }
 
-    Ok(())
+    Ok(seen.len())
 }
 
 fn should_save_block_to_snapshot(cid: &Cid) -> bool {

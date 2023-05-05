@@ -29,7 +29,7 @@ where
     // Nothing to do regarding Thunder since it's more like a "ghost" upgrade.
 
     for bundle in bundles {
-        let result = forest_load_car(db.clone(), bundle.compat()).await?;
+        let (result, _) = forest_load_car(db.clone(), bundle.compat()).await?;
         assert_eq!(
             result.len(),
             1,
