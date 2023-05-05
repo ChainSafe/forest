@@ -571,7 +571,7 @@ where
             self.file_backed_chain_meta()
                 .lock()
                 .inner()
-                .estimated_reachable_records as _,
+                .estimated_reachable_records as u64,
         );
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.

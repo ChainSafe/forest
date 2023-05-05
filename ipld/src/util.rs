@@ -92,11 +92,11 @@ where
     Ok(())
 }
 
+pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
+
 lazy_static! {
-    pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: Arc<(AtomicU64, AtomicU64)> =
-        Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
-    pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: Arc<(AtomicU64, AtomicU64)> =
-        Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
+    pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: ProgressBarCurrentTotalPair = Default::default();
+    pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: ProgressBarCurrentTotalPair = Default::default();
 }
 
 /// Walks over tipset and state data and loads all blocks not yet seen.
@@ -106,7 +106,7 @@ pub async fn walk_snapshot<F, T>(
     recent_roots: i64,
     mut load_block: F,
     progress_bar_message: Option<&str>,
-    progress_tracker: Option<Arc<(AtomicU64, AtomicU64)>>,
+    progress_tracker: Option<ProgressBarCurrentTotalPair>,
     estimated_total_records: Option<u64>,
 ) -> anyhow::Result<usize>
 where
@@ -128,7 +128,7 @@ where
         let bar = bar.clone();
         let progress_tracker = progress_tracker.clone();
         move |len: usize| {
-            let progress = len as _;
+            let progress = len as u64;
             let total = progress.max(estimated_total_records);
             bar.set(progress);
             bar.set_total(total);

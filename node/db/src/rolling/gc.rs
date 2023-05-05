@@ -234,7 +234,7 @@ where
             self.file_backed_chain_meta
                 .lock()
                 .inner()
-                .estimated_reachable_records as _,
+                .estimated_reachable_records as u64,
         );
         let n_records = walk_snapshot(
             &tipset,
