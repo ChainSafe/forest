@@ -114,7 +114,7 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let cids = if is_remote_file {
+    let (cids, n_records) = if is_remote_file {
         info!("Downloading file...");
         let url = Url::parse(path)?;
         let reader = get_fetch_progress_from_url(&url).await?;
@@ -125,7 +125,17 @@ where
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
 
-    info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
+    info!(
+        "Loaded {} records from .car file in {}s",
+        n_records.unwrap_or_default(),
+        stopwatch.elapsed().as_secs()
+    );
+    if let Some(n_records) = n_records {
+        let mut meta = sm.chain_store().file_backed_chain_meta().lock();
+        meta.inner_mut().estimated_reachable_records = n_records;
+        meta.sync()?;
+    }
+
     let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
 
     if !skip_load {
@@ -165,21 +175,22 @@ async fn load_and_retrieve_header<DB, R>(
     store: DB,
     mut reader: R,
     skip_load: bool,
-) -> anyhow::Result<Vec<Cid>>
+) -> anyhow::Result<(Vec<Cid>, Option<usize>)>
 where
     DB: Blockstore + Send + Sync + 'static,
     R: AsyncRead + Send + Unpin,
 {
     let result = if skip_load {
-        CarReader::new(&mut reader).await?.header.roots
+        (CarReader::new(&mut reader).await?.header.roots, None)
     } else {
-        forest_load_car(store, &mut reader).await?
+        let (roots, n_records) = forest_load_car(store, &mut reader).await?;
+        (roots, Some(n_records))
     };
 
     Ok(result)
 }
 
-pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<Vec<Cid>>
+pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<(Vec<Cid>, usize)>
 where
     R: futures::AsyncRead + Send + Unpin,
     DB: Blockstore + Send + Sync + 'static,
@@ -192,11 +203,13 @@ where
     let write_task =
         tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;
+    let mut n_records = 0;
     while let Some(block) = car_reader.next_block().await? {
         debug!("Importing block: {}", block.cid);
+        n_records += 1;
         tx.send_async((block.cid, block.data)).await?;
     }
     drop(tx);
     write_task.await??;
-    Ok(car_reader.header.roots)
+    Ok((car_reader.header.roots, n_records))
 }

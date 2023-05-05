@@ -13,13 +13,9 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
 pub const GENESIS_CID: &str = "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
 
-/// Bootstrap peer ids.
-pub const DEFAULT_BOOTSTRAP: &[&str] = &[
-    "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy",
-    "/dns4/bootstrap-1.calibration.fildev.network/tcp/1347/p2p/12D3KooWDTayrBojBn9jWNNUih4nNQQBGJD7Zo3gQCKgBkUsS6dp",
-    "/dns4/bootstrap-2.calibration.fildev.network/tcp/1347/p2p/12D3KooWNRxTHUn8bf7jz1KEUPMc2dMgGfa4f8ZJTsquVSn3vHCG",
-    "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWFWUqE9jgXvcKHWieYs9nhyp6NF4ftwLGAHm4sCv73jjK",
-];
+/// Default bootstrap peer ids.
+pub const DEFAULT_BOOTSTRAP: &[&str] =
+    &const_str::split!(include_str!("../../../build/bootstrap/calibnet"), "\n");
 
 const LIGHTNING_EPOCH: i64 = 489_094;
 
@@ -149,3 +145,16 @@ pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
     height: 0,
     config: &DRAND_MAINNET,
 }];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_boostrap_list_not_empty() {
+        assert!(!DEFAULT_BOOTSTRAP.is_empty());
+        DEFAULT_BOOTSTRAP.iter().for_each(|addr| {
+            assert!(addr.parse::<multiaddr::Multiaddr>().is_ok());
+        });
+    }
+}
