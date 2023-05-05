@@ -193,6 +193,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
             db,
             file_backed_chain_meta,
             config.chain.policy.chain_finality,
+            config.chain.recent_state_roots,
             get_tipset,
         ))
     };

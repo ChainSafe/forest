@@ -90,6 +90,7 @@ where
     file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
     get_tipset: F,
     chain_finality: i64,
+    recent_state_roots: i64,
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
@@ -104,6 +105,7 @@ where
         db: RollingDB,
         file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
         chain_finality: i64,
+        recent_state_roots: i64,
         get_tipset: F,
     ) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
@@ -113,6 +115,7 @@ where
             file_backed_chain_meta,
             get_tipset,
             chain_finality,
+            recent_state_roots,
             lock: Default::default(),
             gc_tx,
             gc_rx,
@@ -227,7 +230,7 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        let n_records = walk_snapshot(&tipset, DEFAULT_RECENT_STATE_ROOTS, |cid| {
+        let n_records = walk_snapshot(&tipset, self.recent_state_roots, |cid| {
             let db = db.clone();
             let tx = tx.clone();
             let reachable_bytes = reachable_bytes.clone();
