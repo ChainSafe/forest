@@ -92,8 +92,6 @@ where
     Ok(())
 }
 
-pub const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
-
 lazy_static! {
     pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: Arc<(AtomicU64, AtomicU64)> =
         Arc::new((AtomicU64::new(0), AtomicU64::new(0)));
@@ -146,6 +144,10 @@ where
             continue;
         };
 
+        if !should_save_block_to_snapshot(&next) {
+            continue;
+        }
+
         let data = load_block(next).await?;
         let h = BlockHeader::unmarshal_cbor(&data)?;
 
@@ -177,7 +179,7 @@ where
     Ok(())
 }
 
-pub fn should_save_block_to_snapshot(cid: &Cid) -> bool {
+fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.

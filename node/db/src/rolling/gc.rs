@@ -89,6 +89,7 @@ where
     db: RollingDB,
     get_tipset: F,
     chain_finality: i64,
+    recent_state_roots: i64,
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
@@ -99,13 +100,14 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(db: RollingDB, chain_finality: i64, get_tipset: F) -> Self {
+    pub fn new(db: RollingDB, chain_finality: i64, recent_state_roots: i64, get_tipset: F) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {
             db,
             get_tipset,
             chain_finality,
+            recent_state_roots,
             lock: Default::default(),
             gc_tx,
             gc_rx,
@@ -222,7 +224,7 @@ where
         });
         walk_snapshot(
             &tipset,
-            DEFAULT_RECENT_STATE_ROOTS,
+            self.recent_state_roots,
             |cid| {
                 let db = db.clone();
                 let tx = tx.clone();
