@@ -129,11 +129,7 @@ where
         let progress_tracker = progress_tracker.clone();
         move |len: usize| {
             let progress = len as _;
-            let total = if progress > estimated_total_records {
-                progress
-            } else {
-                estimated_total_records
-            };
+            let total = progress.max(estimated_total_records);
             bar.set(progress);
             bar.set_total(total);
             if let Some(progress_tracker) = &progress_tracker {
