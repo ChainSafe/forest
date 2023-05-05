@@ -4671,6 +4671,7 @@ dependencies = [
  "serde_derive",
  "serde_ipld_dagcbor",
  "serde_json",
+ "serde_yaml",
  "sha2 0.10.6",
  "tempfile",
  "thiserror",

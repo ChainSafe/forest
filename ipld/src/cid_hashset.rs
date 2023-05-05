@@ -12,4 +12,12 @@ impl CidHashSet {
         let hash = self.0.hasher().hash_one(cid);
         self.0.insert(hash)
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
