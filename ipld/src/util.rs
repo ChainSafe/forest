@@ -107,7 +107,7 @@ pub async fn walk_snapshot<F, T>(
     mut load_block: F,
     progress_bar_message: Option<&str>,
     progress_tracker: Option<Arc<(AtomicU64, AtomicU64)>>,
-) -> anyhow::Result<()>
+) -> anyhow::Result<usize>
 where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
@@ -175,8 +175,7 @@ where
     }
 
     bar.finish();
-
-    Ok(())
+    Ok(seen.len())
 }
 
 fn should_save_block_to_snapshot(cid: &Cid) -> bool {
