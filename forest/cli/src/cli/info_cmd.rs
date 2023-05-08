@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{DateTime, Local, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Local, TimeZone, Timelike};
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
@@ -55,14 +55,13 @@ fn get_node_status(
     chain_head: &Arc<Tipset>,
     block_count: usize,
     num_tipsets: u64,
+    cur_duration_secs: u64,
 ) -> anyhow::Result<NodeStatusInfo> {
     let epoch = chain_head.epoch();
     let ts = chain_head.min_timestamp();
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    // log::info!("ts: {ts}, now: {now}");
-    let delta = if ts > now {
+    let delta = if ts > cur_duration_secs {
         // Allows system time to be 1 second slower
-        if ts <= now + 1 {
+        if ts <= cur_duration_secs + 1 {
             0
         } else {
             anyhow::bail!(
@@ -70,7 +69,7 @@ fn get_node_status(
             );
         }
     } else {
-        now - ts
+        cur_duration_secs - ts
     };
 
     let behind = delta;
@@ -138,7 +137,10 @@ impl InfoCommand {
             block_count += ts.blocks().len();
         }
 
-        let node_status = get_node_status(&chain_head.0, block_count, num_tipsets)?;
+        let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+
+        let node_status =
+            get_node_status(&chain_head.0, block_count, num_tipsets, cur_duration_secs)?;
         let info = fmt_info(
             &node_status,
             start_time,
@@ -175,7 +177,7 @@ fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
     } = node_status;
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let b = Utc.timestamp_millis_opt(*behind as i64).unwrap();
+        let b = Local.timestamp_millis_opt(*behind as i64 * 1000).unwrap();
         format!("{}h {}m {}s", b.hour(), b.minute(), b.second())
     };
     Ok(format!(
@@ -295,7 +297,11 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-        let node_status = get_node_status(&Arc::new(tipset), 0, 0).unwrap();
+        let cur_duration_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let node_status = get_node_status(&Arc::new(tipset), 0, 0, cur_duration_secs).unwrap();
         assert!(node_status.health.is_nan());
         assert_eq!(node_status.sync_status, SyncStatus::Behind);
 
@@ -310,8 +316,11 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000).unwrap();
+        let cur_duration_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Slow);
 
@@ -326,8 +335,11 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000).unwrap();
+        let cur_duration_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Ok);
     }
