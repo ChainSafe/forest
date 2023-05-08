@@ -229,9 +229,6 @@ cargo install taplo-cli --locked
 # Scanning dependencies for security vulnerabilities
 cargo install cargo-audit
 
-# Unused dependencies check
-cargo install cargo-udeps --locked
-
 # Spellcheck
 cargo install cargo-spellcheck
 ```
