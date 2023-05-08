@@ -192,7 +192,6 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     use super::*;
-    // use crate::cli::wallet_cmd::{format_balance_string, FormattingMode};
 
     #[test]
     fn invalid_attofil_amount() {
