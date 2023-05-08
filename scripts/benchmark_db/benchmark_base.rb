@@ -5,7 +5,7 @@ module ExecCommands
   def get_last_epoch(benchmark)
     epoch = nil
     while epoch.nil?
-      # epoch can be nil (e.g. if the client is in the "fetchting messages" stage)
+      # Epoch can be nil (e.g. if the client is in the "fetchting messages" stage)
       epoch = benchmark.epoch_command
       sleep 0.5
     end
@@ -41,11 +41,11 @@ module ExecCommands
       loop do
         sample_proc(pid, metrics)
         sleep 0.5
-      # loop will error during clean and build steps, so need to break until
+      # Loop will error during clean and build steps, so need to break until
       # client is running
       rescue StandardError => _e
         break
-      # need to handle interrupt or `forest` process will continue on `ctrl-c`
+      # Need to handle interrupt or `forest` process will continue on `ctrl-c`
       rescue Interrupt
         stop_command(pid)
         break
@@ -187,7 +187,7 @@ module RunCommands
 
     @logger.info 'Cleaning database'
     clean_db
-    # TODO: delete repository after run
+    @logger.info 'Deleting downloaded repository'
     delete_repository
   end
 
@@ -217,8 +217,9 @@ module RunCommands
     path
   end
 
-  # TODO: delete repository after run
-  def delete_repository; end
+  def delete_repository
+    FileUtils.rm_rf(repository_name) if @created_repository
+  end
 end
 
 # Base benchmark class (not usable on its own)

@@ -204,7 +204,7 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
     puts "\n"
   rescue StandardError, Interrupt
     @logger.error('Fiasco during benchmark run. Exiting...')
-    # TODO?: delete snapshot if downloaded, but not if user-provided
+    # Delete snapshot if downloaded, but not if user-provided
     FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
     exit(1)
   end
@@ -247,7 +247,7 @@ begin
     @snapshot_path = download_snapshot(chain: options[:chain])
     @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
     @snapshot_downloaded = true
-    # if a fresh snapshot is downloaded, allow network to move ahead, otherwise
+    # If a fresh snapshot is downloaded, allow network to move ahead, otherwise
     # `message sync` phase may not be long enough for validation metric
     if options[:daily]
       @logger.info 'Fresh snapshot; sleeping while network advances for 5 minutes...'
@@ -256,7 +256,7 @@ begin
   end
 rescue StandardError, Interrupt
   @logger.error('Fiasco during snapshot download. Deleting snapshot and exiting...')
-  # delete downloaded snapshot if it exists
+  # Delete downloaded snapshot if it exists
   FileUtils.rm_f(@snapshot_path) unless @snapshot_path.nil?
   exit(1)
 end
