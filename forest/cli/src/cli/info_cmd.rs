@@ -177,9 +177,22 @@ fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
     } = node_status;
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let b = Local.timestamp_millis_opt(*behind as i64 * 1000).unwrap();
-        format!("{}h {}m {}s", b.hour(), b.minute(), b.second())
+        let cur_time = Local::now();
+        let b = Local
+            .timestamp_opt(
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64 - *behind as i64,
+                0,
+            )
+            .single()
+            .ok_or(anyhow::anyhow!("failed formating `behind` duration"))?;
+        format!(
+            "{}h {}m {}s",
+            cur_time.hour().saturating_sub(b.hour()),
+            cur_time.minute().saturating_sub(b.minute()),
+            cur_time.second().saturating_sub(b.second())
+        )
     };
+
     Ok(format!(
         "[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]"
     ))
@@ -342,6 +355,42 @@ mod tests {
         let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Ok);
+    }
+
+    #[test]
+    fn block_sync_timestamp() {
+        let start_time = Local::now();
+        let network = "calibnet";
+        let default_wallet_address = Some("x".to_string());
+        let color = LoggingColor::Never;
+        let cur_duration_secs_minus_10 = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 10;
+
+        dbg!(cur_duration_secs_minus_10);
+        let mock_header = BlockHeader::builder()
+            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
+            .timestamp(cur_duration_secs_minus_10)
+            .build()
+            .unwrap();
+
+        let tipset = Tipset::from(&mock_header);
+        let cur_duration_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
+        let a = fmt_info(
+            &node_status,
+            start_time,
+            network,
+            &default_wallet_address,
+            &color,
+        )
+        .unwrap();
+        assert!(a.chain_status.contains("10s behind"));
     }
 
     #[test]
