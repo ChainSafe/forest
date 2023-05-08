@@ -5,8 +5,9 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
+use forest_shim::econ::TokenAmount;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use fvm_shared::{address::Address, message::Message, METHOD_SEND};
 use num::BigInt;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
@@ -161,11 +162,12 @@ impl SendCommand {
         let message = Message {
             from,
             to: self.target_address,
-            value: self.amount.value.clone(),
+            value: self.amount.value.clone().into(),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit.unwrap_or_default(),
-            gas_fee_cap: TokenAmount::from_atto(self.gas_feecap.clone().unwrap_or_default()),
-            gas_premium: TokenAmount::from_atto(self.gas_premium.clone().unwrap_or_default()),
+            gas_fee_cap: TokenAmount::from_atto(self.gas_feecap.clone().unwrap_or_default()).into(),
+            gas_premium: TokenAmount::from_atto(self.gas_premium.clone().unwrap_or_default())
+                .into(),
             ..Default::default()
         };
 
@@ -186,8 +188,8 @@ impl SendCommand {
 mod tests {
     use std::str::FromStr;
 
+    use forest_shim::econ::TokenAmount;
     use forest_utils::io::parser::{format_balance_string, FormattingMode};
-    use fvm_shared::econ::TokenAmount;
     use jsonrpc_v2::ErrorLike;
     use quickcheck_macros::quickcheck;
 
@@ -209,7 +211,7 @@ mod tests {
         let amount = "1234 attofil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234)
+            TokenAmount::from_atto(1234).into()
         );
     }
 
@@ -219,7 +221,7 @@ mod tests {
         let amount = "1234 afil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234)
+            TokenAmount::from_atto(1234).into()
         );
     }
 
@@ -229,7 +231,7 @@ mod tests {
         let amount = "1234 a fil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234)
+            TokenAmount::from_atto(1234).into()
         );
     }
 
@@ -239,7 +241,7 @@ mod tests {
         let amount = "1234 a";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234)
+            TokenAmount::from_atto(1234).into()
         );
     }
 
@@ -258,7 +260,7 @@ mod tests {
         let amount = "1234";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_whole(1234)
+            TokenAmount::from_whole(1234).into()
         );
     }
 
@@ -268,7 +270,7 @@ mod tests {
         let amount = "1234FIL";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_whole(1234)
+            TokenAmount::from_whole(1234).into()
         );
     }
 
@@ -288,7 +290,7 @@ mod tests {
         let amount = "1.234FIL";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1_234_000_000_000_000_000i64)
+            TokenAmount::from_atto(1_234_000_000_000_000_000i64).into()
         );
     }
 
@@ -315,7 +317,7 @@ mod tests {
         let fil_amount = "1FIL";
         assert_eq!(
             FILAmount::from_str(fil_amount).unwrap().value,
-            TokenAmount::from_whole(1)
+            TokenAmount::from_whole(1).into()
         );
     }
 
@@ -357,10 +359,9 @@ mod tests {
     fn fil_quickcheck_test(n: u64) {
         let token_amount = TokenAmount::from_atto(n);
         let formatted_not_fixed =
-            format_balance_string(token_amount.clone().into(), FormattingMode::ExactNotFixed)
-                .unwrap();
+            format_balance_string(token_amount.clone(), FormattingMode::ExactNotFixed).unwrap();
         let formatted_fixed =
-            format_balance_string(token_amount.clone().into(), FormattingMode::ExactFixed).unwrap();
+            format_balance_string(token_amount.clone(), FormattingMode::ExactFixed).unwrap();
         let parsed_not_fixed = FILAmount::from_str(&formatted_not_fixed).unwrap().value;
         let parsed_fixed = FILAmount::from_str(&formatted_fixed).unwrap().value;
         assert!(token_amount == parsed_not_fixed && token_amount == parsed_fixed);
