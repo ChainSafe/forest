@@ -27,6 +27,16 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.8.2 "The Way"
+
+### Added
+
 - [#2655](https://github.com/ChainSafe/forest/issues/2655): Configurable number
   of default recent state roots included in memory/snapshots.
 
@@ -36,11 +46,11 @@
 
 ### Fixed
 
-- [#2796] (https://github.com/ChainSafe/forest/pull/2796): Fix issue when
-  running Forest on calibnet using a configuration file only.
-- [#2807] (https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
+- [#2796](https://github.com/ChainSafe/forest/pull/2796): Fix issue when running
+  Forest on calibnet using a configuration file only.
+- [#2807](https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
   actor CIDs.
-- [#2804] (https://github.com/ChainSafe/forest/pull/2804): Add work around for
+- [#2804](https://github.com/ChainSafe/forest/pull/2804): Add work around for
   FVM bug that caused `forest-cli sync wait` to fail.
 
 ## Forest v0.8.1 "Cold Exposure"

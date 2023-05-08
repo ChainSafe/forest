@@ -48,8 +48,8 @@ jobs:
           CXX: "sccache clang++"
 
   lint-all:
-    name: All lint checks (lint audit spellcheck udeps)
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    name: All lint checks
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3

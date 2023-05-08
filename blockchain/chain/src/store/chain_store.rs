@@ -26,7 +26,7 @@ use forest_shim::{
 };
 use forest_utils::{
     db::{
-        file_backed_obj::{FileBacked, SYNC_PERIOD},
+        file_backed_obj::{ChainMeta, FileBacked, SYNC_PERIOD},
         BlockstoreExt,
     },
     io::Checksum,
@@ -95,6 +95,9 @@ pub struct ChainStore<DB> {
 
     /// File backed validated blocks
     file_backed_validated_blocks: Mutex<FileBacked<HashSet<Cid>>>,
+
+    /// File backed chain metadata
+    file_backed_chain_meta: Arc<Mutex<FileBacked<ChainMeta>>>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -158,6 +161,11 @@ where
             HashSet::default,
             Some(SYNC_PERIOD),
         )?);
+        let file_backed_chain_meta = Arc::new(Mutex::new(FileBacked::load_from_file_or_create(
+            chain_data_root.join("meta.yaml"),
+            ChainMeta::default,
+            None,
+        )?));
 
         let cs = Self {
             publisher,
@@ -168,11 +176,17 @@ where
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
             file_backed_validated_blocks,
+            file_backed_chain_meta,
         };
 
         cs.set_genesis(genesis_block_header)?;
 
         Ok(cs)
+    }
+
+    /// Gets chain metadata
+    pub fn file_backed_chain_meta(&self) -> &Arc<Mutex<FileBacked<ChainMeta>>> {
+        &self.file_backed_chain_meta
     }
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
@@ -555,7 +569,7 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.
-        walk_snapshot(tipset, recent_roots, |cid| {
+        let n_records = walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
                 let block = self
@@ -569,6 +583,12 @@ where
             }
         })
         .await?;
+
+        {
+            let mut meta = self.file_backed_chain_meta().lock();
+            meta.inner_mut().estimated_reachable_records = n_records;
+            meta.sync()?;
+        }
 
         // Drop sender, to close the channel to write task, which will end when finished
         // writing
