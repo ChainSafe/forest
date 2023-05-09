@@ -27,6 +27,11 @@ $FOREST_CLI_PATH --chain calibnet db stats
 echo "Running forest in detached mode"
 $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
 
+# Admin token used when interacting with wallet
+ADMIN_TOKEN=$(cat admin_token)
+# Set environment variable
+export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
+
 echo "Waiting for sync and check health"
 timeout 30m $FOREST_CLI_PATH sync wait && $FOREST_CLI_PATH db stats
 
