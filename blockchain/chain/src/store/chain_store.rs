@@ -195,11 +195,11 @@ where
         self.file_backed_heaviest_tipset_keys
             .lock()
             .set_inner(ts.key().clone())?;
-        
-        let mut head = ts.clone();
-        let mut tipsets = vec![];
+
         // TODO: use known last head and not a fixed number of tipsets
         let target = ts.epoch() - 4;
+        let mut head = ts;
+        let mut tipsets = vec![];
         loop {
             tipsets.push(head.clone());
             if head.epoch() <= target {
@@ -866,7 +866,9 @@ pub mod headchange_json {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset.last().unwrap().clone())),
+                HeadChange::Apply(tipset) => {
+                    HeadChangeJson::Apply(TipsetJson(tipset.last().unwrap().clone()))
+                }
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
         }

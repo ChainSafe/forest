@@ -1176,7 +1176,11 @@ async fn validate_tipset<DB: Blockstore + Clone + Send + Sync + 'static, C: Cons
     while let Some(result) = validations.next().await {
         match result? {
             Ok(block) => {
-                info!("Block validated (EPOCH = {}, CID = {})", block.header().epoch(), block.header().cid());
+                info!(
+                    "Block validated (EPOCH = {}, CID = {})",
+                    block.header().epoch(),
+                    block.header().cid()
+                );
                 chainstore.add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {

@@ -448,9 +448,9 @@ where
     }
 
     // /// Remove a message given a sequence and address from the message pool.
-    // fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
-    //     remove_the_message(from, self.pending.as_ref(), sequence, applied)
-    // }
+    // fn remove(&mut self, from: &Address, sequence: u64, applied: bool) ->
+    // Result<(), Error> {     remove_the_message(from, self.pending.as_ref(),
+    // sequence, applied) }
 
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
