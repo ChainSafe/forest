@@ -135,8 +135,8 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: Calibnet health check
-        run: ./scripts/tests/calibnet_health_check.sh
+      - name: Other commands check
+        run: ./scripts/tests/calibnet_other_check.sh
 
   # Wallet checks (sending, exporting key, balances...)
   calibnet-wallet-check:
@@ -161,7 +161,7 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: Calibnet health check
+      - name: Wallet commands check
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
         run: ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
@@ -189,5 +189,5 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: Calibnet health check
+      - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
