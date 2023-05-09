@@ -282,3 +282,6 @@ else
     run_benchmarks(selection, options)
   end
 end
+
+# After benchmarks are complete, delete snapshot if downloaded, but not if user-provided
+FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
