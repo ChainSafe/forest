@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
 # This script checks wallet features of the forest node and the forest-cli.
 # It requires both `forest` and `forest-cli` to be in the PATH.
-# It requires the database to be initialized and synced.
 
 set -e
-
-# Check if the database is initialized.
-if [ ! -d ~/.local/share/forest/calibnet ]; then
-  echo "Database not initialized. Exiting."
-  exit 1
-fi
 
 FOREST_PATH="forest"
 FOREST_CLI_PATH="forest-cli"
@@ -35,6 +28,12 @@ function cleanup {
 trap cleanup EXIT
 
 echo "$1" > preloaded_wallet.key
+
+echo "Downloading and importing snapshot"
+$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
+
+echo "Checking DB stats"
+$FOREST_CLI_PATH --chain calibnet db stats
 
 echo "Running forest in detached mode"
 $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
