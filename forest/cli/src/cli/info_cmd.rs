@@ -36,7 +36,7 @@ enum SyncStatus {
 
 #[derive(Debug)]
 pub struct NodeStatusInfo {
-    /// timestamp of how far behind the node is with respect to syncing to head
+    /// duration in seconds of how far behind the node is with respect to syncing to head
     behind: u64,
     /// Chain health is the percentage denoting how close we are to having an
     /// average of 5 blocks per tipset in the last couple of hours.
