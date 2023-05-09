@@ -5,10 +5,22 @@ on:
     branches: [main]
     tags:
       - "*"
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
   pull_request:
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
 
 jobs:
   build-and-push-docker-image:
+    # Run the job only if the PR is not a draft.
+    # This is done to limit the runner cost.
+    if: github.event.pull_request.draft == false
     name: Build Docker image and push to repositories
     runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
@@ -61,6 +73,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-          platforms: linux/amd64,linux/arm64
+          # Compile Docker image only for ARM64 for a regular PR to save some CI time.
+          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
       - name: List docker images
         run: docker image ls
