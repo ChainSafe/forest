@@ -211,7 +211,7 @@ mod tests {
         let amount = "1234 attofil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234).into()
+            TokenAmount::from_atto(1234)
         );
     }
 
@@ -221,7 +221,7 @@ mod tests {
         let amount = "1234 afil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234).into()
+            TokenAmount::from_atto(1234)
         );
     }
 
@@ -231,7 +231,7 @@ mod tests {
         let amount = "1234 a fil";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234).into()
+            TokenAmount::from_atto(1234)
         );
     }
 
@@ -241,7 +241,7 @@ mod tests {
         let amount = "1234 a";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1234).into()
+            TokenAmount::from_atto(1234)
         );
     }
 
@@ -260,7 +260,7 @@ mod tests {
         let amount = "1234";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_whole(1234).into()
+            TokenAmount::from_whole(1234)
         );
     }
 
@@ -270,7 +270,7 @@ mod tests {
         let amount = "1234FIL";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_whole(1234).into()
+            TokenAmount::from_whole(1234)
         );
     }
 
@@ -290,7 +290,7 @@ mod tests {
         let amount = "1.234FIL";
         assert_eq!(
             FILAmount::from_str(amount).unwrap().value,
-            TokenAmount::from_atto(1_234_000_000_000_000_000i64).into()
+            TokenAmount::from_atto(1_234_000_000_000_000_000i64)
         );
     }
 
@@ -317,7 +317,7 @@ mod tests {
         let fil_amount = "1FIL";
         assert_eq!(
             FILAmount::from_str(fil_amount).unwrap().value,
-            TokenAmount::from_whole(1).into()
+            TokenAmount::from_whole(1)
         );
     }
 
