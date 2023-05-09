@@ -90,9 +90,6 @@ sha256sum -c ./*.sha256sum
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export --compressed
 
-echo "Test subcommand: chain set-head"
-$FOREST_CLI_PATH --token "$ADMIN_TOKEN" chain set-head --epoch -10 --force
-
 echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
 
@@ -187,6 +184,13 @@ done
 
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH wallet list
+
+echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
+
+echo "Test subcommand: chain set-head"
+$FOREST_CLI_PATH --token "$ADMIN_TOKEN" chain set-head --epoch -10 --force
+
+forest-cli sync wait # allow the node to re-sync
 
 # TODO: Uncomment this check once the send command is fixed
 # # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
