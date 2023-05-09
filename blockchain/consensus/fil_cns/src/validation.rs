@@ -460,6 +460,7 @@ fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
+    forest_paramfetch::ensure_params_downloaded()?;
     if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }

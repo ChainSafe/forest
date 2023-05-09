@@ -5,7 +5,10 @@ use std::{
     fs::File as SyncFile,
     io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        atomic::{self, AtomicBool},
+        Arc,
+    },
 };
 
 use ahash::HashMap;
@@ -70,6 +73,34 @@ fn param_dir(data_dir: &Path) -> PathBuf {
 /// More information available here: <https://github.com/filecoin-project/rust-fil-proofs#parameter-file-location>
 pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     std::env::set_var(DIR_ENV, param_dir(data_dir));
+}
+
+/// Ensures the parameter files are downloaded to cache dir
+pub fn ensure_params_downloaded() -> anyhow::Result<()> {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(ensure_params_downloaded_async())
+}
+
+/// Ensures the parameter files are downloaded to cache dir (async version)
+pub async fn ensure_params_downloaded_async() -> anyhow::Result<()> {
+    static CHECKED: AtomicBool = AtomicBool::new(false);
+    lazy_static::lazy_static! {
+        static ref LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::new(());
+    }
+    if !CHECKED.load(atomic::Ordering::Relaxed) {
+        let _guard = LOCK.lock();
+        if !CHECKED.load(atomic::Ordering::Relaxed) {
+            let data_dir = std::env::var(DIR_ENV).unwrap_or_default();
+            if !data_dir.is_empty() {
+                get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
+            }
+            CHECKED.store(true, atomic::Ordering::Relaxed);
+        }
+    }
+
+    Ok(())
 }
 
 /// Get proofs parameters and all verification keys for a given sector size
