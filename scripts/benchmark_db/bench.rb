@@ -174,21 +174,25 @@ end
 def download_and_move(url, output_dir)
   filename, checksum_url, checksum_filename, decompressed_filename = download_and_move_assignments(url)
 
-  FileUtils.mkdir_p("#{WORKING_DIR}/snapshot_dl_files")
-  Dir.chdir("#{WORKING_DIR}/snapshot_dl_files") do |dir|
+  # Must move to `WORKING_DIR` and create temporary folder for temp snapshot
+  # files, as filesystem `tmp` partition may not be large enough for this task
+  Dir.chdir(WORKING_DIR)
+  snapshot_dir = Dir.pwd
+  FileUtils.mkdir_p('snapshot_dl_files')
+  Dir.chdir('snapshot_dl_files') do
     # Download, decompress and verify checksums
     @logger.info 'Downloading checksum...'
-    syscall('aria2c', checksum_url, chdir: dir)
+    syscall('aria2c', checksum_url)
     @logger.info 'Downloading snapshot...'
-    syscall('aria2c', '-x5', url, chdir: dir)
+    syscall('aria2c', '-x5', url)
     @logger.info "Decompressing #{filename}..."
-    syscall('zstd', '-d', filename, chdir: dir)
+    syscall('zstd', '-d', filename)
     @logger.info 'Verifying...'
-    syscall('sha256sum', '--check', '--status', checksum_filename, chdir: dir)
+    syscall('sha256sum', '--check', '--status', checksum_filename)
 
-    FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
+    FileUtils.mv(decompressed_filename.to_s, snapshot_dir)
   end
-  FileUtils.rm_rf("#{WORKING_DIR}/snapshot_dl_files")
+  FileUtils.rm_rf('snapshot_dl_files')
   "#{output_dir}/#{decompressed_filename}"
 end
 
@@ -198,7 +202,9 @@ def download_snapshot(output_dir: WORKING_DIR, chain: 'calibnet', url: nil)
   url = get_url(chain, url)
   @logger.info "snapshot_url: #{url}"
 
-  download_and_move(url, output_dir)
+  current_dir = Dir.pwd
+  @snapshot_path = download_and_move(url, output_dir)
+  Dir.chdir(current_dir)
 end
 
 def benchmarks_loop(benchmarks, options, bench_metrics)
@@ -251,7 +257,7 @@ raise "The file '#{@snapshot_path}' does not exist" if @snapshot_path && !File.f
 begin
   if @snapshot_path.nil?
     @logger.info 'No snapshot provided, downloading one'
-    @snapshot_path = download_snapshot(chain: options[:chain])
+    download_snapshot(chain: options[:chain])
     @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
     @snapshot_downloaded = true
     # If a fresh snapshot is downloaded, allow network to move ahead, otherwise
