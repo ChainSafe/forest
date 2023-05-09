@@ -316,6 +316,13 @@ where
         })?)
     }
 
+    pub fn unmark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
+        let mut file = self.file_backed_validated_blocks.lock();
+        Ok(file.with_inner(|inner| {
+            let _did_work = inner.remove(cid);
+        })?)
+    }
+
     /// Returns the tipset behind `tsk` at a given `height`.
     /// If the given height is a null round:
     /// - If `prev` is `true`, the tipset before the null round is returned.
