@@ -230,10 +230,10 @@ where
                                 vec![tipset.as_ref().clone()],
                                 Vec::new(),
                             ),
-                            HeadChange::Apply(tipset) => (
+                            HeadChange::Apply(tipsets) => (
                                 cur_tipset.clone(),
                                 Vec::new(),
-                                vec![tipset.as_ref().clone()],
+                                tipsets.iter().map(|ts| ts.as_ref().clone()).collect(),
                             ),
                         };
                         head_change(
@@ -447,10 +447,10 @@ where
         Ok(TokenAmount::from(&actor.balance))
     }
 
-    /// Remove a message given a sequence and address from the message pool.
-    pub fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
-        remove(from, self.pending.as_ref(), sequence, applied)
-    }
+    // /// Remove a message given a sequence and address from the message pool.
+    // fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
+    //     remove_the_message(from, self.pending.as_ref(), sequence, applied)
+    // }
 
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
@@ -664,13 +664,22 @@ fn verify_msg_before_add(
     Ok(local)
 }
 
+// fn dump_msgset(msgset: &MsgSet) {
+//     println!("next_sequence: {}", msgset.next_sequence);
+//     for (k, v) in msgset.msgs.iter() {
+//         println!("{}: {}", k, v.cid().unwrap().to_string());
+//     }
+// }
+
 /// Remove a message from pending given the from address and sequence.
-pub fn remove(
+pub fn remove_the_message(
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     applied: bool,
 ) -> Result<(), Error> {
+    //log::warn!("removing message (FROM = {} NONCE = {})", from, sequence);
+
     let mut pending = pending.write();
     let mset = if let Some(mset) = pending.get_mut(from) {
         mset

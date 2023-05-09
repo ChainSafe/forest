@@ -1042,7 +1042,8 @@ where
                                 candidate_receipt = None;
                             }
                         }
-                        HeadChange::Apply(tipset) => {
+                        HeadChange::Apply(tipsets) => {
+                            let tipset = tipsets.last().unwrap().clone();
                             if candidate_tipset
                                 .as_ref()
                                 .map(|s| tipset.epoch() >= s.epoch() + confidence)

@@ -64,7 +64,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
-    Apply(Arc<Tipset>),
+    Apply(Vec<Arc<Tipset>>),
     Revert(Arc<Tipset>),
 }
 
@@ -181,7 +181,19 @@ where
         self.file_backed_heaviest_tipset_keys
             .lock()
             .set_inner(ts.key().clone())?;
-        if self.publisher.send(HeadChange::Apply(ts)).is_err() {
+        
+        let mut head = ts.clone();
+        let mut tipsets = vec![];
+        // TODO: use known last head and not a fixed number of tipsets
+        let target = ts.epoch() - 4;
+        loop {
+            tipsets.push(head.clone());
+            if head.epoch() <= target {
+                break;
+            }
+            head = self.tipset_from_keys(head.parents())?;
+        }
+        if self.publisher.send(HeadChange::Apply(tipsets)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
@@ -829,7 +841,7 @@ pub mod headchange_json {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset.last().unwrap().clone())),
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
         }
