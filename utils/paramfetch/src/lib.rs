@@ -75,17 +75,22 @@ pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     std::env::set_var(DIR_ENV, param_dir(data_dir));
 }
 
+static CHECKED: AtomicBool = AtomicBool::new(false);
+
 /// Ensures the parameter files are downloaded to cache dir
 pub fn ensure_params_downloaded() -> anyhow::Result<()> {
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
-    rt.block_on(ensure_params_downloaded_async())
+    if !CHECKED.load(atomic::Ordering::Relaxed) {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        rt.block_on(ensure_params_downloaded_async())
+    } else {
+        Ok(())
+    }
 }
 
 /// Ensures the parameter files are downloaded to cache dir (async version)
 pub async fn ensure_params_downloaded_async() -> anyhow::Result<()> {
-    static CHECKED: AtomicBool = AtomicBool::new(false);
     lazy_static::lazy_static! {
         static ref LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::new(());
     }
@@ -93,9 +98,10 @@ pub async fn ensure_params_downloaded_async() -> anyhow::Result<()> {
         let _guard = LOCK.lock();
         if !CHECKED.load(atomic::Ordering::Relaxed) {
             let data_dir = std::env::var(DIR_ENV).unwrap_or_default();
-            if !data_dir.is_empty() {
-                get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
+            if data_dir.is_empty() {
+                anyhow::bail!("Proof parameter data dir is not set");
             }
+            get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
             CHECKED.store(true, atomic::Ordering::Relaxed);
         }
     }
