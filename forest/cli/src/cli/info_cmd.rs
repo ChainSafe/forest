@@ -3,7 +3,7 @@
 
 use std::{
     sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::Context;
@@ -36,7 +36,8 @@ enum SyncStatus {
 
 #[derive(Debug)]
 pub struct NodeStatusInfo {
-    /// duration in seconds of how far behind the node is with respect to syncing to head
+    /// duration in seconds of how far behind the node is with respect to
+    /// syncing to head
     behind: u64,
     /// Chain health is the percentage denoting how close we are to having an
     /// average of 5 blocks per tipset in the last couple of hours.
@@ -55,10 +56,11 @@ fn get_node_status(
     chain_head: &Arc<Tipset>,
     block_count: usize,
     num_tipsets: u64,
-    cur_duration_secs: u64,
+    cur_duration: Duration,
 ) -> anyhow::Result<NodeStatusInfo> {
     let epoch = chain_head.epoch();
     let ts = chain_head.min_timestamp();
+    let cur_duration_secs = cur_duration.as_secs();
     let delta = if ts > cur_duration_secs {
         // Allows system time to be 1 second slower
         if ts <= cur_duration_secs + 1 {
@@ -137,10 +139,9 @@ impl InfoCommand {
             block_count += ts.blocks().len();
         }
 
-        let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
-        let node_status =
-            get_node_status(&chain_head.0, block_count, num_tipsets, cur_duration_secs)?;
+        let node_status = get_node_status(&ts, block_count, num_tipsets, cur_duration_secs)?;
         let info = fmt_info(
             &node_status,
             start_time,
@@ -303,11 +304,8 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-        let cur_duration_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let node_status = get_node_status(&Arc::new(tipset), 0, 0, cur_duration_secs).unwrap();
+        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let node_status = get_node_status(&Arc::new(tipset), 0, 0, cur_duration).unwrap();
         assert!(node_status.health.is_nan());
         assert_eq!(node_status.sync_status, SyncStatus::Behind);
 
@@ -322,11 +320,8 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-        let cur_duration_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
+        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Slow);
 
@@ -341,11 +336,8 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
-        let cur_duration_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
+        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Ok);
     }
@@ -370,11 +362,8 @@ mod tests {
             .unwrap();
 
         let tipset = Tipset::from(&mock_header);
-        let cur_duration_secs = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration_secs).unwrap();
+        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration).unwrap();
         let a = fmt_info(
             &node_status,
             start_time,
