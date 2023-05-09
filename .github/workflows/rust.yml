@@ -5,9 +5,18 @@ on:
   pull_request:
     branches:
       - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
   push:
     branches:
       - main
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
   schedule:
     - cron: "0 0 * * *"
 
@@ -23,6 +32,9 @@ jobs:
   test:
     name: Test
     runs-on: buildjet-8vcpu-ubuntu-2204
+    # Run the job only if the PR is not a draft.
+    # This is done to limit the runner cost.
+    if: github.event.pull_request.draft == false
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -74,12 +86,25 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
 
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+  build-macos:
+    name: Build MacOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Cargo Check
+        run: cargo check
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
+
+  build-ubuntu:
+    name: Build Ubuntu
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -88,45 +113,38 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Install Apt Dependencies
-        if: contains(matrix.os, 'ubuntu')
         run: |
           lscpu # the job may run on different CPUs, list cpu here for analysing build time
           sudo make install-deps
-      - name: Cargo Check
-        run: cargo check --timings
+      - name: Cargo Install
+        run: make install
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - uses: actions/upload-artifact@v3
         with:
-          name: build-timings
+          name: forest-${{ runner.os }}
           path: |
-            target/cargo-timings/*
+            ~/.cargo/bin/forest
+            ~/.cargo/bin/forest-cli
           if-no-files-found: error
 
   calibnet-check:
+    needs: build-ubuntu
     name: Calibnet sync check
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
         with:
-          submodules: true
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - name: Apt Dependencies
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: sudo make install-deps
-      - name: build and install binaries
-        run: make install
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
       - name: Calibnet health check
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
