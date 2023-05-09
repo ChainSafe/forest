@@ -14,6 +14,7 @@
 # Developer documentation
 
 - [Developer documentation](./developer_documentation/introduction.md)
+  - [Application architecture](./developer_documentation/application_architecture.md)
   - [Contributing](./developer_documentation/contributing.md)
   - [Mainnet compatibility](./developer_documentation/mainnet_compatibility.md)
   - [Memory analysis](./developer_documentation/memory-analysis.md)
