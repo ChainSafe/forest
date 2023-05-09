@@ -137,8 +137,7 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo nextest run --all --exclude serialization_tests --exclude forest_message
-	cargo nextest run -p forest_message --features blst --no-default-features
+	cargo nextest run --all --exclude serialization_tests
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
 	cargo nextest run -p forest_libp2p_bitswap --all-features
@@ -152,8 +151,7 @@ test-slow:
 	cargo nextest run -p forest-daemon --features slow_tests
 
 test-release:
-	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message
-	cargo nextest run --release -p forest_message --features blst --no-default-features
+	cargo nextest run --release --all --exclude serialization_tests
 	cargo nextest run --release -p forest_db --no-default-features --features paritydb
 	cargo nextest run --release -p forest_db --no-default-features --features rocksdb
 	cargo check --tests --features slow_tests
