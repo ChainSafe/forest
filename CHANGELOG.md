@@ -27,6 +27,10 @@
 
 ### Added
 
+- [#2706](https://github.com/ChainSafe/forest/issues/2706): implement
+  `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
+  subcommand.
+
 ### Changed
 
 ### Removed
