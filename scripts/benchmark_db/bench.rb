@@ -163,13 +163,19 @@ def get_url(chain, url)
   url || output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
 end
 
-def download_and_move(url, output_dir)
+def download_and_move_assignments(url)
   filename = url.match(/(\d+_.+)/)[1]
   checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
   checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
   decompressed_filename = filename.sub(/\.car\.zst/, '.car')
+  [filename, checksum_url, checksum_filename, decompressed_filename]
+end
 
-  Dir.mktmpdir do |dir|
+def download_and_move(url, output_dir)
+  filename, checksum_url, checksum_filename, decompressed_filename = download_and_move_assignments(url)
+
+  FileUtils.mkdir_p("#{WORKING_DIR}/snapshot_dl_files")
+  Dir.chdir("#{WORKING_DIR}/snapshot_dl_files") do |dir|
     # Download, decompress and verify checksums
     @logger.info 'Downloading checksum...'
     syscall('aria2c', checksum_url, chdir: dir)
@@ -182,6 +188,7 @@ def download_and_move(url, output_dir)
 
     FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
   end
+  FileUtils.rm_rf("#{WORKING_DIR}/snapshot_dl_files")
   "#{output_dir}/#{decompressed_filename}"
 end
 
@@ -258,6 +265,7 @@ rescue StandardError, Interrupt
   @logger.error('Fiasco during snapshot download. Deleting snapshot and exiting...')
   # Delete downloaded snapshot if it exists
   FileUtils.rm_f(@snapshot_path) unless @snapshot_path.nil?
+  FileUtils.rm_rf("#{WORKING_DIR}/snapshot_dl_files")
   exit(1)
 end
 
