@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{DateTime, Local, TimeZone, Timelike};
+use chrono::{DateTime, Local, Timelike};
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
@@ -177,19 +177,12 @@ fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
     } = node_status;
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let cur_time = Local::now();
-        let b = Local
-            .timestamp_opt(
-                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64 - *behind as i64,
-                0,
-            )
-            .single()
-            .ok_or(anyhow::anyhow!("failed formating `behind` duration"))?;
+        let behind = chrono::Duration::from_std(std::time::Duration::from_secs(*behind))?;
         format!(
             "{}h {}m {}s",
-            cur_time.hour().saturating_sub(b.hour()),
-            cur_time.minute().saturating_sub(b.minute()),
-            cur_time.second().saturating_sub(b.second())
+            behind.num_hours(),
+            behind.num_minutes(),
+            behind.num_seconds()
         )
     };
 
