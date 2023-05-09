@@ -702,7 +702,7 @@ mod test_selection {
         head_change,
         msgpool::{
             test_provider::{mock_block, TestApi},
-            tests::create_smsg,
+            tests::{create_fake_smsg, create_smsg},
         },
     };
 
@@ -1059,7 +1059,6 @@ mod test_selection {
         }
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn test_optimal_msg_selection1() {
         // this test uses just a single actor sending messages with a low tq
@@ -1109,10 +1108,10 @@ mod test_selection {
         // order his messages first
         for i in 0..(n_msgs as usize) {
             let bias = (n_msgs as usize - i) / 3;
-            let m = create_smsg(
+            let m = create_fake_smsg(
+                &mpool,
                 &a2,
                 &a1,
-                &mut w1,
                 i as u64,
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
@@ -1138,7 +1137,6 @@ mod test_selection {
         }
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn test_optimal_msg_selection2() {
         let mut joinset = JoinSet::new();
@@ -1185,19 +1183,19 @@ mod test_selection {
         let n_msgs = 5 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         for i in 0..n_msgs as usize {
             let bias = (n_msgs as usize - i) / 3;
-            let m = create_smsg(
+            let m = create_fake_smsg(
+                &mpool,
                 &a2,
                 &a1,
-                &mut w1,
                 i as u64,
                 TEST_GAS_LIMIT,
                 (200000 + i % 3 + bias) as u64,
             );
             mpool.add(m).unwrap();
-            let m = create_smsg(
+            let m = create_fake_smsg(
+                &mpool,
                 &a1,
                 &a2,
-                &mut w2,
                 i as u64,
                 TEST_GAS_LIMIT,
                 (190000 + i % 3 + bias) as u64,
@@ -1243,16 +1241,13 @@ mod test_selection {
             }
         }
 
-        dbg!(n_from1, n_from2);
-
         if n_from1 > n_from2 {
             panic!("Expected more msgs from a2 than a1");
         }
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
-    async fn test_optimal_message_selection3() {
+    async fn test_optimal_msg_selection3() {
         let mut joinset = JoinSet::new();
         // this test uses 10 actors sending a block of messages to each other, with the
         // the first actors paying higher gas premium than the subsequent
@@ -1308,10 +1303,10 @@ mod test_selection {
             for j in 0..n_actors {
                 let premium =
                     500000 + 10000 * (n_actors - j) + (n_msgs + 2 - i) / (30 * n_actors) + i % 3;
-                let m = create_smsg(
-                    &actors[(j % n_actors) as usize],
+                let m = create_fake_smsg(
+                    &mpool,
                     &actors[j as usize],
-                    &mut wallets[j as usize],
+                    &actors[j as usize],
                     i as u64,
                     TEST_GAS_LIMIT,
                     premium as u64,
