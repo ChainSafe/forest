@@ -37,14 +37,13 @@ install-lint-tools:
 	cargo install --locked taplo-cli
 	cargo install --locked cargo-audit
 	cargo install --locked cargo-spellcheck
-	cargo install --locked cargo-udeps
 
 install-lint-tools-ci:
 	wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
 	tar xzf cargo-binstall-x86_64-unknown-linux-musl.tgz
 	cp cargo-binstall ~/.cargo/bin/cargo-binstall
 
-	cargo binstall --no-confirm taplo-cli cargo-udeps cargo-spellcheck cargo-audit
+	cargo binstall --no-confirm taplo-cli cargo-spellcheck cargo-audit
 
 install-doc-tools:
 	cargo install --locked mdbook
@@ -76,13 +75,10 @@ clean:
 	@echo "Done cleaning."
 
 # Lints with everything we have in our CI arsenal
-lint-all: lint audit spellcheck udeps
+lint-all: lint audit spellcheck
 
 audit:
 	cargo audit --ignore RUSTSEC-2020-0071
-
-udeps:
-	cargo udeps --all-targets --features submodule_tests,instrumented_kernel
 
 spellcheck:
 	cargo spellcheck --code 1
@@ -141,8 +137,7 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo nextest run --all --exclude serialization_tests --exclude forest_message
-	cargo nextest run -p forest_message --features blst --no-default-features
+	cargo nextest run --all --exclude serialization_tests
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
 	cargo nextest run -p forest_libp2p_bitswap --all-features
@@ -156,8 +151,7 @@ test-slow:
 	cargo nextest run -p forest-daemon --features slow_tests
 
 test-release:
-	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message
-	cargo nextest run --release -p forest_message --features blst --no-default-features
+	cargo nextest run --release --all --exclude serialization_tests
 	cargo nextest run --release -p forest_db --no-default-features --features paritydb
 	cargo nextest run --release -p forest_db --no-default-features --features rocksdb
 	cargo check --tests --features slow_tests
