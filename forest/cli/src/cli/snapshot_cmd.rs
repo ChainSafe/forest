@@ -14,7 +14,7 @@ use forest_cli_shared::cli::{
 };
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
-use forest_ipld::{recurse_links_hash, CidHashSet, DEFAULT_RECENT_STATE_ROOTS};
+use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_rpc_api::chain_api::ChainExportParams;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::{io::parser::parse_duration, net::get_fetch_progress_from_file, retry};
@@ -203,7 +203,7 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: DEFAULT_RECENT_STATE_ROOTS,
+                    recent_roots: config.chain.recent_state_roots,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
                     compressed: *compressed,
@@ -425,7 +425,7 @@ async fn validate(
             tmp_chain_data_path.path(),
         )?);
 
-        let cids = {
+        let (cids, _n_records) = {
             let reader = get_fetch_progress_from_file(&snapshot).await?;
             forest_load_car(chain_store.blockstore().clone(), reader).await?
         };

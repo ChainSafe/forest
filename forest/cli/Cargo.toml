@@ -40,6 +40,7 @@ forest_rpc-client.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true
 fs_extra.workspace = true
+futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
@@ -65,6 +66,8 @@ toml.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]

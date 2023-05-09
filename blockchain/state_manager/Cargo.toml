@@ -21,7 +21,7 @@ forest_chain.workspace = true
 forest_db.workspace = true
 forest_interpreter.workspace = true
 forest_json.workspace = true
-forest_message = { workspace = true, features = ["blst"] }
+forest_message = { workspace = true }
 forest_metrics.workspace = true
 forest_networks.workspace = true
 forest_shim.workspace = true
@@ -34,7 +34,7 @@ fvm_ipld_amt.workspace = true
 fvm_ipld_bitfield.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared = { workspace = true, default-features = false }
+fvm_shared = { workspace = true }
 lazy_static.workspace = true
 lru.workspace = true
 num-traits.workspace = true

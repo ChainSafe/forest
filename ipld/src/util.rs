@@ -80,15 +80,13 @@ where
     Ok(())
 }
 
-pub const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
-
 /// Walks over tipset and state data and loads all blocks not yet seen.
 /// This is tracked based on the callback function loading blocks.
 pub async fn walk_snapshot<F, T>(
     tipset: &Tipset,
     recent_roots: i64,
     mut load_block: F,
-) -> anyhow::Result<()>
+) -> anyhow::Result<usize>
 where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
@@ -100,6 +98,10 @@ where
 
     while let Some(next) = blocks_to_walk.pop_front() {
         if !seen.insert(&next) {
+            continue;
+        }
+
+        if !should_save_block_to_snapshot(&next) {
             continue;
         }
 
@@ -130,10 +132,10 @@ where
         }
     }
 
-    Ok(())
+    Ok(seen.len())
 }
 
-pub fn should_save_block_to_snapshot(cid: &Cid) -> bool {
+fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.

@@ -26,8 +26,10 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
-/// The `filecoin` network chain. In general only `mainnet` and its chain
-/// information should be considered stable.
+const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+
+/// Forest builtin `filecoin` network chains. In general only `mainnet` and its
+/// chain information should be considered stable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkChain {
     Mainnet,
@@ -143,6 +145,9 @@ pub struct ChainConfig {
     #[serde(default = "default_policy")]
     pub policy: Policy,
     pub eth_chain_id: u64,
+    /// Number of default recent state roots to keep in memory and include in
+    /// the exported snapshot.
+    pub recent_state_roots: i64,
 }
 
 impl ChainConfig {
@@ -156,8 +161,10 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
             eth_chain_id: MAINNET_ETH_CHAIN_ID,
+            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
         }
     }
+
     pub fn calibnet() -> Self {
         use calibnet::*;
         Self {
@@ -168,6 +175,14 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
+            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+        }
+    }
+
+    pub fn from_chain(network_chain: &NetworkChain) -> Self {
+        match network_chain {
+            NetworkChain::Mainnet => Self::mainnet(),
+            NetworkChain::Calibnet => Self::calibnet(),
         }
     }
 
@@ -219,6 +234,10 @@ impl ChainConfig {
             "calibnet" => Some(calibnet::DEFAULT_GENESIS),
             _ => None,
         }
+    }
+
+    pub fn is_testnet(&self) -> bool {
+        !matches!(self.name.as_ref(), "mainnet")
     }
 }
 

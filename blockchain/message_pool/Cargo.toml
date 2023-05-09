@@ -17,7 +17,7 @@ forest_chain.workspace = true
 forest_db.workspace = true
 forest_json.workspace = true
 forest_libp2p.workspace = true
-forest_message = { workspace = true, features = ["blst"] }
+forest_message = { workspace = true }
 forest_networks.workspace = true
 forest_shim.workspace = true
 forest_state_manager.workspace = true

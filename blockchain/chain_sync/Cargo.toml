@@ -17,7 +17,7 @@ forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
 forest_libp2p.workspace = true
-forest_message = { workspace = true, features = ["blst"] }
+forest_message = { workspace = true }
 forest_message_pool.workspace = true
 forest_networks.workspace = true
 forest_shim.workspace = true
@@ -27,8 +27,8 @@ futures.workspace = true
 fvm_ipld_amt.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared = { workspace = true, default-features = false }
-fvm_shared3 = { workspace = true, default-features = false }
+fvm_shared = { workspace = true }
+fvm_shared3 = { workspace = true }
 lazy_static.workspace = true
 log.workspace = true
 lru.workspace = true

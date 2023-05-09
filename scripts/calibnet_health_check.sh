@@ -30,11 +30,21 @@ echo "$1" > preloaded_wallet.key
 
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
+echo "Downloading zstd compressed snapshot without aria2"
+$FOREST_CLI_PATH --chain calibnet snapshot fetch --provider filecoin --compressed -s "$SNAPSHOT_DIRECTORY"
+echo "Downloading snapshot without aria2"
+$FOREST_CLI_PATH --chain calibnet snapshot fetch --provider filecoin -s "$SNAPSHOT_DIRECTORY"
+echo "Cleaning up snapshots"
+$FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
+echo "Cleaning up snapshots again"
+$FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
 echo "Downloading zstd compressed snapshot"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$SNAPSHOT_DIRECTORY"
 echo "Importing zstd compressed snapshot"
 $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot "$SNAPSHOT_DIRECTORY"/*.zst
 echo "Cleaning up database"
+$FOREST_CLI_PATH --chain calibnet db clean --force
+echo "Cleaning up database again"
 $FOREST_CLI_PATH --chain calibnet db clean --force
 echo "Importing snapshot from url"
 $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot https://snapshots.calibrationnet.filops.net/minimal/latest
@@ -118,10 +128,10 @@ fi
 
 echo "Wallet tests"
 
-# The following steps does basic wallet handling tests.
+# The following steps do basic wallet handling tests.
 
-# Amount to send to
-FIL_AMT=500
+# Amount to send to 2nd address (note: `send` command defaults to FIL if no units are specified)
+FIL_AMT="500 atto FIL"
 
 echo "Importing preloaded wallet key"
 $FOREST_CLI_PATH wallet import preloaded_wallet.key
@@ -179,7 +189,17 @@ $FOREST_CLI_PATH mpool stat
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH wallet list
 
+echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
+
+echo "Test subcommand: chain set-head"
+$FOREST_CLI_PATH --token "$ADMIN_TOKEN" chain set-head --epoch -10 --force
+
+forest-cli sync wait # allow the node to re-sync
+
 # TODO: Uncomment this check once the send command is fixed
+# # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
+# # so we need to truncate units from `$FIL_AMT` for proper comparison
+# FIL_AMT=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
 # if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
 #   echo "FIL amount should match"
 #   exit 1

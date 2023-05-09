@@ -20,7 +20,7 @@ forest_db.workspace = true
 forest_interpreter.workspace = true
 forest_ipld.workspace = true
 forest_libp2p_bitswap.workspace = true
-forest_message = { workspace = true, features = ["blst"] }
+forest_message = { workspace = true }
 forest_metrics.workspace = true
 forest_networks.workspace = true
 forest_shim.workspace = true

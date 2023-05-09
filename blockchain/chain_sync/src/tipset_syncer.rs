@@ -1075,13 +1075,14 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Sync the messages for one or many tipsets @ a time
-    const REQUEST_WINDOW: usize = 4;
+    // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
+    const REQUEST_WINDOW: usize = 8;
 
     let task_chainstore = chainstore.clone();
 
     // Spawn a background task for the chain_exchange message requests
 
-    let (s, r) = flume::bounded(REQUEST_WINDOW * 2);
+    let (s, r) = flume::bounded(REQUEST_WINDOW * 4);
     let handle = tokio::task::spawn(async move {
         let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
 

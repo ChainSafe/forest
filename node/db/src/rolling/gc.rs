@@ -75,7 +75,7 @@ use std::{
 use chrono::Utc;
 use forest_blocks::Tipset;
 use forest_ipld::util::*;
-use forest_utils::db::{BlockstoreBufferedWriteExt, DB_KEY_BYTES};
+use forest_utils::db::{file_backed_obj::ChainMeta, BlockstoreBufferedWriteExt, DB_KEY_BYTES};
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use tokio::sync::Mutex;
@@ -87,8 +87,10 @@ where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
     db: RollingDB,
+    file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
     get_tipset: F,
     chain_finality: i64,
+    recent_state_roots: i64,
     lock: Mutex<()>,
     gc_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
     gc_rx: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
@@ -99,13 +101,21 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(db: RollingDB, chain_finality: i64, get_tipset: F) -> Self {
+    pub fn new(
+        db: RollingDB,
+        file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
+        chain_finality: i64,
+        recent_state_roots: i64,
+        get_tipset: F,
+    ) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {
             db,
+            file_backed_chain_meta,
             get_tipset,
             chain_finality,
+            recent_state_roots,
             lock: Default::default(),
             gc_tx,
             gc_rx,
@@ -220,7 +230,7 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        walk_snapshot(&tipset, DEFAULT_RECENT_STATE_ROOTS, |cid| {
+        let n_records = walk_snapshot(&tipset, self.recent_state_roots, |cid| {
             let db = db.clone();
             let tx = tx.clone();
             let reachable_bytes = reachable_bytes.clone();
@@ -240,6 +250,13 @@ where
         })
         .await?;
         drop(tx);
+
+        {
+            let mut meta = self.file_backed_chain_meta.lock();
+            meta.inner_mut().estimated_reachable_records = n_records;
+            meta.sync()?;
+        }
+
         write_task.await??;
 
         let reachable_bytes = reachable_bytes.load(atomic::Ordering::Relaxed);

@@ -83,7 +83,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         let bls_zero_addr = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
         assert!(bls_zero_addr.is_bls_zero_address());
     }
-    if config.chain.name == "calibnet" {
+    if config.chain.is_testnet() {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
 
@@ -186,11 +186,14 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     chain_store.set_genesis(&genesis_header)?;
     let db_garbage_collector = {
         let db = db.clone();
+        let file_backed_chain_meta = chain_store.file_backed_chain_meta().clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
             db,
+            file_backed_chain_meta,
             config.chain.policy.chain_finality,
+            config.chain.recent_state_roots,
             get_tipset,
         ))
     };
