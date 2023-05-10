@@ -664,13 +664,6 @@ fn verify_msg_before_add(
     Ok(local)
 }
 
-// fn dump_msgset(msgset: &MsgSet) {
-//     println!("next_sequence: {}", msgset.next_sequence);
-//     for (k, v) in msgset.msgs.iter() {
-//         println!("{}: {}", k, v.cid().unwrap().to_string());
-//     }
-// }
-
 /// Remove a message from pending given the from address and sequence.
 pub fn remove_the_message(
     from: &Address,
@@ -678,7 +671,7 @@ pub fn remove_the_message(
     sequence: u64,
     applied: bool,
 ) -> Result<(), Error> {
-    log::warn!("Removing message (FROM = {} NONCE = {})", from, sequence);
+    log::debug!("Removing message (FROM = {}, NONCE = {})", from, sequence);
 
     let mut pending = pending.write();
     let mset = if let Some(mset) = pending.get_mut(from) {
