@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # This file contains the functions and definitions for
 # the Forest tests. It is meant to be sourced by other scripts and not
 # executed directly.
@@ -5,8 +6,11 @@
 FOREST_PATH="forest"
 FOREST_CLI_PATH="forest-cli"
 
-export TMP_DIR=$(mktemp --directory)
-export LOG_DIRECTORY=$TMP_DIR/logs
+TMP_DIR=$(mktemp --directory)
+LOG_DIRECTORY=$TMP_DIR/logs
+
+export TMP_DIR
+export LOG_DIRECTORY
 
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
@@ -33,8 +37,11 @@ function forest_init {
   forest_check_db_stats
   forest_run_node_detached
 
-  export ADMIN_TOKEN=$(cat admin_token)
-  export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
+  ADMIN_TOKEN=$(cat admin_token)
+  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
+
+  export ADMIN_TOKEN
+  export FULLNODE_API_INFO
 
   forest_wait_for_sync
   forest_check_db_stats
