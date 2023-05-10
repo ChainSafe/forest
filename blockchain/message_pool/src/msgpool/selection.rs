@@ -887,9 +887,6 @@ mod test_selection {
     }
 
     #[tokio::test]
-    // #[ignore = "test is incredibly slow"]
-    // TODO optimize logic tested in this function
-    #[cfg(feature = "slow_tests")]
     async fn message_selection_trimming() {
         let mut joinset = JoinSet::new();
         let mpool = make_test_mpool(&mut joinset);
@@ -932,19 +929,19 @@ mod test_selection {
         // make many small chains for the two actors
         for i in 0..nmsgs {
             let bias = (nmsgs - i) / 3;
-            let m = create_smsg(
+            let m = create_fake_smsg(
+                &mpool,
                 &a2,
                 &a1,
-                &mut w1,
                 i as u64,
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
             mpool.add(m).unwrap();
-            let m = create_smsg(
+            let m = create_fake_smsg(
+                &mpool,
                 &a1,
                 &a2,
-                &mut w2,
                 i as u64,
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
