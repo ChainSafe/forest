@@ -93,7 +93,7 @@ where
             .export::<_, Sha256>(
                 &start_ts,
                 recent_roots,
-                VoidAsyncWriter::<Sha256>::default(),
+                VoidAsyncWriter::default(),
                 compressed,
                 skip_checksum,
             )

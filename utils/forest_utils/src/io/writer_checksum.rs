@@ -1,6 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{marker::PhantomData, pin::Pin, task::Poll};
+use std::{pin::Pin, task::Poll};
 
 use async_trait::async_trait;
 use digest::{Digest, Output};
@@ -86,11 +86,9 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
 
 /// A void writer that does nothing but implements [`AsyncWrite`]
 #[derive(Debug, Clone, Default)]
-pub struct VoidAsyncWriter<D> {
-    _d: PhantomData<D>,
-}
+pub struct VoidAsyncWriter;
 
-impl<D: Digest> AsyncWrite for VoidAsyncWriter<D> {
+impl AsyncWrite for VoidAsyncWriter {
     fn poll_write(
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
