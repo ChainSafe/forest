@@ -155,7 +155,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
         "{encoded_hash} {}\n",
         source
             .file_name()
-            .and_then(|name| name.to_str())
+            .and_then(std::ffi::OsStr::to_str)
             .context("Failed to retrieve file name while saving checksum")?
     );
 
