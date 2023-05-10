@@ -60,6 +60,7 @@ serde_tuple.workspace = true
 strfmt = "0.2.2"
 strum_macros.workspace = true
 tempfile.workspace = true
+humantime = "2.1.0"
 ticker = "0.1"
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true

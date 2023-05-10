@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{DateTime, Local, Timelike};
+use chrono::{DateTime, Local};
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
@@ -178,13 +178,9 @@ fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
     } = node_status;
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let behind = chrono::Duration::from_std(std::time::Duration::from_secs(*behind))?;
-        format!(
-            "{}h {}m {}s",
-            behind.num_hours(),
-            behind.num_minutes(),
-            behind.num_seconds()
-        )
+        let behind = chrono::Duration::seconds(*behind as i64).to_std()?;
+        let hd = humantime::format_duration(behind);
+        format!("{}", hd)
     };
 
     Ok(format!(
@@ -202,12 +198,13 @@ fn fmt_info(
     let NodeStatusInfo { health, .. } = node_status;
 
     let use_color = color.coloring_enabled();
+    let uptime_dur = Local::now() - start_time;
     let uptime = {
         format!(
             "{}h {}m {}s (Started at: {})",
-            start_time.hour(),
-            start_time.minute(),
-            start_time.second(),
+            uptime_dur.num_hours(),
+            uptime_dur.num_minutes(),
+            uptime_dur.num_seconds(),
             start_time
         )
     };
@@ -263,7 +260,7 @@ mod tests {
     use std::{
         str::FromStr,
         sync::Arc,
-        time::{SystemTime, UNIX_EPOCH},
+        time::{Duration, SystemTime, UNIX_EPOCH},
     };
 
     use chrono::Local;
@@ -275,6 +272,16 @@ mod tests {
 
     use super::{fmt_info, get_node_status, NodeStatusInfo};
     use crate::cli::info_cmd::{chain_status, SyncStatus};
+
+    fn mock_tipset_at(duration: u64) -> Arc<Tipset> {
+        let mock_header = BlockHeader::builder()
+            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
+            .timestamp(duration)
+            .build()
+            .unwrap();
+        let tipset = Tipset::from(&mock_header);
+        Arc::new(tipset)
+    }
 
     fn node_status_good() -> NodeStatusInfo {
         super::NodeStatusInfo {
@@ -299,45 +306,19 @@ mod tests {
     #[test]
     fn node_status_with_null_tipset() {
         // out of sync
-        let mock_header = BlockHeader::builder()
-            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
-            .build()
-            .unwrap();
-        let tipset = Tipset::from(&mock_header);
-        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let node_status = get_node_status(&Arc::new(tipset), 0, 0, cur_duration).unwrap();
+        let duration_now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let tipset = mock_tipset_at(duration_now.as_secs() - 30000);
+        let node_status = get_node_status(&tipset, 0, 0, duration_now).unwrap();
         assert!(node_status.health.is_nan());
         assert_eq!(node_status.sync_status, SyncStatus::Behind);
-
         // slow
-        let a = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let mock_header = BlockHeader::builder()
-            .timestamp(a - EPOCH_DURATION_SECONDS as u64 * 4)
-            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
-            .build()
-            .unwrap();
-        let tipset = Tipset::from(&mock_header);
-        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration).unwrap();
+        let tipset = mock_tipset_at(duration_now.as_secs() - EPOCH_DURATION_SECONDS as u64 * 4);
+        let node_status = get_node_status(&tipset, 10, 1000, duration_now).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Slow);
-
         // ok
-        let a = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let mock_header = BlockHeader::builder()
-            .timestamp(a - EPOCH_DURATION_SECONDS as u64)
-            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
-            .build()
-            .unwrap();
-        let tipset = Tipset::from(&mock_header);
-        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration).unwrap();
+        let tipset = mock_tipset_at(duration_now.as_secs() - EPOCH_DURATION_SECONDS as u64);
+        let node_status = get_node_status(&tipset, 10, 1000, duration_now).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Ok);
     }
@@ -348,22 +329,9 @@ mod tests {
         let network = "calibnet";
         let default_wallet_address = Some("x".to_string());
         let color = LoggingColor::Never;
-        let cur_duration_secs_minus_10 = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            - 10;
-
-        dbg!(cur_duration_secs_minus_10);
-        let mock_header = BlockHeader::builder()
-            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
-            .timestamp(cur_duration_secs_minus_10)
-            .build()
-            .unwrap();
-
-        let tipset = Tipset::from(&mock_header);
-        let cur_duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let node_status = get_node_status(&Arc::new(tipset), 10, 1000, cur_duration).unwrap();
+        let duration_now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let tipset = mock_tipset_at(duration_now.as_secs() - 10);
+        let node_status = get_node_status(&tipset, 10, 1000, duration_now).unwrap();
         let a = fmt_info(
             &node_status,
             start_time,
@@ -373,6 +341,48 @@ mod tests {
         )
         .unwrap();
         assert!(a.chain_status.contains("10s behind"));
+    }
+
+    #[test]
+    fn chain_status_test() {
+        let cur_duration = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let ts = mock_tipset_at(cur_duration - 59);
+        let start_time = Local::now();
+        let network = "calibnet";
+        let color = LoggingColor::Never;
+        let default_wallet_address = Some("x".to_string());
+        let node_status =
+            get_node_status(&ts, 10, 1000, Duration::from_secs(cur_duration)).unwrap();
+        let a = fmt_info(
+            &node_status,
+            start_time,
+            network,
+            &default_wallet_address,
+            &color,
+        )
+        .unwrap();
+
+        let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 atto FIL] [epoch: 0]";
+        assert_eq!(expected_status_fmt.clear(), a.chain_status);
+
+        let ts = mock_tipset_at(cur_duration - 30000);
+        let node_status =
+            get_node_status(&ts, 10, 1000, Duration::from_secs(cur_duration)).unwrap();
+        let a = fmt_info(
+            &node_status,
+            start_time,
+            network,
+            &default_wallet_address,
+            &color,
+        )
+        .unwrap();
+
+        let expected_status_fmt =
+            "[sync: Behind! (8h 20m behind)] [basefee: 0 atto FIL] [epoch: 0]";
+        assert_eq!(expected_status_fmt.clear(), a.chain_status);
     }
 
     #[test]
