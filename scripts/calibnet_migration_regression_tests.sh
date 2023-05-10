@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -e
+
+# To test that migrations still work, we import a snapshot 100 epochs after the
+# migration point and then we validate the last 200 tipsets. This triggers the
+# migration logic without connecting to the real Filecoin network.
+
+FOREST_PATH="forest"
+FOREST_CLI_PATH="forest-cli"
+MIGRATION_TEST="$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot"
+
+$FOREST_CLI_PATH --chain calibnet db clean --force
+
+# NV17 - Shark, uncomment when we support the nv17 migration
+# $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_16900.car.zst"
+
+# NV18 - Hygge
+$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_322454.car.zst"
+
+# NV19 - Lightning
+$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_489194.car.zst"
+
+# NV20 - Thunder
+$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_492314.car.zst"
