@@ -371,7 +371,35 @@ pub mod tests {
         .into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
-        SignedMessage::new_from_parts(umsg, sig).unwrap()
+        SignedMessage::new_unchecked(umsg, sig)
+    }
+
+    // Create a fake signed message with a dummy signature. While the signature is
+    // not valid, it has been added to the validation cache and the message will
+    // appear authentic.
+    pub fn create_fake_smsg(
+        pool: &MessagePool<TestApi>,
+        to: &Address,
+        from: &Address,
+        sequence: u64,
+        gas_limit: i64,
+        gas_price: u64,
+    ) -> SignedMessage {
+        let umsg: Message = Message_v3 {
+            to: to.into(),
+            from: from.into(),
+            sequence,
+            gas_limit: gas_limit as u64,
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
+            gas_premium: TokenAmount::from_atto(gas_price).into(),
+            ..Message_v3::default()
+        }
+        .into();
+        let sig = Signature::new_secp256k1(vec![]);
+        let signed = SignedMessage::new_unchecked(umsg, sig);
+        let cid = signed.cid().unwrap();
+        pool.sig_val_cache.lock().put(cid, ());
+        signed
     }
 
     #[tokio::test]
