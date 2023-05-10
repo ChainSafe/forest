@@ -2,8 +2,8 @@
 
 This script was developed to help with testing of Forest db backends and their
 configuration; the script now also allows benchmarking ("daily" benchmarks) of
-Forest and Lotus snapshot import times (in min:sec) and validation times (in
-tipsets/min).
+Forest and Lotus snapshot import times (in sec) and validation times (in
+tipsets/sec).
 
 ## Install dependencies
 

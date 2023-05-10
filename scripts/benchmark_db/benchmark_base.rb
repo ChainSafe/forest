@@ -77,7 +77,7 @@ module ExecCommands
     t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     exec_command_aux(command, metrics, benchmark)
     t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    metrics[:elapsed] = hr(t1 - t0)
+    metrics[:elapsed] = trunc_seconds(t1 - t0)
     metrics
   end
 end
@@ -145,7 +145,7 @@ module RunCommands
     validate_online_command = splice_args(@validate_online_command, args)
     new_metrics = exec_command(validate_online_command, self)
     new_metrics[:tpm] =
-      new_metrics[:num_epochs] ? (MINUTE * new_metrics[:num_epochs]) / online_validation_secs : 'n/a'
+      new_metrics[:num_epochs] ? new_metrics[:num_epochs] / online_validation_secs : 'n/a'
     metrics[:validate_online] = new_metrics
   end
 

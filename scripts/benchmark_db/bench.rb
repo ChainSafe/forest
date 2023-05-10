@@ -70,11 +70,8 @@ def syscall(*command, chdir: '.')
   status.success? ? stdout.chomp : (raise "#{command}, #{status}")
 end
 
-def hr(seconds)
-  seconds = seconds < MINUTE ? seconds.ceil(1) : seconds.ceil(0)
-  time = Time.at(seconds)
-  durfmt = "#{seconds > HOUR ? '%-Hh ' : ''}#{seconds < MINUTE ? '' : '%-Mm '}%-S#{seconds < MINUTE ? '.%1L' : ''}s"
-  time.strftime(durfmt)
+def trunc_seconds(seconds)
+  seconds < MINUTE ? seconds.ceil(1) : seconds.ceil(0)
 end
 
 def sample_proc(pid, metrics)
@@ -95,7 +92,7 @@ def format_import_table_row(key, value)
 end
 
 def format_import_table(metrics)
-  result = "Bench | Import Time | Import RSS | Import VSZ | DB Size\n"
+  result = "Bench | Import Time [sec] | Import RSS | Import VSZ | DB Size\n"
   result += "-|-|-|-|-\n"
 
   metrics.each do |key, value|
@@ -106,7 +103,7 @@ def format_import_table(metrics)
 end
 
 def format_validate_table(metrics)
-  result = "Bench | Validate Time | Validate RSS | Validate VSZ\n"
+  result = "Bench | Validate Time [sec] | Validate RSS | Validate VSZ\n"
   result += "-|-|-|-\n"
 
   metrics.each do |key, value|
@@ -136,7 +133,7 @@ end
 def write_csv(metrics)
   filename = "result_#{Time.now.to_i}.csv"
   CSV.open(filename, 'w') do |csv|
-    csv << ['Client', 'Snapshot Import Time [min:sec]', 'Validation Time [tipsets/min]']
+    csv << ['Client', 'Snapshot Import Time [sec]', 'Validation Time [tipsets/sec]']
 
     metrics.each do |key, value|
       elapsed = value[:import][:elapsed] || 'n/a'
