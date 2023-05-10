@@ -50,6 +50,9 @@ use crate::{
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000));
 
+const MAX_ACTOR_PENDING_MESSAGES: usize = 1000;
+const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: usize = 10;
+
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
 #[derive(Clone, Default, Debug)]
@@ -70,10 +73,17 @@ impl MsgSet {
 
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
-    pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
+    pub fn add(&mut self, m: SignedMessage, untrusted: bool) -> Result<(), Error> {
+        let max_actor_pending_messages = if untrusted {
+            MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES
+        } else {
+            MAX_ACTOR_PENDING_MESSAGES
+        };
+
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
             self.next_sequence = m.sequence() + 1;
         }
+
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let premium = TokenAmount::from(&exms.message().gas_premium);
@@ -86,6 +96,10 @@ impl MsgSet {
             } else {
                 return Err(Error::DuplicateSequence);
             }
+        }
+
+        if self.msgs.len() >= max_actor_pending_messages {
+            return Err(Error::TooManyPendingMessages(m.message.from().to_string()));
         }
         if self.msgs.insert(m.sequence(), m).is_none() {
             metrics::MPOOL_MESSAGE_TOTAL.inc();
@@ -626,11 +640,11 @@ where
     let mut pending = pending.write();
     let msett = pending.get_mut(&msg.from());
     match msett {
-        Some(mset) => mset.add(msg)?,
+        Some(mset) => mset.add(msg, false)?,
         None => {
             let mut mset = MsgSet::new(sequence);
             let from = msg.from();
-            mset.add(msg)?;
+            mset.add(msg, false)?;
             pending.insert(from, mset);
         }
     }
