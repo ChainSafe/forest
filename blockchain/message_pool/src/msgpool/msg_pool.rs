@@ -153,8 +153,6 @@ pub struct MessagePool<T> {
     /// The minimum gas price needed for executing the transaction based on
     /// number of included blocks
     pub min_gas_price: BigInt,
-    /// This is max number of messages in the pool.
-    pub max_tx_pool_size: i64,
     // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
@@ -208,7 +206,6 @@ where
             cur_tipset: tipset,
             api: Arc::new(api),
             min_gas_price: Default::default(),
-            max_tx_pool_size: 5000,
             network_name,
             bls_sig_cache,
             sig_val_cache,
