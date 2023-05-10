@@ -36,6 +36,7 @@ lazy_static.workspace = true
 libipld.workspace = true
 log.workspace = true
 lru.workspace = true
+nonempty.workspace = true
 num.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }

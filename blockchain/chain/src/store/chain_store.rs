@@ -39,6 +39,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
+use nonempty::NonEmpty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{
@@ -64,7 +65,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
-    Apply(Vec<Arc<Tipset>>),
+    Apply(NonEmpty<Arc<Tipset>>),
     Revert(Arc<Tipset>),
 }
 
@@ -201,7 +202,8 @@ where
             .set_inner(ts.key().clone())?;
 
         let mut head = ts.clone();
-        let mut tipsets = vec![];
+        let mut tipsets = NonEmpty::new(head.clone());
+        head = self.tipset_from_keys(head.parents())?;
         while head.epoch() >= last_head_epoch {
             tipsets.push(head.clone());
             head = self.tipset_from_keys(head.parents())?;
@@ -866,7 +868,7 @@ pub mod headchange_json {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
                 HeadChange::Apply(tipset) => {
-                    HeadChangeJson::Apply(TipsetJson(tipset.last().unwrap().clone()))
+                    HeadChangeJson::Apply(TipsetJson(tipset.last().clone()))
                 }
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
