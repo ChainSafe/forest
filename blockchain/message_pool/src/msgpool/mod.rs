@@ -413,6 +413,40 @@ pub mod tests {
     }
 
     #[tokio::test]
+    async fn test_per_actor_limit() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+            &mut services,
+        )
+        .unwrap();
+        let mut smsg_vec = Vec::new();
+        for i in 0..1001 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        // Current limit is of 1000 messages per (trusted) account actor
+        let (last, body) = smsg_vec.split_last().unwrap();
+        for smsg in body {
+            mpool.add(smsg.clone()).unwrap();
+        }
+        assert_eq!(mpool.add(last.clone()), Err(Error::TooManyPendingMessages(sender.to_string())));
+    }
+
+    #[tokio::test]
     async fn test_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
