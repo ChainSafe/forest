@@ -16,7 +16,7 @@ jobs:
     - name: Run shellcheck
       uses: ludeeus/action-shellcheck@2.0.0
       env:
-        SHELLCHECK_OPTS: --external-sources
+        SHELLCHECK_OPTS: --external-sources --source-path=SCRIPTDIR
   rubocop:
     runs-on: ubuntu-latest
     steps:

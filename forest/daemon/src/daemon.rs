@@ -676,7 +676,6 @@ mod test {
         Ok(())
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
