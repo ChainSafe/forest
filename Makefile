@@ -146,7 +146,6 @@ test:
 	cargo test --doc
 
 test-slow:
-	cargo nextest run -p forest_message_pool --features slow_tests
 	cargo nextest run -p forest-cli --features slow_tests
 	cargo nextest run -p forest-daemon --features slow_tests
 
@@ -157,7 +156,6 @@ test-release:
 	cargo check --tests --features slow_tests
 
 test-slow-release:
-	cargo nextest run --release -p forest_message_pool --features slow_tests
 	cargo nextest run --release -p forest-cli --features slow_tests
 	cargo nextest run --release -p forest-daemon --features slow_tests
 
