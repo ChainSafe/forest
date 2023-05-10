@@ -129,6 +129,7 @@ pub struct SendCommand {
     from: Option<Address>,
     target_address: Address,
     /// token amount in attoFIL
+    // BUG?(aatifsyed): sure the amount is in FIL??
     amount: FILAmount,
     /// specify gas fee cap to use in attoFIL
     #[arg(long)]
