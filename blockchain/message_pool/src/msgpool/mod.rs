@@ -325,15 +325,11 @@ pub(crate) fn add_to_selected_msgs(
 
 #[cfg(test)]
 pub mod tests {
-    #[cfg(feature = "slow_tests")]
-    use std::borrow::BorrowMut;
-    #[cfg(feature = "slow_tests")]
-    use std::time::Duration;
+    use std::{borrow::BorrowMut, time::Duration};
 
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
-    #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
     use forest_shim::{
         address::Address,
@@ -341,15 +337,15 @@ pub mod tests {
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
-    #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;
     use tokio::task::JoinSet;
 
     use super::*;
-    #[cfg(feature = "slow_tests")]
-    use crate::msg_chain::{create_message_chains, Chains};
-    use crate::msg_pool::MessagePool;
+    use crate::{
+        msg_chain::{create_message_chains, Chains},
+        msg_pool::MessagePool,
+    };
 
     pub fn create_smsg(
         to: &Address,
@@ -570,7 +566,6 @@ pub mod tests {
         assert_eq!(p.len(), 3);
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn test_async_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -619,7 +614,6 @@ pub mod tests {
         assert_eq!(cur_ts.as_ref(), &tipset);
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn test_msg_chains() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
