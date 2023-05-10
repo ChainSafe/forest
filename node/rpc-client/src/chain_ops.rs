@@ -78,3 +78,10 @@ pub async fn chain_get_name(
 ) -> Result<ChainGetNameResult, Error> {
     call(CHAIN_GET_NAME, params, auth_token).await
 }
+
+pub async fn chain_set_head(
+    params: ChainSetHeadParams,
+    auth_token: &Option<String>,
+) -> Result<ChainSetHeadResult, Error> {
+    call(CHAIN_SET_HEAD, params, auth_token).await
+}

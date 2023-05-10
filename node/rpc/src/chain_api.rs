@@ -344,3 +344,31 @@ where
     let name: String = data.state_manager.chain_config().name.clone();
     Ok(name)
 }
+
+// This is basically a port of the reference implementation at
+// https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
+pub(crate) async fn chain_set_head<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainSetHeadParams>,
+) -> Result<ChainSetHeadResult, JsonRpcError>
+where
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    B: Beacon,
+{
+    let (params,) = params;
+    let new_head = data.state_manager.chain_store().tipset_from_keys(&params)?;
+    let mut current = data.state_manager.chain_store().heaviest_tipset();
+    while current.epoch() >= new_head.epoch() {
+        for cid in current.key().cids() {
+            data.state_manager
+                .chain_store()
+                .unmark_block_as_validated(cid)?;
+        }
+        let parents = current.blocks()[0].parents();
+        current = data.state_manager.chain_store().tipset_from_keys(parents)?;
+    }
+    data.state_manager
+        .chain_store()
+        .set_heaviest_tipset(new_head)
+        .map_err(Into::into)
+}
