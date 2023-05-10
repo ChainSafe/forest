@@ -13,6 +13,7 @@ use forest_chain::HeadChange;
 use forest_json::vrf::VRFProof;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
+use nonempty::NonEmpty;
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -70,7 +71,9 @@ impl TestApi {
 
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
-        self.publisher.send(HeadChange::Apply(vec![ts])).unwrap();
+        self.publisher
+            .send(HeadChange::Apply(NonEmpty::new(ts)))
+            .unwrap();
     }
 
     pub fn next_block(&self) -> BlockHeader {
