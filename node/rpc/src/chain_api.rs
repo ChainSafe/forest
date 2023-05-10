@@ -150,7 +150,16 @@ where
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
 /// with the same name but with a `.sha256sum` extension.
 async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
-    let encoded_hash = format!("{} {}", hash.encode_hex::<String>(), source.display());
+    let encoded_hash = format!(
+        "{} {}\n",
+        hash.encode_hex::<String>(),
+        source
+            .file_name()
+            .and_then(|i| i.to_str())
+            .ok_or_else(|| anyhow::Error::msg(
+                "Failed to retrieve file name while saving checksum"
+            ))?
+    );
 
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
