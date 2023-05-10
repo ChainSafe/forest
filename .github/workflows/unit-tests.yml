@@ -1,11 +1,28 @@
-name: Forest code coverage
+name: Unit tests
 
 on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
   push:
     branches:
       - main
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
+  schedule:
+    - cron: "0 0 * * *"
 
 env:
+  CI: 1
+  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_ENDPOINT: "https://fra1.digitaloceanspaces.com"
   SCCACHE_BUCKET: "forest-sccache"
@@ -13,16 +30,20 @@ env:
   AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
   AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
   RUSTC_WRAPPER: "sccache"
+  CC: "sccache clang"
+  CXX: "sccache clang++"
 
 jobs:
-  codecov:
-    name: Cover
-    runs-on: ubuntu-latest
+  test:
+    name: All tests
+    runs-on: buildjet-8vcpu-ubuntu-2204
+    # Run the job only if the PR is not a draft.
+    # This is done to limit the runner cost.
+    if: github.event.pull_request.draft == false
+    timeout-minutes: 30
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          submodules: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -36,17 +57,6 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
-      - name: Run cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: |
-          ./scripts/gen_coverage_report.sh
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
-      - name: Upload CodeCov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
-          fail_ci_if_error: true
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
+      - run: make test-all
