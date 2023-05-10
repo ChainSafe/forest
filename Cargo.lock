@@ -3854,6 +3854,7 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-compression",
  "blake2b_simd",
  "bls-signatures",
  "cid",
@@ -4399,7 +4400,6 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "async-compression",
  "axum",
  "base64 0.21.0",
  "cid",

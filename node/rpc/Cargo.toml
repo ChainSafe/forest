@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-compression.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
 cid.workspace = true

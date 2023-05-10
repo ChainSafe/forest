@@ -84,14 +84,13 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
     }
 }
 
-/// A void writer that does nothing but implements [`AsyncWrite`] and
-/// [`Checksum`]
+/// A void writer that does nothing but implements [`AsyncWrite`]
 #[derive(Debug, Clone, Default)]
-pub struct VoidAsyncWriterWithNoChecksum<D> {
+pub struct VoidAsyncWriter<D> {
     _d: PhantomData<D>,
 }
 
-impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
+impl<D: Digest> AsyncWrite for VoidAsyncWriter<D> {
     fn poll_write(
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
@@ -112,12 +111,6 @@ impl<D: Digest> AsyncWrite for VoidAsyncWriterWithNoChecksum<D> {
         _cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), std::io::Error>> {
         std::task::Poll::Ready(Ok(()))
-    }
-}
-#[async_trait]
-impl<D: Digest + Send> Checksum<D> for VoidAsyncWriterWithNoChecksum<D> {
-    async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>> {
-        Ok(None)
     }
 }
 
@@ -178,13 +171,6 @@ mod test {
             );
         }
 
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn digest_of_void_writer() -> anyhow::Result<()> {
-        let mut writer = VoidAsyncWriterWithNoChecksum::<Sha512>::default();
-        ensure!(writer.finalize().await?.is_none());
         Ok(())
     }
 
