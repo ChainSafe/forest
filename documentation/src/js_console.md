@@ -84,7 +84,7 @@ with Filecoin API easy:
 - `isPeerConnected(peerID)`
 - `showWallet()`
 - `showSyncStatus()`
-- `sendFIL(to, attoAmount)`
+- `sendFIL(to, amount)` (default amount units are FIL)
 
 ### Timers
 
