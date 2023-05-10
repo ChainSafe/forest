@@ -102,7 +102,7 @@ lint-clippy:
 	
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --features submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
 DOCKERFILES=$(wildcard Dockerfile*)
@@ -140,33 +140,20 @@ test:
 	cargo nextest run --all --exclude serialization_tests
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
-	cargo nextest run -p forest_libp2p_bitswap --all-features
-	cargo check --tests --features slow_tests
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	cargo test --doc
-
-test-slow:
-	cargo nextest run -p forest_message_pool --features slow_tests
-	cargo nextest run -p forest-cli --features slow_tests
-	cargo nextest run -p forest-daemon --features slow_tests
 
 test-release:
 	cargo nextest run --release --all --exclude serialization_tests
 	cargo nextest run --release -p forest_db --no-default-features --features paritydb
 	cargo nextest run --release -p forest_db --no-default-features --features rocksdb
-	cargo check --tests --features slow_tests
-
-test-slow-release:
-	cargo nextest run --release -p forest_message_pool --features slow_tests
-	cargo nextest run --release -p forest-cli --features slow_tests
-	cargo nextest run --release -p forest-daemon --features slow_tests
 
 smoke-test:
 	./scripts/smoke_test.sh
 
-test-all: test test-vectors test-slow
+test-all: test test-vectors
 
-test-all-release: test-release test-vectors test-slow-release
+test-all-release: test-release test-vectors
 
 # Checks if all headers are present and adds if not
 license:
