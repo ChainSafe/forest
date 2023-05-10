@@ -22,10 +22,12 @@ on:
 
 env:
   CI: 1
-  CARGO_INCREMENTAL: 1
+  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
+  CC: "sccache clang"
+  CXX: "sccache clang++"
 
 jobs:
   test:
@@ -54,6 +56,3 @@ jobs:
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-all
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"

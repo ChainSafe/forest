@@ -19,10 +19,12 @@ on:
 
 env:
   CI: 1
-  CARGO_INCREMENTAL: 1
+  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
+  CC: "sccache clang"
+  CXX: "sccache clang++"
 
 jobs:
   build-macos:
@@ -37,9 +39,6 @@ jobs:
         continue-on-error: true
       - name: Cargo Check
         run: cargo check
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
 
   node-build-ubuntu:
     name: Build Ubuntu (Forest daemon)
@@ -56,9 +55,6 @@ jobs:
           sudo make install-deps
       - name: Cargo Install
         run: make install-daemon
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
       - uses: actions/upload-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -81,9 +77,6 @@ jobs:
           sudo make install-deps
       - name: Cargo Install
         run: make install-cli
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
       - uses: actions/upload-artifact@v3
         with:
           name: forest-cli-${{ runner.os }}

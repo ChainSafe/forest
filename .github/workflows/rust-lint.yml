@@ -19,10 +19,12 @@ on:
 
 env:
   CI: 1
-  CARGO_INCREMENTAL: 1
+  CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
+  CC: "sccache clang"
+  CXX: "sccache clang++"
 
 jobs:
   lint-all:
@@ -48,9 +50,6 @@ jobs:
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - run: make lint-all
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
 
   dependencies-check:
     name: Check cargo files for duplicates
