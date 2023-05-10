@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::fs::read_dir;
-use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
 use anyhow::*;
 use assert_cmd::Command;
