@@ -448,6 +448,24 @@ where
         epoch: ChainEpoch,
     ) -> anyhow::Result<Option<Cid>> {
         match epoch {
+            x if x == self.chain_config.epoch(Height::Shark) => {
+                info!("Running Shark migration at epoch {epoch}");
+                let start_time = time::Instant::now();
+                let new_state = forest_state_migration::run_nv17_migration(
+                    &self.chain_config,
+                    self.blockstore(),
+                    parent_state,
+                    epoch,
+                )?;
+                let elapsed = start_time.elapsed().as_secs_f32();
+                if new_state != *parent_state {
+                    reveal_five_trees();
+                    info!("State migration successful, took: {elapsed}s");
+                } else {
+                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                }
+                Ok(Some(new_state))
+            }
             x if x == self.chain_config.epoch(Height::Hygge) => {
                 info!("Running Hygge migration at epoch {epoch}");
                 let start_time = time::Instant::now();
