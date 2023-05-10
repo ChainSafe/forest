@@ -45,6 +45,3 @@ tokio = { workspace = true, features = ["sync", "macros"] }
 
 [dev-dependencies]
 forest_key_management.workspace = true
-
-[features]
-slow_tests = []
