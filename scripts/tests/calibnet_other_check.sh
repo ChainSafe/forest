@@ -5,38 +5,12 @@
 
 set -e
 
-FOREST_PATH="forest"
-FOREST_CLI_PATH="forest-cli"
+source "$(dirname "$0")/harness.sh"
 
-TMP_DIR=$(mktemp --directory)
-LOG_DIRECTORY=$TMP_DIR/logs
-
-function cleanup {
-  $FOREST_CLI_PATH shutdown --force
-
-  timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
-}
-trap cleanup EXIT
-
-echo "Downloading and importing snapshot"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
-
-echo "Checking DB stats"
-$FOREST_CLI_PATH --chain calibnet db stats
-
-echo "Running forest in detached mode"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
+forest_init
 
 echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
-
-echo "Waiting for sync and check health"
-timeout 30m $FOREST_CLI_PATH sync wait && $FOREST_CLI_PATH db stats
-
-# Admin token used when interacting with wallet
-ADMIN_TOKEN=$(cat admin_token)
-# Set environment variable
-export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
 
 echo "Running database garbage collection"
 du -hS ~/.local/share/forest/calibnet
@@ -45,10 +19,6 @@ du -hS ~/.local/share/forest/calibnet
 
 echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
-
-echo "Print forest log files"
-ls -hl "$LOG_DIRECTORY"
-cat "$LOG_DIRECTORY"/*
 
 # Get the checkpoint hash at epoch 424000. This output isn't affected by the
 # number of recent state roots we store (2k at the time of writing) and this
@@ -70,10 +40,3 @@ echo "Test subcommand: chain set-head"
 $FOREST_CLI_PATH chain set-head --epoch -10 --force
 
 $FOREST_CLI_PATH sync wait # allow the node to re-sync
-
-echo "Get and print metrics and logs and stop forest"
-wget -O metrics.log http://localhost:6116/metrics
-
-echo "--- Forest STDOUT ---"; cat forest.out
-echo "--- Forest STDERR ---"; cat forest.err
-echo "--- Forest Prometheus metrics ---"; cat metrics.log

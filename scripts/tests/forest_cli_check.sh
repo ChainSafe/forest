@@ -5,9 +5,8 @@
 
 set -e
 
-FOREST_CLI_PATH="forest-cli"
+source "$(dirname "$0")/harness.sh"
 
-TMP_DIR=$(mktemp --directory)
 SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
 
 echo "Fetching params"

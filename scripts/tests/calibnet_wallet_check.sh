@@ -4,11 +4,8 @@
 
 set -e
 
-FOREST_PATH="forest"
-FOREST_CLI_PATH="forest-cli"
+source "$(dirname "$0")/harness.sh"
 
-TMP_DIR=$(mktemp --directory)
-LOG_DIRECTORY=$TMP_DIR/logs
 
 usage() {
   echo "Usage: $0 <PRELOADED_WALLET_STRING>"
@@ -20,35 +17,9 @@ if [ -z "$1" ]
     usage
 fi
 
-function cleanup {
-  $FOREST_CLI_PATH shutdown --force
-
-  timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
-}
-trap cleanup EXIT
-
 echo "$1" > preloaded_wallet.key
 
-echo "Downloading and importing snapshot"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot
-
-echo "Checking DB stats"
-$FOREST_CLI_PATH --chain calibnet db stats
-
-echo "Running forest in detached mode"
-$FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
-
-echo "Waiting for sync and check health"
-timeout 30m $FOREST_CLI_PATH sync wait && $FOREST_CLI_PATH db stats
-
-# Admin token used when interacting with wallet
-ADMIN_TOKEN=$(cat admin_token)
-# Set environment variable
-export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
-
-echo "Print forest log files"
-ls -hl "$LOG_DIRECTORY"
-cat "$LOG_DIRECTORY"/*
+forest_init
 
 echo "Wallet tests"
 
@@ -117,10 +88,3 @@ $FOREST_CLI_PATH wallet list
 #   echo "FIL amount should match"
 #   exit 1
 # fi
-
-echo "Get and print metrics and logs and stop forest"
-wget -O metrics.log http://localhost:6116/metrics
-
-echo "--- Forest STDOUT ---"; cat forest.out
-echo "--- Forest STDERR ---"; cat forest.err
-echo "--- Forest Prometheus metrics ---"; cat metrics.log
