@@ -178,9 +178,9 @@ fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
     } = node_status;
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
     let behind = {
-        let behind = chrono::Duration::seconds(*behind as i64).to_std()?;
-        let hd = humantime::format_duration(behind);
-        format!("{}", hd)
+        let behind = Duration::from_secs(*behind);
+        let human_duration = humantime::format_duration(behind);
+        format!("{}", human_duration)
     };
 
     Ok(format!(
