@@ -48,6 +48,9 @@ jobs:
     name: Build Ubuntu (Forest daemon)
     runs-on: ubuntu-latest
     steps:
+      - name: Show IP
+        run: curl ifconfig.me
+        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache

@@ -42,6 +42,9 @@ jobs:
     if: github.event.pull_request.draft == false
     timeout-minutes: 30
     steps:
+      - name: Show IP
+        run: curl ifconfig.me
+        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
