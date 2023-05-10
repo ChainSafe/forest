@@ -1,4 +1,4 @@
-name: Forest unit tests
+name: Unit tests
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ env:
 
 jobs:
   test:
-    name: Unit Tests
+    name: All tests
     runs-on: buildjet-8vcpu-ubuntu-2204
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.

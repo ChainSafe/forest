@@ -1,4 +1,4 @@
-name: Build Forest and execute calibnet tests
+name: Integration tests
 
 on:
   workflow_dispatch:
