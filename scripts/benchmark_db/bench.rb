@@ -47,12 +47,15 @@ OptionParser.new do |opts|
   opts.on('--daily', 'Run snapshot import and validation time metrics') { |v| options[:daily] = v }
 end.parse!
 
+# Create random temporary directory (or user-specified dir) for benchmarks,
+# and set appropriate permissions to allow script to run properly
 WORKING_DIR = if options[:tempdir].nil?
                 Dir.mktmpdir('benchmark-')
               else
                 FileUtils.mkdir_p options[:tempdir]
                 options[:tempdir]
               end
+FileUtils.chmod 0o744, WORKING_DIR
 
 # Provides human readable formatting to Numeric class
 class Numeric

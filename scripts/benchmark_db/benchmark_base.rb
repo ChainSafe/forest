@@ -212,7 +212,8 @@ module RunCommands
   end
 
   def data_dir
-    path = "#{WORKING_DIR}/.#{repository_name}"
+    current_dir = Dir.pwd
+    path = "#{current_dir}/.#{repository_name}"
     FileUtils.mkdir_p path
     path
   end
