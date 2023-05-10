@@ -1,0 +1,66 @@
+name: Rust code linters
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  CI: 1
+  CARGO_INCREMENTAL: 0
+  CACHE_TIMEOUT_MINUTES: 5
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+  CC: "sccache clang"
+  CXX: "sccache clang++"
+
+jobs:
+  lint-all:
+    name: All lint checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Apt Dependencies
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: |
+            sudo make install-deps
+            sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
+      - name: Install Lint tools
+        run: make install-lint-tools-ci
+        env:
+          RUSTFLAGS: "-Cstrip=symbols"
+      - run: make lint-all
+
+  dependencies-check:
+    name: Check cargo files for duplicates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.0"
+      - name: Run dependencies checks
+        run: |
+          gem install toml-rb --no-document
+          ruby scripts/find_duplicate_deps.rb && ruby scripts/find_unused_deps.rb
