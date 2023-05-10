@@ -155,7 +155,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
         hash.encode_hex::<String>(),
         source
             .file_name()
-            .and_then(|i| i.to_str())
+            .and_then(|name| name.to_str())
             .ok_or_else(|| anyhow::Error::msg(
                 "Failed to retrieve file name while saving checksum"
             ))?
