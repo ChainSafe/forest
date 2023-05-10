@@ -140,7 +140,6 @@ test:
 	cargo nextest run --all --exclude serialization_tests
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
-	cargo nextest run -p forest_libp2p_bitswap --all-features
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	cargo test --doc
 
