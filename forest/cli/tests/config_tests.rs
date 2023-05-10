@@ -1,6 +1,5 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#[cfg(feature = "slow_tests")]
 use std::fs::read_dir;
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
@@ -8,7 +7,6 @@ use anyhow::*;
 use assert_cmd::Command;
 use forest_cli_shared::cli::{Client, Config};
 use rand::Rng;
-#[cfg(feature = "slow_tests")]
 use tempfile::TempDir;
 
 #[test]
@@ -131,7 +129,6 @@ fn test_config_env_var() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "slow_tests")]
 fn test_download_location_of_proof_parameter_files_env() {
     let tmp_dir = TempDir::new().unwrap();
 
@@ -149,7 +146,6 @@ fn test_download_location_of_proof_parameter_files_env() {
 }
 
 #[test]
-#[cfg(feature = "slow_tests")]
 fn test_download_location_of_proof_parameter_files_default() {
     let tmp_dir = TempDir::new().unwrap();
     let tmp_param_dir = tmp_dir.path().join("filecoin-proof-parameters");
