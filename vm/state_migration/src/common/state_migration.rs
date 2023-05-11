@@ -51,7 +51,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         }
 
         let cpus = num_cpus::get();
-        let chan_size = cpus / 2;
+        let chan_size = (cpus / 2).max(2);
 
         log::info!(
             "Using {} CPUs for migration and channel size of {}",
