@@ -53,6 +53,8 @@ jobs:
     name: Build Ubuntu (Forest daemon)
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       # find the nearest S3 space for storing cache files
       - name: Show IP
         run: curl ifconfig.me
@@ -79,6 +81,8 @@ jobs:
     name: Build Ubuntu (Forest CLI)
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
@@ -104,6 +108,8 @@ jobs:
     name: Forest CLI checks
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -126,6 +132,8 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -152,6 +160,8 @@ jobs:
     name: Wallet tests
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -180,6 +190,8 @@ jobs:
     name: Snapshot export checks
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
