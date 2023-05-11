@@ -526,7 +526,7 @@ pub mod tests {
             .inner
             .lock()
             .set_block_messages(&header_b, smsg_vec.clone());
-        let tipset_b = Tipset::from(&header_a.clone());
+        let tipset_b = Tipset::from(&header_b.clone());
 
         let header_c = mock_block_with_parents(&tipset_b, 1, 1);
         let tipset_c = Tipset::from(&header_c.clone());
@@ -537,7 +537,7 @@ pub mod tests {
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;
 
-        // TODO: this should fail
+        // this now fails
         let (p, _) = mpool.pending().unwrap();
         assert_eq!(p.len(), 0);
     }
