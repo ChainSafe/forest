@@ -12,7 +12,7 @@ use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_interpreter::BlockMessages;
-use forest_ipld::walk_snapshot;
+use forest_ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
@@ -585,21 +585,31 @@ where
         let global_pre_time = SystemTime::now();
         info!("chain export started");
 
+        let estimated_reachable_records = Some(
+            self.file_backed_chain_meta()
+                .lock()
+                .inner()
+                .estimated_reachable_records as u64,
+        );
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.
-        let n_records = walk_snapshot(tipset, recent_roots, |cid| {
-            let tx_clone = tx.clone();
-            async move {
-                let block = self
-                    .blockstore()
-                    .get(&cid)?
-                    .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
-
-                tx_clone.send_async((cid, block.clone())).await?;
-
-                Ok(block)
-            }
-        })
+        let n_records = walk_snapshot(
+            tipset,
+            recent_roots,
+            |cid| {
+                let tx_clone = tx.clone();
+                async move {
+                    let block = self.blockstore().get(&cid)?.ok_or_else(|| {
+                        Error::Other(format!("Cid {cid} not found in blockstore"))
+                    })?;
+                    tx_clone.send_async((cid, block.clone())).await?;
+                    Ok(block)
+                }
+            },
+            Some("Exporting snapshot | blocks "),
+            Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
+            estimated_reachable_records,
+        )
         .await?;
 
         {

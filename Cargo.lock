@@ -4147,6 +4147,7 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",
  "indexmap",
+ "lazy_static",
  "libipld",
  "libipld-core 0.14.0",
  "libipld-macro",
