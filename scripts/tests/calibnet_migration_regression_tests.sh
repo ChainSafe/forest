@@ -21,5 +21,5 @@ $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/file
 # NV19 - Lightning
 $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_489194.car.zst"
 
-# NV20 - Thunder
+# NV20 - Thunder (no migration should happen in practice, it's a shadow upgrade). We test it anyway.
 $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_492314.car.zst"
