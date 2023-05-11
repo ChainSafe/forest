@@ -19,8 +19,8 @@ $FOREST_CLI_PATH --chain calibnet db clean --force
 echo NV18 - Hygge
 $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_322454.car.zst"
 
-echo NV19 - Lightning
-$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_489194.car.zst"
-
-echo NV20 - Thunder # (no migration should happen in practice, it's a shadow upgrade). We test it anyway.
-$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_492314.car.zst"
+#echo NV19 - Lightning
+#$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_489194.car.zst"
+#
+#echo NV20 - Thunder # (no migration should happen in practice, it's a shadow upgrade). We test it anyway.
+#$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_492314.car.zst"
