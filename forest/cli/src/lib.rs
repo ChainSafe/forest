@@ -31,30 +31,31 @@ pub mod humantoken {
             }
         }
 
+        /// Biggest first
         macro_rules! define_prefixes {
-        ($($name:ident $symbol:ident$(or $alt_symbol:ident)* $base_10:literal $decimal:literal),* $(,)?) => {
-
-            // Define constants
-            $(
-                #[allow(non_upper_case_globals)]
-                pub const $name: Prefix = Prefix {
-                    name: stringify!($name),
-                    units: &[stringify!($symbol) $(, stringify!($alt_symbol))* ],
-                    exponent: $base_10,
-                    multiplier: stringify!($decimal),
-                };
-            )*
-
-            // Define top level array
-            pub const PREFIXES: &[Prefix] =
-                &[
+            ($($name:ident $symbol:ident$(or $alt_symbol:ident)* $base_10:literal $decimal:literal),* $(,)?) =>
+                {
+                    // Define constants
                     $(
-                        $name
-                    ,)*
-                ];
+                        #[allow(non_upper_case_globals)]
+                        pub const $name: Prefix = Prefix {
+                            name: stringify!($name),
+                            units: &[stringify!($symbol) $(, stringify!($alt_symbol))* ],
+                            exponent: $base_10,
+                            multiplier: stringify!($decimal),
+                        };
+                    )*
 
-        };
-    }
+                    /// Biggest first
+                    // Define top level array
+                    pub const SUPPORTED_PREFIXES: &[Prefix] =
+                        &[
+                            $(
+                                $name
+                            ,)*
+                        ];
+                };
+        }
 
         define_prefixes! {
             quetta	Q	30	1000000000000000000000000000000,
@@ -67,10 +68,15 @@ pub mod humantoken {
             giga	G	9	1000000000,
             mega	M	6	1000000,
             kilo	k	3	1000,
-            hecto	h	2	100,
-            deca	da	1	10,
-            deci	d	-1	0.1,
-            centi	c	-2	0.01,
+            // Leave this out because
+            // - it simplifies our printing logic
+            // - these are not commonly used
+            // - it's more consistent with lotus
+            //
+            // hecto	h	2	100,
+            // deca	da	1	10,
+            // deci	d	-1	0.1,
+            // centi	c	-2	0.01,
             milli	m	-3	0.001,
             micro	μ or u	-6	0.000001,
             nano	n	-9	0.000000001,
@@ -81,6 +87,14 @@ pub mod humantoken {
             yocto	y	-24	0.000000000000000000000001,
             ronto	r	-27	0.000000000000000000000000001,
             quecto	q	-30	0.000000000000000000000000000001,
+        }
+
+        #[test]
+        fn sorted() {
+            let is_sorted_biggest_first = SUPPORTED_PREFIXES
+                .windows(2)
+                .all(|pair| pair[0].multiplier() > pair[1].multiplier());
+            assert!(is_sorted_biggest_first)
         }
     }
 
@@ -161,7 +175,7 @@ pub mod humantoken {
             // Try the longest matches first, so we don't e.g match `a` instead of `atto`,
             // leaving `tto`.
 
-            let mut scales = si::PREFIXES
+            let mut scales = si::SUPPORTED_PREFIXES
                 .iter()
                 .flat_map(|scale| {
                     std::iter::once(&scale.name)
@@ -201,7 +215,7 @@ pub mod humantoken {
 
             #[test]
             fn cover_scales() {
-                for scale in si::PREFIXES {
+                for scale in si::SUPPORTED_PREFIXES {
                     let _did_not_panic = scale.multiplier();
                 }
             }
@@ -221,7 +235,7 @@ pub mod humantoken {
                 do_test("1.", "1");
             }
 
-            fn do_test(
+            fn test_dec_scale(
                 input: &str,
                 expected_amount: &str,
                 expected_scale: impl Into<Option<si::Prefix>>,
@@ -236,13 +250,13 @@ pub mod humantoken {
             #[test]
             fn basic_bigdecimal_and_scale() {
                 // plain
-                do_test("1", "1", None);
+                test_dec_scale("1", "1", None);
 
                 // include unit
-                do_test("1 FIL", "1", None);
-                do_test("1FIL", "1", None);
-                do_test("1 fil", "1", None);
-                do_test("1fil", "1", None);
+                test_dec_scale("1 FIL", "1", None);
+                test_dec_scale("1FIL", "1", None);
+                test_dec_scale("1 fil", "1", None);
+                test_dec_scale("1fil", "1", None);
 
                 let possible_units = ["", "fil", "FIL", " fil", " FIL"];
                 let possible_prefixes = ["atto", "a", " atto", " a"];
@@ -250,15 +264,15 @@ pub mod humantoken {
                 for unit in possible_units {
                     for prefix in possible_prefixes {
                         let input = format!("1{prefix}{unit}");
-                        do_test(&input, "1", si::atto)
+                        test_dec_scale(&input, "1", si::atto)
                     }
                 }
             }
 
             #[test]
             fn parse_exa_and_exponent() {
-                do_test("1 E", "1", si::exa);
-                do_test("1e0E", "1", si::exa);
+                test_dec_scale("1 E", "1", si::exa);
+                test_dec_scale("1e0E", "1", si::exa);
 
                 // ENHANCE(aatifsyed): this should be parsed as 1 exa, but that
                 // would probably require an entirely custom float parser with
@@ -278,7 +292,7 @@ pub mod humantoken {
                     test_str.push('0')
                 }
                 test_str.push('1');
-                do_test(&test_str, &test_str, None);
+                test_dec_scale(&test_str, &test_str, None);
             }
 
             #[test]
@@ -303,12 +317,155 @@ pub mod humantoken {
 
             #[test]
             fn all_possible_prefixes() {
-                for scale in si::PREFIXES {
+                for scale in si::SUPPORTED_PREFIXES {
                     for prefix in scale.units.iter().chain([&scale.name]) {
                         // Need a space here because of the exa ambiguity
-                        do_test(&format!("1 {prefix}"), "1", *scale);
+                        test_dec_scale(&format!("1 {prefix}"), "1", *scale);
                     }
                 }
+            }
+        }
+    }
+
+    mod print {
+        use std::{fmt, str::FromStr};
+
+        use bigdecimal::BigDecimal;
+        use fvm_shared::econ::TokenAmount;
+        use num::{BigInt, Zero as _};
+
+        use super::si;
+
+        fn scale(n: BigDecimal) -> (BigDecimal, Option<si::Prefix>) {
+            // this works because we've removed centi//deca etc from our prefixes
+            let one_thousand = BigDecimal::from_str("1000").unwrap();
+
+            // special case
+            if n < one_thousand && n > si::milli.multiplier() {
+                return (n, None);
+            }
+
+            // smallest first
+            for prefix in si::SUPPORTED_PREFIXES.iter().rev() {
+                let scaled = n.clone() / prefix.multiplier();
+                if scaled < one_thousand {
+                    return (scaled, Some(*prefix));
+                }
+            }
+
+            // we're huge!
+            let biggest_prefix = si::SUPPORTED_PREFIXES.first().unwrap();
+            (n / biggest_prefix.multiplier(), Some(*biggest_prefix))
+        }
+
+        struct Pretty {
+            attos: BigInt,
+        }
+
+        impl From<&TokenAmount> for Pretty {
+            fn from(value: &TokenAmount) -> Self {
+                Self {
+                    attos: value.atto().clone(),
+                }
+            }
+        }
+
+        impl fmt::Display for Pretty {
+            /// # -> include "FIL" at the end
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let actual_fil = &self.attos * si::atto.multiplier();
+
+                let fil_for_formatting = match f.precision() {
+                    None => actual_fil.normalized(),
+                    Some(prec) => actual_fil
+                        .with_prec(
+                            u64::try_from(prec).expect("requested precision is absurdly large"),
+                        )
+                        .normalized(),
+                };
+
+                let precision_was_lost = fil_for_formatting != actual_fil;
+
+                if precision_was_lost {
+                    f.write_str("~ ")?;
+                }
+
+                let (int, exp) = fil_for_formatting.as_bigint_and_exponent();
+
+                if f.alternate() {
+                    f.write_str("FIL")?;
+                }
+
+                Ok(())
+            }
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use num::One as _;
+            use pretty_assertions::assert_eq;
+
+            use super::*;
+
+            #[test]
+            fn scale_one() {
+                for prefix in si::SUPPORTED_PREFIXES {
+                    let input = BigDecimal::from_str(prefix.multiplier).unwrap();
+                    assert_eq!((BigDecimal::one(), Some(*prefix)), scale(input));
+                }
+            }
+
+            #[test]
+            fn extremes() {
+                let one_thousand = BigDecimal::from_str("1000").unwrap();
+
+                let one_thousand_quettas = si::quetta.multiplier() * &one_thousand;
+                assert_eq!(
+                    (one_thousand, Some(si::quetta)),
+                    scale(one_thousand_quettas)
+                );
+
+                let one_thousanth = BigDecimal::from_str("0.001").unwrap();
+                let one_thousanth_of_a_quecto = si::quecto.multiplier() * &one_thousanth;
+                assert_eq!(
+                    (one_thousanth, Some(si::quecto)),
+                    scale(one_thousanth_of_a_quecto)
+                )
+            }
+
+            fn test_scale(
+                input: &str,
+                expected_value: &str,
+                expected_prefix: impl Into<Option<si::Prefix>>,
+            ) {
+                let input = BigDecimal::from_str(input).unwrap();
+                let expected_value = BigDecimal::from_str(expected_value).unwrap();
+                let expected_prefix = expected_prefix.into();
+
+                assert_eq!((expected_value, expected_prefix), scale(input))
+            }
+
+            #[test]
+            fn no_prefix() {
+                test_scale("1000", "1", si::kilo);
+                test_scale("100", "100", None);
+                test_scale("10", "10", None);
+                test_scale("1", "1", None);
+                test_scale("0.1", "0.1", None);
+                test_scale("0.01", "0.01", None);
+                test_scale("0.001", "1", si::milli);
+            }
+
+            #[test]
+            fn trailing_one() {
+                test_scale("1001", "1.001", si::kilo);
+                test_scale("100.1", "100.1", None);
+                test_scale("10.01", "10.01", None);
+                test_scale("1.001", "1.001", None);
+                test_scale("0.1001", "0.1001", None);
+                test_scale("0.01001", "0.01001", None);
+                // test_scale("0.001001", "1.001", si::milli);
+                test_scale("0.0001001", "1.001", si::micro);
             }
         }
     }

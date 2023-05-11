@@ -52,6 +52,7 @@ multibase.workspace = true
 nom = "7.1.3"
 num.workspace = true
 once_cell.workspace = true
+pretty_assertions = "1.3.0"
 rpassword.workspace = true
 rust_decimal = "1.28.1"
 rust_decimal_macros = "1.28.1"
