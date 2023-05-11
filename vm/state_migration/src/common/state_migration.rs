@@ -52,7 +52,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         // we need at least 3 threads for the migration to work
         let threads = num_cpus::get().max(3);
-        let chan_size = (threads / 2).max(1);
+        let chan_size = threads / 2;
 
         log::info!("Using {threads} threads for migration and channel size of {chan_size}",);
 
