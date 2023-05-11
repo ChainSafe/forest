@@ -65,27 +65,30 @@ pub mod humantoken {
     }
 
     define_scales! {
-    quetta	Q	30	1000000000000000000000000000000,
-    ronna	R	27	1000000000000000000000000000,
-    yotta	Y	24	1000000000000000000000000,
-    zetta	Z	21	1000000000000000000000,
-    exa	E	18	1000000000000000000,
-    peta	P	15	1000000000000000,
-    tera	T	12	1000000000000,
-    giga	G	9	1000000000,
-    mega	M	6	1000000,
-    kilo	k	3	1000,
-    hecto	h	2	100,
-    deca	da	1	10,
-    deci	d	-1	0.1,
-    centi	c	-2	0.01,
-    milli	m	-3	0.001,
-    micro	μ or u	-6	0.000001,
-    nano	n	-9	0.000000001,
-    pico	p	-12	0.000000000001,
-    femto	f	-15	0.000000000000001,
-    atto	a	-18	0.000000000000000001,
-    // we don't support subdivisions of an atto for our usecase
+        quetta	Q	30	1000000000000000000000000000000,
+        ronna	R	27	1000000000000000000000000000,
+        yotta	Y	24	1000000000000000000000000,
+        zetta	Z	21	1000000000000000000000,
+        exa	    E	18	1000000000000000000,
+        peta	P	15	1000000000000000,
+        tera	T	12	1000000000000,
+        giga	G	9	1000000000,
+        mega	M	6	1000000,
+        kilo	k	3	1000,
+        hecto	h	2	100,
+        deca	da	1	10,
+        deci	d	-1	0.1,
+        centi	c	-2	0.01,
+        milli	m	-3	0.001,
+        micro	μ or u	-6	0.000001,
+        nano	n	-9	0.000000001,
+        pico	p	-12	0.000000000001,
+        femto	f	-15	0.000000000000001,
+        atto	a	-18	0.000000000000000001,
+        zepto	z	-21	0.000000000000000000001,
+        yocto	y	-24	0.000000000000000000000001,
+        ronto	r	-27	0.000000000000000000000000001,
+        quecto	q	-30	0.000000000000000000000000000001,
     }
 
     fn nom2anyhow(e: nom::Err<nom::error::VerboseError<&str>>) -> anyhow::Error {
@@ -142,15 +145,25 @@ pub mod humantoken {
 
     /// Take an SIScale from the front of `input`
     fn si_scale<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, SIScale, E> {
-        for scale in ALL_SCALES {
-            // the name needs to be first, otherwise we'll match `a` instead of `atto`, and
-            // leave `tto` which will raise an error
-            for prefix in std::iter::once(&scale.name).chain(scale.units) {
-                if let Ok((rem, _prefix)) = tag::<_, _, E>(*prefix)(input) {
-                    return Ok((rem, *scale));
-                }
+        // Try the longest matches first, so we don't e.g match `a` instead of `atto`,
+        // leaving `tto`.
+
+        let mut scales = ALL_SCALES
+            .iter()
+            .flat_map(|scale| {
+                std::iter::once(&scale.name)
+                    .chain(scale.units)
+                    .map(move |prefix| (*prefix, scale))
+            })
+            .collect::<Vec<_>>();
+        scales.sort_by_key(|(prefix, _)| std::cmp::Reverse(*prefix));
+
+        for (prefix, scale) in scales {
+            if let Ok((rem, _prefix)) = tag::<_, _, E>(prefix)(input) {
+                return Ok((rem, *scale));
             }
         }
+
         Err(nom::Err::Error(E::from_error_kind(
             input,
             nom::error::ErrorKind::Alt,
@@ -256,6 +269,16 @@ pub mod humantoken {
                 parse("0.1 atto").unwrap_err().to_string(),
                 "sub-atto amounts are not allowed"
             )
+        }
+
+        #[test]
+        fn all_possible_prefixes() {
+            for scale in ALL_SCALES {
+                for prefix in scale.units.iter().chain([&scale.name]) {
+                    // Need a space here because of the exa ambiguity
+                    do_test(&format!("1 {prefix}"), "1", *scale);
+                }
+            }
         }
     }
 }
