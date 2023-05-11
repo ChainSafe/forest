@@ -1,5 +1,10 @@
 name: Script linters
 
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 on:
   pull_request:
     branches:

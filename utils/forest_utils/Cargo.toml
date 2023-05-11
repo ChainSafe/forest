@@ -34,7 +34,7 @@ log.workspace = true
 memory-stats = "1.1"
 once_cell.workspace = true
 parking_lot.workspace = true
-pbr = "1.1"
+pbr.workspace = true
 pin-project-lite.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }

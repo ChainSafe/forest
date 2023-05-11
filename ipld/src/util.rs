@@ -1,11 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, future::Future};
+use std::{
+    collections::VecDeque,
+    future::Future,
+    sync::{
+        atomic::{self, AtomicU64},
+        Arc,
+    },
+    time::Duration,
+};
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
+use forest_utils::io::{progress_bar, ProgressBar};
 use fvm_ipld_encoding::{from_slice, Cbor};
+use lazy_static::lazy_static;
 
 use crate::{CidHashSet, Ipld};
 
@@ -16,6 +26,7 @@ async fn traverse_ipld_links_hash<F, T>(
     walked: &mut CidHashSet,
     load_block: &mut F,
     ipld: &Ipld,
+    on_inserted: &(impl Fn(usize) + Send + Sync),
 ) -> Result<(), anyhow::Error>
 where
     F: FnMut(Cid) -> T + Send,
@@ -24,29 +35,29 @@ where
     match ipld {
         Ipld::Map(m) => {
             for (_, v) in m.iter() {
-                traverse_ipld_links_hash(walked, load_block, v).await?;
+                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
             }
         }
         Ipld::List(list) => {
             for v in list.iter() {
-                traverse_ipld_links_hash(walked, load_block, v).await?;
+                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
             }
         }
         Ipld::Link(cid) => {
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
             if cid.codec() == fvm_shared::IPLD_RAW {
-                if !walked.insert(cid) {
+                if !walked.insert(cid, on_inserted) {
                     return Ok(());
                 }
                 let _ = load_block(*cid).await?;
             }
             if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                if !walked.insert(cid) {
+                if !walked.insert(cid, on_inserted) {
                     return Ok(());
                 }
                 let bytes = load_block(*cid).await?;
                 let ipld = from_slice(&bytes)?;
-                traverse_ipld_links_hash(walked, load_block, &ipld).await?;
+                traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
             }
         }
         _ => (),
@@ -59,12 +70,13 @@ pub async fn recurse_links_hash<F, T>(
     walked: &mut CidHashSet,
     root: Cid,
     load_block: &mut F,
+    on_inserted: &(impl Fn(usize) + Send + Sync),
 ) -> Result<(), anyhow::Error>
 where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
 {
-    if !walked.insert(&root) {
+    if !walked.insert(&root, on_inserted) {
         // Cid has already been traversed
         return Ok(());
     }
@@ -75,9 +87,16 @@ where
     let bytes = load_block(root).await?;
     let ipld = from_slice(&bytes)?;
 
-    traverse_ipld_links_hash(walked, load_block, &ipld).await?;
+    traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
 
     Ok(())
+}
+
+pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
+
+lazy_static! {
+    pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: ProgressBarCurrentTotalPair = Default::default();
+    pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: ProgressBarCurrentTotalPair = Default::default();
 }
 
 /// Walks over tipset and state data and loads all blocks not yet seen.
@@ -86,27 +105,52 @@ pub async fn walk_snapshot<F, T>(
     tipset: &Tipset,
     recent_roots: i64,
     mut load_block: F,
+    progress_bar_message: Option<&str>,
+    progress_tracker: Option<ProgressBarCurrentTotalPair>,
+    estimated_total_records: Option<u64>,
 ) -> anyhow::Result<usize>
 where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
 {
+    let estimated_total_records = estimated_total_records.unwrap_or_default();
+    let bar = ProgressBar::new(estimated_total_records);
+    bar.message(progress_bar_message.unwrap_or("Walking snapshot "));
+    bar.set_units(progress_bar::Units::Default);
+    bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
+
     let mut seen = CidHashSet::default();
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
     let mut current_min_height = tipset.epoch();
     let incl_roots_epoch = tipset.epoch() - recent_roots;
 
-    while let Some(next) = blocks_to_walk.pop_front() {
-        if !seen.insert(&next) {
-            continue;
+    let on_inserted = {
+        let bar = bar.clone();
+        let progress_tracker = progress_tracker.clone();
+        move |len: usize| {
+            let progress = len as u64;
+            let total = progress.max(estimated_total_records);
+            bar.set(progress);
+            bar.set_total(total);
+            if let Some(progress_tracker) = &progress_tracker {
+                progress_tracker
+                    .0
+                    .store(progress, atomic::Ordering::Relaxed);
+                progress_tracker.1.store(total, atomic::Ordering::Relaxed);
+            }
         }
+    };
+
+    while let Some(next) = blocks_to_walk.pop_front() {
+        if !seen.insert(&next, &on_inserted) {
+            continue;
+        };
 
         if !should_save_block_to_snapshot(&next) {
             continue;
         }
 
         let data = load_block(next).await?;
-
         let h = BlockHeader::unmarshal_cbor(&data)?;
 
         if current_min_height > h.epoch() {
@@ -114,7 +158,7 @@ where
         }
 
         if h.epoch() > incl_roots_epoch {
-            recurse_links_hash(&mut seen, *h.messages(), &mut load_block).await?;
+            recurse_links_hash(&mut seen, *h.messages(), &mut load_block, &on_inserted).await?;
         }
 
         if h.epoch() > 0 {
@@ -128,10 +172,11 @@ where
         }
 
         if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-            recurse_links_hash(&mut seen, *h.state_root(), &mut load_block).await?;
+            recurse_links_hash(&mut seen, *h.state_root(), &mut load_block, &on_inserted).await?;
         }
     }
 
+    bar.finish();
     Ok(seen.len())
 }
 
