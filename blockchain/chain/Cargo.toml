@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-compression.workspace = true
 blake2b_simd.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
