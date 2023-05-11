@@ -28,7 +28,7 @@ function cov {
 }
 
 cargo llvm-cov --workspace clean
-cargo llvm-cov --workspace --no-report --features slow_tests
+cargo llvm-cov --workspace --no-report
 cov forest-cli --chain calibnet db clean --force
 cov forest-cli --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.zst | head -n 1)

@@ -1,0 +1,186 @@
+name: Integration tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - '*.rb'
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  CI: 1
+  CARGO_INCREMENTAL: 0
+  CACHE_TIMEOUT_MINUTES: 5
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+  CC: "sccache clang"
+  CXX: "sccache clang++"
+
+jobs:
+  build-macos:
+    name: Build MacOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Cargo Check
+        run: cargo check
+
+  node-build-ubuntu:
+    name: Build Ubuntu (Forest daemon)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Install Apt Dependencies
+        run: |
+          sudo make install-deps
+      - name: Cargo Install
+        run: make install-daemon
+      - uses: actions/upload-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: |
+            ~/.cargo/bin/forest
+          if-no-files-found: error
+
+  cli-build-ubuntu:
+    name: Build Ubuntu (Forest CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Install Apt Dependencies
+        run: |
+          sudo make install-deps
+      - name: Cargo Install
+        run: make install-cli
+      - uses: actions/upload-artifact@v3
+        with:
+          name: forest-cli-${{ runner.os }}
+          path: |
+            ~/.cargo/bin/forest-cli
+          if-no-files-found: error
+
+  # cli-specific tests
+  forest-cli-check:
+    needs:
+      - cli-build-ubuntu
+    name: Forest CLI checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-cli-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest-cli
+      - name: forest-cli check
+        run: ./scripts/tests/forest_cli_check.sh
+
+  # miscallenous tests done on calibnet
+  calibnet-check:
+    needs:
+      - node-build-ubuntu
+      - cli-build-ubuntu
+    name: Calibnet check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-cli-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Other commands check
+        run: ./scripts/tests/calibnet_other_check.sh
+
+  # Wallet checks (sending, exporting key, balances...)
+  calibnet-wallet-check:
+    needs:
+      - node-build-ubuntu
+      - cli-build-ubuntu
+    name: Wallet tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-cli-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Wallet commands check
+        env:
+          CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
+        run: ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+
+  # Snapshot export checks
+  calibnet-export-check:
+    needs:
+      - node-build-ubuntu
+      - cli-build-ubuntu
+    name: Snapshot export checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-cli-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Snapshot export check
+        run: ./scripts/tests/calibnet_export_check.sh

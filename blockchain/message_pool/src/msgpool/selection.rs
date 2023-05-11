@@ -722,7 +722,6 @@ mod test_selection {
         .unwrap()
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn basic_message_selection() {
         let mut joinset = JoinSet::new();
