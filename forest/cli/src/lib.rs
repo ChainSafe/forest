@@ -6,6 +6,7 @@ mod util {
     use std::str::FromStr;
 
     use bigdecimal::BigDecimal;
+    use fvm_shared::econ::TokenAmount;
     use num::{BigInt, One as _};
     use once_cell::sync::Lazy;
 
@@ -31,8 +32,12 @@ mod util {
                         $(Self::$name => stringify!($symbol),)*
                     }
                 }
-                pub fn scale(&self) -> &'static BigDecimal {
-
+                pub const fn exponent(&self) -> i8 {
+                    match self {
+                        $(Self::$name => $base_10,)*
+                    }
+                }
+                pub fn multiplier(&self) -> &'static BigDecimal {
                     $(
                         #[allow(non_upper_case_globals)]
                         static $name: Lazy<BigDecimal> = Lazy::new(||BigDecimal::from_str(stringify!($decimal)).unwrap());
@@ -47,6 +52,7 @@ mod util {
                 type Err = anyhow::Error;
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
                     match s {
+                        "u" => Ok(Self::micro),
                         $(
                             stringify!($name) | stringify!($symbol) => Ok(Self::$name),
                         )*
@@ -92,36 +98,44 @@ mod util {
     // we don't support subdivisions of an atto for our usecase
     );
 
-    pub fn bigdecimal_to_attos(
+    pub fn bigdecimal_fil_to_attos(
         mut big_decimal: BigDecimal,
         prefix: Option<SupportedPrefix>,
-    ) -> BigInt {
+    ) -> Option<TokenAmount> {
         if let Some(prefix) = prefix {
-            big_decimal *= prefix.scale();
+            big_decimal *= prefix.multiplier();
         }
 
         let fil = big_decimal;
         let attos = fil * &*ATTOS_PER_FIL;
-        attos.with_scale(todo!());
-        todo!()
+
+        if !attos.is_integer() {
+            return None;
+        }
+
+        let (attos, scale) = attos.with_scale(0).into_bigint_and_exponent();
+        assert_eq!(scale, 0, "we've just set the scale!");
+
+        Some(TokenAmount::from_atto(attos))
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
+
         /// Catch panics in memoized scales
         #[test]
         fn cover_scales() {
             for prefix in SupportedPrefix::all() {
-                let _ = prefix.scale();
+                let _ = prefix.multiplier();
             }
         }
 
         #[test]
         fn attos_per_fil() {
-            assert_eq!(SupportedPrefix::atto.scale().inverse(), *ATTOS_PER_FIL);
+            assert_eq!(SupportedPrefix::atto.multiplier().inverse(), *ATTOS_PER_FIL);
             assert_eq!(
-                SupportedPrefix::atto.scale() * &*ATTOS_PER_FIL,
+                SupportedPrefix::atto.multiplier() * &*ATTOS_PER_FIL,
                 BigDecimal::one()
             );
         }
