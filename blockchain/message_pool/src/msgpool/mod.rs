@@ -450,7 +450,63 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mined_messages_removal() {}
+    async fn test_remove_messages() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+            &mut services,
+        )
+        .unwrap();
+        let mut smsg_vec = Vec::new();
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        mpool.add(smsg_vec[0].clone()).unwrap();
+        mpool.add(smsg_vec[1].clone()).unwrap();
+        mpool.add(smsg_vec[2].clone()).unwrap();
+        mpool.add(smsg_vec[3].clone()).unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 4);
+
+        let header_a = mock_block(1, 1);
+
+        mpool.api.inner.lock().set_block_messages(&header_a, smsg_vec.clone());
+
+        let tipset_a = Tipset::from(&header_a.clone());
+
+        let ts = tipset_a.clone();
+        mpool.api.set_heaviest_tipset(Arc::new(ts));
+
+        // sleep allows for async block to update mpool's cur_tipset
+        tokio::time::sleep(Duration::new(2, 0)).await;
+
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 0);
+
+        // clear and create a new vector
+        smsg_vec.clear();
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+    }
 
     #[tokio::test]
     async fn test_message_pool() {
