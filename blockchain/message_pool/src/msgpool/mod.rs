@@ -485,7 +485,11 @@ pub mod tests {
 
         let header_a = mock_block(1, 1);
 
-        mpool.api.inner.lock().set_block_messages(&header_a, smsg_vec.clone());
+        mpool
+            .api
+            .inner
+            .lock()
+            .set_block_messages(&header_a, smsg_vec.clone());
 
         let tipset_a = Tipset::from(&header_a.clone());
 
