@@ -33,6 +33,13 @@
 
 ### Changed
 
+- [#2668](https://github.com/ChainSafe/forest/issues/2668): JavaScript console
+  `sendFIL` function has been updated to align with recent changes in the Forest
+  `send` command (allowed units for the amount field are now "attoFIL",
+  "femtoFIL", "picoFIL", "nanoFIL", "microFIL", "milliFIL", and "FIL"). Note
+  that the default `sendFIL` amount unit (i.e., if no units are specified) is
+  now FIL to match the behavior in Lotus.
+
 ### Removed
 
 ### Fixed
