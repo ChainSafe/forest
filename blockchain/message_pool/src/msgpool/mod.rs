@@ -443,8 +443,14 @@ pub mod tests {
         for smsg in body {
             mpool.add(smsg.clone()).unwrap();
         }
-        assert_eq!(mpool.add(last.clone()), Err(Error::TooManyPendingMessages(sender.to_string())));
+        assert_eq!(
+            mpool.add(last.clone()),
+            Err(Error::TooManyPendingMessages(sender.to_string()))
+        );
     }
+
+    #[tokio::test]
+    async fn test_mined_messages_removal() {}
 
     #[tokio::test]
     async fn test_message_pool() {
@@ -715,7 +721,7 @@ pub mod tests {
         }
 
         // Test 2: 10 messages from a1 to a2, with decreasing gasPerf; it should
-        // 	         make 10 chains with 1 message each
+        // make 10 chains with 1 message each
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -796,8 +802,8 @@ pub mod tests {
         }
 
         // Test 3b: 10 messages from a1 to a2, with gasPerf decreasing in groups of 3
-        // with a bias for the          earlier chains; it should make 4 chains,
-        // the first 3 with 3 messages and the last with          a single
+        // with a bias for the earlier chains; it should make 4 chains,
+        // the first 3 with 3 messages and the last with a single
         // message
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
@@ -855,7 +861,7 @@ pub mod tests {
 
         // --- Test Chain Breaks ---
         // Test 4: 10 messages with non-consecutive nonces; it should make a single
-        // chain with just         the first message
+        // chain with just the first message
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -887,7 +893,7 @@ pub mod tests {
         }
 
         // Test 5: 10 messages with increasing gasLimit, except for the 6th message
-        // which has less than         the epoch gasLimit; it should create a
+        // which has less than the epoch gasLimit; it should create a
         // single chain with the first 5 messages
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
@@ -925,7 +931,7 @@ pub mod tests {
         }
 
         // Test 6: one more message than what can fit in a block according to gas limit,
-        // with increasing         gasPerf; it should create a single chain with
+        // with increasing gasPerf; it should create a single chain with
         // the max messages
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
