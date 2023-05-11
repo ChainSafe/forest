@@ -71,7 +71,10 @@ class LotusBenchmark < BenchmarkBase
 
   def initialize(name:, config: {})
     super(name: name, config: config)
-    ENV['LOTUS_PATH'] = File.join(WORKING_DIR, ".#{repository_name}")
+    Dir.chdir(@working_dir) do
+      current_dir = Dir.pwd
+      ENV['LOTUS_PATH'] = File.join(current_dir, ".#{repository_name}")
+    end
     @import_command = [
       target, 'daemon', '--config', '%<c>s', '--import-snapshot', '%<s>s', '--halt-after-import'
     ]

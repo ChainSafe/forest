@@ -161,8 +161,8 @@ module RunCommands
   rescue StandardError, Interrupt
     @logger.error('Fiasco during benchmark run. Deleting downloaded files, cleaning DB and stopping process...')
     FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
-    FileUtils.rm_rf(repository_name) if @created_repository
     clean_db
+    FileUtils.rm_rf(repository_name) if @created_repository
     exit(1)
   end
 
@@ -236,5 +236,6 @@ class BenchmarkBase
     @config = config
     @logger = Logger.new($stdout)
     @created_repository = false
+    @working_dir = WORKING_DIR
   end
 end
