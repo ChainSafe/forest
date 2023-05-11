@@ -9,6 +9,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 cid.workspace = true
+const-str = "0.5.4"
 fil_actors_runtime_v10.workspace = true
 forest_beacon.workspace = true
 forest_shim.workspace = true
@@ -17,3 +18,6 @@ lazy_static.workspace = true
 serde = { workspace = true, features = ["derive"] }
 strum_macros = "0.24"
 url.workspace = true
+
+[dev-dependencies]
+multiaddr = "0.17.1"

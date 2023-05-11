@@ -21,7 +21,3 @@ serde_tuple.workspace = true
 
 [dev-dependencies]
 rand.workspace = true
-
-[features]
-default = ["blst"]
-blst = ["fvm_shared/blst"]

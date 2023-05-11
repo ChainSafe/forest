@@ -1,6 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+/// In general, `forest` wants to support the same RPC messages as `lotus` (go
+/// implementation of Filecoin). Current progress is tracked in
+/// `ARCHITECTURE.md`.
+///
+/// Follow the pattern set below, and don't forget to add an entry to the
+/// [`ACCESS_MAP`] with the relevant permissions (consult the go implementation,
+/// looking for a comment like `// perm: admin`)
 use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
 
@@ -40,6 +46,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET_HASH, Access::Read);
     access.insert(chain_api::CHAIN_VALIDATE_TIPSET_CHECKPOINTS, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
+    access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -91,6 +98,9 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // DB API
     access.insert(db_api::DB_GC, Access::Write);
+
+    // Progress API
+    access.insert(progress_api::GET_PROGRESS, Access::Read);
 
     access
 });
@@ -218,6 +228,10 @@ pub mod chain_api {
     pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
     pub type ChainGetNameParams = ();
     pub type ChainGetNameResult = String;
+
+    pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
+    pub type ChainSetHeadParams = (TipsetKeys,);
+    pub type ChainSetHeadResult = ();
 }
 
 /// Message Pool API
@@ -421,4 +435,19 @@ pub mod db_api {
     pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
     pub type DBGCParams = ();
     pub type DBGCResult = ();
+}
+
+/// Progress API
+pub mod progress_api {
+    use serde::{Deserialize, Serialize};
+
+    pub const GET_PROGRESS: &str = "Filecoin.GetProgress";
+    pub type GetProgressParams = (GetProgressType,);
+    pub type GetProgressResult = (u64, u64);
+
+    #[derive(Serialize, Deserialize)]
+    pub enum GetProgressType {
+        SnapshotExport,
+        DatabaseGarbageCollection,
+    }
 }

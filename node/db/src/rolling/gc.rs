@@ -75,7 +75,7 @@ use std::{
 use chrono::Utc;
 use forest_blocks::Tipset;
 use forest_ipld::util::*;
-use forest_utils::db::{BlockstoreBufferedWriteExt, DB_KEY_BYTES};
+use forest_utils::db::{file_backed_obj::ChainMeta, BlockstoreBufferedWriteExt, DB_KEY_BYTES};
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use tokio::sync::Mutex;
@@ -87,6 +87,7 @@ where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
     db: RollingDB,
+    file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
     get_tipset: F,
     chain_finality: i64,
     recent_state_roots: i64,
@@ -100,11 +101,18 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(db: RollingDB, chain_finality: i64, recent_state_roots: i64, get_tipset: F) -> Self {
+    pub fn new(
+        db: RollingDB,
+        file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
+        chain_finality: i64,
+        recent_state_roots: i64,
+        get_tipset: F,
+    ) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {
             db,
+            file_backed_chain_meta,
             get_tipset,
             chain_finality,
             recent_state_roots,
@@ -222,26 +230,47 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        walk_snapshot(&tipset, self.recent_state_roots, |cid| {
-            let db = db.clone();
-            let tx = tx.clone();
-            let reachable_bytes = reachable_bytes.clone();
-            async move {
-                let block = db
-                    .get(&cid)?
-                    .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
+        let estimated_reachable_records = Some(
+            self.file_backed_chain_meta
+                .lock()
+                .inner()
+                .estimated_reachable_records as u64,
+        );
+        let n_records = walk_snapshot(
+            &tipset,
+            self.recent_state_roots,
+            |cid| {
+                let db = db.clone();
+                let tx = tx.clone();
+                let reachable_bytes = reachable_bytes.clone();
+                async move {
+                    let block = db
+                        .get(&cid)?
+                        .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
 
-                let pair = (cid, block.clone());
-                reachable_bytes.fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
-                if !db.current().has(&cid)? {
-                    tx.send_async(pair).await?;
+                    let pair = (cid, block.clone());
+                    reachable_bytes
+                        .fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
+                    if !db.current().has(&cid)? {
+                        tx.send_async(pair).await?;
+                    }
+
+                    Ok(block)
                 }
-
-                Ok(block)
-            }
-        })
+            },
+            Some("Running DB GC | blocks "),
+            Some(WALK_SNAPSHOT_PROGRESS_DB_GC.clone()),
+            estimated_reachable_records,
+        )
         .await?;
         drop(tx);
+
+        {
+            let mut meta = self.file_backed_chain_meta.lock();
+            meta.inner_mut().estimated_reachable_records = n_records;
+            meta.sync()?;
+        }
+
         write_task.await??;
 
         let reachable_bytes = reachable_bytes.load(atomic::Ordering::Relaxed);

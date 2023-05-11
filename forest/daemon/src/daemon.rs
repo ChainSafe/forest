@@ -186,10 +186,12 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     chain_store.set_genesis(&genesis_header)?;
     let db_garbage_collector = {
         let db = db.clone();
+        let file_backed_chain_meta = chain_store.file_backed_chain_meta().clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
             db,
+            file_backed_chain_meta,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
             get_tipset,
@@ -674,7 +676,6 @@ mod test {
         Ok(())
     }
 
-    #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")

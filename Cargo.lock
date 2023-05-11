@@ -1540,6 +1540,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "520fbf3c07483f94e3e3ca9d0cfd913d7718ef2483d2cfd91c0d9e91474ab913"
 
 [[package]]
+name = "const-str"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b62c6d3ea43cbe0bc5a081f276fd477e4291d168aacc9f9d98073325333c0d4"
+
+[[package]]
 name = "const_format"
 version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3664,7 +3670,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-cli"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anes",
@@ -3698,6 +3704,7 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "fs_extra",
+ "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",
@@ -3726,7 +3733,7 @@ dependencies = [
 
 [[package]]
 name = "forest-daemon"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anes",
  "anyhow",
@@ -3773,7 +3780,7 @@ dependencies = [
 
 [[package]]
 name = "forest_auth"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "chrono",
  "forest_key_management",
@@ -3788,7 +3795,7 @@ dependencies = [
 
 [[package]]
 name = "forest_beacon"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3812,7 +3819,7 @@ dependencies = [
 
 [[package]]
 name = "forest_blocks"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3843,10 +3850,11 @@ dependencies = [
 
 [[package]]
 name = "forest_chain"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-compression",
  "blake2b_simd",
  "bls-signatures",
  "cid",
@@ -3886,7 +3894,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain_sync"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3931,7 +3939,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cli_shared"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3978,7 +3986,7 @@ dependencies = [
 
 [[package]]
 name = "forest_db"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4012,7 +4020,7 @@ dependencies = [
 
 [[package]]
 name = "forest_deleg_cns"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4037,7 +4045,7 @@ dependencies = [
 
 [[package]]
 name = "forest_fil_cns"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4070,7 +4078,7 @@ dependencies = [
 
 [[package]]
 name = "forest_genesis"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "cid",
@@ -4099,7 +4107,7 @@ dependencies = [
 
 [[package]]
 name = "forest_interpreter"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4125,7 +4133,7 @@ dependencies = [
 
 [[package]]
 name = "forest_ipld"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4139,6 +4147,7 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",
  "indexmap",
+ "lazy_static",
  "libipld",
  "libipld-core 0.14.0",
  "libipld-macro",
@@ -4154,7 +4163,7 @@ dependencies = [
 
 [[package]]
 name = "forest_json"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "base64 0.21.0",
@@ -4180,7 +4189,7 @@ dependencies = [
 
 [[package]]
 name = "forest_key_management"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4205,7 +4214,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4251,7 +4260,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p_bitswap"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4277,7 +4286,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "cid",
@@ -4294,7 +4303,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message_pool"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4336,7 +4345,7 @@ dependencies = [
 
 [[package]]
 name = "forest_metrics"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4352,15 +4361,17 @@ dependencies = [
 
 [[package]]
 name = "forest_networks"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "cid",
+ "const-str",
  "fil_actors_runtime_v10",
  "forest_beacon",
  "forest_shim",
  "fvm_shared 2.3.0",
  "lazy_static",
+ "multiaddr",
  "serde",
  "strum_macros",
  "url",
@@ -4368,7 +4379,7 @@ dependencies = [
 
 [[package]]
 name = "forest_paramfetch"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4386,11 +4397,10 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "async-compression",
  "axum",
  "base64 0.21.0",
  "cid",
@@ -4442,7 +4452,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-api"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4476,7 +4486,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-client"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "forest_libp2p",
  "forest_rpc-api",
@@ -4490,7 +4500,7 @@ dependencies = [
 
 [[package]]
 name = "forest_shim"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4516,7 +4526,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_manager"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4561,7 +4571,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_migration"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4590,7 +4600,7 @@ dependencies = [
 
 [[package]]
 name = "forest_statediff"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4617,7 +4627,7 @@ dependencies = [
 
 [[package]]
 name = "forest_test_utils"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "base64 0.21.0",
  "cid",
@@ -4632,7 +4642,7 @@ dependencies = [
 
 [[package]]
 name = "forest_utils"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -4671,6 +4681,7 @@ dependencies = [
  "serde_derive",
  "serde_ipld_dagcbor",
  "serde_json",
+ "serde_yaml",
  "sha2 0.10.6",
  "tempfile",
  "thiserror",
@@ -6004,9 +6015,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.142"
+version = "0.2.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a987beff54b60ffa6d51982e1aa1146bc42f19bd26be28b0586f252fccf5317"
+checksum = "2b00cc1c228a6782d0f076e7b232802e0c5689d41bb5df366f2a6b6621cfdfe1"
 
 [[package]]
 name = "libipld"
@@ -9204,7 +9215,7 @@ dependencies = [
 
 [[package]]
 name = "serialization_tests"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "base64 0.21.0",
  "bls-signatures",
