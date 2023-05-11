@@ -21,7 +21,11 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
-  SCCACHE_GHA_ENABLED: "true"
+  SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
+  SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
+  SCCACHE_REGION: ${{ vars.SCCACHE_REGION }}
+  AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+  AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
   RUSTC_WRAPPER: "sccache"
   CC: "sccache clang"
   CXX: "sccache clang++"
@@ -44,6 +48,10 @@ jobs:
     name: Build Ubuntu (Forest daemon)
     runs-on: ubuntu-latest
     steps:
+      # find the nearest S3 space for storing cache files
+      - name: Show IP
+        run: curl ifconfig.me
+        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
