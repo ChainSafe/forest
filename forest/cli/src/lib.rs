@@ -393,15 +393,15 @@ pub mod humantoken {
 
         impl fmt::Display for Pretty {
             /// Note the following format specifiers:
-            /// - `{#}`: include "FIL" at the end.
-            /// - `{.3}`: round to 3 significant figures
-            /// - `{.#3}`: both
+            /// - `{:#}`: print number of FIL, not e.g `milliFIL`
+            /// - `{:.3}`: round to 3 significant figures
+            /// - `{:.#3}`: both
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let actual_fil = &self.attos * si::atto.multiplier();
 
+                // rounding
                 let fil_for_printing = match f.precision() {
                     None => actual_fil.normalized(),
-                    // TODO(aatifsyed): rounding
                     Some(prec) => actual_fil
                         .with_prec(u64::try_from(prec).expect("requested precision is absurd"))
                         .normalized(),
@@ -413,25 +413,20 @@ pub mod humantoken {
                     f.write_str("~")?;
                 }
 
-                let (print_me, prefix) = scale(fil_for_printing);
+                // units or whole
+                let (print_me, prefix) = match f.alternate() {
+                    true => (fil_for_printing, None),
+                    false => scale(fil_for_printing),
+                };
 
+                // write the string
                 match print_me.is_zero() {
-                    true => f.write_str("0")?,
-                    false => {
-                        f.write_fmt(format_args!("{print_me}"))?;
-
-                        if let Some(prefix) = prefix {
-                            f.write_str(" ")?;
-                            f.write_str(prefix.name)?;
-                        }
-                    }
+                    true => f.write_str("0 FIL"),
+                    false => match prefix {
+                        Some(prefix) => f.write_fmt(format_args!("{print_me} {}FIL", prefix.name)),
+                        None => f.write_fmt(format_args!("{print_me} FIL")),
+                    },
                 }
-
-                if f.alternate() {
-                    f.write_str("FIL")?;
-                }
-
-                Ok(())
             }
         }
 
@@ -512,62 +507,76 @@ pub mod humantoken {
 
             #[test]
             fn test_display() {
-                assert_eq!("0", format!("{}", attos("0").pretty()));
+                assert_eq!("0 FIL", format!("{}", attos("0").pretty()));
 
-                // Adding FIL works
-                assert_eq!("1 atto", format!("{}", attos("1").pretty()));
-                assert_eq!("1 attoFIL", format!("{:#}", attos("1").pretty()));
+                // Absolute works
+                assert_eq!("1 attoFIL", format!("{}", attos("1").pretty()));
+                assert_eq!(
+                    "0.000000000000000001 FIL",
+                    format!("{:#}", attos("1").pretty())
+                );
 
                 // We select the right suffix
-                assert_eq!("1 femto", format!("{}", attos("1000").pretty()));
-                assert_eq!("1001 atto", format!("{}", attos("1001").pretty()));
+                assert_eq!("1 femtoFIL", format!("{}", attos("1000").pretty()));
+                assert_eq!("1001 attoFIL", format!("{}", attos("1001").pretty()));
 
                 // If you ask for 0 precision, you get it
-                assert_eq!("~0", format!("{:.0}", attos("1001").pretty()));
-
-                // Adding FIL works when rounding
-                assert_eq!("~1 femtoFIL", format!("{:#.1}", attos("1001").pretty()));
+                assert_eq!("~0 FIL", format!("{:.0}", attos("1001").pretty()));
 
                 // Rounding without a prefix
-                assert_eq!("~10", format!("{:.1}", fils("11").pretty()));
+                assert_eq!("~10 FIL", format!("{:.1}", fils("11").pretty()));
+
+                // Rounding with absolute
+                assert_eq!(
+                    "~0.000000000000002 FIL",
+                    format!("{:#.1}", attos("1940").pretty())
+                );
+                assert_eq!(
+                    "~0.0000000000000019 FIL",
+                    format!("{:#.2}", attos("1940").pretty())
+                );
+                assert_eq!(
+                    "0.00000000000000194 FIL",
+                    format!("{:#.3}", attos("1940").pretty())
+                );
 
                 // Small numbers with a gap then a trailing one are rounded down
-                assert_eq!("~1 femto", format!("{:.1}", attos("1001").pretty()));
-                assert_eq!("~1 femto", format!("{:.2}", attos("1001").pretty()));
-                assert_eq!("~1 femto", format!("{:.3}", attos("1001").pretty()));
-                assert_eq!("1001 atto", format!("{:.4}", attos("1001").pretty()));
-                assert_eq!("1001 atto", format!("{:.5}", attos("1001").pretty()));
+                assert_eq!("~1 femtoFIL", format!("{:.1}", attos("1001").pretty()));
+                assert_eq!("~1 femtoFIL", format!("{:.2}", attos("1001").pretty()));
+                assert_eq!("~1 femtoFIL", format!("{:.3}", attos("1001").pretty()));
+                assert_eq!("1001 attoFIL", format!("{:.4}", attos("1001").pretty()));
+                assert_eq!("1001 attoFIL", format!("{:.5}", attos("1001").pretty()));
 
                 // Small numbers with trailing numbers are rounded down
-                assert_eq!("~1 femto", format!("{:.1}", attos("1234").pretty()));
-                assert_eq!("~1200 atto", format!("{:.2}", attos("1234").pretty()));
-                assert_eq!("~1230 atto", format!("{:.3}", attos("1234").pretty()));
-                assert_eq!("1234 atto", format!("{:.4}", attos("1234").pretty()));
-                assert_eq!("1234 atto", format!("{:.5}", attos("1234").pretty()));
+                assert_eq!("~1 femtoFIL", format!("{:.1}", attos("1234").pretty()));
+                assert_eq!("~1200 attoFIL", format!("{:.2}", attos("1234").pretty()));
+                assert_eq!("~1230 attoFIL", format!("{:.3}", attos("1234").pretty()));
+                assert_eq!("1234 attoFIL", format!("{:.4}", attos("1234").pretty()));
+                assert_eq!("1234 attoFIL", format!("{:.5}", attos("1234").pretty()));
 
                 // Small numbers are rounded appropriately
-                assert_eq!("~2 femto", format!("{:.1}", attos("1900").pretty()));
-                assert_eq!("~2 femto", format!("{:.1}", attos("1500").pretty()));
-                assert_eq!("~1 femto", format!("{:.1}", attos("1400").pretty()));
+                assert_eq!("~2 femtoFIL", format!("{:.1}", attos("1900").pretty()));
+                assert_eq!("~2 femtoFIL", format!("{:.1}", attos("1500").pretty()));
+                assert_eq!("~1 femtoFIL", format!("{:.1}", attos("1400").pretty()));
 
                 // Big numbers with a gap then a trailing one are rounded down
-                assert_eq!("~1 kilo", format!("{:.1}", fils("1001").pretty()));
-                assert_eq!("~1 kilo", format!("{:.2}", fils("1001").pretty()));
-                assert_eq!("~1 kilo", format!("{:.3}", fils("1001").pretty()));
-                assert_eq!("1001", format!("{:.4}", fils("1001").pretty()));
-                assert_eq!("1001", format!("{:.5}", fils("1001").pretty()));
+                assert_eq!("~1 kiloFIL", format!("{:.1}", fils("1001").pretty()));
+                assert_eq!("~1 kiloFIL", format!("{:.2}", fils("1001").pretty()));
+                assert_eq!("~1 kiloFIL", format!("{:.3}", fils("1001").pretty()));
+                assert_eq!("1001 FIL", format!("{:.4}", fils("1001").pretty()));
+                assert_eq!("1001 FIL", format!("{:.5}", fils("1001").pretty()));
 
                 // Big numbers with trailing numbers are rounded down
-                assert_eq!("~1 kilo", format!("{:.1}", fils("1234").pretty()));
-                assert_eq!("~1200", format!("{:.2}", fils("1234").pretty()));
-                assert_eq!("~1230", format!("{:.3}", fils("1234").pretty()));
-                assert_eq!("1234", format!("{:.4}", fils("1234").pretty()));
-                assert_eq!("1234", format!("{:.5}", fils("1234").pretty()));
+                assert_eq!("~1 kiloFIL", format!("{:.1}", fils("1234").pretty()));
+                assert_eq!("~1200 FIL", format!("{:.2}", fils("1234").pretty()));
+                assert_eq!("~1230 FIL", format!("{:.3}", fils("1234").pretty()));
+                assert_eq!("1234 FIL", format!("{:.4}", fils("1234").pretty()));
+                assert_eq!("1234 FIL", format!("{:.5}", fils("1234").pretty()));
 
                 // Big numbers are rounded appropriately
-                assert_eq!("~2 kilo", format!("{:.1}", fils("1900").pretty()));
-                assert_eq!("~2 kilo", format!("{:.1}", fils("1500").pretty()));
-                assert_eq!("~1 kilo", format!("{:.1}", fils("1400").pretty()));
+                assert_eq!("~2 kiloFIL", format!("{:.1}", fils("1900").pretty()));
+                assert_eq!("~2 kiloFIL", format!("{:.1}", fils("1500").pretty()));
+                assert_eq!("~1 kiloFIL", format!("{:.1}", fils("1400").pretty()));
             }
         }
     }
