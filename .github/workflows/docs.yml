@@ -12,7 +12,11 @@ env:
   # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
   RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
   CACHE_TIMEOUT_MINUTES: 5
-  SCCACHE_GHA_ENABLED: "true"
+  SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
+  SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
+  SCCACHE_REGION: ${{ vars.SCCACHE_REGION }}
+  AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
+  AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
   RUSTC_WRAPPER: "sccache"
 
 jobs:
