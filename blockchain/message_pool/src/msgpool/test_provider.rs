@@ -76,6 +76,11 @@ impl TestApi {
             .unwrap();
     }
 
+    /// Set the heaviest chain for `TestApi`
+    pub fn set_heaviest_chain(&self, chain: NonEmpty<Arc<Tipset>>) {
+        self.publisher.send(HeadChange::Apply(chain)).unwrap();
+    }
+
     pub fn next_block(&self) -> BlockHeader {
         self.inner.lock().next_block()
     }

@@ -351,6 +351,7 @@ pub mod tests {
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
+    use nonempty::NonEmpty;
     use num_traits::Zero;
     use test_provider::*;
     use tokio::task::JoinSet;
@@ -500,7 +501,7 @@ pub mod tests {
         tokio::time::sleep(Duration::new(2, 0)).await;
 
         let (p, _) = mpool.pending().unwrap();
-        assert_eq!(p.len(), 0);
+        assert!(p.is_empty());
 
         // clear and create a new vector
         smsg_vec.clear();
@@ -531,15 +532,28 @@ pub mod tests {
         let header_c = mock_block_with_parents(&tipset_b, 1, 1);
         let tipset_c = Tipset::from(&header_c.clone());
 
-        let ts = tipset_c.clone();
-        mpool.api.set_heaviest_tipset(Arc::new(ts));
+        // Test 1: calling set_heaviest_chain with only head does not clear mpool
+        // messages present in head ancestors
+        let ts_chain = NonEmpty::new(Arc::new(tipset_c.clone()));
+        mpool.api.set_heaviest_chain(ts_chain);
 
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;
 
-        // this now fails
         let (p, _) = mpool.pending().unwrap();
-        assert_eq!(p.len(), 0);
+        assert_eq!(p.len(), 4);
+
+        // Test 2: calling set_heaviest_chain clear all mpool messages
+        let mut ts_chain = NonEmpty::new(Arc::new(tipset_a));
+        ts_chain.push(Arc::new(tipset_b));
+        ts_chain.push(Arc::new(tipset_c));
+        mpool.api.set_heaviest_chain(ts_chain);
+
+        // sleep allows for async block to update mpool's cur_tipset
+        tokio::time::sleep(Duration::new(2, 0)).await;
+
+        let (p, _) = mpool.pending().unwrap();
+        assert!(p.is_empty());
     }
 
     #[tokio::test]
