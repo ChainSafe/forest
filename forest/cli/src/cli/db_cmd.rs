@@ -1,11 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use chrono::Utc;
 use clap::Subcommand;
 use forest_cli_shared::{chain_path, cli::Config};
 use forest_db::db_engine::db_root;
-use forest_rpc_client::db_ops::db_gc;
+use forest_rpc_api::progress_api::GetProgressType;
+use forest_rpc_client::{db_ops::db_gc, progress_ops::get_progress};
+use forest_utils::io::ProgressBar;
 use log::error;
 
 use crate::cli::{handle_rpc_err, prompt_confirm};
@@ -39,14 +43,41 @@ impl DBCommands {
             Self::GC => {
                 let start = Utc::now();
 
+                let bar = Arc::new(tokio::sync::Mutex::new({
+                    let bar = ProgressBar::new(0);
+                    bar.message("Running database garbage collection | blocks ");
+                    bar
+                }));
+                tokio::spawn({
+                    let bar = bar.clone();
+                    async move {
+                        let mut interval =
+                            tokio::time::interval(tokio::time::Duration::from_secs(1));
+                        loop {
+                            interval.tick().await;
+                            if let Ok((progress, total)) =
+                                get_progress((GetProgressType::DatabaseGarbageCollection,), &None)
+                                    .await
+                            {
+                                let bar = bar.lock().await;
+                                if bar.is_finish() {
+                                    break;
+                                }
+                                bar.set_total(total);
+                                bar.set(progress);
+                            }
+                        }
+                    }
+                });
+
                 db_gc((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                println!(
-                    "DB GC completed. took {}s",
+                bar.lock().await.finish_println(&format!(
+                    "Database garbage collection completed. took {}s",
                     (Utc::now() - start).num_seconds()
-                );
+                ));
 
                 Ok(())
             }

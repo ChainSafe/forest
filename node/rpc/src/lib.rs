@@ -9,6 +9,7 @@ mod db_api;
 mod gas_api;
 mod mpool_api;
 mod net_api;
+mod progress_api;
 mod rpc_http_handler;
 mod rpc_util;
 mod rpc_ws_handler;
@@ -23,10 +24,11 @@ use forest_beacon::Beacon;
 use forest_chain::Scale;
 use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
-    gas_api::*, mpool_api::*, net_api::*, state_api::*, sync_api::*, wallet_api::*,
+    gas_api::*, mpool_api::*, net_api::*, progress_api::GET_PROGRESS, state_api::*, sync_api::*,
+    wallet_api::*,
 };
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use jsonrpc_v2::{Data, Error as JSONRPCError, Params, Server};
 use log::info;
 use tokio::sync::mpsc::Sender;
 
@@ -37,6 +39,8 @@ use crate::{
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
 };
+
+pub type RpcResult<T> = Result<T, JSONRPCError>;
 
 pub async fn start_rpc<DB, B, S>(
     state: Arc<RPCState<DB, B>>,
@@ -130,6 +134,8 @@ where
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB, B>)
             // DB API
             .with_method(DB_GC, db_api::db_gc::<DB, B>)
+            // Progress API
+            .with_method(GET_PROGRESS, progress_api::get_progress)
             .finish_unwrapped(),
     );
 
