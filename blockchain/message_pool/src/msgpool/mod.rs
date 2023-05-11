@@ -510,6 +510,36 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
+
+        mpool.add(smsg_vec[0].clone()).unwrap();
+        mpool.add(smsg_vec[1].clone()).unwrap();
+        mpool.add(smsg_vec[2].clone()).unwrap();
+        mpool.add(smsg_vec[3].clone()).unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 4);
+
+        // build chain a <- b <- c
+        let header_b = mock_block_with_parents(&tipset_a, 1, 1);
+        mpool
+            .api
+            .inner
+            .lock()
+            .set_block_messages(&header_b, smsg_vec.clone());
+        let tipset_b = Tipset::from(&header_a.clone());
+
+        let header_c = mock_block_with_parents(&tipset_b, 1, 1);
+        let tipset_c = Tipset::from(&header_c.clone());
+
+        let ts = tipset_c.clone();
+        mpool.api.set_heaviest_tipset(Arc::new(ts));
+
+        // sleep allows for async block to update mpool's cur_tipset
+        tokio::time::sleep(Duration::new(2, 0)).await;
+
+        // TODO: this should fail
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 0);
     }
 
     #[tokio::test]
