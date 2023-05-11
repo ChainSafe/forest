@@ -141,7 +141,8 @@ impl InfoCommand {
 
         let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
-        let node_status = get_node_status(&ts, block_count, num_tipsets, cur_duration_secs)?;
+        let node_status =
+            get_node_status(&chain_head.0, block_count, num_tipsets, cur_duration_secs)?;
         let info = fmt_info(
             &node_status,
             start_time,

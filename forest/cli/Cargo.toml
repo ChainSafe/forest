@@ -46,6 +46,7 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
+humantime = "2.1.0"
 jsonrpc-v2.workspace = true
 log.workspace = true
 multibase.workspace = true
@@ -60,7 +61,6 @@ serde_tuple.workspace = true
 strfmt = "0.2.2"
 strum_macros.workspace = true
 tempfile.workspace = true
-humantime = "2.1.0"
 ticker = "0.1"
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
