@@ -5,6 +5,7 @@ pub mod cli;
 pub mod humantoken {
 
     pub use parse::parse;
+    pub use print::TokenAmountPretty;
 
     /// SI prefix definitions
     mod si {
@@ -328,7 +329,7 @@ pub mod humantoken {
     }
 
     mod print {
-        use std::{fmt, str::FromStr};
+        use std::fmt;
 
         use bigdecimal::BigDecimal;
         use fvm_shared::econ::TokenAmount;
@@ -337,28 +338,35 @@ pub mod humantoken {
         use super::si;
 
         fn scale(n: BigDecimal) -> (BigDecimal, Option<si::Prefix>) {
-            // this works because we've removed centi//deca etc from our prefixes
-            let one_thousand = BigDecimal::from_str("1000").unwrap();
-
-            // special case
-            if n < one_thousand && n > si::milli.multiplier() {
-                return (n, None);
-            }
-
-            // smallest first
-            for prefix in si::SUPPORTED_PREFIXES.iter().rev() {
+            for prefix in si::SUPPORTED_PREFIXES
+                .iter()
+                .filter(|prefix| prefix.exponent > 0)
+            {
                 let scaled = n.clone() / prefix.multiplier();
-                if scaled < one_thousand {
+                if scaled.is_integer() {
                     return (scaled, Some(*prefix));
                 }
             }
 
-            // we're huge!
-            let biggest_prefix = si::SUPPORTED_PREFIXES.first().unwrap();
-            (n / biggest_prefix.multiplier(), Some(*biggest_prefix))
+            if n.is_integer() {
+                return (n, None);
+            }
+
+            for prefix in si::SUPPORTED_PREFIXES
+                .iter()
+                .filter(|prefix| prefix.exponent < 0)
+            {
+                let scaled = n.clone() / prefix.multiplier();
+                if scaled.is_integer() {
+                    return (scaled, Some(*prefix));
+                }
+            }
+
+            let smallest_prefix = si::SUPPORTED_PREFIXES.last().unwrap();
+            (n / smallest_prefix.multiplier(), Some(*smallest_prefix))
         }
 
-        struct Pretty {
+        pub struct Pretty {
             attos: BigInt,
         }
 
@@ -370,27 +378,54 @@ pub mod humantoken {
             }
         }
 
+        pub trait TokenAmountPretty {
+            // RUST(aatifsyed): this should be -> impl fmt::Display
+            //
+            // Users shouldn't be able to name `Pretty` anyway
+            fn pretty(&self) -> Pretty;
+        }
+
+        impl TokenAmountPretty for TokenAmount {
+            fn pretty(&self) -> Pretty {
+                Pretty::from(self)
+            }
+        }
+
         impl fmt::Display for Pretty {
-            /// # -> include "FIL" at the end
+            /// Note the following format specifiers:
+            /// - `{#}`: include "FIL" at the end.
+            /// - `{.3}`: round to 3 significant figures
+            /// - `{.#3}`: both
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let actual_fil = &self.attos * si::atto.multiplier();
 
-                let fil_for_formatting = match f.precision() {
+                let fil_for_printing = match f.precision() {
                     None => actual_fil.normalized(),
+                    // TODO(aatifsyed): rounding
                     Some(prec) => actual_fil
-                        .with_prec(
-                            u64::try_from(prec).expect("requested precision is absurdly large"),
-                        )
+                        .with_prec(u64::try_from(prec).expect("requested precision is absurd"))
                         .normalized(),
                 };
 
-                let precision_was_lost = fil_for_formatting != actual_fil;
+                let precision_was_lost = fil_for_printing != actual_fil;
 
                 if precision_was_lost {
-                    f.write_str("~ ")?;
+                    f.write_str("~")?;
                 }
 
-                let (int, exp) = fil_for_formatting.as_bigint_and_exponent();
+                let (print_me, prefix) = scale(fil_for_printing);
+
+                match print_me.is_zero() {
+                    true => f.write_str("0")?,
+                    false => {
+                        f.write_fmt(format_args!("{print_me}"))?;
+
+                        if let Some(prefix) = prefix {
+                            f.write_str(" ")?;
+                            f.write_str(prefix.name)?;
+                        }
+                    }
+                }
 
                 if f.alternate() {
                     f.write_str("FIL")?;
@@ -402,13 +437,15 @@ pub mod humantoken {
 
         #[cfg(test)]
         mod tests {
+            use std::str::FromStr as _;
+
             use num::One as _;
             use pretty_assertions::assert_eq;
 
             use super::*;
 
             #[test]
-            fn scale_one() {
+            fn prefixes_represent_themselves() {
                 for prefix in si::SUPPORTED_PREFIXES {
                     let input = BigDecimal::from_str(prefix.multiplier).unwrap();
                     assert_eq!((BigDecimal::one(), Some(*prefix)), scale(input));
@@ -416,21 +453,20 @@ pub mod humantoken {
             }
 
             #[test]
-            fn extremes() {
-                let one_thousand = BigDecimal::from_str("1000").unwrap();
+            fn very_large() {
+                let mut one_thousand_quettas = String::from(si::quetta.multiplier);
+                one_thousand_quettas.push_str("000");
 
-                let one_thousand_quettas = si::quetta.multiplier() * &one_thousand;
-                assert_eq!(
-                    (one_thousand, Some(si::quetta)),
-                    scale(one_thousand_quettas)
-                );
+                test_scale(&one_thousand_quettas, "1000", si::quetta);
+            }
 
-                let one_thousanth = BigDecimal::from_str("0.001").unwrap();
-                let one_thousanth_of_a_quecto = si::quecto.multiplier() * &one_thousanth;
-                assert_eq!(
-                    (one_thousanth, Some(si::quecto)),
-                    scale(one_thousanth_of_a_quecto)
-                )
+            #[test]
+            fn very_small() {
+                let mut one_thousanth_of_a_quecto = String::from(si::quecto.multiplier);
+                one_thousanth_of_a_quecto.pop();
+                one_thousanth_of_a_quecto.push_str("0001");
+
+                test_scale(&one_thousanth_of_a_quecto, "0.001", si::quecto);
             }
 
             fn test_scale(
@@ -446,26 +482,59 @@ pub mod humantoken {
             }
 
             #[test]
-            fn no_prefix() {
+            fn simple() {
+                test_scale("1000000", "1", si::mega);
+                test_scale("100000", "100", si::kilo);
+                test_scale("10000", "10", si::kilo);
                 test_scale("1000", "1", si::kilo);
                 test_scale("100", "100", None);
                 test_scale("10", "10", None);
                 test_scale("1", "1", None);
-                test_scale("0.1", "0.1", None);
-                test_scale("0.01", "0.01", None);
+                test_scale("0.1", "100", si::milli);
+                test_scale("0.01", "10", si::milli);
                 test_scale("0.001", "1", si::milli);
+                test_scale("0.0001", "100", si::micro);
+            }
+            #[test]
+            fn trailing_one() {
+                test_scale("10001000", "10001", si::kilo);
+                test_scale("10001", "10001", None);
+                test_scale("1000.1", "1000100", si::milli);
+            }
+
+            fn attos(input: &str) -> TokenAmount {
+                TokenAmount::from_atto(BigInt::from_str(input).unwrap())
             }
 
             #[test]
-            fn trailing_one() {
-                test_scale("1001", "1.001", si::kilo);
-                test_scale("100.1", "100.1", None);
-                test_scale("10.01", "10.01", None);
-                test_scale("1.001", "1.001", None);
-                test_scale("0.1001", "0.1001", None);
-                test_scale("0.01001", "0.01001", None);
-                // test_scale("0.001001", "1.001", si::milli);
-                test_scale("0.0001001", "1.001", si::micro);
+            fn test_display() {
+                assert_eq!("1 atto", format!("{}", attos("1").pretty()));
+                assert_eq!("1 attoFIL", format!("{:#}", attos("1").pretty()));
+
+                assert_eq!("1 femto", format!("{}", attos("1000").pretty()));
+                assert_eq!("1001 atto", format!("{}", attos("1001").pretty()));
+
+                // If you ask for 0 precision, you get it
+                assert_eq!("~0", format!("{:.0}", attos("1001").pretty()));
+
+                assert_eq!("~1 femtoFIL", format!("{:#.1}", attos("1001").pretty()));
+
+                assert_eq!("~1 femto", format!("{:.1}", attos("1001").pretty()));
+                assert_eq!("~1 femto", format!("{:.2}", attos("1001").pretty()));
+                assert_eq!("~1 femto", format!("{:.3}", attos("1001").pretty()));
+                assert_eq!("1001 atto", format!("{:.4}", attos("1001").pretty()));
+                assert_eq!("1001 atto", format!("{:.5}", attos("1001").pretty()));
+
+                assert_eq!("~1 femto", format!("{:.1}", attos("1234").pretty()));
+                assert_eq!("~1200 atto", format!("{:.2}", attos("1234").pretty()));
+                assert_eq!("~1230 atto", format!("{:.3}", attos("1234").pretty()));
+                assert_eq!("1234 atto", format!("{:.4}", attos("1234").pretty()));
+                assert_eq!("1234 atto", format!("{:.5}", attos("1234").pretty()));
+
+                // we round
+                assert_eq!("~2 femto", format!("{:.1}", attos("1900").pretty()));
+                assert_eq!("~2 femto", format!("{:.1}", attos("1500").pretty()));
+                assert_eq!("~1 femto", format!("{:.1}", attos("1400").pretty()));
             }
         }
     }
