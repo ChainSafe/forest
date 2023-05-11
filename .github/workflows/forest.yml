@@ -143,8 +143,6 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
-      - name: Migration Regression Tests
-        run: ./scripts/tests/calibnet_migration_regression_tests.sh
 
   # state migration regression tests
   state-migrations-check:
