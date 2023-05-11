@@ -506,35 +506,68 @@ pub mod humantoken {
                 TokenAmount::from_atto(BigInt::from_str(input).unwrap())
             }
 
+            fn fils(input: &str) -> TokenAmount {
+                TokenAmount::from_whole(BigInt::from_str(input).unwrap())
+            }
+
             #[test]
             fn test_display() {
+                assert_eq!("0", format!("{}", attos("0").pretty()));
+
+                // Adding FIL works
                 assert_eq!("1 atto", format!("{}", attos("1").pretty()));
                 assert_eq!("1 attoFIL", format!("{:#}", attos("1").pretty()));
 
+                // We select the right suffix
                 assert_eq!("1 femto", format!("{}", attos("1000").pretty()));
                 assert_eq!("1001 atto", format!("{}", attos("1001").pretty()));
 
                 // If you ask for 0 precision, you get it
                 assert_eq!("~0", format!("{:.0}", attos("1001").pretty()));
 
+                // Adding FIL works when rounding
                 assert_eq!("~1 femtoFIL", format!("{:#.1}", attos("1001").pretty()));
 
+                // Rounding without a prefix
+                assert_eq!("~10", format!("{:.1}", fils("11").pretty()));
+
+                // Small numbers with a gap then a trailing one are rounded down
                 assert_eq!("~1 femto", format!("{:.1}", attos("1001").pretty()));
                 assert_eq!("~1 femto", format!("{:.2}", attos("1001").pretty()));
                 assert_eq!("~1 femto", format!("{:.3}", attos("1001").pretty()));
                 assert_eq!("1001 atto", format!("{:.4}", attos("1001").pretty()));
                 assert_eq!("1001 atto", format!("{:.5}", attos("1001").pretty()));
 
+                // Small numbers with trailing numbers are rounded down
                 assert_eq!("~1 femto", format!("{:.1}", attos("1234").pretty()));
                 assert_eq!("~1200 atto", format!("{:.2}", attos("1234").pretty()));
                 assert_eq!("~1230 atto", format!("{:.3}", attos("1234").pretty()));
                 assert_eq!("1234 atto", format!("{:.4}", attos("1234").pretty()));
                 assert_eq!("1234 atto", format!("{:.5}", attos("1234").pretty()));
 
-                // we round
+                // Small numbers are rounded appropriately
                 assert_eq!("~2 femto", format!("{:.1}", attos("1900").pretty()));
                 assert_eq!("~2 femto", format!("{:.1}", attos("1500").pretty()));
                 assert_eq!("~1 femto", format!("{:.1}", attos("1400").pretty()));
+
+                // Big numbers with a gap then a trailing one are rounded down
+                assert_eq!("~1 kilo", format!("{:.1}", fils("1001").pretty()));
+                assert_eq!("~1 kilo", format!("{:.2}", fils("1001").pretty()));
+                assert_eq!("~1 kilo", format!("{:.3}", fils("1001").pretty()));
+                assert_eq!("1001", format!("{:.4}", fils("1001").pretty()));
+                assert_eq!("1001", format!("{:.5}", fils("1001").pretty()));
+
+                // Big numbers with trailing numbers are rounded down
+                assert_eq!("~1 kilo", format!("{:.1}", fils("1234").pretty()));
+                assert_eq!("~1200", format!("{:.2}", fils("1234").pretty()));
+                assert_eq!("~1230", format!("{:.3}", fils("1234").pretty()));
+                assert_eq!("1234", format!("{:.4}", fils("1234").pretty()));
+                assert_eq!("1234", format!("{:.5}", fils("1234").pretty()));
+
+                // Big numbers are rounded appropriately
+                assert_eq!("~2 kilo", format!("{:.1}", fils("1900").pretty()));
+                assert_eq!("~2 kilo", format!("{:.1}", fils("1500").pretty()));
+                assert_eq!("~1 kilo", format!("{:.1}", fils("1400").pretty()));
             }
         }
     }
