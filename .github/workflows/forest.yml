@@ -146,6 +146,32 @@ jobs:
       - name: Migration Regression Tests
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
 
+  # state migration regression tests
+  state-migrations-check:
+    needs:
+      - node-build-ubuntu
+      - cli-build-ubuntu
+    name: State migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-cli-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Migration Regression Tests
+        run: ./scripts/tests/calibnet_migration_regression_tests.sh
+
   # Wallet checks (sending, exporting key, balances...)
   calibnet-wallet-check:
     needs:
