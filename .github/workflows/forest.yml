@@ -48,6 +48,7 @@ jobs:
     name: Build Ubuntu (Forest daemon)
     runs-on: ubuntu-latest
     steps:
+      # find the nearest S3 space for storing cache files
       - name: Show IP
         run: curl ifconfig.me
         continue-on-error: true
