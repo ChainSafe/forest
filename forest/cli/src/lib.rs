@@ -180,7 +180,9 @@ pub mod humantoken {
 
     #[cfg(test)]
     mod tests {
-        use std::str::FromStr;
+        use std::str::FromStr as _;
+
+        use num::{BigInt, One as _};
 
         use super::*;
 
@@ -269,6 +271,17 @@ pub mod humantoken {
                 parse("0.1 atto").unwrap_err().to_string(),
                 "sub-atto amounts are not allowed"
             )
+        }
+
+        #[test]
+        fn some_values() {
+            let one_atto = TokenAmount::from_atto(BigInt::one());
+            let one_nano = TokenAmount::from_nano(BigInt::one());
+
+            assert_eq!(one_atto, parse("1 atto").unwrap());
+            assert_eq!(one_atto, parse("1000 zepto").unwrap());
+
+            assert_eq!(one_nano, parse("1 nano").unwrap());
         }
 
         #[test]
