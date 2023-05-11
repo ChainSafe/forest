@@ -2,19 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod cli;
 
-mod util {
-    use std::str::FromStr;
+pub mod humantoken {
+    // ENHANCE(aatifsyed): could accept pairs like "1 nano 1 atto"
 
     use anyhow::{anyhow, bail};
-    use bigdecimal::BigDecimal;
+    use bigdecimal::{BigDecimal, ParseBigDecimalError};
     use fvm_shared::econ::TokenAmount;
-    use nom::{Finish, IResult};
-    use num::{BigInt, One as _};
-    use once_cell::sync::Lazy;
+    use nom::{
+        bytes::complete::tag,
+        character::complete::multispace0,
+        combinator::{map_res, opt},
+        error::{FromExternalError, ParseError},
+        number::complete::recognize_float,
+        sequence::terminated,
+        IResult,
+    };
 
     // Use a struct as a table row instead of an enum
     // to make our code less macro-heavy
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     struct SIScale {
         /// "micro"
         name: &'static str,
@@ -33,216 +39,32 @@ mod util {
         }
     }
 
-    /// Spread the scale from tabular form to the structs, comma separated
-    macro_rules! scale_array {
+    macro_rules! define_scales {
         ($($name:ident $symbol:ident$(or $alt_symbol:ident)* $base_10:literal $decimal:literal),* $(,)?) => {
-            [$(
-                SIScale {
+
+            // Define constants
+            $(
+                #[allow(non_upper_case_globals)]
+                const $name: SIScale = SIScale {
                     name: stringify!($name),
                     units: &[stringify!($symbol) $(, stringify!($alt_symbol))* ],
                     exponent: $base_10,
                     multiplier: stringify!($decimal),
-                },
-            )*]
-        };
-    }
+                };
+            )*
 
-    const SCALES: [SIScale; 20] =
-        // Lightly altered
-        // https://en.wikipedia.org/wiki/Metric_prefix#List_of_SI_prefixes
-        scale_array! {
-        quetta	Q	30	1000000000000000000000000000000,
-        ronna	R	27	1000000000000000000000000000,
-        yotta	Y	24	1000000000000000000000000,
-        zetta	Z	21	1000000000000000000000,
-        exa	E	18	1000000000000000000,
-        peta	P	15	1000000000000000,
-        tera	T	12	1000000000000,
-        giga	G	9	1000000000,
-        mega	M	6	1000000,
-        kilo	k	3	1000,
-        hecto	h	2	100,
-        deca	da	1	10,
-        deci	d	-1	0.1,
-        centi	c	-2	0.01,
-        milli	m	-3	0.001,
-        micro	μ or u	-6	0.000001,
-        nano	n	-9	0.000000001,
-        pico	p	-12	0.000000000001,
-        femto	f	-15	0.000000000000001,
-        atto	a	-18	0.000000000000000001,
-        // we don't support subdivisions of an atto for our usecase
-        };
-
-    const ATTO: SIScale = get_scale("atto");
-
-    const fn get_scale(name: &str) -> SIScale {
-        let mut i = SCALES.len();
-        while let Some(new_i) = i.checked_sub(1) {
-            i = new_i;
-            if eq(SCALES[i].name.as_bytes(), name.as_bytes()) {
-                return SCALES[i];
-            }
-        }
-        panic!("No scale with that name")
-    }
-
-    const fn eq(lhs: &[u8], rhs: &[u8]) -> bool {
-        if lhs.len() != rhs.len() {
-            return false;
-        }
-        let mut i = lhs.len();
-        while let Some(new_i) = i.checked_sub(1) {
-            i = new_i;
-            if lhs[i] != rhs[i] {
-                return false;
-            }
-        }
-        true
-    }
-
-    fn parse_token_amount(input: &str) -> anyhow::Result<TokenAmount> {
-        let (remainder, (mut big_decimal, scale)) =
-            nom::combinator::all_consuming::<_, _, nom::error::Error<_>, _>(
-                parse_bigdecimal_scale_maybe_unit,
-            )(input)
-            .map_err(|e| anyhow!("parse error: {e}"))?;
-        assert!(remainder.is_empty());
-
-        if let Some(scale) = scale {
-            big_decimal *= scale.multiplier();
-        }
-
-        let fil = big_decimal;
-        let attos = fil * &*ATTOS_PER_FIL;
-
-        if !attos.is_integer() {
-            bail!("sub-atto amounts are not allowed");
-        }
-
-        let (attos, scale) = attos.with_scale(0).into_bigint_and_exponent();
-        assert_eq!(scale, 0, "we've just set the scale!");
-
-        Ok(TokenAmount::from_atto(attos))
-    }
-
-    fn parse_bigdecimal_scale_maybe_unit<'a, E: nom::error::ParseError<&'a str>>(
-        input: &'a str,
-    ) -> IResult<&str, (BigDecimal, Option<SIScale>), E>
-    where
-        E: nom::error::FromExternalError<&'a str, bigdecimal::ParseBigDecimalError>,
-    {
-        use nom::{branch::alt, bytes::streaming::tag, combinator::opt};
-        let (input, decimal) = permit_trailing_ws(bigdecimal)(input)?;
-        let (input, si_scale) = permit_trailing_ws(opt(si_scale))(input)?;
-        let (input, _unit) = opt(alt((tag("FIL"), tag("fil"))))(input)?;
-        Ok((input, (decimal, si_scale)))
-    }
-
-    fn permit_trailing_ws<'a, F, O, E: nom::error::ParseError<&'a str>>(
-        inner: F,
-    ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
-    where
-        F: FnMut(&'a str) -> IResult<&'a str, O, E>,
-    {
-        use nom::{character::streaming::multispace0, sequence::terminated};
-        terminated(inner, multispace0)
-    }
-
-    /// Take an SIScale from the front of `input`
-    fn si_scale<'a, E: nom::error::ParseError<&'a str>>(
-        input: &'a str,
-    ) -> IResult<&str, SIScale, E> {
-        use nom::bytes::streaming::tag;
-        for scale in SCALES {
-            for prefix in scale.units.iter().chain(&[scale.name]) {
-                if let Ok((rem, _prefix)) = tag::<_, _, E>(*prefix)(input) {
-                    return Ok((rem, scale));
-                }
-            }
-        }
-        Err(nom::Err::Failure(E::from_error_kind(
-            input,
-            nom::error::ErrorKind::Alt,
-        )))
-    }
-
-    /// Take a float from the front of `input`
-    fn bigdecimal<'a, E: nom::error::ParseError<&'a str>>(
-        input: &'a str,
-    ) -> IResult<&str, BigDecimal, E>
-    where
-        E: nom::error::FromExternalError<&'a str, bigdecimal::ParseBigDecimalError>,
-    {
-        use nom::{combinator::map_res, number::streaming::recognize_float};
-        map_res(recognize_float, str::parse)(input)
-    }
-
-    macro_rules! supported_prefix {
-        ($($name:ident $symbol:ident $base_10:literal $decimal:literal),* $(,)?) => {
-            #[allow(non_camel_case_types)]
-            pub enum SupportedPrefix {
-                $($name,)*
-            }
-            impl SupportedPrefix {
-                const fn all() -> &'static [Self] {
-                    &[
-                        $(Self::$name,)*
-                    ]
-                }
-                pub const fn name(&self) -> &'static str {
-                    match self {
-                        $(Self::$name => stringify!($name),)*
-                    }
-                }
-                pub const fn symbol(&self) -> &'static str {
-                    match self {
-                        $(Self::$name => stringify!($symbol),)*
-                    }
-                }
-                pub const fn exponent(&self) -> i8 {
-                    match self {
-                        $(Self::$name => $base_10,)*
-                    }
-                }
-                pub fn multiplier(&self) -> &'static BigDecimal {
+            // Define top level array
+            const ALL_SCALES: &[SIScale] =
+                &[
                     $(
-                        #[allow(non_upper_case_globals)]
-                        static $name: Lazy<BigDecimal> = Lazy::new(||BigDecimal::from_str(stringify!($decimal)).unwrap());
-                    )*
+                        $name
+                    ,)*
+                ];
 
-                    match self {
-                        $(Self::$name => &$name,)*
-                    }
-                }
-            }
-            impl FromStr for SupportedPrefix {
-                type Err = anyhow::Error;
-                fn from_str(s: &str) -> Result<Self, Self::Err> {
-                    match s {
-                        "u" => Ok(Self::micro),
-                        $(
-                            stringify!($name) | stringify!($symbol) => Ok(Self::$name),
-                        )*
-                        other => Err(
-                            anyhow::anyhow!("invalid unit {other}").context(
-                                concat!("expected one of: ",
-                                    $(concat!(stringify!($name), " (", stringify!($symbol),") "),)*
-                                )
-                            )
-                        )
-                    }
-                }
-            }
         };
     }
 
-    static ATTOS_PER_FIL: Lazy<BigDecimal> =
-        Lazy::new(|| BigDecimal::from(BigInt::one() * 10u64.pow(18)));
-
-    // Lightly altered
-    // https://en.wikipedia.org/wiki/Metric_prefix#List_of_SI_prefixes
-    supported_prefix!(
+    define_scales! {
     quetta	Q	30	1000000000000000000000000000000,
     ronna	R	27	1000000000000000000000000000,
     yotta	Y	24	1000000000000000000000000,
@@ -258,54 +80,182 @@ mod util {
     deci	d	-1	0.1,
     centi	c	-2	0.01,
     milli	m	-3	0.001,
-    micro	μ	-6	0.000001,
+    micro	μ or u	-6	0.000001,
     nano	n	-9	0.000000001,
     pico	p	-12	0.000000000001,
     femto	f	-15	0.000000000000001,
     atto	a	-18	0.000000000000000001,
     // we don't support subdivisions of an atto for our usecase
-    );
+    }
 
-    pub fn bigdecimal_fil_to_attos(
-        mut big_decimal: BigDecimal,
-        prefix: Option<SupportedPrefix>,
-    ) -> Option<TokenAmount> {
-        if let Some(prefix) = prefix {
-            big_decimal *= prefix.multiplier();
+    fn nom2anyhow(e: nom::Err<nom::error::VerboseError<&str>>) -> anyhow::Error {
+        anyhow!("parse error: {e}")
+    }
+
+    pub fn parse(input: &str) -> anyhow::Result<TokenAmount> {
+        let (mut big_decimal, scale) = parse_big_decimal_and_scale(input)?;
+
+        if let Some(scale) = scale {
+            big_decimal *= scale.multiplier();
         }
 
         let fil = big_decimal;
-        let attos = fil * &*ATTOS_PER_FIL;
+        let attos = fil * atto.multiplier().inverse();
 
         if !attos.is_integer() {
-            return None;
+            bail!("sub-atto amounts are not allowed");
         }
 
         let (attos, scale) = attos.with_scale(0).into_bigint_and_exponent();
         assert_eq!(scale, 0, "we've just set the scale!");
 
-        Some(TokenAmount::from_atto(attos))
+        Ok(TokenAmount::from_atto(attos))
+    }
+
+    fn parse_big_decimal_and_scale(input: &str) -> anyhow::Result<(BigDecimal, Option<SIScale>)> {
+        // Strip `fil` or `FIL` at most once from the end
+        let input = match (input.strip_suffix("FIL"), input.strip_suffix("fil")) {
+            // remove whitespace before the units if there was any
+            (Some(stripped), _) => stripped.trim_end(),
+            (_, Some(stripped)) => stripped.trim_end(),
+            _ => input,
+        };
+
+        let (input, big_decimal) = permit_trailing_ws(bigdecimal)(input).map_err(nom2anyhow)?;
+        let (input, scale) = opt(permit_trailing_ws(si_scale))(input).map_err(nom2anyhow)?;
+
+        if !input.is_empty() {
+            bail!("Unexpected trailing input: {input}")
+        }
+
+        Ok((big_decimal, scale))
+    }
+
+    fn permit_trailing_ws<'a, F, O, E: ParseError<&'a str>>(
+        inner: F,
+    ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+    where
+        F: FnMut(&'a str) -> IResult<&'a str, O, E>,
+    {
+        terminated(inner, multispace0)
+    }
+
+    /// Take an SIScale from the front of `input`
+    fn si_scale<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, SIScale, E> {
+        for scale in ALL_SCALES {
+            // the name needs to be first, otherwise we'll match `a` instead of `atto`, and
+            // leave `tto` which will raise an error
+            for prefix in std::iter::once(&scale.name).chain(scale.units) {
+                if let Ok((rem, _prefix)) = tag::<_, _, E>(*prefix)(input) {
+                    return Ok((rem, *scale));
+                }
+            }
+        }
+        Err(nom::Err::Error(E::from_error_kind(
+            input,
+            nom::error::ErrorKind::Alt,
+        )))
+    }
+
+    /// Take a float from the front of `input`
+    fn bigdecimal<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&str, BigDecimal, E>
+    where
+        E: FromExternalError<&'a str, ParseBigDecimalError>,
+    {
+        map_res(recognize_float, str::parse)(input)
     }
 
     #[cfg(test)]
     mod tests {
+        use std::str::FromStr;
+
         use super::*;
 
-        /// Catch panics in memoized scales
         #[test]
         fn cover_scales() {
-            for prefix in SupportedPrefix::all() {
-                let _ = prefix.multiplier();
+            for scale in ALL_SCALES {
+                let _did_not_panic = scale.multiplier();
             }
         }
 
         #[test]
-        fn attos_per_fil() {
-            assert_eq!(SupportedPrefix::atto.multiplier().inverse(), *ATTOS_PER_FIL);
+        fn parse_bigdecimal() {
+            fn do_test(input: &str, expected: &str) {
+                let expected = BigDecimal::from_str(expected).unwrap();
+                let (rem, actual) = bigdecimal::<nom::error::VerboseError<_>>(input).unwrap();
+                assert_eq!(expected, actual);
+                assert!(rem.is_empty());
+            }
+            do_test("1", "1");
+            do_test("0.1", "0.1");
+            do_test(".1", ".1");
+            do_test("1e1", "10");
+            do_test("1.", "1");
+        }
+
+        fn do_test(input: &str, expected_amount: &str, expected_scale: impl Into<Option<SIScale>>) {
+            let expected_amount = BigDecimal::from_str(expected_amount).unwrap();
+            let expected_scale = expected_scale.into();
+            let (actual_amount, actual_scale) = parse_big_decimal_and_scale(input).unwrap();
+            assert_eq!(expected_amount, actual_amount, "{input}");
+            assert_eq!(expected_scale, actual_scale, "{input}");
+        }
+
+        #[test]
+        fn basic_bigdecimal_and_scale() {
+            // plain
+            do_test("1", "1", None);
+
+            // include unit
+            do_test("1 FIL", "1", None);
+            do_test("1FIL", "1", None);
+            do_test("1 fil", "1", None);
+            do_test("1fil", "1", None);
+
+            let possible_units = ["", "fil", "FIL", " fil", " FIL"];
+            let possible_prefixes = ["atto", "a", " atto", " a"];
+
+            for unit in possible_units {
+                for prefix in possible_prefixes {
+                    let input = format!("1{prefix}{unit}");
+                    do_test(&input, "1", atto)
+                }
+            }
+        }
+
+        #[test]
+        fn parse_exa_and_exponent() {
+            do_test("1 E", "1", exa);
+            do_test("1e0E", "1", exa);
+
+            // ENHANCE(aatifsyed): this should be parsed as 1 exa, but that
+            // would probably require an entirely custom float parser with
+            // lookahead - users will have to include a space for now
+
+            // do_test("1E", "1", exa);
+        }
+
+        #[test]
+        fn more_than_69_bits() {
+            // (nice)
+            // The previous rust_decimal implementation had at most 69 bits of precision
+            // we should be able to exceed that
+            let mut test_str = String::with_capacity(100);
+            test_str.push('1');
+            for _ in 0..98 {
+                test_str.push('0')
+            }
+            test_str.push('1');
+            do_test(&test_str, &test_str, None);
+        }
+
+        #[test]
+        fn disallow_too_small() {
+            parse("1 atto").unwrap();
             assert_eq!(
-                SupportedPrefix::atto.multiplier() * &*ATTOS_PER_FIL,
-                BigDecimal::one()
-            );
+                parse("0.1 atto").unwrap_err().to_string(),
+                "sub-atto amounts are not allowed"
+            )
         }
     }
 }
