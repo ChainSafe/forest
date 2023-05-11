@@ -199,13 +199,13 @@ fn fmt_info(
     let NodeStatusInfo { health, .. } = node_status;
 
     let use_color = color.coloring_enabled();
-    let uptime_dur = Local::now() - start_time;
+    let uptime_duration = Local::now() - start_time;
     let uptime = {
         format!(
             "{}h {}m {}s (Started at: {})",
-            uptime_dur.num_hours(),
-            uptime_dur.num_minutes(),
-            uptime_dur.num_seconds(),
+            uptime_duration.num_hours(),
+            uptime_duration.num_minutes(),
+            uptime_duration.num_seconds(),
             start_time
         )
     };
