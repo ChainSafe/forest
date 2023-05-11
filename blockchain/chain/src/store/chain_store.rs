@@ -5,6 +5,7 @@ use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemT
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
+use async_compression::futures::write::ZstdEncoder;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
@@ -29,9 +30,10 @@ use forest_utils::{
         file_backed_obj::{ChainMeta, FileBacked, SYNC_PERIOD},
         BlockstoreExt,
     },
-    io::Checksum,
+    io::{AsyncWriterWithChecksum, Checksum},
+    miscs::Either,
 };
-use futures::AsyncWrite;
+use futures::{io::BufWriter, AsyncWrite};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -548,11 +550,19 @@ where
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         writer: W,
+        compressed: bool,
+        skip_checksum: bool,
     ) -> Result<Option<digest::Output<D>>, Error>
     where
-        D: Digest,
-        W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
+        D: Digest + Send + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
     {
+        let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
+        let writer = if compressed {
+            Either::Left(ZstdEncoder::new(writer))
+        } else {
+            Either::Right(writer)
+        };
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
@@ -565,10 +575,11 @@ where
         let write_task = tokio::task::spawn(async move {
             let mut writer = writer_clone.lock().await;
             let mut stream = rx.stream();
-            header
-                .write_stream_async(writer.deref_mut(), &mut stream)
-                .await
-                .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
+            match writer.deref_mut() {
+                Either::Left(left) => header.write_stream_async(left, &mut stream).await,
+                Either::Right(right) => header.write_stream_async(right, &mut stream).await,
+            }
+            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
         });
 
         let global_pre_time = SystemTime::now();
@@ -614,12 +625,13 @@ where
                 .as_secs()
         );
 
-        let digest = writer
-            .lock()
-            .await
-            .finalize()
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?;
+        let mut writer = writer.lock().await;
+        let digest = match &mut *writer {
+            Either::Left(left) => left.get_mut().finalize().await,
+            Either::Right(right) => right.finalize().await,
+        }
+        .map_err(|e| Error::Other(e.to_string()))?;
+
         Ok(digest)
     }
 }
