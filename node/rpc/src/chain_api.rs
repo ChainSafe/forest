@@ -8,7 +8,6 @@ use std::{
 };
 
 use anyhow::Result;
-use async_compression::futures::write::ZstdEncoder;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -20,11 +19,7 @@ use forest_rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use forest_shim::message::Message;
-use forest_utils::{
-    db::BlockstoreExt,
-    io::{AsyncWriterWithChecksum, VoidAsyncWriterWithNoChecksum},
-};
-use futures::io::BufWriter;
+use forest_utils::{db::BlockstoreExt, io::VoidAsyncWriter};
 use fvm_ipld_blockstore::Blockstore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -58,7 +53,7 @@ pub(crate) async fn chain_export<DB, B>(
         output_path,
         tipset_keys: TipsetKeysJson(tsk),
         compressed,
-        mut skip_checksum,
+        skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
 ) -> Result<ChainExportResult, JsonRpcError>
@@ -66,9 +61,6 @@ where
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    // Skip checksum when in compression mode
-    skip_checksum |= compressed;
-
     lazy_static::lazy_static! {
         static ref LOCK: Mutex<()> = Mutex::new(());
     }
@@ -98,37 +90,25 @@ where
 
     match if dry_run {
         data.chain_store
-            .export(
+            .export::<_, Sha256>(
                 &start_ts,
                 recent_roots,
-                VoidAsyncWriterWithNoChecksum::<Sha256>::default(),
+                VoidAsyncWriter::default(),
+                compressed,
+                skip_checksum,
             )
             .await
     } else {
         let file = tokio::fs::File::create(&temp_path).await?;
-        if compressed {
-            data.chain_store
-                .export(
-                    &start_ts,
-                    recent_roots,
-                    AsyncWriterWithChecksum::<Sha256, _>::new(
-                        BufWriter::new(ZstdEncoder::new(file.compat())),
-                        false,
-                    ),
-                )
-                .await
-        } else {
-            data.chain_store
-                .export(
-                    &start_ts,
-                    recent_roots,
-                    AsyncWriterWithChecksum::<Sha256, _>::new(
-                        BufWriter::new(file.compat()),
-                        !skip_checksum,
-                    ),
-                )
-                .await
-        }
+        data.chain_store
+            .export::<_, Sha256>(
+                &start_ts,
+                recent_roots,
+                file.compat(),
+                compressed,
+                skip_checksum,
+            )
+            .await
     } {
         Ok(checksum_opt) if !dry_run => {
             // `persist`is expected to succeed since we've made sure the temp-file is in the

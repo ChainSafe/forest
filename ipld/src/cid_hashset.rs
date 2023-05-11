@@ -8,9 +8,14 @@ use cid::Cid;
 pub struct CidHashSet(HashSet<u64>);
 
 impl CidHashSet {
-    pub fn insert(&mut self, cid: &Cid) -> bool {
+    pub fn insert(&mut self, cid: &Cid, on_inserted: &impl Fn(usize)) -> bool {
         let hash = self.0.hasher().hash_one(cid);
-        self.0.insert(hash)
+        if self.0.insert(hash) {
+            on_inserted(self.0.len());
+            true
+        } else {
+            false
+        }
     }
 
     pub fn len(&self) -> usize {

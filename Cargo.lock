@@ -3858,6 +3858,7 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-compression",
  "blake2b_simd",
  "bls-signatures",
  "cid",
@@ -4150,6 +4151,7 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",
  "indexmap",
+ "lazy_static",
  "libipld",
  "libipld-core 0.14.0",
  "libipld-macro",
@@ -4403,7 +4405,6 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "async-compression",
  "axum",
  "base64 0.21.0",
  "chrono",
