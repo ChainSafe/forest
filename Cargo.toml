@@ -145,19 +145,19 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
-fil_actor_account_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_init_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_init_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_miner_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_miner_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_power_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_power_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_system_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_system_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actors_runtime_v10 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actors_runtime_v11 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_account_v10 = "2"
+fil_actor_init_v10 = "2"
+fil_actor_init_v9 = "2"
+fil_actor_interface = "2"
+fil_actor_miner_v10 = "2"
+fil_actor_miner_v11 = "2"
+fil_actor_power_v10 = "2"
+fil_actor_power_v11 = "2"
+fil_actor_system_v10 = "2"
+fil_actor_system_v11 = "2"
+fil_actor_system_v9 = "2"
+fil_actors_runtime_v10 = "2"
+fil_actors_runtime_v11 = "2"
 
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
