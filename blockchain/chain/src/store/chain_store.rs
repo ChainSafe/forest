@@ -887,8 +887,8 @@ pub mod headchange_json {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
-                HeadChange::Apply(tipset) => {
-                    HeadChangeJson::Apply(TipsetJson(tipset.last().clone()))
+                HeadChange::Apply(tipsets) => {
+                    HeadChangeJson::Apply(TipsetJson(tipsets.first().clone()))
                 }
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
