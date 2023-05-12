@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-//! This module defines a [parser](parse) and
+//! This module defines a [parser](parse()) and
 //! [pretty-printer](TokenAmountPretty::pretty) for
 //! [`TokenAmount`s](fvm_shared::econ::TokenAmount).
 //!
-//! We respect the SI Prefixes listed in [`si::SUPPORTED_PREFIXES`].
+//! See the `si` module for supported prefixes.
 
 pub use parse::parse;
 pub use print::TokenAmountPretty;
