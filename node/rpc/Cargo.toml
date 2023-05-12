@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-compression.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
 cid.workspace = true
@@ -27,7 +26,7 @@ forest_ipld.workspace = true
 forest_json.workspace = true
 forest_key_management.workspace = true
 forest_libp2p.workspace = true
-forest_message = { workspace = true, features = ["blst"] }
+forest_message = { workspace = true }
 forest_message_pool.workspace = true
 forest_networks.workspace = true
 forest_rpc-api.workspace = true

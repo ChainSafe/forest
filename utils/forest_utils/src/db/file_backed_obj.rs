@@ -150,6 +150,23 @@ impl FileBackedObject for HashSet<Cid> {
     }
 }
 
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct ChainMeta {
+    pub estimated_reachable_records: usize,
+}
+
+impl FileBackedObject for ChainMeta {
+    fn serialize(&self) -> anyhow::Result<Vec<u8>> {
+        let serialized = serde_yaml::to_string(&self)?;
+        Ok(serialized.into_bytes())
+    }
+
+    fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
+        let result = serde_yaml::from_str(String::from_utf8_lossy(bytes).trim())?;
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use anyhow::*;

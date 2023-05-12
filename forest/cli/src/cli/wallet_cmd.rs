@@ -31,7 +31,7 @@ use super::{handle_rpc_err, Config};
 const NUM_SIGNIFICANT_DIGITS: u32 = 4;
 
 #[allow(clippy::enum_variant_names)]
-enum FormattingMode {
+pub enum FormattingMode {
     /// mode to show data in `FIL` units
     /// in full accuracy
     /// E.g. `0.50023677980 FIL`
@@ -305,7 +305,7 @@ impl WalletCommands {
 /// in full accuracy for `ExactNotFixed` mode,
 /// mode to show data in SI units
 /// with 4 significant digits for `NotExactNotFixed` mode
-fn format_balance_string(
+pub fn format_balance_string(
     token_amount: TokenAmount,
     mode: FormattingMode,
 ) -> anyhow::Result<String> {
@@ -381,7 +381,7 @@ fn format_balance_string(
     Ok(res)
 }
 
-fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
+pub fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
     if exact && fixed {
         FormattingMode::ExactFixed
     } else if !exact && fixed {

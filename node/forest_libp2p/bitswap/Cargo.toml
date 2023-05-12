@@ -44,11 +44,6 @@ anyhow.workspace = true
 protobuf-codegen = "3.2"
 walkdir = "2.3"
 
-[package.metadata.cargo-udeps.ignore]
-normal = ["async-std"]
-development = []
-build = []
-
 [features]
 default = []
 

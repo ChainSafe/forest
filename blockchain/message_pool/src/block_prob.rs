@@ -18,7 +18,6 @@ fn poiss_pdf(x: f64, mu: f64, cond: f64) -> f64 {
 /// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`].
 // * This will be needed for optimal message selection
 #[cfg(test)]
-#[cfg(feature = "slow_tests")]
 // TODO following two can be lazy_static
 fn no_winners_prob() -> Vec<f64> {
     (0..MAX_BLOCKS)
@@ -103,7 +102,6 @@ fn test_block_probability() {
 }
 
 #[test]
-#[cfg(feature = "slow_tests")]
 fn test_winner_probability() {
     use rand::{thread_rng, Rng};
     let n = 1_000_000;
