@@ -1,6 +1,6 @@
-//! This module defines a (parser)[parse] and
-//! (pretty-printer)[TokenAmountPretty::pretty] for
-//! (`TokenAmount`s)[fvm_shared::econ::TokenAmount].
+//! This module defines a [parser](parse) and
+//! [pretty-printer](TokenAmountPretty::pretty) for
+//! [`TokenAmount`s](fvm_shared::econ::TokenAmount).
 //!
 //! We respect the SI Prefixes listed in [si::SUPPORTED_PREFIXES].
 
@@ -427,7 +427,7 @@ mod print {
         /// ```
         ///
         /// # Formatting
-        /// - We select the most diminuative SI prefix (or not!) that allows us
+        /// - We select the most diminutive SI prefix (or not!) that allows us
         ///   to display an integer amount.
         // RUST(aatifsyed): this should be -> impl fmt::Display
         //
