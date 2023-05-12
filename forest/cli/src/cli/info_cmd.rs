@@ -1,10 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use chrono::{DateTime, Local};
@@ -17,7 +14,10 @@ use forest_rpc_client::{
 };
 use forest_shim::econ::TokenAmount;
 use forest_utils::io::parser::{format_balance_string, FormattingMode};
-use fvm_shared::{clock::EPOCH_DURATION_SECONDS, BLOCKS_PER_EPOCH};
+use fvm_shared::{
+    clock::{ChainEpoch, EPOCH_DURATION_SECONDS},
+    BLOCKS_PER_EPOCH,
+};
 
 use super::Config;
 use crate::cli::handle_rpc_err;
@@ -38,14 +38,14 @@ enum SyncStatus {
 pub struct NodeStatusInfo {
     /// duration in seconds of how far behind the node is with respect to
     /// syncing to head
-    behind: u64,
+    behind: Duration,
     /// Chain health is the percentage denoting how close we are to having an
     /// average of 5 blocks per tipset in the last couple of hours.
     /// The number of blocks per tipset is non-deterministic but averaging at 5
     /// is considered healthy.
     health: f64,
     /// epoch the node is currently at
-    epoch: i64,
+    epoch: ChainEpoch,
     /// base fee
     base_fee: TokenAmount,
     /// sync status information
@@ -53,7 +53,7 @@ pub struct NodeStatusInfo {
 }
 
 fn get_node_status(
-    chain_head: &Arc<Tipset>,
+    chain_head: &Tipset,
     block_count: usize,
     num_tipsets: u64,
     cur_duration: Duration,
@@ -61,24 +61,18 @@ fn get_node_status(
     let epoch = chain_head.epoch();
     let ts = chain_head.min_timestamp();
     let cur_duration_secs = cur_duration.as_secs();
-    let delta = if ts > cur_duration_secs {
-        // Allows system time to be 1 second slower
-        if ts <= cur_duration_secs + 1 {
-            0
-        } else {
-            anyhow::bail!(
-                "System time should not be behind tipset timestamp, please sync the system clock."
-            );
-        }
+    let behind = if ts <= cur_duration_secs + 1 {
+        cur_duration_secs.saturating_sub(ts)
     } else {
-        cur_duration_secs - ts
+        anyhow::bail!(
+            "System time should not be behind tipset timestamp, please sync the system clock."
+        );
     };
 
-    let behind = delta;
-    let sync_status = if delta < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
+    let sync_status = if behind < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
         // within 1.5 epochs
         SyncStatus::Ok
-    } else if delta < EPOCH_DURATION_SECONDS as u64 * 5 {
+    } else if behind < EPOCH_DURATION_SECONDS as u64 * 5 {
         // within 5 epochs
         SyncStatus::Slow
     } else {
@@ -89,12 +83,8 @@ fn get_node_status(
 
     let health = (100 * block_count) as f64 / (num_tipsets * BLOCKS_PER_EPOCH) as f64;
 
-    log::debug!(
-        "[Health data] health: {health}, block_count: {block_count}, num_tipsets: {num_tipsets}"
-    );
-
     Ok(NodeStatusInfo {
-        behind,
+        behind: Duration::from_secs(behind),
         health,
         epoch,
         base_fee,
@@ -169,7 +159,7 @@ struct NodeInfoOutput {
     wallet_address: ColoredString,
 }
 
-fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
+fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<ColoredString> {
     let NodeStatusInfo {
         behind,
         epoch,
@@ -178,15 +168,12 @@ fn chain_status(node_status: &NodeStatusInfo) -> anyhow::Result<String> {
         ..
     } = node_status;
     let base_fee = format_balance_string(base_fee.clone(), FormattingMode::NotExactNotFixed)?;
-    let behind = {
-        let behind = Duration::from_secs(*behind);
-        let human_duration = humantime::format_duration(behind);
-        format!("{}", human_duration)
-    };
+    let behind = format!("{}", humantime::format_duration(*behind));
 
-    Ok(format!(
-        "[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]"
-    ))
+    Ok(
+        format!("[sync: {sync_status}! ({behind} behind)] [basefee: {base_fee}] [epoch: {epoch}]")
+            .blue(),
+    )
 }
 
 fn fmt_info(
@@ -210,50 +197,38 @@ fn fmt_info(
         )
     };
 
-    let chain_status = {
-        let status = chain_status(node_status)?;
-        if use_color {
-            status.blue()
-        } else {
-            status.normal()
-        }
-    };
-
-    let network = if use_color {
-        network.green()
-    } else {
-        network.normal()
-    };
-
+    let chain_status = chain_status(node_status)?;
+    let network = network.green();
+    let wallet_address = default_wallet_address
+        .clone()
+        .unwrap_or("-".to_string())
+        .bold();
     let health = {
         let s = format!("{health:.2}%\n\n");
-        if use_color {
-            if *health > 85. {
-                s.green()
-            } else {
-                s.red()
-            }
+        if *health > 85. {
+            s.green()
         } else {
-            s.normal()
+            s.red()
         }
     };
 
-    let default_wallet_address = {
-        let addr = default_wallet_address.clone().unwrap_or("-".to_string());
-        if use_color {
-            addr.bold()
-        } else {
-            addr.normal()
-        }
-    };
-
-    Ok(NodeInfoOutput {
-        chain_status,
-        network,
-        uptime,
-        health,
-        wallet_address: default_wallet_address,
-    })
+    if !use_color {
+        Ok(NodeInfoOutput {
+            chain_status: chain_status.clear(),
+            network: network.clear(),
+            uptime,
+            health: health.clear(),
+            wallet_address: wallet_address.clear(),
+        })
+    } else {
+        Ok(NodeInfoOutput {
+            chain_status,
+            network,
+            uptime,
+            health,
+            wallet_address,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -286,7 +261,7 @@ mod tests {
 
     fn node_status_good() -> NodeStatusInfo {
         super::NodeStatusInfo {
-            behind: 0,
+            behind: Duration::from_secs(0),
             health: 90.,
             epoch: i64::MAX,
             base_fee: TokenAmount::from_whole(1),
@@ -296,7 +271,7 @@ mod tests {
 
     fn node_status_bad() -> NodeStatusInfo {
         super::NodeStatusInfo {
-            behind: 0,
+            behind: Duration::from_secs(0),
             health: 0.,
             epoch: 0,
             base_fee: TokenAmount::from_whole(1),
@@ -330,9 +305,9 @@ mod tests {
         let network = "calibnet";
         let default_wallet_address = Some("x".to_string());
         let color = LoggingColor::Never;
-        let duration_now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let tipset = mock_tipset_at(duration_now.as_secs() - 10);
-        let node_status = get_node_status(&tipset, 10, 1000, duration_now).unwrap();
+        let duration = Duration::from_secs(60);
+        let tipset = mock_tipset_at(duration.as_secs() - 10);
+        let node_status = get_node_status(&tipset, 10, 1000, duration).unwrap();
         let a = fmt_info(
             &node_status,
             start_time,
