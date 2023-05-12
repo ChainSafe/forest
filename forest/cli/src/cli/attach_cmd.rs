@@ -228,7 +228,7 @@ async fn send_message(
     let message = Message_v3 {
         from: Address::from_str(&from)?.into(),
         to: Address::from_str(&to)?.into(),
-        value: TokenAmount::from(value).into(), // JANK(aatifsyed): what is this
+        value: TokenAmount::from(value).into(), // Convert between TokenAmount2 and TokenAmount3
         method_num: METHOD_SEND,
         gas_limit: 0,
         ..Default::default()

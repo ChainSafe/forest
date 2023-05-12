@@ -23,8 +23,7 @@ pub struct SendCommand {
     amount: TokenAmount,
     #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
     gas_feecap: TokenAmount,
-    // JANK(aatifsyed): why is this an i64 whereas the others are TokenAmount?
-    // Shouldn't they all be [Gas]?
+    /// In milliGas
     #[arg(long, default_value_t = 0)]
     gas_limit: i64,
     #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
