@@ -27,7 +27,9 @@
 
 ### Added
 
-- [#2706](https://github.com/ChainSafe/forest/issues/2706): implement
+- [#2761](https://github.com/ChainSafe/forest/issues/2761): Add a per actor
+  limit of 1000 messages to Forest mpool for preventing spam attacks.
+- [#2706](https://github.com/ChainSafe/forest/issues/2706): Implement
   `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
   subcommand.
 
@@ -50,6 +52,9 @@
   `forest-cli`.
 
 ### Fixed
+
+- [#2761](https://github.com/ChainSafe/forest/issues/2761): Fix issue with
+  messages that where not properly deleted from Forest mpool.
 
 ## Forest v0.8.2 "The Way"
 

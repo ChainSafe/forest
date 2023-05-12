@@ -677,7 +677,11 @@ pub fn remove_message(
     sequence: u64,
     applied: bool,
 ) -> Result<(), Error> {
-    log::debug!("Try removing message (FROM = {}, NONCE = {})", from, sequence);
+    log::debug!(
+        "Try removing message (FROM = {}, NONCE = {})",
+        from,
+        sequence
+    );
 
     let mut pending = pending.write();
     let mset = if let Some(mset) = pending.get_mut(from) {
