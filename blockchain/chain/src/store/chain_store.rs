@@ -196,7 +196,7 @@ where
     /// `{forest_chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         let last_head_epoch = self
-            .tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())?
+            .heaviest_tipset()
             .epoch();
 
         self.file_backed_heaviest_tipset_keys
