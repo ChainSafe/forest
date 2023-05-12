@@ -23,6 +23,8 @@ DB/S
 DNS
 Enum
 Ethereum
+exa
+FIL
 Filecoin/M
 FVM
 GC
@@ -41,6 +43,7 @@ MDNS
 mempool
 Merkle
 MiB
+milliGas
 multisig
 mutex
 P2P

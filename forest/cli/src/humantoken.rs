@@ -2,7 +2,7 @@
 //! [pretty-printer](TokenAmountPretty::pretty) for
 //! [`TokenAmount`s](fvm_shared::econ::TokenAmount).
 //!
-//! We respect the SI Prefixes listed in [si::SUPPORTED_PREFIXES].
+//! We respect the SI Prefixes listed in [`si::SUPPORTED_PREFIXES`].
 
 pub use parse::parse;
 pub use print::TokenAmountPretty;
@@ -15,13 +15,13 @@ mod si {
     // to make our code less macro-heavy
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct Prefix {
-        /// "micro"
+        /// `"micro"`
         pub name: &'static str,
-        /// [ "μ", "u" ]
+        /// `[ "μ", "u" ]`
         pub units: &'static [&'static str],
-        /// -6
+        /// `-6`
         pub exponent: i8,
-        /// "0.000001"
+        /// `"0.000001"`
         pub multiplier: &'static str,
     }
 
@@ -132,8 +132,8 @@ mod parse {
     /// ```
     ///
     /// # Known bugs
-    /// - `1efil` will not parse as an exa (10^18), because we'll try and parse
-    ///   it as a exponent in the float. Instead use `1 efil`.
+    /// - `1efil` will not parse as an exa (`10^18`), because we'll try and
+    ///   parse it as a exponent in the float. Instead use `1 efil`.
     pub fn parse(input: &str) -> anyhow::Result<TokenAmount> {
         let (mut big_decimal, scale) = parse_big_decimal_and_scale(input)?;
 
