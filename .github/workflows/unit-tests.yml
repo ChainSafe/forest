@@ -14,14 +14,14 @@ on:
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
   push:
     branches:
       - main
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
   schedule:
     - cron: "0 0 * * *"
 

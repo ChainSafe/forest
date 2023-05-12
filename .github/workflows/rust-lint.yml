@@ -11,14 +11,16 @@ on:
     branches:
       - main
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
+      - '!scripts/linters/**.rb'
   push:
     branches:
       - main
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
+      - '!scripts/linters/**.rb'
   schedule:
     - cron: "0 0 * * *"
 
@@ -72,4 +74,4 @@ jobs:
       - name: Run dependencies checks
         run: |
           gem install toml-rb --no-document
-          ruby scripts/find_duplicate_deps.rb && ruby scripts/find_unused_deps.rb
+          ruby scripts/linters/find_duplicate_deps.rb && ruby scripts/linters/find_unused_deps.rb
