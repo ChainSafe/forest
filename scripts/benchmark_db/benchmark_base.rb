@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
-# Mixin module for base benchmark class exec (and exec helper) commands
+# Mixin module for base benchmark class exec (and exec helper) commands.
 module ExecCommands
+  # Helper function used in calculation of number of epochs.
   def get_last_epoch(benchmark)
     epoch = nil
     while epoch.nil?
-      # Epoch can be nil (e.g. if the client is in the "fetchting messages" stage)
+      # Epoch can be nil (e.g. if the client is in the "fetchting messages" stage).
       epoch = benchmark.epoch_command
       sleep 0.5
     end
     epoch
   end
 
+  # Measures validation time for daily metrics.
   def measure_online_validation(benchmark, pid, metrics)
     Thread.new do
       first_epoch = nil
@@ -32,6 +34,7 @@ module ExecCommands
     end
   end
 
+  # Calls online validation function and runs monitor to measure memory usage.
   def proc_monitor(pid, benchmark)
     metrics = Concurrent::Hash.new
     metrics[:rss] = []
@@ -42,10 +45,10 @@ module ExecCommands
         sample_proc(pid, metrics)
         sleep 0.5
       # Loop will error during clean and build steps, so need to break until
-      # client is running
+      # client is running.
       rescue StandardError => _e
         break
-      # Need to handle interrupt or `forest` process will continue on `ctrl-c`
+      # Need to handle interrupt or process will continue on `ctrl-c`.
       rescue Interrupt
         stop_command(pid)
         break
@@ -54,6 +57,8 @@ module ExecCommands
     [handle, metrics]
   end
 
+  # Helper function for measuring execution time; passes process ID to online
+  # validation and process monitor.
   def exec_command_aux(command, metrics, benchmark)
     Open3.popen2(*command) do |i, o, t|
       pid = t.pid
@@ -69,6 +74,7 @@ module ExecCommands
     end
   end
 
+  # Measures execution time of command.
   def exec_command(command, benchmark = nil)
     @logger.info "$ #{command.join(' ')}"
     return {} if @dry_run
@@ -82,8 +88,9 @@ module ExecCommands
   end
 end
 
-# Mixin module for base benchmark class build commands
+# Mixin module for base benchmark class build commands.
 module BuildCommands
+  # Helper function to build config file for `build_artefacts` function
   def build_config_file
     config = @config.deep_merge(default_config)
     config_path = "#{data_dir}/#{@name}.toml"
@@ -93,6 +100,8 @@ module BuildCommands
   end
   private :build_config_file
 
+  # Helper function for `build_artefacts` function; defines config path, snapshot
+  # path, and start epoch for building and running client.
   def build_substitution_hash
     height = snapshot_height(@snapshot_path)
     start = height - @heights
@@ -105,6 +114,8 @@ module BuildCommands
   end
   private :build_substitution_hash
 
+  # Helper function for `build_artefacts`; clones repository, checks out branch,
+  # runs clean command, and builds client.
   def build_client
     if Dir.exist?(repository_name)
       @logger.warn "Directory #{repository_name} is already present"
@@ -123,6 +134,7 @@ module BuildCommands
     end
   end
 
+  # Calls all helper functions to prepare each client to run benchmarks.
   def build_artefacts
     @logger.info 'Building artefacts...'
     build_client
@@ -133,8 +145,9 @@ module BuildCommands
   private :build_artefacts
 end
 
-# Mixin module for base benchmark class run and validation commands
+# Mixin module for base benchmark class run and validation commands.
 module RunCommands
+  # Create and call proper validation command, then write results to metrics.
   def run_validation_step(daily, args, metrics)
     unless daily
       validate_command = splice_args(@validate_command, args)
@@ -150,11 +163,12 @@ module RunCommands
     metrics[:validate_online] = new_metrics
   end
 
+  # Import snapshot, write metrics, and call validation function, returning metrics.
   def import_and_validation(daily, args, metrics)
     import_command = splice_args(@import_command, args)
     metrics[:import] = exec_command(import_command)
 
-    # Save db size just after import
+    # Save db size just after import.
     metrics[:import][:db_size] = db_size unless @dry_run
 
     run_validation_step(daily, args, metrics)
@@ -167,6 +181,8 @@ module RunCommands
     exit(1)
   end
 
+  # This is the primary function called in `bench.rb` to run the metrics for
+  # each benchmark.
   def run(daily, snapshot_downloaded)
     begin
       @snapshot_downloaded = snapshot_downloaded
@@ -192,26 +208,30 @@ module RunCommands
     delete_repository
   end
 
+  # Number of seconds to run online validation is defined here.
   def online_validation_secs
     @chain == 'mainnet' ? 120.0 : 10.0
   end
 
+  # Check to see if current epoch is at least `10` epochs past snapshot height.
   def start_online_validation_command
     snapshot_height = snapshot_height(@snapshot_path)
     current = epoch_command
     if current
       @logger.info "@#{current}"
-      # Check if we can start the measure
+      # Check if we can start the measure.
       [current >= snapshot_height + 10, current]
     else
       [false, nil]
     end
   end
 
+  # Raise an error if repository name is not defined in each class instance.
   def repository_name
     raise 'repository_name method should be implemented'
   end
 
+  # Create repository data directory.
   def data_dir
     current_dir = Dir.pwd
     path = "#{current_dir}/.#{repository_name}"
@@ -219,12 +239,13 @@ module RunCommands
     path
   end
 
+  # Helper function for deleting repository after successful run.
   def delete_repository
     FileUtils.rm_rf(repository_name) if @created_repository
   end
 end
 
-# Base benchmark class (not usable on its own)
+# Base benchmark class (not usable on its own).
 class BenchmarkBase
   include ExecCommands
   include BuildCommands

@@ -19,7 +19,7 @@ require_relative 'forest_bench'
 require_relative 'lotus_bench'
 require_relative 'benchmark_base'
 
-# Define `regex` for capturing the snapshot height
+# Define `regex` for capturing the snapshot height.
 SNAPSHOT_REGEXES = [
   /_height_(?<height>\d+)\.car/,
   %r{/(?<height>\d+)_*}
@@ -32,7 +32,7 @@ HOUR = MINUTE * MINUTE
 
 @logger = Logger.new($stdout)
 
-# Define default options and parse command line options
+# Define default options and parse command line options.
 options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
@@ -49,7 +49,7 @@ OptionParser.new do |opts|
 end.parse!
 
 # Create random temporary directory (or user-specified dir) for benchmarks,
-# and set appropriate permissions to allow script to run properly
+# and set appropriate permissions to allow script to run properly.
 WORKING_DIR = if options[:tempdir].nil?
                 Dir.mktmpdir('benchmark-')
               else
@@ -58,14 +58,14 @@ WORKING_DIR = if options[:tempdir].nil?
               end
 FileUtils.chmod 0o744, WORKING_DIR
 
-# Provides human readable formatting to Numeric class
+# Provides human readable formatting to Numeric class.
 class Numeric
   def to_bibyte
     syscall('numfmt', '--to=iec-i', '--suffix=B', '--format=%.2f', to_s)
   end
 end
 
-# Helper function to capture standard output of commands
+# Helper function to capture standard output of commands.
 def syscall(*command, chdir: '.')
   stdout, _stderr, status = Open3.capture3(*command, chdir: chdir)
 
@@ -79,7 +79,7 @@ def trunc_seconds(seconds)
   seconds < MINUTE ? seconds.ceil(1) : seconds.ceil(0)
 end
 
-# Updates physical and virutal memory size metrics
+# Updates physical and virutal memory size metrics.
 def sample_proc(pid, metrics)
   output = syscall('ps', '-o', 'rss,vsz', pid.to_s)
   output = output.split("\n").last.split
@@ -87,7 +87,7 @@ def sample_proc(pid, metrics)
   metrics[:vsz].push(output[1].to_i)
 end
 
-# Populate import table with metrics
+# Populate import table with metrics.
 def format_import_table_row(key, value)
   elapsed = value[:import][:elapsed] || 'n/a'
   rss = value[:import][:rss]
@@ -98,7 +98,7 @@ def format_import_table_row(key, value)
   "#{key} | #{elapsed} | #{rss_max} | #{vsz_max} | #{db_size}\n"
 end
 
-# Format import table and call function to populate metrics
+# Format import table and call function to populate metrics.
 def format_import_table(metrics)
   result = "Bench | Import Time [sec] | Import RSS | Import VSZ | DB Size\n"
   result += "-|-|-|-|-\n"
@@ -110,7 +110,7 @@ def format_import_table(metrics)
   result
 end
 
-# Format validation table and populate table with metrics
+# Format validation table and populate table with metric.
 def format_validate_table(metrics)
   result = "Bench | Validate Time [sec] | Validate RSS | Validate VSZ\n"
   result += "-|-|-|-\n"
@@ -127,9 +127,9 @@ def format_validate_table(metrics)
   result
 end
 
-# Output database benchmark metrics to markdown file
+# Output database benchmark metrics to markdown file.
 def write_markdown(metrics)
-  # Output file is a suite of markdown tables
+  # Output file is a suite of markdown tables.
   result = ''
   result += format_import_table(metrics)
   result += "---\n"
@@ -140,7 +140,7 @@ def write_markdown(metrics)
   @logger.info "Wrote #{filename}"
 end
 
-# Output daily benchmark metrics to comma-separated value file
+# Output daily benchmark metrics to comma-separated value file.
 def write_csv(metrics)
   filename = "result_#{Time.now.to_i}.csv"
   CSV.open(filename, 'w') do |csv|
@@ -160,7 +160,7 @@ def splice_args(command, args)
   command.map { |s| s % args }
 end
 
-# Capture snapshot height from snapshot path
+# Capture snapshot height from snapshot path.
 def snapshot_height(snapshot)
   SNAPSHOT_REGEXES.each do |regex|
     match = snapshot.match(regex)
@@ -169,14 +169,14 @@ def snapshot_height(snapshot)
   raise 'unsupported snapshot name'
 end
 
-# Determine correct snapshot download URL path based on value of chain
+# Determine correct snapshot download URL path based on value of chain.
 def get_url(chain, url)
   value = chain == 'mainnet' ? 'mainnet' : 'calibrationnet'
   output = syscall('aria2c', '--dry-run', "https://snapshots.#{value}.filops.net/minimal/latest.zst")
   url || output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
 end
 
-# Helper function to create assignments for `download_and_move` function
+# Helper function to create assignments for `download_and_move` function.
 def download_and_move_assignments(url)
   filename = url.match(/(\d+_.+)/)[1]
   checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
@@ -186,17 +186,17 @@ def download_and_move_assignments(url)
 end
 
 # Create snapshot directory; download checksum and compressed snapshot;
-# decompress and verify snapshot; clean up helper files and return path to snapshot
+# decompress and verify snapshot; clean up helper files and return path to snapshot.
 def download_and_move(url, output_dir)
   filename, checksum_url, checksum_filename, decompressed_filename = download_and_move_assignments(url)
 
   # Must move to `WORKING_DIR` and create temporary folder for temp snapshot
-  # files, as filesystem `tmp` partition may not be large enough for this task
+  # files, as filesystem `tmp` partition may not be large enough for this task.
   Dir.chdir(WORKING_DIR)
   snapshot_dir = Dir.pwd
   FileUtils.mkdir_p('snapshot_dl_files')
   Dir.chdir('snapshot_dl_files') do
-    # Download, decompress and verify checksums
+    # Download, decompress and verify checksums.
     @logger.info 'Downloading checksum...'
     syscall('aria2c', checksum_url)
     @logger.info 'Downloading snapshot...'
@@ -214,7 +214,7 @@ end
 
 # Get proper snapshot download URL based on chain value and download to
 # `WORKING_DIR`; define `snapshot_path` instance variable based on the
-# download location for use in benchmarks, error handling, and cleanup after run
+# download location for use in benchmarks, error handling, and cleanup after run.
 def download_snapshot(output_dir: WORKING_DIR, chain: 'calibnet', url: nil)
   @logger.info "output_dir: #{output_dir}"
   @logger.info "chain: #{chain}"
@@ -227,7 +227,7 @@ def download_snapshot(output_dir: WORKING_DIR, chain: 'calibnet', url: nil)
 end
 
 # Helper function for `run_benchmarks` to loop through benchmarks selection,
-# run metrics, and assign metrics for each benchmark
+# run metrics, and assign metrics for each benchmark.
 def benchmarks_loop(benchmarks, options, bench_metrics)
   benchmarks.each do |bench|
     bench.dry_run, bench.snapshot_path, bench.heights, bench.chain = bench_loop_assignments(options)
@@ -238,18 +238,18 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
     puts "\n"
   rescue StandardError, Interrupt
     @logger.error('Fiasco during benchmark run. Exiting...')
-    # Delete snapshot if downloaded, but not if user-provided
+    # Delete snapshot if downloaded, but not if user-provided.
     FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
     exit(1)
   end
 end
 
-# Helper function for to create assignments for `benchmarks_loop` function
+# Helper function for to create assignments for `benchmarks_loop` function.
 def bench_loop_assignments(options)
   [options[:dry_run], options[:snapshot_path], options[:heights], options[:chain]]
 end
 
-# Run benchmarks and write to `CSV` if daily or markdown file if `DB` benchmarks
+# Run benchmarks and write to `CSV` if daily or markdown file if `DB` benchmarks.
 def run_benchmarks(benchmarks, options)
   bench_metrics = Concurrent::Hash.new
   options[:snapshot_path] = File.expand_path(options[:snapshot_path])
@@ -266,21 +266,21 @@ def run_benchmarks(benchmarks, options)
   end
 end
 
-# Benchmarks for database metrics
+# Benchmarks for database metrics.
 FOREST_BENCHMARKS = [
   ForestBenchmark.new(name: 'baseline'),
   SysAllocBenchmark.new(name: 'sysalloc'),
   MimallocBenchmark.new(name: 'mimalloc')
 ].freeze
 
-# Get snapshot path from command line arguments
+# Get snapshot path from command line arguments.
 @snapshot_path = ARGV.pop
 raise "The file '#{@snapshot_path}' does not exist" if @snapshot_path && !File.file?(@snapshot_path)
 
-# Set variable to false for use later during error handling and cleanup after run
+# Set variable to false for use later during error handling and cleanup after run.
 @snapshot_downloaded = false
 
-# Download snapshot if a snapshot path is not specified by the user
+# Download snapshot if a snapshot path is not specified by the user.
 begin
   if @snapshot_path.nil?
     @logger.info 'No snapshot provided, downloading one'
@@ -288,7 +288,7 @@ begin
     @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
     @snapshot_downloaded = true
     # If a fresh snapshot is downloaded, allow network to move ahead, otherwise
-    # `message sync` phase may not be long enough for validation metric
+    # `message sync` phase may not be long enough for validation metric.
     if options[:daily]
       @logger.info 'Fresh snapshot; sleeping while network advances for 5 minutes...'
       sleep 300
@@ -296,25 +296,25 @@ begin
   end
 rescue StandardError, Interrupt
   @logger.error('Fiasco during snapshot download. Deleting snapshot and exiting...')
-  # Delete downloaded snapshot if it exists
+  # Delete downloaded snapshot if it exists.
   FileUtils.rm_f(@snapshot_path) unless @snapshot_path.nil?
   FileUtils.rm_rf("#{WORKING_DIR}/snapshot_dl_files")
   exit(1)
 end
 
-# Define snapshot path in options to pass to the benchmark run
+# Define snapshot path in options to pass to the benchmark run.
 options[:snapshot_path] = @snapshot_path
 
-# Run metrics based on daily flag setting
+# Run metrics based on daily flag setting.
 if options[:daily]
-  # Benchmarks for daily metrics
+  # Benchmarks for daily metrics.
   selection = Set[
     ForestBenchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
 else
-  # Benchmarks for database metrics
+  # Benchmarks for database metrics.
   selection = Set[]
   FOREST_BENCHMARKS.each do |bench|
     options[:pattern].split(',').each do |pat|
@@ -328,5 +328,5 @@ else
   end
 end
 
-# After benchmarks are complete, delete snapshot if downloaded, but not if user-provided
+# After benchmarks are complete, delete snapshot if downloaded, but not if user-provided.
 FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
