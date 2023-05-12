@@ -27,7 +27,7 @@ use utils::{get_base_fee_lower_bound, recover_sig};
 use super::errors::Error;
 use crate::{
     msg_chain::{create_message_chains, Chains},
-    msg_pool::{add_helper, remove_the_message, MsgSet},
+    msg_pool::{add_helper, remove_message, MsgSet},
     provider::Provider,
 };
 
@@ -241,20 +241,6 @@ where
         }
     }
 
-    // for ts in apply.iter() {
-    //     for b in ts.blocks().iter() {
-    //         let (msgs, smsgs) = api.messages_for_block(b)?;
-    //         // dump messages
-    //         println!("messages to remove: @{}", b.epoch());
-    //         for m in msgs {
-    //             println!("-> {} {}", m.cid().unwrap(), m.sequence());
-    //         }
-    //         for m in smsgs {
-    //             println!("-> {} {}", m.cid().unwrap(), m.sequence());
-    //         }
-    //     }
-    // }
-
     for ts in apply {
         for b in ts.blocks() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
@@ -314,10 +300,10 @@ pub(crate) fn remove_from_selected_msgs(
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
         } else {
-            remove_the_message(from, pending, sequence, true)?;
+            remove_message(from, pending, sequence, true)?;
         }
     } else {
-        remove_the_message(from, pending, sequence, true)?;
+        remove_message(from, pending, sequence, true)?;
     }
     Ok(())
 }

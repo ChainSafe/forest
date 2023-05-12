@@ -458,11 +458,6 @@ where
         Ok(TokenAmount::from(&actor.balance))
     }
 
-    // /// Remove a message given a sequence and address from the message pool.
-    // fn remove(&mut self, from: &Address, sequence: u64, applied: bool) ->
-    // Result<(), Error> {     remove_the_message(from, self.pending.as_ref(),
-    // sequence, applied) }
-
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
     pub fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
@@ -676,7 +671,7 @@ fn verify_msg_before_add(
 }
 
 /// Remove a message from pending given the from address and sequence.
-pub fn remove_the_message(
+pub fn remove_message(
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
