@@ -195,9 +195,7 @@ where
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
     /// `{forest_chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        let last_head_epoch = self
-            .heaviest_tipset()
-            .epoch();
+        let last_head_epoch = self.heaviest_tipset().epoch();
 
         self.file_backed_heaviest_tipset_keys
             .lock()
