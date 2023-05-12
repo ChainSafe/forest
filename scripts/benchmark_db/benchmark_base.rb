@@ -144,6 +144,7 @@ module RunCommands
 
     validate_online_command = splice_args(@validate_online_command, args)
     new_metrics = exec_command(validate_online_command, self)
+    # TODO?: round result to ~3 decimal places
     new_metrics[:tpm] =
       new_metrics[:num_epochs] ? new_metrics[:num_epochs] / online_validation_secs : 'n/a'
     metrics[:validate_online] = new_metrics
