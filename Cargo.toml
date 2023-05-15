@@ -44,6 +44,10 @@ members = [
   "utils/forest_shim",
 ]
 
+# We need this even though we have edition = "2021" because we're a virtual manifest
+# https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions
+resolver = "2"
+
 [workspace.dependencies]
 ahash = "0.8"
 anes = "0.1.6"
