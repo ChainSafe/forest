@@ -21,12 +21,11 @@ use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
-    gas::price_list_by_network_version,
+    gas::{price_list_by_network_version, Gas},
 };
 use forest_state_manager::is_valid_for_sending;
 use forest_utils::const_option;
 use futures::StreamExt;
-use fvm3::gas::Gas;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use lru::LruCache;

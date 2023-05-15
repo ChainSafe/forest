@@ -6,10 +6,10 @@ use fvm::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
 };
-pub use fvm3::gas::GasTracker;
 use fvm3::gas::{
     price_list_by_network_version as price_list_by_network_version_v3, Gas as GasV3,
-    GasCharge as GasChargeV3, PriceList as PriceListV3, MILLIGAS_PRECISION,
+    GasCharge as GasChargeV3, GasTimer as GasTimerV3, GasTracker as GasTrackerV3,
+    PriceList as PriceListV3, MILLIGAS_PRECISION,
 };
 
 use crate::version::NetworkVersion;
@@ -167,5 +167,36 @@ pub fn price_list_by_network_version(network_version: NetworkVersion) -> PriceLi
         price_list_by_network_version_v2(network_version.into()).into()
     } else {
         price_list_by_network_version_v3(network_version.into()).into()
+    }
+}
+
+pub struct GasTracker(GasTrackerV3);
+
+impl GasTracker {
+    pub fn new(gas_limit: GasV3, gas_used: GasV3, enable_tracing: bool) -> Self {
+        Self(GasTrackerV3::new(gas_limit, gas_used, enable_tracing))
+    }
+
+    pub fn apply_charge(
+        &self,
+        charge: GasChargeV3,
+    ) -> Result<GasTimerV3, fvm3::kernel::ExecutionError> {
+        self.0.apply_charge(charge)
+    }
+
+    pub fn gas_used(&self) -> GasV3 {
+        self.0.gas_used()
+    }
+}
+
+impl From<GasTrackerV3> for GasTracker {
+    fn from(value: GasTrackerV3) -> Self {
+        GasTracker(value)
+    }
+}
+
+impl From<GasTracker> for GasTrackerV3 {
+    fn from(value: GasTracker) -> Self {
+        value.0
     }
 }

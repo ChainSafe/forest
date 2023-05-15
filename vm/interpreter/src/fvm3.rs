@@ -8,12 +8,11 @@ use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
 use forest_shim::{
-    gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
+    gas::{price_list_by_network_version, Gas, GasTracker},
+    state_tree::StateTree,
+    version::NetworkVersion,
 };
-use fvm3::{
-    externs::{Chain, Consensus, Externs, Rand},
-    gas::{Gas, GasTracker},
-};
+use fvm3::externs::{Chain, Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
@@ -250,7 +249,7 @@ fn cal_gas_used_from_stats(
     network_version: NetworkVersion,
 ) -> anyhow::Result<Gas> {
     let price_list = price_list_by_network_version(network_version);
-    let gas_tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
+    let gas_tracker = GasTracker::new(Gas::new(u64::MAX).into(), Gas::new(0).into(), false);
     // num of reads
     for _ in 0..stats.r {
         gas_tracker
@@ -270,7 +269,7 @@ fn cal_gas_used_from_stats(
                 .stop();
         }
     }
-    Ok(gas_tracker.gas_used())
+    Ok(gas_tracker.gas_used().into())
 }
 
 #[cfg(test)]
@@ -326,7 +325,7 @@ mod tests {
 
         // Simulates logic in old GasBlockStore
         let price_list = price_list_by_network_version(network_version);
-        let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
+        let tracker = GasTracker::new(Gas::new(u64::MAX).into(), Gas::new(0).into(), false);
         repeat(()).take(read_count).for_each(|_| {
             tracker
                 .apply_charge(price_list.on_block_open_base().into())
@@ -338,7 +337,7 @@ mod tests {
                 .apply_charge(price_list.on_block_link(bytes).into())?
                 .stop()
         }
-        let expected = tracker.gas_used();
+        let expected = tracker.gas_used().into();
 
         ensure!(result == expected);
         Ok(())
