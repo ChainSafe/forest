@@ -15,8 +15,9 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{verifier::Verifier, *};
+use super::{miner, power, system, verifier::Verifier, ManifestNew, ManifestOld, SystemStateOld};
 use crate::common::{migrators::nil_migrator, StateMigration};
+
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv19_migrations(
         &mut self,

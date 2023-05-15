@@ -10,7 +10,7 @@ use forest_shim::{
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use super::*;
+use super::SystemStateNew;
 
 /// Creates the Ethereum Account actor in the state tree.
 pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
