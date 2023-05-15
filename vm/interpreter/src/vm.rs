@@ -13,6 +13,7 @@ use forest_shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::{ApplyRet, Receipt},
+    externs::{Rand_v2 as Rand, Rand_v3},
     message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
@@ -20,13 +21,11 @@ use forest_shim::{
 };
 use fvm::{
     executor::{DefaultExecutor, Executor},
-    externs::Rand,
     machine::{DefaultMachine, Machine, MultiEngine as MultiEngine_v2, NetworkConfig},
 };
 use fvm3::{
     engine::MultiEngine as MultiEngine_v3,
     executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
-    externs::Rand as Rand_v3,
     machine::{
         DefaultMachine as DefaultMachine_v3, Machine as Machine_v3,
         NetworkConfig as NetworkConfig_v3,

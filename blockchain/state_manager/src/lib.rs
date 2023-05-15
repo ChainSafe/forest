@@ -28,14 +28,13 @@ use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
+    externs::{Rand_v2 as Rand, Rand_v3},
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
-use fvm::externs::Rand;
-use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
