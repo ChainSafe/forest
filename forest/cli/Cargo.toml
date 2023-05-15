@@ -52,6 +52,7 @@ multibase.workspace = true
 nom = "7.1.3"
 num.workspace = true
 pretty_assertions = "1.3.0"
+proptest = "1.1.0"
 rpassword.workspace = true
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
