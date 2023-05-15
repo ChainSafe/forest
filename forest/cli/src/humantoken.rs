@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! This module defines a [parser](parse()) and
 //! [pretty-printer](TokenAmountPretty::pretty) for
-//! [`TokenAmount`s](fvm_shared::econ::TokenAmount).
+//! `TokenAmount`
 //!
 //! See the `si` module for supported prefixes.
 
