@@ -55,8 +55,7 @@ jobs:
       - name: Build rustdoc
         run: |- 
           rustup toolchain install $toolchain --component rustfmt
-          cargo +$toolchain --version
-          cargo +$toolchain --workspace --no-deps
+          cargo +$toolchain doc --workspace --no-deps
         env:
           # When you visit https://chainsafe.github.io/forest/rustdoc you get an index.html
           # listing all crates that are documented (copied out below).
