@@ -14,8 +14,7 @@ on:
       - main
 
 env:
-  # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
-  RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
+  RUSTDOCFLAGS: "-Dwarnings"
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
   SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
