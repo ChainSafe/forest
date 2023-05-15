@@ -11,14 +11,14 @@ on:
     branches:
       - main
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
   push:
     branches:
       - main
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
   schedule:
     - cron: "0 0 * * *"
 

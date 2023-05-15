@@ -21,7 +21,6 @@ where
     // collect bundles to load into the database.
     let mut bundles = Vec::new();
     for info in &config.chain.height_infos {
-        info!("Checking bundle {}", info.height);
         if info.bundle.is_some() && epoch < config.chain.epoch(info.height) {
             bundles.push(get_actors_bundle(config, info.height).await?);
         }
