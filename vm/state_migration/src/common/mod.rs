@@ -53,8 +53,8 @@ pub(crate) type PostMigrationAction<BS> =
 
 /// Trait that migrates from one data structure to another, similar to
 /// [`std::convert::TryInto`] trait but taking an extra block store parameter
-pub(crate) trait TypeMigration<BS: Blockstore + Clone + Send + Sync, From, To> {
-    fn migrate_type(from: From, store: &BS) -> anyhow::Result<To>;
+pub(crate) trait TypeMigration<From, To> {
+    fn migrate_type(from: From, store: &impl Blockstore) -> anyhow::Result<To>;
 }
 
 /// Type that implements [`TypeMigration`] for different type pairs. Prefer

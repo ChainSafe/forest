@@ -10,11 +10,8 @@ use fvm_ipld_blockstore::Blockstore;
 
 use crate::common::{TypeMigration, TypeMigrator};
 
-impl<BS> TypeMigration<BS, MinerStateV10, MinerStateV11> for TypeMigrator
-where
-    BS: Blockstore + Clone + Send + Sync,
-{
-    fn migrate_type(from: MinerStateV10, store: &BS) -> anyhow::Result<MinerStateV11> {
+impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
+    fn migrate_type(from: MinerStateV10, store: &impl Blockstore) -> anyhow::Result<MinerStateV11> {
         let in_info: MinerInfo = store
             .get_obj(&from.info)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;

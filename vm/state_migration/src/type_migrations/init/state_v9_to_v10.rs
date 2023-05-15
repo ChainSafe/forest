@@ -12,11 +12,8 @@ use fvm_ipld_blockstore::Blockstore;
 
 use crate::common::{TypeMigration, TypeMigrator};
 
-impl<BS> TypeMigration<BS, InitStateV9, InitStateV10> for TypeMigrator
-where
-    BS: Blockstore + Clone + Send + Sync,
-{
-    fn migrate_type(from: InitStateV9, store: &BS) -> anyhow::Result<InitStateV10> {
+impl TypeMigration<InitStateV9, InitStateV10> for TypeMigrator {
+    fn migrate_type(from: InitStateV9, store: &impl Blockstore) -> anyhow::Result<InitStateV10> {
         let mut in_addr_map: Map<_, ActorID> =
             make_map_with_root(&from.address_map, &store).map_err(|e| anyhow::anyhow!("{e}"))?;
 
