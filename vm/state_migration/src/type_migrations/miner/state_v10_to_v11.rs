@@ -14,9 +14,9 @@ impl<BS> TypeMigration<BS, MinerStateV10, MinerStateV11> for TypeMigrator
 where
     BS: Blockstore + Clone + Send + Sync,
 {
-    fn migrate_type(in_state: MinerStateV10, store: &BS) -> anyhow::Result<MinerStateV11> {
+    fn migrate_type(from: MinerStateV10, store: &BS) -> anyhow::Result<MinerStateV11> {
         let in_info: MinerInfo = store
-            .get_obj(&in_state.info)?
+            .get_obj(&from.info)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;
 
         let out_proof_type = convert_window_post_proof_v1_to_v1p1(in_info.window_post_proof_type)
@@ -60,20 +60,20 @@ where
 
         let out_state = MinerStateV11 {
             info: out_info_cid,
-            pre_commit_deposits: in_state.pre_commit_deposits,
-            locked_funds: in_state.locked_funds,
-            vesting_funds: in_state.vesting_funds,
-            fee_debt: in_state.fee_debt,
-            initial_pledge: in_state.initial_pledge,
-            pre_committed_sectors: in_state.pre_committed_sectors,
-            pre_committed_sectors_cleanup: in_state.pre_committed_sectors_cleanup,
-            allocated_sectors: in_state.allocated_sectors,
-            sectors: in_state.sectors,
-            proving_period_start: in_state.proving_period_start,
-            current_deadline: in_state.current_deadline,
-            deadlines: in_state.deadlines,
-            early_terminations: in_state.early_terminations,
-            deadline_cron_active: in_state.deadline_cron_active,
+            pre_commit_deposits: from.pre_commit_deposits,
+            locked_funds: from.locked_funds,
+            vesting_funds: from.vesting_funds,
+            fee_debt: from.fee_debt,
+            initial_pledge: from.initial_pledge,
+            pre_committed_sectors: from.pre_committed_sectors,
+            pre_committed_sectors_cleanup: from.pre_committed_sectors_cleanup,
+            allocated_sectors: from.allocated_sectors,
+            sectors: from.sectors,
+            proving_period_start: from.proving_period_start,
+            current_deadline: from.current_deadline,
+            deadlines: from.deadlines,
+            early_terminations: from.early_terminations,
+            deadline_cron_active: from.deadline_cron_active,
         };
 
         Ok(out_state)
