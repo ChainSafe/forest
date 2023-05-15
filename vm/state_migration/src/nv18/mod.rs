@@ -16,10 +16,11 @@ pub use migration::run_migration;
 
 use crate::*;
 
-define_system_states!(fil_actor_system_v9::State, fil_actor_system_v10::State);
 define_manifests!(
     forest_shim::machine::ManifestV2,
     forest_shim::machine::Manifest
 );
+define_system_states!(fil_actor_system_v9::State, fil_actor_system_v10::State);
+
 impl_system!();
 impl_verifier!();
