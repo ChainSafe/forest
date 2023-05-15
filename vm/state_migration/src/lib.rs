@@ -42,8 +42,7 @@ where
                 if height == &info.height {
                     anyhow::ensure!(
                         info.bundle.is_some(),
-                        "Actor bundle info for height {} needs to be defined in `networks/src/lib.rs` to run state migration",
-                        height
+                        "Actor bundle info for height {height} needs to be defined in `networks/src/lib.rs` to run state migration"
                     );
                     break;
                 }
