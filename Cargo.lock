@@ -4694,6 +4694,7 @@ dependencies = [
  "fil_actor_power_v11",
  "fil_actor_system_v10",
  "fil_actor_system_v11",
+ "fil_actor_system_v8",
  "fil_actor_system_v9",
  "fil_actors_runtime_v10",
  "fil_actors_runtime_v11",
