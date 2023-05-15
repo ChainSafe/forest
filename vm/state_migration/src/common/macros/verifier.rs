@@ -2,69 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #[macro_export(local_inner_macros)]
-macro_rules! define_system_states {
-    ($state_old:ty, $state_new:ty) => {
-        type SystemStateOld = $state_old;
-        type SystemStateNew = $state_new;
-    };
-}
-
-#[macro_export(local_inner_macros)]
-macro_rules! define_manifests {
-    ($manifest_old:ty, $manifest_new:ty) => {
-        type ManifestOld = $manifest_old;
-        type ManifestNew = $manifest_new;
-    };
-}
-
-#[macro_export(local_inner_macros)]
-macro_rules! impl_system {
-    () => {
-        pub(super) mod system {
-            use std::sync::Arc;
-
-            use cid::{multihash::Code::Blake2b256, Cid};
-            use forest_utils::db::BlockstoreExt;
-            use fvm_ipld_blockstore::Blockstore;
-            use $crate::common::*;
-
-            pub(super) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
-                new_builtin_actors_cid: Cid,
-                new_code_cid: Cid,
-            ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
-                Arc::new(SystemMigrator {
-                    new_builtin_actors_cid,
-                    new_code_cid,
-                })
-            }
-
-            pub struct SystemMigrator {
-                new_builtin_actors_cid: Cid,
-                new_code_cid: Cid,
-            }
-
-            impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for SystemMigrator {
-                fn migrate_state(
-                    &self,
-                    store: BS,
-                    _input: ActorMigrationInput,
-                ) -> anyhow::Result<ActorMigrationOutput> {
-                    let state = super::SystemStateNew {
-                        builtin_actors: self.new_builtin_actors_cid,
-                    };
-                    let new_head = store.put_obj(&state, Blake2b256)?;
-
-                    Ok(ActorMigrationOutput {
-                        new_code_cid: self.new_code_cid,
-                        new_head,
-                    })
-                }
-            }
-        }
-    };
-}
-
-#[macro_export(local_inner_macros)]
 macro_rules! impl_verifier {
     () => {
         pub(super) mod verifier {
