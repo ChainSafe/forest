@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+/// Implements `Verifier`, requiring proper `Manifest` types and system actor
+/// `State` types being defined by `define_manifests` and `define_system_states`
+/// macros respectively.
 #[macro_export]
 macro_rules! impl_verifier {
     () => {

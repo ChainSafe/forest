@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+/// Define type aliases for system actor `State` types before and after the
+/// state migration, namely `SystemStateOld` and `SystemStateNew`
 #[macro_export]
 macro_rules! define_system_states {
     ($state_old:ty, $state_new:ty) => {
@@ -9,6 +11,8 @@ macro_rules! define_system_states {
     };
 }
 
+/// Implements `fn system_migrator`, requiring proper system actor `State` types
+/// being defined by `define_system_states` macro.
 #[macro_export]
 macro_rules! impl_system {
     () => {
