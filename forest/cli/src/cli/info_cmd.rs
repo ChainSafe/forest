@@ -292,30 +292,37 @@ mod tests {
         }
     }
 
-    // #[quickcheck]
-    // fn test_sync_status(tipsets: Vec<Arc<Tipset>>) {
-    //     let a = NodeStatusInfo::from(Duration::from_secs(0), tipsets);
-    //     assert!(a.unwrap().sync_status == SyncStatus::Ok);
-    // }
+    #[quickcheck]
+    fn test_sync_status_ok(tipsets: Vec<Arc<Tipset>>) {
+        let status_result = NodeStatusInfo::new(Duration::from_secs(0), tipsets);
+        if let Ok(status) = status_result {
+            assert_ne!(status.sync_status, SyncStatus::Slow);
+            assert_ne!(status.sync_status, SyncStatus::Behind);
+        }
+    }
 
-    #[test]
-    fn node_status_with_null_tipset() {
-        // out of sync
-        let duration_now = Duration::from_secs(100_000); // SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let tipset = mock_tipset_at(duration_now.as_secs() - 30000);
-        let node_status = NodeStatusInfo::new(duration_now, vec![tipset]).unwrap();
+    #[quickcheck]
+    fn test_sync_status_behind(duration: Duration) {
+        let duration = duration + Duration::from_secs(300);
+        let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
+        let node_status = NodeStatusInfo::new(duration, vec![tipset]).unwrap();
         assert!(node_status.health.is_finite());
-        assert_eq!(node_status.sync_status, SyncStatus::Behind);
-        // slow
-        let tipset = mock_tipset_at(duration_now.as_secs() - EPOCH_DURATION_SECONDS as u64 * 4);
-        let node_status = NodeStatusInfo::new(duration_now, vec![tipset]).unwrap();
+        assert_ne!(node_status.sync_status, SyncStatus::Ok);
+        assert_ne!(node_status.sync_status, SyncStatus::Slow);
+    }
+
+    #[quickcheck]
+    fn test_sync_status_slow(duration: Duration) {
+        let duration = duration + Duration::from_secs(300);
+        let tipset = mock_tipset_at(
+            duration
+                .as_secs()
+                .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
+        );
+        let node_status = NodeStatusInfo::new(duration, vec![tipset]).unwrap();
         assert!(node_status.health.is_finite());
-        assert_eq!(node_status.sync_status, SyncStatus::Slow);
-        // ok
-        let tipset = mock_tipset_at(duration_now.as_secs() - EPOCH_DURATION_SECONDS as u64);
-        let node_status = NodeStatusInfo::new(duration_now, vec![tipset]).unwrap();
-        assert!(node_status.health.is_finite());
-        assert_eq!(node_status.sync_status, SyncStatus::Ok);
+        assert_ne!(node_status.sync_status, SyncStatus::Behind);
+        assert_ne!(node_status.sync_status, SyncStatus::Ok);
     }
 
     #[test]
