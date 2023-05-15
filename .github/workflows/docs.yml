@@ -14,7 +14,6 @@ on:
       - main
 
 env:
-  RUSTDOCFLAGS: "-Dwarnings"
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
   SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
@@ -54,8 +53,13 @@ jobs:
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
-        run: make rustdoc
+        run: cargo +nightly-2023-04-19 doc --workspace --no-deps
         env:
+        # When you visit https://chainsafe.github.io/forest/rustdoc you get an index.html
+        # listing all crates that are documented (copied out below).
+        # This isn't included by default, so we use the unstable `--enable-index-page` option
+        # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
+          RUSTDOCFLAGS: -Dwarnings -Zunstable-options --enable-index-page
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Docs)
