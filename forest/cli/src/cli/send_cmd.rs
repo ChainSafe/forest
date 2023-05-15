@@ -5,8 +5,9 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
+use forest_shim::econ::TokenAmount;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use fvm_shared::{address::Address, message::Message, METHOD_SEND};
 use num::Zero as _;
 
 use super::{handle_rpc_err, Config};
@@ -50,11 +51,11 @@ impl SendCommand {
         let message = Message {
             from,
             to: self.target_address,
-            value: self.amount.clone(),
+            value: self.amount.clone().into(),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit,
-            gas_fee_cap: self.gas_feecap.clone(),
-            gas_premium: self.gas_premium.clone(),
+            gas_fee_cap: self.gas_feecap.clone().into(),
+            gas_premium: self.gas_premium.clone().into(),
             // JANK(aatifsyed): Why are we using a testing build of fvm_shared?
             ..Default::default()
         };
