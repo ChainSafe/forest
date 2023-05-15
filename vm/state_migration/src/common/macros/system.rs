@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[macro_export(local_inner_macros)]
+#[macro_export]
 macro_rules! define_system_states {
     ($state_old:ty, $state_new:ty) => {
         type SystemStateOld = $state_old;
@@ -9,7 +9,7 @@ macro_rules! define_system_states {
     };
 }
 
-#[macro_export(local_inner_macros)]
+#[macro_export]
 macro_rules! impl_system {
     () => {
         pub(super) mod system {

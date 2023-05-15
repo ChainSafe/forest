@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[macro_export(local_inner_macros)]
+#[macro_export]
 macro_rules! impl_verifier {
     () => {
         pub(super) mod verifier {

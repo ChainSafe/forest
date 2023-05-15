@@ -4,7 +4,7 @@
 mod system;
 mod verifier;
 
-#[macro_export(local_inner_macros)]
+#[macro_export]
 macro_rules! define_manifests {
     ($manifest_old:ty, $manifest_new:ty) => {
         type ManifestOld = $manifest_old;
