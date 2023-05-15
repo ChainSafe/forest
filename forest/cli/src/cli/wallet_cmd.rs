@@ -18,9 +18,9 @@ use forest_rpc_client::wallet_ops::*;
 use forest_shim::{
     address::{Address, Protocol},
     crypto::{Signature, SignatureType},
+    econ::TokenAmount,
 };
 use forest_utils::io::read_file_to_string;
-use fvm_shared::econ::TokenAmount;
 use num::BigInt;
 use rpassword::read_password;
 

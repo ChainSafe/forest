@@ -106,7 +106,7 @@ mod parse {
 
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::econ::TokenAmount;
     use nom::{
         bytes::complete::tag,
         character::complete::multispace0,
@@ -122,7 +122,7 @@ mod parse {
     /// Parse token amounts as floats with SI prefixed-units.
     /// ```
     /// fn assert_attos(input: &str, attos: u64) {
-    ///     let expected = fvm_shared::econ::TokenAmount::from_atto(attos);
+    ///     let expected = forest_shim::econ::TokenAmount::from_atto(attos);
     ///     let actual = forest_cli::humantoken::parse(input).unwrap();
     ///     assert_eq!(expected, actual);
     /// }
@@ -351,7 +351,7 @@ mod print {
     use std::fmt;
 
     use bigdecimal::BigDecimal;
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::econ::TokenAmount;
     use num::{BigInt, Zero as _};
 
     use super::si;
@@ -410,7 +410,7 @@ mod print {
         /// ```
         /// use forest_cli::humantoken::TokenAmountPretty as _;
         ///
-        /// let amount = fvm_shared::econ::TokenAmount::from_nano(1500);
+        /// let amount = forest_shim::econ::TokenAmount::from_nano(1500);
         ///
         /// // Defaults to precise, with SI prefix
         /// assert_eq!("1500 nanoFIL", format!("{}", amount.pretty()));
@@ -632,9 +632,7 @@ mod fuzz {
     use super::*;
 
     quickcheck! {
-        fn roundtrip(token_amount: forest_shim::econ::TokenAmount) -> () {
-            let expected = fvm_shared::econ::TokenAmount::from(token_amount);
-
+        fn roundtrip(expected: forest_shim::econ::TokenAmount) -> () {
             // Default formatting
             let actual = parse(&format!("{}", expected.pretty())).unwrap();
             assert_eq!(expected, actual);
