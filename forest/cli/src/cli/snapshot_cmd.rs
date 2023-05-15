@@ -15,9 +15,13 @@ use forest_cli_shared::cli::{
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
-use forest_rpc_api::chain_api::ChainExportParams;
-use forest_rpc_client::chain_ops::*;
-use forest_utils::{io::parser::parse_duration, net::get_fetch_progress_from_file, retry};
+use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
+use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
+use forest_utils::{
+    io::{parser::parse_duration, ProgressBar},
+    net::get_fetch_progress_from_file,
+    retry,
+};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
@@ -211,11 +215,40 @@ impl SnapshotCommands {
                     dry_run: *dry_run,
                 };
 
+                let bar = Arc::new(tokio::sync::Mutex::new({
+                    let bar = ProgressBar::new(0);
+                    bar.message("Exporting snapshot | blocks ");
+                    bar
+                }));
+                tokio::spawn({
+                    let bar = bar.clone();
+                    async move {
+                        let mut interval =
+                            tokio::time::interval(tokio::time::Duration::from_secs(1));
+                        loop {
+                            interval.tick().await;
+                            if let Ok((progress, total)) =
+                                get_progress((GetProgressType::SnapshotExport,), &None).await
+                            {
+                                let bar = bar.lock().await;
+                                if bar.is_finish() {
+                                    break;
+                                }
+                                bar.set_total(total);
+                                bar.set(progress);
+                            }
+                        }
+                    }
+                });
+
                 let out = chain_export(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                println!("Export completed. Snapshot located at {}", out.display());
+                bar.lock().await.finish_println(&format!(
+                    "Export completed. Snapshot located at {}",
+                    out.display()
+                ));
                 Ok(())
             }
             Self::Fetch {
@@ -499,8 +532,10 @@ where
             };
 
             for h in tipset.blocks() {
-                recurse_links_hash(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
-                recurse_links_hash(&mut seen, *h.messages(), &mut assert_cid_exists).await?;
+                recurse_links_hash(&mut seen, *h.state_root(), &mut assert_cid_exists, &|_| ())
+                    .await?;
+                recurse_links_hash(&mut seen, *h.messages(), &mut assert_cid_exists, &|_| ())
+                    .await?;
             }
         }
 
