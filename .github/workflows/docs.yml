@@ -54,7 +54,7 @@ jobs:
         run: make mdbook-build
       - name: Build rustdoc
         run: |- 
-          rustup toolchain install $toolchain
+          rustup toolchain install $toolchain --component rustfmt
           cargo +$toolchain --workspace --no-deps
         env:
           # When you visit https://chainsafe.github.io/forest/rustdoc you get an index.html
