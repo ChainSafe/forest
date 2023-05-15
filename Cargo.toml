@@ -43,7 +43,6 @@ members = [
   "utils/forest_utils",
   "utils/forest_shim",
 ]
-resolver = "2"
 
 [workspace.dependencies]
 ahash = "0.8"
