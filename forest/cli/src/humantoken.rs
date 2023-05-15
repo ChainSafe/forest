@@ -4,7 +4,7 @@
 //! [pretty-printer](TokenAmountPretty::pretty) for
 //! `TokenAmount`
 //!
-//! See the `si` module for supported prefixes.
+//! See the `si` module source for supported prefixes.
 
 pub use parse::parse;
 pub use print::TokenAmountPretty;
@@ -627,46 +627,14 @@ mod print {
 
 #[cfg(test)]
 mod fuzz {
-    use fvm_shared::econ::TokenAmount;
-    use num::{bigint::Sign, BigInt};
-    use proptest::{collection::vec, prop_compose, proptest};
+    use quickcheck::quickcheck;
 
     use super::*;
 
-    prop_compose! {
-        /// Strategy for tristate signs, with uniform distribution
-        fn sign()(i in 0..3) -> Sign {
-            match i {
-                0 => Sign::NoSign,
-                1 => Sign::Minus,
-                2 => Sign::Plus,
-                _ => unreachable!()
-            }
-        }
-    }
+    quickcheck! {
+        fn roundtrip(token_amount: forest_shim::econ::TokenAmount) -> () {
+            let expected = fvm_shared::econ::TokenAmount::from(token_amount);
 
-    prop_compose! {
-        /// Strategy for bigints with any sign, any digit up to 100 (`base 2^32`) digits
-        fn bigint()(
-            sign in sign(),
-            digits in vec(proptest::num::u32::ANY, 0..100)
-        ) -> BigInt {
-            BigInt::new(sign, digits)
-        }
-    }
-
-    prop_compose! {
-        /// Strategy for bigints with any sign, any digit up to 100 (`base 2^32`) digits
-        fn token_amount()(
-            attos in bigint(),
-        ) -> TokenAmount {
-            TokenAmount::from_atto(attos)
-        }
-    }
-
-    proptest! {
-        #[test]
-        fn roundtrip(expected in token_amount()) {
             // Default formatting
             let actual = parse(&format!("{}", expected.pretty())).unwrap();
             assert_eq!(expected, actual);
@@ -675,7 +643,13 @@ mod fuzz {
             let actual = parse(&format!("{:#}", expected.pretty())).unwrap();
             assert_eq!(expected, actual);
 
-            // Obviously we can't test rounded formatting...
+            // Don't test rounded formatting...
+        }
+    }
+
+    quickcheck! {
+        fn parser_no_panic(s: String) -> () {
+            let _ = parse(&s);
         }
     }
 }
