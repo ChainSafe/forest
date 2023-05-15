@@ -11,6 +11,5 @@ For more information, see the
 including, where relevant, the
 [filecoin specification](https://spec.filecoin.io/).
 
-These also serve as a good introduction to the general domain, assuming a basic
-familiarity with blockchains. If you'd like to learn more about blockchains,
-[this 3b1b video is a good introduction](https://youtu.be/bBC-nXj3Ng4).
+(These also serve as a good introduction to the general domain, assuming a basic
+familiarity with blockchains.)
