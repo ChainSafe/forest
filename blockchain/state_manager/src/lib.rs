@@ -418,7 +418,12 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if let Some(new_state) = self.handle_state_migrations(&parent_state, epoch_i)? {
+            if let Some(new_state) = run_state_migrations(
+                epoch_i,
+                self.chain_config(),
+                self.blockstore(),
+                &parent_state,
+            )? {
                 parent_state = new_state;
             }
         }
@@ -435,16 +440,6 @@ where
         let state_root = vm.flush()?;
 
         Ok((state_root, receipt_root))
-    }
-
-    /// Handles state migrations. Returns the new state root if a migration was
-    /// run.
-    fn handle_state_migrations(
-        &self,
-        parent_state: &Cid,
-        epoch: ChainEpoch,
-    ) -> anyhow::Result<Option<Cid>> {
-        run_state_migrations(epoch, self.chain_config(), self.blockstore(), parent_state)
     }
 
     /// Returns the pair of (parent state root, message receipt root). This will
