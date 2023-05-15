@@ -150,7 +150,14 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Other commands check
-        run: ./scripts/tests/calibnet_other_check.sh
+        run: |
+          ulimit -c unlimited
+          ./scripts/tests/calibnet_other_check.sh
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: coredump
+          path: /var/lib/systemd/coredump
 
   # state migration regression tests
   state-migrations-check:
@@ -171,7 +178,14 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Migration Regression Tests
-        run: ./scripts/tests/calibnet_migration_regression_tests.sh
+        run: |
+          ulimit -c unlimited
+          ./scripts/tests/calibnet_migration_regression_tests.sh
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: coredump
+          path: /var/lib/systemd/coredump
 
   # Wallet checks (sending, exporting key, balances...)
   calibnet-wallet-check:
@@ -201,7 +215,15 @@ jobs:
       - name: Wallet commands check
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
-        run: ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+        run: |
+          ulimit -c unlimited
+          ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: coredump
+          path: /var/lib/systemd/coredump
+
 
   # Snapshot export checks
   calibnet-export-check:
@@ -229,4 +251,11 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
-        run: ./scripts/tests/calibnet_export_check.sh
+        run: |
+          ulimit -c unlimited
+          ./scripts/tests/calibnet_export_check.sh
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: coredump
+          path: /var/lib/systemd/coredump
