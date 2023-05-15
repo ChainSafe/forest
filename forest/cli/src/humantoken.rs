@@ -637,9 +637,9 @@ mod fuzz {
         /// Strategy for tristate signs, with uniform distribution
         fn sign()(i in 0..3) -> Sign {
             match i {
-                2 => Sign::NoSign,
+                0 => Sign::NoSign,
                 1 => Sign::Minus,
-                0 => Sign::Plus,
+                2 => Sign::Plus,
                 _ => unreachable!()
             }
         }
