@@ -20,7 +20,7 @@ use forest_chain_sync::SyncStage;
 use forest_json::message::json::MessageJson;
 use forest_rpc_api::mpool_api::MpoolPushMessageResult;
 use forest_rpc_client::*;
-use forest_shim::{address::Address, econ::TokenAmount, message::Message_v3};
+use forest_shim::{address::Address, message::Message_v3};
 use fvm_shared::{clock::ChainEpoch, METHOD_SEND};
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
@@ -227,7 +227,7 @@ async fn send_message(
     let message = Message_v3 {
         from: Address::from_str(&from)?.into(),
         to: Address::from_str(&to)?.into(),
-        value: TokenAmount::from(parsed_string.value).into(),
+        value: parsed_string.value.into(),
         method_num: METHOD_SEND,
         gas_limit: 0,
         ..Default::default()
