@@ -1,20 +1,25 @@
 name: Forest Docker
 
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 on:
   push:
     branches: [main]
     tags:
       - "*"
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
   pull_request:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
-      - '*.md'
-      - '*.rb'
+      - '**.md'
+      - '**.rb'
 
 jobs:
   build-and-push-docker-image:

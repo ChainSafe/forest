@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -130,13 +130,22 @@ where
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
 /// with the same name but with a `.sha256sum` extension.
 async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
-    let encoded_hash = format!("{} {}", hash.encode_hex::<String>(), source.display());
+    let encoded_hash = hash.encode_hex::<String>();
+    let checksum_file_content = format!(
+        "{encoded_hash} {}\n",
+        source
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .context("Failed to retrieve file name while saving checksum")?
+    );
 
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
 
     let mut checksum_file = tokio::fs::File::create(&checksum_path).await?;
-    checksum_file.write_all(encoded_hash.as_bytes()).await?;
+    checksum_file
+        .write_all(checksum_file_content.as_bytes())
+        .await?;
     checksum_file.flush().await?;
     log::info!(
         "Snapshot checksum: {encoded_hash} saved to {}",
