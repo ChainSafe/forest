@@ -52,12 +52,12 @@ pub(crate) type PostMigrationAction<BS> =
     Arc<dyn Fn(&BS, &mut StateTree<BS>) -> anyhow::Result<()> + Send + Sync>;
 
 /// Trait that migrates from one data structure to another, similar to
-/// [std::convert::TryInto] trait but taking an extra block store parameter
+/// [`std::convert::TryInto`] trait but taking an extra block store parameter
 pub(crate) trait TypeMigration<BS: Blockstore + Clone + Send + Sync, From, To> {
     fn migrate_type(from: From, store: &BS) -> anyhow::Result<To>;
 }
 
-/// Struct that implements [TypeMigration] for different type pairs. Prefer to
-/// use a single struct so that the compiler could catch duplicate
+/// Type that implements [`TypeMigration`] for different type pairs. Prefer
+/// using a single `struct` so that the compiler could catch duplicate
 /// implementations
 pub(crate) struct TypeMigrator;
