@@ -28,11 +28,6 @@ macro_rules! impl_system {
             use fvm_ipld_blockstore::Blockstore;
             use $crate::common::*;
 
-            pub struct SystemMigrator {
-                new_builtin_actors_cid: Cid,
-                new_code_cid: Cid,
-            }
-
             pub(super) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
                 new_builtin_actors_cid: Cid,
                 new_code_cid: Cid,
@@ -41,6 +36,11 @@ macro_rules! impl_system {
                     new_builtin_actors_cid,
                     new_code_cid,
                 })
+            }
+
+            pub struct SystemMigrator {
+                new_builtin_actors_cid: Cid,
+                new_code_cid: Cid,
             }
 
             impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for SystemMigrator {
