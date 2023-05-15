@@ -83,7 +83,7 @@ fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_shared = { version = "~2.3", default-features = false }
+fvm_shared = { version = "~3.3", default-features = false }
 fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
