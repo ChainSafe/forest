@@ -31,7 +31,7 @@ use forest_utils::{
         BlockstoreExt,
     },
     io::{AsyncWriterWithChecksum, Checksum},
-    miscs::Either,
+    misc::Either,
 };
 use futures::{io::BufWriter, AsyncWrite};
 use fvm_ipld_amt::Amtv0 as Amt;
