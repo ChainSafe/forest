@@ -1,7 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::Context;
 use chrono::{DateTime, Local};
@@ -59,17 +62,27 @@ pub struct NodeStatusInfo {
 }
 
 impl NodeStatusInfo {
-    pub fn new(
-        chain_head: &Tipset,
-        block_count: usize,
-        num_tipsets: u64,
-        cur_duration: Duration,
-        start_time: DateTime<Local>,
-        network: String,
-        default_wallet_address: Option<String>,
-    ) -> anyhow::Result<NodeStatusInfo> {
-        let epoch = chain_head.epoch();
-        let ts = chain_head.min_timestamp();
+    fn set_default_wallet(&mut self, wallet_addr: Option<String>) {
+        self.default_wallet_address = wallet_addr;
+    }
+
+    fn set_network(&mut self, network: &str) {
+        self.network = network.to_string();
+    }
+
+    fn set_node_start_time(&mut self, start_time: DateTime<Local>) {
+        self.start_time = start_time
+    }
+
+    fn new(cur_duration: Duration, tipsets: Vec<Arc<Tipset>>) -> anyhow::Result<NodeStatusInfo> {
+        let head = tipsets
+            .get(0)
+            .ok_or(anyhow::anyhow!("head tipset not found"))?;
+        let num_tipsets = tipsets.len();
+        let mut block_count = 0;
+        tipsets.iter().for_each(|s| block_count += s.blocks().len());
+        let epoch = head.epoch();
+        let ts = head.min_timestamp();
         let cur_duration_secs = cur_duration.as_secs();
         let behind = if ts <= cur_duration_secs + 1 {
             cur_duration_secs.saturating_sub(ts)
@@ -89,9 +102,9 @@ impl NodeStatusInfo {
             SyncStatus::Behind
         };
 
-        let base_fee = chain_head.min_ticket_block().parent_base_fee().clone();
+        let base_fee = head.min_ticket_block().parent_base_fee().clone();
 
-        let health = (100 * block_count) as f64 / (num_tipsets * BLOCKS_PER_EPOCH) as f64;
+        let health = (100 * block_count) as f64 / (num_tipsets * BLOCKS_PER_EPOCH as usize) as f64;
 
         Ok(NodeStatusInfo {
             behind: Duration::from_secs(behind),
@@ -99,9 +112,9 @@ impl NodeStatusInfo {
             epoch,
             base_fee,
             sync_status,
-            start_time,
-            network: network.to_string(),
-            default_wallet_address,
+            start_time: Local::now(),
+            network: String::from("unknown"),
+            default_wallet_address: None,
         })
     }
 
@@ -120,8 +133,6 @@ impl NodeStatusInfo {
         .normal();
 
         let chain_status = self.chain_status().blue();
-
-        // chain_status(node_status)?;
         let network = self.network.green();
         let wallet_address = self
             .default_wallet_address
@@ -198,9 +209,7 @@ impl InfoCommand {
             .context("couldn't fetch chain head, is the node running?")?;
 
         let mut ts = chain_head.0.clone();
-
-        let mut num_tipsets = 1;
-        let mut block_count = ts.blocks().len();
+        let mut tipsets = vec![];
 
         for _ in 0..(config.chain.policy.chain_finality - 1).min(ts.epoch()) {
             let parent_tipset_keys = TipsetKeysJson(ts.parents().clone());
@@ -208,21 +217,17 @@ impl InfoCommand {
                 .await
                 .map_err(handle_rpc_err)
                 .context("Failed to fetch tipset.")?;
+            tipsets.push(tsjson.0.clone());
             ts = tsjson.0;
-            num_tipsets += 1;
-            block_count += ts.blocks().len();
         }
 
         let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?;
-        let node_status = NodeStatusInfo::new(
-            &chain_head.0,
-            block_count,
-            num_tipsets,
-            cur_duration_secs,
-            start_time,
-            network,
-            default_wallet_address,
-        )?;
+
+        let mut node_status = NodeStatusInfo::new(cur_duration_secs, tipsets)?;
+        node_status.set_network(&network);
+        node_status.set_node_start_time(start_time);
+        node_status.set_default_wallet(default_wallet_address);
+
         let status_output = node_status.display(&opts.color);
 
         println!("Network: {}", status_output.network);
@@ -237,11 +242,7 @@ impl InfoCommand {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        str::FromStr,
-        sync::Arc,
-        time::{Duration, SystemTime, UNIX_EPOCH},
-    };
+    use std::{str::FromStr, sync::Arc, time::Duration};
 
     use chrono::Local;
     use colored::*;
@@ -249,6 +250,7 @@ mod tests {
     use forest_cli_shared::logger::LoggingColor;
     use forest_shim::{address::Address, econ::TokenAmount};
     use fvm_shared::clock::EPOCH_DURATION_SECONDS;
+    use quickcheck_macros::quickcheck;
 
     use super::NodeStatusInfo;
     use crate::cli::info_cmd::SyncStatus;
@@ -260,6 +262,7 @@ mod tests {
             .build()
             .unwrap();
         let tipset = Tipset::from(&mock_header);
+
         Arc::new(tipset)
     }
 
@@ -272,7 +275,7 @@ mod tests {
             sync_status: SyncStatus::Ok,
             start_time: Local::now(),
             network: "calibnet".to_string(),
-            default_wallet_address: Some("x".to_string()),
+            default_wallet_address: Some("-".to_string()),
         }
     }
 
@@ -285,124 +288,63 @@ mod tests {
             sync_status: SyncStatus::Behind,
             start_time: Local::now(),
             network: "calibnet".to_string(),
-            default_wallet_address: Some("x".to_string()),
+            default_wallet_address: Some("-".to_string()),
         }
     }
+
+    // #[quickcheck]
+    // fn test_sync_status(tipsets: Vec<Arc<Tipset>>) {
+    //     let a = NodeStatusInfo::from(Duration::from_secs(0), tipsets);
+    //     assert!(a.unwrap().sync_status == SyncStatus::Ok);
+    // }
 
     #[test]
     fn node_status_with_null_tipset() {
         // out of sync
-        let duration_now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let duration_now = Duration::from_secs(100_000); // SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let tipset = mock_tipset_at(duration_now.as_secs() - 30000);
-        let start_time = Local::now();
-        let network = "calibnet".to_string();
-        let default_wallet_address = Some("x".to_string());
-        let node_status = NodeStatusInfo::new(
-            &tipset,
-            0,
-            0,
-            duration_now,
-            start_time,
-            network.clone(),
-            default_wallet_address.clone(),
-        )
-        .unwrap();
-        assert!(node_status.health.is_nan());
+        let node_status = NodeStatusInfo::new(duration_now, vec![tipset]).unwrap();
+        assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Behind);
         // slow
         let tipset = mock_tipset_at(duration_now.as_secs() - EPOCH_DURATION_SECONDS as u64 * 4);
-        let node_status = NodeStatusInfo::new(
-            &tipset,
-            10,
-            1000,
-            duration_now,
-            start_time,
-            network.clone(),
-            default_wallet_address.clone(),
-        )
-        .unwrap();
+        let node_status = NodeStatusInfo::new(duration_now, vec![tipset]).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Slow);
         // ok
         let tipset = mock_tipset_at(duration_now.as_secs() - EPOCH_DURATION_SECONDS as u64);
-        let node_status = NodeStatusInfo::new(
-            &tipset,
-            10,
-            1000,
-            duration_now,
-            start_time,
-            network,
-            default_wallet_address,
-        )
-        .unwrap();
+        let node_status = NodeStatusInfo::new(duration_now, vec![tipset]).unwrap();
         assert!(node_status.health.is_finite());
         assert_eq!(node_status.sync_status, SyncStatus::Ok);
     }
 
     #[test]
     fn block_sync_timestamp() {
-        let start_time = Local::now();
-        let network = "calibnet".to_string();
-        let default_wallet_address = Some("x".to_string());
         let color = LoggingColor::Never;
         let duration = Duration::from_secs(60);
         let tipset = mock_tipset_at(duration.as_secs() - 10);
-        let node_status = NodeStatusInfo::new(
-            &tipset,
-            10,
-            1000,
-            duration,
-            start_time,
-            network,
-            default_wallet_address,
-        )
-        .unwrap();
+        let node_status = NodeStatusInfo::new(duration, vec![tipset]).unwrap();
         let a = node_status.display(&color);
         assert!(a.chain_status.contains("10s behind"));
     }
 
     #[test]
     fn chain_status_test() {
-        let cur_duration = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let ts = mock_tipset_at(cur_duration - 59);
-        let start_time = Local::now();
-        let network = "calibnet".to_string();
+        let cur_duration = Duration::from_secs(100_000);
+        let tipset = mock_tipset_at(cur_duration.as_secs() - 59);
         let color = LoggingColor::Never;
-        let default_wallet_address = Some("x".to_string());
-        let node_status = NodeStatusInfo::new(
-            &ts,
-            10,
-            1000,
-            Duration::from_secs(cur_duration),
-            start_time,
-            network.clone(),
-            default_wallet_address.clone(),
-        )
-        .unwrap();
-        let a = node_status.display(&color);
-
+        let node_status = NodeStatusInfo::new(cur_duration, vec![tipset]).unwrap();
+        let output = node_status.display(&color);
         let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 atto FIL] [epoch: 0]";
-        assert_eq!(expected_status_fmt.clear(), a.chain_status);
+        assert_eq!(expected_status_fmt.clear(), output.chain_status);
 
-        let ts = mock_tipset_at(cur_duration - 30000);
-        let node_status = NodeStatusInfo::new(
-            &ts,
-            10,
-            1000,
-            Duration::from_secs(cur_duration),
-            start_time,
-            network,
-            default_wallet_address,
-        )
-        .unwrap();
-        let a = node_status.display(&color);
+        let tipset = mock_tipset_at(cur_duration.as_secs() - 30000);
+        let node_status = NodeStatusInfo::new(cur_duration, vec![tipset]).unwrap();
+        let output = node_status.display(&color);
 
         let expected_status_fmt =
             "[sync: Behind! (8h 20m behind)] [basefee: 0 atto FIL] [epoch: 0]";
-        assert_eq!(expected_status_fmt.clear(), a.chain_status);
+        assert_eq!(expected_status_fmt.clear(), output.chain_status);
     }
 
     #[test]
