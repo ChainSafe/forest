@@ -1,7 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
+use std::sync::{
+    atomic::{self, AtomicBool},
+    Arc,
+};
 
 use cid::Cid;
 use forest_networks::{ChainConfig, Height};
@@ -29,6 +32,24 @@ where
         (Height::Hygge, nv18::run_migration::<DB>),
         (Height::Lightning, nv19::run_migration::<DB>),
     ];
+
+    // Make sure bundle is defined.
+    static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
+    if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
+        BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
+        for info in &chain_config.height_infos {
+            for (height, _) in &mappings {
+                if height == &info.height {
+                    anyhow::ensure!(
+                        info.bundle.is_some(),
+                        "Actor bundle info for height {} needs to be defined in `networks/src/lib.rs` to run state migration",
+                        height
+                    );
+                    break;
+                }
+            }
+        }
+    }
 
     for (height, migrate) in mappings {
         if epoch == chain_config.epoch(height) {
