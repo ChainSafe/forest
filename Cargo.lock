@@ -4431,7 +4431,6 @@ dependencies = [
  "forest_state_manager",
  "forest_utils",
  "futures",
- "fvm 3.3.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.3.0",

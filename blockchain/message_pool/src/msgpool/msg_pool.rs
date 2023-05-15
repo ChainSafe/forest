@@ -326,7 +326,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        valid_for_block_inclusion(msg.message(), Gas::new(0).into(), NEWEST_NETWORK_VERSION)?;
+        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
