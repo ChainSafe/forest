@@ -50,7 +50,7 @@ ahash = "0.8"
 anes = "0.1.6"
 anyhow = "1.0"
 assert_cmd = "2"
-async-compression = { version = "0.3", features = ["futures-io", "zstd"] }
+async-compression = { version = "0.4", features = ["futures-io", "zstd"] }
 async-fs = "1"
 async-trait = "0.1"
 atty = "0.2"
@@ -58,7 +58,7 @@ axum = "0.6"
 backoff = "0.4"
 base64 = "0.21"
 blake2b_simd = "1.0"
-bls-signatures = { version = "0.13", default-features = false, features = ["blst"] }
+bls-signatures = { version = "0.13", default-features = false, features = ["blst", "blst-portable"] }
 byteorder = "1.4.3"
 bytes = "1.2"
 cfg-if = "1"

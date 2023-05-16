@@ -10,15 +10,9 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - '**.rb'
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - '**.rb'
   schedule:
     - cron: "0 0 * * *"
 
@@ -159,6 +153,8 @@ jobs:
     name: State migrations
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
