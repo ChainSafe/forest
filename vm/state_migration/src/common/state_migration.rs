@@ -50,18 +50,15 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             verifier.verify_migration(&store, &self.migrations, &actors_in)?;
         }
 
-        let cpus = num_cpus::get();
-        let chan_size = cpus / 2;
+        // we need at least 3 threads for the migration to work
+        let threads = num_cpus::get().max(3);
+        let chan_size = threads / 2;
 
-        log::info!(
-            "Using {} CPUs for migration and channel size of {}",
-            cpus,
-            chan_size
-        );
+        log::info!("Using {threads} threads for migration and channel size of {chan_size}",);
 
         let pool = rayon::ThreadPoolBuilder::new()
             .thread_name(|id| format!("state migration thread: {id}"))
-            .num_threads(cpus)
+            .num_threads(threads)
             .build()?;
 
         let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
