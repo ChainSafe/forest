@@ -69,9 +69,7 @@ pub struct SnapshotFetchConfig {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct FilecoinSnapshotFetchConfig {
-    pub mainnet: Url,
     pub mainnet_compressed: Url,
-    pub calibnet: Url,
     pub calibnet_compressed: Url,
 }
 
@@ -80,21 +78,12 @@ impl Default for FilecoinSnapshotFetchConfig {
         // unfallible unwrap as we know that the value is correct
         // <https://lotus.filecoin.io/lotus/manage/chain-management/#lightweight-snapshot>
         Self {
-            /// Default `mainnet` snapshot URL. The assumption is that it will
-            /// redirect once and will contain a `sha256sum` file
-            /// with the same URL (but different extension).
-            mainnet: Url::try_from("https://snapshots.mainnet.filops.net/minimal/latest").unwrap(),
             mainnet_compressed: Url::try_from(
-                "https://snapshots.mainnet.filops.net/minimal/latest.zst",
+                "https://snapshots.mainnet.filops.net/minimal/latest",
             )
             .unwrap(),
-            /// Default `calibnet` snapshot URL. The assumption is that it will
-            /// redirect once and will contain a `sha256sum` file
-            /// with the same URL (but different extension).
-            calibnet: Url::try_from("https://snapshots.calibrationnet.filops.net/minimal/latest")
-                .unwrap(),
             calibnet_compressed: Url::try_from(
-                "https://snapshots.calibrationnet.filops.net/minimal/latest.zst",
+                "https://snapshots.calibrationnet.filops.net/minimal/latest",
             )
             .unwrap(),
         }

@@ -153,6 +153,8 @@ jobs:
     name: State migrations
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
