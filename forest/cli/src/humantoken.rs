@@ -65,7 +65,7 @@ mod si {
         ronna	R	27	1000000000000000000000000000,
         yotta	Y	24	1000000000000000000000000,
         zetta	Z	21	1000000000000000000000,
-        exa	    E	18	1000000000000000000,
+        exa		E	18	1000000000000000000,
         peta	P	15	1000000000000000,
         tera	T	12	1000000000000,
         giga	G	9	1000000000,
@@ -302,11 +302,10 @@ mod parse {
         }
 
         #[test]
-        fn more_than_69_bits() {
+        fn more_than_96_bits() {
             use std::iter::{once, repeat};
 
-            // (nice)
-            // The previous rust_decimal implementation had at most 69 bits of precision
+            // The previous rust_decimal implementation had at most 96 bits of precision
             // we should be able to exceed that
             let test_str = once('1')
                 .chain(repeat('0').take(98))

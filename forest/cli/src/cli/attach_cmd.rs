@@ -228,7 +228,7 @@ async fn send_message(
     let message = Message_v3 {
         from: Address::from_str(&from)?.into(),
         to: Address::from_str(&to)?.into(),
-        value: value.into(), // Convert between TokenAmount2 and TokenAmount3
+        value: value.into(), // Convert forest_shim::TokenAmount to TokenAmount3
         method_num: METHOD_SEND,
         gas_limit: 0,
         ..Default::default()
