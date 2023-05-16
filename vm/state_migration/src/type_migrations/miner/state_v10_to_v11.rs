@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::multihash::Code::Blake2b256;
-use fil_actor_miner_v10::{MinerInfo, State as MinerStateV10};
+use fil_actor_miner_v10::{MinerInfo as MinerInfoV10, State as MinerStateV10};
 use fil_actor_miner_v11::{MinerInfo as MinerInfoV11, State as MinerStateV11};
 use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
 use forest_utils::db::BlockstoreExt;
@@ -12,7 +12,7 @@ use crate::common::{TypeMigration, TypeMigrator};
 
 impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
     fn migrate_type(from: MinerStateV10, store: &impl Blockstore) -> anyhow::Result<MinerStateV11> {
-        let in_info: MinerInfo = store
+        let in_info: MinerInfoV10 = store
             .get_obj(&from.info)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;
 
