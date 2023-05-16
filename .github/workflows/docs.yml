@@ -42,7 +42,7 @@ jobs:
           max_attempts: 3
           command: sudo make install-deps
       - name: Link Checker (Repo)
-        uses: lycheeverse/lychee-action@v1.7.0
+        uses: lycheeverse/lychee-action@v1.8.0
         with:
           args: --verbose --timeout 60 --exclude twitter.com --no-progress 'README.md'
           # Fail action on broken links
@@ -60,7 +60,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Docs)
-        uses: lycheeverse/lychee-action@v1.7.0
+        uses: lycheeverse/lychee-action@v1.8.0
         with:
           # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'
