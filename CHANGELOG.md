@@ -42,6 +42,10 @@
 
 ### Removed
 
+- [#2888](https://github.com/ChainSafe/forest/issues/2888): FILOps is no longer
+  serving uncompressed snapshots. Removed support for them in both `forest` and
+  `forest-cli`.
+
 ### Fixed
 
 ## Forest v0.8.2 "The Way"
