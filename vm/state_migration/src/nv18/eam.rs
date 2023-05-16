@@ -3,7 +3,7 @@
 
 use forest_shim::{
     address::Address,
-    machine::Manifest,
+    machine::ManifestV3,
     state_tree::{ActorState, StateTree},
 };
 use forest_utils::db::BlockstoreExt;
@@ -23,7 +23,7 @@ pub fn create_eam_actor<BS: Blockstore + Clone + Send + Sync>(
         .get_obj(&sys_actor.state)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
 
-    let manifest = Manifest::load(&store, &sys_state.builtin_actors, 1)?;
+    let manifest = ManifestV3::load(&store, &sys_state.builtin_actors, 1)?;
 
     let eam_actor = ActorState::new_empty(*manifest.get_eam_code(), None);
     actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
