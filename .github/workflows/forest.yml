@@ -10,15 +10,9 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - '**.rb'
   push:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - '**.rb'
   schedule:
     - cron: "0 0 * * *"
 

@@ -131,8 +131,8 @@ pub fn is_car_or_zst_or_tmp(path: &Path) -> bool {
 /// gets the size of a snapshot from Filecoin.
 pub async fn snapshot_fetch_size(config: &Config) -> anyhow::Result<u64> {
     let service_url = match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => config.snapshot_fetch.filecoin.mainnet.clone(),
-        "calibnet" => config.snapshot_fetch.filecoin.calibnet.clone(),
+        "mainnet" => config.snapshot_fetch.filecoin.mainnet_compressed.clone(),
+        "calibnet" => config.snapshot_fetch.filecoin.calibnet_compressed.clone(),
         _ => bail!("Fetch not supported for chain {}", config.chain.name,),
     };
     let client = https_client();
@@ -276,21 +276,15 @@ async fn snapshot_fetch_filecoin(
     use_compressed: bool,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
+    if !use_compressed {
+        bail!(
+            "Uncompressed snapshot fetch service not provided by Filecoin. \
+                Suggestion: use `--compressed` to fetch compressed snapshots."
+        );
+    }
     let service_url = match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => {
-            if use_compressed {
-                config.snapshot_fetch.filecoin.mainnet_compressed.clone()
-            } else {
-                config.snapshot_fetch.filecoin.mainnet.clone()
-            }
-        }
-        "calibnet" => {
-            if use_compressed {
-                config.snapshot_fetch.filecoin.calibnet_compressed.clone()
-            } else {
-                config.snapshot_fetch.filecoin.calibnet.clone()
-            }
-        }
+        "mainnet" => config.snapshot_fetch.filecoin.mainnet_compressed.clone(),
+        "calibnet" => config.snapshot_fetch.filecoin.calibnet_compressed.clone(),
         _ => bail!("Fetch not supported for chain {}", config.chain.name,),
     };
     info!("Snapshot url: {service_url}");
@@ -303,7 +297,16 @@ async fn snapshot_fetch_filecoin(
 
         // Use the redirect if available.
         match head_response.headers().get("location") {
-            Some(url) => url.to_str()?.try_into()?,
+            Some(url) => {
+                let url = url.to_str()?;
+                if url.starts_with('/') {
+                    let mut result_url = Url::parse(service_url.as_str())?;
+                    result_url.set_path(url);
+                    result_url
+                } else {
+                    url.try_into()?
+                }
+            }
             None => service_url,
         }
     };

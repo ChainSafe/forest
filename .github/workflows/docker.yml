@@ -10,16 +10,10 @@ on:
     branches: [main]
     tags:
       - "*"
-    paths-ignore:
-      - '**.md'
-      - '**.rb'
   pull_request:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '**.md'
-      - '**.rb'
 
 jobs:
   build-and-push-docker-image:
