@@ -3,9 +3,9 @@
 use std::time;
 
 use cid::Cid;
-use fvm::{
+use forest_shim::{
     call_manager::CallManager,
-    gas::{Gas, PriceList},
+    gas::{GasV2 as Gas, PriceListV2 as PriceList},
     kernel::{
         BlockId, BlockRegistry, BlockStat, DebugOps, GasOps, MessageOps, NetworkOps, RandomnessOps,
         Result, SelfOps, SendOps, SendResult,

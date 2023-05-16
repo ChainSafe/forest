@@ -3,6 +3,7 @@
 
 pub mod address;
 pub mod bigint;
+pub mod call_manager;
 pub mod clock;
 pub mod crypto;
 pub mod econ;
@@ -10,6 +11,7 @@ pub mod error;
 pub mod executor;
 pub mod externs;
 pub mod gas;
+pub mod kernel;
 pub mod machine;
 pub mod message;
 pub mod randomness;
