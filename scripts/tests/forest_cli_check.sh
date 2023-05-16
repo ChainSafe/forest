@@ -12,15 +12,15 @@ SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
 echo "Downloading zstd compressed snapshot without aria2"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --provider filecoin --compressed -s "$SNAPSHOT_DIRECTORY"
+$FOREST_CLI_PATH --chain calibnet snapshot fetch --compressed -s "$SNAPSHOT_DIRECTORY"
 echo "Downloading snapshot without aria2"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --provider filecoin -s "$SNAPSHOT_DIRECTORY"
+$FOREST_CLI_PATH --chain calibnet snapshot fetch -s "$SNAPSHOT_DIRECTORY"
 echo "Cleaning up snapshots"
 $FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
 echo "Cleaning up snapshots again"
 $FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
 echo "Downloading zstd compressed snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --provider filecoin --compressed -s "$SNAPSHOT_DIRECTORY"
+$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --compressed -s "$SNAPSHOT_DIRECTORY"
 echo "Cleaning up database"
 $FOREST_CLI_PATH --chain calibnet db clean --force
 echo "Cleaning up database again"
