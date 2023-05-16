@@ -39,6 +39,9 @@
   "femtoFIL", "picoFIL", "nanoFIL", "microFIL", "milliFIL", and "FIL"). Note
   that the default `sendFIL` amount unit (i.e., if no units are specified) is
   now FIL to match the behavior in Lotus.
+- [#2833](https://github.com/ChainSafe/forest/issues/2833): Improvements to FIL
+  amount parsing/printing, and add `--no-round` and `--no-abbrev` to
+  `forest-cli wallet list`.
 
 ### Removed
 
