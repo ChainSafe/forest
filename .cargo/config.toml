@@ -16,13 +16,13 @@ incremental = true
 # clang has been listed as prerequisite in the doc
 linker = "clang"
 # enable avx2 by default since it's available on almost all x86_64 CPUs
-rustflags = ["-Ctarget-cpu=haswell", "-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y", "--cfg", "tokio_unstable"]
+rustflags = ["-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y", "--cfg", "tokio_unstable"]
 
 [target.x86_64-unknown-linux-musl]
 # clang has been listed as prerequisite in the doc
 linker = "clang"
 # enable avx2 by default since it's available on almost all x86_64 CPUs
-rustflags = ["-Ctarget-cpu=haswell", "-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y", "--cfg", "tokio_unstable"]
+rustflags = ["-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y", "--cfg", "tokio_unstable"]
 
 [target.x86_64-apple-darwin]
 # zld might help here
