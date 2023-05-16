@@ -79,7 +79,7 @@ impl NodeStatusInfo {
             .get(0)
             .ok_or(anyhow::anyhow!("head tipset not found"))?;
         let num_tipsets = tipsets.len();
-        let block_count: usize = tipsets.iter().map(|s|  s.blocks().len()).sum();
+        let block_count: usize = tipsets.iter().map(|s| s.blocks().len()).sum();
         let epoch = head.epoch();
         let ts = head.min_timestamp();
         let cur_duration_secs = cur_duration.as_secs();
