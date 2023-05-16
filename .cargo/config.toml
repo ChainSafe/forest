@@ -2,15 +2,7 @@
 incremental = true
 
 # In all cases, pass --cfg=tokio_unstable for tokio console integration
-# See(https://github.com/ChainSafe/forest/pull/2245)
-# on x86_64-linux-*, most CPUs support the specified vector instructions, so use those
-
-# Note, rustflags aren't additive, so we can't specify tokio_unstable in `build.rustflags`
-# So we use a `cfg(foo)` and `cfg(not(foo))` for our common flags.
-[target.'cfg(all(target_arch = "x86_64", target_os = "linux"))']
-rustflags = ["--cfg=tokio_unstable", "-Ctarget-feature=+avx2,+fma"]
-
-[target.'cfg(not(all(target_arch = "x86_64", target_os = "linux")))']
+# See (https://github.com/ChainSafe/forest/pull/2245)
 rustflags = ["--cfg=tokio_unstable"]
 
 [net]
