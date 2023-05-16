@@ -10,6 +10,7 @@ use cid::Cid;
 use forest_shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
+mod macros;
 mod migration_job;
 pub(crate) mod migrators;
 mod state_migration;

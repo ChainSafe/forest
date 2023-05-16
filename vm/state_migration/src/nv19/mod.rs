@@ -6,12 +6,20 @@
 //! <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v11/migration/top.go>
 
 mod migration;
-mod verifier;
-
 mod miner;
 mod power;
-mod system;
 
 /// Run migration for `NV19`. This should be the only exported method in this
 /// module.
 pub use migration::run_migration;
+
+use crate::*;
+
+define_manifests!(
+    forest_shim::machine::Manifest,
+    forest_shim::machine::Manifest
+);
+define_system_states!(fil_actor_system_v10::State, fil_actor_system_v11::State);
+
+impl_system!();
+impl_verifier!();
