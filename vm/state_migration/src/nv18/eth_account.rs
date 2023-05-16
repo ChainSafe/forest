@@ -10,6 +10,8 @@ use forest_shim::{
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
+use super::SystemStateNew;
+
 /// Creates the Ethereum Account actor in the state tree.
 pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
     store: &BS,
@@ -33,7 +35,7 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
         .ok_or_else(|| anyhow!("failed to get system actor"))?;
 
     let system_actor_state = store
-        .get_obj::<fil_actor_system_v10::State>(&system_actor.state)?
+        .get_obj::<SystemStateNew>(&system_actor.state)?
         .ok_or_else(|| anyhow!("failed to get system actor state"))?;
 
     let manifest_data = system_actor_state.builtin_actors;
