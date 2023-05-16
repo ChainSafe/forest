@@ -13,7 +13,6 @@ data-encoding = "2.3"
 forest_message.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true
-fvm.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_ipld_encoding3.workspace = true
 fvm_shared = { workspace = true, default-features = false }

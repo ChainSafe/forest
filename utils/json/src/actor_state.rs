@@ -5,7 +5,7 @@ pub mod json {
     use std::str::FromStr;
 
     use cid::Cid;
-    use fvm::state_tree::ActorState;
+    use forest_shim::state_tree::ActorStateV2 as ActorState;
     use fvm_shared::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -83,7 +83,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use cid::Cid;
-    use fvm::state_tree::ActorState;
+    use forest_shim::state_tree::ActorStateV2 as ActorState;
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
 

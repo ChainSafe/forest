@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use anyhow::{bail, Context};
 use cid::Cid;
-use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
+pub use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
