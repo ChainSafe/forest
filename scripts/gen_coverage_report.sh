@@ -29,10 +29,11 @@ function cov {
 
 cargo llvm-cov --workspace clean
 cargo llvm-cov --workspace --no-report
-cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch --aria2 --compressed -s "$TMP_DIR"
-SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.zst | head -n 1)
-cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --halt-after-import --height=-200 --track-peak-rss
+# TODO: re-enable this once we have a snapshot with zstd compression. https://github.com/ChainSafe/forest/issues/2874
+# cov forest-cli --chain calibnet db clean --force
+# cov forest-cli --chain calibnet snapshot fetch --aria2 --compressed -s "$TMP_DIR"
+# SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.zst | head -n 1)
+# cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --halt-after-import --height=-200 --track-peak-rss
 cov forest-cli --chain calibnet db clean --force
 cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)

@@ -11,16 +11,18 @@ SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
 
 echo "Fetching params"
 $FOREST_CLI_PATH fetch-params --keys
-echo "Downloading zstd compressed snapshot without aria2"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --compressed -s "$SNAPSHOT_DIRECTORY"
+# TODO: re-enable this once we have a snapshot with zstd compression. https://github.com/ChainSafe/forest/issues/2874
+# echo "Downloading zstd compressed snapshot without aria2"
+# $FOREST_CLI_PATH --chain calibnet snapshot fetch --compressed -s "$SNAPSHOT_DIRECTORY"
 echo "Downloading snapshot without aria2"
 $FOREST_CLI_PATH --chain calibnet snapshot fetch -s "$SNAPSHOT_DIRECTORY"
 echo "Cleaning up snapshots"
 $FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
 echo "Cleaning up snapshots again"
 $FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
-echo "Downloading zstd compressed snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --compressed -s "$SNAPSHOT_DIRECTORY"
+# TODO: re-enable this once we have a snapshot with zstd compression. https://github.com/ChainSafe/forest/issues/2874
+# echo "Downloading zstd compressed snapshot"
+# $FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --compressed -s "$SNAPSHOT_DIRECTORY"
 echo "Cleaning up database"
 $FOREST_CLI_PATH --chain calibnet db clean --force
 echo "Cleaning up database again"
@@ -41,5 +43,6 @@ set -e
 echo "Validating as calibnet snapshot (uncompressed)"
 $FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force
 
-echo "Validating as calibnet snapshot (compressed)"
-$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.zst --force
+# TODO: re-enable this once we have a snapshot with zstd compression. https://github.com/ChainSafe/forest/issues/2874
+# echo "Validating as calibnet snapshot (compressed)"
+# $FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.zst --force
