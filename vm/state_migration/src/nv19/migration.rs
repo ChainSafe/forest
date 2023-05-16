@@ -10,7 +10,7 @@ use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::Manifest,
+    machine::ManifestV3,
     state_tree::{StateTree, StateTreeVersion},
 };
 use forest_utils::db::BlockstoreExt;
@@ -35,12 +35,12 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_obj::<SystemStateV10>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
-        let current_manifest = Manifest::load(&store, &current_manifest_data, 1)?;
+        let current_manifest = ManifestV3::load(&store, &current_manifest_data, 1)?;
 
         let (version, new_manifest_data): (u32, Cid) = store
             .get_cbor(new_manifest)?
             .ok_or_else(|| anyhow!("new manifest not found"))?;
-        let new_manifest = Manifest::load(&store, &new_manifest_data, version)?;
+        let new_manifest = ManifestV3::load(&store, &new_manifest_data, version)?;
 
         current_manifest.builtin_actor_codes().for_each(|code| {
             let id = current_manifest.id_by_code(code);

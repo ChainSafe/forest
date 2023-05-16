@@ -5,7 +5,7 @@ use ahash::HashMap;
 use anyhow::anyhow;
 use cid::Cid;
 use fil_actor_system_v10::State as SystemStateV10;
-use forest_shim::{address::Address, machine::Manifest, state_tree::StateTree};
+use forest_shim::{address::Address, machine::ManifestV3, state_tree::StateTree};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, warn};
@@ -31,7 +31,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigrationVerifier<BS> for Verifi
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let manifest_data = system_actor_state.builtin_actors;
 
-        let manifest = Manifest::load(&store, &manifest_data, 1)?;
+        let manifest = ManifestV3::load(&store, &manifest_data, 1)?;
         let manifest_actors_count = manifest.builtin_actor_codes().count();
         if manifest_actors_count == migrations.len() {
             debug!("Migration spec is correct.");
