@@ -4,7 +4,6 @@
 pub use fvm::machine::{
     DefaultMachine, Machine, Manifest as ManifestV2, MultiEngine as MultiEngine_v2, NetworkConfig,
 };
-mod manifest;
 pub use fvm3::{
     engine::MultiEngine as MultiEngine_v3,
     machine::{
@@ -12,4 +11,5 @@ pub use fvm3::{
         NetworkConfig as NetworkConfig_v3,
     },
 };
-pub use manifest::Manifest;
+mod manifest_v3;
+pub use manifest_v3::ManifestV3;
