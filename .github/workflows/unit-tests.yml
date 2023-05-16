@@ -13,20 +13,9 @@ on:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      # We can't ignore all markdown files as those may be explicitly
-      # included and potentially fail a doc test. We ignore only the
-      # root-level markdown files and the documentation.
-      - 'documentation/**'
-      - '*.md'
-      - '**.rb'
   push:
     branches:
       - main
-    paths-ignore:
-      - 'documentation/**'
-      - '*.md'
-      - '**.rb'
   schedule:
     - cron: "0 0 * * *"
 
