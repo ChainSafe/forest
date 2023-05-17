@@ -83,6 +83,10 @@ where
             .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB, B>)
             .with_method(CHAIN_GET_TIPSET_HASH, chain_get_tipset_hash::<DB, B>)
             .with_method(
+                forest_rpc_api::chain_api::CHAIN_GET_TIPSETS_FINALITY,
+                chain_get_tipsets_finality::<DB, B>,
+            )
+            .with_method(
                 CHAIN_VALIDATE_TIPSET_CHECKPOINTS,
                 chain_validate_tipset_checkpoints::<DB, B>,
             )

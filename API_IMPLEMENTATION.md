@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 46
+- Forest method count: 47
 - Lotus method count: 173
-- API coverage: 26.59%
+- API coverage: 27.17%
 
 ## Forest-only Methods
 
@@ -16,6 +16,7 @@ These methods exist in Forest only and cannot be compared:
 - `Filecoin.ChainGetName`
 - `Filecoin.ChainGetTipSetHash`
 - `Filecoin.ChainGetTipsetByHeight`
+- `Filecoin.ChainGetTipsetsFinality`
 - `Filecoin.ChainValidateTipSetCheckpoints`
 - `Filecoin.NetAddrsListen`
 - `Filecoin.NetPeers`

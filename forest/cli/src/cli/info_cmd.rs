@@ -6,14 +6,13 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::Context;
 use chrono::{DateTime, Local};
 use clap::Subcommand;
 use colored::*;
-use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use forest_blocks::Tipset;
 use forest_cli_shared::{cli::CliOpts, logger::LoggingColor};
 use forest_rpc_client::{
-    chain_get_name, chain_get_tipset, chain_head, start_time, wallet_default_address,
+    chain_get_name, chain_get_tipsets_finality, start_time, wallet_default_address,
 };
 use forest_shim::econ::TokenAmount;
 use forest_utils::io::parser::{format_balance_string, FormattingMode};
@@ -202,23 +201,11 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
-        let chain_head = chain_head(&config.client.rpc_token)
+        let mut tipsets = chain_get_tipsets_finality((), &config.client.rpc_token)
             .await
-            .map_err(handle_rpc_err)
-            .context("couldn't fetch chain head, is the node running?")?;
+            .map_err(handle_rpc_err)?;
 
-        let mut ts = chain_head.0.clone();
-        let mut tipsets = vec![];
-
-        for _ in 0..(config.chain.policy.chain_finality - 1).min(ts.epoch()) {
-            let parent_tipset_keys = TipsetKeysJson(ts.parents().clone());
-            let tsjson = chain_get_tipset((parent_tipset_keys,), &config.client.rpc_token)
-                .await
-                .map_err(handle_rpc_err)
-                .context("Failed to fetch tipset.")?;
-            tipsets.push(tsjson.0.clone());
-            ts = tsjson.0;
-        }
+        let tipsets = tipsets.iter_mut().map(|s| s.0.clone()).collect();
 
         let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
