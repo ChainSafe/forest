@@ -73,6 +73,10 @@ impl TokenAmount {
         TokenAmount_v3::from_atto(atto).into()
     }
 
+    pub fn from_nano(nano: impl Into<BigInt>) -> Self {
+        TokenAmount_v3::from_nano(nano).into()
+    }
+
     pub fn from_whole(fil: impl Into<BigInt>) -> Self {
         TokenAmount_v3::from_whole(fil).into()
     }

@@ -1,27 +1,26 @@
-name: Build and publish Forest Docker image
+name: Forest Docker
+
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 on:
   push:
     branches: [main]
     tags:
       - "*"
-    paths-ignore:
-      - '*.md'
-      - '*.rb'
   pull_request:
     # This needs to be declared explicitly so that the job is actually
     # run when moved out of draft.
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '*.md'
-      - '*.rb'
 
 jobs:
   build-and-push-docker-image:
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
-    name: Build Docker image and push to repositories
+    name: Build images and push to GHCR
     runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
     steps:

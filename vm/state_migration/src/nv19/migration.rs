@@ -5,20 +5,19 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use cid::Cid;
-use fil_actor_system_v10::State as SystemStateV10;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::Manifest,
     state_tree::{StateTree, StateTreeVersion},
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{miner, power, system, verifier::Verifier};
+use super::{miner, power, system, verifier::Verifier, ManifestNew, ManifestOld, SystemStateOld};
 use crate::common::{migrators::nil_migrator, StateMigration};
+
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv19_migrations(
         &mut self,
@@ -32,15 +31,15 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .ok_or_else(|| anyhow!("system actor not found"))?;
 
         let system_actor_state = store
-            .get_obj::<SystemStateV10>(&system_actor.state)?
+            .get_obj::<SystemStateOld>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
-        let current_manifest = Manifest::load(&store, &current_manifest_data, 1)?;
+        let current_manifest = ManifestOld::load(&store, &current_manifest_data, 1)?;
 
         let (version, new_manifest_data): (u32, Cid) = store
             .get_cbor(new_manifest)?
             .ok_or_else(|| anyhow!("new manifest not found"))?;
-        let new_manifest = Manifest::load(&store, &new_manifest_data, version)?;
+        let new_manifest = ManifestNew::load(&store, &new_manifest_data, version)?;
 
         current_manifest.builtin_actor_codes().for_each(|code| {
             let id = current_manifest.id_by_code(code);

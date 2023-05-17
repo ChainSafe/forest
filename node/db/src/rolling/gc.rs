@@ -230,24 +230,38 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        let n_records = walk_snapshot(&tipset, self.recent_state_roots, |cid| {
-            let db = db.clone();
-            let tx = tx.clone();
-            let reachable_bytes = reachable_bytes.clone();
-            async move {
-                let block = db
-                    .get(&cid)?
-                    .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
+        let estimated_reachable_records = Some(
+            self.file_backed_chain_meta
+                .lock()
+                .inner()
+                .estimated_reachable_records as u64,
+        );
+        let n_records = walk_snapshot(
+            &tipset,
+            self.recent_state_roots,
+            |cid| {
+                let db = db.clone();
+                let tx = tx.clone();
+                let reachable_bytes = reachable_bytes.clone();
+                async move {
+                    let block = db
+                        .get(&cid)?
+                        .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
 
-                let pair = (cid, block.clone());
-                reachable_bytes.fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
-                if !db.current().has(&cid)? {
-                    tx.send_async(pair).await?;
+                    let pair = (cid, block.clone());
+                    reachable_bytes
+                        .fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
+                    if !db.current().has(&cid)? {
+                        tx.send_async(pair).await?;
+                    }
+
+                    Ok(block)
                 }
-
-                Ok(block)
-            }
-        })
+            },
+            Some("Running DB GC | blocks "),
+            Some(WALK_SNAPSHOT_PROGRESS_DB_GC.clone()),
+            estimated_reachable_records,
+        )
         .await?;
         drop(tx);
 

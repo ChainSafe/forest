@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub use fvm::machine::Manifest as ManifestV2;
-mod manifest;
-pub use manifest::Manifest;
+mod manifest_v3;
+pub use manifest_v3::ManifestV3;
