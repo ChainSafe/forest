@@ -43,7 +43,7 @@ where
         for info in &chain_config.height_infos {
             for (height, _) in &mappings {
                 if height == &info.height {
-                    anyhow::ensure!(
+                    assert!(
                         info.bundle.is_some(),
                         "Actor bundle info for height {height} needs to be defined in `networks/src/lib.rs` to run state migration"
                     );
