@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use ahash::HashSet;
-use chrono::Local;
+use chrono::{Local, Utc};
 use cid::Cid;
 use fil_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
@@ -41,7 +41,7 @@ where
     pub sync_state: Arc<SyncRwLock<SyncState>>,
     pub network_send: flume::Sender<NetworkMessage>,
     pub network_name: String,
-    pub start_time: chrono::DateTime<Local>,
+    pub start_time: chrono::DateTime<Utc>,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
     pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,

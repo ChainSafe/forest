@@ -404,7 +404,7 @@ pub mod gas_api {
 
 /// Common API
 pub mod common_api {
-    use chrono::Local;
+    use chrono::{Local, Utc};
 
     use super::data_types::APIVersion;
 
@@ -418,7 +418,7 @@ pub mod common_api {
 
     pub const START_TIME: &str = "Filecoin.StateStartTime";
     pub type StartTimeParams = ();
-    pub type StartTimeResult = chrono::DateTime<Local>;
+    pub type StartTimeResult = chrono::DateTime<Utc>;
 }
 
 /// Net API

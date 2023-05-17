@@ -91,7 +91,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
-    let start_time = chrono::Local::now();
+    let start_time = chrono::Utc::now();
 
     info!(
         "Starting Forest daemon, version {}",

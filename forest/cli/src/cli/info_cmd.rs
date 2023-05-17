@@ -6,7 +6,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, FixedOffset, Local, Offset, Utc};
 use clap::Subcommand;
 use colored::*;
 use forest_blocks::Tipset;
@@ -53,7 +53,7 @@ pub struct NodeStatusInfo {
     /// sync status information
     sync_status: SyncStatus,
     /// Start time of the node
-    start_time: DateTime<Local>,
+    start_time: DateTime<Utc>,
     /// Current network the node is running on
     network: String,
     /// Default wallet address selected.
@@ -69,7 +69,7 @@ impl NodeStatusInfo {
         self.network = network.to_string();
     }
 
-    fn set_node_start_time(&mut self, start_time: DateTime<Local>) {
+    fn set_node_start_time(&mut self, start_time: DateTime<Utc>) {
         self.start_time = start_time
     }
 
@@ -110,7 +110,7 @@ impl NodeStatusInfo {
             epoch,
             base_fee,
             sync_status,
-            start_time: Local::now(),
+            start_time: Utc::now(),
             network: String::from("unknown"),
             default_wallet_address: None,
         })
@@ -120,7 +120,7 @@ impl NodeStatusInfo {
         let NodeStatusInfo { health, .. } = self;
 
         let use_color = color.coloring_enabled();
-        let uptime_duration = Local::now() - self.start_time;
+        let uptime_duration = Utc::now() - self.start_time;
         let uptime = format!(
             "{}h {}m {}s (Started at: {})",
             uptime_duration.num_hours(),
@@ -230,7 +230,7 @@ impl InfoCommand {
 mod tests {
     use std::{str::FromStr, sync::Arc, time::Duration};
 
-    use chrono::Local;
+    use chrono::DateTime;
     use colored::*;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_cli_shared::logger::LoggingColor;
@@ -259,7 +259,7 @@ mod tests {
             epoch: i64::MAX,
             base_fee: TokenAmount::from_whole(1),
             sync_status: SyncStatus::Ok,
-            start_time: Local::now(),
+            start_time: DateTime::<Utc>::MIN_UTC,
             network: "calibnet".to_string(),
             default_wallet_address: Some("-".to_string()),
         }
@@ -272,7 +272,7 @@ mod tests {
             epoch: 0,
             base_fee: TokenAmount::from_whole(1),
             sync_status: SyncStatus::Behind,
-            start_time: Local::now(),
+            start_time: DateTime::<Utc>::MIN_UTC,
             network: "calibnet".to_string(),
             default_wallet_address: Some("-".to_string()),
         }
