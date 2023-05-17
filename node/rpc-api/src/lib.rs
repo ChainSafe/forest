@@ -404,7 +404,7 @@ pub mod gas_api {
 
 /// Common API
 pub mod common_api {
-    use chrono::{Local, Utc};
+    use chrono::Utc;
 
     use super::data_types::APIVersion;
 

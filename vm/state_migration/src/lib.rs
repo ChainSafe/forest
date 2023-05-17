@@ -15,6 +15,7 @@ use fvm_ipld_blockstore::Blockstore;
 pub(crate) mod common;
 mod nv18;
 mod nv19;
+mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 

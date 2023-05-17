@@ -20,14 +20,12 @@ use forest_shim::{
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
 };
-use forest_utils::io::{
-    parser::{bool_pair_to_mode, format_balance_string},
-    read_file_to_string,
-};
+use forest_utils::io::read_file_to_string;
 use num::BigInt;
 use rpassword::read_password;
 
 use super::{handle_rpc_err, Config};
+use crate::humantoken::TokenAmountPretty as _;
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
@@ -61,22 +59,15 @@ pub enum WalletCommands {
     },
     /// List addresses of the wallet
     List {
-        /// flag to force full accuracy,
-        /// not just default 4 significant digits
-        /// E.g. `500.2367798 milli FIL` instead of `500.2 milli FIL`
-        /// In combination with `--fixed-unit` flag
-        /// it will show exact data in `FIL` units
-        /// E.g. `0.0000002367798 FIL` instead of `~0 FIL`
-        #[arg(short, long)]
-        exact_balance: bool,
-        /// flag to force the balance to be in `FIL`
-        /// without SI unit prefixes (like `atto` or `micro`)
-        /// E.g. `0.5002 FIL` instead of `500.2367 milli FIL`
-        /// In combination with `--exact-balance` flag
-        /// it will show exact data in `FIL` units
-        /// E.g. `0.0000002367798 FIL` instead of `~0 FIL`
-        #[arg(short, long)]
-        fixed_unit: bool,
+        /// Output is rounded to 4 significant figures by default.
+        /// Do not round
+        // ENHANCE(aatifsyed): add a --round/--no-round argument pair
+        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        no_round: bool,
+        /// Output may be given an SI prefix like `atto` by default.
+        /// Do not do this, showing whole FIL at all times.
+        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        no_abbrev: bool,
     },
     /// Set the default wallet address
     SetDefault {
@@ -181,8 +172,8 @@ impl WalletCommands {
                 Ok(())
             }
             Self::List {
-                exact_balance,
-                fixed_unit,
+                no_round,
+                no_abbrev,
             } => {
                 let response = wallet_list((), &config.client.rpc_token)
                     .await
@@ -210,12 +201,19 @@ impl WalletCommands {
 
                     let balance_token_amount =
                         TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
-                    let balance_string = format_balance_string(
-                        balance_token_amount,
-                        bool_pair_to_mode(*exact_balance, *fixed_unit),
-                    )?;
 
-                    println!("{addr:41}  {default_address_mark:7}  {balance_string}",);
+                    let balance_string = match (no_round, no_abbrev) {
+                        // no_round, absolute
+                        (true, true) => format!("{:#}", balance_token_amount.pretty()),
+                        // no_round, relative
+                        (true, false) => format!("{}", balance_token_amount.pretty()),
+                        // round, absolute
+                        (false, true) => format!("{:#.4}", balance_token_amount.pretty()),
+                        // round, relative
+                        (false, false) => format!("{:.4}", balance_token_amount.pretty()),
+                    };
+
+                    println!("{addr:41}  {default_address_mark:7}  {balance_string}");
                 }
                 Ok(())
             }

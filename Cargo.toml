@@ -58,7 +58,8 @@ axum = "0.6"
 backoff = "0.4"
 base64 = "0.21"
 blake2b_simd = "1.0"
-bls-signatures = { version = "0.13", default-features = false, features = ["blst", "blst-portable"] }
+# blst-portable flag avoids using CPU instructions which aren't available on older CPUs
+bls-signatures = { version = "0.13", default-features = false, features = ["blst-portable"] }
 byteorder = "1.4.3"
 bytes = "1.2"
 cfg-if = "1"

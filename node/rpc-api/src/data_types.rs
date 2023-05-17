@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use ahash::HashSet;
-use chrono::{Local, Utc};
+use chrono::Utc;
 use cid::Cid;
 use fil_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
