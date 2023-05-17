@@ -3840,6 +3840,7 @@ dependencies = [
  "num",
  "pretty_assertions",
  "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.5",
  "rpassword",
  "rustyline",

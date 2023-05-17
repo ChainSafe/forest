@@ -151,7 +151,7 @@ mod tests {
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
-        let start_time = chrono::Local::now();
+        let start_time = chrono::Utc::now();
         let (gc_event_tx, _) = flume::unbounded();
 
         let state = Arc::new(RPCState {

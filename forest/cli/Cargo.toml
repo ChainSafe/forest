@@ -69,6 +69,7 @@ toml.workspace = true
 assert_cmd.workspace = true
 pretty_assertions = "1.3.0"
 quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]

@@ -1,15 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use colored::*;
-use forest_blocks::Tipset;
+use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::{cli::CliOpts, logger::LoggingColor};
 use forest_rpc_client::{
     chain_get_name, chain_get_tipsets_finality, start_time, wallet_default_address,
@@ -73,12 +70,13 @@ impl NodeStatusInfo {
         self.start_time = start_time
     }
 
-    fn new(cur_duration: Duration, tipsets: Vec<Arc<Tipset>>) -> anyhow::Result<NodeStatusInfo> {
+    fn new(cur_duration: Duration, tipsets: Vec<TipsetJson>) -> anyhow::Result<NodeStatusInfo> {
         let head = tipsets
             .get(0)
+            .map(|ts| ts.0.clone())
             .ok_or(anyhow::anyhow!("head tipset not found"))?;
         let num_tipsets = tipsets.len();
-        let block_count: usize = tipsets.iter().map(|s| s.blocks().len()).sum();
+        let block_count: usize = tipsets.iter().map(|s| s.0.blocks().len()).sum();
         let epoch = head.epoch();
         let ts = head.min_timestamp();
         let cur_duration_secs = cur_duration.as_secs();
@@ -126,7 +124,7 @@ impl NodeStatusInfo {
             uptime_duration.num_hours(),
             uptime_duration.num_minutes(),
             uptime_duration.num_seconds(),
-            self.start_time
+            self.start_time.with_timezone(&chrono::offset::Local)
         )
         .normal();
 
@@ -201,11 +199,9 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
-        let mut tipsets = chain_get_tipsets_finality((), &config.client.rpc_token)
+        let tipsets = chain_get_tipsets_finality((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
-
-        let tipsets = tipsets.iter_mut().map(|s| s.0.clone()).collect();
 
         let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
@@ -230,9 +226,9 @@ impl InfoCommand {
 mod tests {
     use std::{str::FromStr, sync::Arc, time::Duration};
 
-    use chrono::DateTime;
+    use chrono::{DateTime, Utc};
     use colored::*;
-    use forest_blocks::{BlockHeader, Tipset};
+    use forest_blocks::{tipset_json::TipsetJson, BlockHeader, Tipset};
     use forest_cli_shared::logger::LoggingColor;
     use forest_shim::{address::Address, econ::TokenAmount};
     use fvm_shared::clock::EPOCH_DURATION_SECONDS;
@@ -280,6 +276,7 @@ mod tests {
 
     #[quickcheck]
     fn test_sync_status_ok(tipsets: Vec<Arc<Tipset>>) {
+        let tipsets = tipsets.iter().map(|ts| TipsetJson(ts.clone())).collect();
         let status_result = NodeStatusInfo::new(Duration::from_secs(0), tipsets);
         if let Ok(status) = status_result {
             assert_ne!(status.sync_status, SyncStatus::Slow);
@@ -291,7 +288,7 @@ mod tests {
     fn test_sync_status_behind(duration: Duration) {
         let duration = duration + Duration::from_secs(300);
         let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
-        let node_status = NodeStatusInfo::new(duration, vec![tipset]).unwrap();
+        let node_status = NodeStatusInfo::new(duration, vec![TipsetJson(tipset)]).unwrap();
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
         assert_ne!(node_status.sync_status, SyncStatus::Slow);
@@ -305,7 +302,7 @@ mod tests {
                 .as_secs()
                 .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
         );
-        let node_status = NodeStatusInfo::new(duration, vec![tipset]).unwrap();
+        let node_status = NodeStatusInfo::new(duration, vec![TipsetJson(tipset)]).unwrap();
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Behind);
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
@@ -316,7 +313,7 @@ mod tests {
         let color = LoggingColor::Never;
         let duration = Duration::from_secs(60);
         let tipset = mock_tipset_at(duration.as_secs() - 10);
-        let node_status = NodeStatusInfo::new(duration, vec![tipset]).unwrap();
+        let node_status = NodeStatusInfo::new(duration, vec![TipsetJson(tipset)]).unwrap();
         let a = node_status.display(&color);
         assert!(a.chain_status.contains("10s behind"));
     }
@@ -326,13 +323,13 @@ mod tests {
         let cur_duration = Duration::from_secs(100_000);
         let tipset = mock_tipset_at(cur_duration.as_secs() - 59);
         let color = LoggingColor::Never;
-        let node_status = NodeStatusInfo::new(cur_duration, vec![tipset]).unwrap();
+        let node_status = NodeStatusInfo::new(cur_duration, vec![TipsetJson(tipset)]).unwrap();
         let output = node_status.display(&color);
         let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 atto FIL] [epoch: 0]";
         assert_eq!(expected_status_fmt.clear(), output.chain_status);
 
         let tipset = mock_tipset_at(cur_duration.as_secs() - 30000);
-        let node_status = NodeStatusInfo::new(cur_duration, vec![tipset]).unwrap();
+        let node_status = NodeStatusInfo::new(cur_duration, vec![TipsetJson(tipset)]).unwrap();
         let output = node_status.display(&color);
 
         let expected_status_fmt =
