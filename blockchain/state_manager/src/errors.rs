@@ -47,8 +47,8 @@ impl From<JoinError> for Error {
     }
 }
 
-impl From<fvm::kernel::ExecutionError> for Error {
-    fn from(e: fvm::kernel::ExecutionError) -> Self {
+impl From<forest_shim::kernel::ExecutionError> for Error {
+    fn from(e: forest_shim::kernel::ExecutionError) -> Self {
         Error::Other(e.to_string())
     }
 }

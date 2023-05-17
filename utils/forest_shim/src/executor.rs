@@ -3,9 +3,11 @@
 use std::borrow::Borrow;
 
 use fvm::executor::ApplyRet as ApplyRet_v2;
-pub use fvm::executor::{DefaultExecutor, Executor};
+pub use fvm::executor::{ApplyKind as ApplyKindV2, DefaultExecutor, Executor};
 use fvm3::executor::ApplyRet as ApplyRet_v3;
-pub use fvm3::executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3};
+pub use fvm3::executor::{
+    ApplyKind as ApplyKindV3, DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3,
+};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
