@@ -17,6 +17,7 @@ use fvm_shared::{
     clock::{ChainEpoch, EPOCH_DURATION_SECONDS},
     BLOCKS_PER_EPOCH,
 };
+use humantime::format_duration;
 
 use super::Config;
 use crate::cli::handle_rpc_err;
@@ -122,12 +123,12 @@ impl NodeStatusInfo {
         let NodeStatusInfo { health, .. } = self;
 
         let use_color = color.coloring_enabled();
-        let uptime_duration = Utc::now() - self.start_time;
+        let uptime = (Utc::now() - self.start_time)
+            .to_std()
+            .expect("failed converting to std duration");
+        let fmt_uptime = fmt_duration(uptime);
         let uptime = format!(
-            "{}h {}m {}s (Started at: {})",
-            uptime_duration.num_hours(),
-            uptime_duration.num_minutes(),
-            uptime_duration.num_seconds(),
+            "{fmt_uptime} (Started at: {})",
             self.start_time.with_timezone(&chrono::offset::Local)
         )
         .normal();
@@ -143,6 +144,8 @@ impl NodeStatusInfo {
             let s = format!("{health:.2}%\n\n");
             if *health > 85. {
                 s.green()
+            } else if *health > 50. {
+                s.yellow()
             } else {
                 s.red()
             }
@@ -177,6 +180,20 @@ impl NodeStatusInfo {
             self.sync_status, behind, self.epoch
         )
     }
+}
+
+/// custom formatting of duration in addition to humantime
+fn fmt_duration(duration: Duration) -> String {
+    let duration = format_duration(duration);
+    let duration = duration.to_string();
+    let duration = duration.split(" ");
+    let format_duration = duration
+        .filter(|s| !s.ends_with("us"))
+        .filter(|s| !s.ends_with("ns"))
+        .filter(|s| !s.ends_with("ms"))
+        .map(|s| s.to_string());
+    let format_duration: Vec<String> = format_duration.collect();
+    format_duration.join(" ")
 }
 
 struct NodeInfoOutput {
