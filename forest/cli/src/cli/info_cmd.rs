@@ -186,7 +186,7 @@ impl NodeStatusInfo {
 fn fmt_duration(duration: Duration) -> String {
     let duration = format_duration(duration);
     let duration = duration.to_string();
-    let duration = duration.split(" ");
+    let duration = duration.split(' ');
     let format_duration = duration
         .filter(|s| !s.ends_with("us"))
         .filter(|s| !s.ends_with("ns"))
