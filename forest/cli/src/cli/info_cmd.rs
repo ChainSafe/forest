@@ -70,12 +70,16 @@ impl NodeStatusInfo {
         self.start_time = start_time
     }
 
-    fn new(cur_duration: Duration, tipsets: Vec<TipsetJson>) -> anyhow::Result<NodeStatusInfo> {
+    fn new(
+        cur_duration: Duration,
+        tipsets: Vec<TipsetJson>,
+        chain_finality: usize,
+    ) -> anyhow::Result<NodeStatusInfo> {
         let head = tipsets
             .get(0)
             .map(|ts| ts.0.clone())
             .ok_or(anyhow::anyhow!("head tipset not found"))?;
-        let num_tipsets = tipsets.len();
+        let num_tipsets = tipsets.len().max(chain_finality);
         let block_count: usize = tipsets.iter().map(|s| s.0.blocks().len()).sum();
         let epoch = head.epoch();
         let ts = head.min_timestamp();
@@ -205,7 +209,11 @@ impl InfoCommand {
 
         let cur_duration_secs = SystemTime::now().duration_since(UNIX_EPOCH)?;
 
-        let mut node_status = NodeStatusInfo::new(cur_duration_secs, tipsets)?;
+        let mut node_status = NodeStatusInfo::new(
+            cur_duration_secs,
+            tipsets,
+            config.chain.policy.chain_finality as usize,
+        )?;
         node_status.set_network(&network);
         node_status.set_node_start_time(start_time);
         node_status.set_default_wallet(default_wallet_address);
@@ -236,6 +244,8 @@ mod tests {
 
     use super::NodeStatusInfo;
     use crate::cli::info_cmd::SyncStatus;
+
+    const CHAIN_FINALITY: usize = 900;
 
     fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Arc<Tipset> {
         let mock_header = BlockHeader::builder()
@@ -277,7 +287,7 @@ mod tests {
     #[quickcheck]
     fn test_sync_status_ok(tipsets: Vec<Arc<Tipset>>) {
         let tipsets = tipsets.iter().map(|ts| TipsetJson(ts.clone())).collect();
-        let status_result = NodeStatusInfo::new(Duration::from_secs(0), tipsets);
+        let status_result = NodeStatusInfo::new(Duration::from_secs(0), tipsets, CHAIN_FINALITY);
         if let Ok(status) = status_result {
             assert_ne!(status.sync_status, SyncStatus::Slow);
             assert_ne!(status.sync_status, SyncStatus::Behind);
@@ -288,7 +298,8 @@ mod tests {
     fn test_sync_status_behind(duration: Duration) {
         let duration = duration + Duration::from_secs(300);
         let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
-        let node_status = NodeStatusInfo::new(duration, vec![TipsetJson(tipset)]).unwrap();
+        let node_status =
+            NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
         assert_ne!(node_status.sync_status, SyncStatus::Slow);
@@ -302,7 +313,8 @@ mod tests {
                 .as_secs()
                 .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
         );
-        let node_status = NodeStatusInfo::new(duration, vec![TipsetJson(tipset)]).unwrap();
+        let node_status =
+            NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Behind);
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
@@ -313,7 +325,8 @@ mod tests {
         let color = LoggingColor::Never;
         let duration = Duration::from_secs(60);
         let tipset = mock_tipset_at(duration.as_secs() - 10);
-        let node_status = NodeStatusInfo::new(duration, vec![TipsetJson(tipset)]).unwrap();
+        let node_status =
+            NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
         let a = node_status.display(&color);
         assert!(a.chain_status.contains("10s behind"));
     }
@@ -323,13 +336,15 @@ mod tests {
         let cur_duration = Duration::from_secs(100_000);
         let tipset = mock_tipset_at(cur_duration.as_secs() - 59);
         let color = LoggingColor::Never;
-        let node_status = NodeStatusInfo::new(cur_duration, vec![TipsetJson(tipset)]).unwrap();
+        let node_status =
+            NodeStatusInfo::new(cur_duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
         let output = node_status.display(&color);
         let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 atto FIL] [epoch: 0]";
         assert_eq!(expected_status_fmt.clear(), output.chain_status);
 
         let tipset = mock_tipset_at(cur_duration.as_secs() - 30000);
-        let node_status = NodeStatusInfo::new(cur_duration, vec![TipsetJson(tipset)]).unwrap();
+        let node_status =
+            NodeStatusInfo::new(cur_duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
         let output = node_status.display(&color);
 
         let expected_status_fmt =
