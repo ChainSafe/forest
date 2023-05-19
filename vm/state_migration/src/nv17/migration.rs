@@ -18,7 +18,7 @@ use fvm_ipld_encoding::CborStore;
 use super::{system, ManifestNew, ManifestOld, SystemStateOld};
 use crate::{
     common::{migrators::nil_migrator, PostMigrationAction, StateMigration},
-    nv17::{datacap::create_datacap_actor, market::create_market_actor, verifier::Verifier},
+    nv17::{datacap::create_datacap_actor, verifier::Verifier},
 };
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
@@ -95,7 +95,7 @@ where
     let verifier = Arc::new(Verifier::default());
 
     // Add post-migration steps
-    let post_migration_actions = [create_market_actor, create_datacap_actor]
+    let post_migration_actions = [create_datacap_actor]
         .into_iter()
         .map(|action| Arc::new(action) as PostMigrationAction<DB>)
         .collect();
