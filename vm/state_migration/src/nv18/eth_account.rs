@@ -20,7 +20,7 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
     let init_actor = actors_out
         .get_actor(&Address::INIT_ACTOR)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
-    let init_state: fil_actor_init_v10::State = store
+    let init_state: fil_actor_init_state::v10::State = store
         .get_obj(&init_actor.state)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
 
@@ -43,7 +43,7 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
 
     let eth_account_actor = ActorState::new(
         *new_manifest.get_ethaccount_code(),
-        fil_actors_runtime_v10::runtime::EMPTY_ARR_CID,
+        fil_actors_shared::v10::runtime::EMPTY_ARR_CID,
         Default::default(),
         0,
         Some(eth_zero_addr),

@@ -220,7 +220,7 @@ where
 #[cfg(test)]
 mod tests {
     use cid::{multihash::Code::Blake2b256, Cid};
-    use fil_actor_account_v10::State as AccountState;
+    use fil_actor_account_state::v10::State as AccountState;
     use forest_db::MemoryDB;
     use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
     use forest_utils::db::BlockstoreExt;

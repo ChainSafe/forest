@@ -7,8 +7,7 @@
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
-use fil_actor_init_v10::State as InitStateNew;
-use fil_actor_init_v9::State as InitStateOld;
+use fil_actor_init_state::{v10::State as InitStateNew, v9::State as InitStateOld};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
