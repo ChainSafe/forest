@@ -182,7 +182,6 @@ impl NodeStatusInfo {
     }
 }
 
-/// custom formatting of duration in addition to humantime
 fn fmt_duration(duration: Duration) -> String {
     let duration = format_duration(duration);
     let duration = duration.to_string();
