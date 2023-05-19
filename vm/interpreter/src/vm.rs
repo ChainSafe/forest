@@ -118,8 +118,8 @@ where
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: fvm3::machine::DefaultMachine<DB, ForestExterns_v3<DB>> =
-                fvm3::machine::DefaultMachine::new(
+            let fvm: forest_shim::machine::DefaultMachine_v3<DB, ForestExterns_v3<DB>> =
+                forest_shim::machine::DefaultMachine_v3::new(
                     &context,
                     store.clone(),
                     ForestExterns_v3::new(rand, epoch, root, lb_fn, store, chain_config),

@@ -3,8 +3,9 @@
 
 pub use fvm::{
     kernel::{
-        BlockId, BlockRegistry, BlockStat, DebugOps, ExecutionError, GasOps, MessageOps,
-        NetworkOps, RandomnessOps, Result, SelfOps, SendOps, SendResult,
+        ActorOps, BlockId, BlockRegistry, BlockStat, CircSupplyOps, CryptoOps, DebugOps,
+        ExecutionError, GasOps, IpldBlockOps, Kernel, MessageOps, NetworkOps, RandomnessOps,
+        Result, SelfOps, SendOps, SendResult,
     },
     DefaultKernel as DefaultKernelV2,
 };
