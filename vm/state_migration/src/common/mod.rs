@@ -10,6 +10,7 @@ use cid::Cid;
 use forest_shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
+mod macros;
 mod migration_job;
 pub(crate) mod migrators;
 mod state_migration;
@@ -50,3 +51,14 @@ pub(crate) trait ActorMigration<BS: Blockstore + Clone + Send + Sync> {
 /// Post migration action to be executed after the state migration.
 pub(crate) type PostMigrationAction<BS> =
     Arc<dyn Fn(&BS, &mut StateTree<BS>) -> anyhow::Result<()> + Send + Sync>;
+
+/// Trait that migrates from one data structure to another, similar to
+/// [`std::convert::TryInto`] trait but taking an extra block store parameter
+pub(crate) trait TypeMigration<From, To> {
+    fn migrate_type(from: From, store: &impl Blockstore) -> anyhow::Result<To>;
+}
+
+/// Type that implements [`TypeMigration`] for different type pairs. Prefer
+/// using a single `struct` so that the compiler could catch duplicate
+/// implementations
+pub(crate) struct TypeMigrator;

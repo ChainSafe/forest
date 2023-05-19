@@ -10,15 +10,9 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '*.md'
-      - '*.rb'
   push:
     branches:
       - main
-    paths-ignore:
-      - '*.md'
-      - '*.rb'
   schedule:
     - cron: "0 0 * * *"
 
@@ -53,6 +47,8 @@ jobs:
     name: Build Ubuntu (Forest daemon)
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       # find the nearest S3 space for storing cache files
       - name: Show IP
         run: curl ifconfig.me
@@ -79,6 +75,8 @@ jobs:
     name: Build Ubuntu (Forest CLI)
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
@@ -104,6 +102,8 @@ jobs:
     name: Forest CLI checks
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -126,6 +126,8 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -144,6 +146,29 @@ jobs:
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
 
+  # state migration regression tests
+  state-migrations-check:
+    needs:
+      - node-build-ubuntu
+    name: State migrations
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Migration Regression Tests
+        run: ./scripts/tests/calibnet_migration_regression_tests.sh
+
   # Wallet checks (sending, exporting key, balances...)
   calibnet-wallet-check:
     needs:
@@ -152,6 +177,8 @@ jobs:
     name: Wallet tests
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -180,6 +207,8 @@ jobs:
     name: Snapshot export checks
     runs-on: ubuntu-latest
     steps:
+      # To help investigate transient test failures
+      - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
       - uses: actions/download-artifact@v3

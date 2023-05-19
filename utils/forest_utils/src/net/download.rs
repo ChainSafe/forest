@@ -20,7 +20,7 @@ use thiserror::Error;
 use url::Url;
 
 use super::https_client;
-use crate::{io::ProgressBar, miscs::Either};
+use crate::{io::ProgressBar, misc::Either};
 
 // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
 const ZSTD_MAGIC_HEADER: [u8; 4] = [0x28, 0xb5, 0x2f, 0xfd];
