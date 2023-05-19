@@ -137,6 +137,9 @@ pub struct CliOpts {
     /// Disable the automatic database garbage collection.
     #[arg(long)]
     pub no_gc: bool,
+    /// Check your command-line options and configuration file if one is used
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 impl CliOpts {

@@ -7,17 +7,14 @@
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
-use fil_actor_init_v10::State as StateV10;
-use fil_actor_init_v9::State as StateV9;
-use fil_actors_runtime_v10::{make_map_with_root, Map};
-use forest_shim::{
-    address::{Address, PAYLOAD_HASH_LEN},
-    state_tree::ActorID,
-};
+use fil_actor_init_v10::State as InitStateNew;
+use fil_actor_init_v9::State as InitStateOld;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
+use crate::common::{
+    ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
+};
 
 pub struct InitMigrator(Cid);
 
@@ -33,25 +30,11 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
         store: BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
-        let in_state: StateV9 = store
+        let in_state: InitStateOld = store
             .get_obj(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
 
-        let mut in_addr_map: Map<_, ActorID> = make_map_with_root(&in_state.address_map, &store)
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
-
-        let actor_id = in_state.next_id;
-        let eth_zero_addr = Address::new_delegated(
-            Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
-            &[0; PAYLOAD_HASH_LEN],
-        )?;
-        in_addr_map.set(eth_zero_addr.to_bytes().into(), actor_id)?;
-
-        let out_state = StateV10 {
-            address_map: in_addr_map.flush()?,
-            next_id: in_state.next_id + 1,
-            network_name: in_state.network_name,
-        };
+        let out_state: InitStateNew = TypeMigrator::migrate_type(in_state, &store)?;
 
         let new_head = store.put_obj(&out_state, Blake2b256)?;
 
