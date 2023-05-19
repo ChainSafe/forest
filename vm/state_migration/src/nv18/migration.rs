@@ -49,6 +49,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             self.add_migrator(*code, nil_migrator(*new_code));
         });
 
+        // https://github.com/filecoin-project/go-state-types/blob/master/builtin/v10/migration/top.go#L97
         self.add_migrator(
             *current_manifest.get_init_code(),
             init::init_migrator(*new_manifest.get_init_code()),

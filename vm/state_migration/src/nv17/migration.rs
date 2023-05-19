@@ -6,7 +6,11 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use cid::Cid;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::{address::Address, clock::ChainEpoch, state_tree::StateTree};
+use forest_shim::{
+    address::Address,
+    clock::ChainEpoch,
+    state_tree::{StateTree, StateTreeVersion},
+};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -28,12 +32,13 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let system_actor = state_tree
             .get_actor(&Address::new_id(0))?
             .ok_or_else(|| anyhow!("system actor not found"))?;
+
         let system_actor_state = store
             .get_obj::<SystemStateOld>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
-
         let current_manifest = ManifestOld::load(&store, &current_manifest_data, 1)?;
+
         let (version, new_manifest_data): (u32, Cid) = store
             .get_cbor(new_manifest)?
             .ok_or_else(|| anyhow!("new manifest not found"))?;
@@ -45,10 +50,16 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             self.add_migrator(*code, nil_migrator(*new_code));
         });
 
+        //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
         self.add_migrator(
             *current_manifest.get_system_code(),
             system::system_migrator(new_manifest_data, *new_manifest.get_system_code()),
         );
+
+        // self.add_migrator(
+        //     *current_manifest.get_miner_code(),
+        //     miner::miner_migrator(new_manifest_data,
+        // *new_manifest.get_system_code()), );
 
         Ok(())
     }
@@ -92,5 +103,10 @@ where
     let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
     migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
-    todo!()
+    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
+    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let new_state =
+        migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
+
+    Ok(new_state)
 }
