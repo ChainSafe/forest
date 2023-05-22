@@ -375,7 +375,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         unblock_parent_process()?;
     }
 
-    // Fetch and ensure verification keys are downloaded
+    // Sets proof parameter file download path early, the files will be checked and
+    // downloaded later right after snapshot import step
     if cns::FETCH_PARAMS {
         forest_utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
             &config.client.data_dir,

@@ -3,6 +3,7 @@
 
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use filecoin_proofs_api::post;
 use forest_shim::{
     address::{Address, Payload},
     randomness::Randomness,
@@ -23,7 +24,7 @@ where
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt`
     /// verification.
-    pub async fn get_sectors_for_winning_post(
+    pub fn get_sectors_for_winning_post(
         &self,
         st: &Cid,
         nv: NetworkVersion,
@@ -79,8 +80,7 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids =
-            generate_winning_post_sector_challenge(wpt.into(), m_id, rand, num_prov_sect).await?;
+        let ids = generate_winning_post_sector_challenge(wpt.into(), m_id, rand, num_prov_sect)?;
 
         let mut iter = proving_sectors.iter();
 
@@ -157,7 +157,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 }
 
 /// Generates sector challenge indexes for use in winning PoSt verification.
-async fn generate_winning_post_sector_challenge(
+fn generate_winning_post_sector_challenge(
     proof: RegisteredPoStProof,
     prover_id: u64,
     mut rand: Randomness,
@@ -166,13 +166,12 @@ async fn generate_winning_post_sector_challenge(
     // Necessary to be valid bls12 381 element.
     rand.0[31] &= 0x3f;
 
-    forest_utils::proofs_api::post::generate_winning_post_sector_challenge(
+    post::generate_winning_post_sector_challenge(
         proof.try_into()?,
         &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),
     )
-    .await
 }
 
 #[cfg(test)]

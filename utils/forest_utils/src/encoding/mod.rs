@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blake2b_simd::Params;
+use filecoin_proofs_api::ProverId;
 use forest_shim::address::Address;
 use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
-
-use crate::proofs_api::ProverId;
 
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {

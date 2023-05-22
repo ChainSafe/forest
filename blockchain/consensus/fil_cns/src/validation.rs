@@ -6,6 +6,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use cid::Cid;
 use fil_actor_interface::power;
 use fil_actors_runtime_v10::runtime::DomainSeparationTag;
+use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
@@ -17,10 +18,7 @@ use forest_shim::{
     version::NetworkVersion,
 };
 use forest_state_manager::StateManager;
-use forest_utils::{
-    encoding::prover_id_from_u64,
-    proofs_api::{PublicReplicaInfo, SectorId},
-};
+use forest_utils::encoding::prover_id_from_u64;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, Cbor};
@@ -156,15 +154,14 @@ pub(crate) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'stati
     // Winning PoSt proof validation
     let v_block = block.clone();
     let v_prev_beacon = Arc::clone(&prev_beacon);
-    validations.push(tokio::task::spawn(async move {
+    validations.push(tokio::task::spawn_blocking(move || {
         verify_winning_post_proof::<_>(
             &state_manager,
             win_p_nv,
             v_block.header(),
             &v_prev_beacon,
             &lookback_state,
-        )
-        .await?;
+        )?;
         Ok(())
     }));
 
@@ -342,7 +339,7 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, &worker.into()).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-async fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
+fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,
@@ -397,7 +394,6 @@ async fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'stati
             header.miner_address(),
             Randomness::new(rand.to_vec()),
         )
-        .await
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
@@ -406,7 +402,6 @@ async fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'stati
         sectors.as_slice(),
         id,
     )
-    .await
     .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))
 }
 
@@ -442,7 +437,7 @@ enum ProofType {
     // Window,
 }
 
-async fn verify_winning_post(
+fn verify_winning_post(
     mut rand: Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
@@ -465,14 +460,7 @@ async fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    if !forest_utils::proofs_api::post::verify_winning_post(
-        &bytes_32(&rand.0),
-        &proof_bytes,
-        &replicas,
-        prover_id,
-    )
-    .await?
-    {
+    if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }
     Ok(())
