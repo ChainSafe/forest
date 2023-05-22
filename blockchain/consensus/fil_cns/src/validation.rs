@@ -6,7 +6,6 @@ use std::{collections::BTreeMap, sync::Arc};
 use cid::Cid;
 use fil_actor_interface::power;
 use fil_actors_runtime_v10::runtime::DomainSeparationTag;
-use filecoin_proofs_api::{PublicReplicaInfo, SectorId};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
@@ -18,7 +17,10 @@ use forest_shim::{
     version::NetworkVersion,
 };
 use forest_state_manager::StateManager;
-use forest_utils::encoding::prover_id_from_u64;
+use forest_utils::{
+    encoding::prover_id_from_u64,
+    proofs_api::{PublicReplicaInfo, SectorId},
+};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, Cbor};

@@ -4103,7 +4103,6 @@ dependencies = [
  "cid",
  "fil_actor_interface",
  "fil_actors_runtime_v10",
- "filecoin-proofs-api 14.0.0",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",

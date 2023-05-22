@@ -3,6 +3,11 @@
 
 pub mod paramfetch;
 
+/// Re-export types from `filecoin_proofs_api` that are used in public APIs
+pub use filecoin_proofs_api::{
+    ChallengeSeed, ProverId, PublicReplicaInfo, RegisteredPoStProof, SectorId,
+};
+
 /// Mod that contains wrappers for functions in [`filecoin_proofs_api::post`]
 /// that ensure parameter files are downloaded.
 pub mod post {
