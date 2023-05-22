@@ -4,7 +4,7 @@
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::bail;
-use chrono::{Datelike, Utc};
+use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
@@ -25,43 +25,25 @@ use forest_utils::{
 };
 use fvm_shared::clock::ChainEpoch;
 use log::info;
-use strfmt::strfmt;
 use tempfile::TempDir;
 use tokio::time::sleep;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 
-pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
-    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
-
-pub(crate) const OUTPUT_PATH_DEFAULT_COMPRESSED_FORMAT: &str =
-    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car.zst";
-
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
         /// Snapshot output path. Default to
-        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car(.
-        /// zst)` Date is in ISO 8601 date format.
-        /// Arguments:
-        ///  - chain - chain name e.g. `mainnet`
-        ///  - year
-        ///  - month
-        ///  - day
-        ///  - height - the epoch
+        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.
+        /// zst`.
         #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
-        /// Export in zstd compressed format
-        #[arg(long)]
-        compressed: bool,
-        /// Skip creating the checksum file. Only valid when `--compressed` is
-        /// not supplied.
+        /// Skip creating the checksum file.
         #[arg(long)]
         skip_checksum: bool,
-        /// Skip writing to the snapshot `.car` file specified by
-        /// `--output-path`.
+        /// Don't write the archive.
         #[arg(long)]
         dry_run: bool,
     },
@@ -75,10 +57,6 @@ pub enum SnapshotCommands {
         /// Snapshot trusted source
         #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
-        /// Download zstd compressed snapshot, only supported by the Filecoin
-        /// provider for now. default is false.
-        #[arg(long)]
-        compressed: bool,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[arg(long)]
         aria2: bool,
@@ -160,7 +138,6 @@ impl SnapshotCommands {
         match self {
             Self::Export {
                 output_path,
-                compressed,
                 skip_checksum,
                 dry_run,
             } => {
@@ -171,39 +148,19 @@ impl SnapshotCommands {
 
                 let epoch = chain_head.epoch();
 
-                let now = Utc::now();
-
-                let month_string = format!("{:02}", now.month() as u8);
-                let year = now.year();
-                let day_string = format!("{:02}", now.day());
                 let chain_name = chain_get_name((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                #[allow(clippy::disallowed_types)]
-                let vars = std::collections::HashMap::from([
-                    ("year".to_string(), year.to_string()),
-                    ("month".to_string(), month_string),
-                    ("day".to_string(), day_string),
-                    ("chain".to_string(), chain_name),
-                    ("height".to_string(), epoch.to_string()),
-                ]);
-
-                let output_path = if output_path.is_dir() {
-                    output_path.join(if *compressed {
-                        OUTPUT_PATH_DEFAULT_COMPRESSED_FORMAT
-                    } else {
-                        OUTPUT_PATH_DEFAULT_FORMAT
-                    })
-                } else {
-                    output_path.clone()
-                };
-
-                let output_path = match strfmt(&output_path.display().to_string(), &vars) {
-                    Ok(path) => path.into(),
-                    Err(e) => {
-                        cli_error_and_die(format!("Unparsable string error: {e}"), 1);
-                    }
+                let output_path = match output_path.is_dir() {
+                    true => output_path.join(
+                        Utc::now()
+                            .format(&format!(
+                                "forest_snapshot_{chain_name}_%Y-%m-%d_height_{epoch}.car.zst"
+                            ))
+                            .to_string(),
+                    ),
+                    false => output_path.clone(),
                 };
 
                 let params = ChainExportParams {
@@ -211,7 +168,7 @@ impl SnapshotCommands {
                     recent_roots: config.chain.recent_state_roots,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
-                    compressed: *compressed,
+                    compressed: true,
                     skip_checksum: *skip_checksum,
                     dry_run: *dry_run,
                 };
@@ -255,7 +212,6 @@ impl SnapshotCommands {
             Self::Fetch {
                 snapshot_dir,
                 provider,
-                compressed: use_compressed,
                 aria2: use_aria2,
                 max_retries,
                 delay,
@@ -270,7 +226,6 @@ impl SnapshotCommands {
                     &snapshot_dir,
                     &config,
                     provider,
-                    *use_compressed,
                     *use_aria2
                 ) {
                     Ok(out) => {

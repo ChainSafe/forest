@@ -165,7 +165,6 @@ pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
     provider: &Option<SnapshotServer>,
-    use_compressed: bool,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let server = match provider {
@@ -174,15 +173,16 @@ pub async fn snapshot_fetch(
     };
     match server {
         SnapshotServer::Forest => {
-            snapshot_fetch_forest(snapshot_out_dir, config, use_compressed, use_aria2).await
+            snapshot_fetch_forest(snapshot_out_dir, config, true, use_aria2).await
         }
         SnapshotServer::Filecoin => {
-            snapshot_fetch_filecoin(snapshot_out_dir, config, use_compressed, use_aria2).await
+            snapshot_fetch_filecoin(snapshot_out_dir, config, true, use_aria2).await
         }
     }
 }
 
 /// Checks whether `aria2c` is available in PATH
+// TODO(aatifsyed): should just use libaria2c
 pub fn is_aria2_installed() -> bool {
     which::which("aria2c").is_ok()
 }
