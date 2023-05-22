@@ -489,7 +489,6 @@ async fn maybe_fetch_snapshot(
             &snapshot_path,
             &config,
             &Some(provider),
-            use_compressed,
             is_aria2_installed()
         )?;
         Ok(Config {
