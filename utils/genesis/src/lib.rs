@@ -161,6 +161,8 @@ where
             (ts.epoch() + height).max(0)
         };
         info!("Validating imported chain from height: {}", height);
+        // Ensures files for proof api are downloaded before validation
+        forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
         sm.validate_chain(ts.clone(), height).await?;
     }
 

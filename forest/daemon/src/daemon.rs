@@ -568,6 +568,10 @@ where
             }
         }
     }
+
+    // Ensures files for proof api are downloaded before validation
+    forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
+
     Ok(())
 }
 
