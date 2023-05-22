@@ -132,6 +132,9 @@ fn main() -> anyhow::Result<()> {
     } else {
         info!("Using default {} config", cfg.chain.name);
     }
+    if opts.dry_run {
+        return Ok(());
+    }
     match cmd {
         Some(_) => {
             warn!("All subcommands have been moved to forest-cli tool");
