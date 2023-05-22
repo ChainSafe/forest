@@ -30,7 +30,7 @@ const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
-const REQUEST_WINDOW: usize = 32;
+const DEFAULT_REQUEST_WINDOW: usize = 32;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -167,7 +167,7 @@ impl ChainConfig {
             policy: Policy::mainnet(),
             eth_chain_id: MAINNET_ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW,
         }
     }
 
@@ -182,7 +182,7 @@ impl ChainConfig {
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW,
         }
     }
 
