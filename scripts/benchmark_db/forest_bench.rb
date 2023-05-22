@@ -74,7 +74,7 @@ class ForestBenchmark < BenchmarkBase
 
   def initialize(name:, config: {})
     super(name: name, config: config)
-    @init_command = [target_cli, 'fetch-params', '--keys']
+    @init_command = [target_cli, '--config', '%<c>s', 'fetch-params', '--keys']
     @import_command = [
       target, '--config', '%<c>s', '--encrypt-keystore', 'false', '--import-snapshot', '%<s>s', '--halt-after-import'
     ]

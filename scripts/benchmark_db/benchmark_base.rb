@@ -181,6 +181,11 @@ module RunCommands
     exit(1)
   end
 
+  def forest_init(args)
+    @init_command = splice_args(@init_command, args)
+    exec_command(@init_command)
+  end
+
   # This is the primary function called in `bench.rb` to run the metrics for
   # each benchmark.
   def run(daily, snapshot_downloaded)
@@ -192,7 +197,7 @@ module RunCommands
       args = build_artefacts
       @sync_status_command = splice_args(@sync_status_command, args)
 
-      exec_command(@init_command) if @name == 'forest'
+      forest_init(args) if @name == 'forest'
 
       @metrics = import_and_validation(daily, args, metrics)
     rescue StandardError, Interrupt
