@@ -11,4 +11,5 @@ pub mod macros;
 pub mod misc;
 pub mod monitoring;
 pub mod net;
+pub mod proofs_api;
 pub mod version;

@@ -3752,7 +3752,6 @@ dependencies = [
  "forest_key_management",
  "forest_libp2p",
  "forest_networks",
- "forest_paramfetch",
  "forest_rpc-api",
  "forest_rpc-client",
  "forest_shim",
@@ -3812,7 +3811,6 @@ dependencies = [
  "forest_message_pool",
  "forest_metrics",
  "forest_networks",
- "forest_paramfetch",
  "forest_rpc",
  "forest_rpc-api",
  "forest_shim",
@@ -4113,7 +4111,6 @@ dependencies = [
  "forest_interpreter",
  "forest_key_management",
  "forest_networks",
- "forest_paramfetch",
  "forest_shim",
  "forest_state_manager",
  "forest_utils",
@@ -4432,25 +4429,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_paramfetch"
-version = "0.8.2"
-dependencies = [
- "ahash 0.8.3",
- "anyhow",
- "backoff",
- "blake2b_simd",
- "forest_shim",
- "forest_utils",
- "futures",
- "lazy_static",
- "log",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "forest_rpc"
 version = "0.8.2"
 dependencies = [
@@ -4590,7 +4568,6 @@ dependencies = [
  "cid",
  "fil_actor_interface",
  "fil_actors_runtime_v10",
- "filecoin-proofs-api 14.0.0",
  "forest_beacon",
  "forest_blocks",
  "forest_chain",
@@ -4600,7 +4577,6 @@ dependencies = [
  "forest_message",
  "forest_metrics",
  "forest_networks",
- "forest_paramfetch",
  "forest_shim",
  "forest_state_migration",
  "forest_utils",
@@ -4706,6 +4682,7 @@ dependencies = [
  "async-fs",
  "async-trait",
  "atty",
+ "backoff",
  "blake2b_simd",
  "chrono",
  "cid",
@@ -4723,6 +4700,7 @@ dependencies = [
  "human-repr",
  "hyper",
  "hyper-rustls",
+ "lazy_static",
  "libc",
  "log",
  "memory-stats",
@@ -4742,6 +4720,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tokio-util",
  "toml 0.7.3",
  "tracing",
  "url",

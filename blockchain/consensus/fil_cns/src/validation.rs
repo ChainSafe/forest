@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use cid::Cid;
 use fil_actor_interface::power;
 use fil_actors_runtime_v10::runtime::DomainSeparationTag;
-use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
+use filecoin_proofs_api::{PublicReplicaInfo, SectorId};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
@@ -463,8 +463,14 @@ async fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    forest_paramfetch::ensure_params_downloaded().await?;
-    if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
+    if !forest_utils::proofs_api::post::verify_winning_post(
+        &bytes_32(&rand.0),
+        &proof_bytes,
+        &replicas,
+        prover_id,
+    )
+    .await?
+    {
         anyhow::bail!("Winning post was invalid")
     }
     Ok(())

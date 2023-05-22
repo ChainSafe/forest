@@ -13,6 +13,7 @@ async-compression.workspace = true
 async-fs.workspace = true
 async-trait.workspace = true
 atty.workspace = true
+backoff = { workspace = true, features = ["tokio"] }
 blake2b_simd.workspace = true
 chrono.workspace = true
 cid.workspace = true
@@ -29,6 +30,7 @@ git-version.workspace = true
 human-repr.workspace = true
 hyper-rustls.workspace = true
 hyper.workspace = true
+lazy_static.workspace = true
 libc = "0.2"
 log.workspace = true
 memory-stats = "1.1"
@@ -43,6 +45,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs"] }
+tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
 tracing.workspace = true
 url.workspace = true

@@ -15,7 +15,6 @@ use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use forest_shim::sector::SectorSize;
-use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -25,12 +24,14 @@ use tokio::{
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
+use crate::net::{https_client, hyper};
+
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
 const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
 const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
-const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
+const DEFAULT_PARAMETERS: &str = include_str!("./parameters.json");
 
 /// Sector size options for fetching.
 pub enum SectorSizeOpt {

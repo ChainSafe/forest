@@ -4,4 +4,5 @@ disallowed-types = [
   { path = "std::collections::HashSet", reason = "use ahash::HashSet instead" },
   { path = "std::sync::RwLock", reason = "use parking_lot::RwLock instead" },
   { path = "std::sync::Mutex", reason = "use parking_lot::Mutex instead" },
+  { path = "filecoin_proofs_api::post", reason = "use forest_utils::proofs_api::post instead" },
 ]

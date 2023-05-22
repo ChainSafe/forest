@@ -377,7 +377,9 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 
     // Fetch and ensure verification keys are downloaded
     if cns::FETCH_PARAMS {
-        forest_paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+        forest_utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+            &config.client.data_dir,
+        );
     }
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
