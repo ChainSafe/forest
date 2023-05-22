@@ -24,7 +24,7 @@ where
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt`
     /// verification.
-    pub fn get_sectors_for_winning_post(
+    pub async fn get_sectors_for_winning_post(
         &self,
         st: &Cid,
         nv: NetworkVersion,
@@ -80,7 +80,8 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids = generate_winning_post_sector_challenge(wpt.into(), m_id, rand, num_prov_sect)?;
+        let ids =
+            generate_winning_post_sector_challenge(wpt.into(), m_id, rand, num_prov_sect).await?;
 
         let mut iter = proving_sectors.iter();
 
@@ -157,7 +158,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
 }
 
 /// Generates sector challenge indexes for use in winning PoSt verification.
-fn generate_winning_post_sector_challenge(
+async fn generate_winning_post_sector_challenge(
     proof: RegisteredPoStProof,
     prover_id: u64,
     mut rand: Randomness,
@@ -166,7 +167,7 @@ fn generate_winning_post_sector_challenge(
     // Necessary to be valid bls12 381 element.
     rand.0[31] &= 0x3f;
 
-    forest_paramfetch::ensure_params_downloaded()?;
+    forest_paramfetch::ensure_params_downloaded().await?;
     post::generate_winning_post_sector_challenge(
         proof.try_into()?,
         &bytes_32(&rand.0),

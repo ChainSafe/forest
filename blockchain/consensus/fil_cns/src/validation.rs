@@ -154,14 +154,15 @@ pub(crate) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'stati
     // Winning PoSt proof validation
     let v_block = block.clone();
     let v_prev_beacon = Arc::clone(&prev_beacon);
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.push(tokio::task::spawn(async move {
         verify_winning_post_proof::<_>(
             &state_manager,
             win_p_nv,
             v_block.header(),
             &v_prev_beacon,
             &lookback_state,
-        )?;
+        )
+        .await?;
         Ok(())
     }));
 
@@ -339,7 +340,7 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, &worker.into()).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
+async fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,
@@ -394,6 +395,7 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
             header.miner_address(),
             Randomness::new(rand.to_vec()),
         )
+        .await
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
@@ -402,6 +404,7 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
         sectors.as_slice(),
         id,
     )
+    .await
     .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))
 }
 
@@ -437,7 +440,7 @@ enum ProofType {
     // Window,
 }
 
-fn verify_winning_post(
+async fn verify_winning_post(
     mut rand: Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
@@ -460,7 +463,7 @@ fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    forest_paramfetch::ensure_params_downloaded()?;
+    forest_paramfetch::ensure_params_downloaded().await?;
     if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }

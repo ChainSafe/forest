@@ -75,25 +75,13 @@ pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     std::env::set_var(DIR_ENV, param_dir(data_dir));
 }
 
-static CHECKED: AtomicBool = AtomicBool::new(false);
-
 /// Ensures the parameter files are downloaded to cache dir
-pub fn ensure_params_downloaded() -> anyhow::Result<()> {
-    if !CHECKED.load(atomic::Ordering::Relaxed) {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()?;
-        rt.block_on(ensure_params_downloaded_async())
-    } else {
-        Ok(())
-    }
-}
-
-/// Ensures the parameter files are downloaded to cache dir (async version)
-pub async fn ensure_params_downloaded_async() -> anyhow::Result<()> {
+pub async fn ensure_params_downloaded() -> anyhow::Result<()> {
+    static CHECKED: AtomicBool = AtomicBool::new(false);
     lazy_static::lazy_static! {
         static ref LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::new(());
     }
+
     if !CHECKED.load(atomic::Ordering::Relaxed) {
         let _guard = LOCK.lock();
         if !CHECKED.load(atomic::Ordering::Relaxed) {
