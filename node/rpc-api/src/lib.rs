@@ -61,6 +61,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Wallet API
     access.insert(wallet_api::WALLET_BALANCE, Access::Write);
+    access.insert(wallet_api::WALLET_BALANCE, Access::Read);
     access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Read);
     access.insert(wallet_api::WALLET_EXPORT, Access::Admin);
     access.insert(wallet_api::WALLET_HAS, Access::Write);

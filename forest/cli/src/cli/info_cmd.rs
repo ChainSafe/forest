@@ -9,7 +9,7 @@ use colored::*;
 use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::{cli::CliOpts, logger::LoggingColor};
 use forest_rpc_client::{
-    chain_get_name, chain_get_tipsets_finality, start_time, wallet_default_address,
+    chain_get_name, chain_get_tipsets_finality, start_time, wallet_balance, wallet_default_address,
 };
 use forest_shim::econ::TokenAmount;
 use forest_utils::io::parser::{format_balance_string, FormattingMode};
@@ -18,6 +18,7 @@ use fvm_shared::{
     BLOCKS_PER_EPOCH,
 };
 use humantime::format_duration;
+use num::BigInt;
 
 use super::Config;
 use crate::cli::handle_rpc_err;
@@ -138,7 +139,7 @@ impl NodeStatusInfo {
         let wallet_address = self
             .default_wallet_address
             .clone()
-            .unwrap_or("-".to_string())
+            .unwrap_or("address not set".to_string())
             .bold();
         let health = {
             let s = format!("{health:.2}%\n\n");
@@ -219,6 +220,16 @@ impl InfoCommand {
             .await
             .map_err(handle_rpc_err)?;
 
+        // Wallet info
+        let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address {
+            let balance = wallet_balance((def_addr.clone(),), &config.client.rpc_token)
+                .await
+                .map_err(handle_rpc_err)?;
+            Some(balance)
+        } else {
+            None
+        };
+
         let tipsets = chain_get_tipsets_finality((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
@@ -230,6 +241,7 @@ impl InfoCommand {
             tipsets,
             config.chain.policy.chain_finality as usize,
         )?;
+
         node_status.set_network(&network);
         node_status.set_node_start_time(start_time);
         node_status.set_default_wallet(default_wallet_address);
@@ -240,9 +252,23 @@ impl InfoCommand {
         println!("Uptime: {}", status_output.uptime);
         println!("Chain: {}", status_output.chain_status);
         println!("Chain health: {}", status_output.health);
-        println!("Default wallet address: {}", status_output.wallet_address);
+        println!(
+            "Default wallet address: {} [balance: {}]",
+            status_output.wallet_address,
+            balance(default_wallet_address_balance)?
+        );
 
         Ok(())
+    }
+}
+
+fn balance(balance: Option<String>) -> anyhow::Result<String> {
+    use crate::humantoken::TokenAmountPretty;
+    if let Some(bal) = balance {
+        let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
+        Ok(format!("{:.4}", balance_token_amount.pretty()))
+    } else {
+        Ok(String::from("n/a"))
     }
 }
 
