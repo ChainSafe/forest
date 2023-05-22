@@ -5,8 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::multihash::Code::Blake2b256;
-use fil_actor_market_v8::State as MarketStateV8;
-use fil_actor_market_v9::State as MarketStateV9;
+use fil_actor_market_state::{v8::State as MarketStateV8, v9::State as MarketStateV9};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::Hamt;

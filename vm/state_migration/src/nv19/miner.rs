@@ -7,8 +7,7 @@
 use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
-use fil_actor_miner_v10::State as MinerStateOld;
-use fil_actor_miner_v11::State as MinerStateNew;
+use fil_actor_miner_state::{v10::State as MinerStateOld, v11::State as MinerStateNew};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 

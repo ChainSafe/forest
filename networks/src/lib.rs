@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 
 use anyhow::Error;
 use cid::Cid;
-use fil_actors_runtime_v10::runtime::Policy;
+use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
@@ -27,6 +27,10 @@ const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+
+// Sync the messages for one or many tipsets @ a time
+// Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
+const DEFAULT_REQUEST_WINDOW: usize = 32;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -148,6 +152,7 @@ pub struct ChainConfig {
     /// Number of default recent state roots to keep in memory and include in
     /// the exported snapshot.
     pub recent_state_roots: i64,
+    pub request_window: usize,
 }
 
 impl ChainConfig {
@@ -162,6 +167,7 @@ impl ChainConfig {
             policy: Policy::mainnet(),
             eth_chain_id: MAINNET_ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+            request_window: DEFAULT_REQUEST_WINDOW,
         }
     }
 
@@ -176,6 +182,7 @@ impl ChainConfig {
             policy: Policy::calibnet(),
             eth_chain_id: CALIBNET_ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+            request_window: DEFAULT_REQUEST_WINDOW,
         }
     }
 

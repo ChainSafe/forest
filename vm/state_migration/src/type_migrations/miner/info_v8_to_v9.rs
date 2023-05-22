@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actor_miner_v8::MinerInfo as MinerInfoV8;
-use fil_actor_miner_v9::MinerInfo as MinerInfoV9;
+use fil_actor_miner_state::{v8::MinerInfo as MinerInfoV8, v9::MinerInfo as MinerInfoV9};
 use fvm_ipld_blockstore::Blockstore;
 
 use crate::common::{TypeMigration, TypeMigrator};
@@ -15,7 +14,7 @@ impl TypeMigration<MinerInfoV8, MinerInfoV9> for TypeMigrator {
             worker: from.worker,
             control_addresses: from.control_addresses,
             pending_worker_key: from.pending_worker_key.map(|key| {
-                fil_actor_miner_v9::WorkerKeyChange {
+                fil_actor_miner_state::v9::WorkerKeyChange {
                     new_worker: key.new_worker,
                     effective_at: key.effective_at,
                 }
@@ -28,7 +27,7 @@ impl TypeMigration<MinerInfoV8, MinerInfoV9> for TypeMigrator {
             consensus_fault_elapsed: from.consensus_fault_elapsed,
             pending_owner_address: from.pending_owner_address,
             beneficiary: from.owner,
-            beneficiary_term: fil_actor_miner_v9::BeneficiaryTerm {
+            beneficiary_term: fil_actor_miner_state::v9::BeneficiaryTerm {
                 quota: Default::default(),
                 used_quota: Default::default(),
                 expiration: 0,

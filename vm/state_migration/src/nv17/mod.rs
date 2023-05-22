@@ -22,7 +22,10 @@ define_manifests!(
     forest_shim::machine::ManifestV2,
     forest_shim::machine::ManifestV2
 );
-define_system_states!(fil_actor_system_v8::State, fil_actor_system_v9::State);
+define_system_states!(
+    fil_actor_system_state::v8::State,
+    fil_actor_system_state::v9::State
+);
 
 impl_system!();
 impl_verifier!();

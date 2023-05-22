@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::multihash::Code::Blake2b256;
-use fil_actor_miner_v8::{MinerInfo as MinerInfoV8, State as MinerStateV8};
-use fil_actor_miner_v9::{MinerInfo as MinerInfoV9, State as MinerStateV9};
+use fil_actor_miner_state::{
+    v8::{MinerInfo as MinerInfoV8, State as MinerStateV8},
+    v9::{MinerInfo as MinerInfoV9, State as MinerStateV9},
+};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 
