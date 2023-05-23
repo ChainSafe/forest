@@ -4,7 +4,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use anyhow::Context;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{multihash::Code::Blake2b256, Cid};
 use forest_shim::{
     address::Address,
     bigint::StoragePowerV2,
@@ -26,13 +26,11 @@ lazy_static::lazy_static! {
 }
 
 pub struct DataCapMigrator {
-    new_code_cid: Cid,
     verifreg_actor: ActorState,
     market_actor: ActorState,
 }
 
 pub(crate) fn datacap_migrator<BS: Blockstore + Clone + Send + Sync>(
-    new_code_cid: Cid,
     state_tree: &StateTree<BS>,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>> {
     let verifreg_actor = state_tree
@@ -49,7 +47,6 @@ pub(crate) fn datacap_migrator<BS: Blockstore + Clone + Send + Sync>(
         .context("Failed to load market actor v8")?;
 
     Ok(Arc::new(DataCapMigrator {
-        new_code_cid,
         verifreg_actor,
         market_actor,
     }))
@@ -90,7 +87,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
 
         verified_clients.for_each(|key, value| {
         let key2 = BytesKey(key[1..].to_vec());
-        let token_amount = &value * DATA_CAP_GRANULARITY;
+        let token_amount = value * DATA_CAP_GRANULARITY;
         token_supply = &token_supply + &token_amount;
         balances_map.set(key2.clone(), token_amount)?;
 
@@ -102,32 +99,35 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             BytesKey(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ADDR.payload_bytes()),
             INFINITE_ALLOWANCE.clone(),
         )?;
-        allowances_map.set(key2, allowances_map_entry)?;
+        allowances_map.set(key2, allowances_map_entry.flush()?)?;
         Ok(())
     })?;
 
         let verifreg_balance =
             StoragePowerV2::from(pending_verified_deal_size) * DATA_CAP_GRANULARITY;
-        token_supply = &token_supply + verifreg_balance;
+        token_supply = &token_supply + &verifreg_balance;
         balances_map.set(
             BytesKey(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()),
             verifreg_balance,
         )?;
 
+        let mut token = frc46_token::token::state::TokenState::new_with_bit_width(
+            &store,
+            fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
+        )?;
+        token.supply = TokenAmount_v2::from_atto(token_supply);
+        token.balances = balances_map.flush()?;
+        token.allowances = allowances_map.flush()?;
+
         let datacap_state = fil_actor_datacap_state::v9::State {
             governor: fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR,
-            token: frc46_token::token::state::TokenState {
-                supply: TokenAmount_v2::from_atto(token_supply),
-                balances: balances_map.flush()?,
-                allowances: allowances_map.flush()?,
-                hamt_bit_width: fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
-            },
+            token,
         };
 
         let new_head = store.put_obj(&datacap_state, Blake2b256)?;
 
         Ok(ActorMigrationOutput {
-            new_code_cid: self.new_code_cid,
+            new_code_cid: input.head,
             new_head,
         })
     }

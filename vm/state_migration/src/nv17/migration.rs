@@ -57,10 +57,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .code_by_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID as _)
             .context("datacap code not found in new manifest")?;
         self.add_migrator(
-            // Use the same code as prior cid here, have set an empty actor in `run_migrations` to
+            // Use the new code as prior code here, have set an empty actor in `run_migrations` to
             // migrate from
             *datacap_code,
-            datacap::datacap_migrator(*datacap_code, &state_tree)?,
+            datacap::datacap_migrator(&state_tree)?,
         );
 
         Ok(())
@@ -119,7 +119,7 @@ where
     actors_in.set_actor(
         &Address::new_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID),
         ActorState::new_empty(*datacap_code, None),
-    );
+    )?;
 
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
     let new_state =
