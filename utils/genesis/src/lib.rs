@@ -105,6 +105,7 @@ pub async fn import_chain<DB>(
     path: &str,
     validate_height: Option<i64>,
     skip_load: bool,
+    halt_after_import: bool,
 ) -> Result<(), anyhow::Error>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
@@ -144,7 +145,11 @@ where
         e
     })?;
 
-    ensure_params_downloaded_task_handle.await??;
+    if halt_after_import && validate_height.is_none() {
+        ensure_params_downloaded_task_handle.abort();
+    } else {
+        ensure_params_downloaded_task_handle.await??;
+    }
 
     info!(
         "Loaded {} records from .car file in {}s",

@@ -386,7 +386,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     tokio::select! {
-        ret = sync_from_snapshot(&config, &state_manager).fuse() => {
+        ret = sync_from_snapshot(&config, &state_manager, opts.halt_after_import).fuse() => {
             if let Err(err) = ret {
                 services.shutdown().await;
                 return Err(err);
@@ -538,6 +538,7 @@ async fn prompt_snapshot_or_die(
 async fn sync_from_snapshot<DB>(
     config: &Config,
     state_manager: &Arc<StateManager<DB>>,
+    halt_after_import: bool,
 ) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
@@ -555,6 +556,7 @@ where
             &path.display().to_string(),
             validate_height,
             config.client.skip_load,
+            halt_after_import,
         )
         .await
         {
@@ -571,7 +573,9 @@ where
     }
 
     // Ensures files for proof api are downloaded before validation
-    forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
+    if !halt_after_import {
+        forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
+    }
 
     Ok(())
 }
@@ -707,7 +711,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, file_path, None, false).await?;
+        import_chain::<_>(&sm, file_path, None, false, true).await?;
         Ok(())
     }
 
@@ -732,7 +736,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, "test_files/chain4.car", None, false)
+        import_chain::<_>(&sm, "test_files/chain4.car", None, false, true)
             .await
             .expect("Failed to import chain");
 
