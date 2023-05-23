@@ -16,7 +16,6 @@ atty.workspace = true
 blake2b_simd.workspace = true
 chrono.workspace = true
 cid.workspace = true
-const_format = "0.2.26"
 digest.workspace = true
 filecoin-proofs-api.workspace = true
 flume.workspace = true
