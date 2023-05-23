@@ -16,7 +16,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
-use tokio_util::compat::TokioAsyncReadCompatExt;
+use tokio_util::{compat::TokioAsyncReadCompatExt, either::Either};
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -114,16 +114,37 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let (cids, n_records) = if is_remote_file {
+    let import_chain_task = if is_remote_file {
         info!("Downloading file...");
         let url = Url::parse(path)?;
         let reader = get_fetch_progress_from_url(&url).await?;
-        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
+        Either::Left(load_and_retrieve_header(
+            sm.blockstore().clone(),
+            reader,
+            skip_load,
+        ))
     } else {
         info!("Reading file...");
         let reader = get_fetch_progress_from_file(&path).await?;
-        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
+        Either::Right(load_and_retrieve_header(
+            sm.blockstore().clone(),
+            reader,
+            skip_load,
+        ))
     };
+
+    // Not checking `validate_height` to decide whether to download parameter files
+    // here because it defaults to `None` in config, making parallelization
+    // disabled by default
+    let ensure_params_downloaded_task_handle =
+        tokio::spawn(forest_utils::proofs_api::paramfetch::ensure_params_downloaded());
+
+    let (cids, n_records) = import_chain_task.await.map_err(|e| {
+        ensure_params_downloaded_task_handle.abort();
+        e
+    })?;
+
+    ensure_params_downloaded_task_handle.await??;
 
     info!(
         "Loaded {} records from .car file in {}s",
@@ -160,8 +181,7 @@ where
         } else {
             (ts.epoch() + height).max(0)
         };
-        // Ensures files for proof api are downloaded before validation
-        forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
+
         info!("Validating imported chain from height: {}", height);
         sm.validate_chain(ts.clone(), height).await?;
     }
