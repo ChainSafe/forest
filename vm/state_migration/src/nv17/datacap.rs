@@ -4,7 +4,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use anyhow::Context;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::{
+    multihash::{Code::Blake2b256, MultihashDigest},
+    Cid,
+};
 use forest_shim::{
     address::Address,
     bigint::StoragePowerV2,
@@ -14,7 +17,7 @@ use forest_shim::{
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use fvm_ipld_hamt::BytesKey;
 
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
@@ -133,6 +136,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
     }
 }
 
+/// Translated from <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/util.go#L72>
 fn get_pending_verified_deals_and_total_size(
     store: &impl Blockstore,
     state: fil_actor_market_state::v8::State,
@@ -153,11 +157,29 @@ fn get_pending_verified_deals_and_total_size(
     let mut pending_size = 0;
 
     proposals.for_each(|deal_id, proposal| {
+        // Nothing to do for unverified deals
         if !proposal.verified_deal {
             return Ok(());
         }
 
-        // let pcid = proposal;
+        let pcid = {
+            let bytes = fvm_ipld_encoding::to_vec(proposal)?;
+            Ok::<_, anyhow::Error>(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&bytes)))
+        }?;
+
+        // Nothing to do for not-pending deals
+        if !pending_proposals.has(&pcid.to_bytes())? {
+            return Ok(());
+        }
+
+        // the deal has an entry in deal states, which means it's already been
+        // allocated, nothing to do
+        if deal_states.get(deal_id)?.is_some() {
+            return Ok(());
+        }
+
+        pending_verified_deals.push(deal_id);
+        pending_size += proposal.piece_size.0;
 
         Ok(())
     })?;

@@ -15,9 +15,6 @@ pub use migration::run_migration;
 
 use crate::*;
 
-// https://github.com/filecoin-project/go-state-types/blob/master/builtin/shared.go#L15
-const DEFAULT_HAMT_BITWIDTH: u32 = 5;
-
 define_manifests!(
     forest_shim::machine::ManifestV2,
     forest_shim::machine::ManifestV2
