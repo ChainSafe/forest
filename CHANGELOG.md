@@ -26,6 +26,7 @@
 ## Forest unreleased
 
 ### Breaking
+
 - [#2873](https://github.com/ChainSafe/forest/issues/2873): remove
   `--compressed` from the CLI. Snapshots are now always compressed.
 
