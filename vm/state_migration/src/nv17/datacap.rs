@@ -137,5 +137,30 @@ fn get_pending_verified_deals_and_total_size(
     store: &impl Blockstore,
     state: fil_actor_market_state::v8::State,
 ) -> anyhow::Result<(Vec<DealID>, u64)> {
-    todo!()
+    let pending_proposals = fil_actors_shared::v8::Set::from_root(store, &state.pending_proposals)?;
+    let proposals =
+        fil_actors_shared::v8::Array::<fil_actor_market_state::v8::DealProposal, _>::load(
+            &state.proposals,
+            store,
+        )?;
+    let deal_states =
+        fil_actors_shared::v9::Array::<fil_actor_market_state::v8::DealState, _>::load(
+            &state.states,
+            store,
+        )?;
+
+    let mut pending_verified_deals = vec![];
+    let mut pending_size = 0;
+
+    proposals.for_each(|deal_id, proposal| {
+        if !proposal.verified_deal {
+            return Ok(());
+        }
+
+        // let pcid = proposal;
+
+        Ok(())
+    })?;
+
+    Ok((pending_verified_deals, pending_size))
 }
