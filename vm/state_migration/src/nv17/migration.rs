@@ -3,23 +3,20 @@
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use cid::Cid;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
-    state_tree::{StateTree, StateTreeVersion},
+    state_tree::{ActorState, StateTree, StateTreeVersion},
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{system, ManifestNew, ManifestOld, SystemStateOld};
-use crate::{
-    common::{migrators::nil_migrator, PostMigrationAction, StateMigration},
-    nv17::{datacap::create_datacap_actor, verifier::Verifier},
-};
+use super::{datacap, system, verifier::Verifier, ManifestNew, ManifestOld, SystemStateOld};
+use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv17_migrations(
@@ -56,10 +53,15 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             system::system_migrator(new_manifest_data, *new_manifest.get_system_code()),
         );
 
-        // self.add_migrator(
-        //     *current_manifest.get_miner_code(),
-        //     miner::miner_migrator(new_manifest_data,
-        // *new_manifest.get_system_code()), );
+        let datacap_code = new_manifest
+            .code_by_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID as _)
+            .context("datacap code not found in new manifest")?;
+        self.add_migrator(
+            // Use the same code as prior cid here, have set an empty actor in `run_migrations` to
+            // migrate from
+            *datacap_code,
+            datacap::datacap_migrator(*datacap_code, &state_tree)?,
+        );
 
         Ok(())
     }
@@ -95,15 +97,30 @@ where
     let verifier = Arc::new(Verifier::default());
 
     // Add post-migration steps
-    let post_migration_actions = [create_datacap_actor]
-        .into_iter()
-        .map(|action| Arc::new(action) as PostMigrationAction<DB>)
-        .collect();
+    // let post_migration_actions = []
+    //     .into_iter()
+    //     .map(|action| Arc::new(action) as PostMigrationAction<DB>)
+    //     .collect();
+    let post_migration_actions = Vec::new();
 
     let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
     migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
-    let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
+    let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
+
+    // Sets empty datacap actor to migrate from
+    let (version, new_manifest_data): (u32, Cid) = blockstore
+        .get_cbor(&new_manifest_cid)?
+        .ok_or_else(|| anyhow!("new manifest not found"))?;
+    let new_manifest = ManifestNew::load(&blockstore, &new_manifest_data, version)?;
+    let datacap_code = new_manifest
+        .code_by_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID as _)
+        .context("datacap code not found in new manifest")?;
+    actors_in.set_actor(
+        &Address::new_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID),
+        ActorState::new_empty(*datacap_code, None),
+    );
+
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
     let new_state =
         migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;

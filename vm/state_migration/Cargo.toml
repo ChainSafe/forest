@@ -14,13 +14,13 @@ crossbeam-channel = "0.5"
 forest_networks.workspace = true
 forest_shim.workspace = true
 forest_utils.workspace = true
+frc46_token = "3.1"
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_ipld_hamt.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 num_cpus.workspace = true
-frc46_token = "3.1"
 rayon.workspace = true
 
 fil_actor_datacap_state.workspace = true
