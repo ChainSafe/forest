@@ -32,6 +32,10 @@ mod tests {
                 == "bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay"
         );
 
+        let mut map = fil_actors_shared::v9::make_empty_map::<_, Cid>(&store, bitwidth);
+        let empty_id2 = map.flush()?;
+        anyhow::ensure!(empty_id == empty_id2);
+
         let empty_id_2 = {
             let mut map = Hamt::<_, String>::new_with_bit_width(&store, bitwidth);
             map.flush()

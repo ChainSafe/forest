@@ -3,8 +3,8 @@
 
 use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 
-use fvm_shared::econ::TokenAmount as TokenAmount_v2;
-use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
+pub use fvm_shared::econ::TokenAmount as TokenAmount_v2;
+pub use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
