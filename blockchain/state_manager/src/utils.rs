@@ -36,7 +36,7 @@ where
         let actor = self
             .get_actor(miner_address, *st)?
             .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor.into())?;
+        let mas = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         let proving_sectors = {
             let mut proving_sectors = BitField::new();

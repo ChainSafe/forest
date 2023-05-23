@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 
 use anyhow::Error;
 use cid::Cid;
-use fil_actors_runtime_v10::runtime::Policy;
+use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
