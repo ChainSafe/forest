@@ -3211,6 +3211,7 @@ dependencies = [
  "log",
  "lru",
  "multihash 0.16.3",
+ "nonzero_ext",
  "num",
  "parking_lot 0.12.1",
  "serde",
@@ -3659,6 +3660,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lru",
+ "nonzero_ext",
  "num",
  "num-rational",
  "num-traits",
@@ -3887,6 +3889,7 @@ dependencies = [
  "fvm_shared 2.4.0",
  "lazy_static",
  "lru",
+ "nonzero_ext",
  "num",
  "num-traits",
  "once_cell",
@@ -6567,6 +6570,12 @@ name = "nonempty"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aeaf4ad7403de93e699c191202f017118df734d3850b01e13a3a8b2e6953d3c9"
+
+[[package]]
+name = "nonzero_ext"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 
 [[package]]
 name = "nu-ansi-term"
