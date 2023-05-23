@@ -52,17 +52,9 @@ jobs:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Execute MDBook
         run: make mdbook-build
-      - name: Build rustdoc
-        run: |- 
-          rustup toolchain install $toolchain
-          cargo +$toolchain doc --workspace --no-deps
+      - name: Build vendored docs
+        run: make vendored-docs
         env:
-          # When you visit https://chainsafe.github.io/forest/rustdoc you get an index.html
-          # listing all crates that are documented (copied out below).
-          # This isn't included by default, so we use the unstable `--enable-index-page` option
-          # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
-          toolchain: nightly-2023-04-19
-          RUSTDOCFLAGS: -Dwarnings -Zunstable-options --enable-index-page
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Docs)
