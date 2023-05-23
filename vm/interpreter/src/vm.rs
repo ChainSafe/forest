@@ -12,16 +12,25 @@ use forest_shim::{
     address::Address,
     econ::TokenAmount,
     error::ExitCode,
-    executor::{ApplyRet, DefaultExecutor, DefaultExecutor_v3, Executor, Executor_v3, Receipt},
-    externs::{Rand_v2 as Rand, Rand_v3},
-    machine::{
-        DefaultMachine, DefaultMachine_v3, Machine, Machine_v3, MultiEngine_v2, MultiEngine_v3,
-        NetworkConfig, NetworkConfig_v3,
-    },
+    executor::{ApplyRet, Receipt},
     message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
     Inner,
+};
+use fvm::{
+    executor::{DefaultExecutor, Executor},
+    externs::Rand,
+    machine::{DefaultMachine, Machine, MultiEngine as MultiEngine_v2, NetworkConfig},
+};
+use fvm3::{
+    engine::MultiEngine as MultiEngine_v3,
+    executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
+    externs::Rand as Rand_v3,
+    machine::{
+        DefaultMachine as DefaultMachine_v3, Machine as Machine_v3,
+        NetworkConfig as NetworkConfig_v3,
+    },
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -35,13 +44,11 @@ pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
 pub(crate) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
 
 #[cfg(not(feature = "instrumented_kernel"))]
-type ForestKernel<DB> = forest_shim::kernel::DefaultKernelV2<
-    forest_shim::call_manager::DefaultCallManagerV2<ForestMachine<DB>>,
->;
+type ForestKernel<DB> =
+    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>;
 
-type ForestKernelV3<DB> = forest_shim::kernel::DefaultKernelV3<
-    forest_shim::call_manager::DefaultCallManagerV3<ForestMachineV3<DB>>,
->;
+type ForestKernelV3<DB> =
+    fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
 
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
@@ -118,8 +125,8 @@ where
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: forest_shim::machine::DefaultMachine_v3<DB, ForestExterns_v3<DB>> =
-                forest_shim::machine::DefaultMachine_v3::new(
+            let fvm: fvm3::machine::DefaultMachine<DB, ForestExterns_v3<DB>> =
+                fvm3::machine::DefaultMachine::new(
                     &context,
                     store.clone(),
                     ForestExterns_v3::new(rand, epoch, root, lb_fn, store, chain_config),
@@ -135,8 +142,8 @@ where
             let mut context = config.for_epoch(epoch, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: forest_shim::machine::DefaultMachine<DB, ForestExternsV2<DB>> =
-                forest_shim::machine::DefaultMachine::new(
+            let fvm: fvm::machine::DefaultMachine<DB, ForestExternsV2<DB>> =
+                fvm::machine::DefaultMachine::new(
                     &engine,
                     &context,
                     store.clone(),
@@ -295,7 +302,7 @@ where
             VM::VM2 { fvm_executor, .. } => {
                 let ret = fvm_executor.execute_message(
                     msg.into(),
-                    forest_shim::executor::ApplyKindV2::Implicit,
+                    fvm::executor::ApplyKind::Implicit,
                     raw_length,
                 )?;
                 Ok(ret.into())
@@ -303,7 +310,7 @@ where
             VM::VM3 { fvm_executor, .. } => {
                 let ret = fvm_executor.execute_message(
                     msg.into(),
-                    forest_shim::executor::ApplyKindV3::Implicit,
+                    fvm3::executor::ApplyKind::Implicit,
                     raw_length,
                 )?;
                 Ok(ret.into())
@@ -324,14 +331,14 @@ where
             VM::VM2 { fvm_executor, .. } => fvm_executor
                 .execute_message(
                     unsigned.into(),
-                    forest_shim::executor::ApplyKindV2::Explicit,
+                    fvm::executor::ApplyKind::Explicit,
                     raw_length,
                 )?
                 .into(),
             VM::VM3 { fvm_executor, .. } => fvm_executor
                 .execute_message(
                     unsigned.into(),
-                    forest_shim::executor::ApplyKindV3::Explicit,
+                    fvm3::executor::ApplyKind::Explicit,
                     raw_length,
                 )?
                 .into(),

@@ -3534,6 +3534,8 @@ dependencies = [
  "forest_message",
  "forest_networks",
  "forest_shim",
+ "fvm 2.3.0",
+ "fvm 3.3.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
