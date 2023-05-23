@@ -206,8 +206,8 @@ pub struct StateManager<DB> {
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
-    engine_v2: forest_shim::machine::MultiEngine_v2,
-    engine_v3: forest_shim::machine::MultiEngine_v3,
+    engine_v2: forest_shim::machine::MultiEngine,
+    engine_v3: forest_shim::machine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
@@ -229,8 +229,8 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine_v2: forest_shim::machine::MultiEngine_v2::new(),
-            engine_v3: forest_shim::machine::MultiEngine_v3::new(
+            engine_v2: forest_shim::machine::MultiEngine::new(, None),
+            engine_v3: forest_shim::machine::MultiEngine::new(
                 std::thread::available_parallelism()
                     .map(|x| x.get() as u32)
                     .unwrap_or(1),
