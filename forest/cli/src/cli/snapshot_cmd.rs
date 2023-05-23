@@ -21,12 +21,10 @@ use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
 use forest_utils::{
     io::{parser::parse_duration, ProgressBar},
     net::get_fetch_progress_from_file,
-    retry,
+    retry, RetryArgs,
 };
 use fvm_shared::clock::ChainEpoch;
-use log::info;
 use tempfile::TempDir;
-use tokio::time::sleep;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -62,7 +60,7 @@ pub enum SnapshotCommands {
         aria2: bool,
         /// Maximum number of times to retry the fetch
         #[arg(short, long, default_value = "3")]
-        max_retries: i32,
+        max_retries: usize,
         /// Duration to wait between the retries in seconds
         #[arg(short, long, default_value = "60", value_parser = parse_duration)]
         delay: Duration,
@@ -219,15 +217,16 @@ impl SnapshotCommands {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match retry!(
-                    snapshot_fetch,
-                    *max_retries,
-                    *delay,
-                    &snapshot_dir,
-                    &config,
-                    provider,
-                    *use_aria2
-                ) {
+                match retry(
+                    RetryArgs {
+                        timeout: None,
+                        max_retries: Some(*max_retries),
+                        delay: Some(*delay),
+                    },
+                    || snapshot_fetch(&snapshot_dir, &config, provider.as_ref(), *use_aria2),
+                )
+                .await
+                {
                     Ok(out) => {
                         println!("Snapshot successfully downloaded at {}", out.display());
                         Ok(())

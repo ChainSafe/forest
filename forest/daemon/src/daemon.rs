@@ -34,6 +34,7 @@ use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
     io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
+    RetryArgs,
 };
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -44,7 +45,6 @@ use tokio::{
     signal::unix::{signal, SignalKind},
     sync::RwLock,
     task::JoinSet,
-    time::sleep,
 };
 
 use super::cli::set_sigint_handler;
@@ -482,15 +482,22 @@ async fn maybe_fetch_snapshot(
         // FIXME: change this to `true` once zstd compressed snapshots is supported by
         // the forest provider
         let use_compressed = provider == SnapshotServer::Filecoin;
-        let path = retry!(
-            snapshot_fetch,
-            config.daemon.default_retry,
-            config.daemon.default_delay,
-            &snapshot_path,
-            &config,
-            &Some(provider),
-            is_aria2_installed()
-        )?;
+        let path = retry(
+            RetryArgs {
+                timeout: None,
+                max_retries: Some(config.daemon.default_retry.try_into().unwrap()),
+                delay: Some(config.daemon.default_delay),
+            },
+            || {
+                snapshot_fetch(
+                    &snapshot_path,
+                    &config,
+                    Some(&provider),
+                    is_aria2_installed(),
+                )
+            },
+        )
+        .await?;
         Ok(Config {
             client: Client {
                 snapshot_path: Some(path),

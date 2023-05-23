@@ -164,7 +164,7 @@ pub async fn snapshot_fetch_size(config: &Config) -> anyhow::Result<u64> {
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
-    provider: &Option<SnapshotServer>,
+    provider: Option<&SnapshotServer>,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let server = match provider {
