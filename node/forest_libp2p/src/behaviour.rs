@@ -15,7 +15,7 @@ use libp2p::{
     kad::QueryId,
     metrics::{Metrics, Recorder},
     ping,
-    swarm::NetworkBehaviour,
+    swarm::{keep_alive, NetworkBehaviour},
     Multiaddr,
 };
 use log::warn;
@@ -35,6 +35,7 @@ pub(crate) struct ForestBehaviour {
     gossipsub: gossipsub::Behaviour,
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
+    keep_alive: keep_alive::Behaviour,
     identify: identify::Behaviour,
     pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: ChainExchangeBehaviour,
@@ -101,6 +102,7 @@ impl ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
             ping: Default::default(),
+            keep_alive: keep_alive::Behaviour::default(),
             identify: identify::Behaviour::new(
                 identify::Config::new("ipfs/0.1.0".into(), local_key.public())
                     .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str())),
