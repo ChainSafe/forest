@@ -219,31 +219,6 @@ where
     Ok(ret)
 }
 
-// returns a list of tipset from head to chain_finality (900)
-pub(crate) async fn chain_get_tipsets_finality<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(_): Params<ChainGetTipsetsFinalityParams>,
-) -> Result<ChainGetTipsetsFinalityResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let chain_finality = data.state_manager.chain_config().policy.chain_finality;
-    let mut ts = data.state_manager.chain_store().heaviest_tipset();
-    let mut tipsets = Vec::with_capacity(chain_finality as usize);
-    for _ in 0..(chain_finality - 1).min(ts.epoch()) {
-        let parent_tipset_keys = TipsetKeysJson(ts.parents().clone());
-        let tsjson = data
-            .state_manager
-            .chain_store()
-            .tipset_from_keys(&parent_tipset_keys.0)?;
-        tipsets.push(TipsetJson(tsjson.clone()));
-        ts = tsjson;
-    }
-
-    Ok(tipsets)
-}
-
 pub(crate) async fn chain_get_tipset_by_height<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetTipsetByHeightParams>,

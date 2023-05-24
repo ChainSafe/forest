@@ -27,13 +27,6 @@ pub async fn chain_get_tipset_by_height(
     call(CHAIN_GET_TIPSET_BY_HEIGHT, params, auth_token).await
 }
 
-pub async fn chain_get_tipsets_finality(
-    params: ChainGetTipsetsFinalityParams,
-    auth_token: &Option<String>,
-) -> Result<ChainGetTipsetsFinalityResult, Error> {
-    call(CHAIN_GET_TIPSETS_FINALITY, params, auth_token).await
-}
-
 pub async fn chain_get_genesis(
     auth_token: &Option<String>,
 ) -> Result<ChainGetGenesisResult, Error> {
