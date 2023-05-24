@@ -3114,7 +3114,6 @@ dependencies = [
  "num",
  "pretty_assertions",
  "quickcheck",
- "quickcheck_macros",
  "rand 0.8.5",
  "rpassword",
  "rustyline",
@@ -3122,7 +3121,6 @@ dependencies = [
  "serde_json",
  "serde_tuple",
  "strfmt",
- "strum_macros",
  "tempfile",
  "ticker",
  "tokio",
@@ -3342,7 +3340,6 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "atty",
  "axum",
  "byte-unit",
  "cfg-if 1.0.0",
