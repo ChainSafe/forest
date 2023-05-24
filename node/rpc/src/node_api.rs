@@ -33,7 +33,7 @@ pub(crate) async fn node_status<DB: Blockstore + Clone + Send + Sync + 'static, 
     let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
     let mut node_status = NodeStatusInfo::new(cur_duration, tipsets, chain_finality as usize)?;
 
-    node_status.start_time = data.start_time.clone();
+    node_status.start_time = data.start_time;
     node_status.network = data.network_name.to_string();
     let default_wallet_address = wallet_default_address(Data(data.0.clone())).await?;
     node_status.default_wallet_address = default_wallet_address.clone();
