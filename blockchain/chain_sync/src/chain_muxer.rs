@@ -528,6 +528,7 @@ where
         let evaluator = async move {
             let mut tipsets = vec![];
             loop {
+                info!("Waiting for p2p message");
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
@@ -535,6 +536,8 @@ where
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
+
+                info!("Got p2p event");
 
                 let (tipset, _) = match Self::process_gossipsub_event(
                     event,
@@ -555,6 +558,7 @@ where
                         continue;
                     }
                 };
+                info!("Got gossip tipset");
 
                 // Add to tipset sample
                 tipsets.push(tipset);

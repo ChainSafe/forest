@@ -9,6 +9,7 @@
     export LOTUS_SKIP_GENESIS_CHECK=_yes_
     export CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__"
     export CGO_CFLAGS="-D__BLST_PORTABLE__"
+    # For MacOS: LIBRARY_PATH=/opt/homebrew/Cellar/hwloc/2.9.1/lib
     make 2k
     ./lotus fetch-params 2048
     ./lotus-seed pre-seal --sector-size 2KiB --num-sectors 2
