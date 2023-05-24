@@ -88,11 +88,11 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
         );
 
-        verified_clients.for_each(|key, value| {
-        let key2 = BytesKey(key[1..].to_vec());
+        verified_clients.for_each(|addr_key, value| {
+        let key = hamt_addr_key_to_key(addr_key)?;
         let token_amount = value * DATA_CAP_GRANULARITY;
         token_supply = &token_supply + &token_amount;
-        balances_map.set(key2.clone(), token_amount)?;
+        balances_map.set(key.clone(), token_amount)?;
 
         let mut allowances_map_entry = fil_actors_shared::v9::make_empty_map::<_, StoragePowerV2>(
             &store,
@@ -102,7 +102,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             BytesKey(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ADDR.payload_bytes()),
             INFINITE_ALLOWANCE.clone(),
         )?;
-        allowances_map.set(key2, allowances_map_entry.flush()?)?;
+        allowances_map.set(key, allowances_map_entry.flush()?)?;
         Ok(())
     })?;
 
@@ -162,6 +162,8 @@ fn get_pending_verified_deals_and_total_size(
             return Ok(());
         }
 
+        // TODO: Switch to `proposal.cid()` once it's released.
+        // See <https://github.com/ChainSafe/fil-actor-states/pull/120>
         let pcid = {
             let bytes = fvm_ipld_encoding::to_vec(proposal)?;
             Ok::<_, anyhow::Error>(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&bytes)))
@@ -185,4 +187,11 @@ fn get_pending_verified_deals_and_total_size(
     })?;
 
     Ok((pending_verified_deals, pending_size))
+}
+
+/// TODO: Switch to `fil_actors_shared::v9::util::hamt_addr_key_to_key` once
+/// it's released. See <https://github.com/ChainSafe/fil-actor-states/pull/122>
+pub fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesKey> {
+    let addr = Address::from_bytes(addr_key)?;
+    Ok(addr.payload_bytes().into())
 }
