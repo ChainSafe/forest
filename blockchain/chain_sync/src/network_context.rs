@@ -252,6 +252,9 @@ where
                         }
                     });
                 }
+                tasks.spawn(async move {
+                    tokio::time::sleep(Duration::from_secs_f64(5.0)).await;
+                });
 
                 async fn wait_all<T: 'static>(tasks: &mut JoinSet<T>) {
                     while tasks.join_next().await.is_some() {}
