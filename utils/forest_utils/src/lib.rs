@@ -3,6 +3,7 @@
 
 pub extern crate const_format;
 
+pub mod cid;
 pub mod db;
 pub mod encoding;
 pub mod io;
