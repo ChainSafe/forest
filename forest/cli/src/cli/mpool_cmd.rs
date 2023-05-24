@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::str::FromStr;
+
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
 use forest_json::cid::vec::CidJsonVec;
@@ -25,10 +27,10 @@ pub enum MpoolCommands {
         cids: bool,
         /// Return messages to a given address
         #[arg(long)]
-        to: Option<Address>,
+        to: Option<String>,
         /// Return messages from a given address
         #[arg(long)]
-        from: Option<Address>,
+        from: Option<String>,
     },
     /// Print mempool stats
     Stat {
@@ -41,20 +43,27 @@ pub enum MpoolCommands {
     },
 }
 
+fn to_addr(value: &Option<String>) -> anyhow::Result<Option<Address>> {
+    Ok(value.as_ref().map(|s| Address::from_str(s)).transpose()?)
+}
+
 impl MpoolCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
-        match *self {
+        match self {
             Self::Pending {
                 local,
                 cids,
                 to,
                 from,
             } => {
+                let to = to_addr(to)?;
+                let from = to_addr(from)?;
+
                 let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let local_addrs = if local {
+                let local_addrs = if *local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
@@ -72,7 +81,7 @@ impl MpoolCommands {
                         && from.map(|addr| msg.0.from() == addr).unwrap_or(true)
                 });
                 for msg in filtered_messages {
-                    if cids {
+                    if *cids {
                         println!("{}", msg.0.cid().unwrap());
                     } else {
                         println!("{}", serde_json::to_string_pretty(&msg)?);
@@ -94,7 +103,7 @@ impl MpoolCommands {
                     let mut curr_tipset = tipset.clone();
                     let mut min_base_fee = curr_base_fee.clone();
                     // TODO: fix perf issue, this loop is super slow
-                    for _ in 0..basefee_lookback {
+                    for _ in 0..*basefee_lookback {
                         curr_tipset = chain_get_tipset(
                             (curr_tipset.parents().to_owned().into(),),
                             &config.client.rpc_token,
@@ -122,7 +131,7 @@ impl MpoolCommands {
                     gas_limit: BigInt,
                 }
 
-                let local_addrs = if local {
+                let local_addrs = if *local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
