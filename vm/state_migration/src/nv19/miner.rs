@@ -6,9 +6,9 @@
 
 use std::sync::Arc;
 
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use fil_actor_miner_state::{v10::State as MinerStateOld, v11::State as MinerStateNew};
-use forest_utils::db::BlockstoreExt;
+use forest_utils::db::{BlockstoreExt, CborStoreExt};
 use fvm_ipld_blockstore::Blockstore;
 
 use crate::common::{
@@ -35,7 +35,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
 
         let out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
 
-        let new_head = store.put_obj(&out_state, Blake2b256)?;
+        let new_head = store.put_cbor_default(&out_state)?;
 
         Ok(ActorMigrationOutput {
             new_code_cid: self.0,

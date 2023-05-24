@@ -28,7 +28,7 @@ use forest_shim::{
 use forest_utils::{
     db::{
         file_backed_obj::{ChainMeta, FileBacked, SYNC_PERIOD},
-        BlockstoreExt,
+        BlockstoreExt, CborStoreExt,
     },
     io::{AsyncWriterWithChecksum, Checksum},
     misc::Either,
@@ -208,7 +208,7 @@ where
         self.file_backed_genesis.lock().set_inner(*header.cid())?;
 
         self.blockstore()
-            .put_obj(&header, Blake2b256)
+            .put_cbor_default(&header)
             .map_err(Error::from)
     }
 
@@ -739,7 +739,7 @@ where
     C: Serialize,
 {
     for chunk in headers.chunks(256) {
-        db.bulk_put(chunk, Blake2b256)?;
+        db.bulk_put(chunk, DB::default_code())?;
     }
     Ok(())
 }
@@ -914,7 +914,7 @@ pub fn persist_block_messages<DB: Blockstore>(
     let mut bls_sigs = Vec::new();
     for msg in messages {
         if msg.signature().signature_type() == SignatureType::BLS {
-            let c = db.put_obj(&msg.message, Blake2b256)?;
+            let c = db.put_cbor_default(&msg.message)?;
             bls_cids.push(c);
             bls_sigs.push(&msg.signature);
         } else {
