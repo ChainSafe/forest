@@ -24,6 +24,7 @@ use regex::Regex;
 use s3::Bucket;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tempfile::NamedTempFile;
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncReadExt, AsyncWriteExt, BufWriter},
@@ -115,7 +116,12 @@ async fn snapshot_metadata_url_and_length(
     // (we never actually fetch the body)
     // if we issue a HEAD, the content-length will be zero for redirect URLs
     // (this is a bug, maybe in reqwest - HEAD _should_ give us the length)
-    let response = client.get(url).send().await?;
+    let response = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()
+        .context("server returned an error response")?;
     let length = response
         .content_length()
         .context("no content-length header")?;
@@ -207,22 +213,62 @@ pub async fn download(
     client: &reqwest::Client,
     url: impl reqwest::IntoUrl,
     directory_hint: PathBuf,
-    progress_bar: indicatif::ProgressBar,
-) -> anyhow::Result<()> {
+    progress_bar: &indicatif::ProgressBar,
+) -> anyhow::Result<PathBuf> {
     use futures::TryStreamExt as _;
     use tap::Pipe as _;
     use tokio_util::compat::FuturesAsyncReadCompatExt as _;
-    let src = client
+    let mut src = client
         .get(url)
         .send()
         .await?
+        .error_for_status()
+        .context("server returned an error response")?
         .bytes_stream()
         .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))
         .into_async_read()
         .compat()
         .pipe(|reader| progress_bar.wrap_async_read(reader));
-    let dst = ();
-    Ok(())
+    let (std_file, temp_path) =
+        tokio::task::spawn_blocking(|| NamedTempFile::new_in(directory_hint))
+            .await
+            .expect("blocking thread panicked (we didn't cancel/abort this task)")
+            .context("couldn't create temporary file for download")?
+            .into_parts();
+    let mut dst = tokio::fs::File::from_std(std_file);
+    tokio::io::copy(&mut src, &mut dst)
+        .await
+        .context("error downloading to file")?;
+    // TODO(aatifsyed): a user should be able to ctrl+c and have the files clean up
+    let path = temp_path.keep().context("error persisting download")?;
+    Ok(path)
+}
+
+#[tokio::test]
+async fn test_download() {
+    let client = &reqwest::Client::new();
+    let (meta, url, len) = snapshot_metadata_url_and_length(
+        client,
+        "https://snapshots.calibrationnet.filops.net/minimal/latest",
+    )
+    .await
+    .unwrap();
+    let progress_bar_style = indicatif::ProgressStyle::with_template(
+        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
+    )
+    .expect("invalid progress template")
+    .progress_chars("#>-");
+    let progress_bar = indicatif::ProgressBar::new(len)
+        .with_message("downloading snapshot")
+        .with_style(progress_bar_style);
+    let res = download(
+        client,
+        url.clone(),
+        std::env::current_dir().unwrap(),
+        &progress_bar,
+    )
+    .await;
+    dbg!(res);
 }
 
 /// Snapshot fetch service provider

@@ -39,6 +39,7 @@ serde_json.workspace = true
 serde_with.workspace = true
 sha2.workspace = true
 tap.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util.workspace = true
 toml.workspace = true
@@ -59,7 +60,6 @@ http.workspace = true
 quickcheck.workspace = true
 quickcheck_macros.workspace = true
 rand.workspace = true
-tempfile.workspace = true
 tokio.workspace = true
 tower-http = { workspace = true, features = ["fs"] }
 
