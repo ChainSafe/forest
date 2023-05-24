@@ -229,11 +229,17 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine_v2: forest_shim::machine::MultiEngine::new(, None),
+            engine_v2: forest_shim::machine::MultiEngine::new(
+                forest_shim::machine::MultiEngineVersion::V2,
+                None,
+            ), // TODO: fixit
             engine_v3: forest_shim::machine::MultiEngine::new(
-                std::thread::available_parallelism()
-                    .map(|x| x.get() as u32)
-                    .unwrap_or(1),
+                forest_shim::machine::MultiEngineVersion::V3,
+                Some(
+                    std::thread::available_parallelism()
+                        .map(|x| x.get() as u32)
+                        .unwrap_or(1),
+                ),
             ),
             reward_calc,
         })
@@ -390,8 +396,8 @@ where
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-                &self.engine_v2,
-                &self.engine_v3,
+                &self.engine_v2.into(),
+                &self.engine_v3.into(),
                 Arc::clone(self.chain_config()),
                 timestamp,
             )
@@ -493,8 +499,8 @@ where
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-            &self.engine_v2,
-            &self.engine_v3,
+            &self.engine_v2.into(),
+            &self.engine_v3.into(),
             Arc::clone(self.chain_config()),
             tipset.min_timestamp(),
         )?;
@@ -566,8 +572,8 @@ where
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
-            &self.engine_v2,
-            &self.engine_v3,
+            &self.engine_v2.into(), // TODO: fixit
+            &self.engine_v3.into(), // TODO: fixit
             Arc::clone(self.chain_config()),
             ts.min_timestamp(),
         )?;
