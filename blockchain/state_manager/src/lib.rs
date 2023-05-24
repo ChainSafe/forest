@@ -282,7 +282,8 @@ where
         if self.chain_config.name == "devnet" {
             return Ok("devnet".to_owned());
         }
-        Err(Error::Other("Cannot guess network name".to_owned()))
+        Ok(self.chain_config.name.clone())
+        // Err(Error::Other("Cannot guess network name".to_owned()))
         // let init_act = self
         //     .get_actor(actor::init::ADDRESS, *st)?
         //     .ok_or_else(|| Error::State("Init actor address could not be
