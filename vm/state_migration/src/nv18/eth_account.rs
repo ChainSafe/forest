@@ -4,11 +4,13 @@
 use anyhow::anyhow;
 use forest_shim::{
     address::Address,
-    machine::Manifest,
+    machine::ManifestV3,
     state_tree::{ActorState, StateTree},
 };
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+
+use super::SystemStateNew;
 
 /// Creates the Ethereum Account actor in the state tree.
 pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
@@ -18,7 +20,7 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
     let init_actor = actors_out
         .get_actor(&Address::INIT_ACTOR)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
-    let init_state: fil_actor_init_v10::State = store
+    let init_state: fil_actor_init_state::v10::State = store
         .get_obj(&init_actor.state)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
 
@@ -33,15 +35,15 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
         .ok_or_else(|| anyhow!("failed to get system actor"))?;
 
     let system_actor_state = store
-        .get_obj::<fil_actor_system_v10::State>(&system_actor.state)?
+        .get_obj::<SystemStateNew>(&system_actor.state)?
         .ok_or_else(|| anyhow!("failed to get system actor state"))?;
 
     let manifest_data = system_actor_state.builtin_actors;
-    let new_manifest = Manifest::load(&store, &manifest_data, 1)?;
+    let new_manifest = ManifestV3::load(&store, &manifest_data, 1)?;
 
     let eth_account_actor = ActorState::new(
         *new_manifest.get_ethaccount_code(),
-        fil_actors_runtime_v10::runtime::EMPTY_ARR_CID,
+        fil_actors_shared::v10::runtime::EMPTY_ARR_CID,
         Default::default(),
         0,
         Some(eth_zero_addr),

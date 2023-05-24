@@ -29,7 +29,7 @@ where
         .map_err(|e| e.to_string())?
         .ok_or("Failed to load power actor for calculating weight")?;
 
-    let state = power::State::load(db, &act.into()).map_err(|e| e.to_string())?;
+    let state = power::State::load(db, act.code, act.state).map_err(|e| e.to_string())?;
 
     let tpow = state.into_total_quality_adj_power();
 

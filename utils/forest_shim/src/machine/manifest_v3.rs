@@ -18,7 +18,7 @@ const MINER_ACTOR_NAME: &str = "storageminer";
 const POWER_ACTOR_NAME: &str = "storagepower";
 
 /// A mapping of builtin actor CIDs to their respective types.
-pub struct Manifest {
+pub struct ManifestV3 {
     account_code: Cid,
     placeholder_code: Cid,
     system_code: Cid,
@@ -32,9 +32,9 @@ pub struct Manifest {
     by_code: HashMap<Cid, u32>,
 }
 
-impl Manifest {
+impl ManifestV3 {
     /// Load a manifest from the block store.
-    pub fn load<B: Blockstore>(bs: &B, root_cid: &Cid, ver: u32) -> anyhow::Result<Manifest> {
+    pub fn load<B: Blockstore>(bs: &B, root_cid: &Cid, ver: u32) -> anyhow::Result<Self> {
         if ver != 1 {
             return Err(anyhow!("unsupported manifest version {}", ver));
         }
@@ -46,7 +46,7 @@ impl Manifest {
             }
         };
 
-        Manifest::new(vec)
+        Self::new(vec)
     }
 
     /// Construct a new manifest from actor name/CID tuples.

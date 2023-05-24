@@ -10,7 +10,7 @@ use forest_rpc_client::chain_get_name;
 use super::cli::{Config, Subcommand};
 
 /// Process CLI sub-command
-pub(super) async fn process(
+pub async fn process(
     command: Subcommand,
     mut config: Config,
     opts: &CliOpts,
