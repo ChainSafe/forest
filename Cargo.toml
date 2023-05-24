@@ -188,6 +188,7 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
+humantime = "2.1.0"
 
 [profile.dev]
 debug = 0

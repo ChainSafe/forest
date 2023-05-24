@@ -344,15 +344,12 @@ pub mod node_api {
         use chrono::{DateTime, Utc};
         use colored::*;
         use forest_blocks::{tipset_json::TipsetJson, BlockHeader, Tipset};
-        // use forest_cli_shared::logger::LoggingColor;
-        // use forest_rpc_api::node_api::NodeStatusInfo;
         use forest_shim::{address::Address, econ::TokenAmount};
         use forest_utils::misc::LoggingColor;
         use fvm_shared::clock::EPOCH_DURATION_SECONDS;
         use quickcheck_macros::quickcheck;
 
         use super::{NodeStatus, NodeStatusInfo, SyncStatus};
-        // use crate::cli::info_cmd::SyncStatus;
 
         const CHAIN_FINALITY: usize = 900;
 
