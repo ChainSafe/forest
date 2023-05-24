@@ -119,7 +119,8 @@ pub(crate) async fn state_market_deals<
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
         .ok_or("Market actor address could not be resolved")?;
-    let market_state = market::State::load(data.state_manager.blockstore(), &actor.into())?;
+    let market_state =
+        market::State::load(data.state_manager.blockstore(), actor.code, actor.state)?;
 
     let da = market_state.proposals(data.state_manager.blockstore())?;
     let sa = market_state.states(data.state_manager.blockstore())?;

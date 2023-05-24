@@ -14,8 +14,6 @@ on:
       - main
 
 env:
-  # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
-  RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
   SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
@@ -54,8 +52,8 @@ jobs:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Execute MDBook
         run: make mdbook-build
-      - name: Build rustdoc
-        run: make rustdoc
+      - name: Build vendored docs
+        run: make vendored-docs
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"

@@ -117,57 +117,57 @@ fn try_print_actor_states<BS: Blockstore>(
 
 fn pp_actor_state(
     bs: &impl Blockstore,
-    state: &ActorState,
+    actor_state: &ActorState,
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
     let mut buffer = String::new();
-    writeln!(&mut buffer, "{state:?}")?;
-    if let Ok(miner_state) = MinerState::load(bs, &state.into()) {
+    writeln!(&mut buffer, "{actor_state:?}")?;
+    if let Ok(miner_state) = MinerState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{miner_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(cron_state) = CronState::load(bs, &state.into()) {
+    if let Ok(cron_state) = CronState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{cron_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(account_state) = AccountState::load(bs, &state.into()) {
+    if let Ok(account_state) = AccountState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{account_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(power_state) = PowerState::load(bs, &state.into()) {
+    if let Ok(power_state) = PowerState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{power_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(init_state) = InitState::load(bs, &state.into()) {
+    if let Ok(init_state) = InitState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{init_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(reward_state) = RewardState::load(bs, &state.into()) {
+    if let Ok(reward_state) = RewardState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{reward_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(system_state) = SystemState::load(bs, &state.into()) {
+    if let Ok(system_state) = SystemState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{system_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(multi_sig_state) = MultiSigState::load(bs, &state.into()) {
+    if let Ok(multi_sig_state) = MultiSigState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{multi_sig_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(market_state) = MarketState::load(bs, &state.into()) {
+    if let Ok(market_state) = MarketState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{market_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(datacap_state) = DatacapState::load(bs, &state.into()) {
+    if let Ok(datacap_state) = DatacapState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{datacap_state:?}")?;
         return Ok(buffer);
     }
-    if let Ok(evm_state) = EvmState::load(bs, &state.into()) {
+    if let Ok(evm_state) = EvmState::load(bs, actor_state.code, actor_state.state) {
         write!(&mut buffer, "{evm_state:?}")?;
         return Ok(buffer);
     }
 
-    let resolved = actor_to_resolved(bs, state, depth);
+    let resolved = actor_to_resolved(bs, actor_state, depth);
     buffer = serde_json::to_string_pretty(&resolved)?;
     Ok(buffer)
 }
@@ -220,7 +220,7 @@ where
 #[cfg(test)]
 mod tests {
     use cid::{multihash::Code::Blake2b256, Cid};
-    use fil_actor_account_v10::State as AccountState;
+    use fil_actor_account_state::v10::State as AccountState;
     use forest_db::MemoryDB;
     use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
     use forest_utils::db::BlockstoreExt;

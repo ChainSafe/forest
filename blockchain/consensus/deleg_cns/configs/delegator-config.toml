@@ -37,7 +37,6 @@ bootstrap_peers = ["/ip4/127.0.0.1/tcp/2340/p2p/12D3KooWNEmsCbySkVBbZhX12kxommT3
 data_dir = "/tmp/forest-delegator-data-dir"
 enable_rpc = false
 # Ports altered from the proposer so the nodes can run side by side.
-rpc_port = 1235
 metrics_address = "127.0.0.1:6117"
 rpc_address = "127.0.0.1:1235"
 
