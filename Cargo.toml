@@ -146,13 +146,13 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
-fil_actor_account_state = "3.0.0"
-fil_actor_init_state = "3.0.0"
-fil_actor_interface = "3.0.0"
-fil_actor_miner_state = "3.0.0"
-fil_actor_power_state = "3.0.0"
-fil_actor_system_state = "3.0.0"
-fil_actors_shared = "3.0.0"
+fil_actor_account_state = "4"
+fil_actor_init_state = "4"
+fil_actor_interface = "4"
+fil_actor_miner_state = "4"
+fil_actor_power_state = "4"
+fil_actor_system_state = "4"
+fil_actors_shared = "4"
 
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
@@ -199,12 +199,3 @@ lto = "off"
 strip = true
 panic = "abort"
 overflow-checks = true
-
-[patch.crates-io]
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }
-fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }
-fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }
-fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }
-fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }
-fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "aatifsyed/remove-fvm" }

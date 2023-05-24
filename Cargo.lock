@@ -2580,8 +2580,9 @@ checksum = "e825f6987101665dea6ec934c09ec6d721de7bc1bf92248e1d5810c8cd636b77"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa040a44de760ae56a5b7548041c46a85ede01fc037fd7c456ad1e468d13e30c"
 dependencies = [
  "frc42_dispatch",
  "fvm_ipld_encoding 0.3.3",
@@ -2594,8 +2595,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb36b3ee5781626b405e1fe265461eda93c65fd527e6a50440d5846210790d48"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -2607,8 +2609,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d31986103f2f25a54ee2f0a2ea0a43de9b45df8af352b39d3e6f2afc9b8f6306"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2624,8 +2627,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_shared_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b257560fbbd2df65a2c48b190163d878ce5110845d93b6d7d88e399fa8fd4777"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding 0.3.3",
@@ -2637,8 +2641,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a31e5608b5943e5444c25e0c62711fd0c61173593c748341a111abe20e528b3"
 dependencies = [
  "cid",
  "fil_actor_evm_shared_state",
@@ -2653,8 +2658,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7c7021a905a0fcdf6eec29b7b414ca586aee04bb198e932f9aeee7463e0753f"
 dependencies = [
  "anyhow",
  "cid",
@@ -2672,8 +2678,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78608e0e8db5e291b576a1650d885ccd8e6c55801e852a3318b718a92a6f5cec"
 dependencies = [
  "anyhow",
  "cid",
@@ -2704,8 +2711,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f1842a1adc93d767dcbac0718b9bd59da040dd3a91c823889af3e3f1c0d2ca7"
 dependencies = [
  "anyhow",
  "cid",
@@ -2727,8 +2735,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a88cca98cb3ccfe7d16f298a8810d4a49991862fb779466fbe42e3190d2b6fe3"
 dependencies = [
  "anyhow",
  "cid",
@@ -2753,8 +2762,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e322f81cb630d5e574015fcac5f1a911eef6df5747aba9bdfe2158362cdcb5"
 dependencies = [
  "anyhow",
  "cid",
@@ -2774,8 +2784,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b99e5ce4bf17e297a50b781d5e73cbbe4a884500959e7109750d6e746c86b0"
 dependencies = [
  "anyhow",
  "cid",
@@ -2795,8 +2806,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae8c6f064dd6f796824167dd36dd68e9f7cbb90069e154d2b7b9552fd2bd2727"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -2809,8 +2821,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c07d5dfcc3777f8ec4eefbe4bd51499a2157608a4f608cbaf7c0d84128aa3d68"
 dependencies = [
  "cid",
  "fvm_ipld_encoding 0.3.3",
@@ -2822,8 +2835,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fe6aca497abb108dedbb037d4205cadc30c68833e5f6eb22205e455c5444901"
 dependencies = [
  "anyhow",
  "cid",
@@ -2840,8 +2854,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "3.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=aatifsyed/remove-fvm#7f334005eedf858cbd27b67efe57140e5fd560f8"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80100c8ef62b379bdfaaebb402d1c5ed168ae55d6b2726b9d278b27a1bbaf4ba"
 dependencies = [
  "anyhow",
  "cid",
