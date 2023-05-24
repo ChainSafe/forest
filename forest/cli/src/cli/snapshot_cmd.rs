@@ -278,7 +278,9 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
         println!("No local snapshots");
     } else {
         println!("Local snapshots:");
-        store.display();
+        for snapshot in store.snapshots {
+            println!("{}", snapshot.path.display())
+        }
     }
     Ok(())
 }
@@ -317,7 +319,9 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
     store.snapshots.pop(); // Keep the latest snapshot
 
     println!("Files to delete:");
-    store.display();
+    for snapshot in &store.snapshots {
+        println!("{}", snapshot.path.display())
+    }
 
     if !force && !prompt_confirm() {
         println!("Aborted.");

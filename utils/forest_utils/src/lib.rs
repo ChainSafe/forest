@@ -17,6 +17,7 @@ use futures::{
     select, Future, FutureExt,
 };
 use tokio::time::sleep;
+use tracing::error;
 
 /// Keep running the future created by `make_fut` until the timeout or retry
 /// limit in `args` is reached.
@@ -24,12 +25,14 @@ use tokio::time::sleep;
 // TODO(aatifsyed): store most recent error in RetryError
 // REFACTOR?(aatifsyed): use `futures-retry` or `again`
 // REFACTOR?(aatifsyed): return num retries
+#[tracing::instrument(skip(make_fut))]
 pub async fn retry<F, T, E>(
     args: RetryArgs,
     mut make_fut: impl FnMut() -> F,
 ) -> Result<T, RetryError>
 where
     F: Future<Output = Result<T, E>>,
+    E: std::fmt::Debug,
 {
     let mut timeout: Pin<Box<dyn FusedFuture<Output = ()>>> = match args.timeout {
         Some(duration) => Box::pin(sleep(duration).fuse()),
@@ -39,8 +42,9 @@ where
     let mut task = Box::pin(
         async {
             for _ in 0..max_retries {
-                if let Ok(ok) = make_fut().await {
-                    return Ok(ok);
+                match make_fut().await {
+                    Ok(ok) => return Ok(ok),
+                    Err(err) => error!("retrying operation after {err:?}"),
                 }
                 if let Some(delay) = args.delay {
                     sleep(delay).await;

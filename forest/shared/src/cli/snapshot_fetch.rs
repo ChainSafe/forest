@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::bail;
+use anyhow::{anyhow, bail, ensure, Context};
 use chrono::{DateTime, NaiveDate};
 use forest_networks::NetworkChain;
 use forest_utils::{
@@ -17,19 +17,213 @@ use forest_utils::{
         hyper::{self, client::connect::Connect, Body, Response},
     },
 };
+use futures::{FutureExt, TryStreamExt};
 use hex::{FromHex, ToHex};
 use log::info;
 use regex::Regex;
 use s3::Bucket;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::{
     fs::{create_dir_all, File},
-    io::{AsyncWriteExt, BufWriter},
+    io::{AsyncReadExt, AsyncWriteExt, BufWriter},
 };
+use tracing::debug;
 use url::Url;
 
 use super::Config;
 use crate::cli::to_size_string;
+
+pub struct LocalSnapshots {
+    directory: PathBuf,
+    // should be directory/register.json
+    // we use this for writing to the registry
+    // gotcha: if this is deleted under us, the os will keep the file open for us
+    register_file: tokio::fs::File,
+    snapshots: Vec<SnapshotRegisterEntry>,
+}
+
+impl LocalSnapshots {
+    #[tracing::instrument]
+    pub async fn load_or_create(directory: PathBuf) -> anyhow::Result<Self> {
+        std::fs::create_dir_all(&directory).context("couldn't create directory")?;
+        let mut register_file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(directory.join("register.json"))
+            .await
+            .context("couldn't load/create register file")?;
+
+        let mut contents = Vec::new();
+        register_file
+            .read_to_end(&mut contents)
+            .await
+            .context("couldn't read register file")?;
+
+        let SnapshotRegisterFile::V1(SnapshotRegisterV1 { snapshots }) =
+            serde_json::from_slice(&contents).unwrap_or_else(|_| {
+                debug!("error loading register file, using default");
+                SnapshotRegisterFile::default()
+            });
+
+        Ok(Self {
+            directory,
+            register_file,
+            snapshots,
+        })
+    }
+}
+
+/// We represent metadata about downloaded snapshots in a file: the register
+// We use an enum here for forward-compatibility.
+// Future versions should implement conversions from previous versions to the latest.
+// (Think of this like a database migration).
+#[derive(Clone, Serialize, Deserialize, PartialEq, Hash)]
+enum SnapshotRegisterFile {
+    V1(SnapshotRegisterV1),
+}
+
+impl Default for SnapshotRegisterFile {
+    fn default() -> Self {
+        Self::V1(SnapshotRegisterV1::default())
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Hash, Default)]
+struct SnapshotRegisterV1 {
+    snapshots: Vec<SnapshotRegisterEntry>,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Hash)]
+struct SnapshotRegisterEntry {
+    // absolute, or relative to the register file
+    path: PathBuf,
+    height: i64,
+    snapshot_instant: chrono::NaiveDateTime,
+    downloaded_at: chrono::NaiveDateTime,
+    network: (),
+    source_url: Url,
+}
+
+/// Follow any redirects at `url`, and get the filename of the snapshot.
+/// Parse it in an expected format, and get the content length.
+async fn snapshot_metadata_url_and_length(
+    client: &reqwest::Client,
+    url: impl reqwest::IntoUrl,
+) -> anyhow::Result<(SnapshotMetadata, Url, u64)> {
+    // issue an actual GET, so the content length will be of the body
+    // (we never actually fetch the body)
+    // if we issue a HEAD, the content-length will be zero for redirect URLs
+    // (this is a bug, maybe in reqwest - HEAD _should_ give us the length)
+    let response = client.get(url).send().await?;
+    let length = response
+        .content_length()
+        .context("no content-length header")?;
+    // we've followed the redirects, what's the final url?
+    let name = response
+        .url()
+        .path_segments()
+        .context("url has no path")?
+        .last()
+        .context("url has no segments")?;
+
+    Ok((
+        name.parse()
+            .context("unexpected format for snapshot name")?,
+        response.url().clone(),
+        length,
+    ))
+}
+
+/// The information contained in the filename of compressed snapshots served by
+/// `filops`
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SnapshotMetadata {
+    height: i64,
+    datetime: chrono::NaiveDateTime,
+}
+
+#[test]
+fn parse() {
+    let metadata = SnapshotMetadata::from_str("64050_2022_11_24T00_00_00Z.car.zst").unwrap();
+    assert_eq!(
+        SnapshotMetadata {
+            height: 64050,
+            datetime: chrono::NaiveDateTime::from_str("2022-11-24T00:00:00").unwrap()
+        },
+        metadata,
+    )
+}
+
+/// Parse a number using its [`FromStr`] implementation.
+fn number<T>(input: &str) -> nom::IResult<&str, T>
+where
+    T: FromStr,
+{
+    use nom::{
+        character::complete::digit1,
+        combinator::{map_res, recognize},
+        multi::many1,
+    };
+    map_res(recognize(many1(digit1)), T::from_str)(input)
+}
+
+impl FromStr for SnapshotMetadata {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use nom::bytes::complete::tag;
+        let (rem, (height, _, year, _, month, _, day, _, hour, _, min, _, sec, _, _)) =
+            nom::sequence::tuple((
+                number, // height
+                tag("_"),
+                number, // year
+                tag("_"),
+                number, // month
+                tag("_"),
+                number, // day
+                tag("T"),
+                number, // hour
+                tag("_"),
+                number, // minute
+                tag("_"),
+                number, // second,
+                tag("Z"),
+                tag(".car.zst"),
+            ))(s)
+            .map_err(|e| anyhow!("Parse error: {e}"))?;
+        if !rem.is_empty() {
+            bail!("Unexpected trailing input: {rem}")
+        }
+        let datetime = chrono::NaiveDateTime::new(
+            chrono::NaiveDate::from_ymd_opt(year, month, day).context("invalid date")?,
+            chrono::NaiveTime::from_hms_opt(hour, min, sec).context("invalid time")?,
+        );
+        Ok(Self { height, datetime })
+    }
+}
+
+pub async fn download(
+    client: &reqwest::Client,
+    url: impl reqwest::IntoUrl,
+    directory_hint: PathBuf,
+    progress_bar: indicatif::ProgressBar,
+) -> anyhow::Result<()> {
+    use futures::TryStreamExt as _;
+    use tap::Pipe as _;
+    use tokio_util::compat::FuturesAsyncReadCompatExt as _;
+    let src = client
+        .get(url)
+        .send()
+        .await?
+        .bytes_stream()
+        .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))
+        .into_async_read()
+        .compat()
+        .pipe(|reader| progress_bar.wrap_async_read(reader));
+    let dst = ();
+    Ok(())
+}
 
 /// Snapshot fetch service provider
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -114,12 +308,6 @@ impl SnapshotStore {
                 });
         }
         SnapshotStore { snapshots }
-    }
-
-    pub fn display(&self) {
-        self.snapshots
-            .iter()
-            .for_each(|s| println!("{}", s.path.display()));
     }
 }
 
@@ -639,6 +827,24 @@ fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow
 #[cfg(test)]
 mod test {
     use std::{env::temp_dir, net::TcpListener};
+
+    #[tokio::test]
+    async fn test() {
+        let _ = dbg!(
+            snapshot_metadata_url_and_length(
+                &reqwest::Client::default(),
+                "https://snapshots.calibrationnet.filops.net/minimal/latest"
+            )
+            .await
+        );
+        let _ = dbg!(
+            snapshot_metadata_url_and_length(
+                &reqwest::Client::default(),
+                "https://snapshots.mainnet.filops.net/minimal/latest"
+            )
+            .await
+        );
+    }
 
     use anyhow::{ensure, Result};
     use axum::{routing::get_service, Router};
