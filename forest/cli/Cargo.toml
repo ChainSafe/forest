@@ -47,7 +47,6 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
-humantime.workspace = true
 jsonrpc-v2.workspace = true
 log.workspace = true
 multibase.workspace = true
@@ -68,6 +67,7 @@ toml.workspace = true
 assert_cmd.workspace = true
 pretty_assertions = "1.3.0"
 quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]

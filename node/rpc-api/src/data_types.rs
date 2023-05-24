@@ -324,7 +324,8 @@ pub mod node_api {
             )
         }
     }
-    fn fmt_duration(duration: Duration) -> String {
+
+    pub fn fmt_duration(duration: Duration) -> String {
         let duration = format_duration(duration);
         let duration = duration.to_string();
         let duration = duration.split(' ');
@@ -335,83 +336,5 @@ pub mod node_api {
             .map(|s| s.to_string());
         let format_duration: Vec<String> = format_duration.collect();
         format_duration.join(" ")
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use std::{str::FromStr, sync::Arc, time::Duration};
-
-        use chrono::{DateTime, Utc};
-        use colored::*;
-        use forest_blocks::{tipset_json::TipsetJson, BlockHeader, Tipset};
-        use forest_shim::{address::Address, econ::TokenAmount};
-        use forest_utils::misc::LoggingColor;
-        use fvm_shared::clock::EPOCH_DURATION_SECONDS;
-        use quickcheck_macros::quickcheck;
-
-        use super::{NodeStatus, NodeStatusInfo, SyncStatus};
-
-        const CHAIN_FINALITY: usize = 900;
-
-        fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Arc<Tipset> {
-            let mock_header = BlockHeader::builder()
-                .miner_address(
-                    Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap(),
-                )
-                .timestamp(seconds_since_unix_epoch)
-                .build()
-                .unwrap();
-            let tipset = Tipset::from(&mock_header);
-
-            Arc::new(tipset)
-        }
-
-        #[quickcheck]
-        fn test_sync_status_ok(tipsets: Vec<Arc<Tipset>>) {
-            let tipsets = tipsets.iter().map(|ts| TipsetJson(ts.clone())).collect();
-            let status_result =
-                NodeStatusInfo::new(Duration::from_secs(0), tipsets, CHAIN_FINALITY);
-            if let Ok(status) = status_result {
-                assert_ne!(status.sync_status, SyncStatus::Slow);
-                assert_ne!(status.sync_status, SyncStatus::Behind);
-            }
-        }
-
-        #[quickcheck]
-        fn test_sync_status_behind(duration: Duration) {
-            let duration = duration + Duration::from_secs(300);
-            let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
-            let node_status =
-                NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
-            assert!(node_status.health.is_finite());
-            assert_ne!(node_status.sync_status, SyncStatus::Ok);
-            assert_ne!(node_status.sync_status, SyncStatus::Slow);
-        }
-
-        #[quickcheck]
-        fn test_sync_status_slow(duration: Duration) {
-            let duration = duration + Duration::from_secs(300);
-            let tipset = mock_tipset_at(
-                duration
-                    .as_secs()
-                    .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
-            );
-            let node_status =
-                NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
-            assert!(node_status.health.is_finite());
-            assert_ne!(node_status.sync_status, SyncStatus::Behind);
-            assert_ne!(node_status.sync_status, SyncStatus::Ok);
-        }
-
-        #[test]
-        fn block_sync_timestamp() {
-            let color = LoggingColor::Never;
-            let duration = Duration::from_secs(60);
-            let tipset = mock_tipset_at(duration.as_secs() - 10);
-            let node_status =
-                NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
-            let a = node_status.display(&color);
-            assert!(a.chain_status.contains("10s behind"));
-        }
     }
 }

@@ -1,17 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
-
 use chrono::Utc;
 use clap::Subcommand;
 use colored::*;
 use forest_cli_shared::cli::CliOpts;
-use forest_rpc_api::data_types::node_api::NodeStatusInfo;
+use forest_rpc_api::data_types::node_api::{fmt_duration, NodeStatusInfo};
 use forest_rpc_client::node_ops::node_status;
 use forest_shim::econ::TokenAmount;
 use forest_utils::misc::LoggingColor;
-use humantime::format_duration;
 use num::BigInt;
 
 use super::Config;
@@ -20,19 +17,6 @@ use crate::cli::handle_rpc_err;
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
     Show,
-}
-
-fn fmt_duration(duration: Duration) -> String {
-    let duration = format_duration(duration);
-    let duration = duration.to_string();
-    let duration = duration.split(' ');
-    let format_duration = duration
-        .filter(|s| !s.ends_with("us"))
-        .filter(|s| !s.ends_with("ns"))
-        .filter(|s| !s.ends_with("ms"))
-        .map(|s| s.to_string());
-    let format_duration: Vec<String> = format_duration.collect();
-    format_duration.join(" ")
 }
 
 struct NodeInfoOutput {
@@ -47,8 +31,6 @@ struct NodeInfoOutput {
 impl From<NodeStatusInfo> for NodeInfoOutput {
     fn from(node_status_info: NodeStatusInfo) -> NodeInfoOutput {
         let health = node_status_info.health;
-
-        // let use_color = color.coloring_enabled();
         let uptime = (Utc::now() - node_status_info.start_time)
             .to_std()
             .expect("failed converting to std duration");
@@ -79,9 +61,10 @@ impl From<NodeStatusInfo> for NodeInfoOutput {
             }
         };
 
-        let wallet_balance = balance(node_status_info.default_wallet_address_balance)
-            .unwrap_or("n/a".to_string())
-            .bold();
+        let wallet_balance = match balance(node_status_info.default_wallet_address_balance) {
+            Ok(bal) => bal.bold(),
+            Err(err) => err.to_string().bold(),
+        };
 
         NodeInfoOutput {
             chain_status,
@@ -135,7 +118,7 @@ fn balance(balance: Option<String>) -> anyhow::Result<String> {
         let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
         Ok(format!("{:.4}", balance_token_amount.pretty()))
     } else {
-        Ok(String::from("n/a"))
+        Err(anyhow::anyhow!("error fetching balance"))
     }
 }
 
@@ -149,6 +132,8 @@ mod tests {
     use forest_rpc_api::data_types::node_api::{NodeStatus, NodeStatusInfo, SyncStatus};
     use forest_shim::{address::Address, econ::TokenAmount};
     use forest_utils::misc::LoggingColor;
+    use fvm_shared::clock::EPOCH_DURATION_SECONDS;
+    use quickcheck_macros::quickcheck;
 
     const CHAIN_FINALITY: usize = 900;
 
@@ -178,20 +163,52 @@ mod tests {
         }
     }
 
-    // fn node_status_bad() -> NodeStatusInfo {
-    //     NodeStatusInfo {
-    //         behind: Duration::from_secs(0),
-    //         health: 0.,
-    //         epoch: 0,
-    //         base_fee: TokenAmount::from_whole(1),
-    //         sync_status: SyncStatus::Behind,
-    //         start_time: DateTime::<Utc>::MIN_UTC,
-    //         network: "calibnet".to_string(),
-    //         default_wallet_address: Some("-".to_string()),
-    //         default_wallet_address_balance: None,
-    //         node_sync_status: NodeStatus::default(),
-    //     }
-    // }
+    #[quickcheck]
+    fn test_sync_status_ok(tipsets: Vec<Arc<Tipset>>) {
+        let tipsets = tipsets.iter().map(|ts| TipsetJson(ts.clone())).collect();
+        let status_result = NodeStatusInfo::new(Duration::from_secs(0), tipsets, CHAIN_FINALITY);
+        if let Ok(status) = status_result {
+            assert_ne!(status.sync_status, SyncStatus::Slow);
+            assert_ne!(status.sync_status, SyncStatus::Behind);
+        }
+    }
+
+    #[quickcheck]
+    fn test_sync_status_behind(duration: Duration) {
+        let duration = duration + Duration::from_secs(300);
+        let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
+        let node_status =
+            NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
+        assert!(node_status.health.is_finite());
+        assert_ne!(node_status.sync_status, SyncStatus::Ok);
+        assert_ne!(node_status.sync_status, SyncStatus::Slow);
+    }
+
+    #[quickcheck]
+    fn test_sync_status_slow(duration: Duration) {
+        let duration = duration + Duration::from_secs(300);
+        let tipset = mock_tipset_at(
+            duration
+                .as_secs()
+                .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
+        );
+        let node_status =
+            NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
+        assert!(node_status.health.is_finite());
+        assert_ne!(node_status.sync_status, SyncStatus::Behind);
+        assert_ne!(node_status.sync_status, SyncStatus::Ok);
+    }
+
+    #[test]
+    fn block_sync_timestamp() {
+        let color = LoggingColor::Never;
+        let duration = Duration::from_secs(60);
+        let tipset = mock_tipset_at(duration.as_secs() - 10);
+        let node_status =
+            NodeStatusInfo::new(duration, vec![TipsetJson(tipset)], CHAIN_FINALITY).unwrap();
+        let a = node_status.display(&color);
+        assert!(a.chain_status.contains("10s behind"));
+    }
 
     #[test]
     fn chain_status_test() {
