@@ -104,6 +104,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Progress API
     access.insert(progress_api::GET_PROGRESS, Access::Read);
+    // Node API
+    access.insert(node_api::NODE_STATUS, Access::Read);
 
     access
 });
@@ -463,4 +465,13 @@ pub mod progress_api {
         SnapshotExport,
         DatabaseGarbageCollection,
     }
+}
+
+/// Node API
+pub mod node_api {
+    use crate::data_types::node_api::NodeStatusInfo;
+
+    pub const NODE_STATUS: &str = "Filecoin.StateStartTime";
+    pub type NodeStatusParams = ();
+    pub type NodeStatusResult = NodeStatusInfo;
 }

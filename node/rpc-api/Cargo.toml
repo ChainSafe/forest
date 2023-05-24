@@ -37,9 +37,17 @@ serde = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace = true
 serde_with.workspace = true
 tokio = { workspace = true, features = ["sync"] }
+humantime = "2.1"
+colored.workspace = true
+forest_utils.workspace = true
+strum_macros.workspace = true
 
 [build-dependencies]
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 syn = "2.0"
+
+[dev-dependencies]
+quickcheck.workspace = true
+quickcheck_macros.workspace = true
