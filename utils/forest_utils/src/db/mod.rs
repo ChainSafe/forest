@@ -79,9 +79,9 @@ pub trait BlockstoreExt: Blockstore {
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
 
-/// Extension methods for [CborStore] that omits default multihash code from its APIs
+/// Extension methods for [`CborStore`] that omits default multihash code from its APIs
 pub trait CborStoreExt: CborStore {
-    /// Default multihash code is [cid::multihash::Code::Blake2b256]
+    /// Default multihash code is [`cid::multihash::Code::Blake2b256`]
     /// See <https://github.com/ipfs/go-ipld-cbor/blob/v0.0.6/store.go#L92>
     /// ```go
     /// mhType := uint64(mh.BLAKE2B_MIN + 31)
@@ -91,7 +91,7 @@ pub trait CborStoreExt: CborStore {
         cid::multihash::Code::Blake2b256
     }
 
-    /// A wrapper of [CborStore::put_cbor] that omits code parameter to match store API in go
+    /// A wrapper of [`CborStore::put_cbor`] that omits code parameter to match store API in go
     fn put_cbor_default<S: serde::ser::Serialize>(&self, obj: &S) -> anyhow::Result<Cid> {
         self.put_cbor(obj, Self::default_code())
     }
