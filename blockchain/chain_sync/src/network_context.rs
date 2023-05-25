@@ -22,8 +22,8 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
@@ -138,7 +138,7 @@ where
     ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
         // database. If it does, return it, else fetch over the network.
-        if let Some(b) = self.db.get_obj(&content).map_err(|e| e.to_string())? {
+        if let Some(b) = self.db.get_cbor(&content).map_err(|e| e.to_string())? {
             return Ok(b);
         }
 
@@ -159,7 +159,7 @@ where
         .await
         .is_ok();
 
-        match self.db.get_obj(&content) {
+        match self.db.get_cbor(&content) {
             Ok(Some(b)) => Ok(b),
             Ok(None) => Err(format!(
                 "Not found in db, bitswap. success: {success} cid, {content:?}"
