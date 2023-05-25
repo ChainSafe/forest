@@ -223,8 +223,8 @@ mod tests {
     use fil_actor_account_state::v10::State as AccountState;
     use forest_db::MemoryDB;
     use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-    use forest_utils::db::BlockstoreExt;
     use fvm_ipld_blockstore::Blockstore;
+    use fvm_ipld_encoding::CborStore;
 
     use super::pp_actor_state;
 
@@ -233,7 +233,7 @@ mod tests {
         let account_cid =
             Cid::try_from("bafk2bzaceampw4romta75hyz5p4cqriypmpbgnkxncgxgqn6zptv5lsp2w2bo")
                 .unwrap();
-        let actor_state_cid = db.put_obj(&account, Blake2b256).unwrap();
+        let actor_state_cid = db.put_cbor(&account, Blake2b256).unwrap();
         ActorState::new(
             account_cid,
             actor_state_cid,

@@ -10,10 +10,10 @@ use cid::{
     Cid,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
+use fvm_ipld_encoding::{to_vec, DAG_CBOR};
 use human_repr::HumanCount;
 use log::info;
-use serde::{de::DeserializeOwned, ser::Serialize};
+use serde::ser::Serialize;
 
 /// DB key size in bytes for estimating reachable data size. Use parity-db value
 /// for simplicity. The actual value for other underlying DB might be slightly
@@ -22,33 +22,6 @@ use serde::{de::DeserializeOwned, ser::Serialize};
 pub const DB_KEY_BYTES: usize = 32;
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
-    /// Get typed object from block store by CID
-    fn get_obj<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
-    where
-        T: DeserializeOwned,
-    {
-        match self.get(cid)? {
-            Some(bz) => Ok(Some(from_slice(&bz)?)),
-            None => Ok(None),
-        }
-    }
-
-    /// Put an object in the block store and return the Cid identifier.
-    fn put_obj<S>(&self, obj: &S, code: Code) -> anyhow::Result<Cid>
-    where
-        S: Serialize,
-    {
-        let bytes = to_vec(obj)?;
-        self.put_raw(bytes, code)
-    }
-
-    /// Put raw bytes in the block store and return the Cid identifier.
-    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> anyhow::Result<Cid> {
-        let cid = Cid::new_v1(DAG_CBOR, code.digest(&bytes));
-        self.put_keyed(&cid, &bytes)?;
-        Ok(cid)
-    }
-
     /// Batch put CBOR objects into block store and returns vector of CIDs
     fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> anyhow::Result<Vec<Cid>>
     where
