@@ -308,6 +308,7 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     }
 }
 
+// JANK(aatifsyed): why aren't we using XDG?
 pub fn default_snapshot_dir(config: &Config) -> PathBuf {
     config
         .client

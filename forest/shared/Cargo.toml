@@ -62,6 +62,8 @@ tikv-jemallocator = { version = "0.5", optional = true }
 [dev-dependencies]
 axum.workspace = true
 http.workspace = true
+httptest.workspace = true
+pretty_assertions.workspace = true
 quickcheck.workspace = true
 quickcheck_macros.workspace = true
 rand.workspace = true

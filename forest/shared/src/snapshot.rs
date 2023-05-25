@@ -26,16 +26,19 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context as _};
+use canonical_path::CanonicalPath;
 use itertools::Itertools;
 use tempfile::NamedTempFile;
 use url::Url;
 
-/// List all snapshots in `snapshot_dir`
+/// List all snapshots in `snapshot_dir`. Will return `Err(_)` if `snapshot_dir`
+/// does not exist.
 ///
 /// Note this function makes blocking syscalls, and should not be called
 /// from an async context. Use [tokio::task::spawn_blocking] if needed.
-pub fn list(snapshot_dir: &Path) -> anyhow::Result<Vec<Snapshot>> {
+pub fn list(snapshot_dir: &CanonicalPath) -> anyhow::Result<Vec<Snapshot>> {
     walkdir::WalkDir::new(snapshot_dir)
+        .sort_by_file_name() // deterministic
         .into_iter()
         .filter_ok(|entry| entry.file_type().is_file())
         .map_ok(|entry| {
@@ -43,8 +46,14 @@ pub fn list(snapshot_dir: &Path) -> anyhow::Result<Vec<Snapshot>> {
             let slug = entry
                 .path()
                 .parent()
-                .and_then(|parent| parent.to_str().map(String::from))
-                .context("invalid or absent slug in snapshot directory")?;
+                .and_then(|parent| {
+                    parent
+                        .strip_prefix(snapshot_dir)
+                        .ok()
+                        .and_then(Path::to_str)
+                        .map(String::from)
+                })
+                .context("invalid slug (subfolder) in snapshot directory")?;
             let metadata = entry
                 .file_name()
                 .to_str()
@@ -66,7 +75,7 @@ pub fn list(snapshot_dir: &Path) -> anyhow::Result<Vec<Snapshot>> {
 ///
 /// Note this function makes blocking syscalls, and should not be called
 /// from an async context. Use [tokio::task::spawn_blocking] if needed.
-pub fn clean(snapshot_dir: &Path) -> anyhow::Result<()> {
+pub fn clean(snapshot_dir: &CanonicalPath) -> anyhow::Result<()> {
     std::fs::remove_dir_all(snapshot_dir).context("error removing snapshot directory")?;
     std::fs::create_dir_all(snapshot_dir).context("error recreating snapshot dir")?;
     todo!()
@@ -74,19 +83,19 @@ pub fn clean(snapshot_dir: &Path) -> anyhow::Result<()> {
 
 /// Fetch a snapshot
 pub async fn fetch(
-    snapshot_dir: &Path,
+    snapshot_dir: &CanonicalPath,
     slug: &str,
     client: &reqwest::Client,
     stable_url: Url,
     progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<PathBuf> {
-    tokio::fs::create_dir_all(snapshot_dir.join(slug)).await?;
+    tokio::fs::create_dir_all(snapshot_dir.as_path().join(slug)).await?;
     let (_meta, file_url, _file_name, file_len) = peek_snapshot(client, stable_url).await?;
     progress_bar.set_length(file_len);
     match download_to_temp(client, file_url, progress_bar).await {
         Ok((path, final_url)) => match metadata_and_filename(&final_url) {
             Ok((_meta, file_name)) => {
-                let final_path = snapshot_dir.join(slug).join(file_name);
+                let final_path = snapshot_dir.as_path().join(slug).join(file_name);
                 tokio::fs::rename(path, &final_path)
                     .await
                     .context("couldn't move download to final location")?;
@@ -173,9 +182,12 @@ async fn download_to_temp(
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Snapshot {
+    /// Potentially empty string
     pub slug: String,
     pub metadata: SnapshotMetadata,
+    /// Full path to snapshot
     pub path: PathBuf,
 }
 
@@ -208,18 +220,6 @@ fn metadata_and_filename(url: &Url) -> anyhow::Result<(SnapshotMetadata, String)
 pub struct SnapshotMetadata {
     pub height: i64,
     pub datetime: chrono::NaiveDateTime,
-}
-
-#[test]
-fn parse() {
-    let metadata = SnapshotMetadata::from_str("64050_2022_11_24T00_00_00Z.car.zst").unwrap();
-    assert_eq!(
-        SnapshotMetadata {
-            height: 64050,
-            datetime: chrono::NaiveDateTime::from_str("2022-11-24T00:00:00").unwrap()
-        },
-        metadata,
-    )
 }
 
 /// Parse a number using its [`FromStr`] implementation.
@@ -266,4 +266,139 @@ impl FromStr for SnapshotMetadata {
         );
         Ok(Self { height, datetime })
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use canonical_path::CanonicalPathBuf;
+    use httptest::{matchers::request::method_path, responders::status_code, Expectation};
+    use pretty_assertions::assert_eq;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    /// A useful filename
+    const EXAMPLE_FILENAME: &str = "64050_2022_11_24T00_00_00Z.car.zst";
+
+    /// Metadata corresponding to [EXAMPLE_FILENAME]
+    fn example_metadata() -> SnapshotMetadata {
+        SnapshotMetadata {
+            height: 64050,
+            datetime: "2022-11-24T00:00:00".parse().unwrap(),
+        }
+    }
+
+    impl Snapshot {
+        fn example(slug: &str, path: PathBuf) -> Self {
+            Self {
+                slug: slug.to_string(),
+                metadata: example_metadata(),
+                path,
+            }
+        }
+    }
+
+    #[test]
+    fn parse_filename() {
+        let metadata = SnapshotMetadata::from_str(EXAMPLE_FILENAME).unwrap();
+        assert_eq!(example_metadata(), metadata,)
+    }
+
+    #[test]
+    fn test_list() -> anyhow::Result<()> {
+        let temp_dir = TempDir::new()?; // name so not dropped
+
+        let snapshot_dir = CanonicalPathBuf::new(temp_dir.path())?
+            .file(EXAMPLE_FILENAME)
+            .folder_contents("slug", |slug| {
+                slug.file(EXAMPLE_FILENAME)
+                    .folder_contents("nested_slug", |nested_slug| {
+                        nested_slug.file(EXAMPLE_FILENAME);
+                    });
+            });
+
+        let snapshots = list(snapshot_dir.as_canonical_path())?;
+        assert_eq!(
+            vec![
+                Snapshot::example("", temp_dir.path().join(EXAMPLE_FILENAME)),
+                Snapshot::example("slug", temp_dir.path().join("slug").join(EXAMPLE_FILENAME)),
+                Snapshot::example(
+                    "slug/nested_slug",
+                    temp_dir
+                        .path()
+                        .join("slug/nested_slug")
+                        .join(EXAMPLE_FILENAME)
+                )
+            ],
+            snapshots
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch() -> anyhow::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let snapshot_dir = CanonicalPath::new(temp_dir.path())?;
+        let server = httptest::Server::run();
+        server.expect(
+            Expectation::matching(method_path("GET", "/stable"))
+                .respond_with(status_code(301).insert_header("Location", EXAMPLE_FILENAME)),
+        );
+        server.expect(
+            Expectation::matching(method_path("GET", format!("/{EXAMPLE_FILENAME}")))
+                .times(1..)
+                .respond_with(status_code(200)),
+        );
+        fetch(
+            snapshot_dir,
+            "",
+            &reqwest::Client::new(),
+            server.url_str("/stable").parse().unwrap(),
+            &indicatif::ProgressBar::hidden(),
+        )
+        .await?;
+        let snapshots = list(snapshot_dir)?;
+        assert_eq!(
+            vec![Snapshot::example(
+                "",
+                temp_dir.path().join(EXAMPLE_FILENAME)
+            )],
+            snapshots
+        );
+        Ok(())
+    }
+
+    fn assert_one_normal_component(s: &str) -> &Path {
+        if let Ok(std::path::Component::Normal(normal)) = Path::new(s).components().exactly_one() {
+            return Path::new(normal);
+        } else {
+            panic!("{s} is not one normal path component")
+        };
+    }
+
+    /// Utility trait for building a filesystem structure for testing
+    trait FileSystemBuilder: AsRef<Path> + Sized {
+        fn file(self, name: &str) -> Self {
+            self.file_contents(name, [])
+        }
+        fn file_contents(self, name: &str, contents: impl AsRef<[u8]>) -> Self {
+            std::fs::write(
+                self.as_ref().join(assert_one_normal_component(name)),
+                contents,
+            )
+            .unwrap();
+            self
+        }
+        fn folder(self, name: &str) -> Self {
+            self.folder_contents(name, |_| {})
+        }
+        fn folder_contents(self, name: &str, make_contents: impl FnOnce(&Path)) -> Self {
+            let new_folder_path = self.as_ref().join(assert_one_normal_component(name));
+            std::fs::create_dir(&new_folder_path).unwrap();
+            make_contents(&new_folder_path);
+            self
+        }
+    }
+
+    impl<T> FileSystemBuilder for T where T: AsRef<Path> {}
 }
