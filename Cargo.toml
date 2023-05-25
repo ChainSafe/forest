@@ -76,15 +76,15 @@ flume = "0.10"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
-fvm = { version = "~2.3", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.3.1" }
+fvm = { version = "~2.4", default-features = false }
+fvm3 = { package = "fvm", default-features = false, version = "~3.4" }
 fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_shared = { version = "~2.3", default-features = false }
+fvm_shared = { version = "~2.4", default-features = false }
 fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
@@ -146,13 +146,13 @@ unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
-fil_actor_account_state = "3.0.0"
-fil_actor_init_state = "3.0.0"
-fil_actor_interface = "3.0.0"
-fil_actor_miner_state = "3.0.0"
-fil_actor_power_state = "3.0.0"
-fil_actor_system_state = "3.0.0"
-fil_actors_shared = "3.0.0"
+fil_actor_account_state = "4"
+fil_actor_init_state = "4"
+fil_actor_interface = "4"
+fil_actor_miner_state = "4"
+fil_actor_power_state = "4"
+fil_actor_system_state = "4"
+fil_actors_shared = "4"
 
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
