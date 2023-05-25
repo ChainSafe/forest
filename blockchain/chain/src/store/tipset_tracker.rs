@@ -6,8 +6,8 @@ use std::{collections::BTreeMap, sync::Arc};
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
 use forest_networks::ChainConfig;
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, warn};
 use parking_lot::Mutex;
@@ -57,7 +57,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         for cid in cids.iter() {
             // TODO: maybe cache the miner address to avoid having to do a `blockstore`
             // lookup here
-            if let Ok(Some(block)) = self.db.get_obj::<BlockHeader>(cid) {
+            if let Ok(Some(block)) = self.db.get_cbor::<BlockHeader>(cid) {
                 if header.miner_address() == block.miner_address() {
                     warn!(
                         "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
@@ -101,7 +101,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                 // `blockstore` lookup here
                 let h = self
                     .db
-                    .get_obj::<BlockHeader>(&cid)
+                    .get_cbor::<BlockHeader>(&cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {

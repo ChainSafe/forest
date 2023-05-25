@@ -11,7 +11,6 @@ use forest_shim::{
     clock::ChainEpoch,
     state_tree::{StateTree, StateTreeVersion},
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
@@ -31,7 +30,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .ok_or_else(|| anyhow!("system actor not found"))?;
 
         let system_actor_state = store
-            .get_obj::<SystemStateOld>(&system_actor.state)?
+            .get_cbor::<SystemStateOld>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
         let current_manifest = ManifestOld::load(&store, &current_manifest_data, 1)?;
