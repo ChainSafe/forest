@@ -244,7 +244,7 @@ where
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
         self.blockstore()
-            .get_obj::<BlockHeader>(self.file_backed_genesis.lock().inner())?
+            .get_cbor::<BlockHeader>(self.file_backed_genesis.lock().inner())?
             .ok_or_else(|| Error::Other("Genesis block not set".into()))
     }
 
@@ -669,7 +669,7 @@ where
         .iter()
         .map(|c| {
             store
-                .get_obj(c)?
+                .get_cbor(c)?
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
         .collect::<Result<_, Error>>()?;
@@ -721,7 +721,7 @@ pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>),
 where
     DB: Blockstore,
 {
-    if let Some(roots) = db.get_obj::<TxMeta>(msg_cid)? {
+    if let Some(roots) = db.get_cbor::<TxMeta>(msg_cid)? {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
@@ -767,7 +767,7 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: Blockstore,
 {
-    db.get_obj(key)?
+    db.get_cbor(key)?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
@@ -835,7 +835,7 @@ where
 {
     keys.iter()
         .map(|k| {
-            db.get_obj(k)?
+            db.get_cbor(k)?
                 .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
         .collect()

@@ -14,7 +14,6 @@ use forest_ipld::{
     json::{self, IpldJson},
     selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_encoding::CborStore;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
@@ -130,7 +129,7 @@ struct TestLinkResolver(MemoryDB);
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
     async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
-        self.0.get_obj(link).map_err(|e| e.to_string())
+        self.0.get_cbor(link).map_err(|e| e.to_string())
     }
 }
 

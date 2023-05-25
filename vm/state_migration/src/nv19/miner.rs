@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_state::{v10::State as MinerStateOld, v11::State as MinerStateNew};
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
@@ -31,7 +30,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
         let in_state: MinerStateOld = store
-            .get_obj(&input.head)?
+            .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Miner actor: could not read v10 state"))?;
 
         let out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
