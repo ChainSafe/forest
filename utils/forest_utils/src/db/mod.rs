@@ -22,13 +22,6 @@ use serde::ser::Serialize;
 pub const DB_KEY_BYTES: usize = 32;
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
-    /// Put raw bytes in the block store and return the Cid identifier.
-    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> anyhow::Result<Cid> {
-        let cid = Cid::new_v1(DAG_CBOR, code.digest(&bytes));
-        self.put_keyed(&cid, &bytes)?;
-        Ok(cid)
-    }
-
     /// Batch put CBOR objects into block store and returns vector of CIDs
     fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> anyhow::Result<Vec<Cid>>
     where
