@@ -208,10 +208,10 @@ impl ChainConfig {
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
-        let ds_iter = if self.name == "calibnet" {
-            calibnet::DRAND_SCHEDULE.iter()
-        } else {
+        let ds_iter = if self.name == "mainnet" {
             mainnet::DRAND_SCHEDULE.iter()
+        } else {
+            calibnet::DRAND_SCHEDULE.iter()
         };
         let mut points = BeaconSchedule::with_capacity(ds_iter.len());
         for dc in ds_iter {
