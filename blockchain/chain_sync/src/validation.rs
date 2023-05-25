@@ -11,10 +11,9 @@ use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_chain::ChainStore;
 use forest_message::SignedMessage;
 use forest_shim::message::Message;
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{Cbor, Error as EncodingError};
+use fvm_ipld_encoding::{Cbor, CborStore, Error as EncodingError};
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
@@ -144,7 +143,7 @@ impl<'a> TipsetValidator<'a> {
 
         // Store message roots and receive meta_root CID
         blockstore
-            .put_obj(&meta, Blake2b256)
+            .put_cbor(&meta, Blake2b256)
             .map_err(|e| Box::new(TipsetValidationError::Blockstore(e.to_string())))
     }
 }

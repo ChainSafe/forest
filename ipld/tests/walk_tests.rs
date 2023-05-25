@@ -15,6 +15,7 @@ use forest_ipld::{
     selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
 };
 use forest_utils::db::BlockstoreExt;
+use fvm_ipld_encoding::CborStore;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
 use serde::Deserialize;
@@ -138,7 +139,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
         for IpldJson(i) in ipld_storage {
-            storage.put_obj(&i, Blake2b256).unwrap();
+            storage.put_cbor(&i, Blake2b256).unwrap();
         }
         TestLinkResolver(storage)
     });

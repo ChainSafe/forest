@@ -16,8 +16,8 @@ use forest_shim::{
     state_tree::{ActorState, StateTree},
 };
 use forest_state_manager::StateManager;
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 use crate::errors::Error;
@@ -87,7 +87,7 @@ where
         let cid = self
             .sm
             .blockstore()
-            .put_obj(msg, Blake2b256)
+            .put_cbor(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }

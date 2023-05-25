@@ -37,7 +37,7 @@ use futures::{io::BufWriter, AsyncWrite};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::{Cbor, CborStore};
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -208,7 +208,7 @@ where
         self.file_backed_genesis.lock().set_inner(*header.cid())?;
 
         self.blockstore()
-            .put_obj(&header, Blake2b256)
+            .put_cbor(&header, Blake2b256)
             .map_err(Error::from)
     }
 
@@ -914,11 +914,11 @@ pub fn persist_block_messages<DB: Blockstore>(
     let mut bls_sigs = Vec::new();
     for msg in messages {
         if msg.signature().signature_type() == SignatureType::BLS {
-            let c = db.put_obj(&msg.message, Blake2b256)?;
+            let c = db.put_cbor(&msg.message, Blake2b256)?;
             bls_cids.push(c);
             bls_sigs.push(&msg.signature);
         } else {
-            let c = db.put_obj(&msg, Blake2b256)?;
+            let c = db.put_cbor(&msg, Blake2b256)?;
             secp_cids.push(c);
         }
     }
@@ -926,7 +926,7 @@ pub fn persist_block_messages<DB: Blockstore>(
     let bls_msg_root = Amt::new_from_iter(db, bls_cids.iter().copied())?;
     let secp_msg_root = Amt::new_from_iter(db, secp_cids.iter().copied())?;
 
-    let mmcid = db.put_obj(
+    let mmcid = db.put_cbor(
         &TxMeta {
             bls_message_root: bls_msg_root,
             secp_message_root: secp_msg_root,

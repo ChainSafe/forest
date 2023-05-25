@@ -33,15 +33,6 @@ pub trait BlockstoreExt: Blockstore {
         }
     }
 
-    /// Put an object in the block store and return the Cid identifier.
-    fn put_obj<S>(&self, obj: &S, code: Code) -> anyhow::Result<Cid>
-    where
-        S: Serialize,
-    {
-        let bytes = to_vec(obj)?;
-        self.put_raw(bytes, code)
-    }
-
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> anyhow::Result<Cid> {
         let cid = Cid::new_v1(DAG_CBOR, code.digest(&bytes));
