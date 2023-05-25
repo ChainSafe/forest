@@ -48,6 +48,3 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 syn = "2.0"
 
-[dev-dependencies]
-quickcheck.workspace = true
-quickcheck_macros.workspace = true

@@ -3877,8 +3877,6 @@ dependencies = [
  "jsonrpc-v2",
  "once_cell",
  "parking_lot 0.12.1",
- "quickcheck",
- "quickcheck_macros",
  "serde",
  "serde_json",
  "serde_with",
