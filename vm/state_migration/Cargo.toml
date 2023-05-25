@@ -25,6 +25,7 @@ rayon.workspace = true
 
 fil_actor_datacap_state.workspace = true
 fil_actor_init_state.workspace = true
+fil_actor_interface.workspace = true
 fil_actor_market_state.workspace = true
 fil_actor_miner_state.workspace = true
 fil_actor_power_state.workspace = true

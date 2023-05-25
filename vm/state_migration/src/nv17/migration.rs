@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use cid::Cid;
+use fil_actor_interface::miner::{is_v8_miner_cid, is_v9_miner_cid};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
@@ -16,7 +17,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 use super::{
-    datacap, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
+    datacap, miner, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
     ManifestNew, ManifestOld, SystemStateOld,
 };
 use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
@@ -44,28 +45,28 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .ok_or_else(|| anyhow!("new manifest not found"))?;
         let new_manifest = ManifestNew::load(&store, &new_manifest_data, version)?;
 
-        let verifreg_actor = state_tree
+        let verifreg_actor_v8 = state_tree
             .get_actor(&Address::new_id(
                 fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.id()?,
             ))?
             .context("Failed to load verifreg actor v8")?;
 
-        let verifreg_state: fil_actor_verifreg_state::v8::State = store
-            .get_cbor(&verifreg_actor.state)?
+        let verifreg_v8_state: fil_actor_verifreg_state::v8::State = store
+            .get_cbor(&verifreg_actor_v8.state)?
             .context("Failed to load verifreg state v8")?;
 
-        let market_actor = state_tree
+        let market_actor_v8 = state_tree
             .get_actor(&Address::new_id(
                 fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.id()?,
             ))?
             .context("Failed to load market actor v8")?;
 
-        let market_state: fil_actor_market_state::v8::State = store
-            .get_cbor(&market_actor.state)?
+        let market_v8_state: fil_actor_market_state::v8::State = store
+            .get_cbor(&market_actor_v8.state)?
             .context("Failed to load market state v8")?;
 
         let (pending_verified_deals, pending_verified_deal_size) =
-            get_pending_verified_deals_and_total_size(&store, &market_state)?;
+            get_pending_verified_deals_and_total_size(&store, &market_v8_state)?;
 
         current_manifest.builtin_actor_codes().for_each(|code| {
             let id = current_manifest.id_by_code(code);
@@ -86,7 +87,27 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             // Use the new code as prior code here, have set an empty actor in `run_migrations` to
             // migrate from
             *datacap_code,
-            datacap::datacap_migrator(verifreg_state, pending_verified_deal_size)?,
+            datacap::datacap_migrator(verifreg_v8_state, pending_verified_deal_size)?,
+        );
+
+        // On go side, cid is found by name `storageminer`, however, no equivilent API is available on rust side.
+        let miner_v8_cid = current_manifest
+            .builtin_actor_codes()
+            .find(|cid| is_v8_miner_cid(cid))
+            .context("Failed to retrieve miner v8 cid")?;
+        let miner_v9_cid = new_manifest
+            .builtin_actor_codes()
+            .find(|cid| is_v9_miner_cid(cid))
+            .context("Failed to retrieve miner v9 cid")?;
+        // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
+        // it does not effect `load` API here. (Go API takes bit_width=5 for loading)
+        let market_proposals = fil_actors_shared::v8::Array::<
+            fil_actor_market_state::v8::DealProposal,
+            _,
+        >::load(&market_v8_state.proposals, &store)?;
+        self.add_migrator(
+            *miner_v8_cid,
+            miner::miner_migrator(*miner_v9_cid, &store, market_proposals)?,
         );
 
         Ok(())

@@ -3906,6 +3906,7 @@ dependencies = [
  "crossbeam-channel",
  "fil_actor_datacap_state",
  "fil_actor_init_state",
+ "fil_actor_interface",
  "fil_actor_market_state",
  "fil_actor_miner_state",
  "fil_actor_power_state",
