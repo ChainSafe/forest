@@ -10,6 +10,7 @@ use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
+    deal::DealID,
     state_tree::{ActorState, StateTree, StateTreeVersion},
 };
 use forest_utils::db::BlockstoreExt;
@@ -99,15 +100,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .builtin_actor_codes()
             .find(|cid| is_v9_miner_cid(cid))
             .context("Failed to retrieve miner v9 cid")?;
-        // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
-        // it does not effect `load` API here. (Go API takes bit_width=5 for loading)
-        let market_proposals = fil_actors_shared::v8::Array::<
-            fil_actor_market_state::v8::DealProposal,
-            _,
-        >::load(&market_v8_state.proposals, &store)?;
+
         self.add_migrator(
             *miner_v8_cid,
-            miner::miner_migrator(*miner_v9_cid, &store, market_proposals)?,
+            miner::miner_migrator(*miner_v9_cid, &store, market_v8_state.proposals)?,
         );
 
         Ok(())

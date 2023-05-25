@@ -8,9 +8,11 @@ use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_state::{v8::State as MinerStateOld, v9::State as MinerStateNew};
+use forest_shim::{deal::DealID, piece::piece_v2, sector::SectorNumber};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use fvm_ipld_hamt::BytesKey;
 
 use crate::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -18,18 +20,21 @@ use crate::common::{
 
 pub struct MinerMigrator {
     out_code: Cid,
-    // proposals: fil_actors_shared::v8::Array<fil_actor_market_state::v8::DealProposal, BS>,
+    market_proposals: Cid,
     empty_precommit_map_cid_v9: Cid,
     empty_deadline_v8_cid: Cid,
     empty_deadline_v9_cid: Cid,
     empty_deadlines_v9_cid: Cid,
 }
 
-pub(crate) fn miner_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(crate) fn miner_migrator<BS>(
     out_code: Cid,
     store: &BS,
-    market_proposals: fil_actors_shared::v8::Array<fil_actor_market_state::v8::DealProposal, BS>,
-) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>> {
+    market_proposals: Cid,
+) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>>
+where
+    BS: Blockstore + Clone + Send + Sync,
+{
     let mut empty_precommit_map = fil_actors_shared::v9::make_empty_map::<_, Cid>(
         store,
         fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
@@ -51,6 +56,7 @@ pub(crate) fn miner_migrator<BS: Blockstore + Clone + Send + Sync>(
 
     Ok(Arc::new(MinerMigrator {
         out_code,
+        market_proposals,
         empty_precommit_map_cid_v9,
         empty_deadline_v8_cid,
         empty_deadline_v9_cid,
@@ -58,7 +64,10 @@ pub(crate) fn miner_migrator<BS: Blockstore + Clone + Send + Sync>(
     }))
 }
 
-impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator {
+impl<BS> ActorMigration<BS> for MinerMigrator
+where
+    BS: Blockstore + Clone + Send + Sync,
+{
     fn migrate_state(
         &self,
         store: BS,
@@ -67,8 +76,15 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
         let in_state: MinerStateOld = store
             .get_obj(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
+        let new_pre_committed_sectors =
+            self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
+        let new_sectors = self.migrate_sectors(&store, &in_state.sectors)?;
+        let new_deadlines = self.migrate_deadlines(&store, &in_state.deadlines)?;
 
-        let out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
+        let mut out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
+        out_state.pre_committed_sectors = new_pre_committed_sectors;
+        out_state.sectors = new_sectors;
+        out_state.deadlines = new_deadlines;
 
         let new_head = store.put_obj(&out_state, Blake2b256)?;
 
@@ -77,4 +93,90 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator 
             new_head,
         })
     }
+}
+
+impl MinerMigrator {
+    fn migrate_pre_committed_sectors(
+        &self,
+        store: &impl Blockstore,
+        old_pre_committed_sectors: &Cid,
+    ) -> anyhow::Result<Cid> {
+        const HAMT_BIT_WIDTH: u32 = fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
+
+        // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
+        // it does not effect `load` API here. (Go API takes bit_width=5 for loading)
+        //
+        // P.S. Because of lifetime limitation, this is not store as a field of `MinerMigrator` like in Go code
+        let market_proposals = fil_actors_shared::v8::Array::<
+            fil_actor_market_state::v8::DealProposal,
+            _,
+        >::load(&self.market_proposals, &store)?;
+
+        let old_precommit_on_chain_infos =
+            fil_actors_shared::v8::make_map_with_root_and_bitwidth::<
+                _,
+                fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
+            >(old_pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+
+        let new_precommit_on_chain_infos = fil_actors_shared::v9::make_empty_map::<
+            _,
+            fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
+        >(store, HAMT_BIT_WIDTH);
+
+        old_precommit_on_chain_infos.for_each(|key, value| {
+            let mut pieces = vec![];
+
+            for &deal_id in &value.info.deal_ids {
+                let deal = market_proposals.get(deal_id)?;
+                // Continue on not found to match Go logic
+                //
+                // Possible for the proposal to be missing if it's expired (but the deal is still in a precommit that's yet to be cleaned up)
+                // Just continue in this case, the sector is unProveCommitable anyway, will just fail later
+                if let Some(deal) = deal {
+                    pieces.push(piece_v2::PieceInfo {
+                        cid: deal.piece_cid,
+                        size: deal.piece_size,
+                    });
+                }
+            }
+
+            if !pieces.is_empty() {
+                todo!("GenerateUnsealedCID(value.info.seal_proof, pieces)");
+            }
+
+            // new_precommit_on_chain_infos.set(key, value)
+
+            Ok(())
+        })?;
+
+        todo!()
+    }
+
+    fn migrate_sectors(
+        &self,
+        store: &impl Blockstore,
+        // old_cache: &Cid,
+        // old_address: &Cid,
+        old_sectors: &Cid,
+    ) -> anyhow::Result<Cid> {
+        todo!()
+    }
+
+    fn migrate_deadlines(
+        &self,
+        store: &impl Blockstore,
+        // old_cache: &Cid,
+        // old_address: &Cid,
+        old_deadlines: &Cid,
+    ) -> anyhow::Result<Cid> {
+        todo!()
+    }
+}
+
+// TODO: Replace with <https://github.com/ChainSafe/fil-actor-states/pull/125>
+fn sector_key(sector: SectorNumber) -> anyhow::Result<BytesKey> {
+    let mut buffer = unsigned_varint::encode::u64_buffer();
+    Ok(unsigned_varint::encode::u64(sector, &mut buffer)
+        .to_vec()
+        .into())
 }

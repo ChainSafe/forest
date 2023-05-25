@@ -22,6 +22,7 @@ lazy_static.workspace = true
 log.workspace = true
 num_cpus.workspace = true
 rayon.workspace = true
+unsigned-varint.workspace = true
 
 fil_actor_datacap_state.workspace = true
 fil_actor_init_state.workspace = true

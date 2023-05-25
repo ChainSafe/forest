@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::Code::Blake2b256;
+use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_state::{
     v8::{MinerInfo as MinerInfoV8, State as MinerStateV8},
     v9::{MinerInfo as MinerInfoV9, State as MinerStateV9},

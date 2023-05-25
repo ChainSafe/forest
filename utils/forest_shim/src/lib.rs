@@ -12,6 +12,7 @@ pub mod executor;
 pub mod gas;
 pub mod machine;
 pub mod message;
+pub mod piece;
 pub mod randomness;
 pub mod sector;
 pub mod state_tree;

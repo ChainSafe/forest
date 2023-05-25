@@ -3924,6 +3924,7 @@ dependencies = [
  "log",
  "num_cpus",
  "rayon",
+ "unsigned-varint",
 ]
 
 [[package]]

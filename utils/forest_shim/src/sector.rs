@@ -15,6 +15,8 @@ use fvm_shared3::sector::{
 
 use crate::{version::NetworkVersion, Inner};
 
+pub type SectorNumber = fvm_shared3::sector::SectorNumber;
+
 /// Represents a shim over `RegisteredSealProof` from `fvm_shared` with
 /// convenience methods to convert to an older version of the type
 ///
