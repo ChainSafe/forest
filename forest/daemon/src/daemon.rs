@@ -11,10 +11,7 @@ use forest_chain::ChainStore;
 use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
-    cli::{
-        default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
-        to_size_string, CliOpts, Client, Config, SnapshotServer,
-    },
+    cli::{default_snapshot_dir, to_size_string, CliOpts, Client, Config},
 };
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
