@@ -1,13 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{
+    fmt::Display,
     path::{Path, PathBuf},
     process::Command,
     str::FromStr,
     time::Duration,
 };
 
-use anyhow::{anyhow, bail, ensure, Context};
+use anyhow::{anyhow, bail, Context as _};
+use canonical_path::{CanonicalPath, CanonicalPathBuf};
 use chrono::{DateTime, NaiveDate};
 use forest_networks::NetworkChain;
 use forest_utils::{
@@ -17,26 +19,65 @@ use forest_utils::{
         hyper::{self, client::connect::Connect, Body, Response},
     },
 };
-use futures::{FutureExt, TryStreamExt};
+use futures::{Future, TryStreamExt};
 use hex::{FromHex, ToHex};
 use log::info;
+use path_absolutize::Absolutize as _;
 use regex::Regex;
 use s3::Bucket;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tap::Pipe as _;
 use tempfile::NamedTempFile;
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncReadExt, AsyncWriteExt, BufWriter},
 };
+use tokio_stream::StreamExt;
 use tracing::debug;
 use url::Url;
 
 use super::Config;
 use crate::cli::to_size_string;
 
+pub fn enter_nom<'a, T>(
+    mut parser: impl nom::Parser<&'a str, T, nom::error::Error<&'a str>>,
+    input: &'a str,
+) -> anyhow::Result<T> {
+    let (rem, t) = parser
+        .parse(input)
+        .map_err(|e| anyhow!("Parser error: {e}"))?;
+    if !rem.is_empty() {
+        bail!("Unexpected trailing input: {rem}")
+    }
+    Ok(t)
+}
+
+/// Append `context` to any errors in `f`
+pub fn anyhow_context<T, C, R>(
+    context: C,
+    f: impl FnOnce() -> anyhow::Result<T>,
+) -> anyhow::Result<T>
+where
+    C: Display + Send + Sync + 'static,
+{
+    f().context(context)
+}
+
+/// Append `context` to any errors in `f`
+pub async fn anyhow_context_async<T, C, Fut>(
+    context: C,
+    f: impl FnOnce() -> Fut,
+) -> anyhow::Result<T>
+where
+    C: Display + Send + Sync + 'static,
+    Fut: Future<Output = anyhow::Result<T>>,
+{
+    f().await.context(context)
+}
+
 pub struct LocalSnapshots {
-    directory: PathBuf,
+    directory: CanonicalPathBuf,
     // should be directory/register.json
     // we use this for writing to the registry
     // gotcha: if this is deleted under us, the os will keep the file open for us
@@ -44,14 +85,24 @@ pub struct LocalSnapshots {
     snapshots: Vec<SnapshotRegisterEntry>,
 }
 
+fn registry_json(directory: &CanonicalPathBuf) -> PathBuf {
+    directory.as_path().join("register.json")
+}
+
+fn snapshots_dir(directory: &CanonicalPathBuf) -> PathBuf {
+    directory.as_path().join("snapshots")
+}
+
 impl LocalSnapshots {
     #[tracing::instrument]
-    pub async fn load_or_create(directory: PathBuf) -> anyhow::Result<Self> {
-        std::fs::create_dir_all(&directory).context("couldn't create directory")?;
+    pub async fn load_or_create(directory: CanonicalPathBuf) -> anyhow::Result<Self> {
+        tokio::fs::create_dir_all(&directory)
+            .await
+            .context("couldn't create directory")?;
         let mut register_file = tokio::fs::OpenOptions::new()
             .create(true)
             .write(true)
-            .open(directory.join("register.json"))
+            .open(directory.as_path().join("register.json"))
             .await
             .context("couldn't load/create register file")?;
 
@@ -72,6 +123,24 @@ impl LocalSnapshots {
             register_file,
             snapshots,
         })
+    }
+
+    async fn clean(&mut self) -> anyhow::Result<()> {
+        let entries =
+            anyhow_context_async("couldn't enumerate files in shapshot directory", || async {
+                tokio::fs::read_dir(&self.directory)
+                    .await?
+                    .pipe(tokio_stream::wrappers::ReadDirStream::new)
+                    .and_then(|entry| async move {
+                        entry.metadata().await.map(|metadata| (entry, metadata))
+                    })
+                    .try_collect::<Vec<_>>()
+                    .await?
+                    .pipe(Ok)
+            })
+            .await?;
+        for (entry, metadata) in entries {}
+        Ok(())
     }
 }
 
@@ -179,7 +248,7 @@ impl FromStr for SnapshotMetadata {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use nom::bytes::complete::tag;
-        let (rem, (height, _, year, _, month, _, day, _, hour, _, min, _, sec, _, _)) =
+        let (height, _, year, _, month, _, day, _, hour, _, min, _, sec, _, _) = enter_nom(
             nom::sequence::tuple((
                 number, // height
                 tag("_"),
@@ -196,11 +265,9 @@ impl FromStr for SnapshotMetadata {
                 number, // second,
                 tag("Z"),
                 tag(".car.zst"),
-            ))(s)
-            .map_err(|e| anyhow!("Parse error: {e}"))?;
-        if !rem.is_empty() {
-            bail!("Unexpected trailing input: {rem}")
-        }
+            )),
+            s,
+        )?;
         let datetime = chrono::NaiveDateTime::new(
             chrono::NaiveDate::from_ymd_opt(year, month, day).context("invalid date")?,
             chrono::NaiveTime::from_hms_opt(hour, min, sec).context("invalid time")?,
@@ -217,7 +284,6 @@ pub async fn download(
 ) -> anyhow::Result<PathBuf> {
     use futures::TryStreamExt as _;
     use tap::Pipe as _;
-    use tokio_util::compat::FuturesAsyncReadCompatExt as _;
     let mut src = client
         .get(url)
         .send()
@@ -226,8 +292,7 @@ pub async fn download(
         .context("server returned an error response")?
         .bytes_stream()
         .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))
-        .into_async_read()
-        .compat()
+        .pipe(tokio_util::io::StreamReader::new)
         .pipe(|reader| progress_bar.wrap_async_read(reader));
     let (std_file, temp_path) =
         tokio::task::spawn_blocking(|| NamedTempFile::new_in(directory_hint))
