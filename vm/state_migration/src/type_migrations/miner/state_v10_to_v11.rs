@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::multihash::Code::Blake2b256;
-use fil_actor_miner_v10::{MinerInfo as MinerInfoV10, State as MinerStateV10};
-use fil_actor_miner_v11::{MinerInfo as MinerInfoV11, State as MinerStateV11};
+use fil_actor_miner_state::{
+    v10::{MinerInfo as MinerInfoV10, State as MinerStateV10},
+    v11::{MinerInfo as MinerInfoV11, State as MinerStateV11},
+};
 use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -24,7 +26,7 @@ impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
             worker: in_info.worker,
             control_addresses: in_info.control_addresses,
             pending_worker_key: in_info.pending_worker_key.map(|key| {
-                fil_actor_miner_v11::WorkerKeyChange {
+                fil_actor_miner_state::v11::WorkerKeyChange {
                     new_worker: key.new_worker,
                     effective_at: key.effective_at,
                 }
@@ -37,13 +39,13 @@ impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
             consensus_fault_elapsed: in_info.consensus_fault_elapsed,
             pending_owner_address: in_info.pending_owner_address,
             beneficiary: in_info.beneficiary,
-            beneficiary_term: fil_actor_miner_v11::BeneficiaryTerm {
+            beneficiary_term: fil_actor_miner_state::v11::BeneficiaryTerm {
                 quota: in_info.beneficiary_term.quota,
                 used_quota: in_info.beneficiary_term.used_quota,
                 expiration: in_info.beneficiary_term.expiration,
             },
             pending_beneficiary_term: in_info.pending_beneficiary_term.map(|term| {
-                fil_actor_miner_v11::PendingBeneficiaryChange {
+                fil_actor_miner_state::v11::PendingBeneficiaryChange {
                     new_beneficiary: term.new_beneficiary,
                     new_quota: term.new_quota,
                     new_expiration: term.new_expiration,

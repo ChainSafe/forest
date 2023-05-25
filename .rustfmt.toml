@@ -1,5 +1,0 @@
-# Doc: https://rust-lang.github.io/rustfmt/
-imports_granularity = "Crate"
-group_imports = "StdExternalCrate"
-hex_literal_case = "Lower"
-wrap_comments = true

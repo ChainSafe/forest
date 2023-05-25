@@ -1,9 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actor_init_v10::State as InitStateV10;
-use fil_actor_init_v9::State as InitStateV9;
-use fil_actors_runtime_v10::{make_map_with_root, Map};
+use fil_actor_init_state::{v10::State as InitStateV10, v9::State as InitStateV9};
+use fil_actors_shared::v10::{make_map_with_root, Map};
 use forest_shim::{
     address::{Address, PAYLOAD_HASH_LEN},
     state_tree::ActorID,
