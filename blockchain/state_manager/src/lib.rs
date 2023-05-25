@@ -653,17 +653,11 @@ where
         };
         let lbr = (round - lb).max(0);
 
-        // temporary fix for the devnet
-        if lbr == 0 {
-            return Ok((tipset.clone(), *tipset.parent_state()));
-        }
-
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
-            // This is not allowed to happen after network V3.
-            return Err(Error::Other(
-                "Failed to find look-back tipset: Unexpected number of null blocks.".to_string(),
-            ));
+            let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
+            let (state, _) = self.compute_tipset_state_non_async(&tipset, no_func)?;
+            return Ok((tipset, state));
         }
 
         let next_ts = self
@@ -809,6 +803,74 @@ where
         })
         .await
         .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
+    }
+
+    // Non-async version of compute_tipset_state. Temporary.
+    #[instrument(skip(self, callback))]
+    pub fn compute_tipset_state_non_async<CB: 'static>(
+        self: &Arc<Self>,
+        tipset: &Arc<Tipset>,
+        callback: Option<CB>,
+    ) -> Result<CidPair, Error>
+    where
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
+    {
+        let block_headers = tipset.blocks();
+        let first_block = block_headers
+            .first()
+            .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
+
+        let check_for_duplicates = |s: &BlockHeader| {
+            block_headers
+                .iter()
+                .filter(|val| val.miner_address() == s.miner_address())
+                .take(2)
+                .count()
+        };
+        if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
+            // Duplicate Miner found
+            return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
+        }
+
+        let parent_epoch = if first_block.epoch() > 0 {
+            let parent_cid = first_block
+                .parents()
+                .cids()
+                .get(0)
+                .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
+            let parent: BlockHeader = self
+                .blockstore()
+                .get_obj(parent_cid)?
+                .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
+            parent.epoch()
+        } else {
+            Default::default()
+        };
+
+        let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
+        let chain_rand = self.chain_rand(tipset_keys);
+        let base_fee = first_block.parent_base_fee().clone();
+
+        let blocks = self
+            .chain_store()
+            .block_msgs_for_tipset(tipset)
+            .map_err(|e| Error::Other(e.to_string()))?;
+
+        let sm = Arc::clone(self);
+        let sr = *first_block.state_root();
+        let epoch = first_block.epoch();
+        let ts_cloned = Arc::clone(tipset);
+        sm.apply_blocks(
+            parent_epoch,
+            &sr,
+            &blocks,
+            epoch,
+            chain_rand,
+            base_fee,
+            callback,
+            &ts_cloned,
+        )
+        .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))
     }
 
     /// Check if tipset had executed the message, by loading the receipt based
