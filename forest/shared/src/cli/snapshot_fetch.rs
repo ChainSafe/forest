@@ -1,5 +1,89 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+//! We occasionally fetch snapshots and store them locally, in `snapshot_dir`
+//! This contains utilities for fetching, enumerating, and deleting snapshots
+//! in `snapshot_dir`. Users should *not* call multiple operations on
+//! `snapshot_dir` from different threads.
+//!
+//! # Storing snapshots
+//! Snapshots are stored compressed as
+//! `<snapshot_dir>/<slug>/<height>_<datetime>.car.zst`
+//! E.g `<snapshot_dir>/mainnet/64050_2022_11_24T00_00_00Z.car.zst`
+//!
+//! # Fetching snapshots
+//! See [FIXME]
+//!
+//! # Future work
+//! - Be resilient to changes in snapshot filename format upstream
+//! - Keep a register/machine readable db of snapshots, don't store metadata in
+//!   filenames
+//! - Mutual exclusion on snapshot_dir, e.g with `flock`
+
+/// List all snapshots in `snapshot_dir`
+///
+/// Note this function makes blocking syscalls, and should not be called from an
+/// async context. Use [tokio::task::spawn_blocking] if needed.
+pub fn enumerate_snapshots(snapshot_dir: &Path) -> anyhow::Result<Vec<Snapshot>> {
+    walkdir::WalkDir::new(snapshot_dir)
+        .into_iter()
+        .filter_ok(|entry| entry.file_type().is_file())
+        .map_ok(|entry| {
+            let path = entry.path().to_path_buf();
+            let slug = entry
+                .path()
+                .parent()
+                .and_then(|parent| parent.to_str().map(String::from))
+                .context("invalid or absent slug in snapshot directory")?;
+            let metadata = entry
+                .file_name()
+                .to_str()
+                .and_then(|s| s.parse().ok())
+                .context("invalid filename for snapshot in snapshot directory")?;
+            anyhow::Ok(Snapshot {
+                slug,
+                metadata,
+                path,
+            })
+        })
+        // This short-circuits our errors, but there's a case to be made for not
+        // falling over if our directory structure doesn't look right
+        .collect::<Result<Result<Vec<_>, _>, _>>()
+        .context("couldn't walk snapshot directory")?
+}
+
+/// Remove and recreate `snapshot_dir`
+///
+/// Note this function makes blocking syscalls, and should not be called from an
+/// async context. Use [tokio::task::spawn_blocking] if needed.
+pub fn clean(snapshot_dir: &Path) -> anyhow::Result<()> {
+    std::fs::remove_dir_all(snapshot_dir).context("error removing snapshot directory")?;
+    std::fs::create_dir_all(snapshot_dir).context("error recreating snapshot dir")?;
+    todo!()
+}
+
+/// Fetch a snapshot
+pub async fn fetch(
+    snapshot_dir: &Path,
+    slug: &str,
+    client: &reqwest::Client,
+    stable_url: Url,
+    progress_bar: &indicatif::ProgressBar,
+) -> anyhow::Result<()> {
+    let (_meta, file_url, file_name, file_len) = peek_snapshot(client, stable_url).await?;
+    Ok(())
+}
+
+pub enum SnapshotSlug {
+    Forest,
+    Mainnet,
+}
+
+pub struct Snapshot {
+    slug: String,
+    metadata: SnapshotMetadata,
+    path: PathBuf,
+}
+
 use std::{
     fmt::Display,
     path::{Path, PathBuf},
@@ -8,7 +92,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, bail, Context as _};
+use anyhow::{anyhow, bail, ensure, Context as _};
 use canonical_path::{CanonicalPath, CanonicalPathBuf};
 use chrono::{DateTime, NaiveDate};
 use forest_networks::NetworkChain;
@@ -21,6 +105,7 @@ use forest_utils::{
 };
 use futures::{Future, TryStreamExt};
 use hex::{FromHex, ToHex};
+use itertools::Itertools;
 use log::info;
 use path_absolutize::Absolutize as _;
 use regex::Regex;
@@ -175,12 +260,16 @@ struct SnapshotRegisterEntry {
     source_url: Url,
 }
 
-/// Follow any redirects at `url`, and get the filename of the snapshot.
-/// Parse it in an expected format, and get the content length.
-async fn snapshot_metadata_url_and_length(
+/// Takes a stable url like `https://snapshots.calibrationnet.filops.net/minimal/latest`, and follows it to get
+/// - The metadata of the file to download, inferred from a conventional name.
+/// - The url of the actual file to download (this prevents races where the
+///   stable url switches its target during an operation).
+/// - The name of the file.
+/// - The length the file to download
+async fn peek_snapshot(
     client: &reqwest::Client,
     url: impl reqwest::IntoUrl,
-) -> anyhow::Result<(SnapshotMetadata, Url, u64)> {
+) -> anyhow::Result<(SnapshotMetadata, Url, String, u64)> {
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
     // if we issue a HEAD, the content-length will be zero for redirect URLs
@@ -194,20 +283,18 @@ async fn snapshot_metadata_url_and_length(
     let length = response
         .content_length()
         .context("no content-length header")?;
-    // we've followed the redirects, what's the final url?
-    let name = response
-        .url()
+    let (metadata, filename) = metadata_and_filename(response.url())?;
+    Ok((metadata, response.url().clone(), filename, length))
+}
+
+fn metadata_and_filename(url: &Url) -> anyhow::Result<(SnapshotMetadata, String)> {
+    let name = url
         .path_segments()
         .context("url has no path")?
         .last()
-        .context("url has no segments")?;
-
-    Ok((
-        name.parse()
-            .context("unexpected format for snapshot name")?,
-        response.url().clone(),
-        length,
-    ))
+        .context("url has no segments")?
+        .to_string();
+    Ok((name.parse().context("unexpected format for name")?, name))
 }
 
 /// The information contained in the filename of compressed snapshots served by
@@ -276,43 +363,44 @@ impl FromStr for SnapshotMetadata {
     }
 }
 
-pub async fn download(
+/// Download the file at `url` returning
+/// - The path to the downloaded file
+/// - The url of the download file (in case e.g redirects were followed)
+async fn download_to_temp(
     client: &reqwest::Client,
-    url: impl reqwest::IntoUrl,
-    directory_hint: PathBuf,
+    url: Url,
     progress_bar: &indicatif::ProgressBar,
-) -> anyhow::Result<PathBuf> {
+) -> anyhow::Result<(tempfile::TempPath, Url)> {
     use futures::TryStreamExt as _;
     use tap::Pipe as _;
-    let mut src = client
+    let response = client
         .get(url)
         .send()
         .await?
         .error_for_status()
-        .context("server returned an error response")?
+        .context("server returned an error response")?;
+    let url = response.url().clone();
+    let mut src = response
         .bytes_stream()
         .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))
         .pipe(tokio_util::io::StreamReader::new)
         .pipe(|reader| progress_bar.wrap_async_read(reader));
-    let (std_file, temp_path) =
-        tokio::task::spawn_blocking(|| NamedTempFile::new_in(directory_hint))
-            .await
-            .expect("blocking thread panicked (we didn't cancel/abort this task)")
-            .context("couldn't create temporary file for download")?
-            .into_parts();
+    let (std_file, temp_path) = tokio::task::spawn_blocking(NamedTempFile::new)
+        .await
+        .expect("NamedTempFile::new doesn't panic, and we didn't cancel/abort this task")
+        .context("couldn't create temporary file for download")?
+        .into_parts();
     let mut dst = tokio::fs::File::from_std(std_file);
     tokio::io::copy(&mut src, &mut dst)
         .await
         .context("error downloading to file")?;
-    // TODO(aatifsyed): a user should be able to ctrl+c and have the files clean up
-    let path = temp_path.keep().context("error persisting download")?;
-    Ok(path)
+    Ok((temp_path, url))
 }
 
 #[tokio::test]
 async fn test_download() {
     let client = &reqwest::Client::new();
-    let (meta, url, len) = snapshot_metadata_url_and_length(
+    let (meta, url, _, len) = peek_snapshot(
         client,
         "https://snapshots.calibrationnet.filops.net/minimal/latest",
     )
@@ -326,13 +414,7 @@ async fn test_download() {
     let progress_bar = indicatif::ProgressBar::new(len)
         .with_message("downloading snapshot")
         .with_style(progress_bar_style);
-    let res = download(
-        client,
-        url.clone(),
-        std::env::current_dir().unwrap(),
-        &progress_bar,
-    )
-    .await;
+    let res = download_to_temp(client, url.clone(), &progress_bar).await;
     dbg!(res);
 }
 
@@ -942,14 +1024,14 @@ mod test {
     #[tokio::test]
     async fn test() {
         let _ = dbg!(
-            snapshot_metadata_url_and_length(
+            peek_snapshot(
                 &reqwest::Client::default(),
                 "https://snapshots.calibrationnet.filops.net/minimal/latest"
             )
             .await
         );
         let _ = dbg!(
-            snapshot_metadata_url_and_length(
+            peek_snapshot(
                 &reqwest::Client::default(),
                 "https://snapshots.mainnet.filops.net/minimal/latest"
             )

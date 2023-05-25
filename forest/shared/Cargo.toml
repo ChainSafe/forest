@@ -28,6 +28,7 @@ futures.workspace = true
 gethostname.workspace = true
 hex.workspace = true
 indicatif.workspace = true
+itertools.workspace = true
 lazy-regex.workspace = true
 log = { workspace = true, features = ["serde"] }
 nom.workspace = true
@@ -51,6 +52,7 @@ tracing-loki.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 url.workspace = true
+walkdir.workspace = true
 which.workspace = true
 
 # optional

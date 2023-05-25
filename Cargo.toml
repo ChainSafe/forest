@@ -96,6 +96,7 @@ hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23"
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
+itertools = "0.10"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy-regex = "2.5.0"
 lazy_static = "1.4"
@@ -153,6 +154,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
+walkdir = "2"
 which = "4.3"
 
 fil_actor_account_state = "5"
