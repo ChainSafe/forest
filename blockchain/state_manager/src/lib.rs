@@ -815,6 +815,20 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
+        // special case for genesis block
+        if tipset.epoch() == 0 {
+            // NB: This is here because the process that executes blocks requires that the
+            // block miner reference a valid miner in the state tree. Unless we create some
+            // magical genesis miner, this won't work properly, so we short circuit here
+            // This avoids the question of 'who gets paid the genesis block reward'
+            let message_receipts = tipset
+                .blocks()
+                .first()
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+
+            return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
+        }
+
         let block_headers = tipset.blocks();
         let first_block = block_headers
             .first()
