@@ -148,11 +148,11 @@ which = "4.3"
 
 fil_actor_account_state = "4"
 fil_actor_init_state = "4"
-fil_actor_interface = "4"
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "lemmih/devnet-cids" }
 fil_actor_miner_state = "4"
 fil_actor_power_state = "4"
 fil_actor_system_state = "4"
-fil_actors_shared = "4"
+fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states.git", branch = "lemmih/devnet-cids" }
 
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }

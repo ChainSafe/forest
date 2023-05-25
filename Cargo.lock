@@ -2594,10 +2594,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_account_state"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
+dependencies = [
+ "frc42_dispatch",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_shared 2.4.0",
+ "fvm_shared 3.3.1",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_cron_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb36b3ee5781626b405e1fe265461eda93c65fd527e6a50440d5846210790d48"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -2610,10 +2623,9 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d31986103f2f25a54ee2f0a2ea0a43de9b45df8af352b39d3e6f2afc9b8f6306"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "frc46_token",
  "fvm_ipld_blockstore",
@@ -2628,10 +2640,9 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_shared_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b257560fbbd2df65a2c48b190163d878ce5110845d93b6d7d88e399fa8fd4777"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 3.3.1",
  "hex",
@@ -2642,8 +2653,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a31e5608b5943e5444c25e0c62711fd0c61173593c748341a111abe20e528b3"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "cid",
  "fil_actor_evm_shared_state",
@@ -2664,7 +2674,26 @@ checksum = "b7c7021a905a0fcdf6eec29b7b414ca586aee04bb198e932f9aeee7463e0753f"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 2.4.0",
+ "fvm_shared 3.3.1",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_init_state"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
@@ -2679,23 +2708,22 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78608e0e8db5e291b576a1650d885ccd8e6c55801e852a3318b718a92a6f5cec"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_account_state",
+ "fil_actor_account_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "fil_actor_cron_state",
  "fil_actor_datacap_state",
  "fil_actor_evm_state",
- "fil_actor_init_state",
+ "fil_actor_init_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "fil_actor_market_state",
- "fil_actor_miner_state",
+ "fil_actor_miner_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "fil_actor_multisig_state",
- "fil_actor_power_state",
+ "fil_actor_power_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "fil_actor_reward_state",
- "fil_actor_system_state",
- "fil_actors_shared",
+ "fil_actor_system_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
@@ -2712,13 +2740,12 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f1842a1adc93d767dcbac0718b9bd59da040dd3a91c823889af3e3f1c0d2ca7"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_verifreg_state",
- "fil_actors_shared",
+ "fil_actor_verifreg_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -2741,8 +2768,34 @@ checksum = "a88cca98cb3ccfe7d16f298a8810d4a49991862fb779466fbe42e3190d2b6fe3"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_verifreg_state",
- "fil_actors_shared",
+ "fil_actor_verifreg_state 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actors_shared 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_dispatch",
+ "fvm_ipld_amt 0.5.1",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 2.4.0",
+ "fvm_shared 3.3.1",
+ "itertools 0.10.5",
+ "lazy_static",
+ "multihash 0.16.3",
+ "num-bigint",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_miner_state"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actor_verifreg_state 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
@@ -2763,12 +2816,11 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47e322f81cb630d5e574015fcac5f1a911eef6df5747aba9bdfe2158362cdcb5"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
@@ -2790,7 +2842,28 @@ checksum = "e3b99e5ce4bf17e297a50b781d5e73cbbe4a884500959e7109750d6e746c86b0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 2.4.0",
+ "fvm_shared 3.3.1",
+ "integer-encoding",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_power_state"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
@@ -2807,8 +2880,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae8c6f064dd6f796824167dd36dd68e9f7cbb90069e154d2b7b9552fd2bd2727"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -2834,6 +2906,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_system_state"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
+dependencies = [
+ "cid",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_shared 2.4.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_verifreg_state"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2841,7 +2926,25 @@ checksum = "4fe6aca497abb108dedbb037d4205cadc30c68833e5f6eb22205e455c5444901"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_shared 2.4.0",
+ "fvm_shared 3.3.1",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_verifreg_state"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
@@ -2857,6 +2960,33 @@ name = "fil_actors_shared"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80100c8ef62b379bdfaaebb402d1c5ed168ae55d6b2726b9d278b27a1bbaf4ba"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_amt 0.5.1",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 2.4.0",
+ "fvm_shared 3.3.1",
+ "lazy_static",
+ "multihash 0.16.3",
+ "num",
+ "num-bigint",
+ "num-derive",
+ "num-traits",
+ "paste",
+ "serde",
+ "serde_repr",
+ "sha2 0.10.6",
+ "thiserror",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "fil_actors_shared"
+version = "4.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids#e9943f4cec2118d5fe16d8f024ee33fdfb9e4e52"
 dependencies = [
  "anyhow",
  "cid",
@@ -3378,7 +3508,7 @@ dependencies = [
  "async-trait",
  "cid",
  "fil_actor_interface",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "filecoin-proofs-api",
  "forest_beacon",
  "forest_blocks",
@@ -3693,7 +3823,7 @@ dependencies = [
  "anyhow",
  "cid",
  "const-str",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "forest_beacon",
  "forest_shim",
  "fvm_shared 2.4.0",
@@ -3861,7 +3991,7 @@ dependencies = [
  "byteorder",
  "cid",
  "fil_actor_interface",
- "fil_actors_shared",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "filecoin-proofs-api",
  "forest_beacon",
  "forest_blocks",
@@ -3904,11 +4034,11 @@ dependencies = [
  "anyhow",
  "cid",
  "crossbeam-channel",
- "fil_actor_init_state",
- "fil_actor_miner_state",
- "fil_actor_power_state",
- "fil_actor_system_state",
- "fil_actors_shared",
+ "fil_actor_init_state 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_miner_state 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_power_state 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_system_state 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actors_shared 4.0.0 (git+https://github.com/ChainSafe/fil-actor-states.git?branch=lemmih/devnet-cids)",
  "forest_networks",
  "forest_shim",
  "forest_utils",
@@ -3929,7 +4059,7 @@ dependencies = [
  "clap",
  "colored",
  "directories",
- "fil_actor_account_state",
+ "fil_actor_account_state 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fil_actor_interface",
  "forest_cli_shared",
  "forest_db",
