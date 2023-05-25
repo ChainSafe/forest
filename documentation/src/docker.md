@@ -126,7 +126,7 @@ Create the wallet
 
 ```shell
 ❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet new
-f1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
+t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
 ```
 
 Fund it using the
@@ -134,8 +134,6 @@ Fund it using the
 it was funded after a few minutes in [Filscan](https://calibration.filscan.io/)
 by pasting the Message ID obtained from the faucet. Example from
 [this wallet](https://calibration.filscan.io/tipset/message-detail?cid=bafy2bzacebdverplts5qs3lwzsenzlh4rdsmvc42r6yg6suu4comr7gkbe76a).
-Please note the first letter of the address is`t` and not `f`. This is a known
-issue.
 
 Verify that your account has 100 FIL . The result is in `attoFIL`.
 
@@ -148,13 +146,13 @@ Create another wallet
 
 ```shell
 ❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet new
-f1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
+t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
 ```
 
 Send 10 FIL from the original wallet to the new one
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN send --from f1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i f1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca 10000000000000000000
+❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN send --from t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca 10000000000000000000
 ```
 
 Verify the balance of the new address.
@@ -162,6 +160,6 @@ Verify the balance of the new address.
 for this wallet.
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet balance f1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
+❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet balance t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
 10000000000000000000
 ```

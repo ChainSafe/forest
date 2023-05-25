@@ -14,3 +14,7 @@ genesis.json
 node/rpc-api/static/ast.ron
 documentation/book/**/*
 node_modules
+/scripts/benchmark_db/.bundle/
+/scripts/benchmark_db/vendor/
+/scripts/benchmark_db/*.md
+/scripts/benchmark_db/*.csv
