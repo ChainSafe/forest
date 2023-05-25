@@ -3306,6 +3306,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_car_explorer"
+version = "0.8.2"
+dependencies = [
+ "anyhow",
+ "cid",
+ "clap",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_car",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "forest_chain"
 version = "0.8.2"
 dependencies = [

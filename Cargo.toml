@@ -36,6 +36,7 @@ members = [
   "utils/auth",
   "utils/genesis",
   "utils/statediff",
+  "utils/car-explorer",
   "utils/test_utils",
   "utils/metrics",
   "utils/paramfetch",
