@@ -18,7 +18,7 @@ use forest_libp2p::{
 };
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
-use forest_shim::{clock::EPOCHS_IN_DAY, message::Message};
+use forest_shim::{clock::{EPOCHS_IN_DAY, SECONDS_IN_DAY}, message::Message};
 use forest_state_manager::StateManager;
 use futures::{
     future::{try_join_all, Future},
@@ -472,7 +472,7 @@ where
             }
         };
 
-        if tipset.epoch() + EPOCHS_IN_DAY < chain_store.heaviest_tipset().epoch() {
+        if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64) < chain_store.heaviest_tipset().epoch() {
             debug!(
                 "Skip processing tipset at epoch {} from {source} that is too old",
                 tipset.epoch()
