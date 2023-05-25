@@ -653,6 +653,11 @@ where
         };
         let lbr = (round - lb).max(0);
 
+        // temporary fix for the devnet
+        if lbr == 0 {
+            return Ok((tipset.clone(), *tipset.parent_state()));
+        }
+
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
             // This is not allowed to happen after network V3.
