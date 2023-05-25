@@ -15,7 +15,10 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{datacap, system, verifier::Verifier, ManifestNew, ManifestOld, SystemStateOld};
+use super::{
+    datacap, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
+    ManifestNew, ManifestOld, SystemStateOld,
+};
 use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
@@ -41,6 +44,29 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .ok_or_else(|| anyhow!("new manifest not found"))?;
         let new_manifest = ManifestNew::load(&store, &new_manifest_data, version)?;
 
+        let verifreg_actor = state_tree
+            .get_actor(&Address::new_id(
+                fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.id()?,
+            ))?
+            .context("Failed to load verifreg actor v8")?;
+
+        let verifreg_state: fil_actor_verifreg_state::v8::State = store
+            .get_cbor(&verifreg_actor.state)?
+            .context("Failed to load verifreg state v8")?;
+
+        let market_actor = state_tree
+            .get_actor(&Address::new_id(
+                fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.id()?,
+            ))?
+            .context("Failed to load market actor v8")?;
+
+        let market_state: fil_actor_market_state::v8::State = store
+            .get_cbor(&market_actor.state)?
+            .context("Failed to load market state v8")?;
+
+        let (pending_verified_deals, pending_verified_deal_size) =
+            get_pending_verified_deals_and_total_size(&store, &market_state)?;
+
         current_manifest.builtin_actor_codes().for_each(|code| {
             let id = current_manifest.id_by_code(code);
             let new_code = new_manifest.code_by_id(id).unwrap();
@@ -60,7 +86,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             // Use the new code as prior code here, have set an empty actor in `run_migrations` to
             // migrate from
             *datacap_code,
-            datacap::datacap_migrator(&state_tree)?,
+            datacap::datacap_migrator(verifreg_state, pending_verified_deal_size)?,
         );
 
         Ok(())

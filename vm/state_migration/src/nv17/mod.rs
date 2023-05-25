@@ -8,6 +8,7 @@
 mod datacap;
 mod migration;
 mod miner;
+mod util;
 
 /// Run migration for `NV17`. This should be the only exported method in this
 /// module.
