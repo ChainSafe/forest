@@ -3487,6 +3487,7 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
+ "fvm_ipld_encoding 0.2.3",
  "log",
  "tokio",
  "tokio-util",

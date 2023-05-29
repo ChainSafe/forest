@@ -6,12 +6,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_chain::ChainStore;
 use forest_message::SignedMessage;
 use forest_shim::message::Message;
-use forest_utils::db::BlockstoreExt;
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
@@ -144,7 +144,7 @@ impl<'a> TipsetValidator<'a> {
 
         // Store message roots and receive meta_root CID
         blockstore
-            .put_obj(&meta, Blake2b256)
+            .put_cbor_default(&meta)
             .map_err(|e| Box::new(TipsetValidationError::Blockstore(e.to_string())))
     }
 }
