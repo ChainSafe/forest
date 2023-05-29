@@ -3937,6 +3937,7 @@ dependencies = [
  "forest_ipld",
  "forest_json",
  "forest_shim",
+ "forest_utils",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "libipld-core 0.14.0",

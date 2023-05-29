@@ -19,9 +19,9 @@ macro_rules! impl_system {
         pub(super) mod system {
             use std::sync::Arc;
 
-            use cid::{multihash::Code::Blake2b256, Cid};
+            use cid::Cid;
+            use forest_utils::db::CborStoreExt;
             use fvm_ipld_blockstore::Blockstore;
-            use fvm_ipld_encoding::CborStore;
             use $crate::common::*;
 
             pub(super) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
@@ -48,7 +48,7 @@ macro_rules! impl_system {
                     let state = super::SystemStateNew {
                         builtin_actors: self.new_builtin_actors_cid,
                     };
-                    let new_head = store.put_cbor(&state, Blake2b256)?;
+                    let new_head = store.put_cbor_default(&state)?;
 
                     Ok(ActorMigrationOutput {
                         new_code_cid: self.new_code_cid,
