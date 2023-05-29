@@ -414,7 +414,7 @@ pub mod common_api {
     pub type ShutdownParams = ();
     pub type ShutdownResult = ();
 
-    pub const START_TIME: &str = "Filecoin.StateStartTime";
+    pub const START_TIME: &str = "Filecoin.StartTime";
     pub type StartTimeParams = ();
     pub type StartTimeResult = chrono::DateTime<Utc>;
 }
@@ -464,9 +464,34 @@ pub mod progress_api {
 
 /// Node API
 pub mod node_api {
-    use crate::data_types::node_api::NodeStatusInfo;
-
     pub const NODE_STATUS: &str = "Filecoin.StateStartTime";
     pub type NodeStatusParams = ();
-    pub type NodeStatusResult = NodeStatusInfo;
+    pub type NodeStatusResult = NodeStatus;
+
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, Default)]
+    pub struct NodeSyncStatus {
+        pub epoch: u64,
+        pub behind: u64,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Default)]
+    pub struct NodePeerStatus {
+        pub peers_to_publish_msgs: u32,
+        pub peers_to_publish_blocks: u32,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Default)]
+    pub struct NodeChainStatus {
+        pub blocks_per_tipset_last_100: f64,
+        pub blocks_per_tipset_last_finality: f64,
+    }
+
+    #[derive(Debug, Deserialize, Default, Serialize)]
+    pub struct NodeStatus {
+        pub sync_status: NodeSyncStatus,
+        pub peer_status: NodePeerStatus,
+        pub chain_status: NodeChainStatus,
+    }
 }
