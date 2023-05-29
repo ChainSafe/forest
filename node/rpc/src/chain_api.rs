@@ -331,7 +331,9 @@ where
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let name: String = data.state_manager.chain_config().name.clone();
+    let heaviest_tipset = data.chain_store.heaviest_tipset();
+    let ht_parent_state = heaviest_tipset.parent_state();
+    let name: String = data.state_manager.get_network_name(ht_parent_state)?;
     Ok(name)
 }
 

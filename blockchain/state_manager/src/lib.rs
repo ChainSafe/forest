@@ -15,7 +15,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actor_interface::*;
+use fil_actor_interface::{*, init::ADDRESS};
 use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -272,23 +272,16 @@ where
     // This function used to do this: Returns the network name from the init actor
     // state.
     /// Returns the internal, protocol-level network name.
-    pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
-        if self.chain_config.name == "calibnet" {
-            return Ok("calibrationnet".to_owned());
-        }
-        if self.chain_config.name == "mainnet" {
-            return Ok("testnetnet".to_owned());
-        }
-        if self.chain_config.name == "devnet" {
-            return Ok("devnet".to_owned());
-        }
-        Err(Error::Other("Cannot guess network name".to_owned()))
-        // let init_act = self
-        //     .get_actor(actor::init::ADDRESS, *st)?
-        //     .ok_or_else(|| Error::State("Init actor address could not be
-        // resolved".to_string()))?; let state =
-        // init::State::load(self.blockstore(), &init_act)?;
-        // Ok(state.into_network_name())
+    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
+        let heaviest_tipset = self.cs.heaviest_tipset();
+        let ht_parent_state = heaviest_tipset.parent_state();
+
+        let init_act = self
+            .get_actor(&ADDRESS.into(), *ht_parent_state)? // FIXME: use passed `st`
+            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+        // dbg!(&init_act);
+        let state = init::State::load(self.blockstore(), init_act.code, init_act.state)?;
+        Ok(state.into_network_name())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
