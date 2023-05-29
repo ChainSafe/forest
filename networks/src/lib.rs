@@ -7,21 +7,17 @@ use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use forest_shim::version::NetworkVersion;
+use forest_shim::{sector::{RegisteredPoStProof, RegisteredSealProof}, version::NetworkVersion, Inner};
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use url::Url;
 
-pub mod calibnet;
 mod drand;
-pub mod mainnet;
 
-// As per https://github.com/ethereum-lists/chains
-// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314.json
-const MAINNET_ETH_CHAIN_ID: u64 = 314;
-// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
-const CALIBNET_ETH_CHAIN_ID: u64 = 314159;
+pub mod calibnet;
+pub mod devnet;
+pub mod mainnet;
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
@@ -34,10 +30,11 @@ const DEFAULT_REQUEST_WINDOW: usize = 32;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NetworkChain {
     Mainnet,
     Calibnet,
+    Devnet(String),
 }
 
 impl FromStr for NetworkChain {
@@ -47,7 +44,7 @@ impl FromStr for NetworkChain {
         match s {
             "mainnet" => Ok(NetworkChain::Mainnet),
             "calibnet" => Ok(NetworkChain::Calibnet),
-            name => Err(anyhow::anyhow!("unsupported network chain: {name}")),
+            name => Ok(NetworkChain::Devnet(name.to_owned())),
         }
     }
 }
@@ -145,6 +142,7 @@ pub struct ChainConfig {
     pub genesis_cid: Option<String>,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
+    pub propagation_delay_secs: u64,
     pub height_infos: Vec<HeightInfo>,
     #[serde(default = "default_policy")]
     pub policy: Policy,
@@ -157,30 +155,71 @@ pub struct ChainConfig {
 
 impl ChainConfig {
     pub fn mainnet() -> Self {
+        println!("Using mainnet");
         use mainnet::*;
         Self {
             name: "mainnet".to_string(),
             genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
-            eth_chain_id: MAINNET_ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
             request_window: DEFAULT_REQUEST_WINDOW,
         }
     }
 
     pub fn calibnet() -> Self {
+        println!("Using calibnet");
         use calibnet::*;
         Self {
             name: "calibnet".to_string(),
             genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
-            eth_chain_id: CALIBNET_ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID,
+            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+            request_window: DEFAULT_REQUEST_WINDOW,
+        }
+    }
+
+    pub fn devnet() -> Self {
+        println!("Using devnet");
+        use devnet::*;
+        let mut policy = Policy::mainnet();
+        policy.minimum_consensus_power = 2048.into();
+        policy.minimum_verified_allocation_size = 256.into();
+        policy.pre_commit_challenge_delay = 10;
+
+        // TODO not sure about the allowed proof types. The logic in Lotus seems more complex than
+        // this.
+        #[allow(clippy::disallowed_types)]
+        let allowed_proof_types = std::collections::HashSet::from_iter(vec![
+            <RegisteredSealProof as Inner>::FVM::StackedDRG2KiBV1,
+            <RegisteredSealProof as Inner>::FVM::StackedDRG8MiBV1,
+        ]);
+        policy.valid_pre_commit_proof_type = allowed_proof_types;
+        #[allow(clippy::disallowed_types)]
+        let allowed_proof_types = std::collections::HashSet::from_iter(vec![
+            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow2KiBV1,
+            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow8MiBV1,
+        ]);
+        policy.valid_post_proof_type = allowed_proof_types;
+
+        Self {
+            name: "devnet".to_string(),
+            genesis_cid: None,
+            bootstrap_peers: Vec::new(),
+            block_delay_secs: 4,
+            propagation_delay_secs: 1,
+            height_infos: HEIGHT_INFOS.to_vec(),
+            policy,
+            eth_chain_id: ETH_CHAIN_ID,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
             request_window: DEFAULT_REQUEST_WINDOW,
         }
@@ -190,6 +229,10 @@ impl ChainConfig {
         match network_chain {
             NetworkChain::Mainnet => Self::mainnet(),
             NetworkChain::Calibnet => Self::calibnet(),
+            NetworkChain::Devnet(name) => Self {
+                name: name.to_string(),
+                ..Self::devnet()
+            },
         }
     }
 
@@ -208,11 +251,12 @@ impl ChainConfig {
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
-        let ds_iter = if self.name == "mainnet" {
-            mainnet::DRAND_SCHEDULE.iter()
-        } else {
-            calibnet::DRAND_SCHEDULE.iter()
+        let ds_iter = match self.name.as_ref() {
+            "mainnet" => mainnet::DRAND_SCHEDULE.iter(),
+            "calibnet" => calibnet::DRAND_SCHEDULE.iter(),
+            _ => devnet::DRAND_SCHEDULE.iter(),
         };
+
         let mut points = BeaconSchedule::with_capacity(ds_iter.len());
         for dc in ds_iter {
             points.0.push(BeaconPoint {
@@ -250,7 +294,8 @@ impl ChainConfig {
 
 impl Default for ChainConfig {
     fn default() -> Self {
-        ChainConfig::mainnet()
+        // TODO temporary hack to force devnet config
+        ChainConfig::devnet()
     }
 }
 

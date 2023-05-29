@@ -19,6 +19,8 @@ pub async fn process(
         if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
             if name == "calibnet" {
                 config.chain = Arc::new(ChainConfig::calibnet());
+            } else if name == "devnet" {
+                config.chain = Arc::new(ChainConfig::devnet());
             }
         }
     }

@@ -1,6 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{path::PathBuf, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use anyhow::bail;
 use cid::Cid;
@@ -8,7 +8,6 @@ use clap::Parser;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::load_car;
 use tokio_util::compat::TokioAsyncReadCompatExt;
-
 
 /// CLI options for loading a CAR file
 #[derive(Parser, Debug)]
@@ -19,12 +18,14 @@ struct Cli {
 }
 
 struct KeyReader {
-    keys: Rc<RefCell<Vec<Cid>>>
+    keys: Rc<RefCell<Vec<Cid>>>,
 }
 
 impl KeyReader {
     fn new() -> Self {
-        Self { keys: Rc::new(RefCell::new(Vec::new())) }
+        Self {
+            keys: Rc::new(RefCell::new(Vec::new())),
+        }
     }
 
     fn keys(&self) -> Vec<Cid> {
