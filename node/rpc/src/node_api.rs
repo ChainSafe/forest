@@ -33,7 +33,7 @@ pub(crate) async fn node_status<DB: Blockstore + Clone + Send + Sync + 'static, 
 
     if head.epoch() > chain_finality {
         let mut block_count = 0;
-        let mut ts = head.clone();
+        let mut ts = head;
 
         for _ in 0..100 {
             block_count += ts.blocks().len();
