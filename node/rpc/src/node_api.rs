@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(clippy::unused_async)]
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -8,7 +9,7 @@ use forest_rpc_api::{data_types::RPCState, node_api::NodeStatusResult};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 
-pub(crate) fn node_status<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(crate) async fn node_status<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
