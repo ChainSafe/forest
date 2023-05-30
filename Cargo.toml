@@ -135,7 +135,7 @@ sha2 = { version = "0.10.5", default-features = false }
 strum_macros = "0.24"
 tempfile = "3.4"
 thiserror = "1.0"
-tokio = "1.24"
+tokio = "1.28"
 tokio-stream = "0.1"
 tokio-util = "0.7.0"
 toml = "0.7"
