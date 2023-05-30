@@ -99,7 +99,7 @@ impl MsgSet {
         }
 
         if self.msgs.len() >= max_actor_pending_messages {
-            return Err(Error::TooManyPendingMessages(m.message.from().to_string()));
+            return Err(Error::TooManyPendingMessages(m.message.from().to_string(), !untrusted));
         }
         if self.msgs.insert(m.sequence(), m).is_none() {
             metrics::MPOOL_MESSAGE_TOTAL.inc();

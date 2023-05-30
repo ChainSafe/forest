@@ -432,7 +432,7 @@ pub mod tests {
         }
         assert_eq!(
             mpool.add(last.clone()),
-            Err(Error::TooManyPendingMessages(sender.to_string()))
+            Err(Error::TooManyPendingMessages(sender.to_string(), true))
         );
     }
 
