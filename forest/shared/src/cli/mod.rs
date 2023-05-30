@@ -308,7 +308,6 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     }
 }
 
-/// `{data_dir}/snapshots/{chain_name}`
 pub fn default_snapshot_dir(config: &Config) -> PathBuf {
     config
         .client

@@ -1,19 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-//! We occasionally fetch snapshots and store them locally, in a
-//! `snapshot_dir`.
-//!
-//! There is normally a different `snapshot_dir` for different chains - see
-//! [super::cli::default_snapshot_dir].
-//!
-//! This module contains utilities for fetching,
-//! enumerating, and deleting snapshots in `snapshot_dir`. Users should *not*
-//! call multiple operations on `snapshot_dir` from different threads.
+//! We occasionally fetch snapshots and store them locally, in
+//! `snapshot_dir` This contains utilities for fetching, enumerating,
+//! and deleting snapshots in `snapshot_dir`. Users should *not* call
+//! multiple operations on `snapshot_dir` from different threads.
 //!
 //! # Storing snapshots
 //! Snapshots are stored compressed as
-//! `<snapshot_dir>/<height>_<datetime>.car.zst`
-//! E.g `<snapshot_dir>/64050_2022_11_24T00_00_00Z.car.zst`
+//! `<snapshot_dir>/<slug>/<height>_<datetime>.car.zst`
+//! E.g `<snapshot_dir>/mainnet/64050_2022_11_24T00_00_00Z.car.zst`
 //!
 //! # Concepts
 //! Other modules should *not* have to concern themselves with filename parsing
@@ -24,7 +19,11 @@
 //! - Keep a register/machine readable db of snapshots, don't store metadata in
 //!   filenames
 //! - Mutual exclusion on snapshot_dir, e.g with `flock`
-use std::{path::PathBuf, str::FromStr};
+
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::{anyhow, bail, Context as _};
 use canonical_path::CanonicalPath;
@@ -44,12 +43,27 @@ pub fn list(snapshot_dir: &CanonicalPath) -> anyhow::Result<Vec<Snapshot>> {
         .filter_ok(|entry| entry.file_type().is_file())
         .map_ok(|entry| {
             let path = entry.path().to_path_buf();
+            let slug = entry
+                .path()
+                .parent()
+                .and_then(|parent| {
+                    parent
+                        .strip_prefix(snapshot_dir)
+                        .ok()
+                        .and_then(Path::to_str)
+                        .map(String::from)
+                })
+                .context("invalid slug (subfolder) in snapshot directory")?;
             let metadata = entry
                 .file_name()
                 .to_str()
                 .and_then(|s| s.parse().ok())
                 .context("invalid filename for snapshot in snapshot directory")?;
-            anyhow::Ok(Snapshot { metadata, path })
+            anyhow::Ok(Snapshot {
+                slug,
+                metadata,
+                path,
+            })
         })
         // This short-circuits our errors, but there's a case to be made for not
         // falling over if our directory structure doesn't look right
@@ -64,23 +78,24 @@ pub fn list(snapshot_dir: &CanonicalPath) -> anyhow::Result<Vec<Snapshot>> {
 pub fn clean(snapshot_dir: &CanonicalPath) -> anyhow::Result<()> {
     std::fs::remove_dir_all(snapshot_dir).context("error removing snapshot directory")?;
     std::fs::create_dir_all(snapshot_dir).context("error recreating snapshot dir")?;
-    Ok(())
+    todo!()
 }
 
-/// Fetch a snapshot to snapshot dir
+/// Fetch a snapshot
 pub async fn fetch(
     snapshot_dir: &CanonicalPath,
+    slug: &str,
     client: &reqwest::Client,
     stable_url: Url,
     progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<PathBuf> {
-    tokio::fs::create_dir_all(snapshot_dir.as_path()).await?;
+    tokio::fs::create_dir_all(snapshot_dir.as_path().join(slug)).await?;
     let (_meta, file_url, _file_name, file_len) = peek_snapshot(client, stable_url).await?;
     progress_bar.set_length(file_len);
     match download_to_temp(client, file_url, progress_bar).await {
         Ok((path, final_url)) => match metadata_and_filename(&final_url) {
             Ok((_meta, file_name)) => {
-                let final_path = snapshot_dir.as_path().join(file_name);
+                let final_path = snapshot_dir.as_path().join(slug).join(file_name);
                 tokio::fs::rename(path, &final_path)
                     .await
                     .context("couldn't move download to final location")?;
@@ -169,6 +184,8 @@ async fn download_to_temp(
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Snapshot {
+    /// Potentially empty string
+    pub slug: String,
     pub metadata: SnapshotMetadata,
     /// Full path to snapshot
     pub path: PathBuf,
@@ -253,8 +270,6 @@ impl FromStr for SnapshotMetadata {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use canonical_path::CanonicalPathBuf;
     use httptest::{matchers::request::method_path, responders::status_code, Expectation};
     use pretty_assertions::assert_eq;
@@ -274,8 +289,9 @@ mod tests {
     }
 
     impl Snapshot {
-        fn example(path: PathBuf) -> Self {
+        fn example(slug: &str, path: PathBuf) -> Self {
             Self {
+                slug: slug.to_string(),
                 metadata: example_metadata(),
                 path,
             }
@@ -294,9 +310,9 @@ mod tests {
 
         let snapshot_dir = CanonicalPathBuf::new(temp_dir.path())?
             .file(EXAMPLE_FILENAME)
-            .folder_contents("subdir", |slug| {
+            .folder_contents("slug", |slug| {
                 slug.file(EXAMPLE_FILENAME)
-                    .folder_contents("nested_subdir", |nested_slug| {
+                    .folder_contents("nested_slug", |nested_slug| {
                         nested_slug.file(EXAMPLE_FILENAME);
                     });
             });
@@ -304,12 +320,13 @@ mod tests {
         let snapshots = list(snapshot_dir.as_canonical_path())?;
         assert_eq!(
             vec![
-                Snapshot::example(temp_dir.path().join(EXAMPLE_FILENAME)),
-                Snapshot::example(temp_dir.path().join("subdir").join(EXAMPLE_FILENAME)),
+                Snapshot::example("", temp_dir.path().join(EXAMPLE_FILENAME)),
+                Snapshot::example("slug", temp_dir.path().join("slug").join(EXAMPLE_FILENAME)),
                 Snapshot::example(
+                    "slug/nested_slug",
                     temp_dir
                         .path()
-                        .join("subdir/nested_subdir")
+                        .join("slug/nested_slug")
                         .join(EXAMPLE_FILENAME)
                 )
             ],
@@ -334,6 +351,7 @@ mod tests {
         );
         fetch(
             snapshot_dir,
+            "",
             &reqwest::Client::new(),
             server.url_str("/stable").parse().unwrap(),
             &indicatif::ProgressBar::hidden(),
@@ -341,7 +359,10 @@ mod tests {
         .await?;
         let snapshots = list(snapshot_dir)?;
         assert_eq!(
-            vec![Snapshot::example(temp_dir.path().join(EXAMPLE_FILENAME))],
+            vec![Snapshot::example(
+                "",
+                temp_dir.path().join(EXAMPLE_FILENAME)
+            )],
             snapshots
         );
         Ok(())
