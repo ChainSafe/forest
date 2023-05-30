@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-//! We occasionally fetch snapshots and store them locally, in a
-//! `snapshot_dir`.
+//! We occasionally fetch snapshots of the chain and store them locally.
 //!
 //! There is normally a different `snapshot_dir` for different chains - see
 //! [super::cli::default_snapshot_dir].

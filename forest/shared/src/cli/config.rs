@@ -4,7 +4,6 @@
 use core::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::bail;
 use forest_chain_sync::SyncConfig;
 #[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 use forest_db::db_engine::DbConfig;
@@ -12,11 +11,10 @@ use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use super::client::Client;
 
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct LogConfig {
     pub filters: Vec<LogValue>,
 }
@@ -48,7 +46,7 @@ impl Default for LogConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct LogValue {
     pub module: String,
     pub level: LevelFilter,
@@ -63,79 +61,8 @@ impl LogValue {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Default)]
-pub struct SnapshotFetchConfig {
-    pub forest: ForestSnapshotFetchConfig,
-    pub filecoin: FilecoinSnapshotFetchConfig,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct FilecoinSnapshotFetchConfig {
-    pub mainnet_compressed: Url,
-    pub calibnet_compressed: Url,
-}
-
-impl Default for FilecoinSnapshotFetchConfig {
-    fn default() -> Self {
-        // unfallible unwrap as we know that the value is correct
-        // <https://lotus.filecoin.io/lotus/manage/chain-management/#lightweight-snapshot>
-        Self {
-            mainnet_compressed: Url::try_from(
-                "https://snapshots.mainnet.filops.net/minimal/latest",
-            )
-            .unwrap(),
-            calibnet_compressed: Url::try_from(
-                "https://snapshots.calibrationnet.filops.net/minimal/latest",
-            )
-            .unwrap(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct ForestSnapshotFetchConfig {
-    pub mainnet: ForestFetchConfig,
-    pub calibnet: ForestFetchConfig,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct ForestFetchConfig {
-    pub snapshot_spaces_url: Url,
-    pub bucket_name: String,
-    pub region: String,
-    pub path: String,
-}
-
-impl Default for ForestSnapshotFetchConfig {
-    fn default() -> Self {
-        // unfallible unwrap as we know that the value is correct
-        Self {
-            // Forest does not support snapshot service for mainnet yet.
-            // TODO: Update config when mainnet snapshot service is available
-            mainnet: ForestFetchConfig {
-                snapshot_spaces_url: Url::try_from(
-                    "https://forest-snapshots.fra1.digitaloceanspaces.com",
-                )
-                .unwrap(),
-                bucket_name: "forest-snapshots".to_string(),
-                region: "fra1".to_string(),
-                path: "mainnet/".to_string(),
-            },
-            calibnet: ForestFetchConfig {
-                snapshot_spaces_url: Url::try_from(
-                    "https://forest-snapshots.fra1.digitaloceanspaces.com",
-                )
-                .unwrap(),
-                bucket_name: "forest-snapshots".to_string(),
-                region: "fra1".to_string(),
-                path: "calibnet/".to_string(),
-            },
-        }
-    }
-}
-
 /// Structure that defines daemon configuration when process is detached
-#[derive(Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 pub struct DaemonConfig {
     pub user: Option<String>,
     pub group: Option<String>,
@@ -164,7 +91,7 @@ impl Default for DaemonConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default, Debug)]
 pub struct TokioConfig {
     pub worker_threads: Option<usize>,
     pub max_blocking_threads: Option<usize>,
@@ -173,7 +100,7 @@ pub struct TokioConfig {
     pub global_queue_interval: Option<u32>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
     pub client: Client,
@@ -184,7 +111,6 @@ pub struct Config {
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
     pub log: LogConfig,
-    pub snapshot_fetch: SnapshotFetchConfig,
     pub tokio: TokioConfig,
 }
 
@@ -197,15 +123,8 @@ impl Config {
     pub fn db_config(&self) -> &DbConfig {
         &self.parity_db
     }
-    /// Snapshots may be fetch from a "stable URL"
-    // TODO(aatifsyed): This struct shouldn't really have fallible
-    // inter-dependencies like this
-    pub fn stable_url_for_current_chain(&self) -> anyhow::Result<&Url> {
-        match self.chain.name.to_lowercase().as_str() {
-            "mainnet" => Ok(&self.snapshot_fetch.filecoin.mainnet_compressed),
-            "calibnet" /* | "calibrationnet" */ => Ok(&self.snapshot_fetch.filecoin.calibnet_compressed),
-            name => bail!("unsupported chain name: {name}"), // TODO(aatifsyed: should this be a panic?)
-        }
+    pub fn snapshot_dir(&self) -> PathBuf {
+        self.client.data_dir.join("snapshots")
     }
 }
 
@@ -226,6 +145,7 @@ mod test {
 
     /// Partial configuration, as some parts of the proper one don't implement
     /// required traits (i.e. Debug)
+    // TODO(aatifsyed): the above comment is wrong
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
@@ -246,7 +166,6 @@ mod test {
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
                 log: Default::default(),
-                snapshot_fetch: Default::default(),
                 tokio: Default::default(),
             }
         }

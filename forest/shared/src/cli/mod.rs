@@ -308,15 +308,6 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     }
 }
 
-/// `{data_dir}/snapshots/{chain_name}`
-pub fn default_snapshot_dir(config: &Config) -> PathBuf {
-    config
-        .client
-        .data_dir
-        .join("snapshots")
-        .join(config.chain.network.to_string())
-}
-
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string())
