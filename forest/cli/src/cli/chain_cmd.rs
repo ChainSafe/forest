@@ -96,7 +96,7 @@ impl ChainCommands {
                 let checkpoint_hash = chain_get_tipset_hash((tsk_json,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("Chain:           {}", config.chain.name);
+                println!("Chain:           {}", config.chain.network);
                 println!("Epoch:           {}", target_epoch);
                 println!("Checkpoint hash: {}", checkpoint_hash);
                 Ok(())

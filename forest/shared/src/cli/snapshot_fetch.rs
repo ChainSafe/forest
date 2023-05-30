@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::bail;
 use chrono::{DateTime, NaiveDate};
+use forest_networks::NetworkChain;
 use forest_utils::{
     io::{progress_bar::Units, ProgressBar, TempFile},
     net::{
@@ -38,12 +39,11 @@ pub enum SnapshotServer {
 }
 
 impl SnapshotServer {
-    pub fn try_get_default(chain: impl AsRef<str>) -> anyhow::Result<Self> {
-        let chain = chain.as_ref();
-        Ok(match chain.to_lowercase().as_str() {
-            "mainnet" => SnapshotServer::Filecoin,
-            "calibnet" => SnapshotServer::Forest,
-            _ => anyhow::bail!("Fetch not supported for chain {chain}"),
+    pub fn try_get_default(chain: &NetworkChain) -> anyhow::Result<Self> {
+        Ok(match chain {
+            NetworkChain::Mainnet => SnapshotServer::Filecoin,
+            NetworkChain::Calibnet => SnapshotServer::Forest,
+            NetworkChain::Devnet(name) => anyhow::bail!("Fetch not supported for chain {name}"),
         })
     }
 }
@@ -89,7 +89,7 @@ impl SnapshotStore {
                     if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
                         if let Some(captures) = pattern.captures(filename) {
                             let network: String = captures.name("network").unwrap().as_str().into();
-                            if network == config.chain.name {
+                            if network == config.chain.network.to_string() {
                                 let date = NaiveDate::parse_from_str(
                                     captures.name("date").unwrap().as_str(),
                                     "%Y-%m-%d",
@@ -130,10 +130,10 @@ pub fn is_car_or_zst_or_tmp(path: &Path) -> bool {
 
 /// gets the size of a snapshot from Filecoin.
 pub async fn snapshot_fetch_size(config: &Config) -> anyhow::Result<u64> {
-    let service_url = match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => config.snapshot_fetch.filecoin.mainnet_compressed.clone(),
-        "calibnet" => config.snapshot_fetch.filecoin.calibnet_compressed.clone(),
-        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+    let service_url = match &config.chain.network {
+        NetworkChain::Mainnet => config.snapshot_fetch.filecoin.mainnet_compressed.clone(),
+        NetworkChain::Calibnet => config.snapshot_fetch.filecoin.calibnet_compressed.clone(),
+        NetworkChain::Devnet(name) => bail!("Fetch not supported for chain {name}"),
     };
     let client = https_client();
 
@@ -170,7 +170,7 @@ pub async fn snapshot_fetch(
 ) -> anyhow::Result<PathBuf> {
     let server = match provider {
         Some(s) => *s,
-        None => SnapshotServer::try_get_default(&config.chain.name)?,
+        None => SnapshotServer::try_get_default(&config.chain.network)?,
     };
     match server {
         SnapshotServer::Forest => {
@@ -202,12 +202,12 @@ async fn snapshot_fetch_forest(
         );
     }
 
-    let snapshot_fetch_config = match config.chain.name.to_lowercase().as_str() {
-        "mainnet" => bail!(
+    let snapshot_fetch_config = match &config.chain.network {
+        NetworkChain::Mainnet => bail!(
             "Mainnet snapshot fetch service not provided by Forest yet. Suggestion: use `--provider=filecoin` to fetch from Filecoin server."
         ),
-        "calibnet" => &config.snapshot_fetch.forest.calibnet,
-        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+        NetworkChain::Calibnet => &config.snapshot_fetch.forest.calibnet,
+        NetworkChain::Devnet(name) => bail!("Fetch not supported for chain {name}"),
     };
     let name = &snapshot_fetch_config.bucket_name;
     let region = &snapshot_fetch_config.region;
@@ -282,10 +282,10 @@ async fn snapshot_fetch_filecoin(
                 Suggestion: use `--compressed` to fetch compressed snapshots."
         );
     }
-    let service_url = match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => config.snapshot_fetch.filecoin.mainnet_compressed.clone(),
-        "calibnet" => config.snapshot_fetch.filecoin.calibnet_compressed.clone(),
-        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+    let service_url = match &config.chain.network {
+        NetworkChain::Mainnet => config.snapshot_fetch.filecoin.mainnet_compressed.clone(),
+        NetworkChain::Calibnet => config.snapshot_fetch.filecoin.calibnet_compressed.clone(),
+        NetworkChain::Devnet(name) => bail!("Fetch not supported for chain {name}"),
     };
     info!("Snapshot url: {service_url}");
     let client = https_client();
@@ -317,7 +317,7 @@ async fn snapshot_fetch_filecoin(
     let filename = filename_from_url(&snapshot_url)?;
     // Create requested directory tree to store the snapshot
     create_dir_all(snapshot_out_dir).await?;
-    let snapshot_name = normalize_filecoin_snapshot_name(&config.chain.name, &filename)?;
+    let snapshot_name = normalize_filecoin_snapshot_name(&config.chain.network, &filename)?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
     // Download the file
     if use_aria2 {
@@ -516,11 +516,15 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
 /// car`. # Example
 /// ```
 /// # use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
+/// # use forest_networks::NetworkChain;
 /// let actual_name = "64050_2022_11_24T00_00_00Z.car";
 /// let normalized_name = "filecoin_snapshot_calibnet_2022-11-24_height_64050.car";
-/// assert_eq!(normalized_name, normalize_filecoin_snapshot_name("calibnet", actual_name).unwrap());
+/// assert_eq!(normalized_name, normalize_filecoin_snapshot_name(&NetworkChain::Calibnet, actual_name).unwrap());
 /// ```
-pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
+pub fn normalize_filecoin_snapshot_name(
+    network: &NetworkChain,
+    filename: &str,
+) -> anyhow::Result<String> {
     let pattern = Regex::new(
         r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z(?P<ext>\.car(\.zst)?)$",
     )
@@ -530,7 +534,8 @@ pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow
         let height = captures.name("height").unwrap().as_str().parse::<i64>()?;
         let ext = captures.name("ext").unwrap().as_str();
         Ok(format!(
-            "filecoin_snapshot_{network}_{}_height_{height}{ext}",
+            "filecoin_snapshot_{}_{}_height_{height}{ext}",
+            network,
             date.format("%Y-%m-%d")
         ))
     } else {
@@ -695,7 +700,7 @@ mod test {
 
     #[quickcheck]
     fn test_normalize_filecoin_snapshot_name(filename: String) {
-        _ = normalize_filecoin_snapshot_name("calibnet", &filename);
+        _ = normalize_filecoin_snapshot_name(&NetworkChain::Calibnet, &filename);
     }
 
     #[test]

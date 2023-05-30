@@ -33,11 +33,11 @@ use forest_shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::CborStore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
@@ -270,16 +270,14 @@ where
     // state.
     /// Returns the internal, protocol-level network name.
     pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
-        if self.chain_config.name == "calibnet" {
-            return Ok("calibrationnet".to_owned());
+        let name = match &self.chain_config.network {
+            forest_networks::NetworkChain::Mainnet => "testnetnet",
+            forest_networks::NetworkChain::Calibnet => "calibrationnet",
+            forest_networks::NetworkChain::Devnet(name) => name,
         }
-        if self.chain_config.name == "mainnet" {
-            return Ok("testnetnet".to_owned());
-        }
-        if self.chain_config.name == "devnet" {
-            return Ok("devnet".to_owned());
-        }
-        Err(Error::Other("Cannot guess network name".to_owned()))
+        .to_owned();
+
+        Ok(name)
         // let init_act = self
         //     .get_actor(actor::init::ADDRESS, *st)?
         //     .ok_or_else(|| Error::State("Init actor address could not be
@@ -763,7 +761,7 @@ where
                 .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
             let parent: BlockHeader = self
                 .blockstore()
-                .get_obj(parent_cid)?
+                .get_cbor(parent_cid)?
                 .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
             parent.epoch()
         } else {
