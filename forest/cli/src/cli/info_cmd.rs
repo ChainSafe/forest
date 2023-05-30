@@ -20,7 +20,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::Config;
 use crate::cli::handle_rpc_err;
-use crate::humantoken::{self, TokenAmountPretty};
+use crate::humantoken::TokenAmountPretty;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -261,7 +261,6 @@ impl InfoCommand {
 }
 
 fn balance(balance: Option<String>) -> anyhow::Result<String> {
-    use crate::humantoken::TokenAmountPretty;
     if let Some(bal) = balance {
         let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
         Ok(format!("{:.4}", balance_token_amount.pretty()))
@@ -364,7 +363,7 @@ mod tests {
         let tipset = mock_tipset_at(cur_duration.as_secs() - 59);
         let node_status = NodeStatusInfo::new(cur_duration, 20., TipsetJson(tipset)).unwrap();
         let node_info_output = NodeInfoOutput::from(node_status);
-        let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 atto FIL] [epoch: 0]";
+        let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]";
         assert_eq!(
             expected_status_fmt.clear(),
             node_info_output
@@ -376,8 +375,7 @@ mod tests {
         let node_status = NodeStatusInfo::new(cur_duration, 20., TipsetJson(tipset)).unwrap();
         let node_info_output = NodeInfoOutput::from(node_status);
 
-        let expected_status_fmt =
-            "[sync: Behind! (8h 20m behind)] [basefee: 0 atto FIL] [epoch: 0]";
+        let expected_status_fmt = "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]";
         assert_eq!(
             expected_status_fmt.clear(),
             node_info_output
