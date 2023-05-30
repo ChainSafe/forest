@@ -12,6 +12,7 @@ use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
     cli::{default_snapshot_dir, to_size_string, CliOpts, Client, Config},
+    snapshot,
 };
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
@@ -378,6 +379,10 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
         get_params_default(&config.client.data_dir, SectorSizeOpt::Keys).await?;
+    }
+
+    if should_fetch_snapshot {
+        snapshot::fetch(snapshot_dir, slug, client, stable_url, progress_bar)
     }
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;

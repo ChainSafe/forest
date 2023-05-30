@@ -15,6 +15,7 @@ atty = "0.2"
 base64.workspace = true
 bigdecimal = "0.3.1"
 boa_engine = { version = "0.16.0", features = ["console"] }
+canonical-path.workspace = true
 cfg-if.workspace = true
 chrono.workspace = true
 cid.workspace = true
@@ -46,12 +47,14 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
+indicatif.workspace = true
 jsonrpc-v2.workspace = true
 lazy-regex.workspace = true
 log.workspace = true
 multibase.workspace = true
 nom.workspace = true
 num.workspace = true
+reqwest.workspace = true
 rpassword.workspace = true
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }

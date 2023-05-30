@@ -3,7 +3,8 @@
 
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
-use anyhow::bail;
+use anyhow::{bail, Context as _};
+use canonical_path::CanonicalPathBuf;
 use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -50,12 +51,6 @@ pub enum SnapshotCommands {
         /// provided, it will be saved in default Forest data location.
         #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
-        /// Snapshot trusted source
-        #[arg(short, long, value_enum)]
-        provider: Option<SnapshotServer>,
-        /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
-        #[arg(long)]
-        aria2: bool,
         /// Maximum number of times to retry the fetch
         #[arg(short, long, default_value = "3")]
         max_retries: usize,
@@ -207,21 +202,46 @@ impl SnapshotCommands {
             }
             Self::Fetch {
                 snapshot_dir,
-                provider,
-                aria2: use_aria2,
                 max_retries,
                 delay,
             } => {
+                let client = reqwest::Client::new();
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
+                let snapshot_dir = CanonicalPathBuf::new(snapshot_dir)
+                    .context("couldn't canonicalize snapshot dir")?;
+                let progress_bar_style = indicatif::ProgressStyle::with_template(
+                    "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
+                )
+                .expect("invalid progress template")
+                .progress_chars("#>-");
+                let progress_bar = indicatif::ProgressBar::new(0)
+                    .with_message("downloading snapshot")
+                    .with_style(progress_bar_style);
+                let (slug, stable_url) = match config.chain.name.to_lowercase().as_str() {
+                    "mainnet" => ("mainnet", config.snapshot_fetch.filecoin.mainnet_compressed),
+                    "calibnet" | "calibrationnet" => (
+                        "calibnet",
+                        config.snapshot_fetch.filecoin.calibnet_compressed,
+                    ),
+                    name => bail!("unsupported chain name: {name}"),
+                };
                 match retry(
                     RetryArgs {
                         timeout: None,
                         max_retries: Some(*max_retries),
                         delay: Some(*delay),
                     },
-                    || snapshot_fetch(&snapshot_dir, &config, provider.as_ref(), *use_aria2),
+                    || {
+                        forest_cli_shared::snapshot::fetch(
+                            snapshot_dir.as_canonical_path(),
+                            slug,
+                            &client,
+                            stable_url.clone(),
+                            &progress_bar,
+                        )
+                    },
                 )
                 .await
                 {
