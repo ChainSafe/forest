@@ -31,8 +31,8 @@ pub enum Error {
     TryAgain,
     #[error("Validation Error: {0}")]
     SoftValidationFailure(String),
-    #[error("Too many pending messages from actor {0}")]
-    TooManyPendingMessages(String),
+    #[error("Too many pending messages from actor {0} (trusted: {1})")]
+    TooManyPendingMessages(String, bool),
     #[error("{0}")]
     Other(String),
 }
