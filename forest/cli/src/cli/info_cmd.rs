@@ -11,10 +11,8 @@ use forest_rpc_client::{
     wallet_default_address,
 };
 use forest_shim::econ::TokenAmount;
-use forest_utils::{
-    io::parser::{format_balance_string, FormattingMode},
-    misc::LoggingColor,
-};
+use forest_utils::misc::LoggingColor;
+
 use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
 use num::BigInt;
@@ -22,6 +20,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::Config;
 use crate::cli::handle_rpc_err;
+use crate::humantoken::{self, TokenAmountPretty};
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -129,9 +128,7 @@ impl NodeStatusInfo {
     }
 
     pub fn chain_status(&self) -> String {
-        let base_fee_fmt =
-            format_balance_string(self.base_fee.clone(), FormattingMode::NotExactNotFixed)
-                .unwrap_or("OutOfBounds".to_string());
+        let base_fee_fmt = self.base_fee.pretty();
 
         let behind = format!("{}", humantime::format_duration(self.behind));
         format!(
