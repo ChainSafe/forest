@@ -346,6 +346,7 @@ pub mod tests {
     use crate::{
         msg_chain::{create_message_chains, Chains},
         msg_pool::MessagePool,
+        msg_pool::MAX_ACTOR_PENDING_MESSAGES,
     };
 
     pub fn create_smsg(
@@ -420,7 +421,7 @@ pub mod tests {
         )
         .unwrap();
         let mut smsg_vec = Vec::new();
-        for i in 0..1001 {
+        for i in 0..(MAX_ACTOR_PENDING_MESSAGES as u64 + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
