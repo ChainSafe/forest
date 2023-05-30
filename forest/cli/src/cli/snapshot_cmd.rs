@@ -192,12 +192,11 @@ impl SnapshotCommands {
                 let progress_bar = indicatif::ProgressBar::new(0)
                     .with_message("downloading snapshot")
                     .with_style(progress_bar_style);
-                let (slug, stable_url) = match config.chain.name.to_lowercase().as_str() {
-                    "mainnet" => ("mainnet", config.snapshot_fetch.filecoin.mainnet_compressed),
-                    "calibnet" | "calibrationnet" => (
-                        "calibnet",
-                        config.snapshot_fetch.filecoin.calibnet_compressed,
-                    ),
+                let stable_url = match config.chain.name.to_lowercase().as_str() {
+                    "mainnet" => config.snapshot_fetch.filecoin.mainnet_compressed,
+                    "calibnet" | "calibrationnet" => {
+                        config.snapshot_fetch.filecoin.calibnet_compressed
+                    }
                     name => bail!("unsupported chain name: {name}"),
                 };
                 match retry(
@@ -210,7 +209,6 @@ impl SnapshotCommands {
                         info!("fetching snapshot from {stable_url}");
                         forest_cli_shared::snapshot::fetch(
                             snapshot_dir.as_canonical_path(),
-                            slug,
                             &client,
                             stable_url.clone(),
                             &progress_bar,
@@ -245,7 +243,6 @@ impl SnapshotCommands {
                         println!("\tpath: {}", snapshot.path.display());
                         println!("\theight: {}", snapshot.metadata.height);
                         println!("\tdatetime: {}", snapshot.metadata.datetime);
-                        println!("\tslug: {}", snapshot.slug);
                     }
                 }
                 Ok(())
@@ -279,6 +276,8 @@ impl SnapshotCommands {
     }
 }
 
+/// Get the path of the snapshot directory _for this chain_.
+/// This creates the path if it doesn't exist.
 // TODO(aatifsyed): this makes a blocking syscall, but we're the only task
 // running on the executor, so probably not a big deal for now
 fn prepare_snapshot_dir(
