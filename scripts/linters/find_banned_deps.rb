@@ -40,4 +40,4 @@ result = violations.sort.map { |dep, file| [dep, file.sort.uniq] }.each do |dep,
   puts "[#{dep}] is being used in [#{file * ', '}], but this crate is banned!"
 end
 
-exit result.empty? ? 0 : 1
+exit result.empty?
