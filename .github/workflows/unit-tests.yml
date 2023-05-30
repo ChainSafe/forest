@@ -62,4 +62,10 @@ jobs:
           go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - run: make test-all
+      - run: |
+          du -h --max-depth=2
+          make test-all
+      - name: Run sccache stat for check
+        if: always()
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
