@@ -485,7 +485,7 @@ pub mod tests {
         mpool.api.set_heaviest_tipset(Arc::new(ts));
 
         // sleep allows for async block to update mpool's cur_tipset
-        tokio::time::sleep(Duration::new(2, 0)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
 
         let (p, _) = mpool.pending().unwrap();
         assert!(p.is_empty());
@@ -525,7 +525,7 @@ pub mod tests {
         mpool.api.set_heaviest_chain(ts_chain);
 
         // sleep allows for async block to update mpool's cur_tipset
-        tokio::time::sleep(Duration::new(2, 0)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
 
         let (p, _) = mpool.pending().unwrap();
         assert_eq!(p.len(), 4);
@@ -537,7 +537,7 @@ pub mod tests {
         mpool.api.set_heaviest_chain(ts_chain);
 
         // sleep allows for async block to update mpool's cur_tipset
-        tokio::time::sleep(Duration::new(2, 0)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
 
         let (p, _) = mpool.pending().unwrap();
         assert!(p.is_empty());
@@ -753,7 +753,7 @@ pub mod tests {
         mpool.api.set_heaviest_tipset(Arc::new(ts));
 
         // sleep allows for async block to update mpool's cur_tipset
-        tokio::time::sleep(Duration::new(2, 0)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
 
         let cur_ts = mpool.cur_tipset.lock().clone();
         assert_eq!(cur_ts.as_ref(), &tipset);
