@@ -37,8 +37,6 @@ parking_lot.workspace = true
 pbr.workspace = true
 pin-project-lite.workspace = true
 quickcheck.workspace = true
-rust_decimal = "1.28.1"
-rust_decimal_macros = "1.28.1"
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
