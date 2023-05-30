@@ -20,14 +20,9 @@ pub enum MultiEngineVersion {
     V3,
 }
 
-pub enum MultiEngine {
-    V2(MultiEngine_v2),
-    V3(MultiEngine_v3),
-}
-
-pub enum Engine {
-    V2(Engine_v2),
-    V3(Engine_v3),
+pub struct MultiEngine {
+    pub v2: MultiEngine_v2,
+    pub v3: MultiEngine_v3,
 }
 
 #[derive(Clone)]
@@ -36,51 +31,9 @@ pub enum NetworkConfig {
     V3(NetworkConfig_v3),
 }
 
-pub enum EngineReturn {
-    V2(Engine),
-    V3(EnginePool),
-}
-
-impl From<MultiEngine_v2> for MultiEngine {
-    fn from(other: MultiEngine_v2) -> Self {
-        MultiEngine::V2(other)
-    }
-}
-
-impl From<MultiEngine> for MultiEngine_v2 {
-    fn from(other: MultiEngine) -> Self {
-        match other {
-            MultiEngine::V2(multi_engine) => multi_engine,
-            MultiEngine::V3(multi_engine) => MultiEngine::V3(multi_engine).into(),
-        }
-    }
-}
-
-impl From<MultiEngine> for MultiEngine_v3 {
-    fn from(other: MultiEngine) -> Self {
-        match other {
-            MultiEngine::V2(multi_engine) => MultiEngine::V2(multi_engine).into(),
-            MultiEngine::V3(multi_engine) => multi_engine,
-        }
-    }
-}
-
-impl From<MultiEngine_v3> for MultiEngine {
-    fn from(other: MultiEngine_v3) -> Self {
-        MultiEngine::V3(other)
-    }
-}
-
-impl From<Engine_v2> for Engine {
-    fn from(other: Engine_v2) -> Self {
-        Engine::V2(other)
-    }
-}
-
-impl From<Engine_v3> for Engine {
-    fn from(other: Engine_v3) -> Self {
-        Engine::V3(other)
-    }
+pub struct EngineReturn {
+    _v2: Result<Engine_v2, anyhow::Error>,
+    _v3: Result<EnginePool, anyhow::Error>,
 }
 
 impl From<&NetworkConfig> for NetworkConfig_v2 {
@@ -113,30 +66,18 @@ impl From<NetworkConfig> for NetworkConfig_v3 {
     }
 }
 
-impl From<Engine_v2> for EngineReturn {
-    fn from(other: Engine_v2) -> Self {
-        EngineReturn::V2(other.into())
-    }
-}
-
-impl From<EnginePool> for EngineReturn {
-    fn from(other: EnginePool) -> Self {
-        EngineReturn::V3(other.into())
-    }
-}
-
 impl MultiEngine {
-    pub fn new(version: MultiEngineVersion, concurrency: Option<u32>) -> MultiEngine {
-        match version {
-            MultiEngineVersion::V2 => MultiEngine_v2::new().into(),
-            MultiEngineVersion::V3 => MultiEngine_v3::new(concurrency.unwrap_or(1)).into(),
+    pub fn new(concurrency: Option<u32>) -> MultiEngine {
+        MultiEngine {
+            v2: MultiEngine_v2::new(),
+            v3: MultiEngine_v3::new(concurrency.unwrap_or(1)), // `1` is default concurrency value in `fvm3`
         }
     }
 
-    pub fn get(&self, nc: &NetworkConfig) -> anyhow::Result<EngineReturn> {
-        match self {
-            MultiEngine::V2(v2) => Ok(MultiEngine_v2::get(v2, &nc.into())?.into()),
-            MultiEngine::V3(v3) => Ok(MultiEngine_v3::get(v3, &nc.into())?.into()),
+    pub fn get(&self, nc: &NetworkConfig) -> EngineReturn {
+        EngineReturn {
+            _v2: MultiEngine_v2::get(&self.v2, &nc.into()),
+            _v3: MultiEngine_v3::get(&self.v3, &nc.into()),
         }
     }
 }
