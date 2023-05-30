@@ -464,7 +464,7 @@ pub mod progress_api {
 
 /// Node API
 pub mod node_api {
-    pub const NODE_STATUS: &str = "Filecoin.StateStartTime";
+    pub const NODE_STATUS: &str = "Filecoin.NodeStatus";
     pub type NodeStatusParams = ();
     pub type NodeStatusResult = NodeStatus;
 

@@ -110,8 +110,6 @@ impl NodeStatusInfo {
 
         let base_fee = head.0.min_ticket_block().parent_base_fee().clone();
 
-        dbg!(&blocks_per_tipset_last_finality);
-
         let health = 100. * blocks_per_tipset_last_finality / BLOCKS_PER_EPOCH as f64;
 
         Ok(Self {
@@ -129,7 +127,6 @@ impl NodeStatusInfo {
 
     pub fn chain_status(&self) -> String {
         let base_fee_fmt = self.base_fee.pretty();
-
         let behind = format!("{}", humantime::format_duration(self.behind));
         format!(
             "[sync: {}! ({} behind)] [basefee: {base_fee_fmt}] [epoch: {}]",

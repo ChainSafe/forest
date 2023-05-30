@@ -21,7 +21,6 @@ These methods exist in Forest only and cannot be compared:
 - `Filecoin.NetPeers`
 - `Filecoin.StartTime`
 - `Filecoin.StateGetReceipt`
-- `Filecoin.StateStartTime`
 - `Filecoin.Version`
 
 ## Type Mismatches
@@ -154,7 +153,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.MsigSwapApprove`                           | `-` | `-` |
 |   ❌    | `Filecoin.MsigSwapCancel`                            | `-` | `-` |
 |   ❌    | `Filecoin.MsigSwapPropose`                           | `-` | `-` |
-|   ❌    | `Filecoin.NodeStatus`                                | `-` | `-` |
+|   ✔️    | `Filecoin.NodeStatus`                                | `()` | `NodeStatus` |
 |   ❌    | `Filecoin.PaychAllocateLane`                         | `-` | `-` |
 |   ❌    | `Filecoin.PaychAvailableFunds`                       | `-` | `-` |
 |   ❌    | `Filecoin.PaychAvailableFundsByFromTo`               | `-` | `-` |
