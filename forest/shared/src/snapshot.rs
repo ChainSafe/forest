@@ -1,9 +1,19 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-//! We occasionally fetch snapshots and store them locally, in
-//! `snapshot_dir` This contains utilities for fetching, enumerating,
-//! and deleting snapshots in `snapshot_dir`. Users should *not* call
-//! multiple operations on `snapshot_dir` from different threads.
+//! We occasionally fetch snapshots and store them locally, in a
+//! `snapshot_dir`.
+//!
+//! There is normally a different `snapshot_dir` for different chains - see
+//! [super::cli::default_snapshot_dir].
+//!
+//! This module contains utilities for fetching,
+//! enumerating, and deleting snapshots in `snapshot_dir`. Users should *not*
+//! call multiple operations on `snapshot_dir` from different threads.
+//!
+//! Each snapshot has an associated `slug` - this is typically the name of the
+//! snapshot vendor, i.e `"forest"` or `"filecoin"`. This is currently the
+//! subdirectory the snapshot is stored in, but this should be regarded as an
+//! implementation detail (and may be altered/extended in the future).
 //!
 //! # Storing snapshots
 //! Snapshots are stored compressed as
@@ -78,10 +88,12 @@ pub fn list(snapshot_dir: &CanonicalPath) -> anyhow::Result<Vec<Snapshot>> {
 pub fn clean(snapshot_dir: &CanonicalPath) -> anyhow::Result<()> {
     std::fs::remove_dir_all(snapshot_dir).context("error removing snapshot directory")?;
     std::fs::create_dir_all(snapshot_dir).context("error recreating snapshot dir")?;
-    todo!()
+    Ok(())
 }
 
-/// Fetch a snapshot
+/// Fetch a snapshot.
+///
+/// See [module documentation](mod@self) for more.
 pub async fn fetch(
     snapshot_dir: &CanonicalPath,
     slug: &str,
@@ -184,10 +196,11 @@ async fn download_to_temp(
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Snapshot {
-    /// Potentially empty string
+    /// Potentially empty string.
+    /// Typically indicates the snapshot vendor.
     pub slug: String,
     pub metadata: SnapshotMetadata,
-    /// Full path to snapshot
+    /// Full path to snapshot.
     pub path: PathBuf,
 }
 
@@ -214,8 +227,8 @@ fn metadata_and_filename(url: &Url) -> anyhow::Result<(SnapshotMetadata, String)
     Ok((name.parse().context("unexpected format for name")?, name))
 }
 
-/// The information contained in the filename of compressed snapshots served
-/// by `filops`
+/// The information contained in the filename of compressed snapshots from
+/// vendors.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotMetadata {
     pub height: i64,

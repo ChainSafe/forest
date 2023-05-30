@@ -41,6 +41,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde_with.workspace = true
 sha2.workspace = true
+strum.workspace = true
 tap.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["sync"] }

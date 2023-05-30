@@ -274,6 +274,8 @@ impl SnapshotCommands {
     }
 }
 
+/// Get the path of the snapshot directory _for this chain_
+/// This creates the path if it doesn't exist.
 // TODO(aatifsyed): this makes a blocking syscall, but we're the only task
 // running on the executor, so probably not a big deal for now
 fn prepare_snapshot_dir(
