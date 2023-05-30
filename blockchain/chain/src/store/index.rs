@@ -29,6 +29,7 @@ pub(super) mod checkpoint_tipsets {
     use ahash::HashSet;
     use cid::Cid;
     use forest_blocks::{Tipset, TipsetKeys};
+    use forest_networks::NetworkChain;
     use serde::{Deserialize, Serialize};
 
     // Represents a static map of validated tipset hashes which helps to remove the
@@ -67,24 +68,24 @@ pub(super) mod checkpoint_tipsets {
         None
     }
 
-    pub fn get_tipset_hashes(network: &str) -> Option<HashSet<String>> {
+    pub fn get_tipset_hashes(network: &NetworkChain) -> Option<HashSet<String>> {
         match network {
-            "mainnet" => Some(KNOWN_CHECKPOINTS.mainnet.clone()),
-            "calibnet" => Some(KNOWN_CHECKPOINTS.calibnet.clone()),
-            _ => None, // skip and pass through if an unsupported network found
+            NetworkChain::Mainnet => Some(KNOWN_CHECKPOINTS.mainnet.clone()),
+            NetworkChain::Calibnet => Some(KNOWN_CHECKPOINTS.calibnet.clone()),
+            NetworkChain::Devnet(_) => None, // skip and pass through if an unsupported network found
         }
     }
 
     // Validate that the genesis tipset matches our hard-coded values
-    pub fn validate_genesis_cid(ts: &Tipset, network: &str) -> bool {
+    pub fn validate_genesis_cid(ts: &Tipset, network: &NetworkChain) -> bool {
         match network {
-            "mainnet" => {
+            NetworkChain::Mainnet => {
                 ts.min_ticket_block().cid().to_string() == forest_networks::mainnet::GENESIS_CID
             }
-            "calibnet" => {
+            NetworkChain::Calibnet => {
                 ts.min_ticket_block().cid().to_string() == forest_networks::calibnet::GENESIS_CID
             }
-            _ => true, // skip and pass through if an unsupported network found
+            NetworkChain::Devnet(_) => true, // skip and pass through if an unsupported network found
         }
     }
 

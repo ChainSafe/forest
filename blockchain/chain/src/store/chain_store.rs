@@ -16,7 +16,7 @@ use forest_ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
-use forest_networks::ChainConfig;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -369,14 +369,14 @@ where
     pub fn validate_tipset_checkpoints(
         &self,
         from: Arc<Tipset>,
-        network: String,
+        network: &NetworkChain,
     ) -> Result<(), Error> {
         info!(
             "Validating {network} tipset checkpoint hashes from: {}",
             from.epoch()
         );
 
-        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(&network) else {
+        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(network) else {
             info!("No checkpoint tipsets found for network: {network}, skipping validation.");
             return Ok(());
         };
@@ -403,7 +403,7 @@ where
             )));
         }
 
-        if !checkpoint_tipsets::validate_genesis_cid(&ts, &network) {
+        if !checkpoint_tipsets::validate_genesis_cid(&ts, network) {
             return Err(Error::Other(format!(
                 "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
                 ts.key().cid()
