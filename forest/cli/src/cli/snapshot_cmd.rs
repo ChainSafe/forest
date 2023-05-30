@@ -23,6 +23,7 @@ use forest_utils::{
     retry, RetryArgs,
 };
 use fvm_shared::clock::ChainEpoch;
+use log::info;
 use tempfile::TempDir;
 
 use super::*;
@@ -182,12 +183,12 @@ impl SnapshotCommands {
                 delay,
             } => {
                 let client = reqwest::Client::new();
-                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
                 let progress_bar_style = indicatif::ProgressStyle::with_template(
                     "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
                 )
                 .expect("invalid progress template")
-                .progress_chars("#>-");
+                .progress_chars("=>-");
                 let progress_bar = indicatif::ProgressBar::new(0)
                     .with_message("downloading snapshot")
                     .with_style(progress_bar_style);
@@ -206,6 +207,7 @@ impl SnapshotCommands {
                         delay: Some(*delay),
                     },
                     || {
+                        info!("fetching snapshot from {stable_url}");
                         forest_cli_shared::snapshot::fetch(
                             snapshot_dir.as_canonical_path(),
                             slug,
@@ -232,7 +234,7 @@ impl SnapshotCommands {
                 Ok(())
             }
             Self::List { snapshot_dir } => {
-                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
                 let snapshots =
                     forest_cli_shared::snapshot::list(snapshot_dir.as_canonical_path())?;
                 if snapshots.is_empty() {
@@ -249,7 +251,7 @@ impl SnapshotCommands {
                 Ok(())
             }
             Self::Prune { snapshot_dir } => {
-                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
                 let snapshots =
                     forest_cli_shared::snapshot::list(snapshot_dir.as_canonical_path())?;
                 let Some( oldest) = snapshots.iter().max_by_key(|snap| snap.metadata.datetime) else {
@@ -264,7 +266,7 @@ impl SnapshotCommands {
                 Ok(())
             }
             Self::Clean { snapshot_dir } => {
-                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
                 forest_cli_shared::snapshot::clean(snapshot_dir.as_canonical_path())?;
                 Ok(())
             }
@@ -277,15 +279,16 @@ impl SnapshotCommands {
     }
 }
 
-/// TODO(aatifsyed): this makes a blocking syscall, but we're the only task
-/// running on the executor, so probably not a big deal for now
-fn override_or_default(
+// TODO(aatifsyed): this makes a blocking syscall, but we're the only task
+// running on the executor, so probably not a big deal for now
+fn prepare_snapshot_dir(
     user_override: &Option<PathBuf>,
     config: &Config,
 ) -> anyhow::Result<CanonicalPathBuf> {
     let snapshot_dir = user_override
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
+    std::fs::create_dir_all(&snapshot_dir)?;
     let snapshot_dir =
         CanonicalPathBuf::new(snapshot_dir).context("couldn't canonicalize snapshot dir")?;
     Ok(snapshot_dir)
