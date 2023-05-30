@@ -201,7 +201,7 @@ impl NodeInfoOutput {
 
 impl InfoCommand {
     pub async fn run(&self, config: Config, opts: &CliOpts) -> anyhow::Result<()> {
-        let node_status = node_status(&config.client.rpc_token)
+        let node_status = node_status((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
 

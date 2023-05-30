@@ -19,7 +19,7 @@ use directories::BaseDirs;
 use forest_chain_sync::SyncStage;
 use forest_json::message::json::MessageJson;
 use forest_rpc_api::mpool_api::MpoolPushMessageResult;
-use forest_rpc_client::*;
+use forest_rpc_client::{node_ops::node_status, *};
 use forest_shim::{address::Address, message::Message_v3};
 use fvm_shared::{clock::ChainEpoch, METHOD_SEND};
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
@@ -302,6 +302,9 @@ impl AttachCommand {
         bind_func!(context, token, net_peers);
         bind_func!(context, token, net_disconnect);
         bind_func!(context, token, net_connect);
+
+        // Node API
+        bind_func!(context, token, node_status);
 
         // Sync API
         bind_func!(context, token, sync_check_bad);
