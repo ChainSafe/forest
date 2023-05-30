@@ -18,7 +18,7 @@ use forest_networks::NetworkChain;
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
 use forest_utils::{
-    io::{parser::parse_duration, ProgressBar},
+    io::{parser::parse_duration, progress_bar::downloading_style, ProgressBar},
     net::get_fetch_progress_from_file,
     retry, RetryArgs,
 };
@@ -184,14 +184,9 @@ impl SnapshotCommands {
             } => {
                 let client = reqwest::Client::new();
                 let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
-                let progress_bar_style = indicatif::ProgressStyle::with_template(
-                    "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
-                )
-                .expect("invalid progress template")
-                .progress_chars("=>-");
                 let progress_bar = indicatif::ProgressBar::new(0)
                     .with_message("downloading snapshot")
-                    .with_style(progress_bar_style);
+                    .with_style(downloading_style());
                 let stable_url = match config.chain.name.to_lowercase().as_str() {
                     "mainnet" => config.snapshot_fetch.filecoin.mainnet_compressed,
                     "calibnet" | "calibrationnet" => {

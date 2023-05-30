@@ -28,6 +28,7 @@ git-version.workspace = true
 human-repr.workspace = true
 hyper-rustls.workspace = true
 hyper.workspace = true
+indicatif.workspace = true
 libc = "0.2"
 log.workspace = true
 memory-stats = "1.1"

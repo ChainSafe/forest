@@ -4,6 +4,7 @@
 use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::Context;
+use canonical_path::CanonicalPathBuf;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
@@ -382,7 +383,17 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     }
 
     if should_fetch_snapshot {
-        snapshot::fetch(snapshot_dir, slug, client, stable_url, progress_bar)
+        let client = reqwest::Client::new();
+        let snapshot_dir = CanonicalPathBuf::new(default_snapshot_dir(&config))
+            .context("couldn't canonicalize snapshot dir")?;
+        let stable_url = config.stable_url_for_current_chain()?;
+
+        snapshot::fetch(
+            snapshot_dir.as_canonical_path(),
+            &client,
+            stable_url.clone(),
+            progress_bar,
+        );
     }
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;

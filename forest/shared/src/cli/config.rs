@@ -4,6 +4,7 @@
 use core::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::bail;
 use forest_chain_sync::SyncConfig;
 #[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 use forest_db::db_engine::DbConfig;
@@ -188,15 +189,22 @@ pub struct Config {
 }
 
 impl Config {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "rocksdb")] {
-            pub fn db_config(&self) -> &DbConfig {
-                &self.rocks_db
-            }
-        } else if #[cfg(feature = "paritydb")] {
-            pub fn db_config(&self) -> &DbConfig {
-                &self.parity_db
-            }
+    #[cfg(feature = "rocksdb")]
+    pub fn db_config(&self) -> &DbConfig {
+        &self.rocks_db
+    }
+    #[cfg(feature = "paritydb")]
+    pub fn db_config(&self) -> &DbConfig {
+        &self.parity_db
+    }
+    /// Snapshots may be fetch from a "stable URL"
+    // TODO(aatifsyed): This struct shouldn't really have fallible
+    // inter-dependencies like this
+    pub fn stable_url_for_current_chain(&self) -> anyhow::Result<&Url> {
+        match self.chain.name.to_lowercase().as_str() {
+            "mainnet" => Ok(&self.snapshot_fetch.filecoin.mainnet_compressed),
+            "calibnet" /* | "calibrationnet" */ => Ok(&self.snapshot_fetch.filecoin.calibnet_compressed),
+            name => bail!("unsupported chain name: {name}"), // TODO(aatifsyed: should this be a panic?)
         }
     }
 }
