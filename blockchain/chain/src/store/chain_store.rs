@@ -201,9 +201,8 @@ where
             .lock()
             .set_inner(ts.key().clone())?;
 
-        let mut head = ts;
-        let mut tipsets = NonEmpty::new(head.clone());
-        head = self.tipset_from_keys(head.parents())?;
+        let mut tipsets = NonEmpty::new(ts.clone());
+        let mut head = self.tipset_from_keys(ts.parents())?;
         while head.epoch() >= last_head_epoch {
             tipsets.push(head.clone());
             head = self.tipset_from_keys(head.parents())?;
