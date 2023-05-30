@@ -50,7 +50,7 @@ use crate::{
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000));
 
-const MAX_ACTOR_PENDING_MESSAGES: usize = 1000;
+pub const MAX_ACTOR_PENDING_MESSAGES: usize = 1000;
 const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: usize = 10;
 
 /// Simple structure that contains a hash-map of messages where k: a message
@@ -99,7 +99,10 @@ impl MsgSet {
         }
 
         if self.msgs.len() >= max_actor_pending_messages {
-            return Err(Error::TooManyPendingMessages(m.message.from().to_string(), !untrusted));
+            return Err(Error::TooManyPendingMessages(
+                m.message.from().to_string(),
+                !untrusted,
+            ));
         }
         if self.msgs.insert(m.sequence(), m).is_none() {
             metrics::MPOOL_MESSAGE_TOTAL.inc();
