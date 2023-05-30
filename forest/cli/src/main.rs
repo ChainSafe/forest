@@ -13,12 +13,11 @@ cfg_if::cfg_if! {
         static GLOBAL: Jemalloc = Jemalloc;
     }
 }
-
-mod cli;
-mod subcommand;
-
 use clap::Parser;
-use cli::{cli_error_and_die, Cli};
+use forest_cli::{
+    cli::{cli_error_and_die, Cli},
+    subcommand,
+};
 use forest_cli_shared::{cli::LogConfig, logger};
 use forest_utils::io::ProgressBar;
 
@@ -31,6 +30,9 @@ async fn main() -> anyhow::Result<()> {
         Ok((cfg, _)) => {
             logger::setup_logger(&cfg.log, &opts);
             ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
+            if opts.dry_run {
+                return Ok(());
+            }
             subcommand::process(cmd, cfg, &opts).await
         }
         Err(e) => {

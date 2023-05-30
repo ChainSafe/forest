@@ -14,8 +14,6 @@ on:
       - main
 
 env:
-  # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
-  RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
   CACHE_TIMEOUT_MINUTES: 5
   SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
   SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
@@ -42,7 +40,7 @@ jobs:
           max_attempts: 3
           command: sudo make install-deps
       - name: Link Checker (Repo)
-        uses: lycheeverse/lychee-action@v1.7.0
+        uses: lycheeverse/lychee-action@v1.8.0
         with:
           args: --verbose --timeout 60 --exclude twitter.com --no-progress 'README.md'
           # Fail action on broken links
@@ -54,13 +52,13 @@ jobs:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Execute MDBook
         run: make mdbook-build
-      - name: Build rustdoc
-        run: make rustdoc
+      - name: Build vendored docs
+        run: make vendored-docs
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Docs)
-        uses: lycheeverse/lychee-action@v1.7.0
+        uses: lycheeverse/lychee-action@v1.8.0
         with:
           # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'
@@ -71,14 +69,14 @@ jobs:
       # The deploy steps are identical expect for name and 'dry-run' attribute.
       # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        uses: JamesIves/github-pages-deploy-action@v4.4.2
         if: ${{ github.event_name == 'pull_request' }}
         with:
           branch: gh-pages
           folder: ./documentation/book/html/
           dry-run: true
       - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        uses: JamesIves/github-pages-deploy-action@v4.4.2
         if: ${{ github.event_name == 'push' }}
         with:
           branch: gh-pages

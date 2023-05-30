@@ -1,4 +1,4 @@
-68
+73
 Algorand/M
 API/M
 APIs
@@ -23,6 +23,8 @@ DB/S
 DNS
 Enum
 Ethereum
+exa
+FIL
 Filecoin/M
 FVM
 GC
@@ -41,6 +43,8 @@ MDNS
 mempool
 Merkle
 MiB
+milliGas
+multihash
 multisig
 mutex
 P2P

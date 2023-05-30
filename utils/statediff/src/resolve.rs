@@ -3,8 +3,8 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::DAG_CBOR;
 use libipld_core::ipld::Ipld;
 
@@ -18,7 +18,7 @@ where
     BS: Blockstore,
 {
     let mut ipld = bs
-        .get_obj(cid)?
+        .get_cbor(cid)?
         .context("Cid does not exist in blockstore")?;
 
     resolve_ipld(bs, &mut ipld, depth)?;
@@ -51,7 +51,7 @@ where
         }
         Ipld::Link(cid) => {
             if cid.codec() == DAG_CBOR {
-                if let Some(mut x) = bs.get_obj(cid)? {
+                if let Some(mut x) = bs.get_cbor(cid)? {
                     resolve_ipld(bs, &mut x, depth)?;
                     *ipld = x;
                 }

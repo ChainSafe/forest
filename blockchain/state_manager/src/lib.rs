@@ -5,25 +5,25 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-pub use utils::{is_valid_for_sending, reveal_five_trees};
+use forest_state_migration::run_state_migrations;
+pub use utils::is_valid_for_sending;
 
 mod vm_circ_supply;
 
 use std::{num::NonZeroUsize, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
-use anyhow::bail;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::*;
-use fil_actors_runtime_v10::runtime::Policy;
+use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
-use forest_networks::{ChainConfig, Height};
+use forest_networks::ChainConfig;
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
@@ -32,13 +32,13 @@ use forest_shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::externs::Rand;
 use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::CborStore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
@@ -46,10 +46,7 @@ use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
-use tokio::{
-    sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock},
-    time,
-};
+use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
 
@@ -300,7 +297,7 @@ where
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor.into())?;
+        let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         Ok(spas.miner_power(self.blockstore(), &addr.into())?.is_none())
     }
@@ -319,7 +316,7 @@ where
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act.into())?;
+        let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
@@ -338,7 +335,7 @@ where
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor.into())?;
+        let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         let t_pow = spas.total_power();
 
@@ -421,7 +418,12 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if let Some(new_state) = self.handle_state_migrations(&parent_state, epoch_i)? {
+            if let Some(new_state) = run_state_migrations(
+                epoch_i,
+                self.chain_config(),
+                self.blockstore(),
+                &parent_state,
+            )? {
                 parent_state = new_state;
             }
         }
@@ -438,54 +440,6 @@ where
         let state_root = vm.flush()?;
 
         Ok((state_root, receipt_root))
-    }
-
-    /// Handles state migrations. Returns the new state root if a migration was
-    /// run.
-    fn handle_state_migrations(
-        &self,
-        parent_state: &Cid,
-        epoch: ChainEpoch,
-    ) -> anyhow::Result<Option<Cid>> {
-        match epoch {
-            x if x == self.chain_config.epoch(Height::Hygge) => {
-                info!("Running Hygge migration at epoch {epoch}");
-                let start_time = time::Instant::now();
-                let new_state = forest_state_migration::run_nv18_migration(
-                    &self.chain_config,
-                    self.blockstore(),
-                    parent_state,
-                    epoch,
-                )?;
-                let elapsed = start_time.elapsed().as_secs_f32();
-                if new_state != *parent_state {
-                    reveal_five_trees();
-                    info!("State migration successful, took: {elapsed}s");
-                } else {
-                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
-                }
-                Ok(Some(new_state))
-            }
-            x if x == self.chain_config.epoch(Height::Lightning) => {
-                info!("Running Lightning migration at epoch {epoch}");
-                let start_time = time::Instant::now();
-                let new_state = forest_state_migration::run_nv19_migration(
-                    &self.chain_config,
-                    self.blockstore(),
-                    parent_state,
-                    epoch,
-                )?;
-                let elapsed = start_time.elapsed().as_secs_f32();
-                if new_state != *parent_state {
-                    reveal_five_trees();
-                    info!("State migration successful, took: {elapsed}s");
-                } else {
-                    bail!("State post migration must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
-                }
-                Ok(Some(new_state))
-            }
-            _ => Ok(None),
-        }
     }
 
     /// Returns the pair of (parent state root, message receipt root). This will
@@ -749,13 +703,13 @@ where
             .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let power_state = power::State::load(self.blockstore(), &actor.into())?;
+        let power_state = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
 
-        let miner_state = miner::State::load(self.blockstore(), &actor.into())?;
+        let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         // Non-empty power claim.
         let claim = power_state
@@ -815,7 +769,7 @@ where
                 .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
             let parent: BlockHeader = self
                 .blockstore()
-                .get_obj(parent_cid)?
+                .get_cbor(parent_cid)?
                 .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
             parent.epoch()
         } else {
@@ -1179,7 +1133,7 @@ where
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
 
-        let market_state = market::State::load(self.blockstore(), &actor.into())?;
+        let market_state = market::State::load(self.blockstore(), actor.code, actor.state)?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
@@ -1245,7 +1199,7 @@ where
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let ps = power::State::load(self.blockstore(), &actor.into())?;
+        let ps = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
     }

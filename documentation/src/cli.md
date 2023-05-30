@@ -107,3 +107,28 @@ Usage: `forest-cli sync check-bad -c <block cid>` Permissions: Read
 
 Mark Bad Mark a block as bad, the syncer will never sync this block Usage:
 `forest-cli sync mark-bad -c <block cid>` Permissions: Admin
+
+## Message Pool
+
+The Message Pool (mpool) is the component of forest that handles pending
+messages that have reached the node for inclusion in the chain.
+
+### Display the list of all pending messages
+
+Usage: `forest-cli mpool pending`
+
+### Display the CIDs of pending messages
+
+Usage: `forest-cli mpool pending --cids`
+
+### Display the locally published messages only
+
+Usage: `forest-cli mpool pending --local`
+
+### Display the list of all pending messages originating from a given address
+
+Usage: `forest-cli mpool pending --from <address>`
+
+### Display the list of all pending messages going to a given address
+
+Usage: `forest-cli mpool pending --to <address>`

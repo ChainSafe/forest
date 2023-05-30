@@ -7,7 +7,7 @@ use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
 use async_compression::futures::write::ZstdEncoder;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use digest::Digest;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -28,16 +28,16 @@ use forest_shim::{
 use forest_utils::{
     db::{
         file_backed_obj::{ChainMeta, FileBacked, SYNC_PERIOD},
-        BlockstoreExt,
+        BlockstoreExt, CborStoreExt,
     },
     io::{AsyncWriterWithChecksum, Checksum},
-    miscs::Either,
+    misc::Either,
 };
 use futures::{io::BufWriter, AsyncWrite};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::{Cbor, CborStore};
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -219,7 +219,7 @@ where
         self.file_backed_genesis.lock().set_inner(*header.cid())?;
 
         self.blockstore()
-            .put_obj(&header, Blake2b256)
+            .put_cbor_default(&header)
             .map_err(Error::from)
     }
 
@@ -255,7 +255,7 @@ where
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
         self.blockstore()
-            .get_obj::<BlockHeader>(self.file_backed_genesis.lock().inner())?
+            .get_cbor::<BlockHeader>(self.file_backed_genesis.lock().inner())?
             .ok_or_else(|| Error::Other("Genesis block not set".into()))
     }
 
@@ -680,7 +680,7 @@ where
         .iter()
         .map(|c| {
             store
-                .get_obj(c)?
+                .get_cbor(c)?
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
         .collect::<Result<_, Error>>()?;
@@ -732,7 +732,7 @@ pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>),
 where
     DB: Blockstore,
 {
-    if let Some(roots) = db.get_obj::<TxMeta>(msg_cid)? {
+    if let Some(roots) = db.get_cbor::<TxMeta>(msg_cid)? {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
@@ -750,7 +750,7 @@ where
     C: Serialize,
 {
     for chunk in headers.chunks(256) {
-        db.bulk_put(chunk, Blake2b256)?;
+        db.bulk_put(chunk, DB::default_code())?;
     }
     Ok(())
 }
@@ -778,7 +778,7 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: Blockstore,
 {
-    db.get_obj(key)?
+    db.get_cbor(key)?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
@@ -846,7 +846,7 @@ where
 {
     keys.iter()
         .map(|k| {
-            db.get_obj(k)?
+            db.get_cbor(k)?
                 .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
         .collect()
@@ -927,11 +927,11 @@ pub fn persist_block_messages<DB: Blockstore>(
     let mut bls_sigs = Vec::new();
     for msg in messages {
         if msg.signature().signature_type() == SignatureType::BLS {
-            let c = db.put_obj(&msg.message, Blake2b256)?;
+            let c = db.put_cbor_default(&msg.message)?;
             bls_cids.push(c);
             bls_sigs.push(&msg.signature);
         } else {
-            let c = db.put_obj(&msg, Blake2b256)?;
+            let c = db.put_cbor_default(&msg)?;
             secp_cids.push(c);
         }
     }
@@ -939,13 +939,10 @@ pub fn persist_block_messages<DB: Blockstore>(
     let bls_msg_root = Amt::new_from_iter(db, bls_cids.iter().copied())?;
     let secp_msg_root = Amt::new_from_iter(db, secp_cids.iter().copied())?;
 
-    let mmcid = db.put_obj(
-        &TxMeta {
-            bls_message_root: bls_msg_root,
-            secp_message_root: secp_msg_root,
-        },
-        Blake2b256,
-    )?;
+    let mmcid = db.put_cbor_default(&TxMeta {
+        bls_message_root: bls_msg_root,
+        secp_message_root: secp_msg_root,
+    })?;
 
     let bls_agg = if bls_sigs.is_empty() {
         Signature::new_bls(vec![])
