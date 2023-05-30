@@ -70,34 +70,13 @@ pub enum SnapshotCommands {
         snapshot_dir: Option<PathBuf>,
     },
 
-    /// Remove local snapshot
-    Remove {
-        /// Snapshot filename to remove
-        filename: PathBuf,
-
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-
-        /// Answer yes to all forest-cli yes/no questions without prompting
-        #[arg(long)]
-        force: bool,
-    },
-
-    /// Prune local snapshot, keeps the latest only.
-    /// Note that file names that do not match
-    /// forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
-    /// pattern will be ignored
+    /// Remove all known snapshots except the latest
     Prune {
         /// Directory to which the snapshots are downloaded. If not provided, it
         /// will be the default Forest data location.
+        // TODO(aatifsyed): lift this parameter up rather than repeating it everywhere
         #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
-
-        /// Answer yes to all forest-cli yes/no questions without prompting
-        #[arg(long)]
-        force: bool,
     },
 
     /// Clean all local snapshots, use with care.
@@ -106,11 +85,8 @@ pub enum SnapshotCommands {
         /// will be the default Forest data location.
         #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
-
-        /// Answer yes to all forest-cli yes/no questions without prompting
-        #[arg(long)]
-        force: bool,
     },
+
     /// Validates the snapshot.
     Validate {
         /// Number of block headers to validate from the tip
@@ -206,11 +182,7 @@ impl SnapshotCommands {
                 delay,
             } => {
                 let client = reqwest::Client::new();
-                let snapshot_dir = snapshot_dir
-                    .clone()
-                    .unwrap_or_else(|| default_snapshot_dir(&config));
-                let snapshot_dir = CanonicalPathBuf::new(snapshot_dir)
-                    .context("couldn't canonicalize snapshot dir")?;
+                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
                 let progress_bar_style = indicatif::ProgressStyle::with_template(
                     "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
                 )
@@ -252,31 +224,50 @@ impl SnapshotCommands {
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
             }
+            // TODO(aatifsyed): this is a confusing name - `dir` and `list` are synonymous in some
+            // contexts
             Self::Dir => {
                 let dir = default_snapshot_dir(&config);
                 println!("{}", dir.display());
                 Ok(())
             }
-            Self::List { snapshot_dir } => list(&config, snapshot_dir),
-            Self::Remove {
-                filename,
-                snapshot_dir,
-                force,
-            } => {
-                remove(&config, filename, snapshot_dir, *force);
+            Self::List { snapshot_dir } => {
+                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                let snapshots =
+                    forest_cli_shared::snapshot::list(snapshot_dir.as_canonical_path())?;
+                if snapshots.is_empty() {
+                    eprintln!("no snapshots")
+                } else {
+                    for snapshot in snapshots {
+                        println!("snapshot:");
+                        println!("\tpath: {}", snapshot.path.display());
+                        println!("\theight: {}", snapshot.metadata.height);
+                        println!("\tdatetime: {}", snapshot.metadata.datetime);
+                        println!("\tslug: {}", snapshot.slug);
+                    }
+                }
                 Ok(())
             }
-            Self::Prune {
-                snapshot_dir,
-                force,
-            } => {
-                prune(&config, snapshot_dir, *force);
+            Self::Prune { snapshot_dir } => {
+                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                let snapshots =
+                    forest_cli_shared::snapshot::list(snapshot_dir.as_canonical_path())?;
+                let Some( oldest) = snapshots.iter().max_by_key(|snap| snap.metadata.datetime) else {
+                    eprintln!("no snapshots");
+                    return Ok(());
+                };
+                for snapshot in snapshots.iter().filter(|it| *it != oldest) {
+                    if let Err(e) = fs::remove_file(&snapshot.path) {
+                        error!("Error removing snapshot: {e}");
+                    }
+                }
                 Ok(())
             }
-            Self::Clean {
-                snapshot_dir,
-                force,
-            } => clean(&config, snapshot_dir, *force),
+            Self::Clean { snapshot_dir } => {
+                let snapshot_dir = override_or_default(snapshot_dir, &config)?;
+                forest_cli_shared::snapshot::clean(snapshot_dir.as_canonical_path())?;
+                Ok(())
+            }
             Self::Validate {
                 recent_stateroots,
                 snapshot,
@@ -286,112 +277,18 @@ impl SnapshotCommands {
     }
 }
 
-fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
-    let snapshot_dir = snapshot_dir
+/// TODO(aatifsyed): this makes a blocking syscall, but we're the only task
+/// running on the executor, so probably not a big deal for now
+fn override_or_default(
+    user_override: &Option<PathBuf>,
+    config: &Config,
+) -> anyhow::Result<CanonicalPathBuf> {
+    let snapshot_dir = user_override
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-    let store = SnapshotStore::new(config, &snapshot_dir);
-    if store.snapshots.is_empty() {
-        println!("No local snapshots");
-    } else {
-        println!("Local snapshots:");
-        for snapshot in store.snapshots {
-            println!("{}", snapshot.path.display())
-        }
-    }
-    Ok(())
-}
-
-fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, force: bool) {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    let snapshot_path = snapshot_dir.join(filename);
-    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_zst_or_tmp(&snapshot_path) {
-        println!("Deleting {}", snapshot_path.display());
-        if !force && !prompt_confirm() {
-            println!("Aborted.");
-            return;
-        }
-
-        delete_snapshot(&snapshot_path);
-    } else {
-        println!(
-                "{} is not a valid snapshot file path, to list all snapshots, run forest-cli snapshot list",
-                snapshot_path.display());
-    }
-}
-
-fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-    let mut store = SnapshotStore::new(config, &snapshot_dir);
-    if store.snapshots.len() < 2 {
-        println!("No files to delete");
-        return;
-    }
-    store.snapshots.sort_by_key(|s| (s.date, s.height));
-    store.snapshots.pop(); // Keep the latest snapshot
-
-    println!("Files to delete:");
-    for snapshot in &store.snapshots {
-        println!("{}", snapshot.path.display())
-    }
-
-    if !force && !prompt_confirm() {
-        println!("Aborted.");
-    } else {
-        for snapshot_path in store.snapshots {
-            delete_snapshot(&snapshot_path.path);
-        }
-    }
-}
-
-fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow::Result<()> {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-
-    let read_dir = match fs::read_dir(snapshot_dir) {
-        Ok(read_dir) => read_dir,
-        // basically have the same behavior as in `rm -f` which doesn't fail if the target
-        // directory doesn't exist.
-        Err(_) if force => {
-            println!("Target directory not accessible. Skipping.");
-            return Ok(());
-        }
-        Err(e) => bail!(e),
-    };
-
-    let snapshots_to_delete: Vec<_> = read_dir
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|p| is_car_or_zst_or_tmp(p))
-        .collect();
-
-    if snapshots_to_delete.is_empty() {
-        println!("No files to delete");
-        return Ok(());
-    }
-    println!("Files to delete:");
-    snapshots_to_delete
-        .iter()
-        .for_each(|f| println!("{}", f.display()));
-
-    if !force && !prompt_confirm() {
-        println!("Aborted.");
-        return Ok(());
-    }
-
-    for snapshot_path in snapshots_to_delete {
-        delete_snapshot(&snapshot_path);
-    }
-
-    Ok(())
+    let snapshot_dir =
+        CanonicalPathBuf::new(snapshot_dir).context("couldn't canonicalize snapshot dir")?;
+    Ok(snapshot_dir)
 }
 
 async fn validate(
@@ -526,17 +423,4 @@ where
     println!("Snapshot is valid");
 
     Ok(())
-}
-
-fn delete_snapshot(snapshot_path: &PathBuf) {
-    let checksum_path = snapshot_path.with_extension("sha256sum");
-    for path in [snapshot_path, &checksum_path] {
-        if path.exists() {
-            if let Err(err) = fs::remove_file(path) {
-                println!("Failed to delete {}\n{err}", path.display());
-            } else {
-                println!("Deleted {}", path.display());
-            }
-        }
-    }
 }
