@@ -169,8 +169,8 @@ impl From<NodeStatusInfo> for NodeInfoOutput {
         };
 
         let wallet_balance = match balance(node_status_info.default_wallet_address_balance) {
-            Ok(bal) => bal.bold(),
-            Err(err) => err.to_string().bold(),
+            Ok(bal) => format!("[balance: {}]", bal).bold(),
+            Err(_) => "".bold(),
         };
 
         NodeInfoOutput {
@@ -249,7 +249,7 @@ impl InfoCommand {
         println!("Chain: {}", info_output.chain_status);
         println!("Chain health: {}", info_output.health);
         println!(
-            "Default wallet address: {} [balance: {}]",
+            "Default wallet address: {} {}",
             &info_output.wallet_address, &info_output.wallet_balance
         );
 
@@ -262,7 +262,7 @@ fn balance(balance: Option<String>) -> anyhow::Result<String> {
         let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
         Ok(format!("{:.4}", balance_token_amount.pretty()))
     } else {
-        Err(anyhow::anyhow!("error fetching balance"))
+        Err(anyhow::anyhow!("error parsing balance"))
     }
 }
 
