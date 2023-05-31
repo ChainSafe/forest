@@ -1173,12 +1173,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "canonical-path"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e9e01327e6c86e92ec72b1c798d4a94810f147209bbe3ffab6a86954937a6f"
-
-[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3021,7 +3015,6 @@ dependencies = [
  "base64 0.21.0",
  "bigdecimal",
  "boa_engine",
- "canonical-path",
  "cfg-if 1.0.0",
  "chrono",
  "cid",
@@ -3056,7 +3049,6 @@ dependencies = [
  "indicatif",
  "itertools 0.10.5",
  "jsonrpc-v2",
- "lazy-regex",
  "log",
  "multibase",
  "nom",
@@ -3085,7 +3077,6 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "atty",
- "canonical-path",
  "cfg-if 1.0.0",
  "clap",
  "daemonize-me",
@@ -3296,8 +3287,6 @@ dependencies = [
  "atty",
  "axum",
  "byte-unit",
- "canonical-path",
- "cfg-if 1.0.0",
  "chrono",
  "clap",
  "console-subscriber",
@@ -3315,7 +3304,6 @@ dependencies = [
  "httptest",
  "indicatif",
  "itertools 0.10.5",
- "lazy-regex",
  "log",
  "mimalloc",
  "nom",
@@ -3332,7 +3320,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha2 0.10.6",
- "strum",
  "tap",
  "tempfile",
  "tikv-jemallocator",
@@ -5393,29 +5380,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0de8b303297635ad57c9f5059fd9cee7a47f8e8daa09df0fcd07dd39fb22977f"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "lazy-regex"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff63c423c68ea6814b7da9e88ce585f793c87ddd9e78f646970891769c8235d4"
-dependencies = [
- "lazy-regex-proc_macros",
- "once_cell",
- "regex",
-]
-
-[[package]]
-name = "lazy-regex-proc_macros"
-version = "2.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8edfc11b8f56ce85e207e62ea21557cfa09bb24a8f6b04ae181b086ff8611c22"
-dependencies = [
- "proc-macro2",
- "quote",
- "regex",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -9115,15 +9079,6 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
-name = "strum"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
-dependencies = [
- "strum_macros",
-]
 
 [[package]]
 name = "strum_macros"

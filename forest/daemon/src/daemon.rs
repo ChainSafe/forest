@@ -521,7 +521,7 @@ async fn prompt_snapshot_or_die(
     let should_download = if !auto_download_snapshot && atty::is(atty::Stream::Stdin) {
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
-                    format!("Forest needs a snapshot to sync with the network. Would you like to download one now?"),
+                    "Forest needs a snapshot to sync with the network. Would you like to download one now?",
                 )
                 .default(false)
                 .interact()

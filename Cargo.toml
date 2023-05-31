@@ -62,7 +62,6 @@ blake2b_simd = "1.0"
 bls-signatures = { version = "0.13", default-features = false, features = ["blst-portable"] }
 byteorder = "1.4.3"
 bytes = "1.2"
-canonical-path = "2"
 cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
@@ -99,7 +98,6 @@ indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
 itertools = "0.10"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
-lazy-regex = "2.5.0"
 lazy_static = "1.4"
 libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core = "0.14"
@@ -142,7 +140,6 @@ serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 smart-default = "0.7.1"
-strum = { version = "0.24", features = ["derive"] }
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"

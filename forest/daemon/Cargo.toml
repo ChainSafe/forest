@@ -15,7 +15,6 @@ path = "src/main.rs"
 anes.workspace = true
 anyhow.workspace = true
 atty.workspace = true
-canonical-path.workspace = true
 cfg-if.workspace = true
 clap.workspace = true
 daemonize-me = "2.0"
