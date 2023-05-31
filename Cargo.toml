@@ -185,6 +185,9 @@ forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
 
+# This needs to be set as default. Otherwise, a regular build or test will produce
+# gargantuan artifacts (around 70G for all tests). For a debugging session, you can
+# temporarily comment it out.
 [profile.dev]
 debug = 0
 split-debuginfo = "unpacked"
