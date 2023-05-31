@@ -35,18 +35,21 @@ pub struct TestApiInner {
     state_sequence: HashMap<Address, u64>,
     balances: HashMap<Address, TokenAmount>,
     tipsets: Vec<Tipset>,
+    pub publisher_change: Publisher<()>,
 }
 
 impl Default for TestApi {
     /// Create a new `TestApi`
     fn default() -> Self {
         let (publisher, _) = broadcast::channel(1);
+        let (publisher_change, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
                 balances: HashMap::new(),
                 tipsets: Vec::new(),
+                publisher_change,
             }),
             publisher,
         }
@@ -209,6 +212,10 @@ impl Provider for TestApi {
 
     fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<TokenAmount, Error> {
         Ok(TokenAmount::from_atto(100))
+    }
+
+    fn head_changed(&self) {
+        self.inner.lock().publisher_change.send(()).unwrap();
     }
 }
 

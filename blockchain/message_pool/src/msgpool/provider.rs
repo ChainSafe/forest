@@ -49,6 +49,8 @@ pub trait Provider {
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
+    /// Call when head has been updated, this is mainly here for tests
+    fn head_changed(&self);
 }
 
 /// This is the default Provider implementation that will be used for the
@@ -116,10 +118,13 @@ where
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         Ok(self.sm.chain_store().tipset_from_keys(tsk)?)
     }
+
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         forest_chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())
             .map(Into::into)
     }
+
+    fn head_changed(&self) {}
 }
