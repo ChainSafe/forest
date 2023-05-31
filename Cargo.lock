@@ -3287,6 +3287,7 @@ dependencies = [
  "atty",
  "axum",
  "byte-unit",
+ "cfg-if 1.0.0",
  "chrono",
  "clap",
  "console-subscriber",

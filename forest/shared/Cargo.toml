@@ -12,6 +12,7 @@ ahash.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 byte-unit = "4.0"
+cfg-if.workspace = true
 chrono.workspace = true
 clap.workspace = true
 console-subscriber.workspace = true
