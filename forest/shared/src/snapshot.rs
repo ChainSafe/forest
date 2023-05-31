@@ -466,9 +466,10 @@ mod tests {
     }
 }
 
-/// Filops and forest store metadata in the filename, in a conventional format.
-/// [parse_filename] is able to parse the contained metadata.
 mod parse {
+    //! Filops and forest store metadata in the filename, in a conventional format.
+    //! [parse_filename] is able to parse the contained metadata.
+
     use std::str::FromStr;
 
     use anyhow::{anyhow, bail};
