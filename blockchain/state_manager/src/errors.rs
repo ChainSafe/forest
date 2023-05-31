@@ -49,6 +49,6 @@ impl From<JoinError> for Error {
 
 impl From<forest_shim::kernel::ExecutionError> for Error {
     fn from(e: forest_shim::kernel::ExecutionError) -> Self {
-        Error::Other(e.to_string())
+        Error::Other(e.execution_error_v2.to_string())
     }
 }
