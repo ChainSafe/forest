@@ -71,7 +71,7 @@ pub struct DaemonConfig {
     pub stderr: PathBuf,
     pub work_dir: PathBuf,
     pub pid_file: Option<PathBuf>,
-    pub default_retry: i32,
+    pub default_retry: usize,
     pub default_delay: Duration,
 }
 

@@ -4,7 +4,6 @@
 use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::Context;
-use canonical_path::CanonicalPathBuf;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
@@ -12,8 +11,7 @@ use forest_chain::ChainStore;
 use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
-    cli::{default_snapshot_dir, to_size_string, CliOpts, Client, Config},
-    snapshot,
+    cli::{CliOpts, Config},
 };
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
@@ -32,7 +30,10 @@ use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
-    io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
+    io::{progress_bar::downloading_style, write_to_file},
+    monitoring::MemStatsTracker,
+    retry,
+    version::FOREST_VERSION_STRING,
     RetryArgs,
 };
 use futures::{select, FutureExt};
@@ -382,21 +383,46 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         get_params_default(&config.client.data_dir, SectorSizeOpt::Keys).await?;
     }
 
+    let mut config = config;
     if should_fetch_snapshot {
         let client = reqwest::Client::new();
-        let snapshot_dir = CanonicalPathBuf::new(default_snapshot_dir(&config))
-            .context("couldn't canonicalize snapshot dir")?;
-        let stable_url = config.stable_url_for_current_chain()?;
+        let progress_bar = match config.client.show_progress_bars.should_display() {
+            true => indicatif::ProgressBar::new(0)
+                .with_message("downloading snapshot")
+                .with_style(downloading_style()),
+            false => indicatif::ProgressBar::hidden(),
+        };
+        let snapshot_dir = config.snapshot_directory();
 
-        snapshot::fetch(
-            snapshot_dir.as_canonical_path(),
-            &client,
-            stable_url.clone(),
-            progress_bar,
-        );
+        match retry(
+            RetryArgs {
+                timeout: None,
+                max_retries: Some(config.daemon.default_retry),
+                delay: Some(config.daemon.default_delay),
+            },
+            || {
+                // if the operation is retried, the most recent length of the progress bar
+                // is large, leading to UI jank, so reset first
+                progress_bar.reset();
+                forest_cli_shared::snapshot::fetch(
+                    &snapshot_dir,
+                    &config.chain.name,
+                    "forest", // TODO(aatifsyed): configure?
+                    &client,
+                    &progress_bar,
+                )
+            },
+        )
+        .await
+        {
+            Ok(path) => {
+                config.client.snapshot_path = Some(path);
+                config.client.snapshot = true
+            }
+            Err(_) => todo!(),
+        };
     }
-
-    let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
+    let config = config;
 
     tokio::select! {
         ret = sync_from_snapshot(&config, &state_manager).fuse() => {
@@ -483,47 +509,6 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
     }
 }
 
-/// Optionally fetches the snapshot. Returns the configuration (modified
-/// accordingly if a snapshot was fetched).
-async fn maybe_fetch_snapshot(
-    should_fetch_snapshot: bool,
-    config: Config,
-) -> anyhow::Result<Config> {
-    if should_fetch_snapshot {
-        let snapshot_path = default_snapshot_dir(&config);
-        let provider = SnapshotServer::try_get_default(&config.chain.network)?;
-        // FIXME: change this to `true` once zstd compressed snapshots is supported by
-        // the forest provider
-        let use_compressed = provider == SnapshotServer::Filecoin;
-        let path = retry(
-            RetryArgs {
-                timeout: None,
-                max_retries: Some(config.daemon.default_retry.try_into().unwrap()),
-                delay: Some(config.daemon.default_delay),
-            },
-            || {
-                snapshot_fetch(
-                    &snapshot_path,
-                    &config,
-                    Some(&provider),
-                    is_aria2_installed(),
-                )
-            },
-        )
-        .await?;
-        Ok(Config {
-            client: Client {
-                snapshot_path: Some(path),
-                snapshot: true,
-                ..config.client
-            },
-            ..config
-        })
-    } else {
-        Ok(config)
-    }
-}
-
 /// Last resort in case a snapshot is needed. If it is not to be downloaded,
 /// this method fails and exits the process.
 async fn prompt_snapshot_or_die(
@@ -534,11 +519,9 @@ async fn prompt_snapshot_or_die(
         return Ok(false);
     }
     let should_download = if !auto_download_snapshot && atty::is(atty::Stream::Stdin) {
-        let required_size: u64 = snapshot_fetch_size(config).await?;
-        let required_size = to_size_string(&required_size.into())?;
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
-                    format!("Forest needs a snapshot to sync with the network. Would you like to download one now? Required disk space {required_size}."),
+                    format!("Forest needs a snapshot to sync with the network. Would you like to download one now?"),
                 )
                 .default(false)
                 .interact()

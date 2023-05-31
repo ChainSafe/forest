@@ -27,6 +27,17 @@ pub enum ProgressBarVisibility {
     Never,
 }
 
+impl ProgressBarVisibility {
+    /// Checks if stdout is a tty
+    pub fn should_display(&self) -> bool {
+        matches!(
+            self,
+            ProgressBarVisibility::Always
+            | ProgressBarVisibility::Auto if atty::is(atty::Stream::Stdout)
+        )
+    }
+}
+
 impl FromStr for ProgressBarVisibility {
     type Err = anyhow::Error;
 

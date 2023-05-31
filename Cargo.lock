@@ -3114,6 +3114,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm_ipld_blockstore",
+ "indicatif",
  "lazy_static",
  "log",
  "raw_sync",
