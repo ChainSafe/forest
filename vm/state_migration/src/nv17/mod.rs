@@ -6,6 +6,7 @@
 //! <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go>
 
 mod datacap;
+mod market;
 mod migration;
 mod miner;
 mod util;
