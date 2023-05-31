@@ -44,6 +44,7 @@ use std::{
 
 use anyhow::{bail, Context as _};
 use chrono::{NaiveDate, NaiveTime};
+use forest_networks::NetworkChain;
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use tap::Tap as _;
@@ -58,7 +59,7 @@ const METADATA_FILE_SUFFIX: &str = ".metadata.json";
 /// See [module documentation](mod@self) for more.
 pub async fn fetch(
     snapshot_dir: &Path,
-    chain: &str,
+    chain: &NetworkChain,
     vendor: &str,
     client: &reqwest::Client,
     progress_bar: &indicatif::ProgressBar,
@@ -86,7 +87,7 @@ pub async fn fetch(
                 height,
                 date,
                 time,
-                chain: String::from(chain),
+                chain: chain.to_string(),
                 vendor: String::from(vendor),
                 source_url: String::from(stable_url),
                 fetched_url: actual_url.to_string(),
@@ -204,12 +205,12 @@ const FILOPS_MAINNET_COMPRESSED: &str = "https://snapshots.mainnet.filops.net/mi
 const FILOPS_CALIBNET_COMPRESSED: &str =
     "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
 
-fn stable_url(vendor: &str, chain: &str) -> Option<&'static str> {
+fn stable_url(vendor: &str, chain: &NetworkChain) -> Option<&'static str> {
     match (vendor, chain) {
-        ("forest", "mainnet") => Some(FOREST_MAINNET_COMPRESSED),
-        ("forest", "calibnet") => Some(FOREST_CALIBNET_COMPRESSED),
-        ("filops", "mainnet") => Some(FILOPS_MAINNET_COMPRESSED),
-        ("filops", "calibnet") => Some(FILOPS_CALIBNET_COMPRESSED),
+        ("forest", NetworkChain::Mainnet) => Some(FOREST_MAINNET_COMPRESSED),
+        ("forest", NetworkChain::Calibnet) => Some(FOREST_CALIBNET_COMPRESSED),
+        ("filops", NetworkChain::Mainnet) => Some(FILOPS_MAINNET_COMPRESSED),
+        ("filops", NetworkChain::Calibnet) => Some(FILOPS_CALIBNET_COMPRESSED),
         _ => None,
     }
 }

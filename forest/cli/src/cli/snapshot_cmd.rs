@@ -199,7 +199,7 @@ impl SnapshotCommands {
                         progress_bar.reset();
                         forest_cli_shared::snapshot::fetch(
                             &snapshot_dir,
-                            &config.chain.name,
+                            &config.chain.network,
                             vendor,
                             &client,
                             &progress_bar,

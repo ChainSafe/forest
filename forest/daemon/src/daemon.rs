@@ -406,7 +406,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
                 progress_bar.reset();
                 forest_cli_shared::snapshot::fetch(
                     &snapshot_dir,
-                    &config.chain.name,
+                    &config.chain.network,
                     "forest", // TODO(aatifsyed): configure?
                     &client,
                     &progress_bar,
