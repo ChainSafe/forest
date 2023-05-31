@@ -3,9 +3,17 @@
 
 use std::ops::Deref;
 
-use fvm_shared::sector::{
-    RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
-    SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
+use cid::Cid;
+use fvm::kernel::ClassifyResult;
+use fvm_shared::{
+    piece::{
+        zero_piece_commitment as zero_piece_commitment_v2, PaddedPieceSize as PaddedPieceSizeV2,
+        PieceInfo as PieceInfoV2,
+    },
+    sector::{
+        RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
+        SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
+    },
 };
 use fvm_shared3::sector::{
     PoStProof as PoStProofV3, RegisteredPoStProof as RegisteredPoStProofV3,
@@ -256,6 +264,83 @@ pub fn convert_window_post_proof_v1_to_v1p1(
         }
         other => anyhow::bail!("Invalid proof type: {other:?}"),
     }
+}
+
+/// Computes an unsealed sector CID (`CommD`) from its constituent piece CIDs (`CommPs`) and sizes.
+///
+/// Ported from <https://github.com/filecoin-project/ref-fvm/blob/fvm%40v2.3.0/fvm/src/kernel/default.rs#L494>
+pub fn compute_unsealed_sector_cid_v2(
+    proof_type: RegisteredSealProofV2,
+    pieces: &[PieceInfoV2],
+) -> anyhow::Result<Cid> {
+    let ssize = proof_type.sector_size().or_illegal_argument()? as u64;
+
+    let mut all_pieces = Vec::<filecoin_proofs_api::PieceInfo>::with_capacity(pieces.len());
+
+    let pssize = PaddedPieceSizeV2(ssize);
+    if pieces.is_empty() {
+        all_pieces.push(filecoin_proofs_api::PieceInfo {
+            size: pssize.unpadded().into(),
+            commitment: zero_piece_commitment_v2(pssize),
+        })
+    } else {
+        // pad remaining space with 0 piece commitments
+        let mut sum = PaddedPieceSizeV2(0);
+        let pad_to = |pads: Vec<PaddedPieceSizeV2>,
+                      all_pieces: &mut Vec<filecoin_proofs_api::PieceInfo>,
+                      sum: &mut PaddedPieceSizeV2| {
+            for p in pads {
+                all_pieces.push(filecoin_proofs_api::PieceInfo {
+                    size: p.unpadded().into(),
+                    commitment: zero_piece_commitment_v2(p),
+                });
+
+                sum.0 += p.0;
+            }
+        };
+        for p in pieces {
+            let (ps, _) = get_required_padding_v2(sum, p.size);
+            pad_to(ps, &mut all_pieces, &mut sum);
+            all_pieces.push(filecoin_proofs_api::PieceInfo::try_from(p).or_illegal_argument()?);
+            sum.0 += p.size.0;
+        }
+
+        let (ps, _) = get_required_padding_v2(sum, pssize);
+        pad_to(ps, &mut all_pieces, &mut sum);
+    }
+
+    println!("all_pieces: {}", all_pieces.len());
+
+    let comm_d = filecoin_proofs_api::seal::compute_comm_d(
+        proof_type.try_into().or_illegal_argument()?,
+        &all_pieces,
+    )
+    .or_illegal_argument()?;
+
+    Ok(fvm_shared::commcid::data_commitment_v1_to_cid(&comm_d).or_illegal_argument()?)
+}
+
+fn get_required_padding_v2(
+    old_length: PaddedPieceSizeV2,
+    new_piece_length: PaddedPieceSizeV2,
+) -> (Vec<PaddedPieceSizeV2>, PaddedPieceSizeV2) {
+    let mut sum = 0;
+
+    let mut to_fill = 0u64.wrapping_sub(old_length.0) % new_piece_length.0;
+    let n = to_fill.count_ones();
+    println!("to_fill: {to_fill}, n: {n}");
+    let mut pad_pieces = Vec::with_capacity(n as usize);
+    for _ in 0..n {
+        let next = to_fill.trailing_zeros();
+        let p_size = 1 << next;
+        to_fill ^= p_size;
+
+        let padded = PaddedPieceSizeV2(p_size);
+        pad_pieces.push(padded);
+        sum += padded.0;
+    }
+
+    (pad_pieces, PaddedPieceSizeV2(sum))
 }
 
 #[cfg(test)]

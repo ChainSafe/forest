@@ -28,4 +28,6 @@ quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+hex.workspace = true
+pretty_assertions.workspace = true
 serde_json.workspace = true
