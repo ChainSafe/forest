@@ -104,9 +104,9 @@ impl MinerMigrator {
         const HAMT_BIT_WIDTH: u32 = fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
-        // it does not effect `load` API here. (Go API takes bit_width=5 for loading)
+        // it does not effect `load` API here. (Go API takes bit_width=5 for loading while Rust API does not)
         //
-        // P.S. Because of lifetime limitation, this is not store as a field of `MinerMigrator` like in Go code
+        // P.S. Because of lifetime limitation, this is not stored as a field of `MinerMigrator` like in Go code
         let market_proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
@@ -118,14 +118,13 @@ impl MinerMigrator {
                 fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
             >(old_pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
 
-        let new_precommit_on_chain_infos = fil_actors_shared::v9::make_empty_map::<
+        let mut new_precommit_on_chain_infos = fil_actors_shared::v9::make_empty_map::<
             _,
             fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
         >(store, HAMT_BIT_WIDTH);
 
         old_precommit_on_chain_infos.for_each(|key, value| {
             let mut pieces = vec![];
-
             for &deal_id in &value.info.deal_ids {
                 let deal = market_proposals.get(deal_id)?;
                 // Continue on not found to match Go logic
@@ -140,16 +139,22 @@ impl MinerMigrator {
                 }
             }
 
-            if !pieces.is_empty() {
-                todo!("GenerateUnsealedCID(value.info.seal_proof, pieces)");
-            }
+            let unsealed_cid = if !pieces.is_empty() {
+                Some(fvm_sdk::crypto::compute_unsealed_sector_cid(
+                    value.info.seal_proof,
+                    pieces.as_slice(),
+                )?)
+            } else{
+                None
+            };
 
-            // new_precommit_on_chain_infos.set(key, value)
-
+            let mut sector_precommit_onchain_info:fil_actor_miner_state::v9::SectorPreCommitOnChainInfo = TypeMigrator::migrate_type(value.clone(), store)?;
+            sector_precommit_onchain_info.info.unsealed_cid = fil_actor_miner_state::v9::CompactCommD(unsealed_cid);
+            new_precommit_on_chain_infos.set(sector_key(value.info.sector_number)?, sector_precommit_onchain_info)?;
             Ok(())
         })?;
 
-        todo!()
+        Ok(new_precommit_on_chain_infos.flush()?)
     }
 
     fn migrate_sectors(

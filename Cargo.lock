@@ -3921,6 +3921,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_hamt 0.6.1",
+ "fvm_sdk",
  "lazy_static",
  "log",
  "num_cpus",
