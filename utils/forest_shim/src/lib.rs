@@ -3,7 +3,6 @@
 
 pub mod address;
 pub mod bigint;
-pub mod call_manager;
 pub mod clock;
 pub mod crypto;
 pub mod econ;
