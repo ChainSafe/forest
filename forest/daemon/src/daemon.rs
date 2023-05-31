@@ -646,39 +646,34 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
-        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
+    async fn import_snapshot_from_file_valid() {
+        import_snapshot_from_file("test_files/chain4.car")
             .await
-            .is_ok());
-        Ok(())
+            .unwrap();
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_compressed_file_valid() -> anyhow::Result<()> {
-        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car.zst")
+    async fn import_snapshot_from_compressed_file_valid() {
+        import_snapshot_from_file("test_files/chain4.car.zst")
             .await
-            .is_ok());
-        Ok(())
+            .unwrap()
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_file_invalid() -> anyhow::Result<()> {
-        anyhow::ensure!(import_snapshot_from_file("Cargo.toml").await.is_err());
-        Ok(())
+    async fn import_snapshot_from_file_invalid() {
+        import_snapshot_from_file("Cargo.toml").await.unwrap_err();
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_file_not_found() -> anyhow::Result<()> {
-        anyhow::ensure!(import_snapshot_from_file("dummy.car").await.is_err());
-        Ok(())
+    async fn import_snapshot_from_file_not_found() {
+        import_snapshot_from_file("dummy.car").await.unwrap_err();
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
-        anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
+    async fn import_snapshot_from_url_not_found() {
+        import_snapshot_from_file("https://dummy.com/dummy.car")
             .await
-            .is_err());
-        Ok(())
+            .unwrap_err();
     }
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
@@ -702,8 +697,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, file_path, None, false).await?;
-        Ok(())
+        import_chain::<_>(&sm, file_path, None, false).await
     }
 
     #[tokio::test]
@@ -729,7 +723,7 @@ mod test {
         )?);
         import_chain::<_>(&sm, "test_files/chain4.car", None, false)
             .await
-            .expect("Failed to import chain");
+            .context("Failed to import chain")?;
 
         Ok(())
     }
