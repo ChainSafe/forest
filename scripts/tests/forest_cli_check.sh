@@ -3,43 +3,52 @@
 # require a running `forest` node.
 # It depends on the `forest-cli` binary being in the PATH.
 
-set -e
+set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
-SNAPSHOT_DIRECTORY=$TMP_DIR/snapshots
-
-echo "Fetching params"
-$FOREST_CLI_PATH fetch-params --keys
-echo "Downloading zstd compressed snapshot without aria2"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --provider filecoin -s "$SNAPSHOT_DIRECTORY"
-echo "Downloading snapshot without aria2"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch -s "$SNAPSHOT_DIRECTORY"
-echo "Cleaning up snapshots"
-$FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
-echo "Cleaning up snapshots again"
-$FOREST_CLI_PATH --chain calibnet snapshot clean -s "$SNAPSHOT_DIRECTORY" --force
-echo "Downloading zstd compressed snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 --provider filecoin -s "$SNAPSHOT_DIRECTORY"
-echo "Cleaning up database"
-$FOREST_CLI_PATH --chain calibnet db clean --force
-echo "Cleaning up database again"
-$FOREST_CLI_PATH --chain calibnet db clean --force
-
-echo "Downloading snapshot"
-$FOREST_CLI_PATH --chain calibnet snapshot fetch --aria2 -s "$SNAPSHOT_DIRECTORY"
-
-echo "Validating as mainnet snapshot"
-set +e
-$FOREST_CLI_PATH --chain mainnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force && \
-{
-    echo "mainnet snapshot validation with calibnet snapshot should fail";
-    exit 1;
+function forest-cli () {
+    "$FOREST_CLI_PATH" "$@"
 }
-set -e
 
-echo "Validating as calibnet snapshot (uncompressed)"
-$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car --force
+snapshot_dir=$TMP_DIR/snapshots
 
-echo "Validating as calibnet snapshot (compressed)"
-$FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.zst --force
+# return the first snapshot path listed by forest
+function pop-snapshot-path() {
+    forest-cli snapshot list --snapshot-dir "$snapshot_dir" \
+        | grep path \
+        | sed 's/^\tpath: //' \
+        | head --lines=1
+}
+
+
+forest-cli fetch-params --keys
+
+: fetch snapshot
+forest-cli --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"
+
+: clean snapshots
+forest-cli --chain calibnet snapshot clean --snapshot-dir "$snapshot_dir"
+
+: "clean database (twice)"
+forest-cli --chain calibnet db clean --force
+forest-cli --chain calibnet db clean --force
+
+: validate calibnet snapshot
+forest-cli --chain calibnet snapshot clean --snapshot-dir "$snapshot_dir"
+
+: : fetch a calibnet snapshot
+forest-cli --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"
+validate_me=$(pop-snapshot-path)
+
+: : validating under calibnet chain should succeed
+forest-cli --chain calibnet snapshot validate "$validate_me" --force
+
+: : validating under mainnet chain should fail
+if forest-cli --chain mainnet snapshot validate "$validate_me" --force; then
+    exit 1
+fi
+
+: : test cleanup
+forest-cli --chain fail snapshot clean --snapshot-dir "$snapshot_dir"
+
