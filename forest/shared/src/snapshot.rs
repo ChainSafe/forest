@@ -77,7 +77,7 @@ pub async fn fetch(
             let blob_file_name = path
                 .file_name()
                 .expect("download_to_temp returns a path to a file");
-            let blob_file_path = path.join(blob_file_name);
+            let blob_file_path = snapshot_dir.join(blob_file_name);
             let metadata_file_name = blob_file_name
                 .to_os_string()
                 .tap_mut(|it| it.push(METADATA_FILE_SUFFIX));
@@ -115,7 +115,7 @@ pub async fn fetch(
 }
 
 /// List all paths to files and their metadata in `snapshot_directory`. Will
-/// return [`Err(_)`] if `snapshot_directory` does not exist.
+/// return [`Ok(Vec::new())`] if `snapshot_directory` does not exist.
 ///
 /// Users can freely delete the path to the blob - corresponding metadata will
 /// be cleaned up in the next call to [list], but this should be regarded as an
@@ -126,6 +126,9 @@ pub async fn fetch(
 /// Note this function makes blocking syscalls, and should not be called
 /// from an async context. Use [tokio::task::spawn_blocking] if needed.
 pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
+    if !snapshot_directory.exists() {
+        return Ok(Vec::new());
+    }
     // Get all the file paths
     let mut paths = walkdir::WalkDir::new(snapshot_directory)
         .min_depth(1)

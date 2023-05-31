@@ -3054,6 +3054,7 @@ dependencies = [
  "hex",
  "human-repr",
  "indicatif",
+ "itertools 0.10.5",
  "jsonrpc-v2",
  "lazy-regex",
  "log",
@@ -3073,6 +3074,7 @@ dependencies = [
  "ticker",
  "tokio",
  "toml 0.7.4",
+ "tracing",
 ]
 
 [[package]]

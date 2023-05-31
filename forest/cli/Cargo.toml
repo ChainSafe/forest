@@ -48,6 +48,7 @@ fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
 indicatif.workspace = true
+itertools.workspace = true
 jsonrpc-v2.workspace = true
 lazy-regex.workspace = true
 log.workspace = true
@@ -64,6 +65,7 @@ tempfile.workspace = true
 ticker = "0.1"
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true

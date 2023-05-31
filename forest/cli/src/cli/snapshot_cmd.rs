@@ -1,16 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fs, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{bail, Context as _};
-use canonical_path::CanonicalPathBuf;
 use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_cli_shared::cli::default_snapshot_dir;
+use forest_cli_shared::snapshot::SnapshotMetadata;
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
@@ -23,8 +22,9 @@ use forest_utils::{
     retry, RetryArgs,
 };
 use fvm_shared::clock::ChainEpoch;
-use log::info;
+use itertools::Itertools as _;
 use tempfile::TempDir;
+use tracing::error;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -56,8 +56,11 @@ pub enum SnapshotCommands {
         #[arg(short, long, default_value = "3")]
         max_retries: usize,
         /// Duration to wait between the retries in seconds
-        #[arg(short, long, default_value = "60", value_parser = parse_duration)]
+        #[arg(short, long, default_value = "10", value_parser = parse_duration)]
         delay: Duration,
+        /// Vendor to fetch the snapshot from
+        #[arg(short, long, value_parser = ["forest", "filops"], default_value = "forest")]
+        vendor: String,
     },
 
     /// Shows default snapshot dir
@@ -71,7 +74,7 @@ pub enum SnapshotCommands {
         snapshot_dir: Option<PathBuf>,
     },
 
-    /// Remove all known snapshots except the latest
+    /// Remove all known snapshots except the latest for each chain
     Prune {
         /// Directory to which the snapshots are downloaded. If not provided, it
         /// will be the default Forest data location.
@@ -80,13 +83,8 @@ pub enum SnapshotCommands {
         snapshot_dir: Option<PathBuf>,
     },
 
-    /// Clean all local snapshots, use with care.
-    Clean {
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-    },
+    /// Clean all local snapshots.
+    Clean,
 
     /// Validates the snapshot.
     Validate {
@@ -181,20 +179,14 @@ impl SnapshotCommands {
                 snapshot_dir,
                 max_retries,
                 delay,
+                vendor,
             } => {
                 let client = reqwest::Client::new();
-                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
                 let progress_bar = indicatif::ProgressBar::new(0)
                     .with_message("downloading snapshot")
                     .with_style(downloading_style());
-                let (slug, stable_url) = match config.chain.name.to_lowercase().as_str() {
-                    "mainnet" => ("mainnet", config.snapshot_fetch.filecoin.mainnet_compressed),
-                    "calibnet" | "calibrationnet" => (
-                        "calibnet",
-                        config.snapshot_fetch.filecoin.calibnet_compressed,
-                    ),
-                    name => bail!("unsupported chain name: {name}"),
-                };
+                let snapshot_dir = snapshot_dir.clone().unwrap_or(config.snapshot_directory());
+
                 match retry(
                     RetryArgs {
                         timeout: None,
@@ -202,12 +194,14 @@ impl SnapshotCommands {
                         delay: Some(*delay),
                     },
                     || {
-                        info!("fetching snapshot from {stable_url}");
+                        // if the operation is retried, the most recent length of the progress bar
+                        // is large, leading to UI jank, so reset first
+                        progress_bar.reset();
                         forest_cli_shared::snapshot::fetch(
-                            snapshot_dir.as_canonical_path(),
-                            slug,
+                            &snapshot_dir,
+                            &config.chain.name,
+                            vendor,
                             &client,
-                            stable_url.clone(),
                             &progress_bar,
                         )
                     },
@@ -224,47 +218,64 @@ impl SnapshotCommands {
             // TODO(aatifsyed): this is a confusing name - `dir` and `list` are synonymous in some
             // contexts
             Self::Dir => {
-                let dir = default_snapshot_dir(&config);
-                println!("{}", dir.display());
+                println!("{}", config.snapshot_directory().display());
                 Ok(())
             }
             Self::List { snapshot_dir } => {
-                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
-                let snapshots =
-                    forest_cli_shared::snapshot::list(snapshot_dir.as_canonical_path())?;
+                let snapshots = forest_cli_shared::snapshot::list(
+                    &snapshot_dir.clone().unwrap_or(config.snapshot_directory()),
+                )?;
                 if snapshots.is_empty() {
                     eprintln!("no snapshots")
                 } else {
-                    for snapshot in snapshots {
+                    for (
+                        path,
+                        SnapshotMetadata::V1 {
+                            height,
+                            date,
+                            chain,
+                            vendor,
+                            ..
+                        },
+                    ) in snapshots
+                    {
                         println!("snapshot:");
-                        println!("\tpath: {}", snapshot.path.display());
-                        println!("\theight: {}", snapshot.metadata.height);
-                        println!("\tdatetime: {}", snapshot.metadata.datetime);
-                        println!("\tslug: {}", snapshot.slug);
+                        println!("\tpath: {}", path.display());
+                        println!("\theight: {height}");
+                        println!("\tdate: {date}");
+                        println!("\tchain: {chain}");
+                        println!("\tvendor: {vendor}");
                     }
                 }
                 Ok(())
             }
             Self::Prune { snapshot_dir } => {
-                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
-                let snapshots =
-                    forest_cli_shared::snapshot::list(snapshot_dir.as_canonical_path())?;
-                let Some( oldest) = snapshots.iter().max_by_key(|snap| snap.metadata.datetime) else {
-                    eprintln!("no snapshots");
-                    return Ok(());
-                };
-                for snapshot in snapshots.iter().filter(|it| *it != oldest) {
-                    if let Err(e) = fs::remove_file(&snapshot.path) {
-                        error!("Error removing snapshot: {e}");
+                let snapshots = forest_cli_shared::snapshot::list(
+                    &snapshot_dir.clone().unwrap_or(config.snapshot_directory()),
+                )?;
+                let safe = snapshots
+                    .iter()
+                    // groupby works only on consecutive entries, so sort first
+                    .sorted_by_key(|(_, SnapshotMetadata::V1 { chain, .. })| chain)
+                    .group_by(|(_, SnapshotMetadata::V1 { chain, .. })| chain)
+                    .into_iter()
+                    .flat_map(|(_chain, snapshots_in_chain)| {
+                        snapshots_in_chain
+                            .max_by_key(|(_, SnapshotMetadata::V1 { height, .. })| height)
+                    })
+                    .map(|(path, _)| path)
+                    .collect::<Vec<_>>();
+                for (snapshot, _) in &snapshots {
+                    if !safe.contains(&snapshot) {
+                        if let Err(e) = tokio::fs::remove_file(snapshot).await {
+                            error!(path = ?snapshot, "error removing snapshot: {e}");
+                        }
                     }
                 }
                 Ok(())
             }
-            Self::Clean { snapshot_dir } => {
-                let snapshot_dir = prepare_snapshot_dir(snapshot_dir, &config)?;
-                forest_cli_shared::snapshot::clean(snapshot_dir.as_canonical_path())?;
-                Ok(())
-            }
+            Self::Clean => std::fs::remove_dir_all(config.snapshot_directory())
+                .context("couldn't remove snapshot directory"),
             Self::Validate {
                 recent_stateroots,
                 snapshot,
@@ -272,23 +283,6 @@ impl SnapshotCommands {
             } => validate(&config, recent_stateroots, snapshot, *force).await,
         }
     }
-}
-
-/// Get the path of the snapshot directory _for this chain_
-/// This creates the path if it doesn't exist.
-// TODO(aatifsyed): this makes a blocking syscall, but we're the only task
-// running on the executor, so probably not a big deal for now
-fn prepare_snapshot_dir(
-    user_override: &Option<PathBuf>,
-    config: &Config,
-) -> anyhow::Result<CanonicalPathBuf> {
-    let snapshot_dir = user_override
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    std::fs::create_dir_all(&snapshot_dir)?;
-    let snapshot_dir =
-        CanonicalPathBuf::new(snapshot_dir).context("couldn't canonicalize snapshot dir")?;
-    Ok(snapshot_dir)
 }
 
 async fn validate(
