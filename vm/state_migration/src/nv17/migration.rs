@@ -35,8 +35,8 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_actor(&Address::new_id(0))?
             .ok_or_else(|| anyhow!("system actor not found"))?;
 
-        let system_actor_state = store
-            .get_obj::<SystemStateOld>(&system_actor.state)?
+        let system_actor_state: SystemStateOld = store
+            .get_cbor(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
         let current_manifest = ManifestOld::load(&store, &current_manifest_data, 1)?;

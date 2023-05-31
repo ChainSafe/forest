@@ -1,26 +1,27 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::multihash::Code::Blake2b256;
 use fil_actor_miner_state::{
     v8::{MinerInfo as MinerInfoV8, State as MinerStateV8},
     v9::{MinerInfo as MinerInfoV9, State as MinerStateV9},
 };
-use forest_utils::db::BlockstoreExt;
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 
 use crate::common::{TypeMigration, TypeMigrator};
 
 impl TypeMigration<MinerStateV8, MinerStateV9> for TypeMigrator {
     fn migrate_type(from: MinerStateV8, store: &impl Blockstore) -> anyhow::Result<MinerStateV9> {
         let in_info: MinerInfoV8 = store
-            .get_obj(&from.info)?
+            .get_cbor(&from.info)?
             .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v8 state"))?;
 
         let out_info: MinerInfoV9 = TypeMigrator::migrate_type(in_info, store)?;
 
         let out_state = MinerStateV9 {
-            info: store.put_obj(&out_info, Blake2b256)?,
+            info: store.put_cbor_default(&out_info)?,
             pre_commit_deposits: from.pre_commit_deposits,
             locked_funds: from.locked_funds,
             vesting_funds: from.vesting_funds,

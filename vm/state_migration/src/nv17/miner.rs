@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_state::{v8::State as MinerStateOld, v9::State as MinerStateNew};
-use forest_shim::{deal::DealID, piece::piece_v2, sector::SectorNumber};
-use forest_utils::db::BlockstoreExt;
+use forest_shim::{piece::piece_v2, sector::SectorNumber};
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_hamt::BytesKey;
@@ -74,7 +74,7 @@ where
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
         let in_state: MinerStateOld = store
-            .get_obj(&input.head)?
+            .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
         let new_pre_committed_sectors =
             self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
@@ -86,7 +86,7 @@ where
         out_state.sectors = new_sectors;
         out_state.deadlines = new_deadlines;
 
-        let new_head = store.put_obj(&out_state, Blake2b256)?;
+        let new_head = store.put_cbor_default(&out_state)?;
 
         Ok(ActorMigrationOutput {
             new_code_cid: self.out_code,

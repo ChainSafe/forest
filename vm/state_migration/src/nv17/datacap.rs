@@ -8,7 +8,7 @@ use std::{str::FromStr, sync::Arc};
 
 use cid::multihash::Code::Blake2b256;
 use forest_shim::{bigint::StoragePowerV2, econ::TokenAmount_v2};
-use forest_utils::db::BlockstoreExt;
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 
@@ -99,7 +99,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             token,
         };
 
-        let new_head = store.put_obj(&datacap_state, Blake2b256)?;
+        let new_head = store.put_cbor_default(&datacap_state)?;
 
         Ok(ActorMigrationOutput {
             new_code_cid: input.head,
