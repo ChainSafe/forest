@@ -123,7 +123,9 @@ impl Config {
     pub fn db_config(&self) -> &DbConfig {
         &self.parity_db
     }
-    pub fn snapshot_dir(&self) -> PathBuf {
+    /// The default place to store (all) snapshots.
+    /// See [crate::snapshot] for more information.
+    pub fn snapshot_directory(&self) -> PathBuf {
         self.client.data_dir.join("snapshots")
     }
 }
