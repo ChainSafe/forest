@@ -119,7 +119,6 @@ num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
 parking_lot = "0.12"
-path-absolutize = "3.1.0"
 pbr = "1.1"
 pin-project-lite = "0.2"
 pretty_assertions = "1.3.0"
@@ -129,7 +128,6 @@ quickcheck = "1"
 quickcheck_macros = "1"
 rand = "0.8"
 rayon = "1.5"
-regex = "1.8"
 reqwest = { version = "0.11.18", features = ["stream"] }
 rpassword = "7.2"
 serde = { version = "1.0", default-features = false }
@@ -147,7 +145,6 @@ tokio = "1.28"
 tokio-stream = { version = "0.1", features = ["fs"] }
 tokio-util = { version = "0.7.0", features = ["compat"] }
 toml = "0.7"
-tower-http = "0.4"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
@@ -155,7 +152,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 walkdir = "2"
-which = "4.3"
 
 fil_actor_account_state = "5"
 fil_actor_init_state = "5"
