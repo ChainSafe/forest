@@ -33,18 +33,27 @@ function pop-snapshot-path() {
 : validate calibnet snapshot
 "$FOREST_CLI_PATH" --chain calibnet snapshot clean --snapshot-dir "$snapshot_dir"
 
-: : fetch a calibnet snapshot
-"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"
-validate_me=$(pop-snapshot-path)
+    : : fetch a calibnet snapshot
+    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"
+    validate_me=$(pop-snapshot-path)
 
-: : validating under calibnet chain should succeed
-"$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me" --force
+    : : validating under calibnet chain should succeed
+    "$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me" --force
 
-: : validating under mainnet chain should fail
-if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me" --force; then
-    exit 1
-fi
+    : : validating under mainnet chain should fail
+    if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me" --force; then
+        exit 1
+    fi
 
-: : test cleanup
-"$FOREST_CLI_PATH" --chain fail snapshot clean --snapshot-dir "$snapshot_dir"
+    : : test cleanup
+    "$FOREST_CLI_PATH" snapshot clean --snapshot-dir "$snapshot_dir"
+
+: intern a snapshot downloaded with aria2c
+dir=$(mktemp --directory)
+aria2c https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst --dir="$dir"
+snapshot_path=$(echo "$dir"/*)
+snapshot_name=$(basename "$snapshot_path")
+"$FOREST_CLI_PATH" --chain calibnet snapshot intern "$snapshot_path"
+"$FOREST_CLI_PATH" snapshot list | grep --fixed-strings "$snapshot_name"
+
 
