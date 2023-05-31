@@ -48,10 +48,8 @@ pub enum SnapshotCommands {
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
     Fetch {
-        /// Directory to which the snapshot should be downloaded. If not
-        /// provided, it will be saved in default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
+        #[command(flatten)]
+        snapshot_dir: SnapshotDirectory,
         /// Maximum number of times to retry the fetch
         #[arg(short, long, default_value = "3")]
         max_retries: usize,
@@ -68,19 +66,14 @@ pub enum SnapshotCommands {
 
     /// List local snapshots
     List {
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
+        #[command(flatten)]
+        snapshot_dir: SnapshotDirectory,
     },
 
     /// Remove all known snapshots except the latest for each chain
     Prune {
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        // TODO(aatifsyed): lift this parameter up rather than repeating it everywhere
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
+        #[command(flatten)]
+        snapshot_dir: SnapshotDirectory,
     },
 
     /// Clean all local snapshots.
@@ -97,6 +90,34 @@ pub enum SnapshotCommands {
         #[arg(long)]
         force: bool,
     },
+
+    /// Moves a file downloaded from another source into forest's snapshot directory
+    Intern {
+        #[command(flatten)]
+        snapshot_dir: SnapshotDirectory,
+        /// The name of the file must be in a conventional format (as if downloaded from a supported vendor)
+        file: PathBuf,
+        #[arg(long, default_value = "user-interned")]
+        vendor: String,
+    },
+}
+
+// commonise docstring for custom snapshot directory
+#[derive(Debug, Clone, clap::Args)]
+pub struct SnapshotDirectory {
+    /// Directory to which the snapshots are downloaded. If not provided, it
+    /// will be the default Forest data location.
+    #[arg(short, long)]
+    snapshot_dir: Option<PathBuf>,
+}
+
+impl SnapshotDirectory {
+    pub fn inner(&self) -> Option<&PathBuf> {
+        self.snapshot_dir.as_ref()
+    }
+    pub fn into_inner(self) -> Option<PathBuf> {
+        self.snapshot_dir
+    }
 }
 
 impl SnapshotCommands {
@@ -185,7 +206,10 @@ impl SnapshotCommands {
                 let progress_bar = indicatif::ProgressBar::new(0)
                     .with_message("downloading snapshot")
                     .with_style(downloading_style());
-                let snapshot_dir = snapshot_dir.clone().unwrap_or(config.snapshot_directory());
+                let snapshot_dir = snapshot_dir
+                    .inner()
+                    .cloned()
+                    .unwrap_or(config.snapshot_directory());
 
                 match retry(
                     RetryArgs {
@@ -223,7 +247,7 @@ impl SnapshotCommands {
             }
             Self::List { snapshot_dir } => {
                 let snapshots = forest_cli_shared::snapshot::list(
-                    &snapshot_dir.clone().unwrap_or(config.snapshot_directory()),
+                    snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
                 )?;
                 if snapshots.is_empty() {
                     eprintln!("no snapshots")
@@ -251,7 +275,7 @@ impl SnapshotCommands {
             }
             Self::Prune { snapshot_dir } => {
                 let snapshots = forest_cli_shared::snapshot::list(
-                    &snapshot_dir.clone().unwrap_or(config.snapshot_directory()),
+                    snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
                 )?;
                 let safe = snapshots
                     .iter()
@@ -281,6 +305,18 @@ impl SnapshotCommands {
                 snapshot,
                 force,
             } => validate(&config, recent_stateroots, snapshot, *force).await,
+            Self::Intern {
+                snapshot_dir,
+                file,
+                vendor,
+            } => forest_cli_shared::snapshot::intern(
+                snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
+                file,
+                &config.chain.network,
+                vendor,
+            )
+            .await
+            .map(|path| println!("interned to {}", path.display())),
         }
     }
 }

@@ -3,19 +3,11 @@
 //! We occasionally fetch _compressed_ snapshots of `chain`s from `vendor`s
 //! and store them locally, in the `snapshot_directory`. See
 //! [crate::cli::Config::snapshot_directory]. The snapshots live at
-//! `stable_url`s, see [stable_url].
+//! `stable_url`s - see [stable_url]'s source for the supported chains and vendors.
 //!
-//! # Supported chains:
-//! - `mainnet`
-//! - `calibnet`
-//!
-//! # Supported vendors:
-//! - `forest`
-//! - `filops`
-//!
-//! This module contains utilities for fetching, enumerating, and deleting
-//! snapshots. Users should be aware that operations on the snapshot directory
-//! may race.
+//! This module contains utilities for fetching, enumerating, interning (accepting
+//! from other locations) snapshots. Users should be aware that operations on the
+//! snapshot directory may race.
 //!
 //! # Implementation
 //! The snapshot store is actually a single directory, containing a flat store
@@ -23,6 +15,9 @@
 //! - The actual data _blob_, named e.g `foo.car.zst`
 //! - A _metadata_ file, named e.g `foo.car.zst.forestmetadata.json`. See
 //!   [METADATA_FILE_SUFFIX]
+//!
+//! All files are ultimately interned by [intern_and_create_metadata], whether from
+//! the cli, or from the web.
 //!
 //! We assign no semantic meaning to the filenames other than the blob/metadata
 //! distinction - all that matters is that they are unique.
@@ -39,6 +34,7 @@
 
 use std::{
     collections::BTreeSet,
+    ffi::OsStr,
     path::{Path, PathBuf},
 };
 
@@ -160,22 +156,34 @@ pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotM
         .collect())
 }
 
-const FOREST_MAINNET_COMPRESSED: &str =
-    "https://forest.chainsafe.io/mainnet/snapshot-latest.car.zst";
-const FOREST_CALIBNET_COMPRESSED: &str =
-    "https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst";
-const FILOPS_MAINNET_COMPRESSED: &str = "https://snapshots.mainnet.filops.net/minimal/latest.zst";
-const FILOPS_CALIBNET_COMPRESSED: &str =
-    "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
+/// `file` is a snapshot file with a conventional name.
+/// This function will move `file` into `snapshot_dir`, adding an appropriate metadata
+/// file to allow it to be recognised in [list].
+pub async fn intern(
+    snapshot_dir: &Path,
+    file: &Path,
+    chain: &NetworkChain,
+    vendor: &str,
+) -> anyhow::Result<PathBuf> {
+    let (height, date, time) = file
+        .file_name()
+        .and_then(OsStr::to_str)
+        .context("non-utf8 or missing filename")
+        .and_then(parse::parse_filename)
+        .context("invalid filename")?;
 
-fn stable_url(vendor: &str, chain: &NetworkChain) -> Option<&'static str> {
-    match (vendor, chain) {
-        ("forest", NetworkChain::Mainnet) => Some(FOREST_MAINNET_COMPRESSED),
-        ("forest", NetworkChain::Calibnet) => Some(FOREST_CALIBNET_COMPRESSED),
-        ("filops", NetworkChain::Mainnet) => Some(FILOPS_MAINNET_COMPRESSED),
-        ("filops", NetworkChain::Calibnet) => Some(FILOPS_CALIBNET_COMPRESSED),
-        _ => None,
-    }
+    intern_and_create_metadata(
+        snapshot_dir,
+        file,
+        height,
+        date,
+        time,
+        chain,
+        vendor,
+        None,
+        None,
+    )
+    .await
 }
 
 /// Metadata about a snapshot blob
@@ -190,9 +198,50 @@ pub enum SnapshotMetadata {
         chain: String,
         vendor: String,
         // The stable url used
-        source_url: String,
-        fetched_url: String,
+        source_url: Option<String>,
+        fetched_url: Option<String>,
     },
+}
+
+/// Moves the file `blob` into `snapshot_dir`, and creates a metadata file for it.
+///
+/// This will preserve the filename of `blob`.
+/// Does not clean up `blob` on failure.
+#[allow(clippy::too_many_arguments)]
+async fn intern_and_create_metadata(
+    snapshot_dir: &Path,
+    blob: &Path,
+    height: i64,
+    date: NaiveDate,
+    time: Option<NaiveTime>,
+    chain: &NetworkChain,
+    vendor: &str,
+    source_url: Option<String>,
+    fetched_url: Option<String>,
+) -> anyhow::Result<PathBuf> {
+    let metadata_contents = serde_json::to_string(&SnapshotMetadata::V1 {
+        height,
+        date,
+        time,
+        chain: chain.to_string(),
+        vendor: String::from(vendor),
+        source_url,
+        fetched_url,
+    })
+    .expect("serialization of metadata shouldn't fail");
+    let blob_name = blob.file_name().context("no filename")?.to_os_string();
+    let new_blob_path = snapshot_dir.join(&blob_name);
+    let metadata_path = snapshot_dir.join(blob_name.tap_mut(|it| it.push(METADATA_FILE_SUFFIX)));
+
+    tokio::fs::write(metadata_path, metadata_contents)
+        .await
+        .context("couldn't write metadata file")?;
+
+    tokio::fs::rename(blob, &new_blob_path)
+        .await
+        .context("couldn't move blob to snapshot directory")?;
+
+    Ok(new_blob_path)
 }
 
 /// Unit-testable implementation of [fetch]
@@ -212,33 +261,18 @@ async fn fetch_impl(
 
     match download_to_temp(client, actual_url.clone(), progress_bar).await {
         Ok((path, final_url)) if final_url == actual_url => {
-            let blob_file_name = path
-                .file_name()
-                .expect("download_to_temp returns a path to a file");
-            let blob_file_path = snapshot_dir.join(blob_file_name);
-            let metadata_file_name = blob_file_name
-                .to_os_string()
-                .tap_mut(|it| it.push(METADATA_FILE_SUFFIX));
-
-            let metadata_contents = serde_json::to_string(&SnapshotMetadata::V1 {
+            intern_and_create_metadata(
+                snapshot_dir,
+                &path,
                 height,
                 date,
                 time,
-                chain: chain.to_string(),
-                vendor: String::from(vendor),
-                source_url: String::from(stable_url),
-                fetched_url: actual_url.to_string(),
-            })
-            .expect("serialization of this struct shouldn't fail");
-
-            tokio::fs::write(snapshot_dir.join(metadata_file_name), metadata_contents)
-                .await
-                .context("couldn't write metadata file")?; // leaked file
-
-            tokio::fs::rename(path, &blob_file_path)
-                .await
-                .context("couldn't move download to snapshot directory")?;
-            Ok(blob_file_path)
+                chain,
+                vendor,
+                Some(String::from(stable_url)),
+                Some(String::from(actual_url)),
+            )
+            .await
         }
         Ok((path, _)) => {
             let _ = tokio::fs::remove_file(path).await;
@@ -328,6 +362,24 @@ async fn download_to_temp(
     }
 }
 
+const FOREST_MAINNET_COMPRESSED: &str =
+    "https://forest.chainsafe.io/mainnet/snapshot-latest.car.zst";
+const FOREST_CALIBNET_COMPRESSED: &str =
+    "https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst";
+const FILOPS_MAINNET_COMPRESSED: &str = "https://snapshots.mainnet.filops.net/minimal/latest.zst";
+const FILOPS_CALIBNET_COMPRESSED: &str =
+    "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
+
+fn stable_url(vendor: &str, chain: &NetworkChain) -> Option<&'static str> {
+    match (vendor, chain) {
+        ("forest", NetworkChain::Mainnet) => Some(FOREST_MAINNET_COMPRESSED),
+        ("forest", NetworkChain::Calibnet) => Some(FOREST_CALIBNET_COMPRESSED),
+        ("filops", NetworkChain::Mainnet) => Some(FILOPS_MAINNET_COMPRESSED),
+        ("filops", NetworkChain::Calibnet) => Some(FILOPS_CALIBNET_COMPRESSED),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use httptest::{matchers::request::method_path, responders::status_code, Expectation};
@@ -405,8 +457,8 @@ mod tests {
                 time: Some(NaiveTime::from_hms_opt(22, 0, 0)).unwrap(),
                 chain: String::from("mainnet"),
                 vendor: String::from("testvendor"),
-                source_url: server.url_str("/stable"),
-                fetched_url: server.url_str("/2905920_2023_05_30T22_00_00Z.car.zst")
+                source_url: Some(server.url_str("/stable")),
+                fetched_url: Some(server.url_str("/2905920_2023_05_30T22_00_00Z.car.zst"))
             },
             metadata
         );
