@@ -177,7 +177,7 @@ mdbook-build:
 # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
 vendored-docs:
 	rustup toolchain install $(VENDORED_DOCS_TOOLCHAIN)
-	RUSTDOCFLAGS="-Dwarnings -Zunstable-options --enable-index-page" \
+	RUSTDOCFLAGS="-Dwarnings --document-private-items -Zunstable-options --enable-index-page" \
 		cargo +$(VENDORED_DOCS_TOOLCHAIN) doc --workspace --no-deps
 
 .PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors vendored-docs
