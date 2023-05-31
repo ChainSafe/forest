@@ -262,7 +262,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     let epoch = chain_store.heaviest_tipset().epoch();
     let nv = config.chain.network_version(epoch);
     let should_fetch_snapshot = if nv < NetworkVersion::V16 {
-        prompt_snapshot_or_die(opts.auto_download_snapshot, &config).await?
+        prompt_snapshot_or_die(opts.auto_download_snapshot, &config)?
     } else {
         false
     };
@@ -511,10 +511,7 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
 
 /// Last resort in case a snapshot is needed. If it is not to be downloaded,
 /// this method fails and exits the process.
-async fn prompt_snapshot_or_die(
-    auto_download_snapshot: bool,
-    config: &Config,
-) -> anyhow::Result<bool> {
+fn prompt_snapshot_or_die(auto_download_snapshot: bool, config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
