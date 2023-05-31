@@ -45,8 +45,8 @@ pub fn create_tmp_config() -> Result<(PathBuf, TempDir)> {
 [client]
 data_dir = "{}"
 
-[chain]
-name = "calibnet"
+[chain.network]
+type = "calibnet"
 "#,
         temp_dir.path().display()
     );
