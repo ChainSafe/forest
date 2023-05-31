@@ -52,7 +52,7 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
         .client
         .data_dir
         .join("bundles")
-        .join(&config.chain.name);
+        .join(config.chain.network.to_string());
 
     tokio::fs::create_dir_all(&bundle_path_dir).await?;
     let bundle_path = bundle_path_dir.join(format!("bundle_{height}.car"));

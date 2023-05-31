@@ -7,8 +7,8 @@ use forest_shim::{
     machine::ManifestV3,
     state_tree::{ActorState, StateTree},
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 
 use super::SystemStateNew;
 
@@ -21,7 +21,7 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
         .get_actor(&Address::INIT_ACTOR)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
     let init_state: fil_actor_init_state::v10::State = store
-        .get_obj(&init_actor.state)?
+        .get_cbor(&init_actor.state)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
 
     let eth_zero_addr =
@@ -35,7 +35,7 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
         .ok_or_else(|| anyhow!("failed to get system actor"))?;
 
     let system_actor_state = store
-        .get_obj::<SystemStateNew>(&system_actor.state)?
+        .get_cbor::<SystemStateNew>(&system_actor.state)?
         .ok_or_else(|| anyhow!("failed to get system actor state"))?;
 
     let manifest_data = system_actor_state.builtin_actors;

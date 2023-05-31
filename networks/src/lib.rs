@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use anyhow::Error;
 use cid::Cid;
@@ -30,7 +30,8 @@ const DEFAULT_REQUEST_WINDOW: usize = 32;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
     Mainnet,
     Calibnet,
@@ -45,6 +46,16 @@ impl FromStr for NetworkChain {
             "mainnet" => Ok(NetworkChain::Mainnet),
             "calibnet" => Ok(NetworkChain::Calibnet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
+        }
+    }
+}
+
+impl Display for NetworkChain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NetworkChain::Mainnet => write!(f, "mainnet"),
+            NetworkChain::Calibnet => write!(f, "calibnet"),
+            NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
     }
 }
@@ -138,7 +149,7 @@ struct DrandPoint<'a> {
 #[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct ChainConfig {
-    pub name: String,
+    pub network: NetworkChain,
     pub genesis_cid: Option<String>,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
@@ -158,7 +169,7 @@ impl ChainConfig {
         println!("Using mainnet");
         use mainnet::*;
         Self {
-            name: "mainnet".to_string(),
+            network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
@@ -175,7 +186,7 @@ impl ChainConfig {
         println!("Using calibnet");
         use calibnet::*;
         Self {
-            name: "calibnet".to_string(),
+            network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
@@ -212,7 +223,7 @@ impl ChainConfig {
         policy.valid_post_proof_type = allowed_proof_types;
 
         Self {
-            name: "devnet".to_string(),
+            network: NetworkChain::Devnet("devnet".to_string()),
             genesis_cid: None,
             bootstrap_peers: Vec::new(),
             block_delay_secs: 4,
@@ -230,8 +241,8 @@ impl ChainConfig {
             NetworkChain::Mainnet => Self::mainnet(),
             NetworkChain::Calibnet => Self::calibnet(),
             NetworkChain::Devnet(name) => Self {
-                name: name.to_string(),
-                ..Self::devnet()
+                network: NetworkChain::Devnet(name.clone()),
+                ..Self::calibnet()
             },
         }
     }
@@ -251,10 +262,10 @@ impl ChainConfig {
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
-        let ds_iter = match self.name.as_ref() {
-            "mainnet" => mainnet::DRAND_SCHEDULE.iter(),
-            "calibnet" => calibnet::DRAND_SCHEDULE.iter(),
-            _ => devnet::DRAND_SCHEDULE.iter(),
+        let ds_iter = match self.network {
+            NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
+            NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
+            NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
         };
 
         let mut points = BeaconSchedule::with_capacity(ds_iter.len());
@@ -280,15 +291,15 @@ impl ChainConfig {
     }
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {
-        match self.name.as_ref() {
-            "mainnet" => Some(mainnet::DEFAULT_GENESIS),
-            "calibnet" => Some(calibnet::DEFAULT_GENESIS),
-            _ => None,
+        match self.network {
+            NetworkChain::Mainnet => Some(mainnet::DEFAULT_GENESIS),
+            NetworkChain::Calibnet => Some(calibnet::DEFAULT_GENESIS),
+            NetworkChain::Devnet(_) => None,
         }
     }
 
     pub fn is_testnet(&self) -> bool {
-        !matches!(self.name.as_ref(), "mainnet")
+        !matches!(self.network, NetworkChain::Mainnet)
     }
 }
 

@@ -15,6 +15,7 @@ use forest_cli_shared::cli::{
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
+use forest_networks::NetworkChain;
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
 use forest_utils::{
@@ -439,7 +440,7 @@ async fn validate(
         let db_path = db_root(
             tmp_chain_data_path
                 .path()
-                .join(&config.chain.name)
+                .join(config.chain.network.to_string())
                 .as_path(),
         );
         let db = open_proxy_db(db_path, config.db_config().clone())?;
@@ -471,7 +472,7 @@ async fn validate(
             chain_store.blockstore(),
             *recent_stateroots,
             &Tipset::from(genesis),
-            &config.chain.name,
+            &config.chain.network,
         )
         .await?;
     }
@@ -485,7 +486,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     db: &DB,
     recent_stateroots: ChainEpoch,
     genesis_tipset: &Tipset,
-    network: &str,
+    network: &NetworkChain,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Send + Sync,

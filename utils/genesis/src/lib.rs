@@ -8,12 +8,13 @@ use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_state_manager::StateManager;
 use forest_utils::{
-    db::{BlockstoreBufferedWriteExt, BlockstoreExt},
+    db::BlockstoreBufferedWriteExt,
     net::{get_fetch_progress_from_file, get_fetch_progress_from_url},
 };
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
+use fvm_ipld_encoding::CborStore;
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -91,7 +92,7 @@ where
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block: BlockHeader = db.get_obj(&genesis_cids[0])?.ok_or_else(|| {
+    let genesis_block: BlockHeader = db.get_cbor(&genesis_cids[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 
@@ -144,9 +145,9 @@ where
         if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {
             bail!(
-                "Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or 
+                "Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or \
                  use a custom config file to set expected genesis CID for selected network", 
-                sm.chain_config().name
+                sm.chain_config().network
             );
         }
     }

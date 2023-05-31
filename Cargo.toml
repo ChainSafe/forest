@@ -134,7 +134,7 @@ serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 tempfile = "3.4"
 thiserror = "1.0"
-tokio = "1.24"
+tokio = "1.28"
 tokio-stream = "0.1"
 tokio-util = "0.7.0"
 toml = "0.7"
@@ -186,6 +186,9 @@ forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
 
+# This needs to be set as default. Otherwise, a regular build or test will produce
+# gargantuan artifacts (around 70G for all tests). For a debugging session, you can
+# temporarily comment it out.
 [profile.dev]
 debug = 0
 split-debuginfo = "unpacked"
