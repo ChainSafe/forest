@@ -64,55 +64,18 @@ pub async fn fetch(
     client: &reqwest::Client,
     progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<PathBuf> {
-    tokio::fs::create_dir_all(snapshot_dir).await?;
-
     let stable_url = stable_url(vendor, chain)
         .with_context(|| format!("unsupported chain `{chain}` or vendor `{vendor}`"))?;
 
-    let (height, date, time, actual_url, file_len) = peek_snapshot(client, stable_url).await?;
-
-    progress_bar.set_length(file_len);
-
-    match download_to_temp(client, actual_url.clone(), progress_bar).await {
-        Ok((path, final_url)) if final_url == actual_url => {
-            let blob_file_name = path
-                .file_name()
-                .expect("download_to_temp returns a path to a file");
-            let blob_file_path = snapshot_dir.join(blob_file_name);
-            let metadata_file_name = blob_file_name
-                .to_os_string()
-                .tap_mut(|it| it.push(METADATA_FILE_SUFFIX));
-
-            let metadata_contents = serde_json::to_string(&SnapshotMetadata::V1 {
-                height,
-                date,
-                time,
-                chain: chain.to_string(),
-                vendor: String::from(vendor),
-                source_url: String::from(stable_url),
-                fetched_url: actual_url.to_string(),
-            })
-            .expect("serialization of this struct shouldn't fail");
-
-            tokio::fs::write(snapshot_dir.join(metadata_file_name), metadata_contents)
-                .await
-                .context("couldn't write metadata file")?; // leaked file
-
-            tokio::fs::rename(path, &blob_file_path)
-                .await
-                .context("couldn't move download to snapshot directory")?;
-            Ok(blob_file_path)
-        }
-        Ok((path, _)) => {
-            let _ = tokio::fs::remove_file(path).await;
-            bail!("mismatch between metadata and downloaded file");
-        }
-        // something went wrong with the download
-        Err(err) => {
-            progress_bar.abandon();
-            Err(err)
-        }
-    }
+    fetch_impl(
+        snapshot_dir,
+        stable_url,
+        chain,
+        vendor,
+        client,
+        progress_bar,
+    )
+    .await
 }
 
 /// List all paths to files and their metadata in `snapshot_directory`. Will
@@ -230,6 +193,63 @@ pub enum SnapshotMetadata {
         source_url: String,
         fetched_url: String,
     },
+}
+
+/// Unit-testable implementation of [fetch]
+async fn fetch_impl(
+    snapshot_dir: &Path,
+    stable_url: &str,
+    chain: &NetworkChain,
+    vendor: &str,
+    client: &reqwest::Client,
+    progress_bar: &indicatif::ProgressBar,
+) -> anyhow::Result<PathBuf> {
+    tokio::fs::create_dir_all(snapshot_dir).await?;
+
+    let (height, date, time, actual_url, file_len) = peek_snapshot(client, stable_url).await?;
+
+    progress_bar.set_length(file_len);
+
+    match download_to_temp(client, actual_url.clone(), progress_bar).await {
+        Ok((path, final_url)) if final_url == actual_url => {
+            let blob_file_name = path
+                .file_name()
+                .expect("download_to_temp returns a path to a file");
+            let blob_file_path = snapshot_dir.join(blob_file_name);
+            let metadata_file_name = blob_file_name
+                .to_os_string()
+                .tap_mut(|it| it.push(METADATA_FILE_SUFFIX));
+
+            let metadata_contents = serde_json::to_string(&SnapshotMetadata::V1 {
+                height,
+                date,
+                time,
+                chain: chain.to_string(),
+                vendor: String::from(vendor),
+                source_url: String::from(stable_url),
+                fetched_url: actual_url.to_string(),
+            })
+            .expect("serialization of this struct shouldn't fail");
+
+            tokio::fs::write(snapshot_dir.join(metadata_file_name), metadata_contents)
+                .await
+                .context("couldn't write metadata file")?; // leaked file
+
+            tokio::fs::rename(path, &blob_file_path)
+                .await
+                .context("couldn't move download to snapshot directory")?;
+            Ok(blob_file_path)
+        }
+        Ok((path, _)) => {
+            let _ = tokio::fs::remove_file(path).await;
+            bail!("mismatch between metadata and downloaded file");
+        }
+        // something went wrong with the download
+        Err(err) => {
+            progress_bar.abandon();
+            Err(err)
+        }
+    }
 }
 
 /// Takes a stable url like `https://snapshots.calibrationnet.filops.net/minimal/latest`, and follows it to get
@@ -355,67 +375,43 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch() -> anyhow::Result<()> {
+    async fn test_fetch_and_list() -> anyhow::Result<()> {
         let temp_dir = TempDir::new()?;
         let server = httptest::Server::run();
         server.expect(
-            Expectation::matching(method_path("GET", "/stable"))
-                .respond_with(status_code(301).insert_header("Location", "foo")),
+            Expectation::matching(method_path("GET", "/stable")).respond_with(
+                status_code(301).insert_header("Location", "/2905920_2023_05_30T22_00_00Z.car.zst"),
+            ),
         );
         server.expect(
-            Expectation::matching(method_path("GET", format!("/{}", "foo")))
+            Expectation::matching(method_path("GET", "/2905920_2023_05_30T22_00_00Z.car.zst"))
                 .times(1..)
                 .respond_with(status_code(200)),
         );
-        // fetch(
-        //     snapshot_dir,
-        //     "",
-        //     &reqwest::Client::new(),
-        //     server.url_str("/stable").parse().unwrap(),
-        //     &indicatif::ProgressBar::hidden(),
-        // )
-        // .await?;
-        // let snapshots = list(snapshot_dir)?;
+        fetch_impl(
+            temp_dir.path(),
+            &server.url_str("/stable"),
+            &NetworkChain::Mainnet,
+            "testvendor",
+            &reqwest::Client::new(),
+            &indicatif::ProgressBar::hidden(),
+        )
+        .await?;
+        let (_path, metadata) = list(temp_dir.path())?.into_iter().exactly_one()?;
+        assert_eq!(
+            SnapshotMetadata::V1 {
+                height: 2905920,
+                date: NaiveDate::from_ymd_opt(2023, 5, 30).unwrap(),
+                time: Some(NaiveTime::from_hms_opt(22, 0, 0)).unwrap(),
+                chain: String::from("mainnet"),
+                vendor: String::from("testvendor"),
+                source_url: server.url_str("/stable"),
+                fetched_url: server.url_str("/2905920_2023_05_30T22_00_00Z.car.zst")
+            },
+            metadata
+        );
         Ok(())
     }
-
-    fn assert_one_normal_component(s: &str) -> &Path {
-        if let Ok(std::path::Component::Normal(normal)) = Path::new(s).components().exactly_one() {
-            return Path::new(normal);
-        } else {
-            panic!("{s} is not one normal path component")
-        };
-    }
-
-    /// Utility trait for building a filesystem structure for testing
-    trait FileSystemBuilder: AsRef<Path> + Sized {
-        fn file(self, name: &str) -> Self {
-            self.file_contents(name, [])
-        }
-        fn file_contents(self, name: &str, contents: impl AsRef<[u8]>) -> Self {
-            std::fs::write(
-                self.as_ref().join(assert_one_normal_component(name)),
-                contents,
-            )
-            .unwrap();
-            self
-        }
-        fn file_json(self, name: &str, contents: impl Serialize) -> Self {
-            let contents = serde_json::to_vec(&contents).unwrap();
-            self.file_contents(name, contents)
-        }
-        fn folder(self, name: &str) -> Self {
-            self.folder_contents(name, |_| {})
-        }
-        fn folder_contents(self, name: &str, make_contents: impl FnOnce(&Path)) -> Self {
-            let new_folder_path = self.as_ref().join(assert_one_normal_component(name));
-            std::fs::create_dir(&new_folder_path).unwrap();
-            make_contents(&new_folder_path);
-            self
-        }
-    }
-
-    impl<T> FileSystemBuilder for T where T: AsRef<Path> {}
 }
 
 /// Filops and forest store metadata in the filename, in a conventional format.
