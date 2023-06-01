@@ -269,6 +269,7 @@ impl SnapshotCommands {
                         println!("\tdate: {date}");
                         println!("\tchain: {chain}");
                         println!("\tvendor: {vendor}");
+                        println!();
                     }
                 }
                 Ok(())
