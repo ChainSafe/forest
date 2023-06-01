@@ -6,7 +6,7 @@ use cid::Cid;
 use forest_shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
-use super::{verifier::MigrationVerifier, Migrator, PostMigrationAction};
+use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
 use crate::common::migration_job::{MigrationJob, MigrationJobOutput};
 
 /// Handles several cases of migration:
@@ -17,19 +17,19 @@ pub(crate) struct StateMigration<BS> {
     migrations: HashMap<Cid, Migrator<BS>>,
     /// Verifies correctness of the migration specification.
     verifier: Option<MigrationVerifier<BS>>,
-    /// Post migration actions. This may include new actor creation.
-    post_migration_actions: Vec<PostMigrationAction<BS>>,
+    /// Post migrator(s). This may include new actor creation.
+    post_migrators: Vec<PostMigratorArc<BS>>,
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub(crate) fn new(
         verifier: Option<MigrationVerifier<BS>>,
-        post_migration_actions: Vec<PostMigrationAction<BS>>,
+        post_migrators: Vec<PostMigratorArc<BS>>,
     ) -> Self {
         Self {
             migrations: HashMap::new(),
             verifier,
-            post_migration_actions,
+            post_migrators,
         }
     }
 
@@ -120,8 +120,8 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         });
 
         // execute post migration actions, e.g., create new actors
-        for action in self.post_migration_actions.iter() {
-            action(&store, &mut actors_out)?;
+        for post_migrator in self.post_migrators.iter() {
+            post_migrator.post_migrate_state(&store, &mut actors_out)?;
         }
 
         actors_out.flush()
