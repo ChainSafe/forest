@@ -6,11 +6,10 @@
 //! <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go>
 
 mod datacap;
-mod market;
 mod migration;
 mod miner;
 mod util;
-mod verifreg;
+mod verifreg_market;
 
 /// Run migration for `NV17`. This should be the only exported method in this
 /// module.

@@ -19,7 +19,7 @@ use fvm_ipld_encoding::CborStore;
 
 use super::{
     datacap, miner, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
-    ManifestNew, ManifestOld, SystemStateOld,
+    verifreg_market, ManifestNew, ManifestOld, SystemStateOld,
 };
 use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
 
@@ -106,6 +106,8 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             miner::miner_migrator(*miner_v9_cid, &store, market_v8_state.proposals)?,
         );
 
+        // self.add_migrator(prior_cid, market::market_migrator(market_v8_state)?);
+
         Ok(())
     }
 }
@@ -140,11 +142,11 @@ where
     let verifier = Arc::new(Verifier::default());
 
     // Add post-migration steps
-    // let post_migration_actions = []
-    //     .into_iter()
-    //     .map(|action| Arc::new(action) as PostMigrationAction<DB>)
-    //     .collect();
-    let post_migration_actions = Vec::new();
+    let post_migration_actions = [verifreg_market::create_verifreg_market_actor]
+        .into_iter()
+        .map(|action| Arc::new(action) as PostMigrationAction<DB>)
+        .collect();
+    // let post_migration_actions = Vec::new();
 
     let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
     migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid)?;
