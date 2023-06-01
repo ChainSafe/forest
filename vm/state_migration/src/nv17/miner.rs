@@ -13,6 +13,10 @@ use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_hamt::BytesKey;
+use fvm_shared::{
+    commcid::data_commitment_v1_to_cid, piece::PieceInfo as PieceInfoV2,
+    sector::RegisteredSealProof as RegisteredSealProofV2,
+};
 
 use crate::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -140,7 +144,7 @@ impl MinerMigrator {
             }
 
             let unsealed_cid = if !pieces.is_empty() {
-                Some(fvm_sdk::crypto::compute_unsealed_sector_cid(
+                Some(compute_unsealed_sector_cid_v2(
                     value.info.seal_proof,
                     pieces.as_slice(),
                 )?)
@@ -184,4 +188,27 @@ fn sector_key(sector: SectorNumber) -> anyhow::Result<BytesKey> {
     Ok(unsigned_varint::encode::u64(sector, &mut buffer)
         .to_vec()
         .into())
+}
+
+// TODO: Replace with <https://github.com/ChainSafe/fil-actor-states/pull/134>
+pub fn compute_unsealed_sector_cid_v2(
+    proof_type: RegisteredSealProofV2,
+    pieces: &[PieceInfoV2],
+) -> anyhow::Result<Cid> {
+    if pieces.is_empty() {
+        anyhow::bail!("no pieces provided");
+    }
+
+    let mut all_pieces = Vec::with_capacity(pieces.len());
+    for p in pieces {
+        all_pieces.push(filecoin_proofs_api::PieceInfo::try_from(p).map_err(anyhow::Error::msg)?);
+    }
+
+    let comm_d = filecoin_proofs_api::seal::compute_comm_d(
+        proof_type.try_into().map_err(anyhow::Error::msg)?,
+        &all_pieces,
+    )
+    .map_err(anyhow::Error::msg)?;
+
+    data_commitment_v1_to_cid(&comm_d).map_err(anyhow::Error::msg)
 }
