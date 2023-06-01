@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use cid::Cid;
 use forest_shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
@@ -22,20 +22,22 @@ pub(crate) struct StateMigration<BS> {
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
-    pub(crate) fn new(
-        verifier: Option<MigrationVerifier<BS>>,
-        post_migrators: Vec<PostMigratorArc<BS>>,
-    ) -> Self {
+    pub(crate) fn new(verifier: Option<MigrationVerifier<BS>>) -> Self {
         Self {
-            migrations: HashMap::new(),
+            migrations: Default::default(),
             verifier,
-            post_migrators,
+            post_migrators: Default::default(),
         }
     }
 
     /// Inserts a new migrator into the migration specification.
     pub(crate) fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
         self.migrations.insert(prior_cid, migrator);
+    }
+
+    /// Inserts a new post migrator into the post migration specification.
+    pub(crate) fn add_post_migrator(&mut self, post_migrator: PostMigratorArc<BS>) {
+        self.post_migrators.push(post_migrator);
     }
 
     pub(crate) fn migrate_state_tree(

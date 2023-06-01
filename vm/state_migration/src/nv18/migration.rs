@@ -18,7 +18,7 @@ use super::{
     eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system, verifier::Verifier,
     ManifestNew, ManifestOld, SystemStateOld,
 };
-use crate::common::{migrators::nil_migrator, PostMigratorArc, StateMigration};
+use crate::common::{migrators::nil_migrator, StateMigration};
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv18_migrations(
         &mut self,
@@ -58,6 +58,11 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             system::system_migrator(new_manifest_data, *new_manifest.get_system_code()),
         );
 
+        // Add post-migration steps
+        self.add_post_migrator(Arc::new(EamPostMigrator));
+
+        self.add_post_migrator(Arc::new(EthAccountPostMigrator));
+
         Ok(())
     }
 }
@@ -91,11 +96,7 @@ where
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
 
-    // Add post-migration steps
-    let post_migrators: Vec<PostMigratorArc<DB>> =
-        vec![Arc::new(EamPostMigrator), Arc::new(EthAccountPostMigrator)];
-
-    let mut migration = StateMigration::<DB>::new(Some(verifier), post_migrators);
+    let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv18_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
