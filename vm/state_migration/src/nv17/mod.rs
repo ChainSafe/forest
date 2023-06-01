@@ -10,6 +10,7 @@ mod market;
 mod migration;
 mod miner;
 mod util;
+mod verifreg;
 
 /// Run migration for `NV17`. This should be the only exported method in this
 /// module.
