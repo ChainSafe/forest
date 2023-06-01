@@ -67,9 +67,11 @@ tracing.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+predicates.workspace = true
 pretty_assertions.workspace = true
 quickcheck.workspace = true
 rand.workspace = true
+tap.workspace = true
 
 [features]
 default = ["paritydb", "jemalloc"]

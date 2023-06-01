@@ -219,6 +219,7 @@ async fn intern_and_create_metadata(
     source_url: Option<String>,
     fetched_url: Option<String>,
 ) -> anyhow::Result<PathBuf> {
+    tokio::fs::create_dir_all(snapshot_dir).await?;
     let metadata_contents = serde_json::to_string(&SnapshotMetadata::V1 {
         height,
         date,
@@ -253,8 +254,6 @@ async fn fetch_impl(
     client: &reqwest::Client,
     progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<PathBuf> {
-    tokio::fs::create_dir_all(snapshot_dir).await?;
-
     let (height, date, time, actual_url, file_len) = peek_snapshot(client, stable_url).await?;
 
     progress_bar.set_length(file_len);

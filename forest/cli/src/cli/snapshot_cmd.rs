@@ -65,6 +65,7 @@ pub enum SnapshotCommands {
     Dir,
 
     /// List local snapshots
+    /// The output format of this command is not stable
     List {
         #[command(flatten)]
         snapshot_dir: SnapshotDirectory,
@@ -259,7 +260,9 @@ impl SnapshotCommands {
                             date,
                             chain,
                             vendor,
-                            ..
+                            time: _,
+                            source_url,
+                            fetched_url,
                         },
                     ) in snapshots
                     {
@@ -269,12 +272,19 @@ impl SnapshotCommands {
                         println!("\tdate: {date}");
                         println!("\tchain: {chain}");
                         println!("\tvendor: {vendor}");
+                        if let Some(source_url) = source_url {
+                            println!("\tsource_url: {source_url}")
+                        }
+                        if let Some(fetched_url) = fetched_url {
+                            println!("\tfetched_url: {fetched_url}")
+                        }
                         println!();
                     }
                 }
                 Ok(())
             }
             Self::Prune { snapshot_dir } => {
+                let mut pruned = 0;
                 let snapshots = forest_cli_shared::snapshot::list(
                     snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
                 )?;
@@ -292,11 +302,13 @@ impl SnapshotCommands {
                     .collect::<Vec<_>>();
                 for (snapshot, _) in &snapshots {
                     if !safe.contains(&snapshot) {
-                        if let Err(e) = tokio::fs::remove_file(snapshot).await {
-                            error!(path = ?snapshot, "error removing snapshot: {e}");
+                        match tokio::fs::remove_file(snapshot).await {
+                            Err(e) => error!(path = ?snapshot, "error removing snapshot: {e}"),
+                            Ok(_) => pruned += 1,
                         }
                     }
                 }
+                println!("pruned {pruned} snapshots");
                 Ok(())
             }
             Self::Clean => std::fs::remove_dir_all(config.snapshot_directory())
