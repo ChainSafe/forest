@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use anyhow::{bail, Context};
 use cid::Cid;
-pub use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
+use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
@@ -223,8 +223,10 @@ where
 /// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ActorState(ActorStateV3);
+pub struct ActorState {
+    pub v2: Option<ActorStateV2>,
+    pub v3: Option<ActorStateV3>,
+}
 
 impl ActorState {
     pub fn new(
@@ -233,101 +235,77 @@ impl ActorState {
         balance: TokenAmount,
         sequence: u64,
         address: Option<Address>,
-    ) -> Self {
-        Self(ActorStateV3::new(
-            code,
-            state,
-            balance.into(),
-            sequence,
-            address.map(Into::into),
-        ))
+    ) -> ActorState {
+        Self {
+            v2: Some(ActorStateV2::new(
+                code,
+                state,
+                balance.clone().into(),
+                sequence,
+            )),
+            v3: Some(ActorStateV3::new(
+                code,
+                state,
+                balance.into(),
+                sequence,
+                address.map(Into::into),
+            )),
+        }
     }
+
     /// Construct a new empty actor with the specified code.
-    pub fn new_empty(code: Cid, delegated_address: Option<Address>) -> Self {
-        Self(ActorStateV3::new_empty(
-            code,
-            delegated_address.map(Into::into),
-        ))
+    pub fn new_empty(code: Cid, delegated_address: Option<Address>) -> ActorStateV3 {
+        ActorStateV3::new_empty(code, delegated_address.map(Into::into))
     }
 }
 impl Inner for ActorState {
     type FVM = ActorStateV3;
 }
 
-impl Deref for ActorState {
-    type Target = ActorStateV3;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for ActorState {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<ActorStateV3> for ActorState {
-    fn from(value: ActorStateV3) -> Self {
-        ActorState(value)
-    }
-}
-
-impl From<&ActorStateV3> for ActorState {
-    fn from(value: &ActorStateV3) -> Self {
-        ActorState(value.clone())
-    }
-}
-
-impl From<ActorStateV2> for ActorState {
-    fn from(value: ActorStateV2) -> Self {
-        ActorState(ActorStateV3 {
-            code: value.code,
-            state: value.state,
-            sequence: value.sequence,
-            balance: TokenAmount::from(value.balance).into(),
-            delegated_address: None,
-        })
-    }
-}
-
-impl From<&ActorStateV2> for ActorState {
-    fn from(value: &ActorStateV2) -> Self {
-        ActorState(ActorStateV3 {
-            code: value.code,
-            state: value.state,
-            sequence: value.sequence,
-            balance: TokenAmount::from(&value.balance).into(),
-            delegated_address: None,
-        })
-    }
-}
-
 impl From<ActorState> for ActorStateV3 {
     fn from(other: ActorState) -> Self {
-        other.0
+        other.v3.expect("Couldn't convert actor state.")
     }
 }
 
 impl From<ActorState> for ActorStateV2 {
-    fn from(other: ActorState) -> ActorStateV2 {
-        ActorStateV2 {
-            code: other.code,
-            state: other.state,
-            sequence: other.sequence,
-            balance: TokenAmount::from(&other.balance).into(),
+    fn from(other: ActorState) -> Self {
+        other.v2.expect("Couldn't convert actor state.")
+    }
+}
+
+impl From<&ActorStateV2> for ActorState {
+    fn from(other: &ActorStateV2) -> Self {
+        ActorState {
+            v2: Some(other.clone()),
+            v3: None,
         }
     }
 }
 
-impl From<&ActorState> for ActorStateV2 {
-    fn from(other: &ActorState) -> ActorStateV2 {
-        ActorStateV2 {
-            code: other.code,
-            state: other.state,
-            sequence: other.sequence,
-            balance: TokenAmount::from(&other.balance).into(),
+impl From<&ActorStateV3> for ActorState {
+    fn from(other: &ActorStateV3) -> Self {
+        ActorState {
+            v2: None,
+            v3: Some(other.clone()),
+        }
+    }
+}
+
+impl From<ActorStateV2> for ActorState {
+    fn from(other: ActorStateV2) -> Self {
+        ActorState {
+            v2: Some(other),
+            v3: None,
+        }
+    }
+}
+
+impl From<ActorStateV3> for ActorState {
+    fn from(other: ActorStateV3) -> Self {
+        ActorState {
+            v2: None,
+            v3: Some(other),
         }
     }
 }
