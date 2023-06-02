@@ -41,7 +41,7 @@ clean-snapshot-dir
 "$FOREST_CLI_PATH" --chain calibnet db clean --force
 
 : validate calibnet snapshot
-"$FOREST_CLI_PATH" --chain calibnet snapshot clean --snapshot-dir "$snapshot_dir"
+    clean-snapshot-dir
 
     : : fetch a calibnet snapshot
     "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"

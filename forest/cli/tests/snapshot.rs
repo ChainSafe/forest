@@ -178,9 +178,8 @@ fn snapshot_prune(snapshot_dir: &impl AsRef<Path>) {
 fn assert_one_normal_component(s: &str) -> &Path {
     if let Ok(Component::Normal(_)) = Path::new(s).components().exactly_one() {
         return Path::new(s);
-    } else {
-        panic!("{s} is not one normal path component")
     }
+    panic!("{s} is not one normal path component")
 }
 
 /// `Self` should be a directory containing files and folders (no symlinks etc)
