@@ -64,8 +64,9 @@ SECP256k1
 serializable
 serializer/SM
 snapshot_dir
+snapshot_directory
 spawn_blocking
-stable_url
+stable_url/SM
 statediff
 stateful
 stdout
