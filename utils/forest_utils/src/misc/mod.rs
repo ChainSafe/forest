@@ -8,7 +8,8 @@ pub use either::*;
 mod logo;
 pub use logo::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
+#[strum(serialize_all = "kebab-case")]
 pub enum LoggingColor {
     Always,
     Auto,
@@ -28,20 +29,5 @@ impl LoggingColor {
 impl Default for LoggingColor {
     fn default() -> Self {
         Self::Auto
-    }
-}
-
-impl FromStr for LoggingColor {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "auto" => Ok(LoggingColor::Auto),
-            "always" => Ok(LoggingColor::Always),
-            "never" => Ok(LoggingColor::Never),
-            _ => Err(Self::Err::msg(
-                "Invalid logging color output. Must be one of Auto, Always, Never",
-            )),
-        }
     }
 }

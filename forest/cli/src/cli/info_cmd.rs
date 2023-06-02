@@ -29,8 +29,7 @@ pub enum InfoCommand {
 
 #[derive(Debug)]
 pub struct NodeStatusInfo {
-    /// duration in seconds of how far behind the node is with respect to
-    /// syncing to head
+    /// How far behind the node is with respect to syncing to head
     pub behind: Duration,
     /// Chain health is the percentage denoting how close we are to having
     /// an average of 5 blocks per tipset in the last couple of
@@ -39,7 +38,7 @@ pub struct NodeStatusInfo {
     pub health: f64,
     /// epoch the node is currently at
     pub epoch: ChainEpoch,
-    /// base fee
+    /// BaseFee is the set price per unit of gas (measured in attoFIL/gas unit) to be burned (sent to an unrecoverable address) for every message execution
     pub base_fee: TokenAmount,
     /// sync status information
     pub sync_status: SyncStatus,
@@ -62,13 +61,14 @@ pub struct NodeInfoOutput {
     pub wallet_balance: ColoredString,
 }
 
-#[derive(Debug, strum_macros::Display, PartialEq)]
+#[derive(Debug, strum::Display, PartialEq)]
 pub enum SyncStatus {
     Ok,
     Slow,
     Behind,
 }
 
+// Limits the format string from humantime::format_duration to exclude us ns ms parts.
 pub fn fmt_duration(duration: Duration) -> String {
     let duration = humantime::format_duration(duration);
     let duration = duration.to_string();
@@ -201,48 +201,46 @@ impl NodeInfoOutput {
 
 impl InfoCommand {
     pub async fn run(&self, config: Config, opts: &CliOpts) -> anyhow::Result<()> {
-        let node_status = node_status((), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+        let res = tokio::try_join!(
+            node_status((), &config.client.rpc_token),
+            chain_head(&config.client.rpc_token),
+            chain_get_name((), &config.client.rpc_token),
+            start_time(&config.client.rpc_token)
+        );
+        let info_output = match res {
+            Ok((node_status, head, network, start_time)) => {
+                let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
+                let blocks_per_tipset_last_finality =
+                    node_status.chain_status.blocks_per_tipset_last_finality;
 
-        let head = chain_head(&config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+                let mut node_status_info =
+                    NodeStatusInfo::new(cur_duration, blocks_per_tipset_last_finality, head)?;
 
-        let network = chain_get_name((), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+                let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
 
-        let start_time = start_time(&config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+                let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
+                {
+                    let balance = wallet_balance((def_addr.clone(),), &config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)?;
+                    Some(balance)
+                } else {
+                    None
+                };
 
-        let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
-        let blocks_per_tipset_last_finality =
-            node_status.chain_status.blocks_per_tipset_last_finality;
+                node_status_info.start_time = start_time;
+                node_status_info.network = network;
+                node_status_info.default_wallet_address = default_wallet_address.clone();
+                node_status_info.default_wallet_address_balance = default_wallet_address_balance;
 
-        let mut node_status_info =
-            NodeStatusInfo::new(cur_duration, blocks_per_tipset_last_finality, head)?;
-
-        let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
-
-        let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address {
-            let balance = wallet_balance((def_addr.clone(),), &config.client.rpc_token)
-                .await
-                .map_err(handle_rpc_err)?;
-            Some(balance)
-        } else {
-            None
+                NodeInfoOutput::from(node_status_info).set_color(&opts.color)
+            }
+            Err(e) => {
+                return Err(handle_rpc_err(e));
+            }
         };
-
-        node_status_info.start_time = start_time;
-        node_status_info.network = network;
-        node_status_info.default_wallet_address = default_wallet_address.clone();
-        node_status_info.default_wallet_address_balance = default_wallet_address_balance;
-
-        let info_output = NodeInfoOutput::from(node_status_info).set_color(&opts.color);
 
         println!("Network: {}", info_output.network);
         println!("Uptime: {}", info_output.uptime);
