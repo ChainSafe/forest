@@ -55,7 +55,7 @@ Docker - works on Linux, macOS and Windows.
 
 Next, run a Forest node in a CLI window. E.g. [Run calibration network](https://chainsafe.github.io/forest/docker.html#create-a-forest-node-running-calibration-network-then-list-all-connected-peers)
 
-Thereafter, in another CLI tab you will be able to use the `forest-cli` through the following command:
+Thereafter, in another CLI tab, you will be able to use the `forest-cli` through the following command:
 ```
 docker exec -it forest /bin/bash
 ```
