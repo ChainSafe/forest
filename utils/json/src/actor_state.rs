@@ -5,7 +5,8 @@ pub mod json {
     use std::str::FromStr;
 
     use cid::Cid;
-    use forest_shim::state_tree::ActorState;
+    use forest_shim::state_tree::{ActorState, ActorStateVersion};
+    use forest_shim::Inner;
     use fvm_shared::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -41,7 +42,7 @@ pub mod json {
             pub sequence: u64,
             pub balance: String,
         }
-        let m = &m.v3.clone().unwrap(); // TODO: replace `unwrap()` call
+        let m: <ActorState as Inner>::FVM = m.try_into().expect("Failed to convert actor state.");
         ActorStateSer {
             code: &m.code,
             state: &m.state,
@@ -78,9 +79,8 @@ pub mod json {
             TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?).into(),
             sequence,
             None,
+            ActorStateVersion::default(),
         )
-        .v2
-        .expect("Failed to generate actor state.")
         .into())
     }
 }
