@@ -132,3 +132,42 @@ Usage: `forest-cli mpool pending --from <address>`
 ### Display the list of all pending messages going to a given address
 
 Usage: `forest-cli mpool pending --to <address>`
+
+You can retrieve statistics about the current messages in the pool.
+
+### Display statistics of all pending messages
+
+Usage: `forest-cli mpool stat`
+
+Exemple:
+
+```
+t3ub2uupkvfwp7zckda2songtluquirgxnooocjfifq6qesxre4igoc3u62njgvmmgnyccmowshbmrolkuni7a: Nonce past: 3, cur: 0, future: 1; FeeCap cur: 0, min-60: 0, gasLimit: 186447391
+t3wikyuoalsqxathxey5jcsiowhbmy5o2ip6l4lvpna2rjxjd7micrgmlppjmwwcsnll7xgqzhlqqs6j4xk3oa: Nonce past: 1, cur: 0, future: 0; FeeCap cur: 0, min-60: 0, gasLimit: 66357410
+t3wt6c4wla5egncjsgq67lsu4wzu4xtnbeskgupty7udysbiqkr4sw6inqli2nazks2ypwwnmlahtkzd4ghjja: Nonce past: 1, cur: 0, future: 0; FeeCap cur: 0, min-60: 0, gasLimit: 44752713
+-----
+total: Nonce past: 5, cur: 0, future: 1; FeeCap cur: 0, min-60: 0, gasLimit: 297557514
+```
+
+The `Nonce past`, `cur` (current) and `future` metrics indicate for each sending
+account actor (the first address) how its message nonces are comparing
+relatively to its own nonce.
+
+A positive `past` number indicates messages that have been mined but that are
+still present in the message pool and/or messages that could not get included in
+a block. A positive `cur` number indicates all messages that are waiting to be
+included in a block. A high number here could mean that the network is enduring
+some congestion (if those messages are yours, you need to pay attention of the
+different fees you are using and adjust them). A positive `future` number means
+either that your forest node is not fully sync yet or if you are in sync that
+some messages are using a too small nonce.
+
+The `FeeCap cur` and `min-60` indicate how many messages from the sending
+account actor have their basefee below to the current tipset basefee and the
+minimum basefee found in the last 60 tipsets, respectively (use
+`--basefee-lookback` flag to change the number of lookback tipsets).
+
+The `gasLimit` value indicates the sum of `gasLimit` of all messages from each
+sending actor.
+
+The final `total` line is the accumulated sum of each metric for all messages.
