@@ -59,6 +59,8 @@ impl GenesisInfo {
             actors_v2_height,
             calico_height,
             vesting: GenesisInfoVesting::new(liftoff_height),
+            // TODO temporarily change the pledge to match genesis pledge in Lotus
+            genesis_pledge: TokenAmount::from_atto(2),
             ..GenesisInfo::default()
         }
     }
