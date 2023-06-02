@@ -47,6 +47,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_VALIDATE_TIPSET_CHECKPOINTS, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
+    access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -233,6 +234,10 @@ pub mod chain_api {
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub type ChainSetHeadParams = (TipsetKeys,);
     pub type ChainSetHeadResult = ();
+
+    pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+    pub type ChainGetMinBaseFeeParams = (u32,);
+    pub type ChainGetMinBaseFeeResult = String;
 }
 
 /// Message Pool API

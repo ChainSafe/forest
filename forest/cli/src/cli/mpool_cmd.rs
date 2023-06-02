@@ -8,7 +8,7 @@ use clap::Subcommand;
 use forest_json::cid::vec::CidJsonVec;
 use forest_message::{Message, SignedMessage};
 use forest_rpc_client::{chain_ops::*, mpool_ops::*, state_ops::*, wallet_ops::*};
-use forest_shim::address::Address;
+use forest_shim::{address::Address, econ::TokenAmount};
 use fvm_ipld_encoding::Cbor;
 use num_bigint::BigInt;
 
@@ -99,24 +99,12 @@ impl MpoolCommands {
                     .0;
 
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
-                let min_base_fee = {
-                    let mut curr_tipset = tipset.clone();
-                    let mut min_base_fee = curr_base_fee.clone();
-                    // TODO: fix perf issue, this loop is super slow
-                    for _ in 0..*basefee_lookback {
-                        curr_tipset = chain_get_tipset(
-                            (curr_tipset.parents().to_owned().into(),),
-                            &config.client.rpc_token,
-                        )
-                        .await
-                        .map_err(handle_rpc_err)?
-                        .0;
 
-                        min_base_fee =
-                            min_base_fee.min(curr_tipset.blocks()[0].parent_base_fee().to_owned());
-                    }
-                    min_base_fee
-                };
+                let atto_str =
+                    chain_get_min_base_fee((*basefee_lookback,), &config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)?;
+                let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
                 type StatBucket = HashMap<u64, SignedMessage>;
 

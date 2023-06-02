@@ -90,6 +90,10 @@ where
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
             .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB, B>)
             .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB, B>)
+            .with_method(
+                CHAIN_GET_MIN_BASE_FEE,
+                chain_api::chain_get_min_base_fee::<DB, B>,
+            )
             // Message Pool API
             .with_method(MPOOL_PENDING, mpool_pending::<DB, B>)
             .with_method(MPOOL_PUSH, mpool_push::<DB, B>)
