@@ -7,7 +7,7 @@ use ahash::HashSet;
 use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use forest_message::ChainMessage;
-use forest_networks::ChainConfig;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_shim::{
     address::Address,
     econ::TokenAmount,
@@ -120,6 +120,9 @@ where
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
             config.chain_id(chain_config.eth_chain_id.into());
+            if let NetworkChain::Devnet(_) = chain_config.network {
+                config.enable_actor_debugging();
+            }
 
             let engine = multi_engine_v3.get(&config)?;
             let mut context = config.for_epoch(epoch, timestamp, root);

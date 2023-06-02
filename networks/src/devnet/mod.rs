@@ -16,7 +16,7 @@ lazy_static! {
 pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Breeze,
-        epoch: -1,
+        epoch: -50,
         bundle: None,
     },
     HeightInfo {
@@ -36,12 +36,12 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     },
     HeightInfo {
         height: Height::Tape,
-        epoch: -3,
+        epoch: -4,
         bundle: None,
     },
     HeightInfo {
         height: Height::Liftoff,
-        epoch: -5,
+        epoch: -6,
         bundle: None,
     },
     HeightInfo {
