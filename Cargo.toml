@@ -129,7 +129,8 @@ quickcheck = "1"
 quickcheck_macros = "1"
 rand = "0.8"
 rayon = "1.5"
-reqwest = { version = "0.11.18", features = ["stream"] }
+# use rustls instead of native (openSSL) tls to drop the number of build dependencies
+reqwest = { version = "0.11.18", default-features = false, features = ["stream", "rustls-tls"] }
 rpassword = "7.2"
 serde = { version = "1.0", default-features = false }
 serde_ipld_dagcbor = "0.2"
