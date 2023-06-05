@@ -15,6 +15,7 @@ use forest_utils::misc::LoggingColor;
 
 use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
+use humantime::format_duration;
 use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -40,15 +41,11 @@ pub struct NodeStatusInfo {
     pub epoch: ChainEpoch,
     /// Base fee is the set price per unit of gas (measured in attoFIL/gas unit) to be burned (sent to an unrecoverable address) for every message execution
     pub base_fee: TokenAmount,
-    /// sync status information
     pub sync_status: SyncStatus,
     /// Start time of the node
     pub start_time: DateTime<Utc>,
-    /// Current network the node is running on
     pub network: String,
-    /// Default wallet address selected.
     pub default_wallet_address: Option<String>,
-    /// Default wallet address balance
     pub default_wallet_address_balance: Option<String>,
 }
 
@@ -66,20 +63,6 @@ pub enum SyncStatus {
     Ok,
     Slow,
     Behind,
-}
-
-// Limits the format string from humantime::format_duration to exclude us ns ms parts.
-pub fn fmt_duration(duration: Duration) -> String {
-    let duration = humantime::format_duration(duration);
-    let duration = duration.to_string();
-    let duration = duration.split(' ');
-    let format_duration = duration
-        .filter(|s| !s.ends_with("us"))
-        .filter(|s| !s.ends_with("ns"))
-        .filter(|s| !s.ends_with("ms"))
-        .map(|s| s.to_string());
-    let format_duration: Vec<String> = format_duration.collect();
-    format_duration.join(" ")
 }
 
 impl NodeStatusInfo {
@@ -141,7 +124,8 @@ impl From<NodeStatusInfo> for NodeInfoOutput {
         let uptime = (Utc::now() - node_status_info.start_time)
             .to_std()
             .expect("failed converting to std duration");
-        let fmt_uptime = fmt_duration(uptime);
+        let uptime = Duration::from_secs(uptime.as_secs());
+        let fmt_uptime = format_duration(uptime);
         let uptime = format!(
             "{fmt_uptime} (Started at: {})",
             node_status_info
