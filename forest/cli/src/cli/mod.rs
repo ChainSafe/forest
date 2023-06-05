@@ -187,7 +187,6 @@ pub(super) fn print_stdout(out: String) {
         .unwrap();
 }
 
-// TODO(aatifsyed): replace with dialoguer
 fn prompt_confirm() -> bool {
     print!("Do you want to continue? [y/n] ");
     std::io::stdout().flush().unwrap();
