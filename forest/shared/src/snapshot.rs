@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! We occasionally fetch _compressed_ snapshots of `chain`s from `vendor`s
 //! and store them locally, in the `snapshot_directory`. See
-//! [crate::cli::Config::snapshot_directory]. The snapshots live at
-//! `stable_url`s - see [stable_url]'s source for the supported chains and vendors.
+//! [`crate::cli::Config::snapshot_directory`]. The snapshots live at
+//! `stable_url`s - see [`stable_url`]'s source for the supported chains and vendors.
 //!
 //! This module contains utilities for fetching, enumerating, interning (accepting
 //! from other locations) snapshots. Users should be aware that operations on the
@@ -14,10 +14,10 @@
 //! of files. Files come in pairs:
 //! - The actual data _blob_, named e.g `foo.car.zst`
 //! - A _metadata_ file, named e.g `foo.car.zst.forestmetadata.json`. See
-//!   [METADATA_FILE_SUFFIX]
+//!   [`METADATA_FILE_SUFFIX`]
 //!
-//! All files are ultimately interned by [intern_and_create_metadata], whether from
-//! the cli, or from the web.
+//! All files are ultimately interned by [`intern_and_create_metadata`], whether from
+//! the CLI, or from the web.
 //!
 //! We assign no semantic meaning to the filenames other than the blob/metadata
 //! distinction - all that matters is that they are unique.
@@ -30,7 +30,7 @@
 //! - Be resilient to changes in snapshot filename format upstream
 //! - Keep a register/machine readable db of snapshots, don't store metadata in
 //!   parallel
-//! - Mutual exclusion on snapshot_dir, e.g with `flock`
+//! - Mutual exclusion on `snapshot_dir`, e.g with `flock`
 
 use std::{
     collections::BTreeSet,
@@ -84,7 +84,7 @@ pub async fn fetch(
 /// See [module documentation](mod@self) for more.
 ///
 /// Note this function makes blocking syscalls, and should not be called
-/// from an async context. Use [tokio::task::spawn_blocking] if needed.
+/// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
 pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
     if !snapshot_directory.exists() {
         return Ok(Vec::new());
@@ -158,7 +158,7 @@ pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotM
 
 /// `file` is a snapshot file with a conventional name.
 /// This function will move `file` into `snapshot_dir`, adding an appropriate metadata
-/// file to allow it to be recognised in [list].
+/// file to allow it to be recognized in [list].
 pub async fn intern(
     snapshot_dir: &Path,
     file: &Path,
@@ -285,13 +285,13 @@ async fn fetch_impl(
     }
 }
 
-/// Takes a stable url like `https://snapshots.calibrationnet.filops.net/minimal/latest`, and follows it to get
+/// Takes a stable URL like `https://snapshots.calibrationnet.filops.net/minimal/latest`, and follows it to get
 /// - Metadata inferred from the (conventional) filename
 ///   - height
 ///   - date
 ///   - (optional) time
-/// - The url of the actual file to download (this prevents races where the
-///   stable url switches its target during an operation).
+/// - The URL of the actual file to download (this prevents races where the
+///   stable URL switches its target during an operation).
 /// - The length the file to download
 async fn peek_snapshot(
     client: &reqwest::Client,
@@ -325,7 +325,7 @@ async fn peek_snapshot(
 
 /// Download the file at `url` returning
 /// - The path to the downloaded file
-/// - The url of the download file (in case e.g redirects were followed)
+/// - The URL of the download file (in case e.g redirects were followed)
 async fn download_to_temp(
     client: &reqwest::Client,
     url: Url,
@@ -467,7 +467,7 @@ mod tests {
 
 mod parse {
     //! Filops and forest store metadata in the filename, in a conventional format.
-    //! [parse_filename] is able to parse the contained metadata.
+    //! [`parse_filename`] is able to parse the contained metadata.
 
     use std::str::FromStr;
 

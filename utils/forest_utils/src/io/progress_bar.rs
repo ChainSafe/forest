@@ -8,7 +8,7 @@ use parking_lot::{Mutex, RwLock};
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
 
-/// A simple style for downloading files
+/// A simple progress bar style for downloading files
 pub fn downloading_style() -> indicatif::ProgressStyle {
     indicatif::ProgressStyle::with_template(
         "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
@@ -28,7 +28,7 @@ pub enum ProgressBarVisibility {
 }
 
 impl ProgressBarVisibility {
-    /// Checks if stdout is a tty
+    /// Checks if stdout is a TTY
     pub fn should_display(&self) -> bool {
         matches!(
             self,
