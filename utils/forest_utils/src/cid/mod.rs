@@ -24,3 +24,23 @@ pub trait CidCborExt {
 }
 
 impl CidCborExt for Cid {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::*;
+    use forest_db::MemoryDB;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn test_cid_cbor_ext(s: String) -> Result<()> {
+        let cid1 = Cid::new_dag_cbor_default(s)?;
+        let cid2 = {
+            let store = MemoryDB::default();
+            store.put_cbor_default(s)?
+        };
+        ensure!(cid1 == cid2);
+
+        Ok(())
+    }
+}

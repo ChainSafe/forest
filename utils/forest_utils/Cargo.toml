@@ -49,7 +49,9 @@ url.workspace = true
 
 [dev-dependencies]
 cs_serde_bytes = "0.12.2"
+forest_db.workspace = true
 multihash = { version = "0.16", default-features = false, features = ["sha2"] }
+quickcheck_macros.workspace = true
 rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_derive = "1.0"
