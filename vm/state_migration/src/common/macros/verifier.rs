@@ -11,8 +11,8 @@ macro_rules! impl_verifier {
             use ahash::HashMap;
             use cid::Cid;
             use forest_shim::{address::Address, state_tree::StateTree};
-            use forest_utils::db::BlockstoreExt;
             use fvm_ipld_blockstore::Blockstore;
+            use fvm_ipld_encoding::CborStore;
             use $crate::common::{verifier::ActorMigrationVerifier, Migrator};
 
             use super::*;
@@ -32,7 +32,7 @@ macro_rules! impl_verifier {
                         .ok_or_else(|| anyhow::anyhow!("system actor not found"))?;
 
                     let system_actor_state = store
-                        .get_obj::<SystemStateOld>(&system_actor.state)?
+                        .get_cbor::<SystemStateOld>(&system_actor.state)?
                         .ok_or_else(|| anyhow::anyhow!("system actor state not found"))?;
                     let manifest_data = system_actor_state.builtin_actors;
 

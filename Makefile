@@ -1,4 +1,5 @@
 SER_TESTS = "tests/serialization_tests"
+VENDORED_DOCS_TOOLCHAIN := "nightly-2023-04-19"
 
 # Using https://github.com/tonistiigi/xx
 # Use in Docker images when cross-compiling.
@@ -168,7 +169,15 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-rustdoc:
-	cargo doc --workspace --no-deps
 
-.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
+# When you visit https://chainsafe.github.io/forest/rustdoc you get an index.html
+# listing all crates that are documented (which is then published in CI).
+# This isn't included by default, so we use a nightly toolchain, and the
+# (unstable) `--enable-index-page` option.
+# https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
+vendored-docs:
+	rustup toolchain install $(VENDORED_DOCS_TOOLCHAIN)
+	RUSTDOCFLAGS="-Dwarnings -Zunstable-options --enable-index-page" \
+		cargo +$(VENDORED_DOCS_TOOLCHAIN) doc --workspace --no-deps
+
+.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors vendored-docs

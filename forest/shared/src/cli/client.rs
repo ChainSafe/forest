@@ -21,7 +21,6 @@ pub struct Client {
     pub data_dir: PathBuf,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
-    pub rpc_port: u16,
     pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
@@ -50,7 +49,6 @@ impl Default for Client {
             data_dir: dir.data_dir().to_path_buf(),
             genesis_file: None,
             enable_rpc: true,
-            rpc_port: DEFAULT_PORT,
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,

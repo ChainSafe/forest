@@ -199,13 +199,11 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     };
 
     if !opts.no_gc {
-        #[allow(clippy::redundant_async_block)]
         services.spawn({
             let db_garbage_collector = db_garbage_collector.clone();
             async move { db_garbage_collector.collect_loop_passive().await }
         });
     }
-    #[allow(clippy::redundant_async_block)]
     services.spawn({
         let db_garbage_collector = db_garbage_collector.clone();
         async move { db_garbage_collector.collect_loop_event().await }
@@ -478,7 +476,7 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let provider = SnapshotServer::try_get_default(&config.chain.name)?;
+        let provider = SnapshotServer::try_get_default(&config.chain.network)?;
         // FIXME: change this to `true` once zstd compressed snapshots is supported by
         // the forest provider
         let use_compressed = provider == SnapshotServer::Filecoin;

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 /// ```
-/// 
+///
 /// // Create FVM2 Randomness normally
 /// let fvm2_rand = fvm_shared::randomness::Randomness(vec![]);
 ///

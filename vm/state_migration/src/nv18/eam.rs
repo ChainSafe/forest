@@ -6,8 +6,8 @@ use forest_shim::{
     machine::ManifestV3,
     state_tree::{ActorState, StateTree},
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 
 use super::SystemStateNew;
 
@@ -20,7 +20,7 @@ pub fn create_eam_actor<BS: Blockstore + Clone + Send + Sync>(
         .get_actor(&Address::SYSTEM_ACTOR)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get sys actor state"))?;
     let sys_state: SystemStateNew = store
-        .get_obj(&sys_actor.state)?
+        .get_cbor(&sys_actor.state)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
 
     let manifest = ManifestV3::load(&store, &sys_state.builtin_actors, 1)?;

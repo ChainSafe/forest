@@ -19,8 +19,9 @@ use forest_rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use forest_shim::message::Message;
-use forest_utils::{db::BlockstoreExt, io::VoidAsyncWriter};
+use forest_utils::io::VoidAsyncWriter;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
@@ -40,7 +41,7 @@ where
     let ret: Message = data
         .state_manager
         .blockstore()
-        .get_obj(&msg_cid)?
+        .get_cbor(&msg_cid)?
         .ok_or("can't find message with that cid")?;
     Ok(MessageJson(ret))
 }
@@ -196,7 +197,7 @@ where
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
-        .get_obj(&blk_cid)?
+        .get_cbor(&blk_cid)?
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
@@ -271,7 +272,7 @@ where
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
-        .get_obj(&blk_cid)?
+        .get_cbor(&blk_cid)?
         .ok_or("can't find BlockHeader with that cid")?;
     Ok(BlockHeaderJson(blk))
 }
@@ -319,7 +320,7 @@ where
         .tipset_from_keys(tipset.key())?;
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())?;
+        .validate_tipset_checkpoints(ts, &data.state_manager.chain_config().network)?;
     Ok("Ok".to_string())
 }
 
@@ -330,8 +331,7 @@ where
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let name: String = data.state_manager.chain_config().name.clone();
-    Ok(name)
+    Ok(data.state_manager.chain_config().network.to_string())
 }
 
 // This is basically a port of the reference implementation at

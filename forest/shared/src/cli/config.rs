@@ -250,7 +250,6 @@ mod test {
                     data_dir: PathBuf::arbitrary(g),
                     genesis_file: Option::arbitrary(g),
                     enable_rpc: bool::arbitrary(g),
-                    rpc_port: u16::arbitrary(g),
                     rpc_token: Option::arbitrary(g),
                     snapshot: bool::arbitrary(g),
                     snapshot_height: Option::arbitrary(g),

@@ -1,4 +1,4 @@
-68
+73
 Algorand/M
 API/M
 APIs
@@ -44,6 +44,7 @@ mempool
 Merkle
 MiB
 milliGas
+multihash
 multisig
 mutex
 P2P

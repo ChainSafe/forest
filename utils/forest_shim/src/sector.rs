@@ -20,7 +20,7 @@ use crate::{version::NetworkVersion, Inner};
 ///
 /// # Examples
 /// ```
-/// 
+///
 /// // Create FVM2 RegisteredSealProof normally
 /// let fvm2_proof = fvm_shared::sector::RegisteredSealProof::StackedDRG2KiBV1;
 ///

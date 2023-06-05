@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use fil_actor_power_state::{
     v10::{Claim as ClaimV10, State as StateV10},
     v11::{Claim as ClaimV11, State as StateV11},
@@ -15,8 +15,9 @@ use fil_actors_shared::v11::{
     builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth,
 };
 use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
-use forest_utils::db::BlockstoreExt;
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
@@ -36,7 +37,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
         let in_state: StateV10 = store
-            .get_obj(&input.head)?
+            .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Power actor: could not read v10 state"))?;
 
         //
@@ -79,7 +80,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
             proof_validation_batch: in_state.proof_validation_batch,
         };
 
-        let new_head = store.put_obj(&out_state, Blake2b256)?;
+        let new_head = store.put_cbor_default(&out_state)?;
 
         Ok(ActorMigrationOutput {
             new_code_cid: self.0,

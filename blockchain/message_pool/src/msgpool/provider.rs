@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_message::{ChainMessage, SignedMessage};
@@ -16,7 +16,7 @@ use forest_shim::{
     state_tree::{ActorState, StateTree},
 };
 use forest_state_manager::StateManager;
-use forest_utils::db::BlockstoreExt;
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
@@ -87,7 +87,7 @@ where
         let cid = self
             .sm
             .blockstore()
-            .put_obj(msg, Blake2b256)
+            .put_cbor_default(msg)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
