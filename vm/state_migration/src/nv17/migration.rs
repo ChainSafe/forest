@@ -10,18 +10,16 @@ use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
-    deal::DealID,
     state_tree::{ActorState, StateTree, StateTreeVersion},
 };
-use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 use super::{
     datacap, miner, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
-    verifreg_market, ManifestNew, ManifestOld, SystemStateOld,
+    verifreg_market::VerifregMarketPostMigrator, ManifestNew, ManifestOld, SystemStateOld,
 };
-use crate::common::{migrators::nil_migrator, PostMigrationAction, StateMigration};
+use crate::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv17_migrations(
@@ -106,7 +104,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             miner::miner_migrator(*miner_v9_cid, &store, market_v8_state.proposals)?,
         );
 
-        // self.add_migrator(prior_cid, market::market_migrator(market_v8_state)?);
+        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator));
 
         Ok(())
     }
@@ -141,14 +139,7 @@ where
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
 
-    // Add post-migration steps
-    let post_migration_actions = [verifreg_market::create_verifreg_market_actor]
-        .into_iter()
-        .map(|action| Arc::new(action) as PostMigrationAction<DB>)
-        .collect();
-    // let post_migration_actions = Vec::new();
-
-    let mut migration = StateMigration::<DB>::new(Some(verifier), post_migration_actions);
+    let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
     let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
