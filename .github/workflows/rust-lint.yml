@@ -55,7 +55,7 @@ jobs:
       - run: make lint-all
 
   dependencies-check:
-    name: Check cargo files for duplicates
+    name: Check cargo files
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -66,4 +66,6 @@ jobs:
       - name: Run dependencies checks
         run: |
           gem install toml-rb --no-document
-          ruby scripts/linters/find_duplicate_deps.rb && ruby scripts/linters/find_unused_deps.rb
+          ruby scripts/linters/find_duplicate_deps.rb
+          ruby scripts/linters/find_unused_deps.rb
+          ruby scripts/linters/find_banned_deps.rb

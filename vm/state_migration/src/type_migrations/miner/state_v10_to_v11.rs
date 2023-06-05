@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::Code::Blake2b256;
 use fil_actor_miner_state::{
     v10::{MinerInfo as MinerInfoV10, State as MinerStateV10},
     v11::{MinerInfo as MinerInfoV11, State as MinerStateV11},
 };
 use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
@@ -55,7 +55,7 @@ impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
             }),
         };
 
-        let out_info_cid = store.put_cbor(&out_info, Blake2b256)?;
+        let out_info_cid = store.put_cbor_default(&out_info)?;
 
         let out_state = MinerStateV11 {
             info: out_info_cid,

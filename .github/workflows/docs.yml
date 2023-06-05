@@ -69,14 +69,14 @@ jobs:
       # The deploy steps are identical expect for name and 'dry-run' attribute.
       # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        uses: JamesIves/github-pages-deploy-action@v4.4.2
         if: ${{ github.event_name == 'pull_request' }}
         with:
           branch: gh-pages
           folder: ./documentation/book/html/
           dry-run: true
       - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        uses: JamesIves/github-pages-deploy-action@v4.4.2
         if: ${{ github.event_name == 'push' }}
         with:
           branch: gh-pages

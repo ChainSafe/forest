@@ -130,7 +130,7 @@ fn main() -> anyhow::Result<()> {
         }
         check_for_unknown_keys(path.to_path_buf(), &cfg);
     } else {
-        info!("Using default {} config", cfg.chain.name);
+        info!("Using default {} config", cfg.chain.network);
     }
     if opts.dry_run {
         return Ok(());

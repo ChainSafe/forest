@@ -11,6 +11,7 @@ use cid::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
+use fvm_ipld_encoding3::CborStore;
 use human_repr::HumanCount;
 use log::info;
 use serde::ser::Serialize;
@@ -50,6 +51,26 @@ pub trait BlockstoreExt: Blockstore {
 }
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
+
+/// Extension methods for [`CborStore`] that omits default multihash code from its APIs
+pub trait CborStoreExt: CborStore {
+    /// Default multihash code is [`cid::multihash::Code::Blake2b256`]
+    /// See <https://github.com/ipfs/go-ipld-cbor/blob/v0.0.6/store.go#L92>
+    /// ```go
+    /// mhType := uint64(mh.BLAKE2B_MIN + 31)
+    /// // 45569 + 31 = 45600 = 0xb220
+    /// ```
+    fn default_code() -> cid::multihash::Code {
+        cid::multihash::Code::Blake2b256
+    }
+
+    /// A wrapper of [`CborStore::put_cbor`] that omits code parameter to match store API in go
+    fn put_cbor_default<S: serde::ser::Serialize>(&self, obj: &S) -> anyhow::Result<Cid> {
+        self.put_cbor(obj, Self::default_code())
+    }
+}
+
+impl<T: CborStore> CborStoreExt for T {}
 
 /// Extension methods for buffered write with manageable limit of RAM usage
 #[async_trait]

@@ -320,7 +320,7 @@ where
         .tipset_from_keys(tipset.key())?;
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())?;
+        .validate_tipset_checkpoints(ts, &data.state_manager.chain_config().network)?;
     Ok("Ok".to_string())
 }
 
@@ -331,8 +331,7 @@ where
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let name: String = data.state_manager.chain_config().name.clone();
-    Ok(name)
+    Ok(data.state_manager.chain_config().network.to_string())
 }
 
 // This is basically a port of the reference implementation at

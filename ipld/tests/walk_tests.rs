@@ -8,12 +8,13 @@ use std::{
 };
 
 use async_trait::async_trait;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use forest_db::MemoryDB;
 use forest_ipld::{
     json::{self, IpldJson},
     selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
 };
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_encoding::CborStore;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
@@ -138,7 +139,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
         for IpldJson(i) in ipld_storage {
-            storage.put_cbor(&i, Blake2b256).unwrap();
+            storage.put_cbor_default(&i).unwrap();
         }
         TestLinkResolver(storage)
     });
