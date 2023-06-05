@@ -61,7 +61,7 @@ statediff
 stateful
 stdout
 synchronizer
-syscalls
+syscall/M
 TCP
 tipset/SM
 tipsetkey/S
