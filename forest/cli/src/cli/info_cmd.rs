@@ -38,7 +38,7 @@ pub struct NodeStatusInfo {
     pub health: f64,
     /// epoch the node is currently at
     pub epoch: ChainEpoch,
-    /// BaseFee is the set price per unit of gas (measured in attoFIL/gas unit) to be burned (sent to an unrecoverable address) for every message execution
+    /// Base fee is the set price per unit of gas (measured in attoFIL/gas unit) to be burned (sent to an unrecoverable address) for every message execution
     pub base_fee: TokenAmount,
     /// sync status information
     pub sync_status: SyncStatus,
