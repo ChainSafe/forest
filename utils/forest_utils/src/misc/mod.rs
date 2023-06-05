@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod either;
-use std::str::FromStr;
 
 pub use either::*;
 mod logo;
