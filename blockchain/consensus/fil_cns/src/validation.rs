@@ -11,10 +11,12 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
 use forest_networks::{ChainConfig, Height};
+use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     randomness::Randomness,
     sector::{PoStProof, SectorInfo},
+    state_tree::ActorState,
     version::NetworkVersion,
 };
 use forest_state_manager::StateManager;
@@ -214,10 +216,12 @@ fn validate_miner<DB: Blockstore + Clone + Send + Sync + 'static>(
         .with_label_values(&[metrics::values::VALIDATE_MINER])
         .start_timer();
 
-    let actor = state_manager
+    let actor: <ActorState as Inner>::FVM = state_manager
         .get_actor(&Address::POWER_ACTOR, *tipset_state)
         .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
-        .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
+        .ok_or(FilecoinConsensusError::PowerActorUnavailable)?
+        .try_into()
+        .expect("Failed to get actor state.");
 
     let state = power::State::load(state_manager.blockstore(), actor.code, actor.state)
         .map_err(|err| FilecoinConsensusError::MinerPowerUnavailable(err.to_string()))?;

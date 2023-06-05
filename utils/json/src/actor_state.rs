@@ -88,7 +88,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use cid::Cid;
-    use forest_shim::state_tree::ActorStateV2 as ActorState;
+    use forest_shim::state_tree::{ActorState, ActorStateVersion};
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
 
@@ -105,12 +105,14 @@ mod tests {
                 u64::arbitrary(g),
                 cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
             );
-            let actorstate = ActorState {
-                code: cid,
-                state: cid,
-                sequence: u64::arbitrary(g),
-                balance: TokenAmount::from_atto(u64::arbitrary(g)),
-            };
+            let actorstate = ActorState::new(
+                cid,
+                cid,
+                TokenAmount::from_atto(u64::arbitrary(g)).into(),
+                u64::arbitrary(g),
+                None,
+                ActorStateVersion::default(),
+            );
             ActorStateWrapper { actorstate }
         }
     }

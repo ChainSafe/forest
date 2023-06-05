@@ -8,7 +8,12 @@ use forest_beacon::Beacon;
 use forest_json::{address::json::AddressJson, signature::json::SignatureJson};
 use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_rpc_api::{data_types::RPCState, wallet_api::*};
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
+use forest_shim::Inner;
+use forest_shim::{
+    address::Address,
+    econ::TokenAmount,
+    state_tree::{ActorState, StateTree},
+};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::Zero;
@@ -32,6 +37,7 @@ where
     match state.get_actor(&address) {
         Ok(act) => {
             if let Some(actor) = act {
+                let actor: <ActorState as Inner>::FVM = actor.try_into()?;
                 let actor_balance = &actor.balance;
                 Ok(actor_balance.atto().to_string())
             } else {

@@ -14,6 +14,8 @@ use forest_rpc_api::{
     state_api::*,
 };
 use forest_shim::address::Address;
+use forest_shim::state_tree::ActorState;
+use forest_shim::Inner;
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -115,10 +117,11 @@ pub(crate) async fn state_market_deals<
 ) -> Result<StateMarketDealsResult, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
-    let actor = data
+    let actor: <ActorState as Inner>::FVM = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-        .ok_or("Market actor address could not be resolved")?;
+        .ok_or("Market actor address could not be resolved")?
+        .try_into()?;
     let market_state =
         market::State::load(data.state_manager.blockstore(), actor.code, actor.state)?;
 

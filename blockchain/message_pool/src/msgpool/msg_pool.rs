@@ -17,11 +17,13 @@ use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     gas::{price_list_by_network_version, Gas},
+    state_tree::ActorState,
 };
 use forest_state_manager::is_valid_for_sending;
 use forest_utils::const_option;
@@ -374,7 +376,10 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let sender_actor = self.api.get_actor_after(&msg.message().from(), cur_ts)?;
+        let sender_actor = self
+            .api
+            .get_actor_after(&msg.message().from(), cur_ts)?
+            .try_into()?;
 
         // This message can only be included in the next epoch and beyond, hence the +1.
         let nv = self.chain_config.network_version(cur_ts.epoch() + 1);
@@ -435,14 +440,15 @@ where
 
     /// Get the state of the sequence for a given address in `cur_ts`.
     fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.get_actor_after(addr, cur_ts)?;
+        let actor: <ActorState as Inner>::FVM =
+            self.api.get_actor_after(addr, cur_ts)?.try_into()?;
         Ok(actor.sequence)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied
     /// address and tipset, if this actor does not exist, return an error.
     fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
-        let actor = self.api.get_actor_after(addr, ts)?;
+        let actor: <ActorState as Inner>::FVM = self.api.get_actor_after(addr, ts)?.try_into()?;
         Ok(TokenAmount::from(&actor.balance))
     }
 

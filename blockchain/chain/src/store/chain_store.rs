@@ -17,13 +17,14 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::{ChainConfig, NetworkChain};
+use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     executor::Receipt,
     message::Message,
-    state_tree::StateTree,
+    state_tree::{ActorState, StateTree},
 };
 use forest_utils::{
     db::{
@@ -790,9 +791,10 @@ where
         for message in unsigned_box.chain(signed_box) {
             let from_address = &message.from();
             if applied.contains_key(from_address) {
-                let actor_state = state
+                let actor_state: <ActorState as Inner>::FVM = state
                     .get_actor(from_address)?
-                    .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
+                    .ok_or_else(|| Error::Other("Actor state not found".to_string()))?
+                    .try_into()?;
                 applied.insert(*from_address, actor_state.sequence);
                 balances.insert(*from_address, actor_state.balance.clone().into());
             }

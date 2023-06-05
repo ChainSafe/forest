@@ -10,6 +10,8 @@ macro_rules! impl_verifier {
         pub(super) mod verifier {
             use ahash::HashMap;
             use cid::Cid;
+            use forest_shim::state_tree::ActorState;
+            use forest_shim::Inner;
             use forest_shim::{address::Address, state_tree::StateTree};
             use fvm_ipld_blockstore::Blockstore;
             use fvm_ipld_encoding::CborStore;
@@ -27,9 +29,10 @@ macro_rules! impl_verifier {
                     migrations: &HashMap<Cid, Migrator<BS>>,
                     actors_in: &StateTree<BS>,
                 ) -> anyhow::Result<()> {
-                    let system_actor = actors_in
+                    let system_actor: <ActorState as Inner>::FVM = actors_in
                         .get_actor(&Address::SYSTEM_ACTOR)?
-                        .ok_or_else(|| anyhow::anyhow!("system actor not found"))?;
+                        .ok_or_else(|| anyhow::anyhow!("system actor not found"))?
+                        .try_into()?;
 
                     let system_actor_state = store
                         .get_cbor::<SystemStateOld>(&system_actor.state)?

@@ -5,6 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+use forest_shim::Inner;
 use forest_state_migration::run_state_migrations;
 pub use utils::is_valid_for_sending;
 
@@ -288,9 +289,10 @@ where
 
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?
+            .try_into()?;
 
         let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -306,10 +308,11 @@ where
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        let act = state
+        let act: <ActorState as Inner>::FVM = state
             .get_actor(addr)
             .map_err(|e| Error::State(e.to_string()))?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?
+            .try_into()?;
 
         let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
 
@@ -326,9 +329,10 @@ where
         state_cid: &Cid,
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?
+            .try_into()?;
 
         let spas = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -497,9 +501,10 @@ where
             msg.gas_limit = 10000000000;
         }
 
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(&msg.from.into(), *bstate)?
-            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
+            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?
+            .try_into()?;
         msg.sequence = actor.sequence;
         let apply_ret = vm.apply_implicit_message(msg)?;
         trace!(
@@ -568,10 +573,11 @@ where
         for msg in prior_messages {
             vm.apply_message(msg)?;
         }
-        let from_actor = vm
+        let from_actor: <ActorState as Inner>::FVM = vm
             .get_actor(&message.from())
             .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
-            .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+            .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?
+            .try_into()?;
         message.set_sequence(from_actor.sequence);
 
         let ret = vm.apply_message(message)?;
@@ -691,15 +697,17 @@ where
             return Ok(false);
         }
 
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?
+            .try_into()?;
 
         let power_state = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(address, *base_tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?
+            .try_into()?;
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -872,6 +880,7 @@ where
                 .get_actor(message_from_address)
                 .map_err(|e| Error::State(e.to_string()))?
             {
+                let actor_state: <ActorState as Inner>::FVM = actor_state.try_into()?;
                 if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
                     return Ok(None);
                 }
@@ -1097,7 +1106,9 @@ where
     /// Return the balance of a given address and `state_cid`
     pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
-        let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
+        let actor: <ActorState as Inner>::FVM = act
+            .ok_or_else(|| "could not find actor".to_owned())?
+            .try_into()?;
         let balance = TokenAmount::from(&actor.balance);
         Ok(balance)
     }
@@ -1118,11 +1129,10 @@ where
         addr: &Address,
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-            .ok_or_else(|| {
-                Error::State("Market actor address could not be resolved".to_string())
-            })?;
+            .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?
+            .try_into()?;
 
         let market_state = market::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -1187,9 +1197,10 @@ where
         addr: &Address,
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
-        let actor = self
+        let actor: <ActorState as Inner>::FVM = self
             .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?
+            .try_into()?;
         let ps = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())

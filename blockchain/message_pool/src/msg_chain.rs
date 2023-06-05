@@ -11,10 +11,12 @@ use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
+use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     econ::TokenAmount,
     gas::{price_list_by_network_version, Gas},
+    state_tree::ActorState,
 };
 use fvm_ipld_encoding::Cbor;
 use log::warn;
@@ -366,7 +368,7 @@ where
     //   limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages
     //   that exceed the balance
-    let actor_state = api.get_actor_after(actor, ts)?;
+    let actor_state: <ActorState as Inner>::FVM = api.get_actor_after(actor, ts)?.try_into()?;
     let mut cur_seq = actor_state.sequence;
     let mut balance: TokenAmount = TokenAmount::from(&actor_state.balance);
 

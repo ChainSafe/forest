@@ -19,6 +19,7 @@ use fil_actor_interface::{
 };
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
+use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     state_tree::{ActorState, StateTree},
@@ -42,6 +43,8 @@ fn actor_to_resolved(
     actor: &ActorState,
     depth: Option<u64>,
 ) -> ActorStateResolved {
+    let actor: <ActorState as Inner>::FVM =
+        actor.try_into().expect("Failed to convert actor state.");
     let resolved =
         resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
     ActorStateResolved {
@@ -120,6 +123,9 @@ fn pp_actor_state(
     actor_state: &ActorState,
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
+    let actor_state: <ActorState as Inner>::FVM = actor_state
+        .try_into()
+        .expect("Failed to convert actor state.");
     let mut buffer = String::new();
     writeln!(&mut buffer, "{actor_state:?}")?;
     if let Ok(miner_state) = MinerState::load(bs, actor_state.code, actor_state.state) {
@@ -167,7 +173,7 @@ fn pp_actor_state(
         return Ok(buffer);
     }
 
-    let resolved = actor_to_resolved(bs, actor_state, depth);
+    let resolved = actor_to_resolved(bs, &actor_state.into(), depth);
     buffer = serde_json::to_string_pretty(&resolved)?;
     Ok(buffer)
 }
@@ -222,7 +228,11 @@ mod tests {
     use cid::Cid;
     use fil_actor_account_state::v10::State as AccountState;
     use forest_db::MemoryDB;
-    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use forest_shim::{
+        address::Address,
+        econ::TokenAmount,
+        state_tree::{ActorState, ActorStateVersion},
+    };
     use forest_utils::db::CborStoreExt;
     use fvm_ipld_blockstore::Blockstore;
 
@@ -240,6 +250,7 @@ mod tests {
             TokenAmount::from_atto(0),
             0,
             None,
+            ActorStateVersion::default(),
         )
     }
 
@@ -270,15 +281,18 @@ mod tests {
     // as JSON
     #[test]
     fn check_json_fallback_if_unknown_actor() {
+        use forest_shim::Inner;
         let db = MemoryDB::default();
 
         let account_state = AccountState {
             address: *Address::new_id(0xdeadbeef),
         };
-        let mut state = mk_account_v10(&db, &account_state);
+        let mut state: <ActorState as Inner>::FVM = mk_account_v10(&db, &account_state)
+            .try_into()
+            .expect("Failed to convert actor state.");
         state.code = Cid::default(); // Use an unknown actor CID to force parsing to fail.
 
-        let pretty = pp_actor_state(&db, &state, None).unwrap();
+        let pretty = pp_actor_state(&db, &state.into(), None).unwrap();
 
         assert_eq!(
             pretty,

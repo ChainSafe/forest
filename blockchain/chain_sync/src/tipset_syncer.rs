@@ -1483,11 +1483,14 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
         let sequence: u64 = match account_sequences.get(&msg.from()) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(&msg.from.into())?.ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Failed to retrieve nonce for addr: Actor does not exist in state"
-                    )
-                })?;
+                let actor = tree
+                    .get_actor(&msg.from.into())?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Failed to retrieve nonce for addr: Actor does not exist in state"
+                        )
+                    })?
+                    .try_into()?;
                 let network_version = state_manager
                     .chain_config()
                     .network_version(block.header.epoch());
