@@ -12,7 +12,9 @@ use fvm_ipld_blockstore::Blockstore;
 
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput, PostMigrator};
 
-pub(super) struct VerifregMarketPostMigrator;
+pub(super) struct VerifregMarketPostMigrator {
+    pub market_v8_state: fil_actor_market_state::v8::State,
+}
 
 impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {

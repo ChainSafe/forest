@@ -104,7 +104,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             miner::miner_migrator(*miner_v9_cid, &store, market_v8_state.proposals)?,
         );
 
-        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator));
+        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator { market_v8_state }));
 
         Ok(())
     }
