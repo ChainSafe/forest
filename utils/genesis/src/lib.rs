@@ -17,7 +17,7 @@ use fvm_ipld_car::{load_car, CarReader};
 use fvm_ipld_encoding::CborStore;
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
-use tokio_util::{compat::TokioAsyncReadCompatExt, either::Either};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -104,10 +104,8 @@ where
 pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
-    validate_height: Option<i64>,
     skip_load: bool,
-    halt_after_import: bool,
-) -> Result<(), anyhow::Error>
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
@@ -116,41 +114,16 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let import_chain_task = if is_remote_file {
+    let (cids, n_records) = if is_remote_file {
         info!("Downloading file...");
         let url = Url::parse(path)?;
         let reader = get_fetch_progress_from_url(&url).await?;
-        Either::Left(load_and_retrieve_header(
-            sm.blockstore().clone(),
-            reader,
-            skip_load,
-        ))
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     } else {
         info!("Reading file...");
         let reader = get_fetch_progress_from_file(&path).await?;
-        Either::Right(load_and_retrieve_header(
-            sm.blockstore().clone(),
-            reader,
-            skip_load,
-        ))
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
     };
-
-    // Not checking `validate_height` to decide whether to download parameter files
-    // here because it defaults to `None` in config, making parallelization
-    // disabled by default
-    let ensure_params_downloaded_task_handle =
-        tokio::spawn(forest_utils::proofs_api::paramfetch::ensure_params_downloaded());
-
-    let (cids, n_records) = import_chain_task.await.map_err(|e| {
-        ensure_params_downloaded_task_handle.abort();
-        e
-    })?;
-
-    if halt_after_import && validate_height.is_none() {
-        ensure_params_downloaded_task_handle.abort();
-    } else {
-        ensure_params_downloaded_task_handle.await??;
-    }
 
     info!(
         "Loaded {} records from .car file in {}s",
@@ -179,20 +152,28 @@ where
     }
 
     // Update head with snapshot header tipset
-    sm.chain_store().set_heaviest_tipset(ts.clone())?;
-
-    if let Some(height) = validate_height {
-        let height = if height > 0 {
-            height
-        } else {
-            (ts.epoch() + height).max(0)
-        };
-
-        info!("Validating imported chain from height: {}", height);
-        sm.validate_chain(ts.clone(), height).await?;
-    }
-
     info!("Accepting {:?} as new head.", ts.cids());
+    sm.chain_store().set_heaviest_tipset(ts)?;
+
+    Ok(())
+}
+
+pub async fn validate_chain<DB>(
+    sm: &Arc<StateManager<DB>>,
+    validate_height: i64,
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + Clone + Send + Sync + 'static,
+{
+    let tipset = sm.chain_store().heaviest_tipset();
+    let height = if validate_height > 0 {
+        validate_height
+    } else {
+        (tipset.epoch() + validate_height).max(0)
+    };
+
+    info!("Validating imported chain from height: {}", height);
+    sm.validate_chain(tipset.clone(), height).await?;
 
     Ok(())
 }

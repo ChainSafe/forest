@@ -22,7 +22,9 @@ use forest_db::{
     rolling::{DbGarbageCollector, RollingDB},
     Store,
 };
-use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use forest_genesis::{
+    get_network_name_from_genesis, import_chain, read_genesis_header, validate_chain,
+};
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
@@ -543,30 +545,39 @@ where
 {
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
+
         let validate_height = if config.client.snapshot {
             config.client.snapshot_height
         } else {
             Some(0)
         };
 
-        match import_chain::<_>(
+        let need_fetch_params = validate_height.is_some() || !halt_after_import;
+        let ensure_params_downloaded_task_handle = if need_fetch_params {
+            Some(tokio::spawn(async {
+                // Add a small delay to avoid import chain progress bar being interrupted.
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await
+            }))
+        } else {
+            None
+        };
+
+        import_chain::<_>(
             state_manager,
             &path.display().to_string(),
-            validate_height,
             config.client.skip_load,
-            halt_after_import,
         )
         .await
-        {
-            Ok(_) => {
-                info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-            }
-            Err(err) => {
-                anyhow::bail!(
-                    "Failed miserably while importing chain from snapshot {}: {err}",
-                    path.display()
-                );
-            }
+        .context("Failed miserably while importing chain from snapshot")?;
+        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+
+        if let Some(ensure_params_downloaded_task_handle) = ensure_params_downloaded_task_handle {
+            ensure_params_downloaded_task_handle.await??;
+        }
+
+        if let Some(validate_height) = validate_height {
+            validate_chain(state_manager, validate_height).await?;
         }
     }
 
@@ -709,7 +720,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, file_path, None, false, true).await?;
+        import_chain::<_>(&sm, file_path, false).await?;
         Ok(())
     }
 
@@ -734,7 +745,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, "test_files/chain4.car", None, false, true)
+        import_chain::<_>(&sm, "test_files/chain4.car", false)
             .await
             .expect("Failed to import chain");
 
