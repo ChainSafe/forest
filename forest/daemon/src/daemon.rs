@@ -385,8 +385,11 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
+    let proof_params_required = !opts.halt_after_import
+        || !config.client.snapshot
+        || config.client.snapshot_height.is_some();
     tokio::select! {
-        ret = sync_from_snapshot(&config, &state_manager, opts.halt_after_import).fuse() => {
+        ret = sync_from_snapshot(&config, &state_manager, proof_params_required).fuse() => {
             if let Err(err) = ret {
                 services.shutdown().await;
                 return Err(err);
@@ -538,7 +541,7 @@ async fn prompt_snapshot_or_die(
 async fn sync_from_snapshot<DB>(
     config: &Config,
     state_manager: &Arc<StateManager<DB>>,
-    halt_after_import: bool,
+    proof_params_required: bool,
 ) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
@@ -552,8 +555,7 @@ where
             Some(0)
         };
 
-        let need_fetch_params = validate_height.is_some() || !halt_after_import;
-        let ensure_params_downloaded_task_handle = if need_fetch_params {
+        let ensure_params_downloaded_task_handle = if proof_params_required {
             Some(tokio::spawn(async {
                 // Add a small delay to avoid import chain progress bar being interrupted.
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -579,11 +581,6 @@ where
         if let Some(validate_height) = validate_height {
             validate_chain(state_manager, validate_height).await?;
         }
-    }
-
-    // Ensures files for proof api are downloaded before validation
-    if !halt_after_import {
-        forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
     }
 
     Ok(())
