@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use cid::Cid;
 use forest_shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
-use super::{verifier::MigrationVerifier, Migrator, PostMigrationAction};
+use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
 use crate::common::migration_job::{MigrationJob, MigrationJobOutput};
 
 /// Handles several cases of migration:
@@ -17,25 +17,27 @@ pub(crate) struct StateMigration<BS> {
     migrations: HashMap<Cid, Migrator<BS>>,
     /// Verifies correctness of the migration specification.
     verifier: Option<MigrationVerifier<BS>>,
-    /// Post migration actions. This may include new actor creation.
-    post_migration_actions: Vec<PostMigrationAction<BS>>,
+    /// Post migrator(s). This may include new actor creation.
+    post_migrators: Vec<PostMigratorArc<BS>>,
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
-    pub(crate) fn new(
-        verifier: Option<MigrationVerifier<BS>>,
-        post_migration_actions: Vec<PostMigrationAction<BS>>,
-    ) -> Self {
+    pub(crate) fn new(verifier: Option<MigrationVerifier<BS>>) -> Self {
         Self {
-            migrations: HashMap::new(),
+            migrations: Default::default(),
             verifier,
-            post_migration_actions,
+            post_migrators: Default::default(),
         }
     }
 
     /// Inserts a new migrator into the migration specification.
     pub(crate) fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
         self.migrations.insert(prior_cid, migrator);
+    }
+
+    /// Inserts a new post migrator into the post migration specification.
+    pub(crate) fn add_post_migrator(&mut self, post_migrator: PostMigratorArc<BS>) {
+        self.post_migrators.push(post_migrator);
     }
 
     pub(crate) fn migrate_state_tree(
@@ -120,8 +122,8 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         });
 
         // execute post migration actions, e.g., create new actors
-        for action in self.post_migration_actions.iter() {
-            action(&store, &mut actors_out)?;
+        for post_migrator in self.post_migrators.iter() {
+            post_migrator.post_migrate_state(&store, &mut actors_out)?;
         }
 
         actors_out.flush()
