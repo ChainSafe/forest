@@ -4,6 +4,7 @@
 use std::fmt::Debug;
 
 use forest_db::Error as DbErr;
+use forest_shim::kernel::ExecutionError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -47,8 +48,8 @@ impl From<JoinError> for Error {
     }
 }
 
-impl From<forest_shim::kernel::ExecutionError> for Error {
-    fn from(e: forest_shim::kernel::ExecutionError) -> Self {
-        Error::Other(e.execution_error_v2.to_string())
+impl From<ExecutionError> for Error {
+    fn from(e: ExecutionError) -> Self {
+        Error::Other(e.to_string())
     }
 }
