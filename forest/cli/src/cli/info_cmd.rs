@@ -277,9 +277,10 @@ fn balance(balance: &Option<String>) -> anyhow::Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use chrono::DateTime;
     use colored::*;
     use forest_blocks::{tipset_json::TipsetJson, BlockHeader, Tipset};
-    use forest_shim::address::Address;
+    use forest_shim::{address::Address, econ::TokenAmount};
     use fvm_shared::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};
@@ -297,19 +298,20 @@ mod tests {
         Arc::new(tipset)
     }
 
-    // fn mock_node_status() -> NodeStatusInfo {
-    //     NodeStatusInfo {
-    //         lag: Duration::from_secs(0),
-    //         health: 90.,
-    //         epoch: i64::MAX,
-    //         base_fee: TokenAmount::from_whole(1),
-    //         sync_status: SyncStatus::Ok,
-    //         start_time: Some(DateTime::<Utc>::MIN_UTC),
-    //         network: Some("calibnet".to_string()),
-    //         default_wallet_address: Some("-".to_string()),
-    //         default_wallet_address_balance: None,
-    //     }
-    // }
+    fn mock_node_status(use_color: bool) -> NodeStatusInfo {
+        NodeStatusInfo {
+            lag: Duration::from_secs(0),
+            health: 90.,
+            epoch: i64::MAX,
+            base_fee: TokenAmount::from_whole(1),
+            sync_status: SyncStatus::Ok,
+            start_time: Some(DateTime::<chrono::Utc>::MIN_UTC),
+            network: Some("calibnet".to_string()),
+            default_wallet_address: Some("-".to_string()),
+            default_wallet_address_balance: None,
+            use_color,
+        }
+    }
 
     #[quickcheck]
     fn test_sync_status_ok(duration: Duration) {
@@ -377,26 +379,24 @@ mod tests {
         assert_eq!(expected_status_fmt.clear(), node_status.chain_status());
     }
 
-    // #[test]
-    // fn test_node_info_formattting() {
-    // no color tests
-    // let color = LoggingColor::Never;
-    // let node_status = mock_node_status();
-    // let chain_status = node_status.chain_status();
-    // let info = NodeInfoOutput::from(node_status).set_color(&color);
-    // assert_eq!(node_status.network(), "calibnet".normal());
-    // assert_eq!(node_status.health(), "90.00%\n\n".normal());
-    // assert_eq!(node_status.wallet_address(), "-".normal());
-    // assert_eq!(node_status.chain_status(), chain_status.normal());
+    #[test]
+    fn test_node_info_formattting() {
+        // no color tests
+        let node_status = mock_node_status(false);
+        let chain_status = node_status.chain_status();
+        let expected_chain_status = chain_status.to_string();
+        assert_eq!(node_status.network(), "calibnet".normal());
+        assert_eq!(node_status.health(), "90.00%\n\n".normal());
+        assert_eq!(node_status.wallet_address(), "-".normal());
+        assert_eq!(node_status.chain_status(), expected_chain_status.normal());
 
-    // with color tests
-    // let color = LoggingColor::Always;
-    // let node_status = mock_node_status();
-    // let chain_status = node_status.chain_status();
-    // let info = NodeInfoOutput::from(node_status).set_color(&color);
-    // assert_eq!(node_status.network, "calibnet".green());
-    // assert_eq!(node_status.health, "90.00%\n\n".green());
-    // assert_eq!(node_status.wallet_address, "-".bold());
-    // assert_eq!(node_status.chain_status(), chain_status.blue());
-    // }
+        // with color tests
+        let node_status = mock_node_status(true);
+        let chain_status = node_status.chain_status();
+        let expected_chain_status = chain_status.clear().to_string();
+        assert_eq!(node_status.network(), "calibnet".green());
+        assert_eq!(node_status.health(), "90.00%\n\n".green());
+        assert_eq!(node_status.wallet_address(), "-".bold());
+        assert_eq!(node_status.chain_status(), expected_chain_status.blue());
+    }
 }
