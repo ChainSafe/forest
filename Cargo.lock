@@ -3254,6 +3254,7 @@ dependencies = [
  "serde_with",
  "tap",
  "tempfile",
+ "thiserror",
  "tikv-jemallocator",
  "tokio",
  "tokio-util",

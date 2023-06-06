@@ -144,7 +144,7 @@ tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
 tokio = "1.28"
-tokio-stream = { version = "0.1", features = ["fs"] }
+tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7.0", features = ["compat"] }
 toml = "0.7"
 tracing = "0.1"

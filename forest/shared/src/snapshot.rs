@@ -19,8 +19,15 @@
 //! All files are ultimately interned by [`intern_and_create_metadata`], whether from
 //! the CLI, or from the web.
 //!
-//! We assign no semantic meaning to the filenames other than the blob/metadata
-//! distinction - all that matters is that they are unique.
+//! We assign no semantic meaning to the filenames in the snapshot directory,
+//! other than the blob/metadata distinction - all that matters is that they are unique.
+//!
+//! ## Aria2
+//! We prefer to download files using `aria2c`, falling back to making the request
+//! ourselves.
+//!
+//! We treat a subfolder of `snapshot_directory` as our interface with `aria2`,
+//! downloading and retrieving files from it as appropriate.
 //!
 //! ## Concepts
 //! Other modules should *not* have to concern themselves with filename parsing
@@ -35,20 +42,67 @@
 use std::{
     collections::BTreeSet,
     ffi::OsStr,
+    io,
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context as _};
+use anyhow::{anyhow, bail, Context as _};
 use chrono::{NaiveDate, NaiveTime};
 use forest_networks::NetworkChain;
+use futures::future::join_all;
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use tap::Tap as _;
 use tempfile::NamedTempFile;
-use tracing::warn;
+use tracing::{debug, warn};
 use url::Url;
 
-const METADATA_FILE_SUFFIX: &str = ".metadata.json";
+const SNAPSHOT_METADATA_FILE_SUFFIX: &str = ".metadata.json";
+const ARIA2C_METADATA_FILE_SUFFIX: &str = ".aria";
+
+/// List all paths to files and their metadata in `snapshot_directory`. Will
+/// return [`Ok(Vec::new())`] if `snapshot_directory` does not exist.
+///
+/// Users can freely delete the path to the blob - corresponding metadata will
+/// be cleaned up in the next call to [list], but this should be regarded as an
+/// implementation detail.
+///
+/// See [module documentation](mod@self) for more.
+///
+/// Note this function makes blocking syscalls, and should not be called
+/// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
+pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
+    if !snapshot_directory.exists() {
+        return Ok(Vec::new());
+    }
+    let Partitioned {
+        main_and_meta,
+        orphaned_meta,
+        orphaned_main,
+    } = partition_by_suffix(snapshot_directory, SNAPSHOT_METADATA_FILE_SUFFIX)
+        .context("couldn't enumerate snapshots in snapshot directory")?;
+    for meta in orphaned_meta {
+        debug!(path = %meta.display(), "deleting metadata without corresponding blob");
+        let _ = std::fs::remove_file(meta);
+    }
+    for main in orphaned_main {
+        debug!(path = %main.display(), "ignoring snapshots without metadata files")
+    }
+
+    Ok(main_and_meta
+        .into_iter()
+        .flat_map(|(blob, metadata)| {
+            std::fs::read_to_string(&metadata)
+                .map_err(|_| warn!(path = ?metadata, "ignoring unreadable metadata file"))
+                .and_then(|s| {
+                    serde_json::from_str(&s).map_err(
+                        |_| warn!(path = ?metadata, "ignoring invalid format for metadata file"),
+                    )
+                })
+                .map(|metadata| (blob, metadata))
+        })
+        .collect())
+}
 
 /// Fetch a snapshot.
 ///
@@ -74,86 +128,64 @@ pub async fn fetch(
     .await
 }
 
-/// List all paths to files and their metadata in `snapshot_directory`. Will
-/// return [`Ok(Vec::new())`] if `snapshot_directory` does not exist.
-///
-/// Users can freely delete the path to the blob - corresponding metadata will
-/// be cleaned up in the next call to [list], but this should be regarded as an
-/// implementation detail.
-///
-/// See [module documentation](mod@self) for more.
-///
-/// Note this function makes blocking syscalls, and should not be called
-/// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
-pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
-    if !snapshot_directory.exists() {
-        return Ok(Vec::new());
-    }
-    // Get all the file paths
-    let mut paths = walkdir::WalkDir::new(snapshot_directory)
-        .min_depth(1)
-        .max_depth(1)
-        .into_iter()
-        .filter_ok(|entry| entry.path().is_file())
-        .map_ok(|entry| match entry.path().to_str() {
-            // prefix operation on strings are easier, so convert to those
-            Some(s) => Some(String::from(s)),
-            None => {
-                warn!(path = %entry.path().display(), "ignored non-utf8 file in snapshot directory");
-                None
-            }
-        })
-        .flatten_ok()
-        .collect::<Result<BTreeSet<_>, _>>()
-        .context("couldn't enumerate paths in snapshot directory")?;
+pub async fn fetch_auto(
+    snapshot_dir: &Path,
+    chain: &NetworkChain,
+    vendor: &str,
+) -> anyhow::Result<PathBuf> {
+    let stable_url = stable_url(vendor, chain)
+        .with_context(|| format!("unsupported chain `{chain}` or vendor `{vendor}`"))?;
 
-    // Sort them into pairs
-    let mut blobs_and_metadata = Vec::new();
-    while let Some(path) = paths.pop_first() {
-        match path.strip_suffix(METADATA_FILE_SUFFIX) {
-            Some(blob_path) => {
-                // we've popped the metadata file, try and pop the blob path
-                let blob_was_present = paths.remove(blob_path);
-                match blob_was_present {
-                    false => {
-                        warn!(%path, "deleting metadata without corresponding blob");
-                        let _ = std::fs::remove_file(path);
-                    }
-                    true => {
-                        let blob_path = PathBuf::from(blob_path);
-                        let metadata_path = PathBuf::from(path);
-                        blobs_and_metadata.push((blob_path, metadata_path));
-                    }
-                }
-            }
-            None => {
-                // this is the blob path
-                let metadata_path = format!("{path}{METADATA_FILE_SUFFIX}");
-                let blob_path = path;
-                let metadata_was_present = paths.remove(&metadata_path);
-                match metadata_was_present {
-                    false => {
-                        warn!(path = %blob_path, "ignored blob without corresponding metadata")
-                    }
-                    true => blobs_and_metadata.push((blob_path.into(), metadata_path.into())),
-                }
-            }
+    let aria2c_dir = snapshot_dir.join("aria2c");
+    match download_aria2c(&aria2c_dir, stable_url).await {
+        Ok(()) => intern_from_aria2c_dir(aria2c_dir, snapshot_dir, chain, vendor).await,
+        Err(AriaErr::CouldNotExec(reason)) => {
+            warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
+
+            todo!()
         }
+        Err(AriaErr::Other(o)) => Err(o.context("downloading with aria2c failed")),
     }
+}
 
-    Ok(blobs_and_metadata
-        .into_iter()
-        .flat_map(|(blob, metadata)| {
-            std::fs::read_to_string(&metadata)
-                .map_err(|_| warn!(path = ?metadata, "ignoring unreadable metadata file"))
-                .and_then(|s| {
-                    serde_json::from_str(&s).map_err(
-                        |_| warn!(path = ?metadata, "ignoring invalid format for metadata file"),
-                    )
-                })
-                .map(|metadata| (blob, metadata))
-        })
-        .collect())
+///
+async fn intern_from_aria2c_dir(
+    aria2c_dir: PathBuf,
+    snapshot_dir: &Path,
+    chain: &NetworkChain,
+    vendor: &str,
+) -> Result<PathBuf, anyhow::Error> {
+    // completed downloads are files without the .aria extension
+    // this is pretty fragile (see below), but it's the closest we have
+    // to an API with aria2 at the moment
+    let Partitioned { orphaned_main, .. } = tokio::task::spawn_blocking(move || {
+        partition_by_suffix(&aria2c_dir, ARIA2C_METADATA_FILE_SUFFIX)
+            .context("couldn't read aria2c files in snapshot directory")
+    })
+    .await
+    .expect("task panicked")?;
+
+    // maybe there's garbage in `aria2c_dir` that didn't make sense to intern.
+    // as long as we've interned _something_, we've probably done what the
+    // user wanted.
+    let (mut successes, failures) = join_all(
+        orphaned_main
+            .iter()
+            .map(|file| intern(snapshot_dir, file, chain, vendor)),
+    )
+    .await
+    .into_iter()
+    .partition_result::<Vec<_>, Vec<_>, _, _>();
+
+    match successes.is_empty() {
+        // just report the first one
+        false => Ok(successes.remove(0)),
+        true => Err(failures
+            .into_iter()
+            .reduce(|acc, el| acc.context(el))
+            .unwrap_or(anyhow!("couldn't find file that aria2c downloaded"))
+            .context("couldn't intern file that aria2c downloaded")),
+    }
 }
 
 /// `file` is a snapshot file with a conventional name.
@@ -232,7 +264,8 @@ async fn intern_and_create_metadata(
     .expect("serialization of metadata shouldn't fail");
     let blob_name = blob.file_name().context("no filename")?.to_os_string();
     let new_blob_path = snapshot_dir.join(&blob_name);
-    let metadata_path = snapshot_dir.join(blob_name.tap_mut(|it| it.push(METADATA_FILE_SUFFIX)));
+    let metadata_path =
+        snapshot_dir.join(blob_name.tap_mut(|it| it.push(SNAPSHOT_METADATA_FILE_SUFFIX)));
 
     tokio::fs::write(metadata_path, metadata_contents)
         .await
@@ -258,7 +291,7 @@ async fn fetch_impl(
 
     progress_bar.set_length(file_len);
 
-    match download_to_temp(client, actual_url.clone(), progress_bar).await {
+    match download_http(client, actual_url.clone(), progress_bar).await {
         Ok((path, final_url)) if final_url == actual_url => {
             intern_and_create_metadata(
                 snapshot_dir,
@@ -294,7 +327,6 @@ async fn fetch_impl(
 ///   stable URL switches its target during an operation).
 /// - The length the file to download
 async fn peek_snapshot(
-    client: &reqwest::Client,
     stable_url: &str,
 ) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>, Url, u64)> {
     // issue an actual GET, so the content length will be of the body
@@ -302,9 +334,7 @@ async fn peek_snapshot(
     // if we issue a HEAD, the content-length will be zero for redirect URLs
     // (this is a bug, maybe in reqwest - HEAD _should_ give us the length)
     // (maybe because the stable URLs are all double-redirects? 301 -> 302 -> 200)
-    let response = client
-        .get(stable_url)
-        .send()
+    let response = reqwest::get(stable_url)
         .await?
         .error_for_status()
         .context("server returned an error response")?;
@@ -323,22 +353,60 @@ async fn peek_snapshot(
     Ok((height, date, time, response.url().clone(), length))
 }
 
-/// Download the file at `url` returning
+enum AriaErr {
+    CouldNotExec(io::Error),
+    Other(anyhow::Error),
+}
+
+/// Run aria2c, with inherited stdout and stderr (so output will be printed).
+/// The file is downloaded to `aria2c_dir`, and should be retrieved separately.
+async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
+    let exit_status = tokio::process::Command::new("aria2c")
+        .args([
+            "--continue=true",
+            "--max-tries=0",
+            // Download chunks concurrently, resulting in dramatically faster downloads
+            "--split=5",
+            "--max-connections-per-server=5",
+            "--dir",
+        ])
+        .arg(aria2c_dir)
+        .arg(url)
+        .kill_on_drop(true) // allow cancellation
+        .spawn() // defaults to inherited stdio
+        .map_err(AriaErr::CouldNotExec)?
+        .wait()
+        .await
+        .map_err(|it| AriaErr::Other(it.into()))?;
+
+    match exit_status.success() {
+        true => Ok(()),
+        false => {
+            let msg = exit_status
+                .code()
+                .map(|it| it.to_string())
+                .unwrap_or_else(|| String::from("<killed>"));
+            Err(AriaErr::Other(anyhow!("running aria2c failed: {msg}")))
+        }
+    }
+}
+
+/// Download the file at `url` with a private http client, returning
 /// - The path to the downloaded file
 /// - The URL of the download file (in case e.g redirects were followed)
-async fn download_to_temp(
-    client: &reqwest::Client,
+async fn download_http(
     url: Url,
     progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<(PathBuf, Url)> {
     use futures::TryStreamExt as _;
     use tap::Pipe as _;
-    let response = client
-        .get(url)
-        .send()
+    let response = reqwest::get(url)
         .await?
         .error_for_status()
         .context("server returned an error response")?;
+    if let Some(len) = response.content_length() {
+        progress_bar.set_length(len)
+    }
     let url = response.url().clone();
     let mut src = response
         .bytes_stream()
@@ -359,6 +427,86 @@ async fn download_to_temp(
             Err(e).context("couldn't download to file")
         }
     }
+}
+
+/// It's common for programs to store ("main") files and metadata files side-by-side,
+/// where the metadata file has a known suffix:
+/// E.g with `aria2c`
+/// - `forest_snapshot_calibnet_2023-06-06_height_624219.car.zst`
+/// - `forest_snapshot_calibnet_2023-06-06_height_624219.car.zst.aria2`
+///
+/// Or with our snapshot logic:
+/// - `foo.tmp`
+/// - `foo.tmp.metadata.json`
+///
+/// This function looks at files which direct descendents of `directory`, returning:
+/// - pairs of main files and metadata files
+/// - orphaned main files
+/// - orphaned metadata files
+///
+/// Paths are typically relative to `directory`.
+/// Files with non-utf8 paths are [`warn`]-ed and ignored.
+///
+/// Note this function makes blocking syscalls, and should not be called
+/// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
+fn partition_by_suffix(directory: &Path, metadata_suffix: &str) -> io::Result<Partitioned> {
+    let mut main_and_meta = Vec::new();
+    let mut orphaned_main = Vec::new();
+    let mut orphaned_meta = Vec::new();
+
+    // Get all the file paths
+    let mut paths = walkdir::WalkDir::new(directory)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .filter_ok(|entry| entry.path().is_file())
+        .map_ok(|entry| match entry.path().to_str() {
+            // prefix operation on strings are easier, so convert to those
+            Some(s) => Some(String::from(s)),
+            None => {
+                warn!(path = %entry.path().display(), "ignored non-utf8 path");
+                None
+            }
+        })
+        .flatten_ok()
+        .collect::<Result<BTreeSet<_>, _>>()?;
+
+    // Do the partitioning
+    while let Some(path) = paths.pop_first() {
+        match path.strip_suffix(metadata_suffix) {
+            Some(main) => {
+                // we've popped the metadata file, try and pop the blob path
+                let meta = PathBuf::from(&path);
+                let main_was_present = paths.remove(main);
+                match main_was_present {
+                    false => orphaned_meta.push(meta),
+                    true => main_and_meta.push((PathBuf::from(main), meta)),
+                }
+            }
+            None => {
+                // this is the blob path
+                let meta = format!("{path}{metadata_suffix}");
+                let main = PathBuf::from(path);
+                let metadata_was_present = paths.remove(&meta);
+                match metadata_was_present {
+                    false => orphaned_main.push(main),
+                    true => main_and_meta.push((main, PathBuf::from(meta))),
+                }
+            }
+        }
+    }
+
+    Ok(Partitioned {
+        main_and_meta,
+        orphaned_meta,
+        orphaned_main,
+    })
+}
+
+struct Partitioned {
+    main_and_meta: Vec<(PathBuf, PathBuf)>,
+    orphaned_meta: Vec<PathBuf>,
+    orphaned_main: Vec<PathBuf>,
 }
 
 const FOREST_MAINNET_COMPRESSED: &str =
