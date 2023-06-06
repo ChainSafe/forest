@@ -241,7 +241,7 @@ where
         }
     }
 
-    for ts in apply {
+    for ts in apply.into_iter().rev() {
         for b in ts.blocks() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
