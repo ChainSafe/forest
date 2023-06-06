@@ -277,7 +277,8 @@ where
             forest_networks::NetworkChain::Mainnet => "testnetnet",
             forest_networks::NetworkChain::Calibnet => "calibrationnet",
             forest_networks::NetworkChain::Devnet(name) => name,
-        }.to_string();
+        }
+        .to_string();
         Ok(name)
     }
 

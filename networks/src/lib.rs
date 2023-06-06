@@ -7,7 +7,11 @@ use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use forest_shim::{sector::{RegisteredPoStProof, RegisteredSealProof}, version::NetworkVersion, Inner};
+use forest_shim::{
+    sector::{RegisteredPoStProof, RegisteredSealProof},
+    version::NetworkVersion,
+    Inner,
+};
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -57,6 +61,12 @@ impl Display for NetworkChain {
             NetworkChain::Calibnet => write!(f, "calibnet"),
             NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
+    }
+}
+
+impl NetworkChain {
+    pub fn is_devnet(&self) -> bool {
+        matches!(self, NetworkChain::Devnet(_))
     }
 }
 
@@ -166,7 +176,6 @@ pub struct ChainConfig {
 
 impl ChainConfig {
     pub fn mainnet() -> Self {
-        println!("Using mainnet");
         use mainnet::*;
         Self {
             network: NetworkChain::Mainnet,
@@ -183,7 +192,6 @@ impl ChainConfig {
     }
 
     pub fn calibnet() -> Self {
-        println!("Using calibnet");
         use calibnet::*;
         Self {
             network: NetworkChain::Calibnet,
@@ -200,15 +208,12 @@ impl ChainConfig {
     }
 
     pub fn devnet() -> Self {
-        println!("Using devnet");
         use devnet::*;
         let mut policy = Policy::mainnet();
         policy.minimum_consensus_power = 2048.into();
         policy.minimum_verified_allocation_size = 256.into();
         policy.pre_commit_challenge_delay = 10;
 
-        // TODO not sure about the allowed proof types. The logic in Lotus seems more complex than
-        // this.
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
             <RegisteredSealProof as Inner>::FVM::StackedDRG2KiBV1,
@@ -242,7 +247,7 @@ impl ChainConfig {
             NetworkChain::Calibnet => Self::calibnet(),
             NetworkChain::Devnet(name) => Self {
                 network: NetworkChain::Devnet(name.clone()),
-                ..Self::calibnet()
+                ..Self::devnet()
             },
         }
     }
@@ -305,8 +310,7 @@ impl ChainConfig {
 
 impl Default for ChainConfig {
     fn default() -> Self {
-        // TODO temporary hack to force devnet config
-        ChainConfig::devnet()
+        ChainConfig::mainnet()
     }
 }
 
