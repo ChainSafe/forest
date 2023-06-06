@@ -10,11 +10,11 @@ use cid::{
 pub trait CidCborExt {
     /// Default CID builder for Filecoin
     ///
-    /// - The default codec is CBOR
+    /// - The default codec is [`fvm_ipld_encoding3::DAG_CBOR`]
     /// - The default hash function is 256 bit BLAKE2b
     ///
     /// This matches [`abi.CidBuilder`](https://github.com/filecoin-project/go-state-types/blob/master/abi/cid.go#L49) in go
-    fn new_dag_cbor_default<S: serde::ser::Serialize>(obj: &S) -> anyhow::Result<Cid> {
+    fn from_cbor_blake2b256<S: serde::ser::Serialize>(obj: &S) -> anyhow::Result<Cid> {
         let bytes = fvm_ipld_encoding3::to_vec(obj)?;
         Ok(Cid::new_v1(
             fvm_ipld_encoding3::DAG_CBOR,
@@ -35,7 +35,7 @@ mod tests {
 
     #[quickcheck]
     fn test_cid_cbor_ext(s: String) -> Result<()> {
-        let cid1 = Cid::new_dag_cbor_default(&s)?;
+        let cid1 = Cid::from_cbor_blake2b256(&s)?;
         let cid2 = {
             let store = MemoryDB::default();
             store.put_cbor_default(&s)?
