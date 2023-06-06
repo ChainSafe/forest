@@ -28,13 +28,12 @@ use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
+    externs::{Rand, RandWrapper},
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use futures::{channel::oneshot, select, FutureExt};
-use fvm::externs::Rand;
-use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -365,13 +364,13 @@ where
         p_state: &Cid,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        rand: R,
+        rand: RandWrapper<R>,
         base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
     where
-        R: Rand + Rand_v3 + Clone + 'static,
+        R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -476,7 +475,7 @@ where
     fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
-        rand: ChainRand<DB>,
+        rand: RandWrapper<ChainRand<DB>>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult {
         let bstate = tipset.parent_state();
@@ -1250,13 +1249,15 @@ where
         Ok(())
     }
 
-    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
-        ChainRand::new(
-            self.chain_config.clone(),
-            blocks,
-            self.cs.clone(),
-            self.beacon.clone(),
-        )
+    fn chain_rand(&self, blocks: TipsetKeys) -> RandWrapper<ChainRand<DB>> {
+        RandWrapper {
+            chain_rand: ChainRand::new(
+                self.chain_config.clone(),
+                blocks,
+                self.cs.clone(),
+                self.beacon.clone(),
+            ),
+        }
     }
 }
 
