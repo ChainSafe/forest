@@ -15,7 +15,7 @@ use libp2p::{
     kad::QueryId,
     metrics::{Metrics, Recorder},
     ping,
-    swarm::{NetworkBehaviour, keep_alive},
+    swarm::{keep_alive, NetworkBehaviour},
     Multiaddr,
 };
 use log::warn;
