@@ -37,6 +37,7 @@ pub(crate) struct ForestBehaviour {
     ping: ping::Behaviour,
     keep_alive: keep_alive::Behaviour,
     identify: identify::Behaviour,
+    keep_alive: keep_alive::Behaviour,
     pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
@@ -107,6 +108,7 @@ impl ForestBehaviour {
                 identify::Config::new("ipfs/0.1.0".into(), local_key.public())
                     .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str())),
             ),
+            keep_alive: keep_alive::Behaviour::default(),
             bitswap,
             hello: HelloBehaviour::default(),
             chain_exchange: ChainExchangeBehaviour::default(),
