@@ -5,8 +5,7 @@ pub mod json {
     use std::str::FromStr;
 
     use cid::Cid;
-    use forest_shim::state_tree::{ActorState, ActorStateVersion};
-    use forest_shim::Inner;
+    use forest_shim::state_tree::ActorStateV2 as ActorState;
     use fvm_shared::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -42,7 +41,6 @@ pub mod json {
             pub sequence: u64,
             pub balance: String,
         }
-        let m: <ActorState as Inner>::FVM = m.try_into().expect("Failed to convert actor state.");
         ActorStateSer {
             code: &m.code,
             state: &m.state,
@@ -73,22 +71,19 @@ pub mod json {
             sequence,
             balance,
         } = Deserialize::deserialize(deserializer)?;
-        Ok(ActorState::new(
+        Ok(ActorState {
             code,
             state,
-            TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?).into(),
             sequence,
-            None,
-            ActorStateVersion::default(),
-        )
-        .into())
+            balance: TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use cid::Cid;
-    use forest_shim::state_tree::{ActorState, ActorStateVersion};
+    use forest_shim::state_tree::ActorStateV2 as ActorState;
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
 
@@ -105,14 +100,12 @@ mod tests {
                 u64::arbitrary(g),
                 cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
             );
-            let actorstate = ActorState::new(
-                cid,
-                cid,
-                TokenAmount::from_atto(u64::arbitrary(g)).into(),
-                u64::arbitrary(g),
-                None,
-                ActorStateVersion::default(),
-            );
+            let actorstate = ActorState {
+                code: cid,
+                state: cid,
+                sequence: u64::arbitrary(g),
+                balance: TokenAmount::from_atto(u64::arbitrary(g)),
+            };
             ActorStateWrapper { actorstate }
         }
     }

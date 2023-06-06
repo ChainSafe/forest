@@ -6,11 +6,10 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use cid::Cid;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     clock::ChainEpoch,
-    state_tree::{ActorState, StateTree, StateTreeVersion},
+    state_tree::{StateTree, StateTreeVersion},
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -26,10 +25,9 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         new_manifest: &Cid,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
-        let system_actor: <ActorState as Inner>::FVM = state_tree
+        let system_actor = state_tree
             .get_actor(&Address::new_id(0))?
-            .ok_or_else(|| anyhow!("system actor not found"))?
-            .try_into()?;
+            .ok_or_else(|| anyhow!("system actor not found"))?;
 
         let system_actor_state = store
             .get_cbor::<SystemStateOld>(&system_actor.state)?

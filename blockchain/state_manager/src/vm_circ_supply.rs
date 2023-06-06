@@ -6,7 +6,6 @@ use cid::Cid;
 use fil_actor_interface::{market, power, reward};
 use forest_chain::*;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     clock::EPOCHS_IN_DAY,
@@ -152,10 +151,9 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 fn get_fil_mined<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let actor: <ActorState as Inner>::FVM = state_tree
+    let actor = state_tree
         .get_actor(&Address::REWARD_ACTOR)?
-        .context("Reward actor address could not be resolved")?
-        .try_into()?;
+        .context("Reward actor address could not be resolved")?;
     let state = reward::State::load(state_tree.store(), actor.code, actor.state)?;
 
     Ok(state.into_total_storage_power_reward().into())
@@ -164,10 +162,9 @@ fn get_fil_mined<DB: Blockstore + Clone>(
 fn get_fil_market_locked<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let actor: <ActorState as Inner>::FVM = state_tree
+    let actor = state_tree
         .get_actor(&Address::MARKET_ACTOR)?
-        .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?
-        .try_into()?;
+        .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
     let state = market::State::load(state_tree.store(), actor.code, actor.state)?;
 
     Ok(state.total_locked().into())
@@ -176,10 +173,9 @@ fn get_fil_market_locked<DB: Blockstore + Clone>(
 fn get_fil_power_locked<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let actor: <ActorState as Inner>::FVM = state_tree
+    let actor = state_tree
         .get_actor(&Address::POWER_ACTOR)?
-        .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?
-        .try_into()?;
+        .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
     let state = power::State::load(state_tree.store(), actor.code, actor.state)?;
 
     Ok(state.into_total_locked().into())
@@ -189,8 +185,7 @@ fn get_fil_reserve_disbursed<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: TokenAmount = TokenAmount::from_whole(300_000_000);
-    let reserve_actor: <ActorState as Inner>::FVM =
-        get_actor_state(state_tree, &Address::RESERVE_ACTOR)?.try_into()?;
+    let reserve_actor = get_actor_state(state_tree, &Address::RESERVE_ACTOR)?;
 
     // If money enters the reserve actor, this could lead to a negative term
     Ok(TokenAmount::from(&*fil_reserved - &reserve_actor.balance))
@@ -207,8 +202,7 @@ fn get_fil_locked<DB: Blockstore + Clone>(
 fn get_fil_burnt<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let burnt_actor: <ActorState as Inner>::FVM =
-        get_actor_state(state_tree, &Address::BURNT_FUNDS_ACTOR)?.try_into()?;
+    let burnt_actor = get_actor_state(state_tree, &Address::BURNT_FUNDS_ACTOR)?;
 
     Ok(TokenAmount::from(&burnt_actor.balance))
 }

@@ -3,8 +3,6 @@
 
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
-use forest_shim::state_tree::ActorState;
-use forest_shim::Inner;
 use forest_shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
@@ -84,7 +82,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let store_clone = store_clone.clone();
-                    let state: <ActorState as Inner>::FVM = state.try_into().expect("Failed to convert actor state.");
                     let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
                     scope.spawn(move |_| {
                         let job = MigrationJob {
@@ -113,7 +110,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     actor_state,
                 } = job_output;
                 actors_out
-                    .set_actor(&address, actor_state.try_into().expect("Failed to convert actor state."))
+                    .set_actor(&address, actor_state)
                     .unwrap_or_else(|e| {
                         panic!(
                             "Failed setting new actor state at given address: {address}, Reason: {e}"

@@ -4,7 +4,6 @@
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
 use filecoin_proofs_api::post;
-use forest_shim::Inner;
 use forest_shim::{
     address::{Address, Payload},
     randomness::Randomness,
@@ -34,10 +33,9 @@ where
     ) -> Result<Vec<SectorInfo>, anyhow::Error> {
         let store = self.blockstore();
 
-        let actor: <ActorState as Inner>::FVM = self
+        let actor = self
             .get_actor(miner_address, *st)?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?
-            .try_into()?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         let proving_sectors = {
@@ -108,10 +106,7 @@ where
     }
 }
 
-pub fn is_valid_for_sending(
-    network_version: NetworkVersion,
-    actor: &<ActorState as Inner>::FVM,
-) -> bool {
+pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState) -> bool {
     // Comments from Lotus:
     // Before nv18 (Hygge), we only supported built-in account actors as senders.
     //
@@ -182,11 +177,7 @@ fn generate_winning_post_sector_challenge(
 #[cfg(test)]
 mod test {
     use cid::Cid;
-    use forest_shim::{
-        address::Address,
-        econ::TokenAmount,
-        state_tree::{ActorState, ActorStateVersion},
-    };
+    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 
     use super::*;
 
@@ -201,7 +192,6 @@ mod test {
                 TokenAmount::default(),
                 sequence,
                 delegated_address,
-                ActorStateVersion::default(),
             )
         };
 
@@ -217,24 +207,18 @@ mod test {
                 .unwrap();
 
         // happy path for account actor
-        let actor = create_actor(&account_actor_cid, 0, None)
-            .try_into()
-            .expect("Failed to convert actor state.");
+        let actor = create_actor(&account_actor_cid, 0, None);
         assert!(is_valid_for_sending(NetworkVersion::V17, &actor));
 
         // eth account not allowed before v18, should fail
-        let actor = create_actor(&ethaccount_actor_cid, 0, None)
-            .try_into()
-            .expect("Failed to convert actor state.");
+        let actor = create_actor(&ethaccount_actor_cid, 0, None);
         assert!(!is_valid_for_sending(NetworkVersion::V17, &actor));
 
         // happy path for eth account
         assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
 
         // no delegated address for placeholder actor, should fail
-        let actor = create_actor(&placeholder_actor_cid, 0, None)
-            .try_into()
-            .expect("Failed to convert actor state.");
+        let actor = create_actor(&placeholder_actor_cid, 0, None);
         assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
 
         // happy path for the placeholder actor
@@ -243,23 +227,17 @@ mod test {
             &[0; 20],
         )
         .ok();
-        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address)
-            .try_into()
-            .expect("Failed to convert actor state.");
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
         assert!(is_valid_for_sending(NetworkVersion::V18, &actor));
 
         // sequence not 0, should fail
-        let actor = create_actor(&placeholder_actor_cid, 1, delegated_address)
-            .try_into()
-            .expect("Failed to convert actor state.");
+        let actor = create_actor(&placeholder_actor_cid, 1, delegated_address);
         assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
 
         // delegated address not in EAM namespace, should fail
         let delegated_address =
             Address::new_delegated(Address::CHAOS_ACTOR.id().unwrap(), &[0; 20]).ok();
-        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address)
-            .try_into()
-            .expect("Failed to convert actor state.");
+        let actor = create_actor(&placeholder_actor_cid, 0, delegated_address);
         assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
     }
 }

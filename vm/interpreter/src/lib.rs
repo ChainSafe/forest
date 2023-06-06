@@ -10,10 +10,9 @@ mod metrics;
 mod vm;
 
 use fil_actor_interface::account;
-use forest_shim::Inner;
 use forest_shim::{
     address::{Address, Protocol},
-    state_tree::{ActorState, StateTree},
+    state_tree::StateTree,
 };
 use fvm_ipld_blockstore::Blockstore;
 
@@ -37,10 +36,9 @@ where
         return Ok(*addr);
     }
 
-    let act: <ActorState as Inner>::FVM = st
+    let act = st
         .get_actor(addr)?
-        .ok_or_else(|| anyhow::anyhow!("Failed to retrieve actor: {}", addr))?
-        .try_into()?;
+        .ok_or_else(|| anyhow::anyhow!("Failed to retrieve actor: {}", addr))?;
 
     // If there _is_ an f4 address, return it as "key" address
     if let Some(address) = act.delegated_address {

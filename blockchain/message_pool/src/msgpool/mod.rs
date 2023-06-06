@@ -16,8 +16,7 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
-use forest_shim::Inner;
-use forest_shim::{address::Address, crypto::Signature, state_tree::ActorState};
+use forest_shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
 use log::error;
 use lru::LruCache;
@@ -48,7 +47,7 @@ fn get_state_sequence<T>(api: &T, addr: &Address, cur_ts: &Tipset) -> Result<u64
 where
     T: Provider,
 {
-    let actor: <ActorState as Inner>::FVM = api.get_actor_after(addr, cur_ts)?.try_into()?;
+    let actor = api.get_actor_after(addr, cur_ts)?;
     let base_sequence = actor.sequence;
 
     Ok(base_sequence)

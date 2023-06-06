@@ -8,12 +8,8 @@ use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
 use forest_shim::{
-    gas::price_list_by_network_version,
-    state_tree::{ActorState, StateTree},
-    version::NetworkVersion,
+    gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
 };
-
-use forest_shim::Inner;
 use fvm3::{
     externs::{Chain, Consensus, Externs, Rand},
     gas::{Gas, GasTracker},
@@ -72,10 +68,9 @@ impl<DB: Blockstore> ForestExterns<DB> {
         let prev_root = (self.lookback)(height)?;
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
-        let actor: <ActorState as Inner>::FVM = lb_state
+        let actor = lb_state
             .get_actor(&miner_addr.into())?
-            .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?
-            .try_into()?;
+            .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tbs = TrackingBlockstore::new(&self.db);
 

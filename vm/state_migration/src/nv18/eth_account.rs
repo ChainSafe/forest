@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::anyhow;
-use forest_shim::Inner;
 use forest_shim::{
     address::Address,
     machine::ManifestV3,
-    state_tree::{ActorState, ActorStateVersion, StateTree},
+    state_tree::{ActorState, StateTree},
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -18,10 +17,9 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
     store: &BS,
     actors_out: &mut StateTree<BS>,
 ) -> anyhow::Result<()> {
-    let init_actor: <ActorState as Inner>::FVM = actors_out
+    let init_actor = actors_out
         .get_actor(&Address::INIT_ACTOR)?
-        .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?
-        .try_into()?;
+        .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
     let init_state: fil_actor_init_state::v10::State = store
         .get_cbor(&init_actor.state)?
         .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
@@ -32,10 +30,9 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
         .resolve_address(&store, &eth_zero_addr.into())?
         .ok_or_else(|| anyhow!("failed to get eth zero actor"))?;
 
-    let system_actor: <ActorState as Inner>::FVM = actors_out
+    let system_actor = actors_out
         .get_actor(&Address::new_id(0))?
-        .ok_or_else(|| anyhow!("failed to get system actor"))?
-        .try_into()?;
+        .ok_or_else(|| anyhow!("failed to get system actor"))?;
 
     let system_actor_state = store
         .get_cbor::<SystemStateNew>(&system_actor.state)?
@@ -50,7 +47,6 @@ pub fn create_eth_account_actor<BS: Blockstore + Clone + Send + Sync>(
         Default::default(),
         0,
         Some(eth_zero_addr),
-        ActorStateVersion::default(),
     );
 
     actors_out.set_actor(&eth_zero_addr_id.into(), eth_account_actor)?;

@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use std::ops::{Deref, DerefMut};
 
 use anyhow::{bail, Context};
 use cid::Cid;
-use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
+pub use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
@@ -121,21 +122,17 @@ where
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
-            StateTree::V2(st) => Ok(Some(
-                st.get_actor(&addr.into())
-                    .map_err(|e| anyhow::anyhow!("{e}"))?
-                    .expect("Failed to get actor.")
-                    .into(),
-            )),
+            StateTree::V2(st) => Ok(st
+                .get_actor(&addr.into())
+                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .map(Into::into)),
             StateTree::V3(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
-                    Ok(Some(
-                        st.get_actor(id)
-                            .map_err(|e| anyhow::anyhow!("{e}"))?
-                            .expect("Failed to get actor.")
-                            .into(),
-                    ))
+                    Ok(st
+                        .get_actor(id)
+                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .map(Into::into))
                 } else {
                     Ok(None)
                 }
@@ -168,13 +165,13 @@ where
         match self {
             StateTree::V2(st) => {
                 let inner = |address: fvm_shared::address::Address, actor_state: &ActorStateV2| {
-                    f(address.into(), &actor_state.try_into()?)
+                    f(address.into(), &actor_state.into())
                 };
                 st.for_each(inner)
             }
             StateTree::V3(st) => {
                 let inner = |address: fvm_shared3::address::Address, actor_state: &ActorStateV3| {
-                    f(address.into(), &actor_state.try_into()?)
+                    f(address.into(), &actor_state.into())
                 };
                 st.for_each(inner)
             }
@@ -193,13 +190,13 @@ where
     pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> anyhow::Result<()> {
         match self {
             StateTree::V2(st) => st
-                .set_actor(&addr.into(), actor.try_into()?)
+                .set_actor(&addr.into(), actor.into())
                 .map_err(|e| anyhow::anyhow!("{e}")),
             StateTree::V3(st) => {
                 let id = st
                     .lookup_id(&addr.into())?
                     .context("couldn't find actor id")?;
-                st.set_actor(id, actor.try_into()?);
+                st.set_actor(id, actor.into());
                 Ok(())
             }
         }
@@ -222,21 +219,12 @@ where
 ///
 /// // Create a shim out of fvm2 state, ensure conversions are correct
 /// let state_shim = forest_shim::state_tree::ActorState::from(fvm2_actor_state.clone());
-/// assert_eq!(fvm3_actor_state, state_shim.clone().try_into().unwrap());
-/// assert_eq!(fvm2_actor_state, state_shim.try_into().unwrap());
+/// assert_eq!(fvm3_actor_state, *state_shim);
+/// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub enum ActorState {
-    V2(ActorStateV2),
-    V3(ActorStateV3),
-}
-
-#[derive(Default)]
-pub enum ActorStateVersion {
-    V2,
-    #[default]
-    V3,
-}
+#[serde(transparent)]
+pub struct ActorState(ActorStateV3);
 
 impl ActorState {
     pub fn new(
@@ -245,126 +233,101 @@ impl ActorState {
         balance: TokenAmount,
         sequence: u64,
         address: Option<Address>,
-        version: ActorStateVersion,
-    ) -> ActorState {
-        match version {
-            ActorStateVersion::V2 => {
-                ActorStateV2::new(code, state, balance.into(), sequence).into()
-            }
-            ActorStateVersion::V3 => ActorStateV3::new(
-                code,
-                state,
-                balance.into(),
-                sequence,
-                address.map(Into::into),
-            )
-            .into(),
-        }
+    ) -> Self {
+        Self(ActorStateV3::new(
+            code,
+            state,
+            balance.into(),
+            sequence,
+            address.map(Into::into),
+        ))
     }
-
     /// Construct a new empty actor with the specified code.
-    pub fn new_empty(code: Cid, delegated_address: Option<Address>) -> ActorStateV3 {
-        ActorStateV3::new_empty(code, delegated_address.map(Into::into))
+    pub fn new_empty(code: Cid, delegated_address: Option<Address>) -> Self {
+        Self(ActorStateV3::new_empty(
+            code,
+            delegated_address.map(Into::into),
+        ))
     }
 }
 impl Inner for ActorState {
     type FVM = ActorStateV3;
 }
 
-impl TryFrom<ActorState> for ActorStateV3 {
-    type Error = anyhow::Error;
-    fn try_from(other: ActorState) -> anyhow::Result<Self> {
-        if let ActorState::V3(st) = other {
-            Ok(st)
-        } else if let ActorState::V2(st) = other {
-            Ok(ActorStateV3 {
-                code: st.code,
-                state: st.state,
-                sequence: st.sequence,
-                balance: TokenAmount::from(&st.balance).into(),
-                delegated_address: None,
-            })
-        } else {
-            bail!("Invalid conversion");
-        }
+impl Deref for ActorState {
+    type Target = ActorStateV3;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl TryFrom<&ActorState> for ActorStateV3 {
-    type Error = anyhow::Error;
-    fn try_from(other: &ActorState) -> anyhow::Result<Self> {
-        if let ActorState::V3(st) = other {
-            Ok(st.clone())
-        } else if let ActorState::V2(st) = other {
-            Ok(ActorStateV3 {
-                code: st.code,
-                state: st.state,
-                sequence: st.sequence,
-                balance: TokenAmount::from(&st.balance).into(),
-                delegated_address: None,
-            })
-        } else {
-            bail!("Invalid conversion");
-        }
-    }
-}
-
-impl TryFrom<ActorState> for ActorStateV2 {
-    type Error = anyhow::Error;
-    fn try_from(other: ActorState) -> anyhow::Result<Self> {
-        if let ActorState::V2(st) = other {
-            Ok(st)
-        } else if let ActorState::V3(st) = other {
-            Ok(ActorStateV2 {
-                code: st.code,
-                state: st.state,
-                sequence: st.sequence,
-                balance: TokenAmount::from(&st.balance).into(),
-            })
-        } else {
-            bail!("Invalid conversion");
-        }
-    }
-}
-
-impl TryFrom<&ActorState> for ActorStateV2 {
-    type Error = anyhow::Error;
-    fn try_from(other: &ActorState) -> anyhow::Result<Self> {
-        if let ActorState::V2(st) = other {
-            Ok(st.clone())
-        } else if let ActorState::V3(st) = other {
-            Ok(ActorStateV2 {
-                code: st.code,
-                state: st.state,
-                sequence: st.sequence,
-                balance: TokenAmount::from(&st.balance).into(),
-            })
-        } else {
-            bail!("Invalid conversion");
-        }
-    }
-}
-
-impl From<&ActorStateV2> for ActorState {
-    fn from(other: &ActorStateV2) -> Self {
-        ActorState::V2(other.clone())
-    }
-}
-
-impl From<&ActorStateV3> for ActorState {
-    fn from(other: &ActorStateV3) -> Self {
-        ActorState::V3(other.clone())
-    }
-}
-
-impl From<ActorStateV2> for ActorState {
-    fn from(other: ActorStateV2) -> Self {
-        ActorState::V2(other)
+impl DerefMut for ActorState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
 impl From<ActorStateV3> for ActorState {
-    fn from(other: ActorStateV3) -> Self {
-        ActorState::V3(other)
+    fn from(value: ActorStateV3) -> Self {
+        ActorState(value)
+    }
+}
+
+impl From<&ActorStateV3> for ActorState {
+    fn from(value: &ActorStateV3) -> Self {
+        ActorState(value.clone())
+    }
+}
+
+impl From<ActorStateV2> for ActorState {
+    fn from(value: ActorStateV2) -> Self {
+        ActorState(ActorStateV3 {
+            code: value.code,
+            state: value.state,
+            sequence: value.sequence,
+            balance: TokenAmount::from(value.balance).into(),
+            delegated_address: None,
+        })
+    }
+}
+
+impl From<&ActorStateV2> for ActorState {
+    fn from(value: &ActorStateV2) -> Self {
+        ActorState(ActorStateV3 {
+            code: value.code,
+            state: value.state,
+            sequence: value.sequence,
+            balance: TokenAmount::from(&value.balance).into(),
+            delegated_address: None,
+        })
+    }
+}
+
+impl From<ActorState> for ActorStateV3 {
+    fn from(other: ActorState) -> Self {
+        other.0
+    }
+}
+
+impl From<ActorState> for ActorStateV2 {
+    fn from(other: ActorState) -> ActorStateV2 {
+        ActorStateV2 {
+            code: other.code,
+            state: other.state,
+            sequence: other.sequence,
+            balance: TokenAmount::from(&other.balance).into(),
+        }
+    }
+}
+
+impl From<&ActorState> for ActorStateV2 {
+    fn from(other: &ActorState) -> ActorStateV2 {
+        ActorStateV2 {
+            code: other.code,
+            state: other.state,
+            sequence: other.sequence,
+            balance: TokenAmount::from(&other.balance).into(),
+        }
     }
 }

@@ -12,13 +12,13 @@ use super::{ActorMigration, ActorMigrationInput};
 #[derive(Debug)]
 pub(crate) struct MigrationJobOutput {
     pub address: Address,
-    pub actor_state: <ActorState as Inner>::FVM,
+    pub actor_state: ActorState,
 }
 
 /// Defines migration job for a single actor migration.
 pub(crate) struct MigrationJob<BS: Blockstore> {
     pub address: Address,
-    pub actor_state: <ActorState as Inner>::FVM,
+    pub actor_state: ActorState,
     pub actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
