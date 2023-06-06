@@ -2580,9 +2580,9 @@ checksum = "e825f6987101665dea6ec934c09ec6d721de7bc1bf92248e1d5810c8cd636b77"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa040a44de760ae56a5b7548041c46a85ede01fc037fd7c456ad1e468d13e30c"
+checksum = "fa3e37027b4369b0997f5d3455293063f1609a4f95568917bcbd13f5f2b01388"
 dependencies = [
  "frc42_dispatch",
  "fvm_ipld_encoding 0.3.3",
@@ -2595,9 +2595,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb36b3ee5781626b405e1fe265461eda93c65fd527e6a50440d5846210790d48"
+checksum = "46ff232d1ac8826fad3cfc9bd6fa3b5a574edba1848048ef421470b7dc38c017"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -2609,9 +2609,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d31986103f2f25a54ee2f0a2ea0a43de9b45df8af352b39d3e6f2afc9b8f6306"
+checksum = "8cbda6cd1dc76177adab70484581f1abbf0937bc3119aa17ce69d8e35f84aae4"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2627,9 +2627,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_shared_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b257560fbbd2df65a2c48b190163d878ce5110845d93b6d7d88e399fa8fd4777"
+checksum = "d723ac814400b14dea970407577b16b9a279a10b554f54e963b480ad0ad49daa"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding 0.3.3",
@@ -2641,9 +2641,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a31e5608b5943e5444c25e0c62711fd0c61173593c748341a111abe20e528b3"
+checksum = "9e03f120edc21c51fc28569471e9686a109cc546186abdfcb8860652c8b89460"
 dependencies = [
  "cid",
  "fil_actor_evm_shared_state",
@@ -2658,9 +2658,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7c7021a905a0fcdf6eec29b7b414ca586aee04bb198e932f9aeee7463e0753f"
+checksum = "a367494be74afd2cb4a167f666a5795cfc9244e5d94aca727fbe3ed41c174584"
 dependencies = [
  "anyhow",
  "cid",
@@ -2678,9 +2678,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "4.0.0"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78608e0e8db5e291b576a1650d885ccd8e6c55801e852a3318b718a92a6f5cec"
+checksum = "aed3a840688a5702b17e35d5fde794d953d150c7c90f38a4d01a31a3a689cd23"
 dependencies = [
  "anyhow",
  "cid",
@@ -2702,6 +2702,7 @@ dependencies = [
  "fvm_shared 2.4.0",
  "fvm_shared 3.3.1",
  "lazy_static",
+ "multihash 0.16.3",
  "num",
  "regex",
  "serde",
@@ -2711,9 +2712,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f1842a1adc93d767dcbac0718b9bd59da040dd3a91c823889af3e3f1c0d2ca7"
+checksum = "d894e467ccc6b491765d11c9792788c308a0d059e2825b3bc48cdb7f4f7e3a1a"
 dependencies = [
  "anyhow",
  "cid",
@@ -2735,9 +2736,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a88cca98cb3ccfe7d16f298a8810d4a49991862fb779466fbe42e3190d2b6fe3"
+checksum = "7b19f273343382aefa2ad44d448efffe69c65d78b47e870c9424f1772d7704ca"
 dependencies = [
  "anyhow",
  "cid",
@@ -2758,13 +2759,14 @@ dependencies = [
  "num-derive",
  "num-traits",
  "serde",
+ "unsigned-varint",
 ]
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47e322f81cb630d5e574015fcac5f1a911eef6df5747aba9bdfe2158362cdcb5"
+checksum = "8ea4c09dc786dd5ec203ef508e1167d84ddb8844a9b6074dbf506de3d775dac9"
 dependencies = [
  "anyhow",
  "cid",
@@ -2784,9 +2786,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3b99e5ce4bf17e297a50b781d5e73cbbe4a884500959e7109750d6e746c86b0"
+checksum = "e7ebed1fed5fa95299d020d1cd0182a7fa083aa304b60475645ebed92c4667cb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2806,9 +2808,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae8c6f064dd6f796824167dd36dd68e9f7cbb90069e154d2b7b9552fd2bd2727"
+checksum = "b902e4496e46cf65f5004d1cdc7371341d0d514b6236bfa36a58cea42e1d8896"
 dependencies = [
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -2821,9 +2823,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c07d5dfcc3777f8ec4eefbe4bd51499a2157608a4f608cbaf7c0d84128aa3d68"
+checksum = "e7563a8ebb158ebde8ac4464467220d913aac5bb8cbe559195553854a56f3868"
 dependencies = [
  "cid",
  "fvm_ipld_encoding 0.3.3",
@@ -2835,9 +2837,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fe6aca497abb108dedbb037d4205cadc30c68833e5f6eb22205e455c5444901"
+checksum = "c0d7e4c4fa67e2878dabd4f63bd0764b3e3619976850cd0715f12e288647f792"
 dependencies = [
  "anyhow",
  "cid",
@@ -2854,19 +2856,19 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80100c8ef62b379bdfaaebb402d1c5ed168ae55d6b2726b9d278b27a1bbaf4ba"
+checksum = "51e50943998a037632c66673f7d699973f84ec1960360ee413f02ffa534eddf2"
 dependencies = [
  "anyhow",
  "cid",
+ "filecoin-proofs-api",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
  "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.4.0",
  "fvm_shared 3.3.1",
- "lazy_static",
  "multihash 0.16.3",
  "num",
  "num-bigint",
