@@ -341,7 +341,7 @@ impl quickcheck::Arbitrary for ActorState {
         ActorState::new(
             cid,
             cid,
-            TokenAmount::from_atto(u64::arbitrary(g)).into(),
+            TokenAmount::from_atto(u64::arbitrary(g)),
             u64::arbitrary(g),
             None,
         )
