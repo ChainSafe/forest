@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{bail, Context as _};
 use chrono::Utc;
@@ -16,11 +16,7 @@ use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_networks::NetworkChain;
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
-use forest_utils::{
-    io::{parser::parse_duration, progress_bar::downloading_style, ProgressBar},
-    net::get_fetch_progress_from_file,
-    retry, RetryArgs,
-};
+use forest_utils::{io::ProgressBar, net::get_fetch_progress_from_file};
 use fvm_shared::clock::ChainEpoch;
 use itertools::Itertools as _;
 use tempfile::TempDir;
@@ -50,19 +46,13 @@ pub enum SnapshotCommands {
     Fetch {
         #[command(flatten)]
         snapshot_dir: SnapshotDirectory,
-        /// Maximum number of times to retry the fetch
-        #[arg(short, long, default_value = "3")]
-        max_retries: usize,
-        /// Duration to wait between the retries in seconds
-        #[arg(short, long, default_value = "10", value_parser = parse_duration)]
-        delay: Duration,
         /// Vendor to fetch the snapshot from
         #[arg(short, long, value_parser = ["forest", "filops"], default_value = "forest")]
         vendor: String,
     },
 
-    /// Shows default snapshot dir
-    Dir,
+    /// Shows default location snapshots are downloaded to
+    DefaultLocation,
 
     /// List local snapshots
     /// The output format of this command is not stable
@@ -156,7 +146,6 @@ impl SnapshotCommands {
                     recent_roots: config.chain.recent_state_roots,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
-                    compressed: true,
                     skip_checksum: *skip_checksum,
                     dry_run: *dry_run,
                 };
@@ -199,37 +188,17 @@ impl SnapshotCommands {
             }
             Self::Fetch {
                 snapshot_dir,
-                max_retries,
-                delay,
                 vendor,
             } => {
-                let client = reqwest::Client::new();
-                let progress_bar = indicatif::ProgressBar::new(0)
-                    .with_message("downloading snapshot")
-                    .with_style(downloading_style());
                 let snapshot_dir = snapshot_dir
                     .inner()
                     .cloned()
                     .unwrap_or(config.snapshot_directory());
 
-                match retry(
-                    RetryArgs {
-                        timeout: None,
-                        max_retries: Some(*max_retries),
-                        delay: Some(*delay),
-                    },
-                    || {
-                        // if the operation is retried, the most recent length of the progress bar
-                        // is large, leading to UI jank, so reset first
-                        progress_bar.reset();
-                        forest_cli_shared::snapshot::fetch(
-                            &snapshot_dir,
-                            &config.chain.network,
-                            vendor,
-                            &client,
-                            &progress_bar,
-                        )
-                    },
+                match forest_cli_shared::snapshot::fetch(
+                    &snapshot_dir,
+                    &config.chain.network,
+                    vendor,
                 )
                 .await
                 {
@@ -240,9 +209,7 @@ impl SnapshotCommands {
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
             }
-            // TODO(aatifsyed): this is a confusing name - `dir` and `list` are synonymous in some
-            // contexts
-            Self::Dir => {
+            Self::DefaultLocation => {
                 println!("{}", config.snapshot_directory().display());
                 Ok(())
             }

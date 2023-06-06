@@ -3,7 +3,7 @@
 
 use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
@@ -27,15 +27,12 @@ use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManage
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
-use forest_shim::version::NetworkVersion;
+use forest_shim::{clock::ChainEpoch, version::NetworkVersion};
 use forest_state_manager::StateManager;
 use forest_utils::{
-    io::{progress_bar::downloading_style, write_to_file},
-    monitoring::MemStatsTracker,
-    retry,
-    version::FOREST_VERSION_STRING,
-    RetryArgs,
+    io::write_to_file, monitoring::MemStatsTracker, version::FOREST_VERSION_STRING,
 };
+use forest_utils::{retry, RetryArgs};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
@@ -260,12 +257,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     // Terminate if no snapshot is provided or DB isn't recent enough
 
     let epoch = chain_store.heaviest_tipset().epoch();
-    let nv = config.chain.network_version(epoch);
-    let should_fetch_snapshot = if nv < NetworkVersion::V16 {
-        prompt_snapshot_or_die(opts.auto_download_snapshot, &config)?
-    } else {
-        false
-    };
 
     load_bundles(epoch, &config, db.clone()).await?;
 
@@ -384,44 +375,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     }
 
     let mut config = config;
-    if should_fetch_snapshot {
-        let client = reqwest::Client::new();
-        let progress_bar = match config.client.show_progress_bars.should_display() {
-            true => indicatif::ProgressBar::new(0)
-                .with_message("downloading snapshot")
-                .with_style(downloading_style()),
-            false => indicatif::ProgressBar::hidden(),
-        };
-        let snapshot_dir = config.snapshot_directory();
-
-        match retry(
-            RetryArgs {
-                timeout: None,
-                max_retries: Some(config.daemon.default_retry),
-                delay: Some(config.daemon.default_delay),
-            },
-            || {
-                // if the operation is retried, the most recent length of the progress bar
-                // is large, leading to UI jank, so reset first
-                progress_bar.reset();
-                forest_cli_shared::snapshot::fetch(
-                    &snapshot_dir,
-                    &config.chain.network,
-                    "forest", // TODO(aatifsyed): configure?
-                    &client,
-                    &progress_bar,
-                )
-            },
-        )
-        .await
-        {
-            Ok(path) => {
-                config.client.snapshot_path = Some(path);
-                config.client.snapshot = true
-            }
-            Err(_) => todo!(),
-        };
-    }
+    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
     let config = config;
 
     tokio::select! {
@@ -474,6 +428,87 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     Ok(db)
 }
 
+/// If required, and is not already `config`, fetches a snapshot from the web,
+/// and puts it in `config`.
+///
+/// An [`Err`] should be considered fatal.
+///
+/// This may draw or, render confirmations to stdout/stderr, which **will** block
+/// the executor.
+async fn fetch_snapshot_if_required(
+    config: &mut Config,
+    epoch: ChainEpoch,
+    auto_download_snapshot: bool,
+) -> anyhow::Result<()> {
+    let vendor = "forest";
+    let chain = &config.chain.network;
+    let snapshot_dir = config.snapshot_directory();
+
+    let network_version = config.chain.network_version(epoch);
+    let network_version_is_small = network_version < NetworkVersion::V16;
+    let require_a_snapshot = network_version_is_small;
+    let have_a_snapshot = config.client.snapshot_path.is_some();
+    match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
+        (false, _, _) => Ok(()),   // noop - don't need a snapshot
+        (true, true, _) => Ok(()), // noop - we need a snapshot, and we have one
+        (true, false, true) => {
+            // we need a snapshot, don't have one, and have permission to download one, so do that
+            let max_retries = 3;
+            match retry(
+                RetryArgs {
+                    timeout: None,
+                    max_retries: Some(max_retries),
+                    delay: Some(Duration::from_secs(60)),
+                },
+                || {
+                    forest_cli_shared::snapshot::fetch(
+                        snapshot_dir.as_path(),
+                        chain,
+                        // Default to forest provider for daemon snapshots
+                        vendor,
+                    )
+                },
+            )
+            .await
+            {
+                Ok(path) => {
+                    config.client.snapshot_path = Some(path);
+                    config.client.snapshot = true;
+                    Ok(())
+                }
+                Err(_) => bail!("failed to fetch snapshot after {max_retries} attempts"),
+            }
+        }
+        (true, false, false) => {
+            // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
+            let num_bytes =
+                forest_cli_shared::snapshot::peek_num_bytes(vendor, &config.chain.network)
+                    .await
+                    .context("couldn't get snapshot size")?;
+            let num_bytes = byte_unit::Byte::from(num_bytes)
+                .get_appropriate_unit(true)
+                .format(2);
+            let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot? (denying will exit the program). ");
+            let have_permission = Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(message)
+                .default(false)
+                .interact()
+                .unwrap_or(false);
+            if !have_permission {
+                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
+            }
+            match forest_cli_shared::snapshot::fetch(snapshot_dir.as_path(), chain, vendor).await {
+                Ok(path) => {
+                    config.client.snapshot_path = Some(path);
+                    config.client.snapshot = true;
+                    Ok(())
+                }
+                Err(e) => Err(e).context("downloading required snapshot failed"),
+            }
+        }
+    }
+}
+
 /// Generates, prints and optionally writes to a file the administrator JWT
 /// token.
 fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> anyhow::Result<()> {
@@ -506,31 +541,6 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
     // a limit of approximately 2.2 years we have to loop
     loop {
         tokio::time::sleep(Duration::new(64000000, 0)).await;
-    }
-}
-
-/// Last resort in case a snapshot is needed. If it is not to be downloaded,
-/// this method fails and exits the process.
-fn prompt_snapshot_or_die(auto_download_snapshot: bool, config: &Config) -> anyhow::Result<bool> {
-    if config.client.snapshot_path.is_some() {
-        return Ok(false);
-    }
-    let should_download = if !auto_download_snapshot && atty::is(atty::Stream::Stdin) {
-        Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt(
-                    "Forest needs a snapshot to sync with the network. Would you like to download one now?",
-                )
-                .default(false)
-                .interact()
-                .unwrap_or_default()
-    } else {
-        auto_download_snapshot
-    };
-
-    if should_download {
-        Ok(true)
-    } else {
-        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
     }
 }
 

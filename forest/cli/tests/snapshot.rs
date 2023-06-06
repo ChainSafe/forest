@@ -7,7 +7,6 @@
 //! accept both &[TempDir] and &[std::path::PathBuf] (so they can be debugged if needed)
 //!
 //! See `forest_cli_check.sh` for those tests
-//! TODO(aatifsyed): remove that shellscript, and create some segregated tests
 
 use std::{
     fmt::Display,
@@ -24,7 +23,7 @@ use tempfile::TempDir;
 #[test]
 fn dir() {
     forest_cli()
-        .args(["snapshot", "dir"])
+        .args(["snapshot", "default-location"])
         .pipe_ref_mut(run_and_log("snapshot dir"))
         .success()
         .stdout(predicates::str::is_empty().not());
@@ -109,7 +108,6 @@ fn forest_cli() -> Command {
 /// This is useful for sequences of commands
 fn run_and_log(message: impl Display) -> impl FnMut(&mut Command) -> Assert {
     move |command| {
-        // TODO(aatifsyed): real integration test suite with logging
         println!(">>>>{message}>>>>");
         let assert = command.assert();
         let output = assert.get_output();
@@ -132,8 +130,7 @@ fn run_and_log(message: impl Display) -> impl FnMut(&mut Command) -> Assert {
 
 /// Note the snapshot list output is not currently stable, this just helps us count snapshots
 fn snapshot_count(snapshot_dir: &impl AsRef<Path>) -> usize {
-    // NOTE log messages come to stdout(!), so parsing that is unreliable
-    // TODO(aatifsyed) raise a PR to fix
+    // NOTE log messages come to stdout(!), so parsing that is unreliable. See #2946
     forest_cli()
         .args(["snapshot", "list"])
         .arg("--snapshot-dir")

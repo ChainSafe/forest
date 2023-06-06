@@ -1,5 +1,4 @@
 # Banned in #2454, trading security/being idiomatic for speed
-# TODO(aatifsyed): is this the right tradeoff? we're not likely to get any speedup
 [[disallowed-types]]
 path = "std::collections::HashMap"
 reason = """the standard library hasher is secure by default, but not very fast.

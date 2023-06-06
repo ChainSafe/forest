@@ -22,9 +22,6 @@ use tracing::error;
 /// Keep running the future created by `make_fut` until the timeout or retry
 /// limit in `args` is reached.
 /// `F` _must_ be cancel safe.
-// TODO(aatifsyed): store most recent error in RetryError
-// REFACTOR?(aatifsyed): use `futures-retry` or `again`
-// REFACTOR?(aatifsyed): return num retries
 #[tracing::instrument(skip(make_fut))]
 pub async fn retry<F, T, E>(
     args: RetryArgs,
@@ -70,20 +67,6 @@ pub struct RetryArgs {
     pub delay: Option<Duration>,
 }
 
-impl RetryArgs {
-    pub fn new_ms(
-        timeout: impl Into<Option<u64>>,
-        max_retries: impl Into<Option<usize>>,
-        delay: impl Into<Option<u64>>,
-    ) -> Self {
-        Self {
-            timeout: timeout.into().map(Duration::from_millis),
-            max_retries: max_retries.into(),
-            delay: delay.into().map(Duration::from_millis),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum RetryError {
     #[error("operation timed out")]
@@ -99,6 +82,20 @@ mod tests {
     use RetryError::{RetriesExceeded, TimeoutExceeded};
 
     use super::*;
+
+    impl RetryArgs {
+        fn new_ms(
+            timeout: impl Into<Option<u64>>,
+            max_retries: impl Into<Option<usize>>,
+            delay: impl Into<Option<u64>>,
+        ) -> Self {
+            Self {
+                timeout: timeout.into().map(Duration::from_millis),
+                max_retries: max_retries.into(),
+                delay: delay.into().map(Duration::from_millis),
+            }
+        }
+    }
 
     #[tokio::test]
     async fn timeout() {

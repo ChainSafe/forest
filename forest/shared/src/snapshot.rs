@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! We occasionally fetch _compressed_ snapshots of `chain`s from `vendor`s
-//! and store them locally, in the `snapshot_directory`. See
+//! and store them locally, in the `snapshot_dir`. See
 //! [`crate::cli::Config::snapshot_directory`]. The snapshots live at
 //! `stable_url`s - see [`stable_url`]'s source for the supported chains and vendors.
 //!
@@ -26,7 +26,7 @@
 //! We prefer to download files using `aria2c`, falling back to making the request
 //! ourselves.
 //!
-//! We treat a subfolder of `snapshot_directory` as our interface with `aria2`,
+//! We treat a subfolder of `snapshot_dir` as our interface with `aria2`,
 //! downloading and retrieving files from it as appropriate.
 //!
 //! ## Concepts
@@ -60,8 +60,8 @@ use url::Url;
 const SNAPSHOT_METADATA_FILE_SUFFIX: &str = ".metadata.json";
 const ARIA2C_METADATA_FILE_SUFFIX: &str = ".aria";
 
-/// List all paths to files and their metadata in `snapshot_directory`. Will
-/// return [`Ok(Vec::new())`] if `snapshot_directory` does not exist.
+/// List all paths to files and their metadata in `snapshot_dir`.
+/// Returns [`Ok(Vec::new())`] if `snapshot_dir` does not exist.
 ///
 /// Users can freely delete the path to the blob - corresponding metadata will
 /// be cleaned up in the next call to [list], but this should be regarded as an
@@ -71,15 +71,15 @@ const ARIA2C_METADATA_FILE_SUFFIX: &str = ".aria";
 ///
 /// Note this function makes blocking syscalls, and should not be called
 /// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
-pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
-    if !snapshot_directory.exists() {
+pub fn list(snapshot_dir: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
+    if !snapshot_dir.exists() {
         return Ok(Vec::new());
     }
     let Partitioned {
         main_and_meta,
         orphaned_meta,
         orphaned_main,
-    } = partition_by_suffix(snapshot_directory, SNAPSHOT_METADATA_FILE_SUFFIX)
+    } = partition_by_suffix(snapshot_dir, SNAPSHOT_METADATA_FILE_SUFFIX)
         .context("couldn't enumerate snapshots in snapshot directory")?;
     for meta in orphaned_meta {
         debug!(path = %meta.display(), "deleting metadata without corresponding blob");
@@ -104,51 +104,74 @@ pub fn list(snapshot_directory: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotM
         .collect())
 }
 
-/// Fetch a snapshot.
+/// Fetch a snapshot with aria2c, falling back to our own http client.
+/// This may draw to stdout.
 ///
 /// See [module documentation](mod@self) for more.
 pub async fn fetch(
     snapshot_dir: &Path,
     chain: &NetworkChain,
     vendor: &str,
-    client: &reqwest::Client,
-    progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<PathBuf> {
-    let stable_url = stable_url(vendor, chain)
-        .with_context(|| format!("unsupported chain `{chain}` or vendor `{vendor}`"))?;
-
-    fetch_impl(
-        snapshot_dir,
-        stable_url,
-        chain,
-        vendor,
-        client,
-        progress_bar,
-    )
-    .await
-}
-
-pub async fn fetch_auto(
-    snapshot_dir: &Path,
-    chain: &NetworkChain,
-    vendor: &str,
-) -> anyhow::Result<PathBuf> {
-    let stable_url = stable_url(vendor, chain)
-        .with_context(|| format!("unsupported chain `{chain}` or vendor `{vendor}`"))?;
+    let stable_url = stable_url(vendor, chain)?;
 
     let aria2c_dir = snapshot_dir.join("aria2c");
     match download_aria2c(&aria2c_dir, stable_url).await {
         Ok(()) => intern_from_aria2c_dir(aria2c_dir, snapshot_dir, chain, vendor).await,
         Err(AriaErr::CouldNotExec(reason)) => {
             warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
-
-            todo!()
+            let (path, url) = download_http(stable_url, &indicatif::ProgressBar::hidden()).await?;
+            let (height, date, time) = parse::parse_url(&url)?;
+            intern_and_create_metadata(
+                snapshot_dir,
+                &path,
+                height,
+                date,
+                time,
+                chain,
+                vendor,
+                Some(String::from(stable_url)),
+                Some(String::from(url.as_str())),
+            )
+            .await
         }
         Err(AriaErr::Other(o)) => Err(o.context("downloading with aria2c failed")),
     }
 }
 
-///
+/// `file` is a snapshot file with a conventional name.
+/// This function will move `file` into `snapshot_dir`, adding an appropriate metadata
+/// file to allow it to be recognized in [list].
+pub async fn intern(
+    snapshot_dir: &Path,
+    file: &Path,
+    chain: &NetworkChain,
+    vendor: &str,
+) -> anyhow::Result<PathBuf> {
+    let (height, date, time) = file
+        .file_name()
+        .and_then(OsStr::to_str)
+        .context("non-utf8 or missing filename")
+        .and_then(parse::parse_filename)
+        .context("invalid filename")?;
+
+    intern_and_create_metadata(
+        snapshot_dir,
+        file,
+        height,
+        date,
+        time,
+        chain,
+        vendor,
+        None,
+        None,
+    )
+    .await
+}
+
+/// Find all completed downloads in `aria2c_dir`, and intern them.
+/// The files are expected to have a conventional name.
+/// Returns the first file interned - we typically only expect one file to be interned.
 async fn intern_from_aria2c_dir(
     aria2c_dir: PathBuf,
     snapshot_dir: &Path,
@@ -186,36 +209,6 @@ async fn intern_from_aria2c_dir(
             .unwrap_or(anyhow!("couldn't find file that aria2c downloaded"))
             .context("couldn't intern file that aria2c downloaded")),
     }
-}
-
-/// `file` is a snapshot file with a conventional name.
-/// This function will move `file` into `snapshot_dir`, adding an appropriate metadata
-/// file to allow it to be recognized in [list].
-pub async fn intern(
-    snapshot_dir: &Path,
-    file: &Path,
-    chain: &NetworkChain,
-    vendor: &str,
-) -> anyhow::Result<PathBuf> {
-    let (height, date, time) = file
-        .file_name()
-        .and_then(OsStr::to_str)
-        .context("non-utf8 or missing filename")
-        .and_then(parse::parse_filename)
-        .context("invalid filename")?;
-
-    intern_and_create_metadata(
-        snapshot_dir,
-        file,
-        height,
-        date,
-        time,
-        chain,
-        vendor,
-        None,
-        None,
-    )
-    .await
 }
 
 /// Metadata about a snapshot blob
@@ -271,86 +264,31 @@ async fn intern_and_create_metadata(
         .await
         .context("couldn't write metadata file")?;
 
-    tokio::fs::rename(blob, &new_blob_path)
-        .await
-        .context("couldn't move blob to snapshot directory")?;
-
-    Ok(new_blob_path)
-}
-
-/// Unit-testable implementation of [fetch]
-async fn fetch_impl(
-    snapshot_dir: &Path,
-    stable_url: &str,
-    chain: &NetworkChain,
-    vendor: &str,
-    client: &reqwest::Client,
-    progress_bar: &indicatif::ProgressBar,
-) -> anyhow::Result<PathBuf> {
-    let (height, date, time, actual_url, file_len) = peek_snapshot(client, stable_url).await?;
-
-    progress_bar.set_length(file_len);
-
-    match download_http(client, actual_url.clone(), progress_bar).await {
-        Ok((path, final_url)) if final_url == actual_url => {
-            intern_and_create_metadata(
-                snapshot_dir,
-                &path,
-                height,
-                date,
-                time,
-                chain,
-                vendor,
-                Some(String::from(stable_url)),
-                Some(String::from(actual_url)),
-            )
+    match tokio::fs::rename(blob, &new_blob_path).await {
+        Ok(()) => Ok(new_blob_path),
+        // Can't rename across filesystems, so copy the bytes from disk to disk
+        Err(e) if e.raw_os_error() == Some(libc::EXDEV) => tokio::fs::copy(blob, &new_blob_path)
             .await
-        }
-        Ok((path, _)) => {
-            let _ = tokio::fs::remove_file(path).await;
-            bail!("mismatch between metadata and downloaded file");
-        }
-        // something went wrong with the download
-        Err(err) => {
-            progress_bar.abandon();
-            Err(err)
-        }
+            .map(|_| new_blob_path),
+        Err(other) => Err(other),
     }
+    .context("couldn't move blob to snapshot directory")
 }
 
-/// Takes a stable URL like `https://snapshots.calibrationnet.filops.net/minimal/latest`, and follows it to get
-/// - Metadata inferred from the (conventional) filename
-///   - height
-///   - date
-///   - (optional) time
-/// - The URL of the actual file to download (this prevents races where the
-///   stable URL switches its target during an operation).
-/// - The length the file to download
-async fn peek_snapshot(
-    stable_url: &str,
-) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>, Url, u64)> {
+/// What would the size of the snapshot (in bytes) from the given `vendor` for this `chain` be?
+pub async fn peek_num_bytes(vendor: &str, chain: &NetworkChain) -> anyhow::Result<u64> {
+    let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
     // if we issue a HEAD, the content-length will be zero for redirect URLs
     // (this is a bug, maybe in reqwest - HEAD _should_ give us the length)
-    // (maybe because the stable URLs are all double-redirects? 301 -> 302 -> 200)
-    let response = reqwest::get(stable_url)
+    // (probably because the stable URLs are all double-redirects 301 -> 302 -> 200)
+    reqwest::get(stable_url)
         .await?
         .error_for_status()
-        .context("server returned an error response")?;
-    let length = response
+        .context("server returned an error response")?
         .content_length()
-        .context("no content-length header")?;
-    // could also look at Content-Disposition, but that's even more finicky
-    let filename = response
-        .url()
-        .path_segments()
-        .context("url has no path")?
-        .last()
-        .context("url has no segments")?;
-    let (height, date, time) =
-        parse::parse_filename(filename).context("unexpected filename format on remote server")?;
-    Ok((height, date, time, response.url().clone(), length))
+        .context("no content-length header")
 }
 
 enum AriaErr {
@@ -395,7 +333,7 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
 /// - The path to the downloaded file
 /// - The URL of the download file (in case e.g redirects were followed)
 async fn download_http(
-    url: Url,
+    url: &str,
     progress_bar: &indicatif::ProgressBar,
 ) -> anyhow::Result<(PathBuf, Url)> {
     use futures::TryStreamExt as _;
@@ -422,7 +360,6 @@ async fn download_http(
     match tokio::io::copy(&mut src, &mut dst).await {
         Ok(_) => Ok((path, url)),
         Err(e) => {
-            // TODO(aatifsyed): we've maybe leaked the download here
             let _ = tokio::fs::remove_file(path).await;
             Err(e).context("couldn't download to file")
         }
@@ -517,109 +454,23 @@ const FILOPS_MAINNET_COMPRESSED: &str = "https://snapshots.mainnet.filops.net/mi
 const FILOPS_CALIBNET_COMPRESSED: &str =
     "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
 
-fn stable_url(vendor: &str, chain: &NetworkChain) -> Option<&'static str> {
+fn stable_url(vendor: &str, chain: &NetworkChain) -> anyhow::Result<&'static str> {
     match (vendor, chain) {
-        ("forest", NetworkChain::Mainnet) => Some(FOREST_MAINNET_COMPRESSED),
-        ("forest", NetworkChain::Calibnet) => Some(FOREST_CALIBNET_COMPRESSED),
-        ("filops", NetworkChain::Mainnet) => Some(FILOPS_MAINNET_COMPRESSED),
-        ("filops", NetworkChain::Calibnet) => Some(FILOPS_CALIBNET_COMPRESSED),
-        _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use httptest::{matchers::request::method_path, responders::status_code, Expectation};
-    use pretty_assertions::assert_eq;
-    use tempfile::TempDir;
-
-    use super::*;
-
-    #[test]
-    fn parse_filename() {
-        fn make_expected(
-            year: i32,
-            month: u32,
-            day: u32,
-            hms: impl Into<Option<(u32, u32, u32)>>,
-            height: i64,
-        ) -> (i64, NaiveDate, Option<NaiveTime>) {
-            (
-                height,
-                NaiveDate::from_ymd_opt(year, month, day).unwrap(),
-                hms.into()
-                    .map(|(h, m, s)| NaiveTime::from_hms_opt(h, m, s).unwrap()),
-            )
-        }
-        for (input, expected) in [
-            (
-                "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
-                make_expected(2023, 5, 30, None, 2905376),
-            ),
-            (
-                "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
-                make_expected(2023, 5, 30, None, 604419),
-            ),
-            (
-                "2905920_2023_05_30T22_00_00Z.car.zst",
-                make_expected(2023, 5, 30, (22, 0, 0), 2905920),
-            ),
-            (
-                "605520_2023_05_31T00_13_00Z.car.zst",
-                make_expected(2023, 5, 31, (0, 13, 0), 605520),
-            ),
-        ] {
-            assert_eq!(expected, parse::parse_filename(input).unwrap());
-        }
-    }
-
-    #[tokio::test]
-    async fn test_fetch_and_list() -> anyhow::Result<()> {
-        let temp_dir = TempDir::new()?;
-        let server = httptest::Server::run();
-        server.expect(
-            Expectation::matching(method_path("GET", "/stable")).respond_with(
-                status_code(301).insert_header("Location", "/2905920_2023_05_30T22_00_00Z.car.zst"),
-            ),
-        );
-        server.expect(
-            Expectation::matching(method_path("GET", "/2905920_2023_05_30T22_00_00Z.car.zst"))
-                .times(1..)
-                .respond_with(status_code(200)),
-        );
-        fetch_impl(
-            temp_dir.path(),
-            &server.url_str("/stable"),
-            &NetworkChain::Mainnet,
-            "testvendor",
-            &reqwest::Client::new(),
-            &indicatif::ProgressBar::hidden(),
-        )
-        .await?;
-        let (_path, metadata) = list(temp_dir.path())?.into_iter().exactly_one()?;
-        assert_eq!(
-            SnapshotMetadata::V1 {
-                height: 2905920,
-                date: NaiveDate::from_ymd_opt(2023, 5, 30).unwrap(),
-                time: Some(NaiveTime::from_hms_opt(22, 0, 0)).unwrap(),
-                chain: String::from("mainnet"),
-                vendor: String::from("testvendor"),
-                source_url: Some(server.url_str("/stable")),
-                fetched_url: Some(server.url_str("/2905920_2023_05_30T22_00_00Z.car.zst"))
-            },
-            metadata
-        );
-        Ok(())
+        ("forest", NetworkChain::Mainnet) => Ok(FOREST_MAINNET_COMPRESSED),
+        ("forest", NetworkChain::Calibnet) => Ok(FOREST_CALIBNET_COMPRESSED),
+        ("filops", NetworkChain::Mainnet) => Ok(FILOPS_MAINNET_COMPRESSED),
+        ("filops", NetworkChain::Calibnet) => Ok(FILOPS_CALIBNET_COMPRESSED),
+        _ => bail!("unsupported vendor `{vendor}` or chain `{chain}`"),
     }
 }
 
 mod parse {
     //! Filops and forest store metadata in the filename, in a conventional format.
-    //! [`parse_filename`] is able to parse the contained metadata.
+    //! [`parse_filename`] and [`parse_url`] are able to parse the contained metadata.
 
     use std::str::FromStr;
 
-    use anyhow::{anyhow, bail};
+    use anyhow::{anyhow, bail, Context};
     use chrono::{NaiveDate, NaiveTime};
     use nom::{
         branch::alt,
@@ -632,6 +483,20 @@ mod parse {
         sequence::tuple,
         Err, Parser as _,
     };
+    use url::Url;
+
+    pub fn parse_filename(input: &str) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
+        enter_nom(_parse_filename, input)
+    }
+
+    pub fn parse_url(url: &Url) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
+        let filename = url
+            .path_segments()
+            .context("url cannot be a base")?
+            .last()
+            .context("url has no path")?;
+        parse_filename(filename)
+    }
 
     /// Parse a number using its [`FromStr`] implementation.
     fn number<T>(input: &str) -> nom::IResult<&str, T>
@@ -711,7 +576,41 @@ mod parse {
         Ok(t)
     }
 
-    pub fn parse_filename(input: &str) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
-        enter_nom(_parse_filename, input)
+    #[test]
+    fn test_parse_filename() {
+        fn make_expected(
+            year: i32,
+            month: u32,
+            day: u32,
+            hms: impl Into<Option<(u32, u32, u32)>>,
+            height: i64,
+        ) -> (i64, NaiveDate, Option<NaiveTime>) {
+            (
+                height,
+                NaiveDate::from_ymd_opt(year, month, day).unwrap(),
+                hms.into()
+                    .map(|(h, m, s)| NaiveTime::from_hms_opt(h, m, s).unwrap()),
+            )
+        }
+        for (input, expected) in [
+            (
+                "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
+                make_expected(2023, 5, 30, None, 2905376),
+            ),
+            (
+                "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
+                make_expected(2023, 5, 30, None, 604419),
+            ),
+            (
+                "2905920_2023_05_30T22_00_00Z.car.zst",
+                make_expected(2023, 5, 30, (22, 0, 0), 2905920),
+            ),
+            (
+                "605520_2023_05_31T00_13_00Z.car.zst",
+                make_expected(2023, 5, 31, (0, 13, 0), 605520),
+            ),
+        ] {
+            assert_eq!(expected, parse_filename(input).unwrap());
+        }
     }
 }

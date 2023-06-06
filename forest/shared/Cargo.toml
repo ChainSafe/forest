@@ -11,7 +11,7 @@ edition = "2021"
 ahash.workspace = true
 anyhow.workspace = true
 atty.workspace = true
-byte-unit = "4.0"
+byte-unit.workspace = true
 cfg-if.workspace = true
 chrono.workspace = true
 clap.workspace = true
@@ -27,6 +27,7 @@ futures.workspace = true
 gethostname.workspace = true
 indicatif.workspace = true
 itertools.workspace = true
+libc.workspace = true
 log = { workspace = true, features = ["serde"] }
 nom.workspace = true
 num.workspace = true

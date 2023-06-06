@@ -71,8 +71,6 @@ pub struct DaemonConfig {
     pub stderr: PathBuf,
     pub work_dir: PathBuf,
     pub pid_file: Option<PathBuf>,
-    pub default_retry: usize,
-    pub default_delay: Duration,
 }
 
 impl Default for DaemonConfig {
@@ -85,8 +83,6 @@ impl Default for DaemonConfig {
             stderr: "forest.err".into(),
             work_dir: ".".into(),
             pid_file: None,
-            default_retry: 3,
-            default_delay: Duration::from_secs(60),
         }
     }
 }
@@ -126,7 +122,7 @@ impl Config {
             }
         }
     }
-    /// The default place to store (all) snapshots.
+    /// The place to store (all) snapshots.
     /// See [crate::snapshot] for more information.
     pub fn snapshot_directory(&self) -> PathBuf {
         self.client.data_dir.join("snapshots")
