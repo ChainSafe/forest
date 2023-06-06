@@ -1,6 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use fvm::machine::Manifest as ManifestV2;
+use fvm::machine::MultiEngine as MultiEngine_v2;
+use fvm3::engine::MultiEngine as MultiEngine_v3;
 mod manifest_v3;
+pub use fvm::machine::Manifest as ManifestV2;
 pub use manifest_v3::ManifestV3;
+
+pub struct MultiEngine {
+    pub v2: MultiEngine_v2,
+    pub v3: MultiEngine_v3,
+}
+
+impl MultiEngine {
+    pub fn new(concurrency: Option<u32>) -> MultiEngine {
+        MultiEngine {
+            v2: MultiEngine_v2::new(),
+            v3: MultiEngine_v3::new(concurrency.unwrap_or(1)), // `1` is default concurrency value in `fvm3`
+        }
+    }
+}
