@@ -331,3 +331,19 @@ impl From<&ActorState> for ActorStateV2 {
         }
     }
 }
+
+impl quickcheck::Arbitrary for ActorState {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let cid = Cid::new_v1(
+            u64::arbitrary(g),
+            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+        );
+        ActorState::new(
+            cid,
+            cid,
+            TokenAmount::from_atto(u64::arbitrary(g)).into(),
+            u64::arbitrary(g),
+            None,
+        )
+    }
+}
