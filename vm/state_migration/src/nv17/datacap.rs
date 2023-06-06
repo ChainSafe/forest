@@ -6,7 +6,6 @@
 
 use std::{str::FromStr, sync::Arc};
 
-use cid::multihash::Code::Blake2b256;
 use forest_shim::{bigint::StoragePowerV2, econ::TokenAmount_v2};
 use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
