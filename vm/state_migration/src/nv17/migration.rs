@@ -27,6 +27,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         store: BS,
         state: &Cid,
         new_manifest: &Cid,
+        prior_epoch: ChainEpoch,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree
@@ -108,9 +109,15 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             miner::miner_migrator(*miner_v9_cid, &store, market_state_v8.proposals)?,
         );
 
+        let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
+            .get_cbor(&verifreg_actor_v8.state)?
+            .context("Failed to load verifreg state v8")?;
         self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
+            prior_epoch,
             init_state_v8,
             market_state_v8,
+            verifreg_state_v8,
+            pending_verified_deals,
         }));
 
         Ok(())
@@ -147,7 +154,7 @@ where
     let verifier = Arc::new(Verifier::default());
 
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid)?;
+    migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid, epoch)?;
 
     let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
 
