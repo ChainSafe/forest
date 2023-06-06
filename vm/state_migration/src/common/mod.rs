@@ -48,9 +48,13 @@ pub(crate) trait ActorMigration<BS: Blockstore + Clone + Send + Sync> {
     ) -> anyhow::Result<ActorMigrationOutput>;
 }
 
-/// Post migration action to be executed after the state migration.
-pub(crate) type PostMigrationAction<BS> =
-    Arc<dyn Fn(&BS, &mut StateTree<BS>) -> anyhow::Result<()> + Send + Sync>;
+/// Trait that defines the interface for actor migration job to be executed after the state migration.
+pub(crate) trait PostMigrator<BS: Blockstore>: Send + Sync {
+    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()>;
+}
+
+/// Sized wrapper of [`PostMigrator`].
+pub(crate) type PostMigratorArc<BS> = Arc<dyn PostMigrator<BS>>;
 
 /// Trait that migrates from one data structure to another, similar to
 /// [`std::convert::TryInto`] trait but taking an extra block store parameter
