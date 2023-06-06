@@ -13,7 +13,8 @@ use fvm_ipld_blockstore::Blockstore;
 use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput, PostMigrator};
 
 pub(super) struct VerifregMarketPostMigrator {
-    pub market_v8_state: fil_actor_market_state::v8::State,
+    pub init_state_v8: fil_actor_init_state::v8::State,
+    pub market_state_v8: fil_actor_market_state::v8::State,
 }
 
 impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {

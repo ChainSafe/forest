@@ -50,7 +50,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             ))?
             .context("Failed to load verifreg actor v8")?;
 
-        let verifreg_v8_state: fil_actor_verifreg_state::v8::State = store
+        let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
             .get_cbor(&verifreg_actor_v8.state)?
             .context("Failed to load verifreg state v8")?;
 
@@ -60,12 +60,16 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             ))?
             .context("Failed to load market actor v8")?;
 
-        let market_v8_state: fil_actor_market_state::v8::State = store
+        let market_state_v8: fil_actor_market_state::v8::State = store
             .get_cbor(&market_actor_v8.state)?
             .context("Failed to load market state v8")?;
 
+        let init_state_v8: fil_actor_init_state::v8::State = store
+            .get_cbor(current_manifest.get_init_code())?
+            .context("Failed to load init state v8")?;
+
         let (pending_verified_deals, pending_verified_deal_size) =
-            get_pending_verified_deals_and_total_size(&store, &market_v8_state)?;
+            get_pending_verified_deals_and_total_size(&store, &market_state_v8)?;
 
         current_manifest.builtin_actor_codes().for_each(|code| {
             let id = current_manifest.id_by_code(code);
@@ -86,7 +90,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             // Use the new code as prior code here, have set an empty actor in `run_migrations` to
             // migrate from
             *datacap_code,
-            datacap::datacap_migrator(verifreg_v8_state, pending_verified_deal_size)?,
+            datacap::datacap_migrator(verifreg_state_v8, pending_verified_deal_size)?,
         );
 
         // On go side, cid is found by name `storageminer`, however, no equivilent API is available on rust side.
@@ -101,10 +105,13 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         self.add_migrator(
             *miner_v8_cid,
-            miner::miner_migrator(*miner_v9_cid, &store, market_v8_state.proposals)?,
+            miner::miner_migrator(*miner_v9_cid, &store, market_state_v8.proposals)?,
         );
 
-        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator { market_v8_state }));
+        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
+            init_state_v8,
+            market_state_v8,
+        }));
 
         Ok(())
     }
