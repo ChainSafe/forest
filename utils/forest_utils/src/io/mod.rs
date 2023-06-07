@@ -102,10 +102,10 @@ pub fn terminal_cleanup() {
         use std::os::fd::AsRawFd;
         use termios::*;
         let fd = std::io::stdin().as_raw_fd();
-        let mut termios = Termios::from_fd(fd).unwrap();
-
-        termios.c_lflag |= ECHO;
-        let _ = tcsetattr(fd, TCSAFLUSH, &termios);
+        if let Ok(mut termios) = Termios::from_fd(fd) {
+            termios.c_lflag |= ECHO;
+            let _ = tcsetattr(fd, TCSAFLUSH, &termios);
+        }
     }
     let mut stdout = std::io::stdout();
     let _ = anes::execute!(&mut stdout, anes::ShowCursor);
