@@ -40,9 +40,9 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
     Ok(())
 }
 
-/// We should prompt the user if they want to create a keystore
+/// We should prompt the user if they want to create a password
 #[test]
-fn cannot_implictly_create_keystore() -> Result<()> {
+fn cannot_implictly_create_encrypted_keystore() -> Result<()> {
     let (config_file, _) = create_tmp_config()?;
     cli()?
         .env(FOREST_KEYSTORE_PHRASE_ENV, "yuggoth")

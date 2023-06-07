@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::{bail, Context};
-use dialoguer::{console::Term, theme::ColorfulTheme, Confirm};
+use dialoguer::{console::Term, theme::ColorfulTheme};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
@@ -16,7 +16,7 @@ use forest_cli_shared::{
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
-    rolling::{DbGarbageCollector, RollingDB},
+    rolling::DbGarbageCollector,
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -33,17 +33,18 @@ use forest_utils::{
     io::write_to_file, monitoring::MemStatsTracker, version::FOREST_VERSION_STRING,
 };
 use forest_utils::{retry, RetryArgs};
-use futures::{select, FutureExt};
+use futures::{select, Future, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use tokio::{
-    signal::unix::{signal, SignalKind},
-    sync::RwLock,
+    signal::{
+        ctrl_c,
+        unix::{signal, SignalKind},
+    },
+    sync::{mpsc, RwLock},
     task::JoinSet,
 };
-
-use super::cli::set_sigint_handler;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
@@ -69,8 +70,36 @@ fn unblock_parent_process() -> anyhow::Result<()> {
         .map_err(|err| anyhow::anyhow!("{err}"))
 }
 
+// Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
+pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
+    let mut terminate = signal(SignalKind::terminate())?;
+    let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
+
+    let result = tokio::select! {
+        ret = start(opts, config, shutdown_send) => ret,
+        _ = ctrl_c() => {
+            info!("Keyboard interrupt.");
+            Ok(())
+        },
+        _ = terminate.recv() => {
+            info!("Received SIGTERM.");
+            Ok(())
+        },
+        _ = shutdown_recv.recv() => {
+            info!("Client requested a shutdown.");
+            Ok(())
+        },
+    };
+    forest_utils::io::terminal_cleanup();
+    result
+}
+
 /// Starts daemon process
-pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<RollingDB> {
+pub(super) async fn start(
+    opts: CliOpts,
+    config: Config,
+    shutdown_send: mpsc::Sender<()>,
+) -> anyhow::Result<()> {
     {
         // UGLY HACK:
         // This bypasses a bug in the FVM. Can be removed once the address parsing
@@ -82,11 +111,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     if config.chain.is_testnet() {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
-
-    set_sigint_handler();
-
-    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
-    let mut terminate = signal(SignalKind::terminate())?;
 
     info!(
         "Starting Forest daemon, version {}",
@@ -120,7 +144,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut keystore = load_or_create_keystore(&config)?;
+    let mut keystore = load_or_create_keystore(&config).await?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
         keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
@@ -248,16 +272,10 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     };
 
     if opts.exit_after_init {
-        return Ok(db);
+        return Ok(());
     }
 
     let epoch = chain_store.heaviest_tipset().epoch();
-    let mut config = config;
-    // This has to be run **before** starting the background services below.
-    // If it isn't, several threads will be competing for access to stdout,
-    // and things like SIGINT won't work.
-    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
-    let config = config;
 
     load_bundles(epoch, &config, db.clone()).await?;
 
@@ -375,26 +393,9 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         get_params_default(&config.client.data_dir, SectorSizeOpt::Keys).await?;
     }
 
-    tokio::select! {
-        ret = sync_from_snapshot(&config, &state_manager).fuse() => {
-            if let Err(err) = ret {
-                services.shutdown().await;
-                return Err(err);
-            }
-        },
-        _ = tokio::signal::ctrl_c() => {
-            services.shutdown().await;
-            return Ok(db);
-        },
-        _ = terminate.recv() => {
-            services.shutdown().await;
-            return Ok(db);
-        },
-        _ = shutdown_recv.recv() => {
-            services.shutdown().await;
-            return Ok(db);
-        },
-    }
+    let mut config = config;
+    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
+    sync_from_snapshot(&config, &state_manager).await?;
 
     // For convenience, flush the database after we've potentially loaded a new
     // snapshot. This ensures the snapshot won't have to be re-imported if
@@ -406,23 +407,14 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
-        return Ok(db);
+        return Ok(());
     }
 
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
-    // or CTRL-C is pressed
-    tokio::select! {
-        err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
-        _ = tokio::signal::ctrl_c() => {},
-        _ = terminate.recv() => {},
-        _ = shutdown_recv.recv() => {},
-    }
-
-    services.shutdown().await;
-
-    Ok(db)
+    let err = propagate_error(&mut services).await;
+    anyhow::bail!("services failure: {}", err);
 }
 
 /// If our current chain is below a supported height, we need a snapshot to bring it up
@@ -488,16 +480,15 @@ async fn fetch_snapshot_if_required(
                 .get_appropriate_unit(true)
                 .format(2);
             let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot? (denying will exit the program). ");
-            let have_permission = tokio::task::spawn_blocking(|| {
-                Confirm::with_theme(&ColorfulTheme::default())
+            let have_permission = asyncify(|| {
+                dialoguer::Confirm::with_theme(&ColorfulTheme::default())
                     .with_prompt(message)
                     .default(false)
                     .interact()
                     // e.g not a tty (or some other error), so haven't got permission.
                     .unwrap_or(false)
             })
-            .await
-            .expect("confirm task shouldn't panic");
+            .await;
             if !have_permission {
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
@@ -597,10 +588,8 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 /// - create a keystore
 /// - load a keystore
 /// - ask a user for password input
-///
-/// Makes blocking calls for the UI
-fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
-    use std::{cell::RefCell, env::VarError};
+async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
+    use std::env::VarError;
 
     let passphrase_from_env = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
     let require_encryption = config.client.encrypt_keystore;
@@ -647,22 +636,10 @@ fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
                 )
             }
 
-            let keystore = RefCell::new(None);
-            read_password(None, "Enter the password for Forest's keystore", |s| {
-                KeyStore::new(KeyStoreConfig::Encrypted(
-                    config.client.data_dir.clone(),
-                    s.clone(),
-                ))
-                .map(|created| *keystore.borrow_mut() = Some(created))
-                .context("couldn't load keystore with this password. Try again or quit")
-            })
-            .context(
-                format!("Forest is encrypted, but a password was not provided in the environment variable {} or input by the user", FOREST_KEYSTORE_PHRASE_ENV)
-            )?;
-
-            Ok(keystore
-                .into_inner() // we've exited the prompt, so fine to reference
-                .expect("we've passed the prompt's validation step, which puts the keystore here"))
+            let data_dir = config.client.data_dir.clone();
+            asyncify(move || input_password_for_encrypted_keystore(data_dir, None))
+                .await
+                .context("couldn't load keystore")
         }
 
         // need to create a new keystore
@@ -673,8 +650,11 @@ fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
                     FOREST_KEYSTORE_PHRASE_ENV
                 )
             }
-            let password = create_password(None, "Create a password for Forest's keystore")
-                .context("Encryption is required, but couldn't ask user to create a password")?;
+            let password = asyncify(|| {
+                create_password(None, "Create a password for Forest's keystore")
+                    .context("Encryption is required, and there's no keystore, but couldn't ask user to create a password")
+            })
+            .await?;
 
             KeyStore::new(KeyStoreConfig::Encrypted(
                 config.client.data_dir.clone(),
@@ -685,13 +665,27 @@ fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
     }
 }
 
-/// Loops until the validator succeeds, or until e.g the user presses Ctrl+C
-fn read_password(
+/// Run the closure on a thread where blocking is allowed
+///
+/// # Panics
+/// If the closure panics
+fn asyncify<T>(f: impl FnOnce() -> T + Send + 'static) -> impl Future<Output = T>
+where
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
+}
+
+/// Prompts for password, looping until the keystore is successfully loaded.
+///
+/// This code makes blocking syscalls.
+fn input_password_for_encrypted_keystore(
+    data_dir: PathBuf,
     term: impl Into<Option<Term>>,
-    prompt: &str,
-    validator: impl Fn(&String) -> anyhow::Result<()>,
-) -> std::io::Result<String> {
+) -> std::io::Result<KeyStore> {
+    let keystore = RefCell::new(None);
     let term = term.into().unwrap_or(Term::stderr());
+
     // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
     // so do that check ourselves.
     // This means users can't pipe their password from stdin.
@@ -701,16 +695,30 @@ fn read_password(
             "cannot read password from non-terminal",
         ));
     }
+
     dialoguer::Password::new()
-        .with_prompt(prompt)
+        .with_prompt("Enter the password for Forest's keystore")
         .allow_empty_password(true) // let validator do validation
-        .validate_with(validator)
-        .interact_on(&term)
+        .validate_with(|input: &String| {
+            KeyStore::new(KeyStoreConfig::Encrypted(data_dir.clone(), input.clone()))
+                .map(|created| *keystore.borrow_mut() = Some(created))
+                .context(
+                    "Error: couldn't load keystore with this password. Try again or press Ctrl+C to abort.",
+                )
+        })
+        .interact_on(&term)?;
+
+    Ok(keystore
+        .into_inner()
+        .expect("validation succeeded, so keystore must be emplaced"))
 }
 
-/// Loops until the user provides two matching passwords, or until e.g the user presses Ctrl+C
+/// Loops until the user provides two matching passwords.
+///
+/// This code makes blocking syscalls
 fn create_password(term: impl Into<Option<Term>>, prompt: &str) -> std::io::Result<String> {
     let term = term.into().unwrap_or(Term::stderr());
+
     // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
     // so do that check ourselves.
     // This means users can't pipe their password from stdin.
@@ -723,7 +731,10 @@ fn create_password(term: impl Into<Option<Term>>, prompt: &str) -> std::io::Resu
     dialoguer::Password::new()
         .with_prompt(prompt)
         .allow_empty_password(false)
-        .with_confirmation("Confirm password", "Error: the passwords do not match.")
+        .with_confirmation(
+            "Confirm password",
+            "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
+        )
         .interact_on(&term)
 }
 

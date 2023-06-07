@@ -52,7 +52,6 @@ log.workspace = true
 multibase.workspace = true
 nom.workspace = true
 num.workspace = true
-rpassword.workspace = true
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

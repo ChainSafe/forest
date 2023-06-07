@@ -12,7 +12,6 @@ name = "forest"
 path = "src/main.rs"
 
 [dependencies]
-anes.workspace = true
 anyhow.workspace = true
 byte-unit.workspace = true
 cfg-if.workspace = true

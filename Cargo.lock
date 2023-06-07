@@ -2982,7 +2982,6 @@ dependencies = [
  "pretty_assertions",
  "quickcheck",
  "rand 0.8.5",
- "rpassword",
  "rustyline",
  "serde",
  "serde_json",
@@ -2999,7 +2998,6 @@ dependencies = [
 name = "forest-daemon"
 version = "0.8.2"
 dependencies = [
- "anes",
  "anyhow",
  "assert_cmd",
  "byte-unit",
@@ -3907,6 +3905,7 @@ name = "forest_utils"
 version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
+ "anes",
  "anyhow",
  "async-compression",
  "async-fs",
@@ -3947,6 +3946,7 @@ dependencies = [
  "sha2 0.10.6",
  "smart-default",
  "tempfile",
+ "termios",
  "thiserror",
  "tokio",
  "toml 0.7.4",
@@ -7755,17 +7755,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rpassword"
-version = "7.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6678cf63ab3491898c0d021b493c94c9b221d91295294a2a5746eacbe5928322"
-dependencies = [
- "libc",
- "rtoolbox",
- "winapi",
-]
-
-[[package]]
 name = "rtcp"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7789,16 +7778,6 @@ dependencies = [
  "nix 0.24.3",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "rtoolbox"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "034e22c514f5c0cb8a10ff341b9b048b5ceb21591f31c8f44c43b960f9b3524a"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -8895,6 +8874,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "termios"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
