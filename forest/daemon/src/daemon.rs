@@ -78,9 +78,18 @@ pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow
 
     let result = tokio::select! {
         ret = start(opts, config, shutdown_send) => ret,
-        _ = tokio::signal::ctrl_c() => Err(anyhow::anyhow!("ctrl-c interrupt")),
-        _ = terminate.recv() => Ok(()),
-        _ = shutdown_recv.recv() => Ok(()),
+        _ = tokio::signal::ctrl_c() => {
+            info!("Keyboard interrupt.");
+            Ok(())
+        },
+        _ = terminate.recv() => {
+            info!("Received SIGTERM.");
+            Ok(())
+        },
+        _ = shutdown_recv.recv() => {
+            info!("Client requested the node to shutdown.");
+            Ok(())
+        },
     };
     forest_utils::io::terminal_cleanup();
     result
