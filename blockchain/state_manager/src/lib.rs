@@ -28,7 +28,7 @@ use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
-    externs::{Rand, RandWrapper},
+    externs::Rand,
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
@@ -364,7 +364,7 @@ where
         p_state: &Cid,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        rand: RandWrapper<R>,
+        rand: R,
         base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
@@ -475,7 +475,7 @@ where
     fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
-        rand: RandWrapper<ChainRand<DB>>,
+        rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult {
         let bstate = tipset.parent_state();
@@ -1249,15 +1249,13 @@ where
         Ok(())
     }
 
-    fn chain_rand(&self, blocks: TipsetKeys) -> RandWrapper<ChainRand<DB>> {
-        RandWrapper {
-            chain_rand: ChainRand::new(
-                self.chain_config.clone(),
-                blocks,
-                self.cs.clone(),
-                self.beacon.clone(),
-            ),
-        }
+    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            blocks,
+            self.cs.clone(),
+            self.beacon.clone(),
+        )
     }
 }
 

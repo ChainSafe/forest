@@ -13,6 +13,7 @@ use forest_shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::{ApplyRet, Receipt},
+    externs::{Rand, RandWrapper},
     message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
@@ -20,13 +21,11 @@ use forest_shim::{
 };
 use fvm::{
     executor::{DefaultExecutor, Executor},
-    externs::Rand,
     machine::{DefaultMachine, Machine, MultiEngine as MultiEngine_v2, NetworkConfig},
 };
 use fvm3::{
     engine::MultiEngine as MultiEngine_v3,
     executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
-    externs::Rand as Rand_v3,
     machine::{
         DefaultMachine as DefaultMachine_v3, Machine as Machine_v3,
         NetworkConfig as NetworkConfig_v3,
@@ -105,7 +104,7 @@ where
         root: Cid,
         store: DB,
         epoch: ChainEpoch,
-        rand: impl Rand + Rand_v3 + 'static,
+        rand: impl Rand + 'static,
         base_fee: TokenAmount,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
@@ -129,7 +128,14 @@ where
                 fvm3::machine::DefaultMachine::new(
                     &context,
                     store.clone(),
-                    ForestExterns_v3::new(rand, epoch, root, lb_fn, store, chain_config),
+                    ForestExterns_v3::new(
+                        RandWrapper { chain_rand: rand },
+                        epoch,
+                        root,
+                        lb_fn,
+                        store,
+                        chain_config,
+                    ),
                 )?;
             let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
             Ok(VM::VM3 {
@@ -147,7 +153,14 @@ where
                     &engine,
                     &context,
                     store.clone(),
-                    ForestExternsV2::new(rand, epoch, root, lb_fn, store, chain_config),
+                    ForestExternsV2::new(
+                        RandWrapper { chain_rand: rand },
+                        epoch,
+                        root,
+                        lb_fn,
+                        store,
+                        chain_config,
+                    ),
                 )?;
             let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
             Ok(VM::VM2 {
