@@ -3063,7 +3063,6 @@ dependencies = [
 name = "forest-daemon"
 version = "0.8.2"
 dependencies = [
- "anes",
  "anyhow",
  "assert_cmd",
  "atty",
