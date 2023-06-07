@@ -3969,6 +3969,7 @@ name = "forest_utils"
 version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
+ "anes",
  "anyhow",
  "async-compression",
  "async-fs",
@@ -4008,6 +4009,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.6",
  "tempfile",
+ "termios",
  "thiserror",
  "tokio",
  "toml 0.7.4",
@@ -8999,6 +9001,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "termios"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
