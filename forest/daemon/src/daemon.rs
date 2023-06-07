@@ -627,6 +627,7 @@ async fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
     }
 }
 
+// Prompt for password in a blocking thread such that tokio can still process interrupts.
 async fn password_prompt(prompt: impl Into<String>) -> anyhow::Result<String> {
     let prompt: String = prompt.into();
     Ok(tokio::task::spawn_blocking(|| {
