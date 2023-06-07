@@ -23,7 +23,12 @@ fn test_forest_info_cmd() {
             || info.starts_with("Chain")
             || info.starts_with("Default wallet address")
         {
-            let info = info.split(":").skip(1).next().expect().trim_start();
+            let info = info
+                .split(":")
+                .skip(1)
+                .next()
+                .expect(&format!("expecting line: {}", info))
+                .trim_start();
 
             assert!(!info.is_empty());
         }
