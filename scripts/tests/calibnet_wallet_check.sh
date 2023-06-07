@@ -50,21 +50,21 @@ wget -O metrics.log http://localhost:6116/metrics
 sleep 5s
 
 j=0
-while [[ $i != 20 ]]; do
+while [[ $j != 40 ]]; do
   j=$((j+1))
-  echo "Run $j/20"
+  echo "Run $j/40"
 
   # Show balances
-  echo "Listing wallet balances"
-  $FOREST_CLI_PATH wallet list
+  # echo "Listing wallet balances"
+  # $FOREST_CLI_PATH wallet list
 
   echo "Creating a new address to send FIL to"
   ADDR_TWO=$($FOREST_CLI_PATH wallet new)
   echo "$ADDR_TWO"
   $FOREST_CLI_PATH wallet set-default "$ADDR_ONE"
 
-  echo "Listing wallet balances"
-  $FOREST_CLI_PATH wallet list
+  # echo "Listing wallet balances"
+  # $FOREST_CLI_PATH wallet list
 
   echo "Sending FIL to the above address"
   MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
