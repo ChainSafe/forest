@@ -9,6 +9,7 @@ use std::{
 use anyhow::Context;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
+use dialoguer::{theme::ColorfulTheme, Password};
 use forest_json::{
     address::json::AddressJson,
     signature::json::{signature_type::SignatureTypeJson, SignatureJson},
@@ -22,7 +23,6 @@ use forest_shim::{
 };
 use forest_utils::io::read_file_to_string;
 use num::BigInt;
-use rpassword::read_password;
 
 use super::{handle_rpc_err, Config};
 use crate::humantoken::TokenAmountPretty as _;
@@ -150,8 +150,13 @@ impl WalletCommands {
                 let key = match path {
                     Some(path) => read_file_to_string(&PathBuf::from(path))?,
                     _ => {
-                        println!("Enter the private key: ");
-                        read_password()?
+                        tokio::task::spawn_blocking(|| {
+                            Password::with_theme(&ColorfulTheme::default())
+                                .allow_empty_password(true)
+                                .with_prompt("Enter the private key")
+                                .interact()
+                        })
+                        .await??
                     }
                 };
 
