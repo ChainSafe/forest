@@ -94,7 +94,7 @@ where
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
 
-    let mut migration = StateMigration::<DB>::new(Some(verifier), vec![]);
+    let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv19_migrations(blockstore.clone(), state, &new_manifest_cid)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;

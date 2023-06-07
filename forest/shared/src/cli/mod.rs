@@ -314,12 +314,12 @@ pub fn default_snapshot_dir(config: &Config) -> PathBuf {
         .client
         .data_dir
         .join("snapshots")
-        .join(config.chain.name.clone())
+        .join(config.chain.network.to_string())
 }
 
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
-    PathBuf::from(&config.client.data_dir).join(&config.chain.name)
+    PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string())
 }
 
 /// Print an error message and exit the program with an error code

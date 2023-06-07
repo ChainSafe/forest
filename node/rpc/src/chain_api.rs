@@ -320,7 +320,7 @@ where
         .tipset_from_keys(tipset.key())?;
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())?;
+        .validate_tipset_checkpoints(ts, &data.state_manager.chain_config().network)?;
     Ok("Ok".to_string())
 }
 

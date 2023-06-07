@@ -1,5 +1,4 @@
 [chain]
-name = "devnet"
 bootstrap_peers = []
 block_delay_secs = 30
 
@@ -24,6 +23,10 @@ height_infos = [
   { height = "OhSnap", epoch = -1 },
   { height = "Skyr", epoch = -1 },
 ]
+
+[chain.network]
+type = "devnet"
+name = "devnet"
 
 [network]
 listening_multiaddr = "/ip4/0.0.0.0/tcp/2341"
