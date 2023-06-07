@@ -103,14 +103,6 @@ pub(super) async fn start(
     config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    {
-        // UGLY HACK:
-        // This bypasses a bug in the FVM. Can be removed once the address parsing
-        // correctly takes the network into account.
-        use forest_shim::address::Network;
-        let bls_zero_addr = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
-        assert!(bls_zero_addr.is_bls_zero_address());
-    }
     if config.chain.is_testnet() {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
