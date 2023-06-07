@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+use std::{net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::Context;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{theme::ColorfulTheme, Confirm, Password};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
@@ -19,7 +19,7 @@ use forest_cli_shared::{
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
-    rolling::{DbGarbageCollector, RollingDB},
+    rolling::DbGarbageCollector,
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -39,15 +39,15 @@ use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
-use rpassword::read_password;
 use tokio::{
-    signal::unix::{signal, SignalKind},
-    sync::RwLock,
+    signal::{
+        ctrl_c,
+        unix::{signal, SignalKind},
+    },
+    sync::{mpsc, RwLock},
     task::JoinSet,
     time::sleep,
 };
-
-use super::cli::set_sigint_handler;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
@@ -73,8 +73,36 @@ fn unblock_parent_process() -> anyhow::Result<()> {
         .map_err(|err| anyhow::anyhow!("{err}"))
 }
 
+// Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
+pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
+    let mut terminate = signal(SignalKind::terminate())?;
+    let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
+
+    let result = tokio::select! {
+        ret = start(opts, config, shutdown_send) => ret,
+        _ = ctrl_c() => {
+            info!("Keyboard interrupt.");
+            Ok(())
+        },
+        _ = terminate.recv() => {
+            info!("Received SIGTERM.");
+            Ok(())
+        },
+        _ = shutdown_recv.recv() => {
+            info!("Client requested a shutdown.");
+            Ok(())
+        },
+    };
+    forest_utils::io::terminal_cleanup();
+    result
+}
+
 /// Starts daemon process
-pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<RollingDB> {
+pub(super) async fn start(
+    opts: CliOpts,
+    config: Config,
+    shutdown_send: mpsc::Sender<()>,
+) -> anyhow::Result<()> {
     {
         // UGLY HACK:
         // This bypasses a bug in the FVM. Can be removed once the address parsing
@@ -86,11 +114,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     if config.chain.is_testnet() {
         forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
     }
-
-    set_sigint_handler();
-
-    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
-    let mut terminate = signal(SignalKind::terminate())?;
 
     info!(
         "Starting Forest daemon, version {}",
@@ -124,7 +147,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut keystore = create_keystore(&config)?;
+    let mut keystore = create_keystore(&config).await?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
         keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
@@ -252,7 +275,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     };
 
     if opts.exit_after_init {
-        return Ok(db);
+        return Ok(());
     }
 
     // XXX: This code has to be run before starting the background services.
@@ -385,26 +408,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    tokio::select! {
-        ret = sync_from_snapshot(&config, &state_manager).fuse() => {
-            if let Err(err) = ret {
-                services.shutdown().await;
-                return Err(err);
-            }
-        },
-        _ = tokio::signal::ctrl_c() => {
-            services.shutdown().await;
-            return Ok(db);
-        },
-        _ = terminate.recv() => {
-            services.shutdown().await;
-            return Ok(db);
-        },
-        _ = shutdown_recv.recv() => {
-            services.shutdown().await;
-            return Ok(db);
-        },
-    }
+    sync_from_snapshot(&config, &state_manager).await?;
 
     // For convenience, flush the database after we've potentially loaded a new
     // snapshot. This ensures the snapshot won't have to be re-imported if
@@ -416,23 +420,14 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
-        return Ok(db);
+        return Ok(());
     }
 
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
-    // or CTRL-C is pressed
-    tokio::select! {
-        err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
-        _ = tokio::signal::ctrl_c() => {},
-        _ = terminate.recv() => {},
-        _ = shutdown_recv.recv() => {},
-    }
-
-    services.shutdown().await;
-
-    Ok(db)
+    let err = propagate_error(&mut services).await;
+    anyhow::bail!("services failure: {}", err);
 }
 
 /// Generates, prints and optionally writes to a file the administrator JWT
@@ -517,13 +512,13 @@ async fn prompt_snapshot_or_die(
     let should_download = if !auto_download_snapshot && atty::is(atty::Stream::Stdin) {
         let required_size: u64 = snapshot_fetch_size(config).await?;
         let required_size = to_size_string(&required_size.into())?;
-        Confirm::with_theme(&ColorfulTheme::default())
+        tokio::task::spawn_blocking(move || Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
                     format!("Forest needs a snapshot to sync with the network. Would you like to download one now? Required disk space {required_size}."),
                 )
                 .default(false)
                 .interact()
-                .unwrap_or_default()
+            ).await??
     } else {
         auto_download_snapshot
     };
@@ -580,7 +575,7 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
     }
 }
 
-fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
+async fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
     let passphrase = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
     let is_interactive = atty::is(atty::Stream::Stdin);
 
@@ -600,17 +595,13 @@ fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
     // encrypted keystore, interactive, passphrase not provided
     } else if config.client.encrypt_keystore && passphrase.is_err() && is_interactive {
         loop {
-            print!("Enter the keystore passphrase: ");
-            std::io::stdout().flush()?;
-
-            let passphrase = read_password()?;
+            let passphrase = password_prompt("Enter the keystore passphrase").await?;
 
             let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
-                print!("Confirm passphrase: ");
-                std::io::stdout().flush()?;
+                let passphrase_again = password_prompt("Confirm passphrase").await?;
 
-                if passphrase != read_password()? {
+                if passphrase != passphrase_again {
                     error!("Passphrases do not match. Please retry.");
                     continue;
                 }
@@ -634,6 +625,18 @@ fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             config.client.data_dir.clone(),
         ))?)
     }
+}
+
+// Prompt for password in a blocking thread such that tokio can still process interrupts.
+async fn password_prompt(prompt: impl Into<String>) -> anyhow::Result<String> {
+    let prompt: String = prompt.into();
+    Ok(tokio::task::spawn_blocking(|| {
+        Password::with_theme(&ColorfulTheme::default())
+            .allow_empty_password(true)
+            .with_prompt(prompt)
+            .interact()
+    })
+    .await??)
 }
 
 #[cfg(test)]
