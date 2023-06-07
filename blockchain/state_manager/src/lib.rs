@@ -747,7 +747,8 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         let sm = Arc::clone(self);
-        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback)).await?
+        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback))
+            .await?
     }
 
     /// Performs a state transition, and returns the state and receipt root of
