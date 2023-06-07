@@ -6,7 +6,7 @@ pub mod json {
 
     use cid::Cid;
     use forest_shim::state_tree::ActorState;
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -74,7 +74,7 @@ pub mod json {
         Ok(ActorState::new(
             code,
             state,
-            TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?).into(),
+            TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?),
             sequence,
             None,
         ))
