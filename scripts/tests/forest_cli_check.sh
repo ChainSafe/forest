@@ -43,7 +43,3 @@ $FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.car 
 
 echo "Validating as calibnet snapshot (compressed)"
 $FOREST_CLI_PATH --chain calibnet snapshot validate "$SNAPSHOT_DIRECTORY"/*.zst --force
-
-# FIXME: relocate this when we have: https://github.com/ChainSafe/forest/issues/2945
-echo "Running forest cli integration tests"
-cargo test --package forest-cli --test info_cmd_tests -- test_forest_info_cmd --exact --nocapture --ignored
