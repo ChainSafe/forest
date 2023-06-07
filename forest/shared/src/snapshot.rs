@@ -49,12 +49,13 @@ use std::{
 use anyhow::{anyhow, bail, Context as _};
 use chrono::{NaiveDate, NaiveTime};
 use forest_networks::NetworkChain;
+use forest_utils::io::progress_bar::downloading_style;
 use futures::future::join_all;
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use tap::Tap as _;
 use tempfile::NamedTempFile;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use url::Url;
 
 const SNAPSHOT_METADATA_FILE_SUFFIX: &str = ".metadata.json";
@@ -120,7 +121,7 @@ pub async fn fetch(
         Ok(()) => intern_from_aria2c_dir(aria2c_dir, snapshot_dir, chain, vendor).await,
         Err(AriaErr::CouldNotExec(reason)) => {
             warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
-            let (path, url) = download_http(stable_url, &indicatif::ProgressBar::hidden()).await?;
+            let (path, url) = download_http(stable_url).await?;
             let (height, date, time) = parse::parse_url(&url)?;
             intern_and_create_metadata(
                 snapshot_dir,
@@ -305,7 +306,7 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
             "--max-tries=0",
             // Download chunks concurrently, resulting in dramatically faster downloads
             "--split=5",
-            "--max-connections-per-server=5",
+            "--max-connection-per-server=5",
             "--dir",
         ])
         .arg(aria2c_dir)
@@ -332,20 +333,19 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
 /// Download the file at `url` with a private http client, returning
 /// - The path to the downloaded file
 /// - The URL of the download file (in case e.g redirects were followed)
-async fn download_http(
-    url: &str,
-    progress_bar: &indicatif::ProgressBar,
-) -> anyhow::Result<(PathBuf, Url)> {
+async fn download_http(url: &str) -> anyhow::Result<(PathBuf, Url)> {
     use futures::TryStreamExt as _;
     use tap::Pipe as _;
     let response = reqwest::get(url)
         .await?
         .error_for_status()
         .context("server returned an error response")?;
+    let url = response.url().clone();
+    info!(%url, "downloading snapshot");
+    let progress_bar = indicatif::ProgressBar::new(0).with_style(downloading_style());
     if let Some(len) = response.content_length() {
         progress_bar.set_length(len)
     }
-    let url = response.url().clone();
     let mut src = response
         .bytes_stream()
         .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))

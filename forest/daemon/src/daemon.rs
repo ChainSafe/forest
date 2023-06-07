@@ -252,11 +252,13 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         return Ok(db);
     }
 
-    // XXX: This code has to be run before starting the background services.
-    //      If it isn't, several threads will be competing for access to stdout.
-    // Terminate if no snapshot is provided or DB isn't recent enough
-
     let epoch = chain_store.heaviest_tipset().epoch();
+    let mut config = config;
+    // This has to be run **before** starting the background services below.
+    // If it isn't, several threads will be competing for access to stdout,
+    // and things like SIGINT won't work.
+    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
+    let config = config;
 
     load_bundles(epoch, &config, db.clone()).await?;
 
@@ -374,10 +376,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
         get_params_default(&config.client.data_dir, SectorSizeOpt::Keys).await?;
     }
 
-    let mut config = config;
-    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
-    let config = config;
-
     tokio::select! {
         ret = sync_from_snapshot(&config, &state_manager).fuse() => {
             if let Err(err) = ret {
@@ -432,9 +430,6 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 /// and puts it in `config`.
 ///
 /// An [`Err`] should be considered fatal.
-///
-/// This may draw or, render confirmations to stdout/stderr, which **will** block
-/// the executor.
 async fn fetch_snapshot_if_required(
     config: &mut Config,
     epoch: ChainEpoch,
@@ -489,11 +484,15 @@ async fn fetch_snapshot_if_required(
                 .get_appropriate_unit(true)
                 .format(2);
             let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot? (denying will exit the program). ");
-            let have_permission = Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt(message)
-                .default(false)
-                .interact()
-                .unwrap_or(false);
+            let have_permission = tokio::task::spawn_blocking(|| {
+                Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt(message)
+                    .default(false)
+                    .interact()
+                    .unwrap_or(false)
+            })
+            .await
+            .expect("confirm task shouldn't panic");
             if !have_permission {
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
