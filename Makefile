@@ -143,6 +143,8 @@ test:
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	cargo test --doc
+	# FIXME: remove this when we have solution in: https://github.com/ChainSafe/forest/issues/2945
+	cargo test --package forest-cli --test info_cmd_tests -- test_forest_info_cmd --exact --nocapture --ignored
 
 test-release:
 	cargo nextest run --release --all --exclude serialization_tests

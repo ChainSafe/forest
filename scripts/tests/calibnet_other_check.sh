@@ -34,10 +34,6 @@ if [[ $EXPECTED_HASH != "$ACTUAL_HASH" ]]; then
   exit 1
 fi
 
-# FIXME: relocate this when we have: https://github.com/ChainSafe/forest/issues/2945
-echo "Running forest cli info tests"
-cargo test --package forest-cli --test info_cmd_tests -- test_forest_info_cmd --exact --nocapture --ignored
-
 echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
 
 echo "Test subcommand: chain set-head"
