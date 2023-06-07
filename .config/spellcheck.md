@@ -28,8 +28,8 @@ Filecoin/M
 SFX M   0     's         .
 ```
 
-In this case, `'s` and `s` are acceptable suffixes, so the
-following are allowed:
+In this case, `'s` and `s` are acceptable suffixes, so the following are
+allowed:
 
 - `Filecoin`
 - `Filecoins`
@@ -41,13 +41,21 @@ As another example, take the following entry:
 syscall/S
 ```
 
-Where the `S` flag is [as follows](https://github.com/drahnr/cargo-spellcheck/blob/dff48db8ca954fce14a0cd5aea127ce59a929624/hunspell-data/en_US.aff#L91-L95):
+Where the `S` flag is
+[as follows](https://github.com/drahnr/cargo-spellcheck/blob/dff48db8ca954fce14a0cd5aea127ce59a929624/hunspell-data/en_US.aff#L91-L95):
 
-- `SFX S Y 4` Define a suffix, called S, allow mixing prefixes and suffixes, with 4 rules.
-- `SFX S   y     ies        [^aeiou]y` Remove a trailing `y`, replace it with `ies`, if the word ends in a `y` not preceded by a vowel.
-- `SFX S   0     s          [aeiou]y` Don't remove any trailing characters, add an s, if the word ends in a `y` preceded by a vowel.
-- `SFX S   0     es         [sxzh]`
-- `SFX S   0     s          [^sxzhy]`
+<!-- Use a block instead of inline code to stop the spacing being murdered by 'pretter' -->
+
+```c
+// Define a suffix, called S, allow mixing prefixes and suffixes, with 4 rules.
+SFX S Y 4
+// Remove a trailing `y`, replace it with `ies`, if the word ends in a `y` not preceded by a vowel.
+SFX S   y     ies        [^aeiou]y
+// Don't remove any trailing characters, add an s, if the word ends in a `y` preceded by a vowel.
+SFX S   0     s          [aeiou]y
+SFX S   0     es         [sxzh]
+SFX S   0     s          [^sxzhy]
+```
 
 So the following would be allowed:
 

@@ -14,7 +14,7 @@
 //! of files. Files come in pairs:
 //! - The actual data _blob_, named e.g `foo.car.zst`
 //! - A _metadata_ file, named e.g `foo.car.zst.forestmetadata.json`. See
-//!   [`METADATA_FILE_SUFFIX`]
+//!   [`SNAPSHOT_METADATA_FILE_SUFFIX`]
 //!
 //! All files are ultimately interned by [`intern_and_create_metadata`], whether from
 //! the CLI, or from the web.
