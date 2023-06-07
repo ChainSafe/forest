@@ -33,7 +33,10 @@ pub fn valid_for_block_inclusion(
         anyhow::bail!("gas_fee_cap less than gas_premium");
     }
     if msg.gas_limit > BLOCK_GAS_LIMIT {
-        anyhow::bail!("gas_limit cannot be greater than block gas limit");
+        anyhow::bail!(
+            "gas_limit {} cannot be greater than block gas limit",
+            msg.gas_limit
+        );
     }
 
     if Gas::new(msg.gas_limit) < min_gas {
