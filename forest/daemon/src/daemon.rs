@@ -426,7 +426,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
 }
 
 /// If our current chain is below a supported height, we need a snapshot to bring it up
-/// to a supported height. If we've not been given a snapshot by the, get one.
+/// to a supported height. If we've not been given a snapshot by the user, get one.
 ///
 /// An [`Err`] should be considered fatal.
 async fn fetch_snapshot_if_required(
