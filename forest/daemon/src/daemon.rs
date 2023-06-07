@@ -40,8 +40,11 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use tokio::{
-    signal::unix::{signal, SignalKind},
-    sync::RwLock,
+    signal::{
+        ctrl_c,
+        unix::{signal, SignalKind},
+    },
+    sync::{mpsc, RwLock},
     task::JoinSet,
     time::sleep,
 };
@@ -73,11 +76,11 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
 pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
-    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
+    let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
 
     let result = tokio::select! {
         ret = start(opts, config, shutdown_send) => ret,
-        _ = tokio::signal::ctrl_c() => {
+        _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
         },
@@ -86,7 +89,7 @@ pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow
             Ok(())
         },
         _ = shutdown_recv.recv() => {
-            info!("Client requested the node to shutdown.");
+            info!("Client requested a shutdown.");
             Ok(())
         },
     };
@@ -98,7 +101,7 @@ pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow
 pub(super) async fn start(
     opts: CliOpts,
     config: Config,
-    shutdown_send: tokio::sync::mpsc::Sender<()>,
+    shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     {
         // UGLY HACK:
