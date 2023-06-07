@@ -5,9 +5,14 @@
 //! actor.
 
 use anyhow::Context;
-use forest_shim::{deal::DealID, state_tree::StateTree};
+use forest_shim::{
+    deal::DealID,
+    machine::ManifestV3,
+    state_tree::{ActorState, StateTree},
+};
 use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 
@@ -22,9 +27,11 @@ pub(super) struct VerifregMarketPostMigrator {
     pub pending_verified_deals: Vec<DealID>,
 }
 
-impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {
+impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         const HAMT_BIT_WIDTH: u32 = fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
+
+        // `migrateVerifreg`
 
         // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
         // it does not effect `load` API here. (Go API takes bit_width=5 for loading while Rust API does not)
@@ -91,6 +98,74 @@ impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {
             claims: empty_map.flush()?,
         };
         let verifreg_head = store.put_cbor_default(&verifreg_state_v9)?;
+
+        // `migrateMarket`
+        let mut pending_deal_allocation_id_map =
+            fil_actors_shared::v9::make_empty_map::<_, u64>(store, HAMT_BIT_WIDTH);
+        for (deal_id, allocation_id) in deal_allocation_tuples {
+            pending_deal_allocation_id_map
+                .set(fil_actors_shared::v9::u64_key(deal_id), allocation_id)?;
+        }
+        let pending_deal_allocation_id_map_root = pending_deal_allocation_id_map.flush()?;
+        let deal_states_v8 = fil_actors_shared::v8::Array::<
+            fil_actor_market_state::v8::DealState,
+            _,
+        >::load(&self.market_state_v8.states, store)?;
+        // TODO: Make sure bitwidth is correct with this API
+        let mut deal_states_v9 = fil_actors_shared::v9::Array::<
+            fil_actor_market_state::v9::DealState,
+            _,
+        >::new_with_bit_width(
+            store, fil_actor_market_state::v9::STATES_AMT_BITWIDTH
+        );
+        deal_states_v8.for_each(|key, state| {
+            deal_states_v9.set(
+                key,
+                fil_actor_market_state::v9::DealState {
+                    sector_start_epoch: state.sector_start_epoch,
+                    last_updated_epoch: state.last_updated_epoch,
+                    slash_epoch: state.slash_epoch,
+                    // `NO_ALLOCATION_ID` is not available under `v9` but the value is correct.
+                    verified_claim: fil_actor_market_state::v10::NO_ALLOCATION_ID,
+                },
+            )?;
+
+            Ok(())
+        })?;
+
+        let market_state_v9 = fil_actor_market_state::v9::State {
+            proposals: self.market_state_v8.proposals,
+            states: deal_states_v9.flush()?,
+            pending_proposals: self.market_state_v8.pending_proposals,
+            escrow_table: self.market_state_v8.escrow_table,
+            locked_table: self.market_state_v8.locked_table,
+            next_id: self.market_state_v8.next_id,
+            deal_ops_by_epoch: self.market_state_v8.deal_ops_by_epoch,
+            last_cron: self.market_state_v8.last_cron,
+            total_client_locked_collateral: self
+                .market_state_v8
+                .total_client_locked_collateral
+                .clone(),
+            total_provider_locked_collateral: self
+                .market_state_v8
+                .total_provider_locked_collateral
+                .clone(),
+            total_client_storage_fee: self.market_state_v8.total_client_storage_fee.clone(),
+            pending_deal_allocation_ids: pending_deal_allocation_id_map_root,
+        };
+        let market_head = store.put_cbor_default(&market_state_v9)?;
+
+        let sys_actor = actors_out
+            .get_actor(&forest_shim::address::Address::SYSTEM_ACTOR)?
+            .ok_or_else(|| anyhow::anyhow!("Couldn't get sys actor state"))?;
+        let sys_state: super::SystemStateNew = store
+            .get_cbor(&sys_actor.state)?
+            .ok_or_else(|| anyhow::anyhow!("Couldn't get state v9"))?;
+
+        let manifest = ManifestV3::load(&store, &sys_state.builtin_actors, 1)?;
+
+        // TODO: Need API(s) for getting the missing actor codes
+        // let verifreg_actor = ActorState::new(manifest. , state, balance, sequence, address)
 
         todo!()
     }
