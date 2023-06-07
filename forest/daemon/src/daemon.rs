@@ -595,23 +595,11 @@ async fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
     // encrypted keystore, interactive, passphrase not provided
     } else if config.client.encrypt_keystore && passphrase.is_err() && is_interactive {
         loop {
-            let passphrase = tokio::task::spawn_blocking(|| {
-                Password::with_theme(&ColorfulTheme::default())
-                    .allow_empty_password(true)
-                    .with_prompt("Enter the keystore passphrase")
-                    .interact()
-            })
-            .await??;
+            let passphrase = password_prompt("Enter the keystore passphrase").await?;
 
             let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
-                let passphrase_again = tokio::task::spawn_blocking(|| {
-                    Password::with_theme(&ColorfulTheme::default())
-                        .allow_empty_password(true)
-                        .with_prompt("Confirm passphrase")
-                        .interact()
-                })
-                .await??;
+                let passphrase_again = password_prompt("Confirm passphrase").await?;
 
                 if passphrase != passphrase_again {
                     error!("Passphrases do not match. Please retry.");
@@ -637,6 +625,17 @@ async fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             config.client.data_dir.clone(),
         ))?)
     }
+}
+
+async fn password_prompt(prompt: impl Into<String>) -> anyhow::Result<String> {
+    let prompt: String = prompt.into();
+    Ok(tokio::task::spawn_blocking(|| {
+        Password::with_theme(&ColorfulTheme::default())
+            .allow_empty_password(true)
+            .with_prompt(prompt)
+            .interact()
+    })
+    .await??)
 }
 
 #[cfg(test)]
