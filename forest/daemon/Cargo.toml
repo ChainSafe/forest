@@ -44,18 +44,15 @@ forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
-indicatif.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 raw_sync = "0.1"
-reqwest.workspace = true
 rpassword.workspace = true
 serde_json.workspace = true
 shared_memory = "0.12"
 tempfile.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt", "signal"] }
 tokio-util = { workspace = true, features = ["compat"] }
-tracing.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
