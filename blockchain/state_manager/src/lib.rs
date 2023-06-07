@@ -737,7 +737,7 @@ where
 
     /// Performs a state transition, and returns the state and receipt root of
     /// the transition.
-    #[instrument(skip(self, callback))]
+    #[instrument(skip(self, tipset, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
@@ -753,7 +753,6 @@ where
 
     /// Performs a state transition, and returns the state and receipt root of
     /// the transition.
-    #[instrument(skip(self, callback))]
     pub fn compute_tipset_state_blocking<CB: 'static>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
