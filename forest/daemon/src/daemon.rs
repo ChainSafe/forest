@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+use std::{net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::{bail, Context};
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{console::Term, theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
@@ -37,7 +37,6 @@ use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
-use rpassword::read_password;
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::RwLock,
@@ -121,7 +120,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut keystore = create_keystore(&config)?;
+    let mut keystore = load_or_create_keystore(&config)?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
         keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
@@ -426,8 +425,8 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Rolli
     Ok(db)
 }
 
-/// If required, and is not already `config`, fetches a snapshot from the web,
-/// and puts it in `config`.
+/// If our current chain is below a supported height, we need a snapshot to bring it up
+/// to a supported height. If we've not been given a snapshot by the, get one.
 ///
 /// An [`Err`] should be considered fatal.
 async fn fetch_snapshot_if_required(
@@ -439,10 +438,15 @@ async fn fetch_snapshot_if_required(
     let chain = &config.chain.network;
     let snapshot_dir = config.snapshot_directory();
 
+    // What height is our chain at right now, and what network version does that correspond to?
     let network_version = config.chain.network_version(epoch);
     let network_version_is_small = network_version < NetworkVersion::V16;
+
+    // We don't support small network versions (we can't validate from e.g genesis).
+    // So we need a snapshot (which will be from a recent network version)
     let require_a_snapshot = network_version_is_small;
     let have_a_snapshot = config.client.snapshot_path.is_some();
+
     match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
         (false, _, _) => Ok(()),   // noop - don't need a snapshot
         (true, true, _) => Ok(()), // noop - we need a snapshot, and we have one
@@ -489,6 +493,7 @@ async fn fetch_snapshot_if_required(
                     .with_prompt(message)
                     .default(false)
                     .interact()
+                    // e.g not a tty (or some other error), so haven't got permission.
                     .unwrap_or(false)
             })
             .await
@@ -588,60 +593,138 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
     }
 }
 
-fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
-    let passphrase = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
-    let is_interactive = atty::is(atty::Stream::Stdin);
+/// This may:
+/// - create a keystore
+/// - load a keystore
+/// - ask a user for password input
+///
+/// Makes blocking calls for the UI
+fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
+    use std::{cell::RefCell, env::VarError};
 
-    // encrypted keystore, headless
-    if config.client.encrypt_keystore && passphrase.is_err() && !is_interactive {
-        anyhow::bail!("Passphrase for the keystore was not provided and the encryption was not explicitly disabled. Please set the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable and re-run the command");
-    // encrypted keystore, either headless or interactive, passphrase provided
-    } else if config.client.encrypt_keystore && passphrase.is_ok() {
-        let passphrase = passphrase.unwrap();
+    let passphrase_from_env = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
+    let require_encryption = config.client.encrypt_keystore;
+    let keystore_already_exists = config
+        .client
+        .data_dir
+        .join(ENCRYPTED_KEYSTORE_NAME)
+        .is_dir();
 
-        let keystore = KeyStore::new(KeyStoreConfig::Encrypted(
-            PathBuf::from(&config.client.data_dir),
+    match (
+        require_encryption,
+        keystore_already_exists,
+        passphrase_from_env,
+    ) {
+        // don't need encryption, we can implicitly create a keystore
+        (false, _exists, maybe_passphrase) => {
+            warn!("Forest has encryption disabled");
+            if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
+                warn!(
+                    "Ignoring passphrase provided in {} - encryption is disabled",
+                    FOREST_KEYSTORE_PHRASE_ENV
+                )
+            }
+            KeyStore::new(KeyStoreConfig::Persistent(config.client.data_dir.clone()))
+                .map_err(anyhow::Error::new)
+        }
+
+        // need encryption, the keystore exists, the user has provided the password through env
+        (true, true, Ok(passphrase)) => KeyStore::new(KeyStoreConfig::Encrypted(
+            config.client.data_dir.clone(),
             passphrase,
-        ));
+        ))
+        .map_err(anyhow::Error::new),
 
-        keystore.map_err(|_| anyhow::anyhow!("Incorrect passphrase. Please verify the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable."))
-    // encrypted keystore, interactive, passphrase not provided
-    } else if config.client.encrypt_keystore && passphrase.is_err() && is_interactive {
-        loop {
-            print!("Enter the keystore passphrase: ");
-            std::io::stdout().flush()?;
+        // need encryption, the keystore exists, we've not been given a password
+        (true, true, Err(error)) => {
+            // prompt for passphrase and try and load the keystore
 
-            let passphrase = read_password()?;
-
-            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
-            if !data_dir.exists() {
-                print!("Confirm passphrase: ");
-                std::io::stdout().flush()?;
-
-                if passphrase != read_password()? {
-                    error!("Passphrases do not match. Please retry.");
-                    continue;
-                }
+            if let VarError::NotUnicode(_) = error {
+                // If we're ignoring the user's password, tell them why
+                warn!(
+                    "Ignoring passphrase provided in {} - it's not utf-8",
+                    FOREST_KEYSTORE_PHRASE_ENV
+                )
             }
 
-            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
-                config.client.data_dir.clone(),
-                passphrase,
-            ));
+            let keystore = RefCell::new(None);
+            read_password(None, "Enter the password for Forest's keystore", |s| {
+                KeyStore::new(KeyStoreConfig::Encrypted(
+                    config.client.data_dir.clone(),
+                    s.clone(),
+                ))
+                .map(|created| *keystore.borrow_mut() = Some(created))
+                .context("couldn't load keystore with this password. Try again or quit")
+            })
+            .context(
+                format!("Forest is encrypted, but a password was not provided in the environment variable {} or input by the user", FOREST_KEYSTORE_PHRASE_ENV)
+            )?;
 
-            match key_store_init_result {
-                Ok(ks) => break Ok(ks),
-                Err(_) => {
-                    error!("Incorrect passphrase entered. Please try again.")
-                }
-            };
+            Ok(keystore
+                .into_inner() // we've exited the prompt, so fine to reference
+                .expect("we've passed the prompt's validation step, which puts the keystore here"))
         }
-    } else {
-        warn!("Warning: Keystore encryption disabled!");
-        Ok(KeyStore::new(KeyStoreConfig::Persistent(
-            config.client.data_dir.clone(),
-        ))?)
+
+        // need to create a new keystore
+        (true, false, maybe_passphrase) => {
+            if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
+                warn!(
+                    "Ignoring passphrase provided in {} for keystore creation",
+                    FOREST_KEYSTORE_PHRASE_ENV
+                )
+            }
+            let password = create_password(None, "Create a password for Forest's keystore")
+                .context("Encryption is required, but couldn't ask user to create a password")?;
+
+            KeyStore::new(KeyStoreConfig::Encrypted(
+                config.client.data_dir.clone(),
+                password,
+            ))
+            .map_err(anyhow::Error::new)
+        }
     }
+}
+
+/// Loops until the validator succeeds, or until e.g the user presses Ctrl+C
+fn read_password(
+    term: impl Into<Option<Term>>,
+    prompt: &str,
+    validator: impl Fn(&String) -> anyhow::Result<()>,
+) -> std::io::Result<String> {
+    let term = term.into().unwrap_or(Term::stderr());
+    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
+    // so do that check ourselves.
+    // This means users can't pipe their password from stdin.
+    if !term.is_term() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "cannot read password from non-terminal",
+        ));
+    }
+    dialoguer::Password::new()
+        .with_prompt(prompt)
+        .allow_empty_password(true) // let validator do validation
+        .validate_with(validator)
+        .interact_on(&term)
+}
+
+/// Loops until the user provides two matching passwords, or until e.g the user presses Ctrl+C
+fn create_password(term: impl Into<Option<Term>>, prompt: &str) -> std::io::Result<String> {
+    let term = term.into().unwrap_or(Term::stderr());
+    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
+    // so do that check ourselves.
+    // This means users can't pipe their password from stdin.
+    if !term.is_term() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "cannot read password from non-terminal",
+        ));
+    }
+    dialoguer::Password::new()
+        .with_prompt(prompt)
+        .allow_empty_password(false)
+        .with_confirmation("Confirm password", "Error: the passwords do not match.")
+        .interact_on(&term)
 }
 
 #[cfg(test)]
