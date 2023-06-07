@@ -5,8 +5,8 @@ pub mod json {
     use std::str::FromStr;
 
     use cid::Cid;
-    use forest_shim::state_tree::ActorState;
     use forest_shim::econ::TokenAmount;
+    use forest_shim::state_tree::ActorState;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 

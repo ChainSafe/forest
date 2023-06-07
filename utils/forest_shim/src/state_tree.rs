@@ -338,12 +338,6 @@ impl quickcheck::Arbitrary for ActorState {
             u64::arbitrary(g),
             cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
         );
-        ActorState::new(
-            cid,
-            cid,
-            TokenAmount::arbitrary(g),
-            u64::arbitrary(g),
-            None,
-        )
+        ActorState::new(cid, cid, TokenAmount::arbitrary(g), u64::arbitrary(g), None)
     }
 }
