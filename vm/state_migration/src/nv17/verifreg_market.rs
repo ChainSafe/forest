@@ -6,7 +6,9 @@
 
 use anyhow::Context;
 use forest_shim::{deal::DealID, state_tree::StateTree};
+use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 
 use super::ChainEpoch;
@@ -40,6 +42,7 @@ impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {
             Address,
             fil_actor_verifreg_state::v9::AllocationID,
         >::new(store, HAMT_BIT_WIDTH, HAMT_BIT_WIDTH);
+        let mut deal_allocation_tuples = vec![];
 
         for &deal_id in &self.pending_verified_deals {
             let proposal = market_proposals
@@ -73,8 +76,21 @@ impl<BS: Blockstore> PostMigrator<BS> for VerifregMarketPostMigrator {
                 },
             )?;
 
+            deal_allocation_tuples.push((deal_id, next_allocation_id));
+
             next_allocation_id += 1;
         }
+
+        let mut empty_map = fil_actors_shared::v9::make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH);
+        let verifreg_state_v9 = fil_actor_verifreg_state::v9::State {
+            root_key: self.verifreg_state_v8.root_key,
+            verifiers: self.verifreg_state_v8.verifiers,
+            remove_data_cap_proposal_ids: self.verifreg_state_v8.remove_data_cap_proposal_ids,
+            allocations: allocations_map_map.flush()?,
+            next_allocation_id: next_allocation_id,
+            claims: empty_map.flush()?,
+        };
+        let verifreg_head = store.put_cbor_default(&verifreg_state_v9)?;
 
         todo!()
     }
