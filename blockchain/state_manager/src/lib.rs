@@ -229,11 +229,7 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine: forest_shim::machine::MultiEngine::new(Some(
-                std::thread::available_parallelism()
-                    .map(|x| x.get() as u32)
-                    .unwrap_or(1),
-            )),
+            engine: forest_shim::machine::MultiEngine::default(),
             reward_calc,
         })
     }

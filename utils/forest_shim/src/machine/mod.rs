@@ -12,8 +12,14 @@ pub struct MultiEngine {
     pub v3: MultiEngine_v3,
 }
 
+impl Default for MultiEngine {
+    fn default() -> MultiEngine {
+        MultiEngine::new(std::thread::available_parallelism().map(|x| x.get() as u32))
+    }
+}
+
 impl MultiEngine {
-    pub fn new(concurrency: Option<u32>) -> MultiEngine {
+    pub fn new(concurrency: Result<u32, std::io::Error>) -> MultiEngine {
         MultiEngine {
             v2: MultiEngine_v2::new(),
             v3: MultiEngine_v3::new(concurrency.unwrap_or(1)), // `1` is default concurrency value in `fvm3`
