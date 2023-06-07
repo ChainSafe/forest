@@ -463,7 +463,7 @@ where
                     let no_func =
                         None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
                     let ts_state = self
-                        .compute_tipset_state_non_blocking(Arc::clone(tipset), no_func)
+                        .compute_tipset_state(Arc::clone(tipset), no_func)
                         .await?;
                     debug!("Completed tipset state calculation {:?}", tipset.cids());
                     ts_state
@@ -614,7 +614,7 @@ where
             Ok(())
         };
         let result = self
-            .compute_tipset_state_non_blocking(Arc::clone(ts), Some(callback))
+            .compute_tipset_state(Arc::clone(ts), Some(callback))
             .await;
 
         if let Err(error_message) = result {
@@ -738,7 +738,7 @@ where
     /// Performs a state transition, and returns the state and receipt root of
     /// the transition.
     #[instrument(skip(self, callback))]
-    pub async fn compute_tipset_state_non_blocking<CB: 'static>(
+    pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         callback: Option<CB>,
@@ -747,13 +747,13 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         let sm = Arc::clone(self);
-        tokio::task::spawn_blocking(move || sm.compute_tipset_state(tipset, callback)).await?
+        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback)).await?
     }
 
     /// Performs a state transition, and returns the state and receipt root of
     /// the transition.
     #[instrument(skip(self, callback))]
-    pub fn compute_tipset_state<CB: 'static>(
+    pub fn compute_tipset_state_blocking<CB: 'static>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         callback: Option<CB>,
