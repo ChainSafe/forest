@@ -46,7 +46,6 @@ fvm_ipld_blockstore.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 raw_sync = "0.1"
-rpassword.workspace = true
 serde_json.workspace = true
 shared_memory = "0.12"
 tempfile.workspace = true

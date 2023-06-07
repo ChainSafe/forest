@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+use std::{net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm, Password};
@@ -39,7 +39,6 @@ use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
-use rpassword::read_password;
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::RwLock,
@@ -603,10 +602,15 @@ async fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
 
             let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
-                print!("Confirm passphrase: ");
-                std::io::stdout().flush()?;
+                let passphrase_again = tokio::task::spawn_blocking(|| {
+                    Password::with_theme(&ColorfulTheme::default())
+                        .allow_empty_password(true)
+                        .with_prompt("Confirm passphrase")
+                        .interact()
+                })
+                .await??;
 
-                if passphrase != read_password()? {
+                if passphrase != passphrase_again {
                     error!("Passphrases do not match. Please retry.");
                     continue;
                 }
