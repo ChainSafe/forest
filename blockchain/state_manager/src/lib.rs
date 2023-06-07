@@ -362,7 +362,7 @@ where
         rand: R,
         base_fee: TokenAmount,
         mut callback: Option<CB>,
-        tipset: &Arc<Tipset>,
+        tipset: Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
     where
         R: Rand + Rand_v3 + Clone + 'static,
@@ -382,7 +382,7 @@ where
                 self.genesis_info
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
-                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
+                chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
                 &self.engine,
                 Arc::clone(self.chain_config()),
                 timestamp,
@@ -455,7 +455,9 @@ where
                     // generic constants are not implemented yet this is a lowcost method for now
                     let no_func =
                         None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-                    let ts_state = self.compute_tipset_state(tipset, no_func).await?;
+                    let ts_state = self
+                        .compute_tipset_state(Arc::clone(tipset), no_func)
+                        .await?;
                     debug!("Completed tipset state calculation {:?}", tipset.cids());
                     ts_state
                 };
@@ -602,7 +604,9 @@ where
             }
             Ok(())
         };
-        let result = self.compute_tipset_state(ts, Some(callback)).await;
+        let result = self
+            .compute_tipset_state(Arc::clone(ts), Some(callback))
+            .await;
 
         if let Err(error_message) = result {
             if error_message.to_string() != ERROR_MSG {
@@ -724,10 +728,25 @@ where
 
     /// Performs a state transition, and returns the state and receipt root of
     /// the transition.
-    #[instrument(skip(self, callback))]
+    #[instrument(skip(self, tipset, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
-        tipset: &Arc<Tipset>,
+        tipset: Arc<Tipset>,
+        callback: Option<CB>,
+    ) -> Result<CidPair, Error>
+    where
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
+    {
+        let sm = Arc::clone(self);
+        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback))
+            .await?
+    }
+
+    /// Performs a state transition, and returns the state and receipt root of
+    /// the transition.
+    pub fn compute_tipset_state_blocking<CB: 'static>(
+        self: &Arc<Self>,
+        tipset: Arc<Tipset>,
         callback: Option<CB>,
     ) -> Result<CidPair, Error>
     where
@@ -771,27 +790,22 @@ where
 
         let blocks = self
             .chain_store()
-            .block_msgs_for_tipset(tipset)
+            .block_msgs_for_tipset(&tipset)
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let sm = Arc::clone(self);
         let sr = *first_block.state_root();
         let epoch = first_block.epoch();
-        let ts_cloned = Arc::clone(tipset);
-        tokio::task::spawn_blocking(move || {
-            Ok(sm.apply_blocks(
-                parent_epoch,
-                &sr,
-                &blocks,
-                epoch,
-                chain_rand,
-                base_fee,
-                callback,
-                &ts_cloned,
-            )?)
-        })
-        .await
-        .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
+        Ok(sm.apply_blocks(
+            parent_epoch,
+            &sr,
+            &blocks,
+            epoch,
+            chain_rand,
+            base_fee,
+            callback,
+            tipset,
+        )?)
     }
 
     /// Check if tipset had executed the message, by loading the receipt based
