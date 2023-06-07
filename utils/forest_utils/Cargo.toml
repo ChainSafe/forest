@@ -8,6 +8,7 @@ version.workspace = true
 
 [dependencies]
 ahash.workspace = true
+anes.workspace = true
 anyhow.workspace = true
 async-compression.workspace = true
 async-fs.workspace = true
@@ -46,6 +47,9 @@ tokio = { workspace = true, features = ["fs"] }
 toml.workspace = true
 tracing.workspace = true
 url.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+termios = "0.3"
 
 [dev-dependencies]
 cs_serde_bytes = "0.12.2"

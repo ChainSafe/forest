@@ -27,10 +27,9 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use forest_db::Store;
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::info;
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
@@ -136,8 +135,10 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     match cmd {
-        Some(_) => {
-            warn!("All subcommands have been moved to forest-cli tool");
+        Some(subcmd) => {
+            anyhow::bail!(
+                "Invalid subcommand: {subcmd}. All subcommands have been moved to forest-cli tool."
+            );
         }
         None => {
             if opts.detach {
@@ -174,14 +175,11 @@ fn main() -> anyhow::Result<()> {
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let db = rt.block_on(daemon::start(opts, cfg))?;
+            let ret = rt.block_on(daemon::start_interruptable(opts, cfg));
             info!("Shutting down tokio...");
-            rt.shutdown_timeout(Duration::from_secs(10));
-            db.flush()?;
-            drop(db);
-
+            rt.shutdown_timeout(Duration::from_secs_f32(0.5));
             info!("Forest finish shutdown");
+            ret
         }
     }
-    Ok(())
 }
