@@ -15,7 +15,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actor_interface::{*, init::ADDRESS};
+use fil_actor_interface::{init::ADDRESS, *};
 use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -277,7 +277,7 @@ where
         let ht_parent_state = heaviest_tipset.parent_state();
 
         let init_act = self
-            .get_actor(&ADDRESS.into(), *ht_parent_state)? // FIXME: use passed `st`
+            .get_actor(&ADDRESS.into(), *st)? // FIXME: use passed `st`
             .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
         // dbg!(&init_act);
         let state = init::State::load(self.blockstore(), init_act.code, init_act.state)?;
