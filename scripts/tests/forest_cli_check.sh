@@ -16,7 +16,7 @@ snapshot_dir=$(mktemp --directory)
 
 # return the first snapshot path listed by forest
 function pop-snapshot-path() {
-    forest-cli snapshot list --snapshot-dir "$snapshot_dir" \
+    "$FOREST_CLI_PATH" snapshot list --snapshot-dir "$snapshot_dir" \
         | grep path \
         | sed 's/^\tpath: //' \
         | head --lines=1
@@ -27,7 +27,6 @@ function clean-snapshot-dir() {
     mkdir --parents -- "$snapshot_dir"
 }
 
-# TODO(aatifsyed): I don't really understand what this does
 "$FOREST_CLI_PATH" fetch-params --keys
 
 : fetch snapshot
@@ -35,8 +34,7 @@ function clean-snapshot-dir() {
 clean-snapshot-dir
 
 
-: "clean database (twice)"
-# TODO(aatifsyed): I don't really understand what this tests
+: "cleaning an empty database doesn't fail (see #2811)"
 "$FOREST_CLI_PATH" --chain calibnet db clean --force
 "$FOREST_CLI_PATH" --chain calibnet db clean --force
 

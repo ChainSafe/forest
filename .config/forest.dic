@@ -59,9 +59,10 @@ serializable
 serializer/SM
 statediff
 stateful
+stderr
 stdout
 synchronizer
-syscall/M
+syscall/S
 TCP
 tipset/SM
 tipsetkey/S

@@ -22,7 +22,7 @@ use tracing::error;
 /// Keep running the future created by `make_fut` until the timeout or retry
 /// limit in `args` is reached.
 /// `F` _must_ be cancel safe.
-#[tracing::instrument(skip(make_fut))]
+#[tracing::instrument(skip_all)]
 pub async fn retry<F, T, E>(
     args: RetryArgs,
     mut make_fut: impl FnMut() -> F,

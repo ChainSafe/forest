@@ -22,11 +22,11 @@
 //! We assign no semantic meaning to the filenames in the snapshot directory,
 //! other than the blob/metadata distinction - all that matters is that they are unique.
 //!
-//! ## Aria2
+//! ## `Aria2`
 //! We prefer to download files using `aria2c`, falling back to making the request
 //! ourselves.
 //!
-//! We treat a subfolder of `snapshot_dir` as our interface with `aria2`,
+//! We treat a sub-folder of `snapshot_dir` as our interface with `aria2`,
 //! downloading and retrieving files from it as appropriate.
 //!
 //! ## Concepts
@@ -105,7 +105,7 @@ pub fn list(snapshot_dir: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadat
         .collect())
 }
 
-/// Fetch a snapshot with aria2c, falling back to our own http client.
+/// Fetch a snapshot with `aria2c`, falling back to our own HTTP client.
 /// This may draw to stdout.
 ///
 /// See [module documentation](mod@self) for more.
@@ -297,7 +297,7 @@ enum AriaErr {
     Other(anyhow::Error),
 }
 
-/// Run aria2c, with inherited stdout and stderr (so output will be printed).
+/// Run `aria2c`, with inherited stdout and stderr (so output will be printed).
 /// The file is downloaded to `aria2c_dir`, and should be retrieved separately.
 async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
     let exit_status = tokio::process::Command::new("aria2c")
@@ -330,7 +330,7 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
     }
 }
 
-/// Download the file at `url` with a private http client, returning
+/// Download the file at `url` with a private HTTP client, returning
 /// - The path to the downloaded file
 /// - The URL of the download file (in case e.g redirects were followed)
 async fn download_http(url: &str) -> anyhow::Result<(PathBuf, Url)> {
@@ -376,7 +376,7 @@ async fn download_http(url: &str) -> anyhow::Result<(PathBuf, Url)> {
 /// - `foo.tmp`
 /// - `foo.tmp.metadata.json`
 ///
-/// This function looks at files which direct descendents of `directory`, returning:
+/// This function looks at files which direct descendants of `directory`, returning:
 /// - pairs of main files and metadata files
 /// - orphaned main files
 /// - orphaned metadata files
