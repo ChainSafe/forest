@@ -8,6 +8,7 @@ pub mod json;
 pub mod misc;
 pub mod monitoring;
 pub mod net;
+pub mod proofs_api;
 pub mod version;
 
 use std::{pin::Pin, time::Duration};

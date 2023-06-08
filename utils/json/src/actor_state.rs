@@ -5,8 +5,8 @@ pub mod json {
     use std::str::FromStr;
 
     use cid::Cid;
-    use fvm::state_tree::ActorState;
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::econ::TokenAmount;
+    use forest_shim::state_tree::ActorState;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -71,50 +71,27 @@ pub mod json {
             sequence,
             balance,
         } = Deserialize::deserialize(deserializer)?;
-        Ok(ActorState {
+        Ok(ActorState::new(
             code,
             state,
+            TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?),
             sequence,
-            balance: TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?),
-        })
+            None,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use cid::Cid;
-    use fvm::state_tree::ActorState;
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::state_tree::ActorState;
     use quickcheck_macros::quickcheck;
 
     use crate::actor_state::json::{ActorStateJson, ActorStateJsonRef};
 
-    #[derive(Clone, Debug)]
-    struct ActorStateWrapper {
-        actorstate: ActorState,
-    }
-
-    impl quickcheck::Arbitrary for ActorStateWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let cid = Cid::new_v1(
-                u64::arbitrary(g),
-                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-            );
-            let actorstate = ActorState {
-                code: cid,
-                state: cid,
-                sequence: u64::arbitrary(g),
-                balance: TokenAmount::from_atto(u64::arbitrary(g)),
-            };
-            ActorStateWrapper { actorstate }
-        }
-    }
-
     #[quickcheck]
-    fn actorstate_roundtrip(actorstate: ActorStateWrapper) {
-        let serialized: String =
-            serde_json::to_string(&ActorStateJsonRef(&actorstate.actorstate)).unwrap();
+    fn actorstate_roundtrip(actorstate: ActorState) {
+        let serialized: String = serde_json::to_string(&ActorStateJsonRef(&actorstate)).unwrap();
         let parsed: ActorStateJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(actorstate.actorstate, parsed.0);
+        assert_eq!(actorstate, parsed.0);
     }
 }

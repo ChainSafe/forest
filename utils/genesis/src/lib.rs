@@ -104,9 +104,8 @@ where
 pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
-    validate_height: Option<i64>,
     skip_load: bool,
-) -> Result<(), anyhow::Error>
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
@@ -153,19 +152,28 @@ where
     }
 
     // Update head with snapshot header tipset
-    sm.chain_store().set_heaviest_tipset(ts.clone())?;
-
-    if let Some(height) = validate_height {
-        let height = if height > 0 {
-            height
-        } else {
-            (ts.epoch() + height).max(0)
-        };
-        info!("Validating imported chain from height: {}", height);
-        sm.validate_chain(ts.clone(), height).await?;
-    }
-
     info!("Accepting {:?} as new head.", ts.cids());
+    sm.chain_store().set_heaviest_tipset(ts)?;
+
+    Ok(())
+}
+
+pub async fn validate_chain<DB>(
+    sm: &Arc<StateManager<DB>>,
+    validate_height: i64,
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + Clone + Send + Sync + 'static,
+{
+    let tipset = sm.chain_store().heaviest_tipset();
+    let height = if validate_height > 0 {
+        validate_height
+    } else {
+        (tipset.epoch() + validate_height).max(0)
+    };
+
+    info!("Validating imported chain from height: {}", height);
+    sm.validate_chain(tipset.clone(), height).await?;
 
     Ok(())
 }
