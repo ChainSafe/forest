@@ -112,12 +112,22 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
             .get_cbor(&verifreg_actor_v8.state)?
             .context("Failed to load verifreg state v8")?;
+        let verifreg_code = *new_manifest
+            .code_by_id(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ID as _)
+            .context("verifreg code not found in new manifest")?;
+        let market_code = *new_manifest
+            .code_by_id(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ID as _)
+            .context("verifreg code not found in new manifest")?;
         self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
             prior_epoch,
             init_state_v8,
             market_state_v8,
             verifreg_state_v8,
             pending_verified_deals,
+            verifreg_actor_v8,
+            market_actor_v8,
+            verifreg_code,
+            market_code,
         }));
 
         Ok(())

@@ -5,19 +5,18 @@
 //! actor.
 
 use anyhow::Context;
+use cid::Cid;
 use forest_shim::{
+    address::Address,
     deal::DealID,
-    machine::ManifestV3,
     state_tree::{ActorState, StateTree},
 };
 use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-use fvm_ipld_hamt::BytesKey;
-use fvm_shared::address::Address;
+use fvm_shared::address::Address as AddressV2;
 
 use super::ChainEpoch;
-use crate::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput, PostMigrator};
+use crate::common::PostMigrator;
 
 pub(super) struct VerifregMarketPostMigrator {
     pub prior_epoch: ChainEpoch,
@@ -25,6 +24,10 @@ pub(super) struct VerifregMarketPostMigrator {
     pub market_state_v8: fil_actor_market_state::v8::State,
     pub verifreg_state_v8: fil_actor_verifreg_state::v8::State,
     pub pending_verified_deals: Vec<DealID>,
+    pub verifreg_actor_v8: ActorState,
+    pub market_actor_v8: ActorState,
+    pub verifreg_code: Cid,
+    pub market_code: Cid,
 }
 
 impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
@@ -46,7 +49,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
         let mut allocations_map_map = fil_actors_shared::v9::MapMap::<
             BS,
             fil_actor_verifreg_state::v9::Allocation,
-            Address,
+            AddressV2,
             fil_actor_verifreg_state::v9::AllocationID,
         >::new(store, HAMT_BIT_WIDTH, HAMT_BIT_WIDTH);
         let mut deal_allocation_tuples = vec![];
@@ -155,18 +158,26 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
         };
         let market_head = store.put_cbor_default(&market_state_v9)?;
 
-        let sys_actor = actors_out
-            .get_actor(&forest_shim::address::Address::SYSTEM_ACTOR)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get sys actor state"))?;
-        let sys_state: super::SystemStateNew = store
-            .get_cbor(&sys_actor.state)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get state v9"))?;
+        let verifreg_actor = ActorState::new(
+            self.verifreg_code,
+            verifreg_head,
+            self.verifreg_actor_v8.balance.clone().into(),
+            self.verifreg_actor_v8.sequence,
+            None, // ActorV4 contains no delegated address
+        );
 
-        let manifest = ManifestV3::load(&store, &sys_state.builtin_actors, 1)?;
+        actors_out.set_actor(&Address::VERIFIED_REGISTRY_ACTOR, verifreg_actor)?;
 
-        // TODO: Need API(s) for getting the missing actor codes
-        // let verifreg_actor = ActorState::new(manifest. , state, balance, sequence, address)
+        let market_actor = ActorState::new(
+            self.market_code,
+            market_head,
+            self.market_actor_v8.balance.clone().into(),
+            self.market_actor_v8.sequence,
+            None, // ActorV4 contains no delegated address
+        );
 
-        todo!()
+        actors_out.set_actor(&Address::MARKET_ACTOR, market_actor)?;
+
+        Ok(())
     }
 }
