@@ -35,7 +35,6 @@ forest_json.workspace = true
 forest_key_management.workspace = true
 forest_libp2p.workspace = true
 forest_networks.workspace = true
-forest_paramfetch.workspace = true
 forest_rpc-api.workspace = true
 forest_rpc-client.workspace = true
 forest_shim.workspace = true
@@ -53,7 +52,6 @@ log.workspace = true
 multibase.workspace = true
 nom = "7.1.3"
 num.workspace = true
-rpassword.workspace = true
 rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
