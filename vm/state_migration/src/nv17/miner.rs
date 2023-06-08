@@ -6,21 +6,17 @@
 
 use std::sync::Arc;
 
+use ahash::HashMap;
 use cid::{multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_state::{
     v8::State as MinerStateOld,
     v9::{util::sector_key, State as MinerStateNew},
 };
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
-use forest_shim::{piece::piece_v2, sector::SectorNumber};
+use forest_shim::{address::Address, piece::piece_v2};
 use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use fvm_ipld_hamt::BytesKey;
-use fvm_shared::{
-    commcid::data_commitment_v1_to_cid, piece::PieceInfo as PieceInfoV2,
-    sector::RegisteredSealProof as RegisteredSealProofV2,
-};
 
 use crate::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -81,13 +77,15 @@ where
         store: BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
+        let mut cache: HashMap<String, Cid> = Default::default();
         let in_state: MinerStateOld = store
             .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
         let new_pre_committed_sectors =
             self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
-        let new_sectors = self.migrate_sectors(&store, &in_state.sectors)?;
-        let new_deadlines = self.migrate_deadlines(&store, &in_state.deadlines)?;
+        let new_sectors =
+            self.migrate_sectors_with_cache(&mut cache, &store, &input.address, &in_state.sectors)?;
+        let new_deadlines = self.migrate_deadlines(&mut cache, &store, &in_state.deadlines)?;
 
         let mut out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
         out_state.pre_committed_sectors = new_pre_committed_sectors;
@@ -165,22 +163,21 @@ impl MinerMigrator {
         Ok(new_precommit_on_chain_infos.flush()?)
     }
 
-    fn migrate_sectors(
+    fn migrate_sectors_with_cache(
         &self,
+        cache: &mut HashMap<String, Cid>,
         store: &impl Blockstore,
-        // old_cache: &Cid,
-        // old_address: &Cid,
-        old_sectors: &Cid,
+        miner_address: &Address,
+        in_root: &Cid,
     ) -> anyhow::Result<Cid> {
         todo!()
     }
 
     fn migrate_deadlines(
         &self,
+        cache: &mut HashMap<String, Cid>,
         store: &impl Blockstore,
-        // old_cache: &Cid,
-        // old_address: &Cid,
-        old_deadlines: &Cid,
+        deadlines: &Cid,
     ) -> anyhow::Result<Cid> {
         todo!()
     }
