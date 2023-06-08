@@ -57,6 +57,8 @@
 
 - [#2761](https://github.com/ChainSafe/forest/issues/2761): Fix issue with
   messages that where not properly deleted from Forest mpool.
+- [#2950](https://github.com/ChainSafe/forest/pull/2950): Fix cases where ctrl-c
+  would be ignored.
 
 ## Forest v0.8.2 "The Way"
 

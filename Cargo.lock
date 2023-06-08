@@ -3050,7 +3050,6 @@ dependencies = [
  "pretty_assertions",
  "quickcheck",
  "rand 0.8.5",
- "rpassword",
  "rustyline",
  "serde",
  "serde_json",
@@ -3066,7 +3065,6 @@ dependencies = [
 name = "forest-daemon"
 version = "0.8.2"
 dependencies = [
- "anes",
  "anyhow",
  "assert_cmd",
  "atty",
@@ -3101,7 +3099,6 @@ dependencies = [
  "lazy_static",
  "log",
  "raw_sync",
- "rpassword",
  "serde_json",
  "shared_memory",
  "tempfile",
@@ -3506,7 +3503,6 @@ dependencies = [
  "forest_shim",
  "forest_test_utils",
  "forest_utils",
- "fvm 2.4.0",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
@@ -3973,6 +3969,7 @@ name = "forest_utils"
 version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
+ "anes",
  "anyhow",
  "async-compression",
  "async-fs",
@@ -4012,6 +4009,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.10.6",
  "tempfile",
+ "termios",
  "thiserror",
  "tokio",
  "toml 0.7.4",
@@ -7811,17 +7809,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rpassword"
-version = "7.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6678cf63ab3491898c0d021b493c94c9b221d91295294a2a5746eacbe5928322"
-dependencies = [
- "libc",
- "rtoolbox",
- "winapi",
-]
-
-[[package]]
 name = "rtcp"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7845,16 +7832,6 @@ dependencies = [
  "nix 0.24.3",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "rtoolbox"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "034e22c514f5c0cb8a10ff341b9b048b5ceb21591f31c8f44c43b960f9b3524a"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -9003,6 +8980,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be55cf8942feac5c765c2c993422806843c9a9a45d4d5c407ad6dd2ea95eb9b6"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "termios"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -10744,9 +10730,9 @@ dependencies = [
 
 [[package]]
 name = "xml-rs"
-version = "0.8.4"
+version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
+checksum = "52839dc911083a8ef63efa4d039d1f58b5e409f923e44c80828f206f66e5541c"
 
 [[package]]
 name = "xsalsa20poly1305"
