@@ -408,27 +408,16 @@ pub(super) async fn start(
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
+    sync_from_snapshot(&config, &state_manager).await?;
+
     let validate_height = if config.client.snapshot {
         config.client.snapshot_height
     } else {
-        Some(0)
-    };
-
-    let proof_params_required = !opts.halt_after_import || validate_height.is_some();
-    let ensure_params_downloaded_task_handle = if proof_params_required {
-        Some(tokio::spawn(async {
-            // Add a small delay to avoid import chain progress bar being interrupted.
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await
-        }))
-    } else {
         None
     };
-
-    sync_from_snapshot(&config, &state_manager).await?;
-
-    if let Some(ensure_params_downloaded_task_handle) = ensure_params_downloaded_task_handle {
-        ensure_params_downloaded_task_handle.await??;
+    let proof_params_required = !opts.halt_after_import || validate_height.is_some();
+    if proof_params_required {
+        forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
     }
 
     if let Some(validate_height) = validate_height {
