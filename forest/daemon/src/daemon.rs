@@ -408,10 +408,32 @@ pub(super) async fn start(
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    let proof_params_required = !opts.halt_after_import
-        || !config.client.snapshot
-        || config.client.snapshot_height.is_some();
-    sync_from_snapshot(&config, &state_manager, proof_params_required).await?;
+    let validate_height = if config.client.snapshot {
+        config.client.snapshot_height
+    } else {
+        Some(0)
+    };
+
+    let proof_params_required = !opts.halt_after_import || validate_height.is_some();
+    let ensure_params_downloaded_task_handle = if proof_params_required {
+        Some(tokio::spawn(async {
+            // Add a small delay to avoid import chain progress bar being interrupted.
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await
+        }))
+    } else {
+        None
+    };
+
+    sync_from_snapshot(&config, &state_manager).await?;
+
+    if let Some(ensure_params_downloaded_task_handle) = ensure_params_downloaded_task_handle {
+        ensure_params_downloaded_task_handle.await??;
+    }
+
+    if let Some(validate_height) = validate_height {
+        validate_chain(&state_manager, validate_height).await?;
+    }
 
     // For convenience, flush the database after we've potentially loaded a new
     // snapshot. This ensures the snapshot won't have to be re-imported if
@@ -536,29 +558,12 @@ async fn prompt_snapshot_or_die(
 async fn sync_from_snapshot<DB>(
     config: &Config,
     state_manager: &Arc<StateManager<DB>>,
-    proof_params_required: bool,
 ) -> Result<(), anyhow::Error>
 where
     DB: Store + Send + Clone + Sync + Blockstore + 'static,
 {
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
-
-        let validate_height = if config.client.snapshot {
-            config.client.snapshot_height
-        } else {
-            Some(0)
-        };
-
-        let ensure_params_downloaded_task_handle = if proof_params_required {
-            Some(tokio::spawn(async {
-                // Add a small delay to avoid import chain progress bar being interrupted.
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await
-            }))
-        } else {
-            None
-        };
 
         import_chain::<_>(
             state_manager,
@@ -568,14 +573,6 @@ where
         .await
         .context("Failed miserably while importing chain from snapshot")?;
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-
-        if let Some(ensure_params_downloaded_task_handle) = ensure_params_downloaded_task_handle {
-            ensure_params_downloaded_task_handle.await??;
-        }
-
-        if let Some(validate_height) = validate_height {
-            validate_chain(state_manager, validate_height).await?;
-        }
     }
 
     Ok(())
