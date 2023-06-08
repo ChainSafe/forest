@@ -13,6 +13,7 @@ use forest_shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::{ApplyRet, Receipt},
+    machine::MultiEngine,
     message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
@@ -21,10 +22,9 @@ use forest_shim::{
 use fvm::{
     executor::{DefaultExecutor, Executor},
     externs::Rand,
-    machine::{DefaultMachine, Machine, MultiEngine as MultiEngine_v2, NetworkConfig},
+    machine::{DefaultMachine, Machine, NetworkConfig},
 };
 use fvm3::{
-    engine::MultiEngine as MultiEngine_v3,
     executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
     externs::Rand as Rand_v3,
     machine::{
@@ -110,8 +110,7 @@ where
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-        multi_engine_v2: &MultiEngine_v2,
-        multi_engine_v3: &MultiEngine_v3,
+        multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
         timestamp: u64,
     ) -> Result<Self, anyhow::Error> {
@@ -121,7 +120,7 @@ where
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
             config.chain_id(chain_config.eth_chain_id.into());
 
-            let engine = multi_engine_v3.get(&config)?;
+            let engine = multi_engine.v3.get(&config)?;
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
@@ -138,7 +137,7 @@ where
             })
         } else {
             let config = NetworkConfig::new(network_version.into());
-            let engine = multi_engine_v2.get(&config)?;
+            let engine = multi_engine.v2.get(&config)?;
             let mut context = config.for_epoch(epoch, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());

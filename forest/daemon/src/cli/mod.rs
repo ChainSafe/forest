@@ -1,13 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::io::Write;
-
-use anes::execute;
 use clap::Parser;
 use forest_cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use forest_utils::version::FOREST_VERSION_STRING;
-use tokio::{signal, task};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
@@ -17,16 +13,4 @@ pub struct Cli {
     #[clap(flatten)]
     pub opts: CliOpts,
     pub cmd: Option<String>,
-}
-
-pub fn set_sigint_handler() {
-    task::spawn(async {
-        let _ = signal::ctrl_c().await;
-
-        // the cursor can go missing if we hit ctrl-c during a prompt, so we always
-        // restore it
-        let mut stdout = std::io::stdout();
-        #[allow(clippy::question_mark)]
-        execute!(&mut stdout, anes::ShowCursor).unwrap();
-    });
 }
