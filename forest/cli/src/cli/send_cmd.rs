@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{str::FromStr, fmt::Debug};
+use std::{fmt::Debug, str::FromStr};
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
