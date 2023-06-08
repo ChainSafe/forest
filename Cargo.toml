@@ -38,7 +38,6 @@ members = [
   "utils/statediff",
   "utils/test_utils",
   "utils/metrics",
-  "utils/paramfetch",
   "utils/json",
   "utils/forest_utils",
   "utils/forest_shim",
@@ -173,7 +172,6 @@ forest_message = { path = "./vm/message", default-features = false }
 forest_message_pool = { path = "./blockchain/message_pool" }
 forest_metrics = { path = "./utils/metrics" }
 forest_networks = { path = "./networks" }
-forest_paramfetch = { path = "./utils/paramfetch" }
 forest_rpc = { path = "./node/rpc" }
 forest_rpc-api = { path = "./node/rpc-api" }
 forest_rpc-client = { path = "./node/rpc-client" }

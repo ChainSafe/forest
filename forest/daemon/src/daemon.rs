@@ -22,7 +22,9 @@ use forest_db::{
     rolling::DbGarbageCollector,
     Store,
 };
-use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use forest_genesis::{
+    get_network_name_from_genesis, import_chain, read_genesis_header, validate_chain,
+};
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
@@ -33,10 +35,10 @@ use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
-    io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
+    io::write_to_file, monitoring::MemStatsTracker,
+    proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
 };
 use futures::{select, FutureExt};
-use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use tokio::{
@@ -388,19 +390,34 @@ pub(super) async fn start(
         unblock_parent_process()?;
     }
 
-    // Fetch and ensure verification keys are downloaded
+    // Sets proof parameter file download path early, the files will be checked and
+    // downloaded later right after snapshot import step
     if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys).await?;
+        forest_utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+            &config.client.data_dir,
+        );
     }
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    sync_from_snapshot(&config, &state_manager).await?;
+    if let Some(path) = &config.client.snapshot_path {
+        let stopwatch = time::Instant::now();
+        import_chain::<_>(
+            &state_manager,
+            &path.display().to_string(),
+            config.client.skip_load,
+        )
+        .await
+        .context("Failed miserably while importing chain from snapshot")?;
+        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    }
+
+    if config.client.snapshot {
+        if let Some(validate_height) = config.client.snapshot_height {
+            ensure_params_downloaded().await?;
+            validate_chain(&state_manager, validate_height).await?;
+        }
+    }
 
     // For convenience, flush the database after we've potentially loaded a new
     // snapshot. This ensures the snapshot won't have to be re-imported if
@@ -415,6 +432,7 @@ pub(super) async fn start(
         return Ok(());
     }
 
+    ensure_params_downloaded().await?;
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
@@ -520,43 +538,6 @@ async fn prompt_snapshot_or_die(
     } else {
         anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
     }
-}
-
-async fn sync_from_snapshot<DB>(
-    config: &Config,
-    state_manager: &Arc<StateManager<DB>>,
-) -> Result<(), anyhow::Error>
-where
-    DB: Store + Send + Clone + Sync + Blockstore + 'static,
-{
-    if let Some(path) = &config.client.snapshot_path {
-        let stopwatch = time::Instant::now();
-        let validate_height = if config.client.snapshot {
-            config.client.snapshot_height
-        } else {
-            Some(0)
-        };
-
-        match import_chain::<_>(
-            state_manager,
-            &path.display().to_string(),
-            validate_height,
-            config.client.skip_load,
-        )
-        .await
-        {
-            Ok(_) => {
-                info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-            }
-            Err(err) => {
-                anyhow::bail!(
-                    "Failed miserably while importing chain from snapshot {}: {err}",
-                    path.display()
-                );
-            }
-        }
-    }
-    Ok(())
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
@@ -698,7 +679,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, file_path, None, false).await?;
+        import_chain::<_>(&sm, file_path, false).await?;
         Ok(())
     }
 
@@ -723,7 +704,7 @@ mod test {
             chain_config,
             Arc::new(forest_interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, "test_files/chain4.car", None, false)
+        import_chain::<_>(&sm, "test_files/chain4.car", false)
             .await
             .expect("Failed to import chain");
 
