@@ -39,4 +39,7 @@ echo "Test dev commands (which could brick the node/cause subsequent snapshots t
 echo "Test subcommand: chain set-head"
 $FOREST_CLI_PATH chain set-head --epoch -10 --force
 
+echo "Test subcommand: info show"
+$FOREST_CLI_PATH info show
+
 $FOREST_CLI_PATH sync wait # allow the node to re-sync
