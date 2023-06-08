@@ -5,10 +5,7 @@ use std::{
     fs::File as SyncFile,
     io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind},
     path::{Path, PathBuf},
-    sync::{
-        atomic::{self, AtomicBool},
-        Arc,
-    },
+    sync::Arc,
 };
 
 use ahash::HashMap;
@@ -78,22 +75,11 @@ pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
 
 /// Ensures the parameter files are downloaded to cache dir
 pub async fn ensure_params_downloaded() -> anyhow::Result<()> {
-    static CHECKED: AtomicBool = AtomicBool::new(false);
-    lazy_static::lazy_static! {
-        static ref LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::new(());
+    let data_dir = std::env::var(DIR_ENV).unwrap_or_default();
+    if data_dir.is_empty() {
+        anyhow::bail!("Proof parameter data dir is not set");
     }
-
-    if !CHECKED.load(atomic::Ordering::Relaxed) {
-        let _guard = LOCK.lock();
-        if !CHECKED.load(atomic::Ordering::Relaxed) {
-            let data_dir = std::env::var(DIR_ENV).unwrap_or_default();
-            if data_dir.is_empty() {
-                anyhow::bail!("Proof parameter data dir is not set");
-            }
-            get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
-            CHECKED.store(true, atomic::Ordering::Relaxed);
-        }
-    }
+    get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
 
     Ok(())
 }

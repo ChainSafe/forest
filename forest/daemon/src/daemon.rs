@@ -38,7 +38,6 @@ use forest_utils::{
     io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
 };
 use futures::{select, FutureExt};
-use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use tokio::{
@@ -408,7 +407,17 @@ pub(super) async fn start(
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    sync_from_snapshot(&config, &state_manager).await?;
+    if let Some(path) = &config.client.snapshot_path {
+        let stopwatch = time::Instant::now();
+        import_chain::<_>(
+            &state_manager,
+            &path.display().to_string(),
+            config.client.skip_load,
+        )
+        .await
+        .context("Failed miserably while importing chain from snapshot")?;
+        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    }
 
     let validate_height = if config.client.snapshot {
         config.client.snapshot_height
@@ -542,29 +551,6 @@ async fn prompt_snapshot_or_die(
     } else {
         anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
     }
-}
-
-async fn sync_from_snapshot<DB>(
-    config: &Config,
-    state_manager: &Arc<StateManager<DB>>,
-) -> Result<(), anyhow::Error>
-where
-    DB: Store + Send + Clone + Sync + Blockstore + 'static,
-{
-    if let Some(path) = &config.client.snapshot_path {
-        let stopwatch = time::Instant::now();
-
-        import_chain::<_>(
-            state_manager,
-            &path.display().to_string(),
-            config.client.skip_load,
-        )
-        .await
-        .context("Failed miserably while importing chain from snapshot")?;
-        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-    }
-
-    Ok(())
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
