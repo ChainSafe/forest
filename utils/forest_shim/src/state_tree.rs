@@ -106,7 +106,7 @@ mod state_tree_v0 {
     /// State tree implementation using hamt. This structure is not threadsafe and should only be used
     /// in sync contexts.
     pub struct StateTreeV0<S> {
-        hamt: fvm_ipld_hamt::Hamt<S, ActorState>,
+        hamt: hamtv0::Hamt<S, ActorState>,
 
         version: StateTreeVersion,
         info: Option<Cid>,
@@ -157,7 +157,6 @@ mod state_tree_v0 {
                 info,
                 actors,
             })) = store.get_cbor(c)
-            // FIXME: this fails, the older version uses get()
             {
                 (StateTreeVersion::from(version), Some(info), actors)
             } else {
@@ -169,7 +168,7 @@ mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let hamt = Hamt::load_with_bit_width(&actors, store, 5).unwrap();
+                    let hamt = hamtv0::Hamt::load_with_bit_width(&actors, store, 8).unwrap();
 
                     Ok(Self {
                         hamt,
