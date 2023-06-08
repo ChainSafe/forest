@@ -559,8 +559,8 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 }
 
 /// This may:
-/// - create a keystore
-/// - load a keystore
+/// - create a [`KeyStore`]
+/// - load a [`KeyStore`]
 /// - ask a user for password input
 async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
     use std::env::VarError;
@@ -650,7 +650,7 @@ where
     tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
 }
 
-/// Prompts for password, looping until the keystore is successfully loaded.
+/// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
 ///
 /// This code makes blocking syscalls.
 fn input_password_for_encrypted_keystore(
