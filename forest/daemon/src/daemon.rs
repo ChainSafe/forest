@@ -35,7 +35,8 @@ use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
-    io::write_to_file, monitoring::MemStatsTracker, retry, version::FOREST_VERSION_STRING,
+    io::write_to_file, monitoring::MemStatsTracker,
+    proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
 };
 use futures::{select, FutureExt};
 use log::{debug, error, info, warn};
@@ -411,18 +412,11 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
-    let validate_height = if config.client.snapshot {
-        config.client.snapshot_height
-    } else {
-        None
-    };
-    let proof_params_required = !opts.halt_after_import || validate_height.is_some();
-    if proof_params_required {
-        forest_utils::proofs_api::paramfetch::ensure_params_downloaded().await?;
-    }
-
-    if let Some(validate_height) = validate_height {
-        validate_chain(&state_manager, validate_height).await?;
+    if config.client.snapshot {
+        if let Some(validate_height) = config.client.snapshot_height {
+            ensure_params_downloaded().await?;
+            validate_chain(&state_manager, validate_height).await?;
+        }
     }
 
     // For convenience, flush the database after we've potentially loaded a new
@@ -438,6 +432,7 @@ pub(super) async fn start(
         return Ok(());
     }
 
+    ensure_params_downloaded().await?;
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
