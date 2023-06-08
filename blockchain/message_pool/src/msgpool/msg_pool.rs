@@ -319,6 +319,8 @@ where
                 })
                 .await
                 .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
+        } else {
+            warn!("Message {} was unpublished", cid);
         }
         Ok(cid)
     }
