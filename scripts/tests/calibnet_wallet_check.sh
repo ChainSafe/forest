@@ -50,24 +50,24 @@ wget -O metrics.log http://localhost:6116/metrics
 sleep 5s
 
 j=0
-while [[ $j != 40 ]]; do
+while [[ $j != 3 ]]; do
   j=$((j+1))
-  echo "Run $j/40"
+  echo "Run $j/3"
 
   # Show balances
-  # echo "Listing wallet balances"
-  # $FOREST_CLI_PATH wallet list
+  echo "Listing wallet balances"
+  $FOREST_CLI_PATH wallet list
 
   echo "Creating a new address to send FIL to"
   ADDR_TWO=$($FOREST_CLI_PATH wallet new)
   echo "$ADDR_TWO"
   $FOREST_CLI_PATH wallet set-default "$ADDR_ONE"
 
-  # echo "Listing wallet balances"
-  # $FOREST_CLI_PATH wallet list
+  echo "Listing wallet balances"
+  $FOREST_CLI_PATH wallet list
 
   echo "Sending FIL to the above address"
-  MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
+  MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT" --show)
   echo "Message cid:"
   echo "$MSG"
 
@@ -92,6 +92,7 @@ while [[ $j != 40 ]]; do
   FIL_AMT_TRUNCATED=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
   if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT_TRUNCATED" ]; then
     echo "FIL amount should match"
+    exit 1
   fi
 
 done

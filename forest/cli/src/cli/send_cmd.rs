@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use std::{str::FromStr, fmt::Debug};
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
@@ -29,6 +29,9 @@ pub struct SendCommand {
     gas_limit: i64,
     #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
     gas_premium: TokenAmount,
+    /// Display json message
+    #[arg(long)]
+    show: bool,
 }
 
 impl SendCommand {
@@ -61,12 +64,16 @@ impl SendCommand {
         };
 
         let signed_msg_json = mpool_push_message(
-            (MessageJson(message.into()), None),
+            (MessageJson(message.clone().into()), None),
             &config.client.rpc_token,
         )
         .await
         .map_err(handle_rpc_err)?;
 
+        if self.show {
+            let serialized = serde_json::to_string_pretty(&signed_msg_json).unwrap();
+            println!("{}", serialized);
+        }
         println!("{}", signed_msg_json.0.cid().unwrap());
 
         Ok(())
