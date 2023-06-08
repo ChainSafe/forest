@@ -798,6 +798,7 @@ async fn handle_forest_behaviour_event<DB>(
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
         ForestBehaviourEvent::Identify(_) => {}
+        ForestBehaviourEvent::KeepAlive(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {
             handle_chain_exchange_event(
                 &mut swarm.behaviour_mut().chain_exchange,

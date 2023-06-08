@@ -89,3 +89,24 @@ where
     let new_struct: S = toml::from_str(toml_string)?;
     Ok(new_struct)
 }
+
+// When reading a password or prompting a yes/no answer, we change the terminal
+// settings by hiding the cursor or turning off the character echo.
+// Unfortunately, if we're interrupted, these settings are not restored. This
+// function attempts to restore terminal settings to sensible values. However,
+// if SIGKILL kills Forest, there's nothing we can do, and it'll be up to the
+// user to restore their terminal.
+pub fn terminal_cleanup() {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        use termios::*;
+        let fd = std::io::stdin().as_raw_fd();
+        if let Ok(mut termios) = Termios::from_fd(fd) {
+            termios.c_lflag |= ECHO;
+            let _ = tcsetattr(fd, TCSAFLUSH, &termios);
+        }
+    }
+    let mut stdout = std::io::stdout();
+    let _ = anes::execute!(&mut stdout, anes::ShowCursor);
+}

@@ -53,6 +53,16 @@ Docker - works on Linux, macOS and Windows.
 ❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
+Next, run a Forest node in a CLI window. E.g.
+[Run calibration network](https://chainsafe.github.io/forest/docker.html#create-a-forest-node-running-calibration-network-then-list-all-connected-peers)
+
+Thereafter, in another terminal, you will be able to use the `forest-cli` binary
+directly by launching `bash` in the `forest` container:
+
+```
+docker exec -it forest /bin/bash
+```
+
 For more in-depth usage and sample use cases, please refer to the Forest Docker
 documentation in the [Forest Book](https://chainsafe.github.io/forest/). Keep in
 mind that the `latest` tag is the latest stable release. If you want to current
