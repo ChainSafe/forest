@@ -1,3 +1,13 @@
+[package]
+# Forest is in the middle of moving from many workspace crates to one crate
+# See https://github.com/ChainSafe/forest/issues/2957
+name = "forest"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+
 [workspace.package]
 version = "0.8.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
@@ -152,6 +162,7 @@ fil_actor_power_state = "5"
 fil_actor_system_state = "5"
 fil_actors_shared = "5"
 
+forest = { path = "." }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
 forest_blocks = { path = "./blockchain/blocks" }
