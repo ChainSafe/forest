@@ -94,7 +94,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore + Clone + Send + Sync + 'stat
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state
-        .map(|opt| opt.map(|st| ActorStateJson(st.into())))
+        .map(|opt| opt.map(|st| ActorStateJson(st)))
         .map_err(|e| e.into())
 }
 
