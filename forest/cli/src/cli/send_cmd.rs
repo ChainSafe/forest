@@ -29,7 +29,7 @@ pub struct SendCommand {
     gas_limit: i64,
     #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
     gas_premium: TokenAmount,
-    /// Display json message
+    /// Display JSON message
     #[arg(long)]
     show: bool,
 }
