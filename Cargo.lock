@@ -3500,7 +3500,6 @@ dependencies = [
  "forest_shim",
  "forest_test_utils",
  "forest_utils",
- "fvm 2.4.0",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
  "fvm_shared 2.4.0",
