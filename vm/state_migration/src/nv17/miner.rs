@@ -43,10 +43,10 @@ pub(crate) fn miner_migrator<BS>(
 where
     BS: Blockstore + Clone + Send + Sync,
 {
-    let mut empty_precommit_map = fil_actors_shared::v9::make_empty_map::<_, Cid>(
-        store,
-        fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
-    );
+    use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
+
+    let mut empty_precommit_map =
+        fil_actors_shared::v9::make_empty_map::<_, Cid>(store, HAMT_BIT_WIDTH);
     let empty_precommit_map_cid_v9 = empty_precommit_map.flush()?;
 
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
@@ -109,7 +109,7 @@ impl MinerMigrator {
         store: &impl Blockstore,
         old_pre_committed_sectors: &Cid,
     ) -> anyhow::Result<Cid> {
-        const HAMT_BIT_WIDTH: u32 = fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
+        use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
         // it does not effect `load` API here. (Go API takes bit_width=5 for loading while Rust API does not)

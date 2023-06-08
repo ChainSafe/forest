@@ -42,6 +42,8 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
         store: BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
+        use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
+
         let verified_clients = fil_actors_shared::v8::make_map_with_root::<_, StoragePowerV2>(
             &self.verifreg_state.verified_clients,
             &store,
@@ -49,33 +51,26 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
 
         let mut token_supply = StoragePowerV2::default();
 
-        let mut balances_map = fil_actors_shared::v9::make_empty_map::<_, StoragePowerV2>(
-            &store,
-            fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
-        );
+        let mut balances_map =
+            fil_actors_shared::v9::make_empty_map::<_, StoragePowerV2>(&store, HAMT_BIT_WIDTH);
 
-        let mut allowances_map = fil_actors_shared::v9::make_empty_map(
-            &store,
-            fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
-        );
+        let mut allowances_map = fil_actors_shared::v9::make_empty_map(&store, HAMT_BIT_WIDTH);
 
         verified_clients.for_each(|addr_key, value| {
-        let key = hamt_addr_key_to_key(addr_key)?;
-        let token_amount = value * DATA_CAP_GRANULARITY;
-        token_supply = &token_supply + &token_amount;
-        balances_map.set(key.clone(), token_amount)?;
+            let key = hamt_addr_key_to_key(addr_key)?;
+            let token_amount = value * DATA_CAP_GRANULARITY;
+            token_supply = &token_supply + &token_amount;
+            balances_map.set(key.clone(), token_amount)?;
 
-        let mut allowances_map_entry = fil_actors_shared::v9::make_empty_map::<_, StoragePowerV2>(
-            &store,
-            fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
-        );
-        allowances_map_entry.set(
-            BytesKey(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ADDR.payload_bytes()),
-            INFINITE_ALLOWANCE.clone(),
-        )?;
-        allowances_map.set(key, allowances_map_entry.flush()?)?;
-        Ok(())
-    })?;
+            let mut allowances_map_entry =
+                fil_actors_shared::v9::make_empty_map::<_, StoragePowerV2>(&store, HAMT_BIT_WIDTH);
+            allowances_map_entry.set(
+                BytesKey(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ADDR.payload_bytes()),
+                INFINITE_ALLOWANCE.clone(),
+            )?;
+            allowances_map.set(key, allowances_map_entry.flush()?)?;
+            Ok(())
+        })?;
 
         let verifreg_balance =
             StoragePowerV2::from(self.pending_verified_deal_size) * DATA_CAP_GRANULARITY;
@@ -85,10 +80,8 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             verifreg_balance,
         )?;
 
-        let mut token = frc46_token::token::state::TokenState::new_with_bit_width(
-            &store,
-            fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH,
-        )?;
+        let mut token =
+            frc46_token::token::state::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
         token.supply = TokenAmount_v2::from_atto(token_supply);
         token.balances = balances_map.flush()?;
         token.allowances = allowances_map.flush()?;

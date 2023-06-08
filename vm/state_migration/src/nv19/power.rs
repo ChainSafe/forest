@@ -40,7 +40,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator 
             .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Power actor: could not read v10 state"))?;
 
-        //
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 
         let empty_claims = make_empty_map::<_, ()>(&store, HAMT_BIT_WIDTH).flush()?;

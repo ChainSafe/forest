@@ -32,7 +32,7 @@ pub(super) struct VerifregMarketPostMigrator {
 
 impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
-        const HAMT_BIT_WIDTH: u32 = fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
+        use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         // `migrateVerifreg`
 
@@ -82,7 +82,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
                     size: proposal.piece_size,
                     term_min: proposal.duration(),
                     term_max: fil_actors_shared::v9::runtime::policy_constants::MAX_SECTOR_EXPIRATION_EXTENSION,
-                    expiration: expiration,
+                    expiration,
                 },
             )?;
 
@@ -97,7 +97,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             verifiers: self.verifreg_state_v8.verifiers,
             remove_data_cap_proposal_ids: self.verifreg_state_v8.remove_data_cap_proposal_ids,
             allocations: allocations_map_map.flush()?,
-            next_allocation_id: next_allocation_id,
+            next_allocation_id,
             claims: empty_map.flush()?,
         };
         let verifreg_head = store.put_cbor_default(&verifreg_state_v9)?;
