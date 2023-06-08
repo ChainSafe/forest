@@ -1393,9 +1393,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
         return Err((*block_cid, TipsetRangeSyncerError::<C>::concat(errs)));
     }
 
-    chain_store
-        .mark_block_as_validated(block_cid)
-        ;
+    chain_store.mark_block_as_validated(block_cid);
 
     Ok(block)
 }

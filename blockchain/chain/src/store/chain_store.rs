@@ -295,10 +295,7 @@ where
 
     /// Checks metadata file if block has already been validated.
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
-        let validated = self
-            .validated_blocks
-            .lock()
-            .contains(cid);
+        let validated = self.validated_blocks.lock().contains(cid);
         if validated {
             log::debug!("Block {cid} was previously validated");
         }
