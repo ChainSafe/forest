@@ -19,7 +19,6 @@ forest_key_management.workspace = true
 forest_libp2p.workspace = true
 forest_message = { workspace = true }
 forest_message_pool.workspace = true
-forest_shim.workspace = true
 forest_state_manager.workspace = true
 
 # Public
@@ -38,6 +37,8 @@ serde_json.workspace = true
 serde_with.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 
+[dependencies.forest]
+workspace = true
 [build-dependencies]
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }

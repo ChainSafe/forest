@@ -30,7 +30,6 @@ forest_message = { workspace = true }
 forest_message_pool.workspace = true
 forest_networks.workspace = true
 forest_rpc-api.workspace = true
-forest_shim.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
@@ -57,5 +56,7 @@ tempfile.workspace = true
 tokio = { workspace = true, features = ["sync", "fs"] }
 tokio-util = { workspace = true, features = ["compat"] }
 
+[dependencies.forest]
+workspace = true
 [dev-dependencies]
 forest_db.workspace = true

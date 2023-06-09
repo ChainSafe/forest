@@ -12,7 +12,6 @@ anyhow.workspace = true
 cid.workspace = true
 crossbeam-channel = "0.5"
 forest_networks.workspace = true
-forest_shim.workspace = true
 forest_utils.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
@@ -25,3 +24,6 @@ fil_actor_miner_state.workspace = true
 fil_actor_power_state.workspace = true
 fil_actor_system_state.workspace = true
 fil_actors_shared.workspace = true
+
+[dependencies.forest]
+workspace = true

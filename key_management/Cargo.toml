@@ -16,7 +16,6 @@ argon2 = "0.5"
 base64.workspace = true
 bls-signatures.workspace = true
 forest_json.workspace = true
-forest_shim.workspace = true
 forest_utils.workspace = true
 libsecp256k1.workspace = true
 log.workspace = true
@@ -27,6 +26,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 xsalsa20poly1305 = "0.9"
 
+[dependencies.forest]
+workspace = true
 [dev-dependencies]
 quickcheck.workspace = true
 quickcheck_macros.workspace = true

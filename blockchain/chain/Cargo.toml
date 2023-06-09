@@ -24,7 +24,6 @@ forest_libp2p_bitswap.workspace = true
 forest_message = { workspace = true }
 forest_metrics.workspace = true
 forest_networks.workspace = true
-forest_shim.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm_ipld_amt.workspace = true
@@ -45,5 +44,7 @@ tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 
+[dependencies.forest]
+workspace = true
 [dev-dependencies]
 multihash = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }

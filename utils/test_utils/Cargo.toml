@@ -13,6 +13,8 @@ forest_blocks.workspace = true
 forest_json.workspace = true
 forest_libp2p.workspace = true
 forest_message = { workspace = true }
-forest_shim.workspace = true
 fvm_ipld_encoding.workspace = true
 num.workspace = true
+
+[dependencies.forest]
+workspace = true

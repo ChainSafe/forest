@@ -16,8 +16,10 @@ cid.workspace = true
 forest_blocks.workspace = true
 forest_json.workspace = true
 forest_message.workspace = true
-forest_shim.workspace = true
 fvm_ipld_encoding.workspace = true
 hex.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+
+[dev-dependencies.forest]
+workspace = true

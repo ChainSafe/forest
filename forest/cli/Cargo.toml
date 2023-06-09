@@ -36,7 +36,6 @@ forest_libp2p.workspace = true
 forest_networks.workspace = true
 forest_rpc-api.workspace = true
 forest_rpc-client.workspace = true
-forest_shim.workspace = true
 forest_utils.workspace = true
 fs_extra.workspace = true
 futures.workspace = true
@@ -60,6 +59,8 @@ ticker = "0.1"
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
 
+[dependencies.forest]
+workspace = true
 [dev-dependencies]
 assert_cmd.workspace = true
 pretty_assertions = "1.3.0"

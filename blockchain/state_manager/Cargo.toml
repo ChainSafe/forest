@@ -24,7 +24,6 @@ forest_json.workspace = true
 forest_message = { workspace = true }
 forest_metrics.workspace = true
 forest_networks.workspace = true
-forest_shim.workspace = true
 forest_state_migration.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
@@ -47,5 +46,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tracing.workspace = true
 
+[dependencies.forest]
+workspace = true
 [features]
 default = []
