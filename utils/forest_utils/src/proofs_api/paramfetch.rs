@@ -12,7 +12,6 @@ use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use forest_shim::sector::SectorSize;
-use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -22,12 +21,14 @@ use tokio::{
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
+use crate::net::{https_client, hyper};
+
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
 const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
 const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
-const DEFAULT_PARAMETERS: &str = include_str!("parameters.json");
+const DEFAULT_PARAMETERS: &str = include_str!("./parameters.json");
 
 /// Sector size options for fetching.
 pub enum SectorSizeOpt {
@@ -70,6 +71,17 @@ fn param_dir(data_dir: &Path) -> PathBuf {
 /// More information available here: <https://github.com/filecoin-project/rust-fil-proofs#parameter-file-location>
 pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     std::env::set_var(DIR_ENV, param_dir(data_dir));
+}
+
+/// Ensures the parameter files are downloaded to cache dir
+pub async fn ensure_params_downloaded() -> anyhow::Result<()> {
+    let data_dir = std::env::var(DIR_ENV).unwrap_or_default();
+    if data_dir.is_empty() {
+        anyhow::bail!("Proof parameter data dir is not set");
+    }
+    get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
+
+    Ok(())
 }
 
 /// Get proofs parameters and all verification keys for a given sector size
