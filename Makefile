@@ -91,20 +91,20 @@ lint: license clean lint-clippy
 	
 lint-clippy:
 	# Default features: paritydb,jemalloc,forest_fil_cns
-	cargo clippy -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	# Override jemalloc with rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --features rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all --features rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	# Override jemalloc with mimalloc
-	cargo clippy --features mimalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all --features mimalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	# Override forest_fil_cns with forest_deleg_cns
-	cargo clippy --features forest_deleg_cns -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all --features forest_deleg_cns -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	# Override paritydb with rocksdb
-	cargo clippy --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --features submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all --features submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
