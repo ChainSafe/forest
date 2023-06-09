@@ -191,6 +191,7 @@ where
         let global_pre_time = SystemTime::now();
         let network_failures = Arc::new(AtomicU64::new(0));
         let lookup_failures = Arc::new(AtomicU64::new(0));
+        let total_failures = Arc::new(AtomicU64::new(0));
         let chain_exchange_result = match peer_id {
             // Specific peer is given to send request, send specifically to that peer.
             Some(id) => Self::chain_exchange_request(
@@ -208,7 +209,10 @@ where
                 let (result_tx, result_rx) = flume::bounded::<Vec<T>>(1);
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
-                let peers = self.peer_manager.top_peers_shuffled().await;
+                let mut peers = self.peer_manager.top_peers_shuffled().await;
+                peers.truncate(1);
+                let num_peers = peers.len();
+
                 let mut tasks = JoinSet::new();
                 for peer_id in peers.into_iter() {
                     let n_task_control_tx = n_task_control_tx.clone();
@@ -219,6 +223,7 @@ where
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
+                    let total_failures = total_failures.clone();
                     tasks.spawn(async move {
                         if n_task_control_tx.send_async(()).await.is_ok() {
                             match Self::chain_exchange_request(
@@ -236,6 +241,7 @@ where
                                         }
                                         Err(e) => {
                                             lookup_failures.fetch_add(1, Ordering::Relaxed);
+                                            total_failures.fetch_add(1, Ordering::Relaxed);
                                             _ = n_task_control_rx.recv_async().await;
                                             debug!("Failed chain_exchange response: {e}");
                                         }
@@ -243,18 +249,35 @@ where
                                 }
                                 Err(e) => {
                                     network_failures.fetch_add(1, Ordering::Relaxed);
+                                    total_failures.fetch_add(1, Ordering::Relaxed);
                                     _ = n_task_control_rx.recv_async().await;
                                     debug!(
                                         "Failed chain_exchange request to peer {peer_id:?}: {e}"
                                     );
                                 }
                             }
+                        } else {
+                            total_failures.fetch_add(1, Ordering::Relaxed);
                         }
                     });
                 }
 
-                async fn wait_all<T: 'static>(tasks: &mut JoinSet<T>) {
-                    while tasks.join_next().await.is_some() {}
+                async fn wait_all<T: 'static>(
+                    tasks: &mut JoinSet<T>,
+                    total_failures: Arc<AtomicU64>,
+                    num_peers: usize,
+                ) {
+                    loop {
+                        if tasks.join_next().await.is_none() {
+                            let failures = total_failures.load(Ordering::Relaxed);
+                            if failures == num_peers as u64 {
+                                // So far every task have failed
+                                return;
+                            } else {
+                                tokio::task::yield_now().await;
+                            }
+                        }
+                    }
                 }
 
                 let make_failure_message = || {
@@ -278,7 +301,11 @@ where
                         log::debug!("Succeed: handle_chain_exchange_request");
                         result.map_err(|e| e.to_string())?
                     },
-                    _ = wait_all(&mut tasks) => return Err(make_failure_message()),
+                    _ = wait_all(&mut tasks,
+                        total_failures.clone(),
+                        num_peers) => {
+                        return Err(make_failure_message());
+                    },
                 }
             }
         };
