@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_message::SignedMessage;
 use forest::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},
 };
+use forest_message::SignedMessage;
 use rand::{rngs::OsRng, RngCore};
 
 #[test]

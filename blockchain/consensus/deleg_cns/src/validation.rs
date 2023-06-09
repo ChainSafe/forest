@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 
+use forest::shim::address::Address;
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_networks::ChainConfig;
-use forest::shim::address::Address;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 

@@ -5,12 +5,12 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use cid::Cid;
-use forest_networks::{ChainConfig, Height};
 use forest::shim::{
     address::Address,
     clock::ChainEpoch,
     state_tree::{StateTree, StateTreeVersion},
 };
+use forest_networks::{ChainConfig, Height};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 

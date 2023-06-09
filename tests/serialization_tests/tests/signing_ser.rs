@@ -9,13 +9,13 @@ use std::{fs::File, io::prelude::*, str::FromStr};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
-use forest_json::{message, signature};
-use forest_message::signed_message::SignedMessage;
 use forest::shim::{
     address::{set_current_network, Network},
     crypto::Signature,
     message::Message,
 };
+use forest_json::{message, signature};
+use forest_message::signed_message::SignedMessage;
 use fvm_ipld_encoding::Cbor;
 use serde::Deserialize;
 

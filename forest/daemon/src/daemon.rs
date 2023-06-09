@@ -5,6 +5,7 @@ use std::{net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm, Password};
+use forest::shim::version::NetworkVersion;
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
@@ -32,7 +33,6 @@ use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManage
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
-use forest::shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
     io::write_to_file, monitoring::MemStatsTracker,
@@ -614,10 +614,10 @@ async fn password_prompt(prompt: impl Into<String>) -> anyhow::Result<String> {
 
 #[cfg(test)]
 mod test {
+    use forest::shim::address::Address;
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
-    use forest::shim::address::Address;
     use tempfile::TempDir;
 
     use super::*;

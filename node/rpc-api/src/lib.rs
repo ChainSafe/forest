@@ -329,12 +329,12 @@ pub mod wallet_api {
 /// State API
 pub mod state_api {
     use ahash::HashMap;
+    use forest::shim::version::NetworkVersion;
     use forest_blocks::tipset_keys_json::TipsetKeysJson;
     use forest_json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
         message_receipt::json::ReceiptJson,
     };
-    use forest::shim::version::NetworkVersion;
     use forest_state_manager::{InvocResult, MarketBalance};
 
     use crate::data_types::{MarketDeal, MessageLookup};

@@ -5,6 +5,7 @@
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fil_actor_interface::market;
+use forest::shim::address::Address;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_ipld::json::IpldJson;
@@ -13,7 +14,6 @@ use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
 };
-use forest::shim::address::Address;
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};

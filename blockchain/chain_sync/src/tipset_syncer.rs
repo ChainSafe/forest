@@ -13,6 +13,10 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
+use forest::shim::{
+    address::Address, crypto::verify_bls_aggregate, gas::price_list_by_network_version,
+    message::Message, state_tree::StateTree,
+};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -20,10 +24,6 @@ use forest_chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
-use forest::shim::{
-    address::Address, crypto::verify_bls_aggregate, gas::price_list_by_network_version,
-    message::Message, state_tree::StateTree,
-};
 use forest_state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
@@ -1625,9 +1625,9 @@ fn validate_tipset_against_cache<C: Consensus>(
 #[cfg(test)]
 mod test {
     use cid::Cid;
+    use forest::shim::address::Address;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_json::vrf::VRFProof;
-    use forest::shim::address::Address;
     use num_bigint::BigInt;
 
     use super::*;

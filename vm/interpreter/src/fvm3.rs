@@ -5,11 +5,11 @@ use std::{cell::Ref, sync::Arc};
 
 use anyhow::bail;
 use cid::Cid;
-use forest_blocks::BlockHeader;
-use forest_networks::ChainConfig;
 use forest::shim::{
     gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
 };
+use forest_blocks::BlockHeader;
+use forest_networks::ChainConfig;
 use fvm3::{
     externs::{Chain, Consensus, Externs, Rand},
     gas::{Gas, GasTracker},

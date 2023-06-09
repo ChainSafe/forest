@@ -460,8 +460,8 @@ mod test {
         multihash::{Code::Identity, MultihashDigest},
         Cid,
     };
-    use forest_json::vrf::VRFProof;
     use forest::shim::address::Address;
+    use forest_json::vrf::VRFProof;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
 

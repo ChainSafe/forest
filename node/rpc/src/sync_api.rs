@@ -61,6 +61,7 @@ where
 mod tests {
     use std::{sync::Arc, time::Duration};
 
+    use forest::shim::address::Address;
     use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_chain::ChainStore;
@@ -70,7 +71,6 @@ mod tests {
     use forest_libp2p::NetworkMessage;
     use forest_message_pool::{MessagePool, MpoolRpcProvider};
     use forest_networks::ChainConfig;
-    use forest::shim::address::Address;
     use forest_state_manager::StateManager;
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;

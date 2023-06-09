@@ -9,14 +9,6 @@ use async_compression::futures::write::ZstdEncoder;
 use bls_signatures::Serialize as SerializeBls;
 use cid::Cid;
 use digest::Digest;
-use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_interpreter::BlockMessages;
-use forest_ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use forest_metrics::metrics;
-use forest_networks::{ChainConfig, NetworkChain};
 use forest::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -25,6 +17,14 @@ use forest::shim::{
     message::Message,
     state_tree::StateTree,
 };
+use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
+use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use forest_interpreter::BlockMessages;
+use forest_ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use forest_metrics::metrics;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_utils::{
     db::{
         file_backed_obj::{ChainMeta, FileBacked, SYNC_PERIOD},

@@ -5,6 +5,7 @@
 use std::convert::TryFrom;
 
 use ahash::{HashSet, HashSetExt};
+use forest::shim::address::Protocol;
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
 use forest_json::{
@@ -14,7 +15,6 @@ use forest_json::{
 };
 use forest_message::SignedMessage;
 use forest_rpc_api::{data_types::RPCState, mpool_api::*};
-use forest::shim::address::Protocol;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};

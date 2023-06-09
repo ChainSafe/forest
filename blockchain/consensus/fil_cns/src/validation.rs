@@ -7,16 +7,16 @@ use cid::Cid;
 use fil_actor_interface::power;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
-use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use forest_blocks::{Block, BlockHeader, Tipset};
-use forest_chain_sync::collect_errs;
-use forest_networks::{ChainConfig, Height};
 use forest::shim::{
     address::Address,
     randomness::Randomness,
     sector::{PoStProof, SectorInfo},
     version::NetworkVersion,
 };
+use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use forest_blocks::{Block, BlockHeader, Tipset};
+use forest_chain_sync::collect_errs;
+use forest_networks::{ChainConfig, Height};
 use forest_state_manager::StateManager;
 use forest_utils::encoding::prover_id_from_u64;
 use futures::stream::FuturesUnordered;

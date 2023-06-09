@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod json {
     use cid::Cid;
-    use forest_message::SignedMessage;
     use forest::shim::{crypto::Signature, message::Message};
+    use forest_message::SignedMessage;
     use fvm_ipld_encoding::Cbor;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -97,13 +97,13 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use forest_message::{self, SignedMessage};
     use forest::shim::{
         address::Address,
         crypto::Signature,
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
+    use forest_message::{self, SignedMessage};
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
     use serde_json::{self, from_str, to_string};

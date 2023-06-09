@@ -9,6 +9,7 @@ use std::{
 };
 
 use cid::Cid;
+use forest::shim::{clock::EPOCHS_IN_DAY, message::Message};
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
@@ -18,7 +19,6 @@ use forest_libp2p::{
 };
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
-use forest::shim::{clock::EPOCHS_IN_DAY, message::Message};
 use forest_state_manager::StateManager;
 use futures::{
     future::{try_join_all, Future},
@@ -931,11 +931,11 @@ mod tests {
 
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
+    use forest::shim::{address::Address, message::Message};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
-    use forest::shim::{address::Address, message::Message};
     use forest_test_utils::construct_messages;
 
     use crate::validation::TipsetValidator;

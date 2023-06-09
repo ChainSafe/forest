@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest::shim::sector::PoStProof;
 use forest_beacon::beacon_entries;
 use forest_json::{sector, signature};
-use forest::shim::sector::PoStProof;
 use serde::{de, Deserialize, Serialize};
 
 use super::*;

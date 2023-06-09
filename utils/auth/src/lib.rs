@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chrono::{Duration, Utc};
-use forest_key_management::KeyInfo;
 use forest::shim::crypto::SignatureType;
+use forest_key_management::KeyInfo;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::{decode, encode, errors::Result as JWTResult, DecodingKey, EncodingKey, Header};
 use once_cell::sync::Lazy;

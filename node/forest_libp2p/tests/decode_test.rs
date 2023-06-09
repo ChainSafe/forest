@@ -3,16 +3,16 @@
 
 use std::convert::TryFrom;
 
-use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::chain_exchange::{
-    ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
-};
-use forest_message::SignedMessage;
 use forest::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},
 };
+use forest_blocks::{Block, BlockHeader, FullTipset};
+use forest_libp2p::chain_exchange::{
+    ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
+};
+use forest_message::SignedMessage;
 use num::BigInt;
 
 #[test]

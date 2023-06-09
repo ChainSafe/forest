@@ -8,7 +8,6 @@ use cid::{
     Cid,
 };
 use derive_builder::Builder;
-use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest::shim::{
     address::Address,
     bigint::{BigIntDe, BigIntSer},
@@ -17,6 +16,7 @@ use forest::shim::{
     sector::PoStProof,
     version::NetworkVersion,
 };
+use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_utils::encoding::blake2b_256;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::clock::ChainEpoch;
@@ -460,8 +460,8 @@ impl fmt::Display for BlockHeader {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use forest::shim::{address::Address, version::NetworkVersion};
+    use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use fvm_ipld_encoding::Cbor;
 
     use crate::{errors::Error, BlockHeader};

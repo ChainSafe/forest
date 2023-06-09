@@ -17,12 +17,12 @@ use fil_actor_interface::{
     miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
     reward::State as RewardState, system::State as SystemState,
 };
-use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_json::cid::CidJson;
 use forest::shim::{
     address::Address,
     state_tree::{ActorState, StateTree},
 };
+use forest_ipld::json::{IpldJson, IpldJsonRef};
+use forest_json::cid::CidJson;
 use fvm_ipld_blockstore::Blockstore;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
@@ -221,8 +221,8 @@ where
 mod tests {
     use cid::Cid;
     use fil_actor_account_state::v10::State as AccountState;
-    use forest_db::MemoryDB;
     use forest::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use forest_db::MemoryDB;
     use forest_utils::db::CborStoreExt;
     use fvm_ipld_blockstore::Blockstore;
 

@@ -12,11 +12,11 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
+use forest::shim::{address::Address, crypto::Signature};
 use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
-use forest::shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
 use log::error;
 use lru::LruCache;
@@ -327,16 +327,16 @@ pub(crate) fn add_to_selected_msgs(
 pub mod tests {
     use std::{borrow::BorrowMut, time::Duration};
 
-    use forest_blocks::Tipset;
-    use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use forest_message::SignedMessage;
-    use forest_networks::ChainConfig;
     use forest::shim::{
         address::Address,
         crypto::SignatureType,
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
+    use forest_blocks::Tipset;
+    use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
+    use forest_message::SignedMessage;
+    use forest_networks::ChainConfig;
     use num_traits::Zero;
     use test_provider::*;
     use tokio::task::JoinSet;

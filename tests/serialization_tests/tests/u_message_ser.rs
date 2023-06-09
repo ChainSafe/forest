@@ -6,11 +6,11 @@
 
 use std::{fs::File, io::prelude::*};
 
-use forest_json::message;
 use forest::shim::{
     address::{set_current_network, Network},
     message::Message,
 };
+use forest_json::message;
 use fvm_ipld_encoding::to_vec;
 use hex::encode;
 use serde::Deserialize;

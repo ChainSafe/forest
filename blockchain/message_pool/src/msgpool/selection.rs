@@ -9,9 +9,9 @@
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
+use forest::shim::{address::Address, econ::TokenAmount};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use forest::shim::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
@@ -691,10 +691,10 @@ where
 mod test_selection {
     use std::sync::Arc;
 
+    use forest::shim::crypto::SignatureType;
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
-    use forest::shim::crypto::SignatureType;
     use tokio::task::JoinSet;
 
     use super::*;

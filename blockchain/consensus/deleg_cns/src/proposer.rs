@@ -6,12 +6,12 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use forest::shim::address::Address;
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use forest_key_management::Key;
 use forest_networks::Height;
-use forest::shim::address::Address;
 use forest_state_manager::StateManager;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;

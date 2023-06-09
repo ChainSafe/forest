@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::sync::Arc;
 
+use forest::shim::econ::TokenAmount;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use forest_key_management::KeyStore;
-use forest::shim::econ::TokenAmount;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;

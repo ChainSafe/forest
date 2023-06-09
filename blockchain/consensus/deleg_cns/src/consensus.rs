@@ -4,11 +4,11 @@ use std::{fmt::Debug, str::FromStr, sync::Arc};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use forest::shim::address::Address;
 use forest_blocks::{Block, Tipset};
 use forest_chain::{Error as ChainStoreError, Scale, Weight};
 use forest_chain_sync::consensus::Consensus;
 use forest_key_management::KeyStore;
-use forest::shim::address::Address;
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
