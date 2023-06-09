@@ -104,7 +104,7 @@ module BuildCommands
   # path, and start epoch for building and running client.
   def build_substitution_hash
     height = snapshot_height(@snapshot_path)
-    start = height - @heights
+    start = height - @tipsets
 
     return { c: '<tbd>', s: '<tbd>', h: start } if @dry_run
 
@@ -159,7 +159,7 @@ module RunCommands
     new_metrics = exec_command(validate_online_command, self)
     new_metrics[:tpm] =
       new_metrics[:num_epochs] ? new_metrics[:num_epochs] / online_validation_secs : 'n/a'
-    new_metrics[:tpm] = new_metrics[:tpm].ceil(3)
+    new_metrics[:tpm] = new_metrics[:tpm].ceil(3) unless @dry_run
     metrics[:validate_online] = new_metrics
   end
 
@@ -256,7 +256,7 @@ class BenchmarkBase
   include BuildCommands
   include RunCommands
   attr_reader :name, :metrics
-  attr_accessor :dry_run, :snapshot_path, :heights, :chain
+  attr_accessor :dry_run, :snapshot_path, :tipsets, :chain
 
   def initialize(name:, config: {})
     @name = name

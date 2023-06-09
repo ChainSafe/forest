@@ -25,7 +25,7 @@ SNAPSHOT_REGEXES = [
   %r{/(?<height>\d+)_*}
 ].freeze
 
-HEIGHTS_TO_VALIDATE = 40
+TIPSETS_TO_VALIDATE = 40
 
 MINUTE = 60
 HOUR = MINUTE * MINUTE
@@ -34,14 +34,14 @@ HOUR = MINUTE * MINUTE
 
 # Define default options and parse command line options.
 options = {
-  heights: HEIGHTS_TO_VALIDATE,
+  tipsets: TIPSETS_TO_VALIDATE,
   pattern: 'baseline',
   chain: 'mainnet'
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
   opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
-  opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
+  opts.on('--tipsets [Integer]', Integer, 'Number of tipsets to validate') { |v| options[:tipsets] = v }
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
   opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
   opts.on('--tempdir [String]', 'Specify a custom directory for running benchmarks') { |v| options[:tempdir] = v }
@@ -230,7 +230,7 @@ end
 # run metrics, and assign metrics for each benchmark.
 def benchmarks_loop(benchmarks, options, bench_metrics)
   benchmarks.each do |bench|
-    bench.dry_run, bench.snapshot_path, bench.heights, bench.chain = bench_loop_assignments(options)
+    bench.dry_run, bench.snapshot_path, bench.tipsets, bench.chain = bench_loop_assignments(options)
     bench.run(options[:daily], @snapshot_downloaded)
 
     bench_metrics[bench.name] = bench.metrics
@@ -246,7 +246,7 @@ end
 
 # Helper function for to create assignments for `benchmarks_loop` function.
 def bench_loop_assignments(options)
-  [options[:dry_run], options[:snapshot_path], options[:heights], options[:chain]]
+  [options[:dry_run], options[:snapshot_path], options[:tipsets], options[:chain]]
 end
 
 # Run benchmarks and write to `CSV` if daily or markdown file if `DB` benchmarks.
