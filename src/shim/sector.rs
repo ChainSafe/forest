@@ -13,7 +13,7 @@ use fvm_shared3::sector::{
     SectorSize as SectorSizeV3,
 };
 
-use crate::{version::NetworkVersion, Inner};
+use crate::shim::{version::NetworkVersion, Inner};
 
 /// Represents a shim over `RegisteredSealProof` from `fvm_shared` with
 /// convenience methods to convert to an older version of the type
@@ -50,7 +50,7 @@ impl From<RegisteredSealProofV3> for RegisteredSealProof {
     }
 }
 
-impl crate::Inner for RegisteredSealProof {
+impl crate::shim::Inner for RegisteredSealProof {
     type FVM = RegisteredSealProofV3;
 }
 
@@ -265,12 +265,12 @@ mod tests {
         let orig_sector_size = fvm_shared3::sector::SectorSize::_2KiB;
         let orig_json_repr = serde_json::to_string(&orig_sector_size).unwrap();
 
-        let shimmed_sector_size = crate::sector::SectorSize(fvm_shared3::sector::SectorSize::_2KiB);
+        let shimmed_sector_size = crate::shim::sector::SectorSize(fvm_shared3::sector::SectorSize::_2KiB);
         let shimmed_json_repr = serde_json::to_string(&shimmed_sector_size).unwrap();
 
         assert_eq!(orig_json_repr, shimmed_json_repr);
 
-        let shimmed_deser: crate::sector::SectorSize =
+        let shimmed_deser: crate::shim::sector::SectorSize =
             serde_json::from_str(&shimmed_json_repr).unwrap();
         let orig_deser: fvm_shared3::sector::SectorSize =
             serde_json::from_str(&orig_json_repr).unwrap();

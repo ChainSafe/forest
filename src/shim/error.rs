@@ -6,7 +6,7 @@ use fvm_shared::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use serde::{Deserialize, Serialize};
 
-use crate::Inner;
+use crate::shim::Inner;
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
 ///

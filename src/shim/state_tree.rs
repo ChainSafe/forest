@@ -15,7 +15,7 @@ use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::{address::Address, econ::TokenAmount, Inner};
+use crate::shim::{address::Address, econ::TokenAmount, Inner};
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,

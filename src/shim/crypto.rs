@@ -89,7 +89,7 @@ impl Signature {
     }
 
     /// Checks if a signature is valid given data and address.
-    pub fn verify(&self, data: &[u8], addr: &crate::address::Address) -> Result<(), String> {
+    pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> Result<(), String> {
         use fvm_shared3::crypto::signature::ops::{verify_bls_sig, verify_secp256k1_sig};
         match self.sig_type {
             SignatureType::BLS => verify_bls_sig(&self.bytes, data, addr),

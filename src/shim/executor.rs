@@ -10,7 +10,7 @@ use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::econ::TokenAmount;
+use crate::shim::econ::TokenAmount;
 
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
