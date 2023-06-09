@@ -12,40 +12,38 @@ set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
-snapshot_dir=$(mktemp --directory)
-
-# return the first snapshot path listed by forest
-function pop-snapshot-path() {
-    "$FOREST_CLI_PATH" snapshot list --snapshot-dir "$snapshot_dir" \
-        | grep path \
-        | sed 's/^\tpath: //' \
-        | head --lines=1
-}
-
-function clean-snapshot-dir() {
-    rm --recursive --force --verbose -- "$snapshot_dir"
-    mkdir --parents -- "$snapshot_dir"
+# Print the number of files in the present working directory
+function num-files-here() {
+    # list one file per line
+    find . -type f \
+        | wc --lines
 }
 
 "$FOREST_CLI_PATH" fetch-params --keys
-
-: fetch snapshot
-"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir" --vendor forest
-"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir" --vendor filops
-clean-snapshot-dir
-
 
 : "cleaning an empty database doesn't fail (see #2811)"
 "$FOREST_CLI_PATH" --chain calibnet db clean --force
 "$FOREST_CLI_PATH" --chain calibnet db clean --force
 
+
+: fetch snapshot
+pushd "$(mktemp --directory)"
+"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest
+"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor filops
+# this will fail if they happen to have the same height - we should change the format of our filenames
+test "$(num-files-here)" -eq 2
+rm -- *
+popd
+
+
+
 : validate calibnet snapshot
-    clean-snapshot-dir
-
+pushd "$(mktemp --directory)"
     : : fetch a calibnet snapshot
-    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"
-    validate_me=$(pop-snapshot-path)
+    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch
+    test "$(num-files-here)" -eq 1
 
+    validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed
     "$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me" --force
 
@@ -53,5 +51,6 @@ clean-snapshot-dir
     if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me" --force; then
         exit 1
     fi
+rm -- *
+popd
 
-    clean-snapshot-dir
