@@ -273,9 +273,8 @@ where
                             if failures == num_peers as u64 {
                                 // So far every task have failed
                                 return;
-                            } else {
-                                tokio::task::yield_now().await;
                             }
+                            tokio::task::yield_now().await;
                         }
                     }
                 }
