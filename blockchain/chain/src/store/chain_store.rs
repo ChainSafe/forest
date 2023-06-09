@@ -194,15 +194,15 @@ where
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
     /// `{forest_chain_store}/HEAD`
-    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, tipset: Arc<Tipset>) -> Result<(), Error> {
         let last_head_epoch = self.heaviest_tipset().epoch();
 
         self.file_backed_heaviest_tipset_keys
             .lock()
-            .set_inner(ts.key().clone())?;
+            .set_inner(tipset.key().clone())?;
 
-        let mut tipsets = NonEmpty::new(ts.clone());
-        let mut cur_tipset = ts.clone();
+        let mut tipsets = NonEmpty::new(tipset.clone());
+        let mut cur_tipset = tipset;
         while let Ok(ts) = self.tipset_from_keys(cur_tipset.parents()) {
             if ts.epoch() >= last_head_epoch {
                 tipsets.push(ts.clone());
