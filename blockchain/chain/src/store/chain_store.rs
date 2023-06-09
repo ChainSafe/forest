@@ -202,11 +202,16 @@ where
             .set_inner(ts.key().clone())?;
 
         let mut tipsets = NonEmpty::new(ts.clone());
-        let mut head = self.tipset_from_keys(ts.parents())?;
-        while head.epoch() >= last_head_epoch {
-            tipsets.push(head.clone());
-            head = self.tipset_from_keys(head.parents())?;
+        let mut cur_tipset = ts.clone();
+        while let Ok(ts) = self.tipset_from_keys(cur_tipset.parents()) {
+            if ts.epoch() >= last_head_epoch {
+                tipsets.push(ts.clone());
+                cur_tipset = ts.clone();
+            } else {
+                break;
+            }
         }
+
         if self.publisher.send(HeadChange::Apply(tipsets)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
