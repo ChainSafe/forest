@@ -12,6 +12,10 @@ name = "forest"
 path = "src/main.rs"
 
 [dependencies]
+forest_ipld.workspace = true
+fvm_ipld_encoding.workspace = true
+cid.workspace = true
+ahash.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 cfg-if.workspace = true
