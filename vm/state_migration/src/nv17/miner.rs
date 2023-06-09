@@ -7,7 +7,8 @@
 use std::sync::Arc;
 
 use ahash::HashMap;
-use cid::{multihash::Code::Blake2b256, Cid};
+use anyhow::Context;
+use cid::{multibase::Base, multihash::Code::Blake2b256, Cid};
 use fil_actor_miner_state::{
     v8::State as MinerStateOld,
     v9::{util::sector_key, State as MinerStateNew},
@@ -27,6 +28,7 @@ pub struct MinerMigrator {
     market_proposals: Cid,
     empty_precommit_map_cid_v9: Cid,
     empty_deadline_v8_cid: Cid,
+    empty_deadlines_v8_cid: Cid,
     empty_deadline_v9_cid: Cid,
     empty_deadlines_v9_cid: Cid,
 }
@@ -47,22 +49,29 @@ where
 
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
         fil_actor_miner_state::v8::Deadline::new(store)?;
-    let empty_deadline_v8_cid = store.put_cbor(&empty_deadline_v8, Blake2b256)?;
+    let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
+
+    // FIXME: pass policy from chain config
+    let policy = fil_actors_shared::v8::runtime::Policy::calibnet();
+    let empty_deadlines_v8 =
+        fil_actor_miner_state::v8::Deadlines::new(&policy, empty_deadline_v8_cid);
+    let empty_deadlines_v8_cid = store.put_cbor_default(&empty_deadlines_v8)?;
 
     let empty_deadline_v9 = fil_actor_miner_state::v9::Deadline::new(store)?;
-    let empty_deadline_v9_cid = store.put_cbor(&empty_deadline_v9, Blake2b256)?;
+    let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
 
     // FIXME: pass policy from chain config
     let policy = fil_actors_shared::v9::runtime::Policy::calibnet();
     let empty_deadlines_v9 =
         fil_actor_miner_state::v9::Deadlines::new(&policy, empty_deadline_v9_cid);
-    let empty_deadlines_v9_cid = store.put_cbor(&empty_deadlines_v9, Blake2b256)?;
+    let empty_deadlines_v9_cid = store.put_cbor_default(&empty_deadlines_v9)?;
 
     Ok(Arc::new(MinerMigrator {
         out_code,
         market_proposals,
         empty_precommit_map_cid_v9,
         empty_deadline_v8_cid,
+        empty_deadlines_v8_cid,
         empty_deadline_v9_cid,
         empty_deadlines_v9_cid,
     }))
@@ -170,7 +179,27 @@ impl MinerMigrator {
         miner_address: &Address,
         in_root: &Cid,
     ) -> anyhow::Result<Cid> {
-        todo!()
+        let key = sectors_amt_key(in_root)?;
+
+        if let Some(v) = cache.get(&key) {
+            Ok(*v)
+        } else {
+            let in_array = fil_actors_shared::v8::Array::<
+                fil_actor_miner_state::v8::SectorOnChainInfo,
+                _,
+            >::load(in_root, store)?;
+
+            let prev_in_root = cache.get(&miner_prev_sectors_in_key(miner_address));
+            let prev_out_root = cache.get(&miner_prev_sectors_out_key(miner_address));
+
+            if let Some(prev_in_root) = prev_in_root {
+                if let Some(prev_out_root) = prev_out_root {
+                    // we have previous work, but the AMT has changed -- diff them
+                }
+            }
+
+            todo!()
+        }
     }
 
     fn migrate_deadlines(
@@ -179,6 +208,100 @@ impl MinerMigrator {
         store: &impl Blockstore,
         deadlines: &Cid,
     ) -> anyhow::Result<Cid> {
-        todo!()
+        if deadlines == &self.empty_deadlines_v8_cid {
+            Ok(self.empty_deadline_v9_cid.clone())
+        } else {
+            let in_deadlines: fil_actor_miner_state::v8::Deadlines = store
+                .get_cbor(deadlines)?
+                .context("Failed to get in_deadlines")?;
+
+            // FIXME: pass policy from chain config
+            let policy = fil_actors_shared::v9::runtime::Policy::calibnet();
+            let mut out_deadlines =
+                fil_actor_miner_state::v9::Deadlines::new(&policy, self.empty_deadline_v9_cid);
+            for (i, c) in in_deadlines.due.iter().enumerate() {
+                if c == &self.empty_deadline_v8_cid {
+                    if i < out_deadlines.due.len() {
+                        out_deadlines.due[i] = *c;
+                    } else {
+                        out_deadlines.due.push(*c);
+                    }
+                } else {
+                    let in_deadline: fil_actor_miner_state::v8::Deadline =
+                        store.get_cbor(c)?.context("Failed to get in_deadline")?;
+
+                    let out_sectors_snapshot_cid_cache_key =
+                        sectors_amt_key(&in_deadline.sectors_snapshot)?;
+                    let out_sectors_snapshot_cid =
+                        match cache.get(&out_sectors_snapshot_cid_cache_key) {
+                            Some(v) => v,
+                            None => {
+                                todo!()
+                            }
+                        };
+
+                    let out_deadline = fil_actor_miner_state::v9::Deadline {
+                        partitions: in_deadline.partitions,
+                        expirations_epochs: in_deadline.expirations_epochs,
+                        partitions_posted: in_deadline.partitions_posted,
+                        early_terminations: in_deadline.early_terminations,
+                        live_sectors: in_deadline.live_sectors,
+                        total_sectors: in_deadline.total_sectors,
+                        faulty_power: TypeMigrator::migrate_type(in_deadline.faulty_power, store)?,
+                        optimistic_post_submissions: in_deadline.optimistic_post_submissions,
+                        sectors_snapshot: *out_sectors_snapshot_cid,
+                        partitions_snapshot: in_deadline.partitions_snapshot,
+                        optimistic_post_submissions_snapshot: in_deadline
+                            .optimistic_post_submissions_snapshot,
+                    };
+
+                    let out_deadline_cid = store.put_cbor_default(&out_deadline)?;
+
+                    if i < out_deadlines.due.len() {
+                        out_deadlines.due[i] = out_deadline_cid;
+                    } else {
+                        out_deadlines.due.push(out_deadline_cid);
+                    }
+                }
+            }
+
+            store.put_cbor_default(&out_deadlines)
+        }
     }
+}
+
+fn migrate_from_scratch<'bs, BS: Blockstore>(
+    store: &'bs BS,
+    in_array: &fil_actors_shared::v8::Array<fil_actor_miner_state::v8::SectorOnChainInfo, BS>,
+) -> anyhow::Result<
+    fil_actors_shared::v9::Array<'bs, fil_actor_miner_state::v9::SectorOnChainInfo, BS>,
+> {
+    use fil_actor_miner_state::v9::SECTORS_AMT_BITWIDTH;
+
+    let mut out_array = fil_actors_shared::v9::Array::<
+        fil_actor_miner_state::v9::SectorOnChainInfo,
+        _,
+    >::new_with_bit_width(store, SECTORS_AMT_BITWIDTH);
+
+    in_array.for_each(|key, info_v8| {
+        out_array.set(key, TypeMigrator::migrate_type(info_v8.clone(), store)?)?;
+        Ok(())
+    })?;
+
+    Ok(out_array)
+}
+
+fn miner_prev_sectors_in_key(addr: &Address) -> String {
+    format!("prevSectorsIn-{addr}")
+}
+
+fn miner_prev_sectors_out_key(addr: &Address) -> String {
+    format!("prevSectorsOut-{addr}")
+}
+
+fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
+    Ok(format!(
+        "sectorsAmt-{}",
+        cid.to_string_of_base(Base::Base32Lower)?,
+    ))
 }
