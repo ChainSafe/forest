@@ -5,9 +5,8 @@
 //! [`crate::cli::Config::snapshot_directory`]. The snapshots live at
 //! `stable_url`s - see [`stable_url`]'s source for the supported chains and vendors.
 //!
-//! This module contains utilities for fetching, enumerating, interning (accepting
-//! from other locations) snapshots. Users should be aware that operations on the
-//! snapshot directory may race.
+//! This module contains utilities for fetching snapshots.
+//! Users should be aware that operations on the snapshot directory may race.
 //!
 //! # Implementation
 //! The snapshot store is actually a single directory, containing a flat store
@@ -16,8 +15,7 @@
 //! - A _metadata_ file, named e.g `foo.car.zst.forestmetadata.json`. See
 //!   [`SNAPSHOT_METADATA_FILE_SUFFIX`]
 //!
-//! All files are ultimately interned by [`intern_and_create_metadata`], whether from
-//! the CLI, or from the web.
+//! This is done by [`intern_and_create_metadata`].
 //!
 //! We assign no semantic meaning to the filenames in the snapshot directory,
 //! other than the blob/metadata distinction - all that matters is that they are unique.
@@ -50,63 +48,18 @@ use anyhow::{anyhow, bail, Context as _};
 use chrono::{NaiveDate, NaiveTime};
 use forest_networks::NetworkChain;
 use forest_utils::io::progress_bar::downloading_style;
-use futures::future::join_all;
+use futures::{future::join_all, TryFutureExt as _};
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use tap::Tap as _;
 use tempfile::NamedTempFile;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use url::Url;
 
 const SNAPSHOT_METADATA_FILE_SUFFIX: &str = ".metadata.json";
 const ARIA2C_METADATA_FILE_SUFFIX: &str = ".aria";
 
-/// List all paths to files and their metadata in `snapshot_dir`.
-/// Returns [`Ok(Vec::new())`] if `snapshot_dir` does not exist.
-///
-/// Users can freely delete the path to the blob - corresponding metadata will
-/// be cleaned up in the next call to [list], but this should be regarded as an
-/// implementation detail.
-///
-/// See [module documentation](mod@self) for more.
-///
-/// Note this function makes blocking syscalls, and should not be called
-/// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
-pub fn list(snapshot_dir: &Path) -> anyhow::Result<Vec<(PathBuf, SnapshotMetadata)>> {
-    if !snapshot_dir.exists() {
-        return Ok(Vec::new());
-    }
-    let Partitioned {
-        main_and_meta,
-        orphaned_meta,
-        orphaned_main,
-    } = partition_by_suffix(snapshot_dir, SNAPSHOT_METADATA_FILE_SUFFIX)
-        .context("couldn't enumerate snapshots in snapshot directory")?;
-    for meta in orphaned_meta {
-        debug!(path = %meta.display(), "deleting metadata without corresponding blob");
-        let _ = std::fs::remove_file(meta);
-    }
-    for main in orphaned_main {
-        debug!(path = %main.display(), "ignoring snapshots without metadata files")
-    }
-
-    Ok(main_and_meta
-        .into_iter()
-        .flat_map(|(blob, metadata)| {
-            std::fs::read_to_string(&metadata)
-                .map_err(|_| warn!(path = ?metadata, "ignoring unreadable metadata file"))
-                .and_then(|s| {
-                    serde_json::from_str(&s).map_err(
-                        |_| warn!(path = ?metadata, "ignoring invalid format for metadata file"),
-                    )
-                })
-                .map(|metadata| (blob, metadata))
-        })
-        .collect())
-}
-
 /// Fetch a snapshot with `aria2c`, falling back to our own HTTP client.
-/// This may draw to stdout.
 ///
 /// See [module documentation](mod@self) for more.
 pub async fn fetch(
@@ -140,36 +93,6 @@ pub async fn fetch(
     }
 }
 
-/// `file` is a snapshot file with a conventional name.
-/// This function will move `file` into `snapshot_dir`, adding an appropriate metadata
-/// file to allow it to be recognized in [list].
-pub async fn intern(
-    snapshot_dir: &Path,
-    file: &Path,
-    chain: &NetworkChain,
-    vendor: &str,
-) -> anyhow::Result<PathBuf> {
-    let (height, date, time) = file
-        .file_name()
-        .and_then(OsStr::to_str)
-        .context("non-utf8 or missing filename")
-        .and_then(parse::parse_filename)
-        .context("invalid filename")?;
-
-    intern_and_create_metadata(
-        snapshot_dir,
-        file,
-        height,
-        date,
-        time,
-        chain,
-        vendor,
-        None,
-        None,
-    )
-    .await
-}
-
 /// Find all completed downloads in `aria2c_dir`, and intern them.
 /// The files are expected to have a conventional name.
 /// Returns the first file interned - we typically only expect one file to be interned.
@@ -192,11 +115,28 @@ async fn intern_from_aria2c_dir(
     // maybe there's garbage in `aria2c_dir` that didn't make sense to intern.
     // as long as we've interned _something_, we've probably done what the
     // user wanted.
-    let (mut successes, failures) = join_all(
-        orphaned_main
-            .iter()
-            .map(|file| intern(snapshot_dir, file, chain, vendor)),
-    )
+    let (mut successes, failures) = join_all(orphaned_main.iter().map(|file| {
+        async {
+            file.file_name()
+                .and_then(OsStr::to_str)
+                .context("non-utf8 or missing filename")
+                .and_then(parse::parse_filename)
+                .context("invalid filename")
+        }
+        .and_then(|(height, date, time)| {
+            intern_and_create_metadata(
+                snapshot_dir,
+                file,
+                height,
+                date,
+                time,
+                chain,
+                vendor,
+                None,
+                None,
+            )
+        })
+    }))
     .await
     .into_iter()
     .partition_result::<Vec<_>, Vec<_>, _, _>();
@@ -440,6 +380,7 @@ fn partition_by_suffix(directory: &Path, metadata_suffix: &str) -> io::Result<Pa
     })
 }
 
+#[allow(unused)] // these fields are here for completeness
 struct Partitioned {
     main_and_meta: Vec<(PathBuf, PathBuf)>,
     orphaned_meta: Vec<PathBuf>,

@@ -30,7 +30,8 @@ function clean-snapshot-dir() {
 "$FOREST_CLI_PATH" fetch-params --keys
 
 : fetch snapshot
-"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir"
+"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir" --vendor forest
+"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --snapshot-dir "$snapshot_dir" --vendor filops
 clean-snapshot-dir
 
 
@@ -54,15 +55,3 @@ clean-snapshot-dir
     fi
 
     clean-snapshot-dir
-
-: intern a snapshot downloaded with aria2c
-    download_dir=$(mktemp --directory)
-    aria2c https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst --dir="$download_dir"
-    snapshot_path=$(echo "$download_dir"/*) # Should expand to the (only) thing in the directory
-    snapshot_name=$(basename "$snapshot_path")
-    "$FOREST_CLI_PATH" --chain calibnet snapshot intern "$snapshot_path" --snapshot-dir "$snapshot_dir"
-    : snapshot should appear in list of snapshots
-    "$FOREST_CLI_PATH" snapshot list --snapshot-dir "$snapshot_dir" \
-        | grep --fixed-strings "$snapshot_name"
-    clean-snapshot-dir
-

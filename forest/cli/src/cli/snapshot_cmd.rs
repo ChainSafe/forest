@@ -3,13 +3,12 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::{bail, Context as _};
+use anyhow::bail;
 use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_cli_shared::snapshot::SnapshotMetadata;
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
@@ -18,9 +17,7 @@ use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
 use forest_utils::{io::ProgressBar, net::get_fetch_progress_from_file};
 use fvm_shared::clock::ChainEpoch;
-use itertools::Itertools as _;
 use tempfile::TempDir;
-use tracing::error;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -54,22 +51,6 @@ pub enum SnapshotCommands {
     /// Shows default location snapshots are downloaded to
     DefaultLocation,
 
-    /// List local snapshots
-    /// The output format of this command is not stable
-    List {
-        #[command(flatten)]
-        snapshot_dir: SnapshotDirectory,
-    },
-
-    /// Remove all known snapshots except the latest for each chain
-    Prune {
-        #[command(flatten)]
-        snapshot_dir: SnapshotDirectory,
-    },
-
-    /// Clean all local snapshots.
-    Clean,
-
     /// Validates the snapshot.
     Validate {
         /// Number of block headers to validate from the tip
@@ -80,16 +61,6 @@ pub enum SnapshotCommands {
         /// Force validation and answers yes to all prompts.
         #[arg(long)]
         force: bool,
-    },
-
-    /// Moves a file downloaded from another source into forest's snapshot directory
-    Intern {
-        #[command(flatten)]
-        snapshot_dir: SnapshotDirectory,
-        /// The name of the file must be in a conventional format (as if downloaded from a supported vendor)
-        file: PathBuf,
-        #[arg(long, default_value = "user-interned")]
-        vendor: String,
     },
 }
 
@@ -213,90 +184,11 @@ impl SnapshotCommands {
                 println!("{}", config.snapshot_directory().display());
                 Ok(())
             }
-            Self::List { snapshot_dir } => {
-                let snapshots = forest_cli_shared::snapshot::list(
-                    snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
-                )?;
-                if snapshots.is_empty() {
-                    eprintln!("no snapshots")
-                } else {
-                    for (
-                        path,
-                        SnapshotMetadata::V1 {
-                            height,
-                            date,
-                            chain,
-                            vendor,
-                            time: _,
-                            source_url,
-                            fetched_url,
-                        },
-                    ) in snapshots
-                    {
-                        println!("snapshot:");
-                        println!("\tpath: {}", path.display());
-                        println!("\theight: {height}");
-                        println!("\tdate: {date}");
-                        println!("\tchain: {chain}");
-                        println!("\tvendor: {vendor}");
-                        if let Some(source_url) = source_url {
-                            println!("\tsource_url: {source_url}")
-                        }
-                        if let Some(fetched_url) = fetched_url {
-                            println!("\tfetched_url: {fetched_url}")
-                        }
-                        println!();
-                    }
-                }
-                Ok(())
-            }
-            Self::Prune { snapshot_dir } => {
-                let mut pruned = 0;
-                let snapshots = forest_cli_shared::snapshot::list(
-                    snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
-                )?;
-                let safe = snapshots
-                    .iter()
-                    // groupby works only on consecutive entries, so sort first
-                    .sorted_by_key(|(_, SnapshotMetadata::V1 { chain, .. })| chain)
-                    .group_by(|(_, SnapshotMetadata::V1 { chain, .. })| chain)
-                    .into_iter()
-                    .flat_map(|(_chain, snapshots_in_chain)| {
-                        snapshots_in_chain
-                            .max_by_key(|(_, SnapshotMetadata::V1 { height, .. })| height)
-                    })
-                    .map(|(path, _)| path)
-                    .collect::<Vec<_>>();
-                for (snapshot, _) in &snapshots {
-                    if !safe.contains(&snapshot) {
-                        match tokio::fs::remove_file(snapshot).await {
-                            Err(e) => error!(path = ?snapshot, "error removing snapshot: {e}"),
-                            Ok(_) => pruned += 1,
-                        }
-                    }
-                }
-                println!("pruned {pruned} snapshots");
-                Ok(())
-            }
-            Self::Clean => std::fs::remove_dir_all(config.snapshot_directory())
-                .context("couldn't remove snapshot directory"),
             Self::Validate {
                 recent_stateroots,
                 snapshot,
                 force,
             } => validate(&config, recent_stateroots, snapshot, *force).await,
-            Self::Intern {
-                snapshot_dir,
-                file,
-                vendor,
-            } => forest_cli_shared::snapshot::intern(
-                snapshot_dir.inner().unwrap_or(&config.snapshot_directory()),
-                file,
-                &config.chain.network,
-                vendor,
-            )
-            .await
-            .map(|path| println!("interned to {}", path.display())),
         }
     }
 }
