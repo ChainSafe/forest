@@ -9,12 +9,11 @@ require 'toml-rb'
 
 whitelist = {
   # Check all `Cargo.toml` files for `time` crate
-  'time' => []
-  # The following code will be uncommented as part of `PR#2880: https://github.com/ChainSafe/forest/pull/2880`
-  # # Create exceptions for `forest_shim` and `forest_interpreter` (only places
-  # # `fvm` & `fvm3` are allowed).
-  # 'fvm' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml'],
-  # 'fvm3' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml']
+  'time' => [],
+  # Create exceptions for `forest_shim` and `forest_interpreter` (only places
+  # `fvm` & `fvm3` are allowed).
+  'fvm' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml'],
+  'fvm3' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml']
 }
 
 violations = Hash.new { |h, k| h[k] = [] }
