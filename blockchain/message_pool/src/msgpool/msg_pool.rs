@@ -17,7 +17,7 @@ use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,

@@ -7,7 +7,7 @@ use clap::Subcommand;
 use forest_blocks::TipsetKeys;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
-use forest_shim::clock::ChainEpoch;
+use forest::shim::clock::ChainEpoch;
 use futures::TryFutureExt;
 
 use super::*;

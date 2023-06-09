@@ -21,8 +21,8 @@ pub mod version;
 /// The usage is awkward but it avoids code duplication.
 ///
 /// ```
-/// use forest_shim::Inner;
-/// use forest_shim::error::ExitCode;
+/// use forest::shim::Inner;
+/// use forest::shim::error::ExitCode;
 /// <ExitCode as Inner>::FVM::new(0);
 /// ```
 pub trait Inner {

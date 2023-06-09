@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
 };

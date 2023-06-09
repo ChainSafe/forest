@@ -9,7 +9,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
-use forest_shim::{
+use forest::shim::{
     address::Address,
     econ::TokenAmount,
     message::Message,

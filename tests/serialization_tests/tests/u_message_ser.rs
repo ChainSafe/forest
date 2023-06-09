@@ -7,7 +7,7 @@
 use std::{fs::File, io::prelude::*};
 
 use forest_json::message;
-use forest_shim::{
+use forest::shim::{
     address::{set_current_network, Network},
     message::Message,
 };

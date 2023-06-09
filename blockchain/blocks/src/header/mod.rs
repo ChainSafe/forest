@@ -9,7 +9,7 @@ use cid::{
 };
 use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     bigint::{BigIntDe, BigIntSer},
     crypto::Signature,
@@ -33,11 +33,11 @@ pub mod json;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use forest_shim::address::Address;
+/// use forest::shim::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;
-/// use forest_shim::crypto::Signature;
+/// use forest::shim::crypto::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
 ///
@@ -461,7 +461,7 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use forest_shim::{address::Address, version::NetworkVersion};
+    use forest::shim::{address::Address, version::NetworkVersion};
     use fvm_ipld_encoding::Cbor;
 
     use crate::{errors::Error, BlockHeader};

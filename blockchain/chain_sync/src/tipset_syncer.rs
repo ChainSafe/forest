@@ -20,7 +20,7 @@ use forest_chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
-use forest_shim::{
+use forest::shim::{
     address::Address, crypto::verify_bls_aggregate, gas::price_list_by_network_version,
     message::Message, state_tree::StateTree,
 };
@@ -1627,7 +1627,7 @@ mod test {
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_json::vrf::VRFProof;
-    use forest_shim::address::Address;
+    use forest::shim::address::Address;
     use num_bigint::BigInt;
 
     use super::*;

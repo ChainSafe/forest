@@ -11,7 +11,7 @@ use std::{
 use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
-use forest_shim::sector::SectorSize;
+use forest::shim::sector::SectorSize;
 use futures::TryStreamExt;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};

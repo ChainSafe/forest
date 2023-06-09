@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_shim::bigint::BigInt;
+use forest::shim::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 

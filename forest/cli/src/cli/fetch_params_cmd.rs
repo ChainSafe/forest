@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_shim::{sector::SectorSize, Inner};
+use forest::shim::{sector::SectorSize, Inner};
 use forest_utils::proofs_api::paramfetch::{get_params_default, SectorSizeOpt};
 
 use super::cli_error_and_die;
@@ -48,7 +48,7 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
     let mut trimmed = size.trim_end_matches('B');
     trimmed = trimmed.trim_end_matches('b');
 
-    type SectorSize = <forest_shim::sector::SectorSize as Inner>::FVM;
+    type SectorSize = <forest::shim::sector::SectorSize as Inner>::FVM;
 
     match trimmed {
         "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB.into()),
@@ -66,7 +66,7 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
 mod tests {
     use super::*;
 
-    type SectorSize = <forest_shim::sector::SectorSize as Inner>::FVM;
+    type SectorSize = <forest::shim::sector::SectorSize as Inner>::FVM;
 
     #[test]
     fn ram_str_conversions() {

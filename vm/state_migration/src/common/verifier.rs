@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ahash::HashMap;
 use cid::Cid;
-use forest_shim::state_tree::StateTree;
+use forest::shim::state_tree::StateTree;
 
 use super::Migrator;
 

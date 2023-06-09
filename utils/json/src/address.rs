@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_shim::address::Address;
+use forest::shim::address::Address;
 
 pub mod json {
     use std::{borrow::Cow, str::FromStr};
@@ -129,7 +129,7 @@ mod tests {
         let serialized = forest_test_utils::to_string_with!(&address, json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
         // Skip delegated addresses for now
-        if address.protocol() != forest_shim::address::Protocol::Delegated {
+        if address.protocol() != forest::shim::address::Protocol::Delegated {
             assert_eq!(address, parsed)
         }
     }

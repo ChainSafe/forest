@@ -11,7 +11,7 @@ use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use forest_json::{message, signature};
 use forest_message::signed_message::SignedMessage;
-use forest_shim::{
+use forest::shim::{
     address::{set_current_network, Network},
     crypto::Signature,
     message::Message,

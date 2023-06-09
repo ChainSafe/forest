@@ -7,7 +7,7 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
-use forest_shim::{
+use forest::shim::{
     gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
 };
 use fvm3::{

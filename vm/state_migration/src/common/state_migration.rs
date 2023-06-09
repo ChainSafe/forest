@@ -3,7 +3,7 @@
 
 use ahash::HashMap;
 use cid::Cid;
-use forest_shim::{clock::ChainEpoch, state_tree::StateTree};
+use forest::shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};

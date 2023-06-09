@@ -4,7 +4,7 @@
 use std::borrow::Borrow;
 
 use cid::Cid;
-use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use forest::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::{Cbor, Error};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;

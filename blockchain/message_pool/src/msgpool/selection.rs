@@ -11,7 +11,7 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use forest_shim::{address::Address, econ::TokenAmount};
+use forest::shim::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
@@ -694,7 +694,7 @@ mod test_selection {
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
-    use forest_shim::crypto::SignatureType;
+    use forest::shim::crypto::SignatureType;
     use tokio::task::JoinSet;
 
     use super::*;

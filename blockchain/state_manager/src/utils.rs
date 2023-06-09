@@ -4,7 +4,7 @@
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
 use filecoin_proofs_api::post;
-use forest_shim::{
+use forest::shim::{
     address::{Address, Payload},
     randomness::Randomness,
     sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
@@ -177,7 +177,7 @@ fn generate_winning_post_sector_challenge(
 #[cfg(test)]
 mod test {
     use cid::Cid;
-    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use forest::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 
     use super::*;
 

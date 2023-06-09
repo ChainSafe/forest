@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_shim::executor::{Receipt, Receipt_v3};
+use forest::shim::executor::{Receipt, Receipt_v3};
 
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
-    use forest_shim::error::ExitCode;
+    use forest::shim::error::ExitCode;
     use fvm_ipld_encoding3::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -130,7 +130,7 @@ struct MessageReceiptWrapper {
 impl quickcheck::Arbitrary for MessageReceiptWrapper {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let message_receipt = Receipt_v3 {
-            exit_code: forest_shim::error::ExitCode::from(u32::arbitrary(g)).into(),
+            exit_code: forest::shim::error::ExitCode::from(u32::arbitrary(g)).into(),
             return_data: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
             gas_used: u64::arbitrary(g),
             events_root: None,

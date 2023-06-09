@@ -5,7 +5,7 @@ use std::fmt;
 
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use forest_shim::address::Address;
+use forest::shim::address::Address;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
@@ -461,7 +461,7 @@ mod test {
         Cid,
     };
     use forest_json::vrf::VRFProof;
-    use forest_shim::address::Address;
+    use forest::shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
 

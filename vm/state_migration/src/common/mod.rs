@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use cid::Cid;
-use forest_shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
+use forest::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
 mod macros;

@@ -3,7 +3,7 @@
 
 use fil_actor_init_state::{v10::State as InitStateV10, v9::State as InitStateV9};
 use fil_actors_shared::v10::{make_map_with_root, Map};
-use forest_shim::{
+use forest::shim::{
     address::{Address, PAYLOAD_HASH_LEN},
     state_tree::ActorID,
 };

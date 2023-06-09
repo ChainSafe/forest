@@ -6,7 +6,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use cid::Cid;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     clock::ChainEpoch,
     state_tree::{StateTree, StateTreeVersion},

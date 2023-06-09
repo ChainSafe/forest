@@ -32,7 +32,7 @@ use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManage
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
-use forest_shim::version::NetworkVersion;
+use forest::shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
     io::write_to_file, monitoring::MemStatsTracker,
@@ -106,7 +106,7 @@ pub(super) async fn start(
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
-        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
+        forest::shim::address::set_current_network(forest::shim::address::Network::Testnet);
     }
 
     info!(
@@ -617,7 +617,7 @@ mod test {
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
-    use forest_shim::address::Address;
+    use forest::shim::address::Address;
     use tempfile::TempDir;
 
     use super::*;

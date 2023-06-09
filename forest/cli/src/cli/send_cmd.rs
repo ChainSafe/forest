@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
-use forest_shim::econ::TokenAmount;
+use forest::shim::econ::TokenAmount;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{address::Address, message::Message, METHOD_SEND};
 use num::Zero as _;

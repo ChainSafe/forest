@@ -6,7 +6,7 @@ use cid::Cid;
 use fil_actor_interface::{market, power, reward};
 use forest_chain::*;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     clock::EPOCHS_IN_DAY,
     econ::TokenAmount,

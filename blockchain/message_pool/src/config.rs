@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use forest_db::Store;
-use forest_shim::address::Address;
+use forest::shim::address::Address;
 use fvm_ipld_encoding::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 

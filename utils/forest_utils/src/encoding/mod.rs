@@ -3,7 +3,7 @@
 
 use blake2b_simd::Params;
 use filecoin_proofs_api::ProverId;
-use forest_shim::address::Address;
+use forest::shim::address::Address;
 use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 

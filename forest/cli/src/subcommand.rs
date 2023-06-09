@@ -23,7 +23,7 @@ pub async fn process(
         }
     }
     if config.chain.is_testnet() {
-        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
+        forest::shim::address::set_current_network(forest::shim::address::Network::Testnet);
     }
     // Run command
     match command {

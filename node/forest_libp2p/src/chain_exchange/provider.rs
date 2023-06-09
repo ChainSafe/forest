@@ -153,7 +153,7 @@ mod tests {
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
     use forest_networks::ChainConfig;
-    use forest_shim::address::Address;
+    use forest::shim::address::Address;
     use fvm_ipld_car::load_car;
     use tempfile::TempDir;
     use tokio::io::BufReader;

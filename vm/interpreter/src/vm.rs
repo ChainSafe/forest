@@ -8,7 +8,7 @@ use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::{
+use forest::shim::{
     address::Address,
     econ::TokenAmount,
     error::ExitCode,

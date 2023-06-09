@@ -17,7 +17,7 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::{ChainConfig, NetworkChain};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
@@ -964,7 +964,7 @@ mod tests {
         },
         Cid,
     };
-    use forest_shim::address::Address;
+    use forest::shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use tempfile::TempDir;
 

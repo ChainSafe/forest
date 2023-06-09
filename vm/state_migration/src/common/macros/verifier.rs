@@ -10,7 +10,7 @@ macro_rules! impl_verifier {
         pub(super) mod verifier {
             use ahash::HashMap;
             use cid::Cid;
-            use forest_shim::{address::Address, state_tree::StateTree};
+            use forest::shim::{address::Address, state_tree::StateTree};
             use fvm_ipld_blockstore::Blockstore;
             use fvm_ipld_encoding::CborStore;
             use $crate::common::{verifier::ActorMigrationVerifier, Migrator};

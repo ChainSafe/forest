@@ -4,7 +4,7 @@
 use cid::Cid;
 use forest_chain::MINIMUM_BASE_FEE;
 use forest_message::{Message as MessageTrait, SignedMessage};
-use forest_shim::{crypto::Signature, econ::TokenAmount, message::Message};
+use forest::shim::{crypto::Signature, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::Cbor;
 use lru::LruCache;
 use num_rational::BigRational;

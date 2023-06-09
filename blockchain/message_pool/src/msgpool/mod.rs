@@ -16,7 +16,7 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
-use forest_shim::{address::Address, crypto::Signature};
+use forest::shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
 use log::error;
 use lru::LruCache;
@@ -331,7 +331,7 @@ pub mod tests {
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
     use forest_networks::ChainConfig;
-    use forest_shim::{
+    use forest::shim::{
         address::Address,
         crypto::SignatureType,
         econ::TokenAmount,

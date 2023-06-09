@@ -18,7 +18,7 @@ use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
-use forest_shim::message::Message;
+use forest::shim::message::Message;
 use forest_utils::io::VoidAsyncWriter;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;

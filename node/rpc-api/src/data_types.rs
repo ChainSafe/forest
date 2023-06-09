@@ -17,7 +17,7 @@ pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use forest_message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
-use forest_shim::{econ::TokenAmount, message::Message};
+use forest::shim::{econ::TokenAmount, message::Message};
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};

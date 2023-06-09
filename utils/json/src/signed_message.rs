@@ -3,7 +3,7 @@
 pub mod json {
     use cid::Cid;
     use forest_message::SignedMessage;
-    use forest_shim::{crypto::Signature, message::Message};
+    use forest::shim::{crypto::Signature, message::Message};
     use fvm_ipld_encoding::Cbor;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -98,7 +98,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use forest_message::{self, SignedMessage};
-    use forest_shim::{
+    use forest::shim::{
         address::Address,
         crypto::Signature,
         econ::TokenAmount,
@@ -119,8 +119,8 @@ mod tests {
         let serialized = serde_json::to_string(&SignedMessageJsonRef(&signed_message)).unwrap();
         let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
         // Skip delegated addresses for now
-        if (signed_message.message.from.protocol() != forest_shim::address::Protocol::Delegated)
-            && (signed_message.message.to.protocol() != forest_shim::address::Protocol::Delegated)
+        if (signed_message.message.from.protocol() != forest::shim::address::Protocol::Delegated)
+            && (signed_message.message.to.protocol() != forest::shim::address::Protocol::Delegated)
         {
             assert_eq!(signed_message, parsed.0)
         }

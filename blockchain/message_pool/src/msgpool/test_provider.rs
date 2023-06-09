@@ -12,7 +12,7 @@ use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_json::vrf::VRFProof;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use forest_shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
+use forest::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -146,7 +146,7 @@ impl Provider for TestApi {
             }
             sequence += 1;
         }
-        let actor = <ActorState as forest_shim::Inner>::FVM::new(
+        let actor = <ActorState as forest::shim::Inner>::FVM::new(
             // Account Actor code (v10, calibnet)
             Cid::try_from("bafk2bzacebhfuz3sv7duvk653544xsxhdn4lsmy7ol7k6gdgancyctvmd7lnq")
                 .unwrap(),

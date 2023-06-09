@@ -334,7 +334,7 @@ pub mod state_api {
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
         message_receipt::json::ReceiptJson,
     };
-    use forest_shim::version::NetworkVersion;
+    use forest::shim::version::NetworkVersion;
     use forest_state_manager::{InvocResult, MarketBalance};
 
     use crate::data_types::{MarketDeal, MessageLookup};

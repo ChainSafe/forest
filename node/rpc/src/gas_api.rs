@@ -11,7 +11,7 @@ use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
-use forest_shim::{econ::TokenAmount, message::Message};
+use forest::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -54,7 +54,7 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let mut out: forest_shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
+    let mut out: forest::shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
     out += msg.gas_premium();
     Ok(out)
 }

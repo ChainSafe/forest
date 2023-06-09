@@ -10,7 +10,7 @@ mod metrics;
 mod vm;
 
 use fil_actor_interface::account;
-use forest_shim::{
+use forest::shim::{
     address::{Address, Protocol},
     state_tree::StateTree,
 };

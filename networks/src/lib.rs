@@ -7,7 +7,7 @@ use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use forest_shim::version::NetworkVersion;
+use forest::shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;

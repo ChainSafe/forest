@@ -19,7 +19,7 @@ use fil_actor_interface::{
 };
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
-use forest_shim::{
+use forest::shim::{
     address::Address,
     state_tree::{ActorState, StateTree},
 };
@@ -222,7 +222,7 @@ mod tests {
     use cid::Cid;
     use fil_actor_account_state::v10::State as AccountState;
     use forest_db::MemoryDB;
-    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use forest::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
     use forest_utils::db::CborStoreExt;
     use fvm_ipld_blockstore::Blockstore;
 

@@ -4,7 +4,7 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use ahash::{HashMap, HashMapExt};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
 };

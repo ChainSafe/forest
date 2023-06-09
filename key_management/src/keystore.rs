@@ -13,7 +13,7 @@ use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
-use forest_shim::crypto::SignatureType;
+use forest::shim::crypto::SignatureType;
 use log::{error, warn};
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -611,8 +611,8 @@ mod test {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
                 .choose(&[
-                    forest_shim::crypto::SignatureType::BLS,
-                    forest_shim::crypto::SignatureType::Secp256k1,
+                    forest::shim::crypto::SignatureType::BLS,
+                    forest::shim::crypto::SignatureType::Secp256k1,
                 ])
                 .unwrap();
             KeyInfo {

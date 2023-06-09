@@ -24,7 +24,7 @@ use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::ChainConfig;
-use forest_shim::{
+use forest::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
@@ -207,7 +207,7 @@ pub struct StateManager<DB> {
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
-    engine: forest_shim::machine::MultiEngine,
+    engine: forest::shim::machine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
@@ -229,7 +229,7 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine: forest_shim::machine::MultiEngine::default(),
+            engine: forest::shim::machine::MultiEngine::default(),
             reward_calc,
         })
     }

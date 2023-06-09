@@ -13,7 +13,7 @@ use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
 };
-use forest_shim::address::Address;
+use forest::shim::address::Address;
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};

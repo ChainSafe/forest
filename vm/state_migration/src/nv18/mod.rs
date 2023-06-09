@@ -17,8 +17,8 @@ pub use migration::run_migration;
 use crate::*;
 
 define_manifests!(
-    forest_shim::machine::ManifestV2,
-    forest_shim::machine::ManifestV3
+    forest::shim::machine::ManifestV2,
+    forest::shim::machine::ManifestV3
 );
 define_system_states!(
     fil_actor_system_state::v9::State,

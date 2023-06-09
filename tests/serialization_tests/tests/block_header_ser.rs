@@ -7,7 +7,7 @@ use std::{fs::File, io::prelude::*};
 
 use cid::Cid;
 use forest_blocks::{header, BlockHeader};
-use forest_shim::address::{set_current_network, Network};
+use forest::shim::address::{set_current_network, Network};
 use fvm_ipld_encoding::to_vec;
 use hex::encode;
 use serde::Deserialize;

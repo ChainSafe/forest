@@ -3,7 +3,7 @@
 
 use forest_beacon::beacon_entries;
 use forest_json::{sector, signature};
-use forest_shim::sector::PoStProof;
+use forest::shim::sector::PoStProof;
 use serde::{de, Deserialize, Serialize};
 
 use super::*;

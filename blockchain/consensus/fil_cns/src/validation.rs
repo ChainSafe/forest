@@ -11,7 +11,7 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use forest::shim::{
     address::Address,
     randomness::Randomness,
     sector::{PoStProof, SectorInfo},

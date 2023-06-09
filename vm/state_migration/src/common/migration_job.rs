@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use forest_shim::{address::Address, clock::ChainEpoch, state_tree::ActorState, Inner};
+use forest::shim::{address::Address, clock::ChainEpoch, state_tree::ActorState, Inner};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::{ActorMigration, ActorMigrationInput};

@@ -5,7 +5,7 @@ pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest_message::Message as MessageTrait;
-    use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+    use forest::shim::{address::Address, econ::TokenAmount, message::Message};
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding3::RawBytes;
     use fvm_shared3::message::Message as Message_v3;
@@ -129,7 +129,7 @@ pub mod json {
 
 #[cfg(test)]
 pub mod tests {
-    use forest_shim::message::Message;
+    use forest::shim::message::Message;
     use quickcheck_macros::quickcheck;
 
     use super::json::{MessageJson, MessageJsonRef};
@@ -139,8 +139,8 @@ pub mod tests {
         let serialized = serde_json::to_string(&MessageJsonRef(&message)).unwrap();
         let parsed: MessageJson = serde_json::from_str(&serialized).unwrap();
         // Skip delegated addresses for now
-        if (message.from.protocol() != forest_shim::address::Protocol::Delegated)
-            && (message.to.protocol() != forest_shim::address::Protocol::Delegated)
+        if (message.from.protocol() != forest::shim::address::Protocol::Delegated)
+            && (message.to.protocol() != forest::shim::address::Protocol::Delegated)
         {
             assert_eq!(message, parsed.0)
         }

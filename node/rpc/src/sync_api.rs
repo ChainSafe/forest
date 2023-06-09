@@ -70,7 +70,7 @@ mod tests {
     use forest_libp2p::NetworkMessage;
     use forest_message_pool::{MessagePool, MpoolRpcProvider};
     use forest_networks::ChainConfig;
-    use forest_shim::address::Address;
+    use forest::shim::address::Address;
     use forest_state_manager::StateManager;
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;

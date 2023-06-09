@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::header::json::{BlockHeaderJson, BlockHeaderJsonRef};
-use forest_shim::address::{set_current_network, Network};
+use forest::shim::address::{set_current_network, Network};
 use serde_json::{from_str, to_string};
 
 #[test]

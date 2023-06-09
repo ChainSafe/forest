@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use fil_actor_interface::power;
 use forest_blocks::Tipset;
-use forest_shim::{address::Address, state_tree::StateTree};
+use forest::shim::{address::Address, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
 use num_traits::Zero;

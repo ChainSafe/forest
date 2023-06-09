@@ -6,7 +6,7 @@ pub mod message;
 pub mod signed_message;
 
 pub use chain_message::ChainMessage;
-use forest_shim::{address::Address, econ::TokenAmount, message::Message as ShimMessage};
+use forest::shim::{address::Address, econ::TokenAmount, message::Message as ShimMessage};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
 pub use signed_message::SignedMessage;

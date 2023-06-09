@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 /// ```
-/// let v0 = forest_shim::version::NetworkVersion::V0;
+/// let v0 = forest::shim::version::NetworkVersion::V0;
 ///
 /// // dereference to convert to FVM3
 /// assert_eq!(fvm_shared3::version::NetworkVersion::V0, *v0);

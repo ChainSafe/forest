@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// let fvm3_rand = fvm_shared3::randomness::Randomness(vec![]);
 ///
 /// // Create a shim Randomness, ensure conversions are correct
-/// let rand_shim = forest_shim::randomness::Randomness::new(vec![]);
+/// let rand_shim = forest::shim::randomness::Randomness::new(vec![]);
 /// assert_eq!(fvm3_rand, *rand_shim);
 /// assert_eq!(fvm2_rand, rand_shim.into());
 /// ```

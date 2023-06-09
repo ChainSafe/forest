@@ -3,7 +3,7 @@
 
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
-    use forest_shim::crypto::{Signature, SignatureType};
+    use forest::shim::crypto::{Signature, SignatureType};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.
@@ -114,7 +114,7 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use forest_shim::crypto::{Signature, SignatureType};
+    use forest::shim::crypto::{Signature, SignatureType};
     use quickcheck_macros::quickcheck;
     use serde_json;
 

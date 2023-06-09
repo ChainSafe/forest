@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_message::SignedMessage;
-use forest_shim::{
+use forest::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},
