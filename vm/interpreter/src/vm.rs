@@ -128,7 +128,7 @@ where
                     &context,
                     store.clone(),
                     ForestExterns_v3::new(
-                        RandWrapper { chain_rand: rand },
+                        RandWrapper::from(rand),
                         epoch,
                         root,
                         lb_fn,
@@ -153,7 +153,7 @@ where
                     &context,
                     store.clone(),
                     ForestExternsV2::new(
-                        RandWrapper { chain_rand: rand },
+                        RandWrapper::from(rand),
                         epoch,
                         root,
                         lb_fn,

@@ -65,3 +65,9 @@ impl<T: Rand> Rand_v3 for RandWrapper<T> {
         self.chain_rand.get_beacon_randomness(pers, round, entropy)
     }
 }
+
+impl<T> From<T> for RandWrapper<T> {
+    fn from(chain_rand: T) -> Self {
+        RandWrapper { chain_rand }
+    }
+}
