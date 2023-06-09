@@ -483,14 +483,24 @@ pub(super) async fn start(
         let mut failures = 0;
         // mainnet: 1,594,681
         // let root_cid = "bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm".parse::<Cid>().unwrap();
+        
+        // mainnet: 2,933,266
+        // let root_cid = "bafy2bzacebyp6cmbshtzzuogzk7icf24pt6s5veyq5zkkqbn3sbbvswtptuuu".parse::<Cid>().unwrap();
+        
+        // mainnet: 2,833,266
+        // let root_cid = "bafy2bzacecaydufxqo5vtouuysmg3tqik6onyuezm6lyviycriohgfnzfslm2".parse::<Cid>().unwrap();
+
+        // mainnet: 1_960_320
+        let root_cid = "bafy2bzacec43okhmihmnwmgqspyrkuivqtxv75rpymsdbulq6lgsdq2vkwkcg".parse::<Cid>().unwrap();
+        
         // calibnet: 242,150, 21144 cids
-        let root_cid = "bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw".parse::<Cid>().unwrap();
+        // let root_cid = "bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw".parse::<Cid>().unwrap();
         // calibnet: 630,932, 88594 cids
         // let root_cid = "bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk".parse::<Cid>().unwrap();
         seen.insert(root_cid);
         to_fetch.push(root_cid);
         while let Some(required_cid) = to_fetch.pop() {
-            info!("Fetching new ipld block. Remaining: {}, Seen: {}", to_fetch.len(), seen.len());
+            info!("Fetching new ipld block. Remaining: {}, Seen: {}, Failures: {}", to_fetch.len(), seen.len(), failures);
 
             let (tx, rx) = flume::bounded(1);
             network_send.send_async(NetworkMessage::BitswapRequest{epoch: 0, cid: required_cid, response_channel: tx}).await?;

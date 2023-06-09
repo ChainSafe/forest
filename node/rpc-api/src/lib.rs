@@ -370,6 +370,10 @@ pub mod state_api {
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub type StateWaitMsgParams = (CidJson, i64);
     pub type StateWaitMsgResult = MessageLookup;
+
+    pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
+    pub type StateFetchRootParams = (CidJson,);
+    pub type StateFetchRootResult = ();
 }
 
 /// Gas API
