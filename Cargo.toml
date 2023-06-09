@@ -57,7 +57,6 @@ axum = "0.6"
 backoff = "0.4"
 base64 = "0.21"
 blake2b_simd = "1.0"
-predicates = "3"
 # blst-portable flag avoids using CPU instructions which aren't available on older CPUs
 bls-signatures = { version = "0.13", default-features = false, features = ["blst-portable"] }
 byte-unit = "4.0"
@@ -96,7 +95,6 @@ hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23"
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
-itertools = "0.10"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static = "1.4"
 libc = "0.2"
@@ -139,6 +137,7 @@ serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 smart-default = "0.7.1"
+strum = { version = "0.24", features = ["derive"] }
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"

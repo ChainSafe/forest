@@ -1,235 +1,92 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-//! We occasionally fetch _compressed_ snapshots of `chain`s from `vendor`s
-//! and store them locally, in the `snapshot_dir`. See
-//! [`crate::cli::Config::snapshot_directory`]. The snapshots live at
-//! `stable_url`s - see [`stable_url`]'s source for the supported chains and vendors.
-//!
-//! This module contains utilities for fetching snapshots.
-//! Users should be aware that operations on the snapshot directory may race.
-//!
-//! # Implementation
-//! The snapshot store is actually a single directory, containing a flat store
-//! of files. Files come in pairs:
-//! - The actual data _blob_, named e.g `foo.car.zst`
-//! - A _metadata_ file, named e.g `foo.car.zst.forestmetadata.json`. See
-//!   [`SNAPSHOT_METADATA_FILE_SUFFIX`]
-//!
-//! This is done by [`intern_and_create_metadata`].
-//!
-//! We assign no semantic meaning to the filenames in the snapshot directory,
-//! other than the blob/metadata distinction - all that matters is that they are unique.
-//!
-//! ## `Aria2`
-//! We prefer to download files using `aria2c`, falling back to making the request
-//! ourselves.
-//!
-//! We treat a sub-folder of `snapshot_dir` as our interface with `aria2`,
-//! downloading and retrieving files from it as appropriate.
-//!
-//! ## Concepts
-//! Other modules should *not* have to concern themselves with filename parsing
-//! etc.
-//!
-//! ## Future work
-//! - Be resilient to changes in snapshot filename format upstream
-//! - Keep a register/machine readable db of snapshots, don't store metadata in
-//!   parallel
-//! - Mutual exclusion on `snapshot_dir`, e.g with `flock`
 
 use std::{
-    collections::BTreeSet,
-    ffi::OsStr,
+    fmt::Display,
     io,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use anyhow::{anyhow, bail, Context as _};
-use chrono::{NaiveDate, NaiveTime};
+use chrono::NaiveDate;
 use forest_networks::NetworkChain;
 use forest_utils::io::progress_bar::downloading_style;
-use futures::{future::join_all, TryFutureExt as _};
-use itertools::Itertools as _;
-use serde::{Deserialize, Serialize};
-use tap::Tap as _;
-use tempfile::NamedTempFile;
 use tracing::{info, warn};
 use url::Url;
 
-const SNAPSHOT_METADATA_FILE_SUFFIX: &str = ".metadata.json";
-const ARIA2C_METADATA_FILE_SUFFIX: &str = ".aria";
+/// Who hosts the snapshot on the web?
+/// See [`stable_url`].
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    Default,
+    strum::EnumString, // impl std::str::FromStr
+    strum::Display,    // impl Display
+    clap::ValueEnum,   // allow values to be enumerated and parsed by clap
+)]
+#[strum(serialize_all = "kebab-case")]
+pub enum Vendor {
+    #[default]
+    Forest,
+    Filops,
+}
 
-/// Fetch a snapshot with `aria2c`, falling back to our own HTTP client.
-///
-/// See [module documentation](mod@self) for more.
+/// Common format for filenames for export and [`fetch`].
+/// Keep in sync with the cli documentation for export.
+pub fn filename(chain: impl Display, date: NaiveDate, height: i64) -> String {
+    format!(
+        "forest_snapshot_{chain}_date_{}_height_{height}.car.zst",
+        date.format("%Y-%m-%d")
+    )
+}
+
+/// Fetch a compressed snapshot with `aria2c`, falling back to our own HTTP client.
+/// Returns the path to the downloaded file, which matches the format in .
 pub async fn fetch(
-    snapshot_dir: &Path,
+    directory: &Path,
     chain: &NetworkChain,
-    vendor: &str,
+    vendor: Vendor,
 ) -> anyhow::Result<PathBuf> {
-    let stable_url = stable_url(vendor, chain)?;
+    let (_len, url) = peek(vendor, chain).await?;
+    let (height, date, _time) = parse::parse_url(&url)?;
+    let filename = filename(chain, date, height);
 
-    let aria2c_dir = snapshot_dir.join("aria2c");
-    match download_aria2c(&aria2c_dir, stable_url).await {
-        Ok(()) => intern_from_aria2c_dir(aria2c_dir, snapshot_dir, chain, vendor).await,
+    match download_aria2c(&url, directory, &filename).await {
+        Ok(path) => Ok(path),
         Err(AriaErr::CouldNotExec(reason)) => {
             warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
-            let (path, url) = download_http(stable_url).await?;
-            let (height, date, time) = parse::parse_url(&url)?;
-            intern_and_create_metadata(
-                snapshot_dir,
-                &path,
-                height,
-                date,
-                time,
-                chain,
-                vendor,
-                Some(String::from(stable_url)),
-                Some(String::from(url.as_str())),
-            )
-            .await
+            download_http(url, directory, &filename).await
         }
-        Err(AriaErr::Other(o)) => Err(o.context("downloading with aria2c failed")),
+        Err(AriaErr::Other(o)) => Err(o),
     }
 }
 
-/// Find all completed downloads in `aria2c_dir`, and intern them.
-/// The files are expected to have a conventional name.
-/// Returns the first file interned - we typically only expect one file to be interned.
-async fn intern_from_aria2c_dir(
-    aria2c_dir: PathBuf,
-    snapshot_dir: &Path,
-    chain: &NetworkChain,
-    vendor: &str,
-) -> Result<PathBuf, anyhow::Error> {
-    // completed downloads are files without the .aria extension
-    // this is pretty fragile (see below), but it's the closest we have
-    // to an API with aria2 at the moment
-    let Partitioned { orphaned_main, .. } = tokio::task::spawn_blocking(move || {
-        partition_by_suffix(&aria2c_dir, ARIA2C_METADATA_FILE_SUFFIX)
-            .context("couldn't read aria2c files in snapshot directory")
-    })
-    .await
-    .expect("task panicked")?;
-
-    // maybe there's garbage in `aria2c_dir` that didn't make sense to intern.
-    // as long as we've interned _something_, we've probably done what the
-    // user wanted.
-    let (mut successes, failures) = join_all(orphaned_main.iter().map(|file| {
-        async {
-            file.file_name()
-                .and_then(OsStr::to_str)
-                .context("non-utf8 or missing filename")
-                .and_then(parse::parse_filename)
-                .context("invalid filename")
-        }
-        .and_then(|(height, date, time)| {
-            intern_and_create_metadata(
-                snapshot_dir,
-                file,
-                height,
-                date,
-                time,
-                chain,
-                vendor,
-                None,
-                None,
-            )
-        })
-    }))
-    .await
-    .into_iter()
-    .partition_result::<Vec<_>, Vec<_>, _, _>();
-
-    match successes.is_empty() {
-        // just report the first one
-        false => Ok(successes.remove(0)),
-        true => Err(failures
-            .into_iter()
-            .reduce(|acc, el| acc.context(el))
-            .unwrap_or(anyhow!("couldn't find file that aria2c downloaded"))
-            .context("couldn't intern file that aria2c downloaded")),
-    }
-}
-
-/// Metadata about a snapshot blob
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SnapshotMetadata {
-    // We use an enum to handle forward-incompatible changes in the future
-    V1 {
-        height: i64,
-        date: NaiveDate,
-        // The `forest` vendor doesn't include time
-        time: Option<chrono::NaiveTime>,
-        chain: String,
-        vendor: String,
-        // The stable url used
-        source_url: Option<String>,
-        fetched_url: Option<String>,
-    },
-}
-
-/// Moves the file `blob` into `snapshot_dir`, and creates a metadata file for it.
-///
-/// This will preserve the filename of `blob`.
-/// Does not clean up `blob` on failure.
-#[allow(clippy::too_many_arguments)]
-async fn intern_and_create_metadata(
-    snapshot_dir: &Path,
-    blob: &Path,
-    height: i64,
-    date: NaiveDate,
-    time: Option<NaiveTime>,
-    chain: &NetworkChain,
-    vendor: &str,
-    source_url: Option<String>,
-    fetched_url: Option<String>,
-) -> anyhow::Result<PathBuf> {
-    tokio::fs::create_dir_all(snapshot_dir).await?;
-    let metadata_contents = serde_json::to_string(&SnapshotMetadata::V1 {
-        height,
-        date,
-        time,
-        chain: chain.to_string(),
-        vendor: String::from(vendor),
-        source_url,
-        fetched_url,
-    })
-    .expect("serialization of metadata shouldn't fail");
-    let blob_name = blob.file_name().context("no filename")?.to_os_string();
-    let new_blob_path = snapshot_dir.join(&blob_name);
-    let metadata_path =
-        snapshot_dir.join(blob_name.tap_mut(|it| it.push(SNAPSHOT_METADATA_FILE_SUFFIX)));
-
-    tokio::fs::write(metadata_path, metadata_contents)
-        .await
-        .context("couldn't write metadata file")?;
-
-    match tokio::fs::rename(blob, &new_blob_path).await {
-        Ok(()) => Ok(new_blob_path),
-        // Can't rename across filesystems, so copy the bytes from disk to disk
-        Err(e) if e.raw_os_error() == Some(libc::EXDEV) => tokio::fs::copy(blob, &new_blob_path)
-            .await
-            .map(|_| new_blob_path),
-        Err(other) => Err(other),
-    }
-    .context("couldn't move blob to snapshot directory")
-}
-
-/// What would the size of the snapshot (in bytes) from the given `vendor` for this `chain` be?
-pub async fn peek_num_bytes(vendor: &str, chain: &NetworkChain) -> anyhow::Result<u64> {
+/// Returns
+/// - The size of the snapshot from this vendor on this chain
+/// - The final url of the snapshot
+pub async fn peek(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
     let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
-    // if we issue a HEAD, the content-length will be zero for redirect URLs
+    // if we issue a HEAD, the content-length will be zero for our stable URLs
     // (this is a bug, maybe in reqwest - HEAD _should_ give us the length)
     // (probably because the stable URLs are all double-redirects 301 -> 302 -> 200)
-    reqwest::get(stable_url)
+    let response = reqwest::get(stable_url)
         .await?
         .error_for_status()
-        .context("server returned an error response")?
-        .content_length()
-        .context("no content-length header")
+        .context("server returned an error response")?;
+
+    Ok((
+        response
+            .content_length()
+            .context("no content-length header")?,
+        response.url().clone(),
+    ))
 }
 
 enum AriaErr {
@@ -238,8 +95,7 @@ enum AriaErr {
 }
 
 /// Run `aria2c`, with inherited stdout and stderr (so output will be printed).
-/// The file is downloaded to `aria2c_dir`, and should be retrieved separately.
-async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
+async fn download_aria2c(url: &Url, directory: &Path, filename: &str) -> Result<PathBuf, AriaErr> {
     let exit_status = tokio::process::Command::new("aria2c")
         .args([
             "--continue=true",
@@ -247,10 +103,11 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
             // Download chunks concurrently, resulting in dramatically faster downloads
             "--split=5",
             "--max-connection-per-server=5",
+            format!("--out={filename}").as_str(),
             "--dir",
         ])
-        .arg(aria2c_dir)
-        .arg(url)
+        .arg(directory)
+        .arg(url.as_str())
         .kill_on_drop(true) // allow cancellation
         .spawn() // defaults to inherited stdio
         .map_err(AriaErr::CouldNotExec)?
@@ -259,7 +116,7 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
         .map_err(|it| AriaErr::Other(it.into()))?;
 
     match exit_status.success() {
-        true => Ok(()),
+        true => Ok(directory.join(filename)),
         false => {
             let msg = exit_status
                 .code()
@@ -270,12 +127,11 @@ async fn download_aria2c(aria2c_dir: &Path, url: &str) -> Result<(), AriaErr> {
     }
 }
 
-/// Download the file at `url` with a private HTTP client, returning
-/// - The path to the downloaded file
-/// - The URL of the download file (in case e.g redirects were followed)
-async fn download_http(url: &str) -> anyhow::Result<(PathBuf, Url)> {
+/// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
+async fn download_http(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
     use futures::TryStreamExt as _;
     use tap::Pipe as _;
+    let dst_path = directory.join(filename);
     let response = reqwest::get(url)
         .await?
         .error_for_status()
@@ -291,117 +147,55 @@ async fn download_http(url: &str) -> anyhow::Result<(PathBuf, Url)> {
         .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))
         .pipe(tokio_util::io::StreamReader::new)
         .pipe(|reader| progress_bar.wrap_async_read(reader));
-    let (std_file, path) =
-        tokio::task::spawn_blocking(|| anyhow::Ok(NamedTempFile::new()?.keep()?))
-            .await
-            .expect("NamedTempFile::new doesn't panic, and we didn't cancel/abort this task")
-            .context("couldn't create temporary file for download")?;
-    let mut dst = tokio::fs::File::from_std(std_file);
-    match tokio::io::copy(&mut src, &mut dst).await {
-        Ok(_) => Ok((path, url)),
-        Err(e) => {
-            let _ = tokio::fs::remove_file(path).await;
-            Err(e).context("couldn't download to file")
+    let mut dst = tokio::fs::File::create(&dst_path)
+        .await
+        .context("couldn't create destination file")?;
+    tokio::io::copy(&mut src, &mut dst)
+        .await
+        .map(|_| dst_path)
+        .context("couldn't download file")
+}
+
+/// Also defines an `ALL_URLS` constant for test purposes
+macro_rules! define_urls {
+    ($($vis:vis const $name:ident: &str = $value:literal;)* $(,)?) => {
+        $($vis const $name: &str = $value;)*
+
+        #[cfg(test)]
+        const ALL_URLS: &[&str] = [
+            $($name,)*
+        ].as_slice();
+    };
+}
+
+define_urls!(
+    const FOREST_MAINNET_COMPRESSED: &str =
+        "https://forest.chainsafe.io/mainnet/snapshot-latest.car.zst";
+    const FOREST_CALIBNET_COMPRESSED: &str =
+        "https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst";
+    const FILOPS_MAINNET_COMPRESSED: &str =
+        "https://snapshots.mainnet.filops.net/minimal/latest.zst";
+    const FILOPS_CALIBNET_COMPRESSED: &str =
+        "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
+);
+
+fn stable_url(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<Url> {
+    let s = match (vendor, chain) {
+        (Vendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
+        (Vendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
+        (Vendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
+        (Vendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
+        (Vendor::Forest | Vendor::Filops, NetworkChain::Devnet(_)) => {
+            bail!("unsupported chain {chain}")
         }
-    }
+    };
+    Ok(Url::from_str(s).unwrap())
 }
 
-/// It's common for programs to store ("main") files and metadata files side-by-side,
-/// where the metadata file has a known suffix:
-/// E.g with `aria2c`
-/// - `forest_snapshot_calibnet_2023-06-06_height_624219.car.zst`
-/// - `forest_snapshot_calibnet_2023-06-06_height_624219.car.zst.aria2`
-///
-/// Or with our snapshot logic:
-/// - `foo.tmp`
-/// - `foo.tmp.metadata.json`
-///
-/// This function looks at files which direct descendants of `directory`, returning:
-/// - pairs of main files and metadata files
-/// - orphaned main files
-/// - orphaned metadata files
-///
-/// Paths are typically relative to `directory`.
-/// Files with non-utf8 paths are [`warn`]-ed and ignored.
-///
-/// Note this function makes blocking syscalls, and should not be called
-/// from an async context. Use [`tokio::task::spawn_blocking`] if needed.
-fn partition_by_suffix(directory: &Path, metadata_suffix: &str) -> io::Result<Partitioned> {
-    let mut main_and_meta = Vec::new();
-    let mut orphaned_main = Vec::new();
-    let mut orphaned_meta = Vec::new();
-
-    // Get all the file paths
-    let mut paths = walkdir::WalkDir::new(directory)
-        .min_depth(1)
-        .max_depth(1)
-        .into_iter()
-        .filter_ok(|entry| entry.path().is_file())
-        .map_ok(|entry| match entry.path().to_str() {
-            // prefix operation on strings are easier, so convert to those
-            Some(s) => Some(String::from(s)),
-            None => {
-                warn!(path = %entry.path().display(), "ignored non-utf8 path");
-                None
-            }
-        })
-        .flatten_ok()
-        .collect::<Result<BTreeSet<_>, _>>()?;
-
-    // Do the partitioning
-    while let Some(path) = paths.pop_first() {
-        match path.strip_suffix(metadata_suffix) {
-            Some(main) => {
-                // we've popped the metadata file, try and pop the blob path
-                let meta = PathBuf::from(&path);
-                let main_was_present = paths.remove(main);
-                match main_was_present {
-                    false => orphaned_meta.push(meta),
-                    true => main_and_meta.push((PathBuf::from(main), meta)),
-                }
-            }
-            None => {
-                // this is the blob path
-                let meta = format!("{path}{metadata_suffix}");
-                let main = PathBuf::from(path);
-                let metadata_was_present = paths.remove(&meta);
-                match metadata_was_present {
-                    false => orphaned_main.push(main),
-                    true => main_and_meta.push((main, PathBuf::from(meta))),
-                }
-            }
-        }
-    }
-
-    Ok(Partitioned {
-        main_and_meta,
-        orphaned_meta,
-        orphaned_main,
-    })
-}
-
-#[allow(unused)] // these fields are here for completeness
-struct Partitioned {
-    main_and_meta: Vec<(PathBuf, PathBuf)>,
-    orphaned_meta: Vec<PathBuf>,
-    orphaned_main: Vec<PathBuf>,
-}
-
-const FOREST_MAINNET_COMPRESSED: &str =
-    "https://forest.chainsafe.io/mainnet/snapshot-latest.car.zst";
-const FOREST_CALIBNET_COMPRESSED: &str =
-    "https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst";
-const FILOPS_MAINNET_COMPRESSED: &str = "https://snapshots.mainnet.filops.net/minimal/latest.zst";
-const FILOPS_CALIBNET_COMPRESSED: &str =
-    "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
-
-fn stable_url(vendor: &str, chain: &NetworkChain) -> anyhow::Result<&'static str> {
-    match (vendor, chain) {
-        ("forest", NetworkChain::Mainnet) => Ok(FOREST_MAINNET_COMPRESSED),
-        ("forest", NetworkChain::Calibnet) => Ok(FOREST_CALIBNET_COMPRESSED),
-        ("filops", NetworkChain::Mainnet) => Ok(FILOPS_MAINNET_COMPRESSED),
-        ("filops", NetworkChain::Calibnet) => Ok(FILOPS_CALIBNET_COMPRESSED),
-        _ => bail!("unsupported vendor `{vendor}` or chain `{chain}`"),
+#[test]
+fn parse_stable_urls() {
+    for url in ALL_URLS {
+        let _did_not_panic = Url::from_str(url).unwrap();
     }
 }
 

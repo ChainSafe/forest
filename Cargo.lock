@@ -2886,15 +2886,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "float-cmp"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "flume"
 version = "0.10.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2955,13 +2946,11 @@ dependencies = [
  "fvm_shared 2.4.0",
  "hex",
  "human-repr",
- "itertools 0.10.5",
  "jsonrpc-v2",
  "log",
  "multibase",
  "nom",
  "num",
- "predicates",
  "pretty_assertions",
  "quickcheck",
  "rand 0.8.5",
@@ -2969,12 +2958,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_tuple",
- "tap",
  "tempfile",
  "ticker",
  "tokio",
  "toml 0.7.4",
- "tracing",
 ]
 
 [[package]]
@@ -3169,6 +3156,7 @@ dependencies = [
  "log",
  "lru",
  "nonempty",
+ "nonzero_ext",
  "num",
  "num-bigint",
  "parking_lot 0.12.1",
@@ -3203,8 +3191,6 @@ dependencies = [
  "futures",
  "gethostname",
  "indicatif",
- "itertools 0.10.5",
- "libc",
  "log",
  "mimalloc",
  "nom",
@@ -3213,10 +3199,9 @@ dependencies = [
  "quickcheck_macros",
  "reqwest",
  "serde",
- "serde_json",
  "serde_with",
+ "strum",
  "tap",
- "tempfile",
  "tikv-jemallocator",
  "tokio",
  "tokio-util",
@@ -3226,7 +3211,6 @@ dependencies = [
  "tracing-loki",
  "tracing-subscriber",
  "url",
- "walkdir",
 ]
 
 [[package]]
@@ -6460,12 +6444,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38bf9645c8b145698bb0b18a4637dcacbc421ea49bef2317e4fd8065a387cf21"
 
 [[package]]
-name = "normalize-line-endings"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
-
-[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7039,11 +7017,8 @@ checksum = "09963355b9f467184c04017ced4a2ba2d75cbcb4e7462690d388233253d4b1a9"
 dependencies = [
  "anstyle",
  "difflib",
- "float-cmp",
  "itertools 0.10.5",
- "normalize-line-endings",
  "predicates-core",
- "regex",
 ]
 
 [[package]]
@@ -7477,7 +7452,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "nix 0.26.2",
- "rand 0.7.3",
+ "rand 0.8.5",
  "winapi",
 ]
 
@@ -8697,6 +8672,15 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "strum"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
+dependencies = [
+ "strum_macros",
+]
 
 [[package]]
 name = "strum_macros"

@@ -1,7 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+use std::{
+    cell::RefCell,
+    net::TcpListener,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time,
+    time::Duration,
+};
 
 use anyhow::{bail, Context};
 use dialoguer::{console::Term, theme::ColorfulTheme};
@@ -12,6 +19,7 @@ use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
+    snapshot,
 };
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
@@ -437,9 +445,9 @@ async fn fetch_snapshot_if_required(
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
 ) -> anyhow::Result<()> {
-    let vendor = "forest";
+    let vendor = snapshot::Vendor::default();
+    let path = Path::new(".");
     let chain = &config.chain.network;
-    let snapshot_dir = config.snapshot_directory();
 
     // What height is our chain at right now, and what network version does that correspond to?
     let network_version = config.chain.network_version(epoch);
@@ -462,14 +470,7 @@ async fn fetch_snapshot_if_required(
                     max_retries: Some(max_retries),
                     delay: Some(Duration::from_secs(60)),
                 },
-                || {
-                    forest_cli_shared::snapshot::fetch(
-                        snapshot_dir.as_path(),
-                        chain,
-                        // Default to forest provider for daemon snapshots
-                        vendor,
-                    )
-                },
+                || forest_cli_shared::snapshot::fetch(path, chain, vendor),
             )
             .await
             {
@@ -483,14 +484,14 @@ async fn fetch_snapshot_if_required(
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let num_bytes =
-                forest_cli_shared::snapshot::peek_num_bytes(vendor, &config.chain.network)
+            let (num_bytes, _url) =
+                forest_cli_shared::snapshot::peek(vendor, &config.chain.network)
                     .await
                     .context("couldn't get snapshot size")?;
             let num_bytes = byte_unit::Byte::from(num_bytes)
                 .get_appropriate_unit(true)
                 .format(2);
-            let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot? (denying will exit the program). ");
+            let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). ");
             let have_permission = asyncify(|| {
                 dialoguer::Confirm::with_theme(&ColorfulTheme::default())
                     .with_prompt(message)
@@ -503,7 +504,7 @@ async fn fetch_snapshot_if_required(
             if !have_permission {
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
-            match forest_cli_shared::snapshot::fetch(snapshot_dir.as_path(), chain, vendor).await {
+            match forest_cli_shared::snapshot::fetch(path, chain, vendor).await {
                 Ok(path) => {
                     config.client.snapshot_path = Some(path);
                     config.client.snapshot = true;
@@ -611,7 +612,7 @@ async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             }
 
             let data_dir = config.client.data_dir.clone();
-            asyncify(move || input_password_for_encrypted_keystore(data_dir, None))
+            asyncify(move || input_password_to_load_encrypted_keystore(data_dir, None))
                 .await
                 .context("couldn't load keystore")
         }
@@ -653,7 +654,7 @@ where
 /// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
 ///
 /// This code makes blocking syscalls.
-fn input_password_for_encrypted_keystore(
+fn input_password_to_load_encrypted_keystore(
     data_dir: PathBuf,
     term: impl Into<Option<Term>>,
 ) -> std::io::Result<KeyStore> {

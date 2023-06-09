@@ -122,11 +122,6 @@ impl Config {
             }
         }
     }
-    /// The place to store (all) snapshots.
-    /// See [crate::snapshot] for more information.
-    pub fn snapshot_directory(&self) -> PathBuf {
-        self.client.data_dir.join("snapshots")
-    }
 }
 
 #[cfg(test)]

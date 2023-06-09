@@ -26,17 +26,14 @@ forest_utils.workspace = true
 futures.workspace = true
 gethostname.workspace = true
 indicatif.workspace = true
-itertools.workspace = true
-libc.workspace = true
 log = { workspace = true, features = ["serde"] }
 nom.workspace = true
 num.workspace = true
 reqwest.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
 serde_with.workspace = true
+strum.workspace = true
 tap.workspace = true
-tempfile.workspace = true
 tokio = { workspace = true, features = ["sync", "process"] }
 tokio-util.workspace = true
 toml.workspace = true
@@ -45,7 +42,6 @@ tracing-loki.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 url.workspace = true
-walkdir.workspace = true
 
 # optional
 mimalloc = { version = "0.1.34", default-features = false, optional = true }

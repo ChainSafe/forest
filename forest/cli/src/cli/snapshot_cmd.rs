@@ -9,6 +9,7 @@ use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
+use forest_cli_shared::snapshot;
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
@@ -26,9 +27,8 @@ use crate::cli::{cli_error_and_die, handle_rpc_err};
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
-        /// Snapshot output path. Default to
-        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.
-        /// zst`.
+        /// Snapshot output filename or directory. Defaults to
+        /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
         /// Skip creating the checksum file.
@@ -41,15 +41,12 @@ pub enum SnapshotCommands {
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
     Fetch {
-        #[command(flatten)]
-        snapshot_dir: SnapshotDirectory,
+        #[arg(short, long, default_value = ".")]
+        directory: PathBuf,
         /// Vendor to fetch the snapshot from
-        #[arg(short, long, value_parser = ["forest", "filops"], default_value = "forest")]
-        vendor: String,
+        #[arg(short, long, value_enum, default_value_t = snapshot::Vendor::default())]
+        vendor: snapshot::Vendor,
     },
-
-    /// Shows default location snapshots are downloaded to
-    DefaultLocation,
 
     /// Validates the snapshot.
     Validate {
@@ -62,24 +59,6 @@ pub enum SnapshotCommands {
         #[arg(long)]
         force: bool,
     },
-}
-
-// commonise docstring for custom snapshot directory
-#[derive(Debug, Clone, clap::Args)]
-pub struct SnapshotDirectory {
-    /// Directory to which the snapshots are downloaded. If not provided, it
-    /// will be the default Forest data location.
-    #[arg(short, long)]
-    snapshot_dir: Option<PathBuf>,
-}
-
-impl SnapshotDirectory {
-    pub fn inner(&self) -> Option<&PathBuf> {
-        self.snapshot_dir.as_ref()
-    }
-    pub fn into_inner(self) -> Option<PathBuf> {
-        self.snapshot_dir
-    }
 }
 
 impl SnapshotCommands {
@@ -102,13 +81,11 @@ impl SnapshotCommands {
                     .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {
-                    true => output_path.join(
-                        Utc::now()
-                            .format(&format!(
-                                "forest_snapshot_{chain_name}_%Y-%m-%d_height_{epoch}.car.zst"
-                            ))
-                            .to_string(),
-                    ),
+                    true => output_path.join(snapshot::filename(
+                        chain_name,
+                        Utc::now().date_naive(),
+                        chain_head.epoch(),
+                    )),
                     false => output_path.clone(),
                 };
 
@@ -157,32 +134,14 @@ impl SnapshotCommands {
                 ));
                 Ok(())
             }
-            Self::Fetch {
-                snapshot_dir,
-                vendor,
-            } => {
-                let snapshot_dir = snapshot_dir
-                    .inner()
-                    .cloned()
-                    .unwrap_or(config.snapshot_directory());
-
-                match forest_cli_shared::snapshot::fetch(
-                    &snapshot_dir,
-                    &config.chain.network,
-                    vendor,
-                )
-                .await
-                {
+            Self::Fetch { directory, vendor } => {
+                match snapshot::fetch(directory, &config.chain.network, *vendor).await {
                     Ok(out) => {
-                        println!("Snapshot successfully downloaded at {}", out.display());
+                        println!("{}", out.display());
                         Ok(())
                     }
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
-            }
-            Self::DefaultLocation => {
-                println!("{}", config.snapshot_directory().display());
-                Ok(())
             }
             Self::Validate {
                 recent_stateroots,
