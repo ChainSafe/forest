@@ -209,7 +209,7 @@ impl MinerMigrator {
         deadlines: &Cid,
     ) -> anyhow::Result<Cid> {
         if deadlines == &self.empty_deadlines_v8_cid {
-            Ok(self.empty_deadline_v9_cid.clone())
+            Ok(*&self.empty_deadline_v9_cid)
         } else {
             let in_deadlines: fil_actor_miner_state::v8::Deadlines = store
                 .get_cbor(deadlines)?
