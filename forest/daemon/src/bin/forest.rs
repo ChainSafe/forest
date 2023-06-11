@@ -14,23 +14,23 @@ cfg_if::cfg_if! {
     }
 }
 
-use std::{cmp::max, fs::File, process, time::Duration};
-
 use anyhow::Context;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
+use forest_cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use forest_daemon::cli::Cli;
 use forest_daemon::{daemon, ipc_shmem_conf};
 use forest_utils::io::ProgressBar;
+use forest_utils::version::FOREST_VERSION_STRING;
 use log::info;
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
 };
+use std::{cmp::max, fs::File, process, time::Duration};
 use tokio::runtime::Builder as RuntimeBuilder;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
@@ -79,6 +79,16 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     });
 
     Ok(daemon)
+}
+
+/// CLI structure generated when interacting with Forest binary
+#[derive(Parser)]
+#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(help_template(HELP_MESSAGE))]
+pub struct Cli {
+    #[clap(flatten)]
+    pub opts: CliOpts,
+    pub cmd: Option<String>,
 }
 
 fn main() -> anyhow::Result<()> {

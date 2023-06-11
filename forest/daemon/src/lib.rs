@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod bundle;
-pub mod cli;
 pub mod daemon;
 
 use raw_sync::events::{Event, EventInit as _};
