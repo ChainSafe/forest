@@ -149,7 +149,7 @@ end
 module RunCommands
   # Create and call proper validation command, then write results to metrics.
   def run_validation_step(options, args, metrics)
-    unless options[:daily]
+    unless options[:daily] || options[:checksum]
       validate_command = splice_args(@validate_command, args)
       metrics[:validate] = exec_command(validate_command)
       return
