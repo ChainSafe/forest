@@ -76,10 +76,10 @@ impl<T> RaceBatch<T>
 where
     T: Send + 'static,
 {
-    pub fn new(size: usize) -> Self {
+    pub fn new(max_concurrent_jobs: usize) -> Self {
         RaceBatch {
             tasks: JoinSet::new(),
-            semaphore: Arc::new(Semaphore::new(size)),
+            semaphore: Arc::new(Semaphore::new(max_concurrent_jobs)),
         }
     }
 
@@ -93,7 +93,7 @@ where
         });
     }
 
-    /// Return first finishing Ok future else None
+    /// Return first finishing `Ok` future else return `None`
     pub async fn get_ok(&mut self) -> Option<Vec<T>> {
         while let Some(res) = self.tasks.join_next().await {
             let res = res.unwrap();
