@@ -88,6 +88,9 @@ class ForestBenchmark < BenchmarkBase
     @sync_status_command = [
       target_cli, '--config', '%<c>s', 'sync', 'status'
     ]
+    #TODO: previously used `--tipset` flag to set export height, but this is no
+    # longer supported.
+    @export_command = [target_cli, 'snapshot', 'export']
     @metrics = Concurrent::Hash.new
   end
 end

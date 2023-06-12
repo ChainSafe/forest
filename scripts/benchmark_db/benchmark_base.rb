@@ -148,8 +148,8 @@ end
 # Mixin module for base benchmark class run and validation commands.
 module RunCommands
   # Create and call proper validation command, then write results to metrics.
-  def run_validation_step(daily, args, metrics)
-    unless daily
+  def run_validation_step(options, args, metrics)
+    unless options[:daily]
       validate_command = splice_args(@validate_command, args)
       metrics[:validate] = exec_command(validate_command)
       return
@@ -164,14 +164,14 @@ module RunCommands
   end
 
   # Import snapshot, write metrics, and call validation function, returning metrics.
-  def import_and_validation(daily, args, metrics)
+  def import_and_validation(options, args, metrics)
     import_command = splice_args(@import_command, args)
-    metrics[:import] = exec_command(import_command)
+    metrics[:import] = exec_command(import_command) unless options[:checksum]
 
     # Save db size just after import.
-    metrics[:import][:db_size] = db_size unless @dry_run
+    metrics[:import][:db_size] = db_size unless @dry_run || options[:checksum]
 
-    run_validation_step(daily, args, metrics)
+    run_validation_step(options, args, metrics)
     metrics
   rescue StandardError, Interrupt
     @logger.error('Fiasco during benchmark run. Deleting downloaded files, cleaning DB and stopping process...')
@@ -188,18 +188,25 @@ module RunCommands
 
   # This is the primary function called in `bench.rb` to run the metrics for
   # each benchmark.
-  def run(daily, snapshot_downloaded)
+  def run(options, snapshot_downloaded)
     begin
       @snapshot_downloaded = snapshot_downloaded
       @logger.info "Running bench: #{@name}"
 
-      metrics = Concurrent::Hash.new
       args = build_artefacts
       @sync_status_command = splice_args(@sync_status_command, args)
 
       forest_init(args) if @name == 'forest'
 
-      @metrics = import_and_validation(daily, args, metrics)
+      if options[:checksum]
+        # Re-using this function to run the import and to ensure we reach the
+        # end of message sync stage. We can discard the metrics when we're
+        # just checking the checksum.
+        import_and_validation(options, args, metrics)
+      else
+        metrics = Concurrent::Hash.new
+        @metrics = import_and_validation(options, args, metrics)
+      end
     rescue StandardError, Interrupt
       @logger.error('Fiasco during benchmark run. Deleting downloaded files and stopping process...')
       FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded

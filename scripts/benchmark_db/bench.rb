@@ -46,6 +46,7 @@ OptionParser.new do |opts|
   opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
   opts.on('--tempdir [String]', 'Specify a custom directory for running benchmarks') { |v| options[:tempdir] = v }
   opts.on('--daily', 'Run snapshot import and validation time metrics') { |v| options[:daily] = v }
+  opts.on('--checksum', 'Run snapshot export checksum comparison') { |v| options[:checksum] = v }
 end.parse!
 
 # Create random temporary directory (or user-specified dir) for benchmarks,
@@ -231,7 +232,7 @@ end
 def benchmarks_loop(benchmarks, options, bench_metrics)
   benchmarks.each do |bench|
     bench.dry_run, bench.snapshot_path, bench.tipsets, bench.chain = bench_loop_assignments(options)
-    bench.run(options[:daily], @snapshot_downloaded)
+    bench.run(options, @snapshot_downloaded)
 
     bench_metrics[bench.name] = bench.metrics
 
@@ -261,6 +262,8 @@ def run_benchmarks(benchmarks, options)
   end
   if options[:daily]
     write_csv(bench_metrics)
+  elsif options[:checksum]
+    #TODO
   else
     write_markdown(bench_metrics)
   end
@@ -282,7 +285,7 @@ raise "The file '#{@snapshot_path}' does not exist" if @snapshot_path && !File.f
 
 # Download snapshot if a snapshot path is not specified by the user.
 begin
-  if @snapshot_path.nil?
+  if @snapshot_path.nil? && !options[:checksum]
     @logger.info 'No snapshot provided, downloading one'
     download_snapshot(chain: options[:chain])
     @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
@@ -313,6 +316,15 @@ if options[:daily]
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
+elsif options[:checksum]
+  # Download Lotus snapshot for import to Forest and checksum comparison.
+  @logger.info 'Downloading Lotus snapshot'
+  download_snapshot(chain: options[:chain])
+  @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
+  @snapshot_downloaded = true
+  options[:snapshot_path] = @snapshot_path
+  # Run Forest client, export snapshot, and compare checksums.
+  run_benchmarks([ForestBenchmark.new(name: 'forest')], options)
 else
   # Benchmarks for database metrics.
   selection = Set[]
