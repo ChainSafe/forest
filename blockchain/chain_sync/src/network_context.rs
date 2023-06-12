@@ -29,8 +29,8 @@ use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
-use tokio::task::JoinSet;
 use tokio::sync::Semaphore;
+use tokio::task::JoinSet;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers
@@ -69,7 +69,7 @@ type RaceBatchFuture<T> = Pin<Box<dyn Future<Output = Result<Vec<T>, String>> + 
 
 struct RaceBatch<T> {
     tasks: JoinSet<Result<Vec<T>, String>>,
-    semaphore: Arc<Semaphore>
+    semaphore: Arc<Semaphore>,
 }
 
 impl<T> RaceBatch<T>
