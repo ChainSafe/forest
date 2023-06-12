@@ -369,7 +369,7 @@ mod tests {
         .unwrap();
 
         let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]";
-        assert_eq!(expected_status_fmt.clear(), node_status.chain_status());
+        assert_eq!(expected_status_fmt.blue(), node_status.chain_status());
 
         let tipset = mock_tipset_at(cur_duration.as_secs() - 30000);
         let node_status = NodeStatusInfo::new(
@@ -383,7 +383,7 @@ mod tests {
         .unwrap();
 
         let expected_status_fmt = "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]";
-        assert_eq!(expected_status_fmt.clear(), node_status.chain_status());
+        assert_eq!(expected_status_fmt.blue(), node_status.chain_status());
     }
 
     #[test]
