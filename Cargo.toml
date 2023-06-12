@@ -53,7 +53,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm/message",
   "vm/interpreter",
   "vm/state_migration",
   "node/db",
@@ -202,7 +201,6 @@ forest_json = { path = "./utils/json" }
 forest_key_management = { path = "./key_management" }
 forest_libp2p = { path = "./node/forest_libp2p" }
 forest_libp2p_bitswap = { path = "./node/forest_libp2p/bitswap" }
-forest_message = { path = "./vm/message", default-features = false }
 forest_message_pool = { path = "./blockchain/message_pool" }
 forest_metrics = { path = "./utils/metrics" }
 forest_networks = { path = "./networks" }
