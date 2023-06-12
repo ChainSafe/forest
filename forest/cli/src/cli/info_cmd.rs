@@ -16,6 +16,7 @@ use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
 use humantime::format_duration;
 use num::BigInt;
+use std::fmt::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::Config;
@@ -159,28 +160,33 @@ impl NodeStatusInfo {
         })
     }
 
-    fn display(&mut self) {
+    fn format(&self, now: DateTime<Utc>) -> anyhow::Result<String> {
+        let mut output = String::new();
         if self.use_color {
-            println!("Network: {}", self.network());
-            println!("Uptime: {}", self.uptime(Utc::now()));
-            println!("Chain: {}", self.chain_status());
-            println!("Chain health: {}", self.health());
-            println!(
+            writeln!(&mut output, "Network: {}", self.network())?;
+            writeln!(&mut output, "Uptime: {}", self.uptime(now))?;
+            writeln!(&mut output, "Chain: {}", self.chain_status())?;
+            writeln!(&mut output, "Chain health: {}", self.health())?;
+            writeln!(
+                &mut output,
                 "Default wallet address: {} {}",
                 self.wallet_address(),
                 self.wallet_balance()
-            );
+            )?;
         } else {
-            println!("Network: {}", self.network().clear());
-            println!("Uptime: {}", self.uptime(Utc::now()).clear());
-            println!("Chain: {}", self.chain_status().clear());
-            println!("Chain health: {}", self.health().clear());
-            println!(
+            writeln!(&mut output, "Network: {}", self.network().clear())?;
+            writeln!(&mut output, "Uptime: {}", self.uptime(now).clear())?;
+            writeln!(&mut output, "Chain: {}", self.chain_status().clear())?;
+            writeln!(&mut output, "Chain health: {}", self.health().clear())?;
+            writeln!(
+                &mut output,
                 "Default wallet address: {} {}",
                 self.wallet_address().clear(),
                 self.wallet_balance().clear()
-            );
+            )?;
         }
+
+        Ok(output)
     }
 }
 
@@ -224,7 +230,7 @@ impl InfoCommand {
                 node_status_info.default_wallet_address = default_wallet_address.clone();
                 node_status_info.default_wallet_address_balance = default_wallet_address_balance;
 
-                node_status_info.display();
+                print!("{}", node_status_info.format(Utc::now())?);
 
                 Ok(())
             }
@@ -389,21 +395,36 @@ mod tests {
     #[test]
     fn test_node_info_formattting() {
         // no color tests
+        let no_color_expected_output = r#"Network: calibnet
+Uptime: 524277years 2months 24days 20h 52m 47s (Started at: -262144-01-01 00:00:00 +00:00)
+Chain: [sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 9223372036854775807]
+Chain health: 90.00%
+
+
+Default wallet address: - 
+"#;
+
         let node_status = mock_node_status(false);
-        let chain_status = node_status.chain_status();
-        let expected_chain_status = chain_status.to_string();
-        assert_eq!(node_status.network(), "calibnet".normal());
-        assert_eq!(node_status.health(), "90.00%\n\n".normal());
-        assert_eq!(node_status.wallet_address(), "-".normal());
-        assert_eq!(node_status.chain_status(), expected_chain_status.normal());
+        assert_eq!(
+            node_status
+                .format(DateTime::<chrono::Utc>::MAX_UTC)
+                .unwrap(),
+            no_color_expected_output
+        );
 
         // with color tests
+        let with_color_expected_output = "Network: \u{1b}[32mcalibnet\u{1b}[0m
+Uptime: 524277years 2months 24days 20h 52m 47s (Started at: -262144-01-01 00:00:00 +00:00)
+Chain: \u{1b}[34m[sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 9223372036854775807]\u{1b}[0m
+Chain health: \u{1b}[32m90.00%\n\n\u{1b}[0m
+Default wallet address: \u{1b}[1m-\u{1b}[0m \u{1b}[1m\u{1b}[0m
+";
         let node_status = mock_node_status(true);
-        let chain_status = node_status.chain_status();
-        let expected_chain_status = chain_status.clear().to_string();
-        assert_eq!(node_status.network(), "calibnet".green());
-        assert_eq!(node_status.health(), "90.00%\n\n".green());
-        assert_eq!(node_status.wallet_address(), "-".bold());
-        assert_eq!(node_status.chain_status(), expected_chain_status.blue());
+        assert_eq!(
+            node_status
+                .format(DateTime::<chrono::Utc>::MAX_UTC)
+                .unwrap(),
+            with_color_expected_output
+        );
     }
 }
