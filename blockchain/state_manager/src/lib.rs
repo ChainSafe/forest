@@ -887,7 +887,7 @@ where
             chain_rand,
             base_fee,
             callback,
-            &ts_cloned,
+            ts_cloned,
         )
         .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))
     }
