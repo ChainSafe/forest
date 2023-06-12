@@ -37,7 +37,7 @@ pub enum Vendor {
 }
 
 /// Common format for filenames for export and [`fetch`].
-/// Keep in sync with the cli documentation for export.
+/// Keep in sync with the CLI documentation for the `export` sub-command.
 pub fn filename(chain: impl Display, date: NaiveDate, height: i64) -> String {
     format!(
         "forest_snapshot_{chain}_date_{}_height_{height}.car.zst",
@@ -68,7 +68,7 @@ pub async fn fetch(
 
 /// Returns
 /// - The size of the snapshot from this vendor on this chain
-/// - The final url of the snapshot
+/// - The final URL of the snapshot
 pub async fn peek(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
     let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
