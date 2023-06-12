@@ -1,147 +1,53 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fs, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::bail;
-use chrono::{Datelike, Utc};
+use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_cli_shared::cli::{
-    default_snapshot_dir, is_car_or_zst_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
-};
+use forest_cli_shared::snapshot;
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_networks::NetworkChain;
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
-use forest_utils::{
-    io::{parser::parse_duration, ProgressBar},
-    net::get_fetch_progress_from_file,
-    retry,
-};
+use forest_utils::{io::ProgressBar, net::get_fetch_progress_from_file};
 use fvm_shared::clock::ChainEpoch;
-use log::info;
-use strfmt::strfmt;
 use tempfile::TempDir;
-use tokio::time::sleep;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
-
-pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
-    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
-
-pub(crate) const OUTPUT_PATH_DEFAULT_COMPRESSED_FORMAT: &str =
-    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car.zst";
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
-        /// Snapshot output path. Default to
-        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car(.
-        /// zst)` Date is in ISO 8601 date format.
-        /// Arguments:
-        ///  - chain - chain name e.g. `mainnet`
-        ///  - year
-        ///  - month
-        ///  - day
-        ///  - height - the epoch
+        /// Snapshot output filename or directory. Defaults to
+        /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
-        /// Export in zstd compressed format
-        #[arg(long)]
-        compressed: bool,
-        /// Skip creating the checksum file. Only valid when `--compressed` is
-        /// not supplied.
+        /// Skip creating the checksum file.
         #[arg(long)]
         skip_checksum: bool,
-        /// Skip writing to the snapshot `.car` file specified by
-        /// `--output-path`.
+        /// Don't write the archive.
         #[arg(long)]
         dry_run: bool,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
     Fetch {
-        /// Directory to which the snapshot should be downloaded. If not
-        /// provided, it will be saved in default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-        /// Snapshot trusted source
-        #[arg(short, long, value_enum)]
-        provider: Option<SnapshotServer>,
-        /// Download zstd compressed snapshot, only supported by the Filecoin
-        /// provider for now. default is false.
-        #[arg(long)]
-        compressed: bool,
-        /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
-        #[arg(long)]
-        aria2: bool,
-        /// Maximum number of times to retry the fetch
-        #[arg(short, long, default_value = "3")]
-        max_retries: i32,
-        /// Duration to wait between the retries in seconds
-        #[arg(short, long, default_value = "60", value_parser = parse_duration)]
-        delay: Duration,
+        #[arg(short, long, default_value = ".")]
+        directory: PathBuf,
+        /// Vendor to fetch the snapshot from
+        #[arg(short, long, value_enum, default_value_t = snapshot::Vendor::default())]
+        vendor: snapshot::Vendor,
     },
 
-    /// Shows default snapshot dir
-    Dir,
-
-    /// List local snapshots
-    List {
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-    },
-
-    /// Remove local snapshot
-    Remove {
-        /// Snapshot filename to remove
-        filename: PathBuf,
-
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-
-        /// Answer yes to all forest-cli yes/no questions without prompting
-        #[arg(long)]
-        force: bool,
-    },
-
-    /// Prune local snapshot, keeps the latest only.
-    /// Note that file names that do not match
-    /// forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
-    /// pattern will be ignored
-    Prune {
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-
-        /// Answer yes to all forest-cli yes/no questions without prompting
-        #[arg(long)]
-        force: bool,
-    },
-
-    /// Clean all local snapshots, use with care.
-    Clean {
-        /// Directory to which the snapshots are downloaded. If not provided, it
-        /// will be the default Forest data location.
-        #[arg(short, long)]
-        snapshot_dir: Option<PathBuf>,
-
-        /// Answer yes to all forest-cli yes/no questions without prompting
-        #[arg(long)]
-        force: bool,
-    },
     /// Validates the snapshot.
     Validate {
         /// Number of block headers to validate from the tip
@@ -160,7 +66,6 @@ impl SnapshotCommands {
         match self {
             Self::Export {
                 output_path,
-                compressed,
                 skip_checksum,
                 dry_run,
             } => {
@@ -171,39 +76,17 @@ impl SnapshotCommands {
 
                 let epoch = chain_head.epoch();
 
-                let now = Utc::now();
-
-                let month_string = format!("{:02}", now.month() as u8);
-                let year = now.year();
-                let day_string = format!("{:02}", now.day());
                 let chain_name = chain_get_name((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                #[allow(clippy::disallowed_types)]
-                let vars = std::collections::HashMap::from([
-                    ("year".to_string(), year.to_string()),
-                    ("month".to_string(), month_string),
-                    ("day".to_string(), day_string),
-                    ("chain".to_string(), chain_name),
-                    ("height".to_string(), epoch.to_string()),
-                ]);
-
-                let output_path = if output_path.is_dir() {
-                    output_path.join(if *compressed {
-                        OUTPUT_PATH_DEFAULT_COMPRESSED_FORMAT
-                    } else {
-                        OUTPUT_PATH_DEFAULT_FORMAT
-                    })
-                } else {
-                    output_path.clone()
-                };
-
-                let output_path = match strfmt(&output_path.display().to_string(), &vars) {
-                    Ok(path) => path.into(),
-                    Err(e) => {
-                        cli_error_and_die(format!("Unparsable string error: {e}"), 1);
-                    }
+                let output_path = match output_path.is_dir() {
+                    true => output_path.join(snapshot::filename(
+                        chain_name,
+                        Utc::now().date_naive(),
+                        chain_head.epoch(),
+                    )),
+                    false => output_path.clone(),
                 };
 
                 let params = ChainExportParams {
@@ -211,7 +94,6 @@ impl SnapshotCommands {
                     recent_roots: config.chain.recent_state_roots,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
-                    compressed: *compressed,
                     skip_checksum: *skip_checksum,
                     dry_run: *dry_run,
                 };
@@ -252,59 +134,15 @@ impl SnapshotCommands {
                 ));
                 Ok(())
             }
-            Self::Fetch {
-                snapshot_dir,
-                provider,
-                compressed: use_compressed,
-                aria2: use_aria2,
-                max_retries,
-                delay,
-            } => {
-                let snapshot_dir = snapshot_dir
-                    .clone()
-                    .unwrap_or_else(|| default_snapshot_dir(&config));
-                match retry!(
-                    snapshot_fetch,
-                    *max_retries,
-                    *delay,
-                    &snapshot_dir,
-                    &config,
-                    provider,
-                    *use_compressed,
-                    *use_aria2
-                ) {
+            Self::Fetch { directory, vendor } => {
+                match snapshot::fetch(directory, &config.chain.network, *vendor).await {
                     Ok(out) => {
-                        println!("Snapshot successfully downloaded at {}", out.display());
+                        println!("{}", out.display());
                         Ok(())
                     }
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
             }
-            Self::Dir => {
-                let dir = default_snapshot_dir(&config);
-                println!("{}", dir.display());
-                Ok(())
-            }
-            Self::List { snapshot_dir } => list(&config, snapshot_dir),
-            Self::Remove {
-                filename,
-                snapshot_dir,
-                force,
-            } => {
-                remove(&config, filename, snapshot_dir, *force);
-                Ok(())
-            }
-            Self::Prune {
-                snapshot_dir,
-                force,
-            } => {
-                prune(&config, snapshot_dir, *force);
-                Ok(())
-            }
-            Self::Clean {
-                snapshot_dir,
-                force,
-            } => clean(&config, snapshot_dir, *force),
             Self::Validate {
                 recent_stateroots,
                 snapshot,
@@ -312,110 +150,6 @@ impl SnapshotCommands {
             } => validate(&config, recent_stateroots, snapshot, *force).await,
         }
     }
-}
-
-fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-    let store = SnapshotStore::new(config, &snapshot_dir);
-    if store.snapshots.is_empty() {
-        println!("No local snapshots");
-    } else {
-        println!("Local snapshots:");
-        store.display();
-    }
-    Ok(())
-}
-
-fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, force: bool) {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    let snapshot_path = snapshot_dir.join(filename);
-    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_zst_or_tmp(&snapshot_path) {
-        println!("Deleting {}", snapshot_path.display());
-        if !force && !prompt_confirm() {
-            println!("Aborted.");
-            return;
-        }
-
-        delete_snapshot(&snapshot_path);
-    } else {
-        println!(
-                "{} is not a valid snapshot file path, to list all snapshots, run forest-cli snapshot list",
-                snapshot_path.display());
-    }
-}
-
-fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-    let mut store = SnapshotStore::new(config, &snapshot_dir);
-    if store.snapshots.len() < 2 {
-        println!("No files to delete");
-        return;
-    }
-    store.snapshots.sort_by_key(|s| (s.date, s.height));
-    store.snapshots.pop(); // Keep the latest snapshot
-
-    println!("Files to delete:");
-    store.display();
-
-    if !force && !prompt_confirm() {
-        println!("Aborted.");
-    } else {
-        for snapshot_path in store.snapshots {
-            delete_snapshot(&snapshot_path.path);
-        }
-    }
-}
-
-fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow::Result<()> {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-
-    let read_dir = match fs::read_dir(snapshot_dir) {
-        Ok(read_dir) => read_dir,
-        // basically have the same behavior as in `rm -f` which doesn't fail if the target
-        // directory doesn't exist.
-        Err(_) if force => {
-            println!("Target directory not accessible. Skipping.");
-            return Ok(());
-        }
-        Err(e) => bail!(e),
-    };
-
-    let snapshots_to_delete: Vec<_> = read_dir
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|p| is_car_or_zst_or_tmp(p))
-        .collect();
-
-    if snapshots_to_delete.is_empty() {
-        println!("No files to delete");
-        return Ok(());
-    }
-    println!("Files to delete:");
-    snapshots_to_delete
-        .iter()
-        .for_each(|f| println!("{}", f.display()));
-
-    if !force && !prompt_confirm() {
-        println!("Aborted.");
-        return Ok(());
-    }
-
-    for snapshot_path in snapshots_to_delete {
-        delete_snapshot(&snapshot_path);
-    }
-
-    Ok(())
 }
 
 async fn validate(
@@ -550,17 +284,4 @@ where
     println!("Snapshot is valid");
 
     Ok(())
-}
-
-fn delete_snapshot(snapshot_path: &PathBuf) {
-    let checksum_path = snapshot_path.with_extension("sha256sum");
-    for path in [snapshot_path, &checksum_path] {
-        if path.exists() {
-            if let Err(err) = fs::remove_file(path) {
-                println!("Failed to delete {}\n{err}", path.display());
-            } else {
-                println!("Deleted {}", path.display());
-            }
-        }
-    }
 }
