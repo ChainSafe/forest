@@ -3840,7 +3840,6 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm 2.4.0",
- "fvm 3.4.0",
  "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
