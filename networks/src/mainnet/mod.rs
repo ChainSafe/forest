@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 use lazy_static::lazy_static;
 use url::Url;
 
@@ -12,7 +12,7 @@ use super::{
 };
 use crate::ActorBundleInfo;
 
-const SMOKE_HEIGHT: ChainEpoch = 51000;
+const SMOKE_HEIGHT: ChainEpoch = ChainEpoch(51000);
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -33,7 +33,7 @@ lazy_static! {
 pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Breeze,
-        epoch: 41_280,
+        epoch: ChainEpoch(41_280),
         bundle: None,
     },
     HeightInfo {
@@ -43,87 +43,87 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     },
     HeightInfo {
         height: Height::Ignition,
-        epoch: 94_000,
+        epoch: ChainEpoch(94_000),
         bundle: None,
     },
     HeightInfo {
         height: Height::ActorsV2,
-        epoch: 138_720,
+        epoch: ChainEpoch(138_720),
         bundle: None,
     },
     HeightInfo {
         height: Height::Tape,
-        epoch: 140_760,
+        epoch: ChainEpoch(140_760),
         bundle: None,
     },
     HeightInfo {
         height: Height::Liftoff,
-        epoch: 148_888,
+        epoch: ChainEpoch(148_888),
         bundle: None,
     },
     HeightInfo {
         height: Height::Kumquat,
-        epoch: 170_000,
+        epoch: ChainEpoch(170_000),
         bundle: None,
     },
     HeightInfo {
         height: Height::Calico,
-        epoch: 265_200,
+        epoch: ChainEpoch(265_200),
         bundle: None,
     },
     HeightInfo {
         height: Height::Persian,
-        epoch: 272_400,
+        epoch: ChainEpoch(272_400),
         bundle: None,
     },
     HeightInfo {
         height: Height::Orange,
-        epoch: 336_458,
+        epoch: ChainEpoch(336_458),
         bundle: None,
     },
     HeightInfo {
         height: Height::Trust,
-        epoch: 550_321,
+        epoch: ChainEpoch(550_321),
         bundle: None,
     },
     HeightInfo {
         height: Height::Norwegian,
-        epoch: 665_280,
+        epoch: ChainEpoch(665_280),
         bundle: None,
     },
     HeightInfo {
         height: Height::Turbo,
-        epoch: 712_320,
+        epoch: ChainEpoch(712_320),
         bundle: None,
     },
     HeightInfo {
         height: Height::Hyperdrive,
-        epoch: 892_800,
+        epoch: ChainEpoch(892_800),
         bundle: None,
     },
     HeightInfo {
         height: Height::Chocolate,
-        epoch: 1_231_620,
+        epoch: ChainEpoch(1_231_620),
         bundle: None,
     },
     HeightInfo {
         height: Height::OhSnap,
-        epoch: 1_594_680,
+        epoch: ChainEpoch(1_594_680),
         bundle: None,
     },
     HeightInfo {
         height: Height::Skyr,
-        epoch: 1_960_320,
+        epoch: ChainEpoch(1_960_320),
         bundle: None,
     },
     HeightInfo {
         height: Height::Shark,
-        epoch: 2_383_680,
+        epoch: ChainEpoch(2_383_680),
         bundle: None,
     },
     HeightInfo {
         height: Height::Hygge,
-        epoch: 2_683_348,
+        epoch: ChainEpoch(2_683_348),
         bundle: Some(ActorBundleInfo {
             manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap()
@@ -131,7 +131,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     },
     HeightInfo {
         height: Height::Lightning,
-        epoch: 2_809_800,
+        epoch: ChainEpoch(2_809_800),
         bundle: Some(ActorBundleInfo {
             manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-mainnet.car").unwrap()
@@ -139,7 +139,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     },
     HeightInfo {
         height: Height::Thunder,
-        epoch: 2_809_800 + LIGHTNING_ROLLOVER_PERIOD,
+        epoch: ChainEpoch(2_809_800 + LIGHTNING_ROLLOVER_PERIOD),
         bundle: None,
     },
 ];
@@ -147,7 +147,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
 
 pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
     DrandPoint {
-        height: 0,
+        height: ChainEpoch(0),
         config: &DRAND_INCENTINET,
     },
     DrandPoint {

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use clap::Subcommand;
-use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
+use forest_shim::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::Config;

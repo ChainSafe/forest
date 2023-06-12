@@ -41,7 +41,7 @@ impl Beacon for MockBeacon {
         Ok(Self::entry_for_index(round))
     }
 
-    fn max_beacon_round_for_epoch(&self, _network_version: NetworkVersion, fil_epoch: i64) -> u64 {
-        fil_epoch as u64
+    fn max_beacon_round_for_epoch(&self, _network_version: NetworkVersion, fil_epoch: forest_shim::clock::ChainEpoch) -> u64 {
+        u64::from(fil_epoch)
     }
 }

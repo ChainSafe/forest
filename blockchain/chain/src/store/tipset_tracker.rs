@@ -8,7 +8,7 @@ use forest_blocks::{BlockHeader, Tipset};
 use forest_networks::ChainConfig;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 use log::{debug, warn};
 use parking_lot::Mutex;
 
@@ -130,7 +130,7 @@ mod test {
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
 
-        let head_epoch = 2023;
+        let head_epoch = ChainEpoch(2023);
 
         let entries = BTreeMap::from([
             (head_epoch - chain_config.policy.chain_finality - 3, vec![]),

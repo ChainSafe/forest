@@ -13,7 +13,7 @@ use forest_networks::ChainConfig;
 use forest_shim::externs::Rand;
 use forest_utils::encoding::blake2b_256;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {

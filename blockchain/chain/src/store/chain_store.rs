@@ -38,7 +38,7 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{Cbor, CborStore};
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -392,7 +392,7 @@ where
 
             ts = pts;
 
-            if ts.epoch() == 0 {
+            if i64::from(ts.epoch()) == 0 {
                 break;
             }
         }
@@ -420,7 +420,7 @@ where
             if let Some(entry) = cbe.last() {
                 return Ok(Some(entry.clone()));
             }
-            if ts.epoch() == 0 {
+            if i64::from(ts.epoch()) == 0 {
                 return Err(Error::Other(
                     "made it back to genesis block without finding beacon entry".to_owned(),
                 ));
@@ -595,7 +595,7 @@ where
         // car writer.
         let n_records = walk_snapshot(
             tipset,
-            recent_roots,
+            i64::from(recent_roots),
             |cid| {
                 let tx_clone = tx.clone();
                 async move {
@@ -976,7 +976,7 @@ mod tests {
         let chain_config = Arc::new(ChainConfig::default());
 
         let gen_block = BlockHeader::builder()
-            .epoch(1)
+            .epoch(ChainEpoch(1))
             .weight(2_u32.into())
             .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
             .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))

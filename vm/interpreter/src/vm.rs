@@ -113,7 +113,7 @@ where
         chain_config: Arc<ChainConfig>,
         timestamp: u64,
     ) -> Result<Self, anyhow::Error> {
-        let network_version = chain_config.network_version(epoch);
+        let network_version = chain_config.network_version(forest_shim::clock::ChainEpoch(epoch));
         if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.

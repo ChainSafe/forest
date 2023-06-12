@@ -7,8 +7,8 @@ use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use forest_shim::version::NetworkVersion;
-use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use forest_shim::{clock::ChainEpoch, version::NetworkVersion};
+use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use url::Url;
@@ -139,7 +139,7 @@ pub struct HeightInfo {
 
 pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
     let mut height_info_vec = height_info_slice.to_vec();
-    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch));
+    height_info_vec.sort_by(|a, b| a.epoch.0.cmp(&b.epoch.0));
     height_info_vec
 }
 
@@ -248,7 +248,7 @@ impl ChainConfig {
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.epoch)
-            .unwrap_or(0)
+            .unwrap_or(ChainEpoch(0))
     }
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {

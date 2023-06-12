@@ -12,6 +12,7 @@ use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_shim::{
     address::Address,
     bigint::{BigIntDe, BigIntSer},
+    clock::ChainEpoch,
     crypto::Signature,
     econ::TokenAmount,
     sector::PoStProof,
@@ -19,7 +20,6 @@ use forest_shim::{
 };
 use forest_utils::encoding::blake2b_256;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
-use fvm_shared::clock::ChainEpoch;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
