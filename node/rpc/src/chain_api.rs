@@ -94,7 +94,7 @@ where
                 &start_ts,
                 recent_roots,
                 VoidAsyncWriter::default(),
-                true,
+                true, // `compressed` is always on
                 skip_checksum,
             )
             .await

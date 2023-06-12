@@ -141,7 +141,7 @@ mod test {
 
     /// Partial configuration, as some parts of the proper one don't implement
     /// required traits (i.e. Debug)
-    // TODO(aatifsyed): the above comment is wrong
+    // This should be removed in #2965
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
