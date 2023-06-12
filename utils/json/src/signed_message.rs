@@ -110,7 +110,6 @@ mod tests {
 
     use super::json::{SignedMessageJson, SignedMessageJsonRef};
     use crate::{
-        message,
         message::json::{MessageJson, MessageJsonRef},
     };
 
@@ -170,7 +169,7 @@ mod tests {
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct TestStruct {
-            #[serde(with = "message::json")]
+            #[serde(with = "crate::message::json")]
             unsigned: Message,
             #[serde(with = "crate::signed_message::json")]
             signed: SignedMessage,
