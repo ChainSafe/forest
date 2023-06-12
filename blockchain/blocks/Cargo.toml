@@ -14,7 +14,6 @@ cid.workspace = true
 derive_builder.workspace = true
 forest_beacon.workspace = true
 forest_json.workspace = true
-forest_message = { workspace = true }
 forest_utils.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }

@@ -3163,7 +3163,6 @@ dependencies = [
  "forest",
  "forest_beacon",
  "forest_json",
- "forest_message",
  "forest_test_utils",
  "forest_utils",
  "fvm_ipld_encoding 0.2.3",
@@ -3201,7 +3200,6 @@ dependencies = [
  "forest_interpreter",
  "forest_ipld",
  "forest_libp2p_bitswap",
- "forest_message",
  "forest_metrics",
  "forest_networks",
  "forest_utils",
@@ -3243,7 +3241,6 @@ dependencies = [
  "forest_db",
  "forest_json",
  "forest_libp2p",
- "forest_message",
  "forest_message_pool",
  "forest_networks",
  "forest_state_manager",
@@ -3450,7 +3447,6 @@ dependencies = [
  "fil_actor_interface",
  "forest",
  "forest_blocks",
- "forest_message",
  "forest_networks",
  "fvm 2.4.0",
  "fvm 3.4.0",
@@ -3505,7 +3501,6 @@ dependencies = [
  "cid",
  "data-encoding",
  "forest",
- "forest_message",
  "forest_test_utils",
  "forest_utils",
  "fvm_ipld_encoding 0.2.3",
@@ -3562,7 +3557,6 @@ dependencies = [
  "forest_db",
  "forest_genesis",
  "forest_libp2p_bitswap",
- "forest_message",
  "forest_metrics",
  "forest_networks",
  "forest_utils",
@@ -3619,23 +3613,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_message"
-version = "0.8.2"
-dependencies = [
- "anyhow",
- "cid",
- "forest",
- "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_encoding 0.3.3",
- "fvm_shared 2.4.0",
- "fvm_shared 3.3.1",
- "quickcheck",
- "rand 0.8.5",
- "serde",
- "serde_tuple",
-]
-
-[[package]]
 name = "forest_message_pool"
 version = "0.8.2"
 dependencies = [
@@ -3651,7 +3628,6 @@ dependencies = [
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
- "forest_message",
  "forest_networks",
  "forest_state_manager",
  "forest_utils",
@@ -3735,7 +3711,6 @@ dependencies = [
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
- "forest_message",
  "forest_message_pool",
  "forest_networks",
  "forest_rpc-api",
@@ -3785,7 +3760,6 @@ dependencies = [
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
- "forest_message",
  "forest_message_pool",
  "forest_state_manager",
  "fvm_ipld_blockstore",
@@ -3833,7 +3807,6 @@ dependencies = [
  "forest_db",
  "forest_interpreter",
  "forest_json",
- "forest_message",
  "forest_metrics",
  "forest_networks",
  "forest_state_migration",
@@ -3919,7 +3892,6 @@ dependencies = [
  "forest_blocks",
  "forest_json",
  "forest_libp2p",
- "forest_message",
  "fvm_ipld_encoding 0.2.3",
  "num",
 ]
@@ -8338,7 +8310,6 @@ dependencies = [
  "forest",
  "forest_blocks",
  "forest_json",
- "forest_message",
  "fvm_ipld_encoding 0.2.3",
  "hex",
  "serde",
