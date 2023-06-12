@@ -432,8 +432,10 @@ pub(super) async fn start(
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
-    let err = propagate_error(&mut services).await;
-    anyhow::bail!("services failure: {}", err);
+    propagate_error(&mut services)
+        .await
+        .context("services failure")
+        .map(|_| {})
 }
 
 /// If our current chain is below a supported height, we need a snapshot to bring it up
@@ -530,25 +532,21 @@ fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> a
     Ok(())
 }
 
-// returns the first error with which any of the services end
-// in case all services finished without an error sleeps for more than 2 years
-// and then returns with an error
-async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> anyhow::Error {
+/// returns the first error with which any of the services end, or never returns at all
+// This should return anyhow::Result<!> once the `Never` type is stabilized
+async fn propagate_error(
+    services: &mut JoinSet<Result<(), anyhow::Error>>,
+) -> anyhow::Result<std::convert::Infallible> {
     while !services.is_empty() {
         select! {
             option = services.join_next().fuse() => {
                 if let Some(Ok(Err(error_message))) = option {
-                    return error_message
+                    return Err(error_message)
                 }
             },
         }
     }
-    // In case all services are down without errors we are still willing
-    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
-    // a limit of approximately 2.2 years we have to loop
-    loop {
-        tokio::time::sleep(Duration::new(64000000, 0)).await;
-    }
+    std::future::pending().await
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
