@@ -11,7 +11,7 @@ use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
-use crate::signed_message::SignedMessage;
+use crate::message::signed_message::SignedMessage;
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with
 /// both types
