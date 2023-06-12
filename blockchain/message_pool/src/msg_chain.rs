@@ -14,7 +14,7 @@ use forest::shim::{
     gas::{price_list_by_network_version, Gas},
 };
 use forest_blocks::Tipset;
-use forest_message::{Message, SignedMessage};
+use forest::message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
 use fvm_ipld_encoding::Cbor;
 use log::warn;

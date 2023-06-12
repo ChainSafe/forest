@@ -5,7 +5,7 @@ pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest::shim::{address::Address, econ::TokenAmount, message::Message};
-    use forest_message::Message as MessageTrait;
+    use forest::message::Message as MessageTrait;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding3::RawBytes;
     use fvm_shared3::message::Message as Message_v3;

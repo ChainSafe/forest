@@ -17,7 +17,7 @@ use forest::shim::{
     version::NetworkVersion,
     Inner,
 };
-use forest_message::ChainMessage;
+use forest::message::ChainMessage;
 use forest_networks::ChainConfig;
 use fvm::{
     executor::{DefaultExecutor, Executor},

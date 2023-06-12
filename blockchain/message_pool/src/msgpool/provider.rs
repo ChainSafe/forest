@@ -13,7 +13,7 @@ use forest::shim::{
 };
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
-use forest_message::{ChainMessage, SignedMessage};
+use forest::message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
 use forest_state_manager::StateManager;
 use forest_utils::db::CborStoreExt;

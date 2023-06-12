@@ -3,7 +3,7 @@
 
 use cid::Cid;
 use forest::shim::message::Message;
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::BlockHeader;

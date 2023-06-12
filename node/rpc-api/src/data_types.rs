@@ -16,7 +16,7 @@ use forest_json::{cid::CidJson, message_receipt::json::ReceiptJson, token_amount
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
-use forest_message::signed_message::SignedMessage;
+use forest::message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;

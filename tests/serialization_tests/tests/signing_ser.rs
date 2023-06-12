@@ -15,7 +15,7 @@ use forest::shim::{
     message::Message,
 };
 use forest_json::{message, signature};
-use forest_message::signed_message::SignedMessage;
+use forest::message::signed_message::SignedMessage;
 use fvm_ipld_encoding::Cbor;
 use serde::Deserialize;
 

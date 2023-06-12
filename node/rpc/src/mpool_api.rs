@@ -13,7 +13,7 @@ use forest_json::{
     message::json::MessageJson,
     signed_message::json::SignedMessageJson,
 };
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use forest_rpc_api::{data_types::RPCState, mpool_api::*};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;

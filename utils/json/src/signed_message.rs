@@ -3,7 +3,7 @@
 pub mod json {
     use cid::Cid;
     use forest::shim::{crypto::Signature, message::Message};
-    use forest_message::SignedMessage;
+    use forest::message::SignedMessage;
     use fvm_ipld_encoding::Cbor;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -103,7 +103,7 @@ mod tests {
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
-    use forest_message::{self, SignedMessage};
+    use forest::message::{self, SignedMessage};
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
     use serde_json::{self, from_str, to_string};

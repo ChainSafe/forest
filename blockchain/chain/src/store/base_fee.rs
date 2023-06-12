@@ -4,7 +4,7 @@
 use ahash::{HashSet, HashSetExt};
 use forest::shim::econ::TokenAmount;
 use forest_blocks::Tipset;
-use forest_message::Message;
+use forest::message::Message;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;

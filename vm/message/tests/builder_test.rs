@@ -6,7 +6,7 @@ use forest::shim::{
     crypto::Signature,
     message::{Message, Message_v3},
 };
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use rand::{rngs::OsRng, RngCore};
 
 #[test]

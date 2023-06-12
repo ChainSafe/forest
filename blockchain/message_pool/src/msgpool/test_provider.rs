@@ -12,7 +12,7 @@ use forest::shim::{address::Address, econ::TokenAmount, message::Message, state_
 use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_json::vrf::VRFProof;
-use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use forest::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;

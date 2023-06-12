@@ -12,7 +12,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use num::BigInt;
 
 #[test]

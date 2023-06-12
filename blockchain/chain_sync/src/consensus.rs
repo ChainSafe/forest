@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use forest_blocks::{Block, GossipBlock, Tipset};
 use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use forest_message_pool::MessagePool;
 use forest_state_manager::StateManager;
 use futures::{stream::FuturesUnordered, StreamExt};

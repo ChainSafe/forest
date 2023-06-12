@@ -22,7 +22,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_interpreter::BlockMessages;
 use forest_ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use forest::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::{ChainConfig, NetworkChain};
 use forest_utils::{

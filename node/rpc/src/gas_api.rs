@@ -7,7 +7,7 @@ use forest_beacon::Beacon;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use forest_json::{address::json::AddressJson, message::json::MessageJson};
-use forest_message::{ChainMessage, Message as MessageTrait};
+use forest::message::{ChainMessage, Message as MessageTrait};
 use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,

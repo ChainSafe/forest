@@ -18,7 +18,7 @@ use forest_json::vrf::VRFProof;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
 use num::BigInt;
 

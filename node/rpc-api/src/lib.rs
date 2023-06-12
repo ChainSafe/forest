@@ -241,7 +241,7 @@ pub mod mpool_api {
         message::json::MessageJson,
         signed_message::json::SignedMessageJson,
     };
-    use forest_message::SignedMessage;
+    use forest::message::SignedMessage;
 
     use crate::data_types::MessageSendSpec;
 

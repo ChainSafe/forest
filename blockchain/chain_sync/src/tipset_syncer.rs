@@ -22,7 +22,7 @@ use forest_blocks::{
 };
 use forest_chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use forest_libp2p::chain_exchange::TipsetBundle;
-use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
+use forest::message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
 use forest_state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;

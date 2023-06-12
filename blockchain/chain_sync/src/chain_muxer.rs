@@ -17,7 +17,7 @@ use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
 };
-use forest_message::SignedMessage;
+use forest::message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
 use futures::{
@@ -934,7 +934,7 @@ mod tests {
     use forest::shim::{address::Address, message::Message};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
-    use forest_message::SignedMessage;
+    use forest::message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
     use forest_test_utils::construct_messages;
 

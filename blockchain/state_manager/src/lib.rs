@@ -30,7 +30,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
-use forest_message::{ChainMessage, Message as MessageTrait};
+use forest::message::{ChainMessage, Message as MessageTrait};
 use forest_networks::ChainConfig;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::externs::Rand;
