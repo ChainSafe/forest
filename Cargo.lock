@@ -3003,6 +3003,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "quickcheck",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "serde_tuple",

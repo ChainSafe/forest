@@ -32,6 +32,7 @@ serde_tuple.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+rand.workspace = true
 
 [workspace.package]
 version = "0.8.2"
