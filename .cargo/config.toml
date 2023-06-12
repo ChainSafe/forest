@@ -3,10 +3,6 @@
 cli = "run --bin forest-cli --"
 daemon = "run --bin forest --"
 
-[env]
-# Applies when e.g invoked as `cargo daemon`
-FOREST_KEYSTORE_PHRASE = ""
-
 [build]
 incremental = true
 
