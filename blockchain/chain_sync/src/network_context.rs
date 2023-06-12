@@ -82,7 +82,7 @@ where
         }
     }
 
-    pub fn push(&mut self, future: RaceBatchFuture<T>) {
+    pub fn add(&mut self, future: RaceBatchFuture<T>) {
         self.tasks.spawn(future);
     }
 
@@ -252,7 +252,7 @@ where
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
-                    batch.push(Box::pin(async move {
+                    batch.add(Box::pin(async move {
                         match Self::chain_exchange_request(
                             peer_manager,
                             network_send,
