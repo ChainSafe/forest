@@ -96,8 +96,7 @@ where
     /// Return first finishing `Ok` future else return `None` if all jobs failed
     pub async fn get_ok(&mut self) -> Option<T> {
         while let Some(result) = self.tasks.join_next().await {
-            let result = result.unwrap();
-            if let Ok(value) = result {
+            if let Ok(Ok(value)) = result {
                 self.tasks.abort_all();
                 return Some(value);
             }
