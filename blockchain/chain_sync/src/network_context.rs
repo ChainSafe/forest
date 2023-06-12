@@ -93,11 +93,11 @@ where
         });
     }
 
-    /// Return first finishing `Ok` future else return `None`
+    /// Return first finishing `Ok` future else return nothing if all jobs errored
     pub async fn get_ok(&mut self) -> Option<Vec<T>> {
-        while let Some(res) = self.tasks.join_next().await {
-            let res = res.unwrap();
-            if let Ok(value) = res {
+        while let Some(result) = self.tasks.join_next().await {
+            let result = result.unwrap();
+            if let Ok(value) = result {
                 self.tasks.abort_all();
                 return Some(value);
             }
@@ -304,7 +304,6 @@ where
                 if let Some(v) = batch.get_ok().await {
                     log::debug!("Succeed: handle_chain_exchange_request");
                     v
-                    //result.map_err(|e| e.to_string())?
                 } else {
                     return Err(make_failure_message());
                 }
