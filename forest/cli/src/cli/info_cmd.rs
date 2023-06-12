@@ -42,8 +42,8 @@ pub struct NodeStatusInfo {
     pub base_fee: TokenAmount,
     pub sync_status: SyncStatus,
     /// Start time of the node
-    pub start_time: Option<DateTime<Utc>>,
-    pub network: Option<String>,
+    pub start_time: DateTime<Utc>,
+    pub network: String,
     pub default_wallet_address: Option<String>,
     pub default_wallet_address_balance: Option<String>,
     use_color: bool,
@@ -53,100 +53,53 @@ impl NodeStatusInfo {
     fn chain_status(&self) -> ColoredString {
         let base_fee_fmt = self.base_fee.pretty();
         let behind = format!("{}", humantime::format_duration(self.lag));
-        let chain_status = format!(
+        format!(
             "[sync: {}! ({} behind)] [basefee: {base_fee_fmt}] [epoch: {}]",
             self.sync_status, behind, self.epoch
         )
-        .blue();
-
-        if !self.use_color {
-            chain_status.clear()
-        } else {
-            chain_status
-        }
+        .blue()
     }
 
     fn network(&self) -> ColoredString {
-        let network = if let Some(network) = &self.network {
-            network.green()
-        } else {
-            "-".green()
-        };
-
-        if !self.use_color {
-            network.clear()
-        } else {
-            network
-        }
+        self.network.green()
     }
 
     fn wallet_address(&self) -> ColoredString {
-        let wallet_address = self
-            .default_wallet_address
+        self.default_wallet_address
             .clone()
             .unwrap_or("address not set".to_string())
-            .bold();
-
-        if !self.use_color {
-            wallet_address.clear()
-        } else {
-            wallet_address
-        }
+            .bold()
     }
 
     fn uptime(&self, now: DateTime<Utc>) -> ColoredString {
-        let uptime = if let Some(start_time) = self.start_time {
-            let uptime = (now - start_time)
-                .to_std()
-                .expect("failed converting to std duration");
-            let uptime = Duration::from_secs(uptime.as_secs());
-            let fmt_uptime = format_duration(uptime);
-            format!(
-                "{fmt_uptime} (Started at: {})",
-                start_time.with_timezone(&chrono::offset::Local)
-            )
-            .normal()
-        } else {
-            "-".normal()
-        };
-
-        if !self.use_color {
-            uptime.clear()
-        } else {
-            uptime
-        }
+        let uptime = (now - self.start_time)
+            .to_std()
+            .expect("failed converting to std duration");
+        let uptime = Duration::from_secs(uptime.as_secs());
+        let fmt_uptime = format_duration(uptime);
+        format!(
+            "{fmt_uptime} (Started at: {})",
+            self.start_time.with_timezone(&chrono::offset::Local)
+        )
+        .normal()
     }
 
     fn health(&self) -> ColoredString {
-        let health = {
-            let health = self.health;
-            let h = format!("{health:.2}%\n\n");
-            if self.health > 85. {
-                h.green()
-            } else if self.health > 50. {
-                h.yellow()
-            } else {
-                h.red()
-            }
-        };
-
-        if !self.use_color {
-            health.clear()
+        let health = self.health;
+        let h = format!("{health:.2}%\n\n");
+        if self.health > 85. {
+            h.green()
+        } else if self.health > 50. {
+            h.yellow()
         } else {
-            health
+            h.red()
         }
     }
 
     fn wallet_balance(&self) -> ColoredString {
-        let wallet_balance = match balance(&self.default_wallet_address_balance) {
+        match balance(&self.default_wallet_address_balance) {
             Ok(bal) => format!("[balance: {}]", bal).bold(),
             Err(_) => "".bold(),
-        };
-
-        if !self.use_color {
-            wallet_balance.clear()
-        } else {
-            wallet_balance
         }
     }
 }
@@ -163,6 +116,8 @@ impl NodeStatusInfo {
         cur_duration: Duration,
         blocks_per_tipset_last_finality: f64,
         head: TipsetJson,
+        start_time: DateTime<Utc>,
+        network: String,
         use_color: bool,
     ) -> anyhow::Result<NodeStatusInfo> {
         let ts = head.0.min_timestamp();
@@ -196,8 +151,8 @@ impl NodeStatusInfo {
             epoch: head.0.epoch(),
             base_fee,
             sync_status,
-            start_time: None,
-            network: None,
+            start_time,
+            network,
             use_color,
             default_wallet_address: None,
             default_wallet_address_balance: None,
@@ -205,15 +160,27 @@ impl NodeStatusInfo {
     }
 
     fn display(&mut self) {
-        println!("Network: {}", self.network());
-        println!("Uptime: {}", self.uptime(Utc::now()));
-        println!("Chain: {}", self.chain_status());
-        println!("Chain health: {}", self.health());
-        println!(
-            "Default wallet address: {} {}",
-            self.wallet_address(),
-            self.wallet_balance()
-        );
+        if self.use_color {
+            println!("Network: {}", self.network());
+            println!("Uptime: {}", self.uptime(Utc::now()));
+            println!("Chain: {}", self.chain_status());
+            println!("Chain health: {}", self.health());
+            println!(
+                "Default wallet address: {} {}",
+                self.wallet_address(),
+                self.wallet_balance()
+            );
+        } else {
+            println!("Network: {}", self.network().clear());
+            println!("Uptime: {}", self.uptime(Utc::now()).clear());
+            println!("Chain: {}", self.chain_status().clear());
+            println!("Chain health: {}", self.health().clear());
+            println!(
+                "Default wallet address: {} {}",
+                self.wallet_address().clear(),
+                self.wallet_balance().clear()
+            );
+        }
     }
 }
 
@@ -235,6 +202,8 @@ impl InfoCommand {
                     cur_duration,
                     blocks_per_tipset_last_finality,
                     head,
+                    start_time,
+                    network,
                     opts.color.coloring_enabled(),
                 )?;
 
@@ -252,8 +221,6 @@ impl InfoCommand {
                     None
                 };
 
-                node_status_info.start_time = Some(start_time);
-                node_status_info.network = Some(network);
                 node_status_info.default_wallet_address = default_wallet_address.clone();
                 node_status_info.default_wallet_address_balance = default_wallet_address_balance;
 
@@ -305,8 +272,8 @@ mod tests {
             epoch: i64::MAX,
             base_fee: TokenAmount::from_whole(1),
             sync_status: SyncStatus::Ok,
-            start_time: Some(DateTime::<chrono::Utc>::MIN_UTC),
-            network: Some("calibnet".to_string()),
+            start_time: DateTime::<chrono::Utc>::MIN_UTC,
+            network: "calibnet".to_string(),
             default_wallet_address: Some("-".to_string()),
             default_wallet_address_balance: None,
             use_color,
@@ -321,6 +288,8 @@ mod tests {
             TipsetJson(mock_tipset_at(
                 duration.as_secs() + (EPOCH_DURATION_SECONDS as u64 * 3 / 2),
             )),
+            DateTime::<chrono::Utc>::MIN_UTC,
+            "calibnet".to_string(),
             false,
         );
         if let Ok(status) = status_result {
@@ -333,7 +302,15 @@ mod tests {
     fn test_sync_status_behind(duration: Duration) {
         let duration = duration + Duration::from_secs(300);
         let tipset = mock_tipset_at(duration.as_secs().saturating_sub(200));
-        let node_status = NodeStatusInfo::new(duration, 20., TipsetJson(tipset), false).unwrap();
+        let node_status = NodeStatusInfo::new(
+            duration,
+            20.,
+            TipsetJson(tipset),
+            DateTime::<chrono::Utc>::MIN_UTC,
+            "calibnet".to_string(),
+            false,
+        )
+        .unwrap();
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
         assert_ne!(node_status.sync_status, SyncStatus::Slow);
@@ -347,7 +324,15 @@ mod tests {
                 .as_secs()
                 .saturating_sub(EPOCH_DURATION_SECONDS as u64 * 4),
         );
-        let node_status = NodeStatusInfo::new(duration, 20., TipsetJson(tipset), false).unwrap();
+        let node_status = NodeStatusInfo::new(
+            duration,
+            20.,
+            TipsetJson(tipset),
+            DateTime::<chrono::Utc>::MIN_UTC,
+            "calibnet".to_string(),
+            false,
+        )
+        .unwrap();
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Behind);
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
@@ -357,7 +342,15 @@ mod tests {
     fn block_sync_timestamp() {
         let duration = Duration::from_secs(60);
         let tipset = mock_tipset_at(duration.as_secs() - 10);
-        let node_status = NodeStatusInfo::new(duration, 20., TipsetJson(tipset), false).unwrap();
+        let node_status = NodeStatusInfo::new(
+            duration,
+            20.,
+            TipsetJson(tipset),
+            DateTime::<chrono::Utc>::MIN_UTC,
+            "calibnet".to_string(),
+            false,
+        )
+        .unwrap();
         assert!(node_status.chain_status().contains("10s behind"));
     }
 
@@ -365,15 +358,29 @@ mod tests {
     fn chain_status_test() {
         let cur_duration = Duration::from_secs(100_000);
         let tipset = mock_tipset_at(cur_duration.as_secs() - 59);
-        let node_status =
-            NodeStatusInfo::new(cur_duration, 20., TipsetJson(tipset), false).unwrap();
+        let node_status = NodeStatusInfo::new(
+            cur_duration,
+            20.,
+            TipsetJson(tipset),
+            DateTime::<chrono::Utc>::MIN_UTC,
+            "calibnet".to_string(),
+            false,
+        )
+        .unwrap();
 
         let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]";
         assert_eq!(expected_status_fmt.clear(), node_status.chain_status());
 
         let tipset = mock_tipset_at(cur_duration.as_secs() - 30000);
-        let node_status =
-            NodeStatusInfo::new(cur_duration, 20., TipsetJson(tipset), false).unwrap();
+        let node_status = NodeStatusInfo::new(
+            cur_duration,
+            20.,
+            TipsetJson(tipset),
+            DateTime::<chrono::Utc>::MIN_UTC,
+            "calibnet".to_string(),
+            false,
+        )
+        .unwrap();
 
         let expected_status_fmt = "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]";
         assert_eq!(expected_status_fmt.clear(), node_status.chain_status());
