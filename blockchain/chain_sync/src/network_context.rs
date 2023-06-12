@@ -30,6 +30,7 @@ use serde::de::DeserializeOwned;
 use std::future::Future;
 use std::pin::Pin;
 use tokio::task::JoinSet;
+use tokio::sync::Semaphore;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers
@@ -68,7 +69,7 @@ type RaceBatchFuture<T> = Pin<Box<dyn Future<Output = Result<Vec<T>, String>> + 
 
 struct RaceBatch<T> {
     tasks: JoinSet<Result<Vec<T>, String>>,
-    size: usize,
+    semaphore: Arc<Semaphore>
 }
 
 impl<T> RaceBatch<T>
@@ -78,12 +79,18 @@ where
     pub fn new(size: usize) -> Self {
         RaceBatch {
             tasks: JoinSet::new(),
-            size,
+            semaphore: Arc::new(Semaphore::new(size)),
         }
     }
 
     pub fn add(&mut self, future: RaceBatchFuture<T>) {
-        self.tasks.spawn(future);
+        let sem = self.semaphore.clone();
+        self.tasks.spawn(async move {
+            let permit = sem.acquire_owned().await.unwrap();
+            let result = future.await;
+            drop(permit);
+            result
+        });
     }
 
     /// Return first finishing Ok future else None
