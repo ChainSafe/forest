@@ -53,7 +53,6 @@ pub(crate) async fn chain_export<DB, B>(
         recent_roots,
         output_path,
         tipset_keys: TipsetKeysJson(tsk),
-        compressed,
         skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
@@ -95,20 +94,14 @@ where
                 &start_ts,
                 recent_roots,
                 VoidAsyncWriter::default(),
-                compressed,
+                true, // `compressed` is always on
                 skip_checksum,
             )
             .await
     } else {
         let file = tokio::fs::File::create(&temp_path).await?;
         data.chain_store
-            .export::<_, Sha256>(
-                &start_ts,
-                recent_roots,
-                file.compat(),
-                compressed,
-                skip_checksum,
-            )
+            .export::<_, Sha256>(&start_ts, recent_roots, file.compat(), true, skip_checksum)
             .await
     } {
         Ok(checksum_opt) if !dry_run => {
