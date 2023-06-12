@@ -572,13 +572,9 @@ async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
         .join(ENCRYPTED_KEYSTORE_NAME)
         .is_dir();
 
-    match (
-        require_encryption,
-        keystore_already_exists,
-        passphrase_from_env,
-    ) {
+    match (require_encryption, passphrase_from_env) {
         // don't need encryption, we can implicitly create a keystore
-        (false, _exists, maybe_passphrase) => {
+        (false, maybe_passphrase) => {
             warn!("Forest has encryption disabled");
             if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
                 warn!(
@@ -590,15 +586,15 @@ async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
                 .map_err(anyhow::Error::new)
         }
 
-        // need encryption, the keystore exists, the user has provided the password through env
-        (true, true, Ok(passphrase)) => KeyStore::new(KeyStoreConfig::Encrypted(
+        // need encryption, the user has provided the password through env
+        (true, Ok(passphrase)) => KeyStore::new(KeyStoreConfig::Encrypted(
             config.client.data_dir.clone(),
             passphrase,
         ))
         .map_err(anyhow::Error::new),
 
-        // need encryption, the keystore exists, we've not been given a password
-        (true, true, Err(error)) => {
+        // need encryption, we've not been given a password
+        (true, Err(error)) => {
             // prompt for passphrase and try and load the keystore
 
             if let VarError::NotUnicode(_) = error {
@@ -610,30 +606,19 @@ async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             }
 
             let data_dir = config.client.data_dir.clone();
-            asyncify(move || input_password_to_load_encrypted_keystore(data_dir, None))
-                .await
-                .context("couldn't load keystore")
-        }
 
-        // need to create a new keystore
-        (true, false, maybe_passphrase) => {
-            if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
-                warn!(
-                    "Ignoring passphrase provided in {} for keystore creation",
-                    FOREST_KEYSTORE_PHRASE_ENV
-                )
+            match keystore_already_exists {
+                true => asyncify(move || input_password_to_load_encrypted_keystore(data_dir))
+                    .await
+                    .context("Couldn't load keystore"),
+                false => {
+                    let password =
+                        asyncify(|| create_password("Create a password for Forest's keystore"))
+                            .await?;
+                    KeyStore::new(KeyStoreConfig::Encrypted(data_dir, password))
+                        .context("Couldn't create keystore")
+                }
             }
-            let password = asyncify(|| {
-                create_password(None, "Create a password for Forest's keystore")
-                    .context("Encryption is required, and there's no keystore, but couldn't ask user to create a password")
-            })
-            .await?;
-
-            KeyStore::new(KeyStoreConfig::Encrypted(
-                config.client.data_dir.clone(),
-                password,
-            ))
-            .map_err(anyhow::Error::new)
         }
     }
 }
@@ -652,12 +637,9 @@ where
 /// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
 ///
 /// This code makes blocking syscalls.
-fn input_password_to_load_encrypted_keystore(
-    data_dir: PathBuf,
-    term: impl Into<Option<Term>>,
-) -> std::io::Result<KeyStore> {
+fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Result<KeyStore> {
     let keystore = RefCell::new(None);
-    let term = term.into().unwrap_or(Term::stderr());
+    let term = Term::stderr();
 
     // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
     // so do that check ourselves.
@@ -689,8 +671,8 @@ fn input_password_to_load_encrypted_keystore(
 /// Loops until the user provides two matching passwords.
 ///
 /// This code makes blocking syscalls
-fn create_password(term: impl Into<Option<Term>>, prompt: &str) -> std::io::Result<String> {
-    let term = term.into().unwrap_or(Term::stderr());
+fn create_password(prompt: &str) -> std::io::Result<String> {
+    let term = Term::stderr();
 
     // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
     // so do that check ourselves.

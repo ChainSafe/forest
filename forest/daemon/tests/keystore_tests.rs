@@ -5,7 +5,9 @@ pub mod common;
 
 use anyhow::Result;
 use forest_auth::{verify_token, JWT_IDENTIFIER};
-use forest_key_management::{KeyStore, KeyStoreConfig, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME};
+use forest_key_management::{
+    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
+};
 
 use crate::common::{cli, create_tmp_config, CommonArgs};
 
@@ -40,18 +42,18 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
     Ok(())
 }
 
-/// We should prompt the user if they want to create a password
 #[test]
-fn cannot_implictly_create_encrypted_keystore() -> Result<()> {
-    let (config_file, _) = create_tmp_config()?;
+fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<()> {
+    let (config_file, data_dir) = create_tmp_config()?;
     cli()?
-        .env(FOREST_KEYSTORE_PHRASE_ENV, "yuggoth")
+        .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
         .common_args()
         .arg("--config")
         .arg(config_file)
         .assert()
-        .failure();
+        .success();
 
+    assert!(data_dir.path().join(ENCRYPTED_KEYSTORE_NAME).exists());
     Ok(())
 }
 
