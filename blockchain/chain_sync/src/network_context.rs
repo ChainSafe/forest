@@ -93,7 +93,7 @@ where
         });
     }
 
-    /// Return first finishing `Ok` future else return nothing if all jobs errored
+    /// Return first finishing `Ok` future else return `None` if all jobs failed
     pub async fn get_ok(&mut self) -> Option<Vec<T>> {
         while let Some(result) = self.tasks.join_next().await {
             let result = result.unwrap();
