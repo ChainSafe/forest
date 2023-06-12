@@ -28,6 +28,7 @@ num-traits.workspace = true
 num.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_tuple.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

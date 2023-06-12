@@ -3005,6 +3005,7 @@ dependencies = [
  "quickcheck",
  "serde",
  "serde_json",
+ "serde_tuple",
 ]
 
 [[package]]
