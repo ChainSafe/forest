@@ -21,12 +21,11 @@ use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
-    gas::price_list_by_network_version,
+    gas::{price_list_by_network_version, Gas},
 };
 use forest_state_manager::is_valid_for_sending;
 use forest_utils::const_option;
 use futures::StreamExt;
-use fvm3::gas::Gas;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use lru::LruCache;
@@ -327,7 +326,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        valid_for_block_inclusion(msg.message(), Gas::new(0).into(), NEWEST_NETWORK_VERSION)?;
+        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
