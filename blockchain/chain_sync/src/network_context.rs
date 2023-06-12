@@ -249,8 +249,7 @@ where
             None => {
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
-                let mut peers = self.peer_manager.top_peers_shuffled().await;
-                peers.truncate(1);
+                let peers = self.peer_manager.top_peers_shuffled().await;
 
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
