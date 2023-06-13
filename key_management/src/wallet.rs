@@ -236,6 +236,7 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Addr
 
 #[cfg(test)]
 mod tests {
+    use anyhow::ensure;
     use forest_utils::encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
@@ -289,10 +290,7 @@ mod tests {
         assert!(!wallet.has_key(&address));
         // test to make sure that the newly made key cannot be added to the wallet
         // because it is not found in the keystore
-        assert!(matches!(
-            wallet.find_key(&address).unwrap_err(),
-            Error::KeyInfo
-        ));
+        assert_eq!(wallet.find_key(&address).unwrap_err(), Error::KeyInfo);
         // sanity check to make sure that the key has not been added to the wallet
         assert!(!wallet.has_key(&address));
     }
@@ -337,7 +335,7 @@ mod tests {
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
         let key_info_err = wallet.export(&test_addr).unwrap_err();
         // test to make sure that an error is raised when an incorrect address is added
-        assert!(matches!(key_info_err, Error::KeyInfo));
+        assert_eq!(key_info_err, Error::KeyInfo);
 
         let test_key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
         // make sure that key_info has been imported to wallet
@@ -346,7 +344,7 @@ mod tests {
         let duplicate_error = wallet.import(test_key_info).unwrap_err();
         // make sure that error is thrown when attempted to re-import a duplicate
         // key_info
-        assert!(matches!(duplicate_error, Error::KeyExists));
+        ensure!(duplicate_error == Error::KeyExists);
         Ok(())
     }
 
@@ -406,7 +404,7 @@ mod tests {
         let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(key_store);
         // check to make sure that there is no default
-        assert!(matches!(wallet.get_default().unwrap_err(), Error::KeyInfo));
+        assert_eq!(wallet.get_default().unwrap_err(), Error::KeyInfo);
 
         let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
         let pub_key =

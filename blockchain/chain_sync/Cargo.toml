@@ -33,7 +33,6 @@ lazy_static.workspace = true
 log.workspace = true
 lru.workspace = true
 nonempty.workspace = true
-nonzero_ext.workspace = true
 num-bigint.workspace = true
 num.workspace = true
 parking_lot.workspace = true

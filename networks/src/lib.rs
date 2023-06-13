@@ -150,7 +150,7 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct ChainConfig {
     pub network: NetworkChain,
