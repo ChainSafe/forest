@@ -30,8 +30,8 @@ pub enum InfoCommand {
 
 #[derive(Debug)]
 pub struct NodeStatusInfo {
-    /// How far behind the node is with respect to syncing to head
-    pub lag: Duration,
+    /// How far behind the node is with respect to syncing to head in seconds
+    pub lag: i64,
     /// Chain health is the percentage denoting how close we are to having
     /// an average of 5 blocks per tipset in the last couple of
     /// hours. The number of blocks per tipset is non-deterministic
@@ -53,9 +53,20 @@ pub struct NodeStatusInfo {
 impl NodeStatusInfo {
     fn chain_status(&self) -> ColoredString {
         let base_fee_fmt = self.base_fee.pretty();
-        let behind = format!("{}", humantime::format_duration(self.lag));
+        let behind = if self.lag < 0 {
+            format!(
+                "{} ahead",
+                humantime::format_duration(Duration::from_secs(self.lag.abs() as u64))
+            )
+        } else {
+            format!(
+                "{} behind",
+                humantime::format_duration(Duration::from_secs(self.lag as u64))
+            )
+        };
+
         format!(
-            "[sync: {}! ({} behind)] [basefee: {base_fee_fmt}] [epoch: {}]",
+            "[sync: {}! ({})] [basefee: {base_fee_fmt}] [epoch: {}]",
             self.sync_status, behind, self.epoch
         )
         .blue()
@@ -110,6 +121,7 @@ pub enum SyncStatus {
     Ok,
     Slow,
     Behind,
+    Fast,
 }
 
 impl NodeStatusInfo {
@@ -121,20 +133,16 @@ impl NodeStatusInfo {
         network: String,
         use_color: bool,
     ) -> anyhow::Result<NodeStatusInfo> {
-        let ts = head.0.min_timestamp();
-        let cur_duration_secs = cur_duration.as_secs();
-        let lag = if ts <= cur_duration_secs + 1 {
-            cur_duration_secs.saturating_sub(ts)
-        } else {
-            anyhow::bail!(
-                "System time should not be behind tipset timestamp, please sync the system clock."
-            );
-        };
+        let ts = head.0.min_timestamp() as i64;
+        let cur_duration_secs = cur_duration.as_secs() as i64;
+        let lag = cur_duration_secs - ts;
 
-        let sync_status = if lag < EPOCH_DURATION_SECONDS as u64 * 3 / 2 {
+        let sync_status = if lag < 0 {
+            SyncStatus::Fast
+        } else if lag < EPOCH_DURATION_SECONDS * 3 / 2 {
             // within 1.5 epochs
             SyncStatus::Ok
-        } else if lag < EPOCH_DURATION_SECONDS as u64 * 5 {
+        } else if lag < EPOCH_DURATION_SECONDS * 5 {
             // within 5 epochs
             SyncStatus::Slow
         } else {
@@ -147,7 +155,7 @@ impl NodeStatusInfo {
         let health = 100. * blocks_per_tipset_last_finality / BLOCKS_PER_EPOCH as f64;
 
         Ok(Self {
-            lag: Duration::from_secs(lag),
+            lag,
             health,
             epoch: head.0.epoch(),
             base_fee,
@@ -254,6 +262,7 @@ mod tests {
     use colored::*;
     use forest_blocks::{tipset_json::TipsetJson, BlockHeader, Tipset};
     use forest_shim::{address::Address, econ::TokenAmount};
+    use forest_utils::misc::LoggingColor;
     use fvm_shared::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};
@@ -273,7 +282,7 @@ mod tests {
 
     fn mock_node_status(use_color: bool) -> NodeStatusInfo {
         NodeStatusInfo {
-            lag: Duration::from_secs(0),
+            lag: 0,
             health: 90.,
             epoch: i64::MAX,
             base_fee: TokenAmount::from_whole(1),
@@ -361,6 +370,13 @@ mod tests {
     }
 
     #[test]
+    fn test_lag_uptime_ahead() {
+        let mut node_status = mock_node_status(true);
+        node_status.lag = -360;
+        assert!(node_status.chain_status().contains("6m ahead"));
+    }
+
+    #[test]
     fn chain_status_test() {
         let cur_duration = Duration::from_secs(100_000);
         let tipset = mock_tipset_at(cur_duration.as_secs() - 59);
@@ -393,8 +409,10 @@ mod tests {
     }
 
     #[test]
+
     fn test_node_info_formattting() {
         // no color tests
+        #[rustfmt::skip]
         let no_color_expected_output = r#"Network: calibnet
 Uptime: 524277years 2months 24days 20h 52m 47s (Started at: -262144-01-01 00:00:00 +00:00)
 Chain: [sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 9223372036854775807]
@@ -412,19 +430,23 @@ Default wallet address: -
             no_color_expected_output
         );
 
-        // with color tests
-        let with_color_expected_output = "Network: \u{1b}[32mcalibnet\u{1b}[0m
+        let color = LoggingColor::default();
+        if color.coloring_enabled() {
+            // with color tests
+            #[rustfmt::skip]
+            let with_color_expected_output = "Network: \u{1b}[32mcalibnet\u{1b}[0m
 Uptime: 524277years 2months 24days 20h 52m 47s (Started at: -262144-01-01 00:00:00 +00:00)
 Chain: \u{1b}[34m[sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 9223372036854775807]\u{1b}[0m
 Chain health: \u{1b}[32m90.00%\n\n\u{1b}[0m
 Default wallet address: \u{1b}[1m-\u{1b}[0m \u{1b}[1m\u{1b}[0m
 ";
-        let node_status = mock_node_status(true);
-        assert_eq!(
-            node_status
-                .format(DateTime::<chrono::Utc>::MAX_UTC)
-                .unwrap(),
-            with_color_expected_output
-        );
+            let node_status = mock_node_status(true);
+            assert_eq!(
+                node_status
+                    .format(DateTime::<chrono::Utc>::MAX_UTC)
+                    .unwrap(),
+                with_color_expected_output
+            );
+        }
     }
 }
