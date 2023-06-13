@@ -15,6 +15,8 @@ use forest_utils::io::progress_bar::downloading_style;
 use tracing::{info, warn};
 use url::Url;
 
+use self::parse::ParsedFilename;
+
 /// Who hosts the snapshot on the web?
 /// See [`stable_url`].
 #[derive(
@@ -30,17 +32,22 @@ use url::Url;
     clap::ValueEnum,   // allow values to be enumerated and parsed by clap
 )]
 #[strum(serialize_all = "kebab-case")]
-pub enum Vendor {
+pub enum TrustedVendor {
     #[default]
     Forest,
     Filops,
 }
 
-/// Common format for filenames for export and [`fetch`].
-/// Keep in sync with the CLI documentation for the `export` sub-command.
-pub fn filename(chain: impl Display, date: NaiveDate, height: i64) -> String {
+/// Common format for filenames for export, and [`fetch`].
+/// Keep in sync with the CLI documentation for the `snapshot` sub-command.
+/// See also [`parse`].
+/// `chain` and `vendor` should NOT contain underscores.
+// Should:
+// - start with `snapshot`
+// - be `FIELD-NAME_FIELD-VALUE` pairs, where the variables do NOT contain `_`
+pub fn filename(vendor: impl Display, chain: impl Display, date: NaiveDate, height: i64) -> String {
     format!(
-        "forest_snapshot_{chain}_date_{}_height_{height}.car.zst",
+        "snapshot_vendor_{vendor}_chain_{chain}_date_{}_height_{height}.car.zst",
         date.format("%Y-%m-%d")
     )
 }
@@ -50,11 +57,11 @@ pub fn filename(chain: impl Display, date: NaiveDate, height: i64) -> String {
 pub async fn fetch(
     directory: &Path,
     chain: &NetworkChain,
-    vendor: Vendor,
+    vendor: TrustedVendor,
 ) -> anyhow::Result<PathBuf> {
     let (_len, url) = peek(vendor, chain).await?;
-    let (height, date, _time) = parse::parse_url(&url)?;
-    let filename = filename(chain, date, height);
+    let ParsedFilename { date, height, .. } = parse::parse_url(&url)?;
+    let filename = filename(vendor, chain, date, height);
 
     match download_aria2c(&url, directory, &filename).await {
         Ok(path) => Ok(path),
@@ -69,7 +76,7 @@ pub async fn fetch(
 /// Returns
 /// - The size of the snapshot from this vendor on this chain
 /// - The final URL of the snapshot
-pub async fn peek(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
+pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
     let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
@@ -179,13 +186,13 @@ define_urls!(
         "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
 );
 
-fn stable_url(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<Url> {
+fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<Url> {
     let s = match (vendor, chain) {
-        (Vendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
-        (Vendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
-        (Vendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
-        (Vendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
-        (Vendor::Forest | Vendor::Filops, NetworkChain::Devnet(_)) => {
+        (TrustedVendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
+        (TrustedVendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
+        (TrustedVendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
+        (TrustedVendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
+        (TrustedVendor::Forest | TrustedVendor::Filops, NetworkChain::Devnet(_)) => {
             bail!("unsupported chain {chain}")
         }
     };
@@ -202,6 +209,13 @@ fn parse_stable_urls() {
 mod parse {
     //! Filops and forest store metadata in the filename, in a conventional format.
     //! [`parse_filename`] and [`parse_url`] are able to parse the contained metadata.
+    //! We support three formats:
+    //! - [`forest_v0_8_2`]
+    //!   `forest_snapshot_{chain}_{year}-{month}-{day}_height_HHHHHHH.car.zst`
+    //! - [`forest_current`], which is emitted by [`super::filename`]
+    //!   `snapshot_vendor_{vendor}_chain_{chain}_date_{year}-{month}-{day}_height_{height}.car.zst`
+    //! - [`filops`]
+    //!   `{height}_{year}_{month}_{day}T{hour}_{minute}_{second}Z.car.zst`
 
     use std::str::FromStr;
 
@@ -209,7 +223,7 @@ mod parse {
     use chrono::{NaiveDate, NaiveTime};
     use nom::{
         branch::alt,
-        bytes::complete::tag,
+        bytes::complete::{tag, take_until},
         character::complete::digit1,
         combinator::{map_res, recognize},
         error::ErrorKind,
@@ -220,11 +234,22 @@ mod parse {
     };
     use url::Url;
 
-    pub fn parse_filename(input: &str) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
+    use super::filename;
+
+    #[derive(PartialEq, Debug, Clone, Hash)]
+    pub struct ParsedFilename<'a> {
+        pub vendor: Option<&'a str>,
+        pub chain: Option<&'a str>,
+        pub date: NaiveDate,
+        pub time: Option<NaiveTime>,
+        pub height: i64,
+    }
+
+    pub fn parse_filename(input: &str) -> anyhow::Result<ParsedFilename> {
         enter_nom(_parse_filename, input)
     }
 
-    pub fn parse_url(url: &Url) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
+    pub fn parse_url(url: &Url) -> anyhow::Result<ParsedFilename> {
         let filename = url
             .path_segments()
             .context("url cannot be a base")?
@@ -265,21 +290,52 @@ mod parse {
         }
     }
 
-    fn forest(input: &str) -> nom::IResult<&str, (NaiveDate, i64)> {
-        let (rest, (_, date, _, height, _)) = tuple((
-            alt((
-                tag("forest_snapshot_mainnet_"),
-                tag("forest_snapshot_calibnet_"),
-            )),
+    fn forest_current(input: &str) -> nom::IResult<&str, (&str, &str, NaiveDate, i64)> {
+        let (rest, (_prefix, vendor, _chain, chain, _date, date, _height, height, _car_zst)) =
+            tuple((
+                tag("snapshot_vendor"),
+                take_until("_"),
+                tag("_chain_"),
+                take_until("_"),
+                tag("_date_"),
+                ymd("-"),
+                tag("_height_"),
+                number,
+                tag(".car.zst"),
+            ))(input)?;
+        Ok((rest, (vendor, chain, date, height)))
+    }
+
+    fn forest_v0_8_2(input: &str) -> nom::IResult<&str, (&str, &str, NaiveDate, i64)> {
+        let (rest, (vendor, _snapshot_, chain, _, date, _, height, _)) = tuple((
+            tag("forest"),
+            tag("_snapshot_"),
+            alt((tag("mainnet"), tag("calibnet"))),
+            tag("_"),
             ymd("-"),
             tag("_height_"),
             number,
             tag(".car.zst"),
         ))(input)?;
-        Ok((rest, (date, height)))
+        Ok((rest, (vendor, chain, date, height)))
     }
 
-    fn filops(input: &str) -> nom::IResult<&str, (i64, NaiveDate, NaiveTime)> {
+    fn full(input: &str) -> nom::IResult<&str, (&str, &str, NaiveDate, i64)> {
+        let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, _car_zst)) =
+            tuple((
+                take_until("_snapshot_"),
+                tag("_snapshot_"),
+                take_until("_"),
+                tag("_"),
+                ymd("-"),
+                tag("_height_"),
+                number,
+                tag(".car.zst"),
+            ))(input)?;
+        Ok((rest, (vendor, chain, date, height)))
+    }
+
+    fn short(input: &str) -> nom::IResult<&str, (i64, NaiveDate, NaiveTime)> {
         let (rest, (height, _, date, _, time, _)) = tuple((
             number,
             tag("_"),
@@ -291,10 +347,29 @@ mod parse {
         Ok((rest, (height, date, time)))
     }
 
-    fn _parse_filename(input: &str) -> nom::IResult<&str, (i64, NaiveDate, Option<NaiveTime>)> {
+    fn _parse_filename(input: &str) -> nom::IResult<&str, ParsedFilename> {
         alt((
-            forest.map(|(date, height)| (height, date, None)),
-            filops.map(|(height, date, time)| (height, date, Some(time))),
+            forest_v0_8_2.map(|(vendor, chain, date, height)| ParsedFilename {
+                vendor: Some(vendor),
+                chain: Some(chain),
+                date,
+                time: None,
+                height,
+            }),
+            short.map(|(height, date, time)| ParsedFilename {
+                vendor: None,
+                chain: None,
+                date,
+                time: Some(time),
+                height,
+            }),
+            forest_current.map(|(vendor, chain, date, height)| ParsedFilename {
+                vendor: Some(vendor),
+                chain: Some(chain),
+                date,
+                time: None,
+                height,
+            }),
         ))(input)
     }
 
@@ -311,38 +386,46 @@ mod parse {
         Ok(t)
     }
 
-    #[test]
-    fn test_parse_filename() {
-        fn make_expected(
+    impl<'a> ParsedFilename<'a> {
+        fn new(
+            vendor: impl Into<Option<&'a str>>,
+            chain: impl Into<Option<&'a str>>,
             year: i32,
             month: u32,
             day: u32,
             hms: impl Into<Option<(u32, u32, u32)>>,
             height: i64,
-        ) -> (i64, NaiveDate, Option<NaiveTime>) {
-            (
-                height,
-                NaiveDate::from_ymd_opt(year, month, day).unwrap(),
-                hms.into()
+        ) -> Self {
+            Self {
+                vendor: vendor.into(),
+                chain: chain.into(),
+                date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
+                time: hms
+                    .into()
                     .map(|(h, m, s)| NaiveTime::from_hms_opt(h, m, s).unwrap()),
-            )
+                height,
+            }
         }
+    }
+
+    #[test]
+    fn test_parse_filename() {
         for (input, expected) in [
             (
                 "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
-                make_expected(2023, 5, 30, None, 2905376),
+                ParsedFilename::new("forest", "mainnet", 2023, 5, 30, None, 2905376),
             ),
             (
                 "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
-                make_expected(2023, 5, 30, None, 604419),
+                ParsedFilename::new("forest", "calibnet", 2023, 5, 30, None, 604419),
             ),
             (
                 "2905920_2023_05_30T22_00_00Z.car.zst",
-                make_expected(2023, 5, 30, (22, 0, 0), 2905920),
+                ParsedFilename::new(None, None, 2023, 5, 30, (22, 0, 0), 2905920),
             ),
             (
                 "605520_2023_05_31T00_13_00Z.car.zst",
-                make_expected(2023, 5, 31, (0, 13, 0), 605520),
+                ParsedFilename::new(None, None, 2023, 5, 31, (0, 13, 0), 605520),
             ),
         ] {
             assert_eq!(expected, parse_filename(input).unwrap());

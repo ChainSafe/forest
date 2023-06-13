@@ -447,7 +447,7 @@ async fn fetch_snapshot_if_required(
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
 ) -> anyhow::Result<()> {
-    let vendor = snapshot::Vendor::default();
+    let vendor = snapshot::TrustedVendor::default();
     let path = Path::new(".");
     let chain = &config.chain.network;
 
