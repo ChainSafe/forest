@@ -28,13 +28,12 @@ use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
+    externs::Rand,
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use futures::{channel::oneshot, select, FutureExt};
-use fvm::externs::Rand;
-use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -365,7 +364,7 @@ where
         tipset: Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
     where
-        R: Rand + Rand_v3 + Clone + 'static,
+        R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();

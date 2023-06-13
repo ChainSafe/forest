@@ -10,9 +10,8 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_networks::ChainConfig;
+use forest_shim::externs::Rand;
 use forest_utils::encoding::blake2b_256;
-use fvm::externs::Rand as Rand_v2;
-use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 
@@ -187,30 +186,7 @@ where
     }
 }
 
-impl<DB> Rand_v2 for ChainRand<DB>
-where
-    DB: Blockstore + Send + Sync,
-{
-    fn get_chain_randomness(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness_v2(&self.blks, pers, round, entropy)
-    }
-
-    fn get_beacon_randomness(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness_v3(&self.blks, pers, round, entropy)
-    }
-}
-
-impl<DB> Rand_v3 for ChainRand<DB>
+impl<DB> Rand for ChainRand<DB>
 where
     DB: Blockstore + Send + Sync,
 {
