@@ -4,10 +4,11 @@
 use async_trait::async_trait;
 use hyper::{client::HttpConnector, Body};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use once_cell::sync::Lazy;
 
-/// Constructs [hyper::Client] that supports both `http` and `https`.
-/// Note that only `http1` is supported.
-pub fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
+/// A default [hyper::Client]. It's imperative that the builder is only
+/// called once, because fetching root certificates is expensive.
+static CLIENT: Lazy<hyper::Client<HttpsConnector<HttpConnector>>> = Lazy::new(|| {
     hyper::Client::builder().build::<_, Body>(
         HttpsConnectorBuilder::new()
             .with_native_roots()
@@ -15,6 +16,12 @@ pub fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
             .enable_http1()
             .build(),
     )
+});
+
+/// Returns a [hyper::Client] that supports both `http` and `https`.
+/// Note that only `http1` is supported.
+pub fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
+    CLIENT.clone()
 }
 
 /// Trait that contains extension methods of [Body]

@@ -48,7 +48,7 @@ pub(crate) struct SyncNetworkContext<DB> {
 
     /// Manages peers to send requests to and updates request stats for the
     /// respective peers.
-    pub peer_manager: Arc<PeerManager>,
+    peer_manager: Arc<PeerManager>,
     db: Box<DB>,
 }
 
