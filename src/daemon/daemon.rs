@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use crate::bundle::load_bundles;
+use super::bundle::load_bundles;
 use anyhow::{bail, Context};
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};

@@ -11,7 +11,7 @@ use fvm_shared::{address::Address, message::Message, METHOD_SEND};
 use num::Zero as _;
 
 use super::{handle_rpc_err, Config};
-use crate::humantoken;
+use crate::cli::humantoken;
 
 #[derive(Debug, clap::Args)]
 pub struct SendCommand {

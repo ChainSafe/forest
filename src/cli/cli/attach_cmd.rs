@@ -30,7 +30,7 @@ use serde_json::Value as JsonValue;
 use tokio::time;
 
 use super::Config;
-use crate::humantoken;
+use crate::cli::humantoken;
 
 #[derive(Debug, clap::Args)]
 pub struct AttachCommand {

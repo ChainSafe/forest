@@ -18,8 +18,8 @@ use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::Config;
-use crate::cli::handle_rpc_err;
-use crate::humantoken::TokenAmountPretty;
+use crate::cli::cli::handle_rpc_err;
+use crate::cli::humantoken::TokenAmountPretty;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {

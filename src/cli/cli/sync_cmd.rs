@@ -14,7 +14,7 @@ use crate::rpc_client::*;
 use ticker::Ticker;
 
 use super::Config;
-use crate::cli::{format_vec_pretty, handle_rpc_err};
+use crate::cli::cli::{format_vec_pretty, handle_rpc_err};
 
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {

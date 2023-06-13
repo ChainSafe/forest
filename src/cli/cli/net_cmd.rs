@@ -8,7 +8,7 @@ use crate::rpc_api::data_types::AddrInfo;
 use crate::rpc_client::net_ops::*;
 
 use super::{handle_rpc_err, print_stdout, Config};
-use crate::cli::cli_error_and_die;
+use crate::cli::cli::cli_error_and_die;
 
 #[derive(Debug, Subcommand)]
 pub enum NetCommands {

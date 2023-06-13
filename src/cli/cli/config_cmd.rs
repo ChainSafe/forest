@@ -6,7 +6,7 @@ use std::io::Write;
 use anyhow::Context;
 use clap::Subcommand;
 
-use crate::cli::Config;
+use crate::cli::cli::Config;
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {

@@ -12,7 +12,7 @@ use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
 use crate::utils::io::ProgressBar;
 use log::error;
 
-use crate::cli::{handle_rpc_err, prompt_confirm};
+use crate::cli::cli::{handle_rpc_err, prompt_confirm};
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {

@@ -25,7 +25,7 @@ use crate::utils::io::read_file_to_string;
 use num::BigInt;
 
 use super::{handle_rpc_err, Config};
-use crate::humantoken::TokenAmountPretty as _;
+use crate::cli::humantoken::TokenAmountPretty as _;
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {

@@ -21,7 +21,7 @@ use crate::utils::{io::ProgressBar, net::get_fetch_progress_from_file};
 use tempfile::TempDir;
 
 use super::*;
-use crate::cli::{cli_error_and_die, handle_rpc_err};
+use crate::cli::cli::{cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
