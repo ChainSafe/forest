@@ -18,7 +18,7 @@ pub struct FileBacked<T: FileBackedObject> {
     sync_period: Option<Duration>,
 }
 
-pub const SYNC_PERIOD: Duration = Duration::from_secs(30);
+pub const SYNC_PERIOD: Duration = Duration::from_secs(600);
 
 impl<T: FileBackedObject> FileBacked<T> {
     /// Gets a borrow of the inner object
