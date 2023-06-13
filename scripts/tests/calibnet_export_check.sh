@@ -13,7 +13,7 @@ echo "Exporting uncompressed snapshot"
 $FOREST_CLI_PATH snapshot export
 
 echo "Exporting zstd compressed snapshot"
-$FOREST_CLI_PATH snapshot export
+$FOREST_CLI_PATH snapshot export --compressed
 
 echo "Verifing snapshot checksum"
 sha256sum -c ./*.sha256sum
