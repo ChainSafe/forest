@@ -4,20 +4,19 @@
 use async_trait::async_trait;
 use hyper::{client::HttpConnector, Body};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
-lazy_static! {
-    /// A default [hyper::Client]. It's imperative that the builder is only
-    /// called once, because fetching root certificates is expensive.
-    static ref CLIENT: hyper::Client<HttpsConnector<HttpConnector>> =
-        hyper::Client::builder().build::<_, Body>(
+/// A default [hyper::Client]. It's imperative that the builder is only
+/// called once, because fetching root certificates is expensive.
+static CLIENT: Lazy<hyper::Client<HttpsConnector<HttpConnector>>> = Lazy::new(|| {
+    hyper::Client::builder().build::<_, Body>(
         HttpsConnectorBuilder::new()
             .with_native_roots()
             .https_or_http()
             .enable_http1()
             .build(),
-    );
-}
+    )
+});
 
 /// Returns a [hyper::Client] that supports both `http` and `https`.
 /// Note that only `http1` is supported.

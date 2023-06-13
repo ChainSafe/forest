@@ -3950,7 +3950,6 @@ dependencies = [
  "human-repr",
  "hyper",
  "hyper-rustls",
- "lazy_static",
  "libc",
  "log",
  "memory-stats",
