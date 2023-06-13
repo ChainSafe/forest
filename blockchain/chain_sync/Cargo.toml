@@ -28,7 +28,6 @@ fvm_ipld_amt.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true }
-fvm_shared3 = { workspace = true }
 lazy_static.workspace = true
 log.workspace = true
 lru.workspace = true
