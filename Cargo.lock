@@ -3695,6 +3695,7 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
+ "async-recursion",
  "axum",
  "base64 0.21.2",
  "cid",

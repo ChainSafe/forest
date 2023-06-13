@@ -28,7 +28,9 @@ use forest_genesis::{
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager, NetworkMessage};
+use forest_libp2p::{
+    get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
+};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -436,104 +438,10 @@ pub(super) async fn start(
     ensure_params_downloaded().await?;
     services.spawn(p2p_service.run());
 
-    services.spawn(async move {
-        use ahash::{HashSet, HashSetExt};
-        use cid::Cid;
-        use fvm_ipld_encoding::CborStore;
-        use forest_ipld::Ipld;
-
-        fn scan_for_links(ipld: forest_ipld::Ipld, seen: &mut HashSet<Cid>, to_fetch: &mut Vec<Cid>) {
-            match ipld {
-                Ipld::Null => {},
-                Ipld::Bool(_) => {},
-                Ipld::Integer(_) => {},
-                Ipld::Float(_) => {},
-                Ipld::String(_) => {},
-                Ipld::Bytes(_) => {},
-                Ipld::List(list) => {
-                    for elt in list.into_iter() {
-                        scan_for_links(elt, seen, to_fetch);
-                    }
-                },
-                Ipld::Map(map) => {
-                    for (_key, elt) in map.into_iter() {
-                        scan_for_links(elt, seen, to_fetch);
-                    }
-                },
-                Ipld::Link(cid) => {
-                    if cid.codec() == 0x55 {
-                        if seen.insert(cid) {
-                            info!("Found WASM: {cid}");
-                        }
-                    }                    
-                    if cid.codec() == 0x71 {
-                        if seen.insert(cid) {
-                            info!("Found link: {cid}");
-                            to_fetch.push(cid);
-                        }
-                    }
-                },
-            }
-        }
-
-        tokio::time::sleep(Duration::from_secs(10)).await;
-
-        let mut seen = HashSet::new();
-        let mut to_fetch = Vec::new();
-        let mut failures = 0;
-        // mainnet: 1,594,681
-        // let root_cid = "bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm".parse::<Cid>().unwrap();
-        
-        // mainnet: 2,933,266
-        // let root_cid = "bafy2bzacebyp6cmbshtzzuogzk7icf24pt6s5veyq5zkkqbn3sbbvswtptuuu".parse::<Cid>().unwrap();
-        
-        // mainnet: 2,833,266
-        // let root_cid = "bafy2bzacecaydufxqo5vtouuysmg3tqik6onyuezm6lyviycriohgfnzfslm2".parse::<Cid>().unwrap();
-
-        // mainnet: 1_960_320
-        let root_cid = "bafy2bzacec43okhmihmnwmgqspyrkuivqtxv75rpymsdbulq6lgsdq2vkwkcg".parse::<Cid>().unwrap();
-        
-        // calibnet: 242,150, 21144 cids
-        // let root_cid = "bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw".parse::<Cid>().unwrap();
-        // calibnet: 630,932, 88594 cids
-        // let root_cid = "bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk".parse::<Cid>().unwrap();
-        seen.insert(root_cid);
-        to_fetch.push(root_cid);
-        while let Some(required_cid) = to_fetch.pop() {
-            info!("Fetching new ipld block. Remaining: {}, Seen: {}, Failures: {}", to_fetch.len(), seen.len(), failures);
-
-            let (tx, rx) = flume::bounded(1);
-            network_send.send_async(NetworkMessage::BitswapRequest{epoch: 0, cid: required_cid, response_channel: tx}).await?;
-
-            let success = tokio::task::spawn_blocking(move || {
-                rx.recv_timeout(Duration::from_secs_f32(10.0)).unwrap_or_default()
-            })
-            .await
-            .unwrap_or(false);
-
-            match db.get_cbor::<Ipld>(&required_cid) {
-                Ok(Some(ipld)) => {
-                    // info!("Request successful");
-                    scan_for_links(ipld, &mut seen, &mut to_fetch);
-                },
-                Ok(None) => {
-                    failures += 1;
-                    info!("Request failed: {success}, failures: {failures}")
-                },
-                Err(msg) => info!("Failed to decode data: {msg}")
-            }
-
-            // tokio::task::yield_now().await;
-        }
-        info!("All fetches done. Failures: {failures}");
-        Ok(())
-    });
-
     // blocking until any of the services returns an error,
     let err = propagate_error(&mut services).await;
     anyhow::bail!("services failure: {}", err);
 }
-
 
 /// Generates, prints and optionally writes to a file the administrator JWT
 /// token.
