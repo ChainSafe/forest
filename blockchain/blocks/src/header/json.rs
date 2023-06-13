@@ -69,7 +69,7 @@ where
         winning_post_proof: m.winning_post_proof.as_slice(),
         parents: &m.parents,
         weight: m.weight.to_string(),
-        height: &m.epoch.into(),
+        height: &m.epoch,
         state_root: &m.state_root,
         message_receipts: &m.message_receipts,
         messages: &m.messages,
@@ -126,7 +126,7 @@ where
         .miner_address(v.miner.parse().map_err(de::Error::custom)?)
         .ticket(v.ticket)
         .beacon_entries(v.beacon_entries)
-        .epoch(forest_shim::clock::ChainEpoch(v.height))
+        .epoch(v.height)
         .winning_post_proof(v.winning_post_proof)
         .state_root(v.state_root)
         .message_receipts(v.message_receipts)

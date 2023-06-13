@@ -122,7 +122,7 @@ where
     let mut seen = CidHashSet::default();
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
     let mut current_min_height = tipset.epoch();
-    let incl_roots_epoch = i64::from(tipset.epoch()) - recent_roots;
+    let incl_roots_epoch = tipset.epoch() - recent_roots;
 
     let on_inserted = {
         let bar = bar.clone();
@@ -157,11 +157,11 @@ where
             current_min_height = h.epoch();
         }
 
-        if i64::from(h.epoch()) > incl_roots_epoch {
+        if h.epoch() > incl_roots_epoch {
             recurse_links_hash(&mut seen, *h.messages(), &mut load_block, &on_inserted).await?;
         }
 
-        if i64::from(h.epoch()) > 0 {
+        if h.epoch() > 0 {
             for p in h.parents().cids() {
                 blocks_to_walk.push_back(*p);
             }
@@ -171,7 +171,7 @@ where
             }
         }
 
-        if i64::from(h.epoch()) == 0 || i64::from(h.epoch()) > incl_roots_epoch {
+        if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
             recurse_links_hash(&mut seen, *h.state_root(), &mut load_block, &on_inserted).await?;
         }
     }

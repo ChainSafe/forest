@@ -7,7 +7,7 @@ use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use forest_shim::address::Address;
 use fvm_ipld_encoding::Cbor;
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;

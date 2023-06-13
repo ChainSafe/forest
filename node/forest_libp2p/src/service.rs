@@ -21,7 +21,7 @@ use forest_utils::io::read_file_to_vec;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 // https://github.com/ChainSafe/forest/issues/2762
 #[allow(deprecated)]

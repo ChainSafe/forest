@@ -84,7 +84,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker.into())?;
 
-        let network_version = self.chain_config.network_version(forest_shim::clock::ChainEpoch(self.epoch));
+        let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;
 
         Ok((addr.into(), gas_used.round_up() as i64))
@@ -92,7 +92,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
         let (worker_addr, gas_used) =
-            self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch().into())?;
+            self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch())?;
 
         bh.check_block_signature(&worker_addr.into())?;
 
@@ -224,7 +224,7 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                         total_gas += gas_used;
                         let ret = Some(ConsensusFault {
                             target: bh_1.miner_address().into(),
-                            epoch: bh_2.epoch().into(),
+                            epoch: bh_2.epoch(),
                             fault_type,
                         });
                         Ok((ret, total_gas))

@@ -10,7 +10,7 @@ use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
 use forest_shim::version::NetworkVersion;
 use forest_utils::net::{https_client, HyperBodyExt};
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
@@ -78,8 +78,8 @@ where
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
     ) -> Result<Vec<BeaconEntry>, anyhow::Error> {
-        let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?.into();
-        let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?.into();
+        let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
+        let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
         if cb_epoch != pb_epoch {
             // Fork logic, take entries from the last two rounds of the new beacon.
             let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
@@ -292,7 +292,7 @@ impl Beacon for DrandBeacon {
         fil_epoch: ChainEpoch,
     ) -> u64 {
         let latest_ts =
-            ((Into::<u64>::into(fil_epoch) * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
+            ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
         if network_version <= NetworkVersion::V15 {
             // Algorithm for nv15 and below
             (latest_ts - self.drand_gen_time) / self.interval

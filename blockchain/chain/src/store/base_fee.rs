@@ -7,7 +7,7 @@ use forest_message::Message;
 use forest_shim::econ::TokenAmount;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fvm_shared3::BLOCK_GAS_LIMIT;
 
 /// Used in calculating the base fee change.
@@ -147,7 +147,7 @@ mod tests {
                 &TokenAmount::from_atto(case.0),
                 case.1,
                 case.2,
-                ChainEpoch(i64::from(smoke_height) - 1),
+                smoke_height - 1,
                 smoke_height,
             );
             assert_eq!(TokenAmount::from_atto(case.3), output);
@@ -157,7 +157,7 @@ mod tests {
                 &TokenAmount::from_atto(case.0),
                 case.1,
                 case.2,
-                ChainEpoch(i64::from(smoke_height) + 1),
+                smoke_height + 1,
                 smoke_height,
             );
             assert_eq!(TokenAmount::from_atto(case.4), output);

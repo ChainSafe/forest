@@ -38,7 +38,7 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::CborStore;
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;

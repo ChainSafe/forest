@@ -137,7 +137,7 @@ where
 
             // Bypass size checking during import
             let tipset = (self.get_tipset)();
-            if i64::from(tipset.epoch()) == 0 {
+            if tipset.epoch() == 0 {
                 continue;
             }
 
@@ -208,7 +208,7 @@ where
     async fn collect_once(&self) -> anyhow::Result<()> {
         let tipset = (self.get_tipset)();
 
-        if self.db.current_creation_epoch() + self.chain_finality >= i64::from(tipset.epoch()) {
+        if self.db.current_creation_epoch() + self.chain_finality >= tipset.epoch() {
             anyhow::bail!("Cancelling GC: the old DB space contains unfinalized chain parts");
         }
 
@@ -283,7 +283,7 @@ where
         );
 
         // Use the latest head here
-        self.db.next_current(i64::from((self.get_tipset)().epoch()))?;
+        self.db.next_current((self.get_tipset)().epoch())?;
 
         Ok(())
     }

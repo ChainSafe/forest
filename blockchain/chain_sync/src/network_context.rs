@@ -24,7 +24,7 @@ use forest_libp2p::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
 use tokio::task::JoinSet;

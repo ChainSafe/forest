@@ -7,7 +7,7 @@ use forest_blocks::{Tipset, TipsetKeys};
 use forest_metrics::metrics;
 use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
-use forest_shim::clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use log::info;
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -19,7 +19,7 @@ const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
 
 /// Configuration which sets the length of tipsets to skip in between each
 /// cached entry.
-const SKIP_LENGTH: ChainEpoch = ChainEpoch(20);
+const SKIP_LENGTH: ChainEpoch = 20;
 
 // This module helps speed up boot times for forest by checkpointing previously
 // seen tipsets from snapshots.
@@ -143,7 +143,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             return self.walk_back(from, to);
         }
         let total_size = from.epoch() - to;
-        let pb = ProgressBar::new(u64::from(total_size));
+        let pb = ProgressBar::new(total_size as u64);
         pb.message("Scanning blockchain ");
         pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
@@ -167,12 +167,12 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 self.fill_cache(std::mem::take(&mut cur))?
             };
 
-            if i64::from(to) == 0 {
+            if to == 0 {
                 if let Some(genesis_tipset_keys) =
                     checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
                 {
                     let tipset = tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys)?;
-                    pb.set(u64::from(total_size));
+                    pb.set(total_size as u64);
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
@@ -188,8 +188,8 @@ impl<BS: Blockstore> ChainIndex<BS> {
             }
             let to_be_done = lbe.tipset.epoch() - to;
             // Don't show the progress bar if we're doing less than 10_000 units of work.
-            if i64::from(total_size) > 10_000 {
-                pb.set(u64::from(total_size - to_be_done));
+            if total_size > 10_000 {
+                pb.set((total_size - to_be_done) as u64);
             }
 
             cur = lbe.target.clone();
@@ -216,10 +216,10 @@ impl<BS: Blockstore> ChainIndex<BS> {
     fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
         let tipset = self.load_tipset(&tsk)?;
 
-        if i64::from(tipset.epoch()) == 0 {
+        if tipset.epoch() == 0 {
             return Ok(Arc::new(LookbackEntry {
                 tipset,
-                parent_height: ChainEpoch(0),
+                parent_height: 0,
                 target_height: Default::default(),
                 target: Default::default(),
             }));
