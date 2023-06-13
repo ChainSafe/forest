@@ -2961,7 +2961,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_tuple",
- "strfmt",
  "strum",
  "tempfile",
  "ticker",
@@ -3181,7 +3180,6 @@ version = "0.8.2"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
- "atty",
  "byte-unit",
  "cfg-if 1.0.0",
  "chrono",
@@ -8671,12 +8669,6 @@ name = "str-buf"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e08d8363704e6c71fc928674353e6b7c23dcea9d82d7012c8faf2a3a025f8d0"
-
-[[package]]
-name = "strfmt"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a8348af2d9fc3258c8733b8d9d8db2e56f54b2363a4b5b81585c7875ed65e65"
 
 [[package]]
 name = "strsim"
