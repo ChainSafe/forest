@@ -410,3 +410,96 @@ where
         Ok((peer_id, sent, res))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+    #[tokio::test]
+    async fn race_batch_ok() {
+        let mut batch = RaceBatch::new(3);
+        batch.add(async move { Ok(1) });
+        batch.add(async move { Err("kaboom".into()) });
+
+        assert_eq!(batch.get_ok().await, Some(1));
+    }
+
+    #[tokio::test]
+    async fn race_batch_ok_faster() {
+        let mut batch = RaceBatch::new(3);
+        batch.add(async move {
+            tokio::time::sleep(Duration::from_secs(100)).await;
+            Ok(1)
+        });
+        batch.add(async move { Ok(2) });
+        batch.add(async move { Err("kaboom".into()) });
+
+        assert_eq!(batch.get_ok().await, Some(2));
+    }
+
+    #[tokio::test]
+    async fn race_batch_none() {
+        let mut batch: RaceBatch<i32> = RaceBatch::new(3);
+        batch.add(async move { Err("kaboom".into()) });
+        batch.add(async move { Err("banana".into()) });
+
+        assert_eq!(batch.get_ok().await, None);
+    }
+
+    #[tokio::test]
+    async fn race_batch_semaphore() {
+        const MAX_JOBS: usize = 30;
+        let counter = Arc::new(AtomicUsize::new(0));
+        let exceeded = Arc::new(AtomicBool::new(false));
+
+        let mut batch: RaceBatch<i32> = RaceBatch::new(MAX_JOBS);
+        for _ in 0..10000 {
+            let c = counter.clone();
+            let e = exceeded.clone();
+            batch.add(async move {
+                let prev = c.fetch_add(1, Ordering::Relaxed);
+                if prev >= MAX_JOBS {
+                    e.fetch_or(true, Ordering::Relaxed);
+                }
+
+                tokio::task::yield_now().await;
+                c.fetch_sub(1, Ordering::Relaxed);
+
+                Err("banana".into())
+            });
+        }
+
+        assert_eq!(batch.get_ok().await, None);
+        assert!(!exceeded.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn race_batch_semaphore_exceeded() {
+        const MAX_JOBS: usize = 30;
+        let counter = Arc::new(AtomicUsize::new(0));
+        let exceeded = Arc::new(AtomicBool::new(false));
+
+        // We add one more job to exceed the limit
+        let mut batch: RaceBatch<i32> = RaceBatch::new(MAX_JOBS + 1);
+        for _ in 0..10000 {
+            let c = counter.clone();
+            let e = exceeded.clone();
+            batch.add(async move {
+                let prev = c.fetch_add(1, Ordering::Relaxed);
+                if prev >= MAX_JOBS {
+                    e.fetch_or(true, Ordering::Relaxed);
+                }
+
+                tokio::task::yield_now().await;
+                c.fetch_sub(1, Ordering::Relaxed);
+
+                Err("banana".into())
+            });
+        }
+
+        assert_eq!(batch.get_ok().await, None);
+        assert!(exceeded.load(Ordering::Relaxed));
+    }
+}
