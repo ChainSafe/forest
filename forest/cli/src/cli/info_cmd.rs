@@ -127,7 +127,9 @@ impl NodeStatusInfo {
         start_time: DateTime<Utc>,
         network: String,
         use_color: bool,
-    ) -> anyhow::Result<NodeStatusInfo> {
+        default_wallet_address: Option<String>,
+        default_wallet_address_balance: Option<String>,
+    ) -> NodeStatusInfo {
         let ts = head.0.min_timestamp() as i64;
         let cur_duration_secs = cur_duration.as_secs() as i64;
         let lag = cur_duration_secs - ts;
@@ -149,7 +151,7 @@ impl NodeStatusInfo {
         // blocks_per_tipset_last_finality = no of blocks till head / chain finality
         let health = 100. * blocks_per_tipset_last_finality / BLOCKS_PER_EPOCH as f64;
 
-        Ok(Self {
+        Self {
             lag,
             health,
             epoch: head.0.epoch(),
@@ -158,36 +160,35 @@ impl NodeStatusInfo {
             start_time,
             network,
             use_color,
-            default_wallet_address: None,
-            default_wallet_address_balance: None,
-        })
+            default_wallet_address,
+            default_wallet_address_balance,
+        }
     }
 
     fn format(&self, now: DateTime<Utc>) -> anyhow::Result<String> {
+        let lines: Vec<ColoredString> = vec![
+            self.network(),
+            self.uptime(now),
+            self.chain_status(),
+            self.health(),
+            self.wallet_address(),
+            self.wallet_balance(),
+        ]
+        .into_iter()
+        .map(|cs| if self.use_color { cs.clear() } else { cs })
+        .collect();
+
         let mut output = String::new();
-        if self.use_color {
-            writeln!(&mut output, "Network: {}", self.network())?;
-            writeln!(&mut output, "Uptime: {}", self.uptime(now))?;
-            writeln!(&mut output, "Chain: {}", self.chain_status())?;
-            writeln!(&mut output, "Chain health: {}", self.health())?;
-            writeln!(
-                &mut output,
-                "Default wallet address: {} {}",
-                self.wallet_address(),
-                self.wallet_balance()
-            )?;
-        } else {
-            writeln!(&mut output, "Network: {}", self.network().clear())?;
-            writeln!(&mut output, "Uptime: {}", self.uptime(now).clear())?;
-            writeln!(&mut output, "Chain: {}", self.chain_status().clear())?;
-            writeln!(&mut output, "Chain health: {}", self.health().clear())?;
-            writeln!(
-                &mut output,
-                "Default wallet address: {} {}",
-                self.wallet_address().clear(),
-                self.wallet_balance().clear()
-            )?;
-        }
+
+        writeln!(&mut output, "Network: {}", lines[0])?;
+        writeln!(&mut output, "Uptime: {}", lines[1])?;
+        writeln!(&mut output, "Chain: {}", lines[2])?;
+        writeln!(&mut output, "Chain health: {}", lines[3])?;
+        writeln!(
+            &mut output,
+            "Default wallet address: {} {}",
+            lines[4], lines[5]
+        )?;
 
         Ok(output)
     }
@@ -207,15 +208,6 @@ impl InfoCommand {
                 let blocks_per_tipset_last_finality =
                     node_status.chain_status.blocks_per_tipset_last_finality;
 
-                let mut node_status_info = NodeStatusInfo::new(
-                    cur_duration,
-                    blocks_per_tipset_last_finality,
-                    head,
-                    start_time,
-                    network,
-                    opts.color.coloring_enabled(),
-                )?;
-
                 let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -230,8 +222,16 @@ impl InfoCommand {
                     None
                 };
 
-                node_status_info.default_wallet_address = default_wallet_address.clone();
-                node_status_info.default_wallet_address_balance = default_wallet_address_balance;
+                let node_status_info = NodeStatusInfo::new(
+                    cur_duration,
+                    blocks_per_tipset_last_finality,
+                    head,
+                    start_time,
+                    network,
+                    opts.color.coloring_enabled(),
+                    default_wallet_address.clone(),
+                    default_wallet_address_balance,
+                );
 
                 print!("{}", node_status_info.format(Utc::now())?);
 
@@ -292,7 +292,7 @@ mod tests {
 
     #[quickcheck]
     fn test_sync_status_ok(duration: Duration) {
-        let status_result = NodeStatusInfo::new(
+        let status = NodeStatusInfo::new(
             duration,
             20.,
             TipsetJson(mock_tipset_at(
@@ -301,11 +301,12 @@ mod tests {
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
             false,
+            None,
+            None,
         );
-        if let Ok(status) = status_result {
-            assert_ne!(status.sync_status, SyncStatus::Slow);
-            assert_ne!(status.sync_status, SyncStatus::Behind);
-        }
+
+        assert_ne!(status.sync_status, SyncStatus::Slow);
+        assert_ne!(status.sync_status, SyncStatus::Behind);
     }
 
     #[quickcheck]
@@ -319,8 +320,9 @@ mod tests {
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
             false,
-        )
-        .unwrap();
+            None,
+            None,
+        );
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
         assert_ne!(node_status.sync_status, SyncStatus::Slow);
@@ -341,8 +343,9 @@ mod tests {
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
             false,
-        )
-        .unwrap();
+            None,
+            None,
+        );
         assert!(node_status.health.is_finite());
         assert_ne!(node_status.sync_status, SyncStatus::Behind);
         assert_ne!(node_status.sync_status, SyncStatus::Ok);
@@ -359,8 +362,9 @@ mod tests {
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
             false,
-        )
-        .unwrap();
+            None,
+            None,
+        );
         assert!(node_status.chain_status().contains("10s behind"));
     }
 
@@ -382,8 +386,9 @@ mod tests {
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
             false,
-        )
-        .unwrap();
+            None,
+            None,
+        );
 
         let expected_status_fmt = "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]";
         assert_eq!(expected_status_fmt.blue(), node_status.chain_status());
@@ -396,8 +401,9 @@ mod tests {
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
             false,
-        )
-        .unwrap();
+            None,
+            None,
+        );
 
         let expected_status_fmt = "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]";
         assert_eq!(expected_status_fmt.blue(), node_status.chain_status());

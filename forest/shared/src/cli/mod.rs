@@ -23,7 +23,7 @@ use forest_utils::{
 use log::error;
 use num::BigInt;
 
-pub use self::{client::*, config::*};
+pub use self::{client::*, config::*, snapshot_fetch::*};
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}
