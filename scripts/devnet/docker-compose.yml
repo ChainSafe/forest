@@ -1,0 +1,86 @@
+# Docker compose file to run a local devnet.
+# The devnet consists of a:
+# - Lotus node (2k build),
+# - Lotus miner (2k build),
+# - Forest node.
+
+version: "3.7"
+
+services:
+  lotus_init:
+    build:
+      context: .
+      dockerfile: lotus.dockerfile
+    volumes:
+      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
+      - lotus-data:/lotus_data
+    env_file:
+      - lotus.env
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        lotus fetch-params 2048
+        if [ ! -f /lotus_data/NODE_INITIALISED ]; then
+          lotus-seed --sector-dir /lotus_data/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
+          lotus-seed --sector-dir /lotus_data/genesis-sectors genesis new /lotus_data/localnet.json
+          lotus-seed --sector-dir /lotus_data/genesis-sectors genesis add-miner /lotus_data/localnet.json /lotus_data/genesis-sectors/pre-seal-t01000.json
+          touch /lotus_data/NODE_INITIALISED
+        fi
+
+  lotus_node:
+    depends_on:
+      lotus_init:
+        condition: service_completed_successfully
+    build:
+      context: .
+      dockerfile: lotus.dockerfile
+    container_name: lotus
+    networks:
+      - devnet
+    volumes:
+      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
+      - lotus-data:/lotus_data
+    entrypoint: ["/bin/bash", "-c" ]
+    ports:
+      - 1234:1234
+      - 9090:9090
+    env_file:
+      - lotus.env
+    command:
+      - |
+        lotus daemon --lotus-make-genesis=/lotus_data/devgen.car --genesis-template=/lotus_data/localnet.json --bootstrap=false
+
+  lotus_miner:
+    depends_on:
+      lotus_init:
+        condition: service_completed_successfully
+    build:
+      context: .
+      dockerfile: lotus.dockerfile
+    container_name: lotus-miner
+    networks:
+      - devnet
+    volumes:
+      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
+      - lotus-data:/lotus_data
+    entrypoint: ["/bin/bash", "-c" ]
+    ports:
+      - 2345:2345
+    env_file:
+      - lotus-miner.env
+    restart: on-failure # lotus node might not be ready
+    command:
+      - |
+        if [ ! -f /lotus_data/MINER_INITIALISED ]; then
+          lotus wallet import --as-default /lotus_data/genesis-sectors/pre-seal-t01000.key
+          lotus-miner init --genesis-miner --actor=t01000 --sector-size=2KiB --pre-sealed-sectors=/lotus_data/genesis-sectors --pre-sealed-metadata=/lotus_data/genesis-sectors/pre-seal-t01000.json --nosync
+          touch /lotus_data/MINER_INITIALISED
+        fi
+        lotus-miner run --nosync
+
+volumes:
+  filecoin-proofs:
+  lotus-data:
+
+networks:
+  devnet:
