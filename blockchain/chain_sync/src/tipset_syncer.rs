@@ -1117,12 +1117,13 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
                 state_manager.clone(),
                 &chainstore,
                 bad_block_cache,
-                full_tipset,
+                full_tipset.clone(),
                 genesis,
                 invalid_block_strategy,
             )
             .await?;
         }
+        chainstore.set_heaviest_tipset(Arc::new(full_tipset.into_tipset()))?;
         tracker.write().set_epoch(current_epoch);
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
@@ -1392,16 +1393,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
         return Err((*block_cid, TipsetRangeSyncerError::<C>::concat(errs)));
     }
 
-    chain_store
-        .mark_block_as_validated(block_cid)
-        .map_err(|e| {
-            (
-                *block_cid,
-                TipsetRangeSyncerError::<C>::Validation(format!(
-                    "failed to mark block {block_cid} as validated {e}"
-                )),
-            )
-        })?;
+    chain_store.mark_block_as_validated(block_cid);
 
     Ok(block)
 }
