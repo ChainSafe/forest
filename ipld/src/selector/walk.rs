@@ -189,7 +189,7 @@ where
     }
 
     /// Utility function just to reduce duplicate logic. Can't do with a closure
-    /// because async closures are currently unstable: <https://github.com/rust-lang/rust/issues/62290>
+    /// because async closures are currently unstable: https://github.com/rust-lang/rust/issues/62290
     async fn traverse_node<F>(
         &mut self,
         ipld: &Ipld,

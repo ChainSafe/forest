@@ -1,21 +1,7 @@
-# Banned in #2454, trading security/being idiomatic for speed
-[[disallowed-types]]
-path = "std::collections::HashMap"
-reason = """the standard library hasher is secure by default, but not very fast.
-use ahash::HashMap instead."""
-
-[[disallowed-types]]
-path = "std::collections::HashSet"
-reason = """the standard library hasher is secure by default, but not very fast.
-use ahash::HashSet instead."""
-
-# Banned in #2600, presumably so that poisoning won't need to be user-handled
-[[disallowed-types]]
-path = "std::sync::RwLock"
-reason = """the standard library synchronization primitives are poisoned when aquiring threads panic.
-use parking_lot::RwLock instead to silently ignore panics."""
-
-[[disallowed-types]]
-path = "std::sync::Mutex"
-reason = """the standard library synchronization primitives are poisoned when aquiring threads panic.
-use parking_lot::Mutex instead to silently ignore panics."""
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_types
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "use ahash::HashMap instead" },
+  { path = "std::collections::HashSet", reason = "use ahash::HashSet instead" },
+  { path = "std::sync::RwLock", reason = "use parking_lot::RwLock instead" },
+  { path = "std::sync::Mutex", reason = "use parking_lot::Mutex instead" },
+]
