@@ -129,4 +129,11 @@ pub mod db_engine {
         RollingDB::load_or_create(db_root, db_config)
     }
 }
-#[cfg(test)]mod tests {mod parity_test;mod mem_test;mod rocks_test;}
+#[cfg(test)]
+mod tests {
+    pub mod subtests;
+    pub mod db_utils;
+    mod mem_test;
+    #[cfg(feature = "paritydb")] mod parity_test;
+    #[cfg(feature = "rocksdb")] mod rocks_test;
+}
