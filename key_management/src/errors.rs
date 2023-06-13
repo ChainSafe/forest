@@ -5,7 +5,7 @@ use std::io;
 
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// info that corresponds to key does not exist
     #[error("Key info not found")]
@@ -17,10 +17,16 @@ pub enum Error {
     KeyNotExists,
     #[error("Key not found")]
     NoKey,
-    #[error(transparent)]
-    IO(#[from] io::Error),
+    #[error("IO Error: {0}")]
+    IO(String),
     #[error("{0}")]
     Other(String),
     #[error("Could not convert from KeyInfo to Key")]
     KeyInfoConversion,
+}
+
+impl From<io::Error> for Error {
+    fn from(f: io::Error) -> Self {
+        Error::IO(f.to_string())
+    }
 }

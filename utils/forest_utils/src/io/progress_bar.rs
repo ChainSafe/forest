@@ -1,21 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-// JANK(aatifsyed): I don't really understand why this module exists, a lot of
-// the code looks wrong
 use std::{io::Stdout, str::FromStr, sync::Arc, time::Duration};
 
 use parking_lot::{Mutex, RwLock};
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
-
-/// A simple progress bar style for downloading files
-pub fn downloading_style() -> indicatif::ProgressStyle {
-    indicatif::ProgressStyle::with_template(
-        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
-    )
-    .expect("invalid progress template")
-    .progress_chars("=>-")
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -25,17 +14,6 @@ pub enum ProgressBarVisibility {
     #[default]
     Auto,
     Never,
-}
-
-impl ProgressBarVisibility {
-    /// Checks if stdout is a TTY
-    pub fn should_display(&self) -> bool {
-        matches!(
-            self,
-            ProgressBarVisibility::Always
-            | ProgressBarVisibility::Auto if atty::is(atty::Stream::Stdout)
-        )
-    }
 }
 
 impl FromStr for ProgressBarVisibility {
