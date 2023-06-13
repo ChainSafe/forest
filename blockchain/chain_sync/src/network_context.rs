@@ -300,12 +300,9 @@ where
                     message
                 };
 
-                if let Some(v) = batch.get_ok().await {
-                    log::debug!("Succeed: handle_chain_exchange_request");
-                    v
-                } else {
-                    return Err(make_failure_message());
-                }
+                let v = batch.get_ok().await.ok_or_else(make_failure_message)?;
+                log::debug!("Succeed: handle_chain_exchange_request");
+                v
             }
         };
 
