@@ -28,7 +28,6 @@ use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
 use std::future::Future;
-use std::pin::Pin;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
@@ -64,8 +63,6 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
         }
     }
 }
-
-type RaceBatchFuture<T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send>>;
 
 struct RaceBatch<T> {
     tasks: JoinSet<Result<T, String>>,
