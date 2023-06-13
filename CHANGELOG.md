@@ -25,6 +25,11 @@
 
 ## Forest unreleased
 
+### Fixed
+
+- [#2967](https://github.com/ChainSafe/forest/issues/2967): Fix http-client
+  concurrency issues caused by fetching root certificates multiple times.
+
 ### Added
 
 - [#2761](https://github.com/ChainSafe/forest/issues/2761): Add a per actor
