@@ -24,11 +24,11 @@ use forest_shim::{
     gas::{price_list_by_network_version, Gas},
 };
 use forest_state_manager::is_valid_for_sending;
+use forest_utils::const_option;
 use futures::StreamExt;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use lru::LruCache;
-use nonzero_ext::nonzero;
 use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
@@ -46,8 +46,8 @@ use crate::{
 };
 
 // LruCache sizes have been taken from the lotus implementation
-const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
-const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
+const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
+const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000));
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.

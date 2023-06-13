@@ -178,6 +178,7 @@ pub mod chain_api {
         pub recent_roots: i64,
         pub output_path: PathBuf,
         pub tipset_keys: TipsetKeysJson,
+        pub compressed: bool,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }

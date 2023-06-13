@@ -26,7 +26,6 @@ Ethereum
 exa
 FIL
 Filecoin/M
-Filops
 FVM
 GC
 GiB
@@ -59,10 +58,7 @@ serializable
 serializer/SM
 statediff
 stateful
-stderr
-stdout
 synchronizer
-syscall/S
 TCP
 tipset/SM
 tipsetkey/S

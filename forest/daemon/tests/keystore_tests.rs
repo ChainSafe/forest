@@ -46,7 +46,7 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
 fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     cli()?
-        .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
+        .env(FOREST_KEYSTORE_PHRASE_ENV, "yuggoth")
         .common_args()
         .arg("--config")
         .arg(config_file)
@@ -54,6 +54,7 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<(
         .success();
 
     assert!(data_dir.path().join(ENCRYPTED_KEYSTORE_NAME).exists());
+
     Ok(())
 }
 
