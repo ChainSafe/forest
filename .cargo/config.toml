@@ -1,15 +1,9 @@
-[alias]
-# Permits `cargo cli --chain calibnet ...`
-cli = "run --bin forest-cli --"
-daemon = "run --bin forest --"
-
 [build]
 incremental = true
 
 # TODO(aatifsyed): remove - this can be pushed out to readme
 # In all cases, pass --cfg=tokio_unstable for tokio console integration
 # See (https://github.com/ChainSafe/forest/pull/2245)
-# Note that this may be overriden by user configuration at ~/.cargo/config.toml
 rustflags = ["--cfg=tokio_unstable"]
 
 [net]

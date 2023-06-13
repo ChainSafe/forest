@@ -1,25 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    cell::RefCell,
-    net::TcpListener,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time,
-    time::Duration,
-};
+use std::{net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
-use anyhow::{bail, Context};
-use dialoguer::{console::Term, theme::ColorfulTheme};
+use anyhow::Context;
+use dialoguer::{theme::ColorfulTheme, Confirm, Password};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
 use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
-    cli::{CliOpts, Config},
-    snapshot,
+    cli::{
+        default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
+        to_size_string, CliOpts, Client, Config, SnapshotServer,
+    },
 };
 use forest_daemon::bundle::load_bundles;
 use forest_db::{
@@ -37,15 +32,14 @@ use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManage
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
-use forest_shim::{clock::ChainEpoch, version::NetworkVersion};
+use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::{
     io::write_to_file, monitoring::MemStatsTracker,
     proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
-    RetryArgs,
 };
-use futures::{select, Future, FutureExt};
-use log::{debug, info, warn};
+use futures::{select, FutureExt};
+use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use tokio::{
     signal::{
@@ -54,6 +48,7 @@ use tokio::{
     },
     sync::{mpsc, RwLock},
     task::JoinSet,
+    time::sleep,
 };
 
 // Initialize Consensus
@@ -146,7 +141,7 @@ pub(super) async fn start(
     // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut keystore = load_or_create_keystore(&config).await?;
+    let mut keystore = create_keystore(&config).await?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
         keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
@@ -277,7 +272,17 @@ pub(super) async fn start(
         return Ok(());
     }
 
+    // XXX: This code has to be run before starting the background services.
+    //      If it isn't, several threads will be competing for access to stdout.
+    // Terminate if no snapshot is provided or DB isn't recent enough
+
     let epoch = chain_store.heaviest_tipset().epoch();
+    let nv = config.chain.network_version(epoch);
+    let should_fetch_snapshot = if nv < NetworkVersion::V16 {
+        prompt_snapshot_or_die(opts.auto_download_snapshot, &config).await?
+    } else {
+        false
+    };
 
     load_bundles(epoch, &config, db.clone()).await?;
 
@@ -393,8 +398,7 @@ pub(super) async fn start(
         );
     }
 
-    let mut config = config;
-    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
+    let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
@@ -432,90 +436,8 @@ pub(super) async fn start(
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
-    propagate_error(&mut services)
-        .await
-        .context("services failure")
-        .map(|_| {})
-}
-
-/// If our current chain is below a supported height, we need a snapshot to bring it up
-/// to a supported height. If we've not been given a snapshot by the user, get one.
-///
-/// An [`Err`] should be considered fatal.
-async fn fetch_snapshot_if_required(
-    config: &mut Config,
-    epoch: ChainEpoch,
-    auto_download_snapshot: bool,
-) -> anyhow::Result<()> {
-    let vendor = snapshot::Vendor::default();
-    let path = Path::new(".");
-    let chain = &config.chain.network;
-
-    // What height is our chain at right now, and what network version does that correspond to?
-    let network_version = config.chain.network_version(epoch);
-    let network_version_is_small = network_version < NetworkVersion::V16;
-
-    // We don't support small network versions (we can't validate from e.g genesis).
-    // So we need a snapshot (which will be from a recent network version)
-    let require_a_snapshot = network_version_is_small;
-    let have_a_snapshot = config.client.snapshot_path.is_some();
-
-    match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
-        (false, _, _) => Ok(()),   // noop - don't need a snapshot
-        (true, true, _) => Ok(()), // noop - we need a snapshot, and we have one
-        (true, false, true) => {
-            // we need a snapshot, don't have one, and have permission to download one, so do that
-            let max_retries = 3;
-            match retry(
-                RetryArgs {
-                    timeout: None,
-                    max_retries: Some(max_retries),
-                    delay: Some(Duration::from_secs(60)),
-                },
-                || forest_cli_shared::snapshot::fetch(path, chain, vendor),
-            )
-            .await
-            {
-                Ok(path) => {
-                    config.client.snapshot_path = Some(path);
-                    config.client.snapshot = true;
-                    Ok(())
-                }
-                Err(_) => bail!("failed to fetch snapshot after {max_retries} attempts"),
-            }
-        }
-        (true, false, false) => {
-            // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let (num_bytes, _url) =
-                forest_cli_shared::snapshot::peek(vendor, &config.chain.network)
-                    .await
-                    .context("couldn't get snapshot size")?;
-            let num_bytes = byte_unit::Byte::from(num_bytes)
-                .get_appropriate_unit(true)
-                .format(2);
-            let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). ");
-            let have_permission = asyncify(|| {
-                dialoguer::Confirm::with_theme(&ColorfulTheme::default())
-                    .with_prompt(message)
-                    .default(false)
-                    .interact()
-                    // e.g not a tty (or some other error), so haven't got permission.
-                    .unwrap_or(false)
-            })
-            .await;
-            if !have_permission {
-                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
-            }
-            match forest_cli_shared::snapshot::fetch(path, chain, vendor).await {
-                Ok(path) => {
-                    config.client.snapshot_path = Some(path);
-                    config.client.snapshot = true;
-                    Ok(())
-                }
-                Err(e) => Err(e).context("downloading required snapshot failed"),
-            }
-        }
-    }
+    let err = propagate_error(&mut services).await;
+    anyhow::bail!("services failure: {}", err);
 }
 
 /// Generates, prints and optionally writes to a file the administrator JWT
@@ -532,21 +454,90 @@ fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> a
     Ok(())
 }
 
-/// returns the first error with which any of the services end, or never returns at all
-// This should return anyhow::Result<!> once the `Never` type is stabilized
-async fn propagate_error(
-    services: &mut JoinSet<Result<(), anyhow::Error>>,
-) -> anyhow::Result<std::convert::Infallible> {
+// returns the first error with which any of the services end
+// in case all services finished without an error sleeps for more than 2 years
+// and then returns with an error
+async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> anyhow::Error {
     while !services.is_empty() {
         select! {
             option = services.join_next().fuse() => {
                 if let Some(Ok(Err(error_message))) = option {
-                    return Err(error_message)
+                    return error_message
                 }
             },
         }
     }
-    std::future::pending().await
+    // In case all services are down without errors we are still willing
+    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
+    // a limit of approximately 2.2 years we have to loop
+    loop {
+        tokio::time::sleep(Duration::new(64000000, 0)).await;
+    }
+}
+
+/// Optionally fetches the snapshot. Returns the configuration (modified
+/// accordingly if a snapshot was fetched).
+async fn maybe_fetch_snapshot(
+    should_fetch_snapshot: bool,
+    config: Config,
+) -> anyhow::Result<Config> {
+    if should_fetch_snapshot {
+        let snapshot_path = default_snapshot_dir(&config);
+        let provider = SnapshotServer::try_get_default(&config.chain.network)?;
+        // FIXME: change this to `true` once zstd compressed snapshots is supported by
+        // the forest provider
+        let use_compressed = provider == SnapshotServer::Filecoin;
+        let path = retry!(
+            snapshot_fetch,
+            config.daemon.default_retry,
+            config.daemon.default_delay,
+            &snapshot_path,
+            &config,
+            &Some(provider),
+            use_compressed,
+            is_aria2_installed()
+        )?;
+        Ok(Config {
+            client: Client {
+                snapshot_path: Some(path),
+                snapshot: true,
+                ..config.client
+            },
+            ..config
+        })
+    } else {
+        Ok(config)
+    }
+}
+
+/// Last resort in case a snapshot is needed. If it is not to be downloaded,
+/// this method fails and exits the process.
+async fn prompt_snapshot_or_die(
+    auto_download_snapshot: bool,
+    config: &Config,
+) -> anyhow::Result<bool> {
+    if config.client.snapshot_path.is_some() {
+        return Ok(false);
+    }
+    let should_download = if !auto_download_snapshot && atty::is(atty::Stream::Stdin) {
+        let required_size: u64 = snapshot_fetch_size(config).await?;
+        let required_size = to_size_string(&required_size.into())?;
+        tokio::task::spawn_blocking(move || Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(
+                    format!("Forest needs a snapshot to sync with the network. Would you like to download one now? Required disk space {required_size}."),
+                )
+                .default(false)
+                .interact()
+            ).await??
+    } else {
+        auto_download_snapshot
+    };
+
+    if should_download {
+        Ok(true)
+    } else {
+        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
+    }
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
@@ -557,140 +548,68 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
     }
 }
 
-/// This may:
-/// - create a [`KeyStore`]
-/// - load a [`KeyStore`]
-/// - ask a user for password input
-async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
-    use std::env::VarError;
+async fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
+    let passphrase = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
+    let is_interactive = atty::is(atty::Stream::Stdin);
 
-    let passphrase_from_env = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
-    let require_encryption = config.client.encrypt_keystore;
-    let keystore_already_exists = config
-        .client
-        .data_dir
-        .join(ENCRYPTED_KEYSTORE_NAME)
-        .is_dir();
+    // encrypted keystore, headless
+    if config.client.encrypt_keystore && passphrase.is_err() && !is_interactive {
+        anyhow::bail!("Passphrase for the keystore was not provided and the encryption was not explicitly disabled. Please set the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable and re-run the command");
+    // encrypted keystore, either headless or interactive, passphrase provided
+    } else if config.client.encrypt_keystore && passphrase.is_ok() {
+        let passphrase = passphrase.unwrap();
 
-    match (require_encryption, passphrase_from_env) {
-        // don't need encryption, we can implicitly create a keystore
-        (false, maybe_passphrase) => {
-            warn!("Forest has encryption disabled");
-            if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
-                warn!(
-                    "Ignoring passphrase provided in {} - encryption is disabled",
-                    FOREST_KEYSTORE_PHRASE_ENV
-                )
-            }
-            KeyStore::new(KeyStoreConfig::Persistent(config.client.data_dir.clone()))
-                .map_err(anyhow::Error::new)
-        }
-
-        // need encryption, the user has provided the password through env
-        (true, Ok(passphrase)) => KeyStore::new(KeyStoreConfig::Encrypted(
-            config.client.data_dir.clone(),
+        let keystore = KeyStore::new(KeyStoreConfig::Encrypted(
+            PathBuf::from(&config.client.data_dir),
             passphrase,
-        ))
-        .map_err(anyhow::Error::new),
+        ));
 
-        // need encryption, we've not been given a password
-        (true, Err(error)) => {
-            // prompt for passphrase and try and load the keystore
+        keystore.map_err(|_| anyhow::anyhow!("Incorrect passphrase. Please verify the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable."))
+    // encrypted keystore, interactive, passphrase not provided
+    } else if config.client.encrypt_keystore && passphrase.is_err() && is_interactive {
+        loop {
+            let passphrase = password_prompt("Enter the keystore passphrase").await?;
 
-            if let VarError::NotUnicode(_) = error {
-                // If we're ignoring the user's password, tell them why
-                warn!(
-                    "Ignoring passphrase provided in {} - it's not utf-8",
-                    FOREST_KEYSTORE_PHRASE_ENV
-                )
-            }
+            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
+            if !data_dir.exists() {
+                let passphrase_again = password_prompt("Confirm passphrase").await?;
 
-            let data_dir = config.client.data_dir.clone();
-
-            match keystore_already_exists {
-                true => asyncify(move || input_password_to_load_encrypted_keystore(data_dir))
-                    .await
-                    .context("Couldn't load keystore"),
-                false => {
-                    let password =
-                        asyncify(|| create_password("Create a password for Forest's keystore"))
-                            .await?;
-                    KeyStore::new(KeyStoreConfig::Encrypted(data_dir, password))
-                        .context("Couldn't create keystore")
+                if passphrase != passphrase_again {
+                    error!("Passphrases do not match. Please retry.");
+                    continue;
                 }
             }
+
+            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
+                config.client.data_dir.clone(),
+                passphrase,
+            ));
+
+            match key_store_init_result {
+                Ok(ks) => break Ok(ks),
+                Err(_) => {
+                    error!("Incorrect passphrase entered. Please try again.")
+                }
+            };
         }
+    } else {
+        warn!("Warning: Keystore encryption disabled!");
+        Ok(KeyStore::new(KeyStoreConfig::Persistent(
+            config.client.data_dir.clone(),
+        ))?)
     }
 }
 
-/// Run the closure on a thread where blocking is allowed
-///
-/// # Panics
-/// If the closure panics
-fn asyncify<T>(f: impl FnOnce() -> T + Send + 'static) -> impl Future<Output = T>
-where
-    T: Send + 'static,
-{
-    tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
-}
-
-/// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
-///
-/// This code makes blocking syscalls.
-fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Result<KeyStore> {
-    let keystore = RefCell::new(None);
-    let term = Term::stderr();
-
-    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
-    // so do that check ourselves.
-    // This means users can't pipe their password from stdin.
-    if !term.is_term() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "cannot read password from non-terminal",
-        ));
-    }
-
-    dialoguer::Password::new()
-        .with_prompt("Enter the password for Forest's keystore")
-        .allow_empty_password(true) // let validator do validation
-        .validate_with(|input: &String| {
-            KeyStore::new(KeyStoreConfig::Encrypted(data_dir.clone(), input.clone()))
-                .map(|created| *keystore.borrow_mut() = Some(created))
-                .context(
-                    "Error: couldn't load keystore with this password. Try again or press Ctrl+C to abort.",
-                )
-        })
-        .interact_on(&term)?;
-
-    Ok(keystore
-        .into_inner()
-        .expect("validation succeeded, so keystore must be emplaced"))
-}
-
-/// Loops until the user provides two matching passwords.
-///
-/// This code makes blocking syscalls
-fn create_password(prompt: &str) -> std::io::Result<String> {
-    let term = Term::stderr();
-
-    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
-    // so do that check ourselves.
-    // This means users can't pipe their password from stdin.
-    if !term.is_term() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotConnected,
-            "cannot read password from non-terminal",
-        ));
-    }
-    dialoguer::Password::new()
-        .with_prompt(prompt)
-        .allow_empty_password(false)
-        .with_confirmation(
-            "Confirm password",
-            "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
-        )
-        .interact_on(&term)
+// Prompt for password in a blocking thread such that tokio can still process interrupts.
+async fn password_prompt(prompt: impl Into<String>) -> anyhow::Result<String> {
+    let prompt: String = prompt.into();
+    Ok(tokio::task::spawn_blocking(|| {
+        Password::with_theme(&ColorfulTheme::default())
+            .allow_empty_password(true)
+            .with_prompt(prompt)
+            .interact()
+    })
+    .await??)
 }
 
 #[cfg(test)]
@@ -704,34 +623,39 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn import_snapshot_from_file_valid() {
-        import_snapshot_from_file("test_files/chain4.car")
+    async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
             .await
-            .unwrap();
+            .is_ok());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_compressed_file_valid() {
-        import_snapshot_from_file("test_files/chain4.car.zst")
+    async fn import_snapshot_from_compressed_file_valid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car.zst")
             .await
-            .unwrap()
+            .is_ok());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_file_invalid() {
-        import_snapshot_from_file("Cargo.toml").await.unwrap_err();
+    async fn import_snapshot_from_file_invalid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("Cargo.toml").await.is_err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_file_not_found() {
-        import_snapshot_from_file("dummy.car").await.unwrap_err();
+    async fn import_snapshot_from_file_not_found() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("dummy.car").await.is_err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn import_snapshot_from_url_not_found() {
-        import_snapshot_from_file("https://dummy.com/dummy.car")
+    async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
             .await
-            .unwrap_err();
+            .is_err());
+        Ok(())
     }
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
@@ -782,7 +706,7 @@ mod test {
         )?);
         import_chain::<_>(&sm, "test_files/chain4.car", false)
             .await
-            .context("Failed to import chain")?;
+            .expect("Failed to import chain");
 
         Ok(())
     }

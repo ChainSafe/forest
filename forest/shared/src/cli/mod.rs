@@ -3,6 +3,7 @@
 
 mod client;
 mod config;
+mod snapshot_fetch;
 
 use std::{
     net::SocketAddr,
@@ -19,7 +20,7 @@ use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
 use log::error;
 use num::BigInt;
 
-pub use self::{client::*, config::*};
+pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
 
 pub static HELP_MESSAGE: &str = "\
@@ -306,6 +307,14 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
             1,
         )
     }
+}
+
+pub fn default_snapshot_dir(config: &Config) -> PathBuf {
+    config
+        .client
+        .data_dir
+        .join("snapshots")
+        .join(config.chain.network.to_string())
 }
 
 /// Gets chain data directory
