@@ -3046,12 +3046,10 @@ dependencies = [
 name = "forest-daemon"
 version = "0.8.2"
 dependencies = [
- "ahash 0.8.3",
  "anyhow",
  "assert_cmd",
  "atty",
  "cfg-if 1.0.0",
- "cid",
  "clap",
  "daemonize-me",
  "dialoguer",
@@ -3066,7 +3064,6 @@ dependencies = [
  "forest_fil_cns",
  "forest_genesis",
  "forest_interpreter",
- "forest_ipld",
  "forest_key_management",
  "forest_libp2p",
  "forest_message_pool",
@@ -3079,7 +3076,6 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.3",
  "lazy_static",
  "log",
  "raw_sync",
