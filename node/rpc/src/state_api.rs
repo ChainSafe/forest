@@ -189,7 +189,16 @@ pub(crate) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'stati
     })
 }
 
-pub(crate) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static, B: Beacon>(
+// Sample CIDs (useful for testing):
+//   Mainnet:
+//     1,594,681 bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm OhSnap upgrade
+//     1_960_320 bafy2bzacec43okhmihmnwmgqspyrkuivqtxv75rpymsdbulq6lgsdq2vkwkcg Skyr upgrade
+//     2,833,266 bafy2bzacecaydufxqo5vtouuysmg3tqik6onyuezm6lyviycriohgfnzfslm2
+//     2,933,266 bafy2bzacebyp6cmbshtzzuogzk7icf24pt6s5veyq5zkkqbn3sbbvswtptuuu
+//   Calibnet:
+//     242,150 bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw
+//     630,932 bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk
+pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params((CidJson(root_cid),)): Params<StateFetchRootParams>,
 ) -> Result<StateFetchRootResult, JsonRpcError> {
@@ -197,128 +206,67 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static, B: 
         use ahash::{HashSet, HashSetExt};
         use forest_libp2p::NetworkMessage;
         use fvm_ipld_encoding::CborStore;
-        use parking_lot::Mutex;
-        use std::ops::DerefMut;
         use std::sync::Arc;
 
-        fn scan_for_links(ipld: forest_ipld::Ipld, seen: &mut HashSet<Cid>, links: &mut Vec<Cid>) {
-            match ipld {
-                Ipld::Null => {}
-                Ipld::Bool(_) => {}
-                Ipld::Integer(_) => {}
-                Ipld::Float(_) => {}
-                Ipld::String(_) => {}
-                Ipld::Bytes(_) => {}
-                Ipld::List(list) => {
-                    for elt in list.into_iter() {
-                        scan_for_links(elt, seen, links);
+        const MAX_CONCURRENT_REQUESTS: usize = 16;
+        const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+        let sem = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_REQUESTS));
+        let mut seen: HashSet<Cid> = HashSet::new();
+        let mut counter: usize = 0;
+        let mut failures: usize = 0;
+        let mut task_set = tokio::task::JoinSet::new();
+
+        let mut get_ipld_link = |ipld: &forest_ipld::Ipld| match ipld {
+            Ipld::Link(cid) if cid.codec() == 0x71 && seen.insert(*cid) => Some(*cid),
+            _ => None,
+        };
+
+        task_set.spawn(async move { Ok(Ipld::Link(root_cid)) });
+        while let Some(result) = task_set.join_next().await {
+            info!(
+                "Got new ipld block. Fetched: {counter}, Failures: {failures}, Concurrent: {}",
+                MAX_CONCURRENT_REQUESTS - sem.available_permits()
+            );
+            match result? {
+                Ok(ipld) => {
+                    for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
+                        counter += 1;
+                        task_set.spawn({
+                            let network_send = data.network_send.clone();
+                            let db = data.chain_store.db.clone();
+                            let sem = sem.clone();
+                            async move {
+                                if !db.has(&new_cid).unwrap_or(false) {
+                                    let permit = sem.acquire_owned().await?;
+                                    let (tx, rx) = flume::bounded(1);
+                                    network_send
+                                        .send_async(NetworkMessage::BitswapRequest {
+                                            epoch: 0,
+                                            cid: new_cid,
+                                            response_channel: tx,
+                                        })
+                                        .await?;
+                                    let _ignore =
+                                        tokio::time::timeout(REQUEST_TIMEOUT, rx.recv_async())
+                                            .await;
+                                    drop(permit);
+                                }
+
+                                db.get_cbor::<Ipld>(&new_cid)?.ok_or_else(|| {
+                                    anyhow::anyhow!("Request failed: {new_cid}")
+                                })
+                            }
+                        });
                     }
                 }
-                Ipld::Map(map) => {
-                    for (_key, elt) in map.into_iter() {
-                        scan_for_links(elt, seen, links);
-                    }
-                }
-                Ipld::Link(cid) => {
-                    if cid.codec() == 0x55 {
-                        if seen.insert(cid) {
-                            // info!("Found WASM: {cid}");
-                        }
-                    }
-                    if cid.codec() == 0x71 {
-                        if seen.insert(cid) {
-                            // info!("Found link: {cid}");
-                            links.push(cid);
-                        }
-                    }
+                Err(msg) => {
+                    failures += 1;
+                    info!("Request failed: {msg}");
                 }
             }
         }
-
-        // tokio::time::sleep(Duration::from_secs(10)).await;
-
-        let seen = Arc::new(Mutex::new(HashSet::new()));
-        let sem = Arc::new(tokio::sync::Semaphore::new(16));
-        let (work_send, mut work_recv) = tokio::sync::mpsc::channel(1024);
-        let failures = Arc::new(Mutex::new(0_usize));
-        let task_set = tokio::task::JoinSet::new();
-        // mainnet: 1,594,681
-        // let root_cid = "bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm".parse::<Cid>().unwrap();
-
-        // mainnet: 2,933,266
-        // let root_cid = "bafy2bzacebyp6cmbshtzzuogzk7icf24pt6s5veyq5zkkqbn3sbbvswtptuuu".parse::<Cid>().unwrap();
-
-        // mainnet: 2,833,266
-        // let root_cid = "bafy2bzacecaydufxqo5vtouuysmg3tqik6onyuezm6lyviycriohgfnzfslm2".parse::<Cid>().unwrap();
-
-        // mainnet: 1_960_320
-        // let root_cid = "bafy2bzacec43okhmihmnwmgqspyrkuivqtxv75rpymsdbulq6lgsdq2vkwkcg".parse::<Cid>().unwrap();
-
-        // calibnet: 242,150, 21144 cids
-        // let root_cid = "bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw".parse::<Cid>().unwrap();
-        // calibnet: 630,932, 88594 cids
-        // let root_cid = "bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk".parse::<Cid>().unwrap();
-        seen.lock().insert(root_cid);
-        work_send.send(root_cid).await?;
-        // to_fetch.push(root_cid);
-        while let Some(required_cid) = work_recv.recv().await {
-            info!(
-                "Fetching new ipld block. Seen: {}, Failures: {}, Concurrent: {}",
-                seen.lock().len(),
-                failures.lock(),
-                16 - sem.available_permits()
-            );
-
-            let permit = sem.clone().acquire_owned().await;
-            tokio::task::spawn({
-                let network_send = data.network_send.clone();
-                let chain_store = data.chain_store.clone();
-                let work_send = work_send.clone();
-                let seen = seen.clone();
-                let failures = failures.clone();
-                async move {
-                    let (tx, rx) = flume::bounded(1);
-                    let _ignore = network_send
-                        .send_async(NetworkMessage::BitswapRequest {
-                            epoch: 0,
-                            cid: required_cid,
-                            response_channel: tx,
-                        })
-                        .await;
-
-                    if !chain_store.db.has(&required_cid).unwrap_or(false) {
-                        let _success = tokio::task::spawn_blocking(move || {
-                            rx.recv_timeout(Duration::from_secs_f32(10.0))
-                                .unwrap_or_default()
-                        })
-                        .await
-                        .unwrap_or(false);
-                    }
-                    drop(permit);
-
-                    match chain_store.db.get_cbor::<Ipld>(&required_cid) {
-                        Ok(Some(ipld)) => {
-                            // info!("Request successful");
-                            let mut new_links = Vec::new();
-                            scan_for_links(ipld, seen.lock().deref_mut(), &mut new_links);
-                            for cid in new_links.into_iter() {
-                                let _ignore_channel_close_errors = work_send.send(cid).await;
-                            }
-                            // forest_ipld::traverse_ipld_links_hash(seen, load_block, ipld, |_|);
-                        }
-                        Ok(None) => {
-                            *failures.lock() += 1;
-                            info!("Request failed: failures: {}", failures.lock())
-                        }
-                        Err(msg) => info!("Failed to decode data: {msg}"),
-                    }
-                    drop(work_send);
-                }
-            });
-
-            // tokio::task::yield_now().await;
-        }
-        info!("All fetches done. Failures: {}", failures.lock());
+        info!("All fetches done. Failures: {}", failures);
         Ok(())
     }
 }
