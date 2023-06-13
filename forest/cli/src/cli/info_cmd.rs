@@ -53,16 +53,11 @@ pub struct NodeStatusInfo {
 impl NodeStatusInfo {
     fn chain_status(&self) -> ColoredString {
         let base_fee_fmt = self.base_fee.pretty();
+        let lag_time = humantime::format_duration(Duration::from_secs(self.lag.unsigned_abs()));
         let behind = if self.lag < 0 {
-            format!(
-                "{} ahead",
-                humantime::format_duration(Duration::from_secs(self.lag.abs() as u64))
-            )
+            format!("{} ahead", lag_time)
         } else {
-            format!(
-                "{} behind",
-                humantime::format_duration(Duration::from_secs(self.lag as u64))
-            )
+            format!("{} behind", lag_time)
         };
 
         format!(
