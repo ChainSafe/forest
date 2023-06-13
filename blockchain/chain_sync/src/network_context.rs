@@ -83,7 +83,10 @@ where
     pub fn add(&mut self, future: impl Future<Output = Result<T, String>> + Send + 'static) {
         let sem = self.semaphore.clone();
         self.tasks.spawn(async move {
-            let permit = sem.acquire_owned().await.map_err(|_| "Semaphore unexpectedly closed")?;
+            let permit = sem
+                .acquire_owned()
+                .await
+                .map_err(|_| "Semaphore unexpectedly closed")?;
             let result = future.await;
             drop(permit);
             result
@@ -254,7 +257,7 @@ where
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
-                    batch.add(Box::pin(async move {
+                    batch.add(async move {
                         match Self::chain_exchange_request(
                             peer_manager,
                             network_send,
@@ -279,7 +282,7 @@ where
                                 Err(e)
                             }
                         }
-                    }));
+                    });
                 }
 
                 let make_failure_message = || {
