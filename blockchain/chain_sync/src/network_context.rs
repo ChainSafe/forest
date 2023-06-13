@@ -83,7 +83,7 @@ where
         }
     }
 
-    pub fn add(&mut self, future: RaceBatchFuture<T>) {
+    pub fn add(&mut self, future: impl Future<Output = Result<T, String>> + Send + 'static) {
         let sem = self.semaphore.clone();
         self.tasks.spawn(async move {
             let permit = sem.acquire_owned().await.unwrap();
