@@ -16,8 +16,8 @@ use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_networks::NetworkChain;
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
+use forest_shim::clock::ChainEpoch;
 use forest_utils::{io::ProgressBar, net::get_fetch_progress_from_file};
-use fvm_shared::clock::ChainEpoch;
 use tempfile::TempDir;
 
 use super::*;

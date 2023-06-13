@@ -17,6 +17,7 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::{ChainConfig, NetworkChain};
+use forest_shim::clock::ChainEpoch;
 use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -38,7 +39,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{Cbor, CborStore};
-use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;

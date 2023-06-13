@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 use lazy_static::lazy_static;
 use url::Url;
 

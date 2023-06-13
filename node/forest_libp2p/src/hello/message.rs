@@ -3,7 +3,7 @@
 
 use cid::Cid;
 use forest_shim::bigint::BigInt;
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>

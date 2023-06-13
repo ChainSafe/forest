@@ -13,7 +13,6 @@ const-str = "0.5.4"
 fil_actors_shared.workspace = true
 forest_beacon.workspace = true
 forest_shim.workspace = true
-fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 serde = { workspace = true, features = ["derive"] }
 strum_macros = "0.24"
