@@ -20,6 +20,7 @@ use forest_chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
+use forest_shim::econ::BLOCK_GAS_LIMIT;
 use forest_shim::{
     address::Address, crypto::verify_bls_aggregate, gas::price_list_by_network_version,
     message::Message, state_tree::StateTree,
@@ -30,7 +31,6 @@ use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{clock::ChainEpoch, ALLOWABLE_CLOCK_DRIFT};
-use fvm_shared3::BLOCK_GAS_LIMIT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;

@@ -11,9 +11,9 @@ use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
+use forest_shim::econ::BLOCK_GAS_LIMIT;
 use forest_shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};

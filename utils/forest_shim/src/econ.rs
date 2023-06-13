@@ -5,9 +5,20 @@ use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 
 use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
+use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+
+/// Total gas limit allowed per block. This is shared across networks.
+pub const BLOCK_GAS_LIMIT: u64 = 10_000_000_000;
+/// Total Filecoin supply.
+pub const TOTAL_FILECOIN_BASE: i64 = 2_000_000_000;
+
+lazy_static! {
+    /// Total Filecoin available to the network.
+    pub static ref TOTAL_FILECOIN: TokenAmount = TokenAmount::from_whole(TOTAL_FILECOIN_BASE);
+}
 
 // FIXME: Transparent Debug trait impl
 // FIXME: Consider 'type TokenAmount = TokenAmount_v3'
