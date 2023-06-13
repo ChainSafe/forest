@@ -374,7 +374,7 @@ mod parse {
     fn test_serialization() {
         impl ParsedFilename<'static> {
             /// # Panics
-            /// - If ymd/hms aren't valid
+            /// - If `ymd`/`hms` aren't valid
             fn short(
                 height: i64,
                 year: i32,
@@ -394,7 +394,7 @@ mod parse {
 
         impl<'a> ParsedFilename<'a> {
             /// # Panics
-            /// - If ymd aren't valid
+            /// - If `ymd` isnt valid
             fn full(
                 vendor: &'a str,
                 chain: &'a str,
