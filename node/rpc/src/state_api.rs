@@ -200,11 +200,11 @@ pub(crate) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'stati
 //   Calibnet:
 //     242,150 bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw
 //     630,932 bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk
-/// Traverse an IPLD directed acyclic graph and use libp2p-bitswap to request
-/// any missing nodes. This function has two primary uses: (1) Downloading
-/// specific state-roots when Forest deviates from the mainline blockchain, (2)
-/// fetching historical state-trees to verify past versions of the consensus
-/// rules.
+//
+/// Traverse an IPLD directed acyclic graph and use libp2p-bitswap to request any missing nodes.
+/// This function has two primary uses: (1) Downloading specific state-roots when Forest deviates
+/// from the mainline blockchain, (2) fetching historical state-trees to verify past versions of the
+/// consensus rules.
 pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params((CidJson(root_cid),)): Params<StateFetchRootParams>,
@@ -225,16 +225,18 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
 
     task_set.spawn(async move { Ok(Ipld::Link(root_cid)) });
 
+    // Iterate until there are no more ipld nodes to traverse
     while let Some(result) = task_set.join_next().await {
         match result? {
             Ok(ipld) => {
                 for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                     counter += 1;
                     if counter % 1_000 == 0 {
+                        // set RUST_LOG=forest_rpc::state_api=debug to enable these printouts.
                         log::debug!(
-                                "Still downloading. Fetched: {counter}, Failures: {failures}, Concurrent: {}",
-                                MAX_CONCURRENT_REQUESTS - sem.available_permits()
-                            );
+                            "Still downloading. Fetched: {counter}, Failures: {failures}, Concurrent: {}",
+                            MAX_CONCURRENT_REQUESTS - sem.available_permits()
+                        );
                     }
                     task_set.spawn({
                         let network_send = data.network_send.clone();
@@ -242,6 +244,8 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
                         let sem = sem.clone();
                         async move {
                             if !db.has(&new_cid)? {
+                                // If a CID isn't in our database, request it via bitswap (limited
+                                // by MAX_CONCURRENT_REQUESTS)
                                 let permit = sem.acquire_owned().await?;
                                 let (tx, rx) = flume::bounded(1);
                                 network_send
@@ -251,6 +255,9 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
                                         response_channel: tx,
                                     })
                                     .await?;
+                                // Bitswap requests do not fail. They are just ignored if no-one has
+                                // the requested data. Here we arbitrary decide to only wait for
+                                // REQUEST_TIMEOUT before deciding that the data is unavailable.
                                 let _ignore = timeout(REQUEST_TIMEOUT, rx.recv_async()).await;
                                 drop(permit);
                             }
