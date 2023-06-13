@@ -6,3 +6,22 @@ pub const EPOCHS_IN_DAY: i64 = SECONDS_IN_DAY / EPOCH_DURATION_SECONDS;
 pub const EPOCH_DURATION_SECONDS: i64 = 30;
 
 pub type ChainEpoch = i64;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn fvm_shim_of_const_epoch_duration_seconds() {
+        assert_eq!(
+            super::EPOCH_DURATION_SECONDS,
+            fvm_shared::clock::EPOCH_DURATION_SECONDS
+        )
+    }
+
+    #[test]
+    fn fvm3_shim_of_const_epoch_duration_seconds() {
+        assert_eq!(
+            super::EPOCH_DURATION_SECONDS,
+            fvm_shared3::clock::EPOCH_DURATION_SECONDS
+        )
+    }
+}
