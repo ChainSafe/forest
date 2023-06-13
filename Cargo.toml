@@ -137,8 +137,8 @@ serde_tuple = "0.5"
 serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
-strum = { version = "0.24.1", features = ["derive"] }
 smart-default = "0.7.1"
+strum = { version = "0.24.1", features = ["derive"] }
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
