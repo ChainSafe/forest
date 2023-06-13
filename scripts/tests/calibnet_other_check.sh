@@ -13,9 +13,9 @@ echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
 
 echo "Running database garbage collection"
-du -hS ~/.local/share/forest/calibnet
+forest_check_db_stats
 $FOREST_CLI_PATH db gc
-du -hS ~/.local/share/forest/calibnet
+forest_check_db_stats
 
 echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
