@@ -267,5 +267,7 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
             }
         }
     }
-    Ok(format!("IPLD graph traversed! CIDs: {counter}, failures: {failures}."))
+    Ok(format!(
+        "IPLD graph traversed! CIDs: {counter}, failures: {failures}."
+    ))
 }

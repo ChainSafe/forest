@@ -28,9 +28,7 @@ use forest_genesis::{
 use forest_key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use forest_libp2p::{
-    get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
-};
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;

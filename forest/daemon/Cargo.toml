@@ -12,13 +12,11 @@ name = "forest"
 path = "src/main.rs"
 
 [dependencies]
-forest_ipld.workspace = true
-fvm_ipld_encoding.workspace = true
-cid.workspace = true
 ahash.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 cfg-if.workspace = true
+cid.workspace = true
 clap.workspace = true
 daemonize-me = "2.0"
 dialoguer.workspace = true
@@ -33,6 +31,7 @@ forest_deleg_cns = { workspace = true, optional = true }
 forest_fil_cns = { workspace = true, optional = true }
 forest_genesis.workspace = true
 forest_interpreter.workspace = true
+forest_ipld.workspace = true
 forest_key_management.workspace = true
 forest_libp2p.workspace = true
 forest_message_pool.workspace = true
@@ -45,6 +44,7 @@ forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 raw_sync = "0.1"
