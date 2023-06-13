@@ -21,15 +21,14 @@ use forest_shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
-    gas::price_list_by_network_version,
+    gas::{price_list_by_network_version, Gas},
 };
 use forest_state_manager::is_valid_for_sending;
-use forest_utils::const_option;
 use futures::StreamExt;
-use fvm3::gas::Gas;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use lru::LruCache;
+use nonzero_ext::nonzero;
 use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
@@ -47,8 +46,8 @@ use crate::{
 };
 
 // LruCache sizes have been taken from the lotus implementation
-const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
-const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000));
+const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
+const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -327,7 +326,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        valid_for_block_inclusion(msg.message(), Gas::new(0).into(), NEWEST_NETWORK_VERSION)?;
+        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }

@@ -38,8 +38,7 @@ pub enum DiscoveryEvent {
 /// `DiscoveryBehaviour` configuration.
 ///
 /// Note: In order to discover nodes or load and store values via Kademlia one
-/// has to add at least       one protocol via
-/// [`DiscoveryConfig::add_protocol`].
+/// has to add at least one protocol.
 pub struct DiscoveryConfig<'a> {
     local_peer_id: PeerId,
     user_defined: Vec<(PeerId, Multiaddr)>,

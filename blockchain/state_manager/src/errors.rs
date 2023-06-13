@@ -46,9 +46,3 @@ impl From<JoinError> for Error {
         Error::Other(format!("failed joining on tokio task: {e}"))
     }
 }
-
-impl From<fvm::kernel::ExecutionError> for Error {
-    fn from(e: fvm::kernel::ExecutionError) -> Self {
-        Error::Other(e.to_string())
-    }
-}
