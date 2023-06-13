@@ -31,9 +31,12 @@ impl StateCommands {
     pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Fetch { root } => {
-                state_fetch_root((CidJson(root),), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                println!(
+                    "{}",
+                    state_fetch_root((CidJson(root),), &config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)?
+                );
             }
         }
         Ok(())

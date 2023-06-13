@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fil_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_ipld::json::IpldJson;
 use forest_json::cid::CidJson;
+use forest_libp2p::NetworkMessage;
 use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
@@ -16,10 +17,11 @@ use forest_rpc_api::{
 use forest_shim::address::Address;
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
-use log::info;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
 
 // TODO handle using configurable verification implementation in RPC (all
 // defaulting to Full).
@@ -198,75 +200,72 @@ pub(crate) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'stati
 //   Calibnet:
 //     242,150 bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw
 //     630,932 bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk
+/// Traverse an IPLD directed acyclic graph and use libp2p-bitswap to request
+/// any missing nodes. This function has two primary uses: (1) Downloading
+/// specific state-roots when Forest deviates from the mainline blockchain, (2)
+/// fetching historical state-trees to verify past versions of the consensus
+/// rules.
 pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params((CidJson(root_cid),)): Params<StateFetchRootParams>,
 ) -> Result<StateFetchRootResult, JsonRpcError> {
-    {
-        use ahash::{HashSet, HashSetExt};
-        use forest_libp2p::NetworkMessage;
-        use fvm_ipld_encoding::CborStore;
-        use std::sync::Arc;
+    const MAX_CONCURRENT_REQUESTS: usize = 16;
+    const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
-        const MAX_CONCURRENT_REQUESTS: usize = 16;
-        const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+    let sem = Arc::new(Semaphore::new(MAX_CONCURRENT_REQUESTS));
+    let mut seen: HashSet<Cid> = HashSet::new();
+    let mut counter: usize = 0;
+    let mut failures: usize = 0;
+    let mut task_set = JoinSet::new();
 
-        let sem = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_REQUESTS));
-        let mut seen: HashSet<Cid> = HashSet::new();
-        let mut counter: usize = 0;
-        let mut failures: usize = 0;
-        let mut task_set = tokio::task::JoinSet::new();
+    let mut get_ipld_link = |ipld: &Ipld| match ipld {
+        Ipld::Link(cid) if cid.codec() == 0x71 && seen.insert(*cid) => Some(*cid),
+        _ => None,
+    };
 
-        let mut get_ipld_link = |ipld: &forest_ipld::Ipld| match ipld {
-            Ipld::Link(cid) if cid.codec() == 0x71 && seen.insert(*cid) => Some(*cid),
-            _ => None,
-        };
+    task_set.spawn(async move { Ok(Ipld::Link(root_cid)) });
 
-        task_set.spawn(async move { Ok(Ipld::Link(root_cid)) });
-        while let Some(result) = task_set.join_next().await {
-            info!(
-                "Got new ipld block. Fetched: {counter}, Failures: {failures}, Concurrent: {}",
-                MAX_CONCURRENT_REQUESTS - sem.available_permits()
-            );
-            match result? {
-                Ok(ipld) => {
-                    for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
-                        counter += 1;
-                        task_set.spawn({
-                            let network_send = data.network_send.clone();
-                            let db = data.chain_store.db.clone();
-                            let sem = sem.clone();
-                            async move {
-                                if !db.has(&new_cid).unwrap_or(false) {
-                                    let permit = sem.acquire_owned().await?;
-                                    let (tx, rx) = flume::bounded(1);
-                                    network_send
-                                        .send_async(NetworkMessage::BitswapRequest {
-                                            epoch: 0,
-                                            cid: new_cid,
-                                            response_channel: tx,
-                                        })
-                                        .await?;
-                                    let _ignore =
-                                        tokio::time::timeout(REQUEST_TIMEOUT, rx.recv_async())
-                                            .await;
-                                    drop(permit);
-                                }
-
-                                db.get_cbor::<Ipld>(&new_cid)?.ok_or_else(|| {
-                                    anyhow::anyhow!("Request failed: {new_cid}")
-                                })
-                            }
-                        });
+    while let Some(result) = task_set.join_next().await {
+        match result? {
+            Ok(ipld) => {
+                for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
+                    counter += 1;
+                    if counter % 1_000 == 0 {
+                        log::debug!(
+                                "Still downloading. Fetched: {counter}, Failures: {failures}, Concurrent: {}",
+                                MAX_CONCURRENT_REQUESTS - sem.available_permits()
+                            );
                     }
-                }
-                Err(msg) => {
-                    failures += 1;
-                    info!("Request failed: {msg}");
+                    task_set.spawn({
+                        let network_send = data.network_send.clone();
+                        let db = data.chain_store.db.clone();
+                        let sem = sem.clone();
+                        async move {
+                            if !db.has(&new_cid)? {
+                                let permit = sem.acquire_owned().await?;
+                                let (tx, rx) = flume::bounded(1);
+                                network_send
+                                    .send_async(NetworkMessage::BitswapRequest {
+                                        epoch: 0,
+                                        cid: new_cid,
+                                        response_channel: tx,
+                                    })
+                                    .await?;
+                                let _ignore = timeout(REQUEST_TIMEOUT, rx.recv_async()).await;
+                                drop(permit);
+                            }
+
+                            db.get_cbor::<Ipld>(&new_cid)?
+                                .ok_or_else(|| anyhow::anyhow!("Request failed: {new_cid}"))
+                        }
+                    });
                 }
             }
+            Err(msg) => {
+                failures += 1;
+                log::debug!("Request failed: {msg}");
+            }
         }
-        info!("All fetches done. Failures: {}", failures);
-        Ok(())
     }
+    Ok(format!("IPLD graph traversed! CIDs: {counter}, failures: {failures}."))
 }

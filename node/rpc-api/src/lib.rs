@@ -373,7 +373,7 @@ pub mod state_api {
 
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
     pub type StateFetchRootParams = (CidJson,);
-    pub type StateFetchRootResult = ();
+    pub type StateFetchRootResult = String;
 }
 
 /// Gas API
