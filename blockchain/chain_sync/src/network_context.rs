@@ -22,9 +22,9 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
+use forest_shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
 use std::future::Future;

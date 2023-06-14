@@ -5,7 +5,8 @@ use cid::Cid;
 use clap::Subcommand;
 use forest_json::cid::CidJson;
 use forest_rpc_client::state_ops::state_fetch_root;
-use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
+use forest_shim::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::handle_rpc_err;
