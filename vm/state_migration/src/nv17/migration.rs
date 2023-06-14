@@ -47,9 +47,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let new_manifest = ManifestNew::load(&store, &new_manifest_data, version)?;
 
         let verifreg_actor_v8 = state_tree
-            .get_actor(&Address::new_id(
-                fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.id()?,
-            ))?
+            .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
             .context("Failed to load verifreg actor v8")?;
 
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
@@ -57,17 +55,19 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .context("Failed to load verifreg state v8")?;
 
         let market_actor_v8 = state_tree
-            .get_actor(&Address::new_id(
-                fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.id()?,
-            ))?
+            .get_actor(&fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.into())?
             .context("Failed to load market actor v8")?;
 
         let market_state_v8: fil_actor_market_state::v8::State = store
             .get_cbor(&market_actor_v8.state)?
             .context("Failed to load market state v8")?;
 
+        let init_actor_v8 = state_tree
+            .get_actor(&fil_actors_shared::v8::INIT_ACTOR_ADDR.into())?
+            .context("Failed to load init actor v8")?;
+
         let init_state_v8: fil_actor_init_state::v8::State = store
-            .get_cbor(current_manifest.get_init_code())?
+            .get_cbor(&init_actor_v8.state)?
             .context("Failed to load init state v8")?;
 
         let (pending_verified_deals, pending_verified_deal_size) =
@@ -189,7 +189,7 @@ where
         .code_by_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID as _)
         .context("datacap code not found in new manifest")?;
     actors_in.set_actor(
-        &Address::new_id(fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ID),
+        &fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ADDR.into(),
         ActorState::new_empty(*datacap_code, None),
     )?;
 

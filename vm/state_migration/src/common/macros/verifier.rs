@@ -38,13 +38,12 @@ macro_rules! impl_verifier {
 
                     let manifest = ManifestOld::load(&store, &manifest_data, 1)?;
                     let manifest_actors_count = manifest.builtin_actor_codes().count();
-                    if manifest_actors_count == migrations.len() {
+                    if manifest_actors_count <= migrations.len() {
                         log::debug!("Migration spec is correct.");
                     } else {
                         log::warn!(
-                            "Incomplete migration spec. Count: {}, expected: {}",
-                            migrations.len(),
-                            manifest_actors_count
+                            "Incomplete migration spec. Count: {}, expected: {manifest_actors_count}",
+                            migrations.len()
                         );
                     }
 

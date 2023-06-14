@@ -248,6 +248,8 @@ impl MinerMigrator {
             cache.insert(miner_prev_sectors_in_key(miner_address), *in_root);
             cache.insert(miner_prev_sectors_out_key(miner_address), out_root);
 
+            cache.insert(key, out_root.clone());
+
             Ok(out_root)
         }
     }
@@ -287,9 +289,20 @@ impl MinerMigrator {
                         sectors_amt_key(&in_deadline.sectors_snapshot)?;
                     let out_sectors_snapshot_cid =
                         match cache.get(&out_sectors_snapshot_cid_cache_key) {
-                            Some(v) => v,
+                            Some(v) => *v,
                             None => {
-                                todo!()
+                                let in_sectors_snapshot = fil_actors_shared::v8::Array::load(
+                                    &in_deadline.sectors_snapshot,
+                                    store,
+                                )?;
+                                let mut out_sectors_snapshot =
+                                    migrate_from_scratch(store, &in_sectors_snapshot)?;
+                                let out_sectors_snapshot_cid = out_sectors_snapshot.flush()?;
+                                cache.insert(
+                                    out_sectors_snapshot_cid_cache_key,
+                                    out_sectors_snapshot_cid.clone(),
+                                );
+                                out_sectors_snapshot_cid
                             }
                         };
 
@@ -302,7 +315,7 @@ impl MinerMigrator {
                         total_sectors: in_deadline.total_sectors,
                         faulty_power: TypeMigrator::migrate_type(in_deadline.faulty_power, store)?,
                         optimistic_post_submissions: in_deadline.optimistic_post_submissions,
-                        sectors_snapshot: *out_sectors_snapshot_cid,
+                        sectors_snapshot: out_sectors_snapshot_cid,
                         partitions_snapshot: in_deadline.partitions_snapshot,
                         optimistic_post_submissions_snapshot: in_deadline
                             .optimistic_post_submissions_snapshot,
