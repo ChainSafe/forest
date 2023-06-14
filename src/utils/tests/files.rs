@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::utils::io::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
-use serde_derive::Deserialize;
+use serde::Deserialize;
 
 // Please use with caution, remove_dir_all will completely delete a directory
 fn cleanup_file(path: &Path) {
