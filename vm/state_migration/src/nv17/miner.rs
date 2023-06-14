@@ -14,6 +14,7 @@ use fil_actor_miner_state::{
     v9::{util::sector_key, State as MinerStateNew},
 };
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
+use forest_networks::{ChainConfig, NetworkChain};
 use forest_shim::{address::Address, piece::piece_v2};
 use forest_utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -24,6 +25,7 @@ use crate::common::{
 };
 
 pub struct MinerMigrator {
+    network: NetworkChain,
     out_code: Cid,
     market_proposals: Cid,
     empty_precommit_map_cid_v9: Cid,
@@ -37,6 +39,7 @@ pub(crate) fn miner_migrator<BS>(
     out_code: Cid,
     store: &BS,
     market_proposals: Cid,
+    chain_config: &ChainConfig,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>>
 where
     BS: Blockstore + Clone + Send + Sync,
@@ -51,8 +54,11 @@ where
         fil_actor_miner_state::v8::Deadline::new(store)?;
     let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
 
-    // FIXME: pass policy from chain config
-    let policy = fil_actors_shared::v8::runtime::Policy::calibnet();
+    let policy = match &chain_config.network {
+        NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
+        NetworkChain::Calibnet => fil_actors_shared::v8::runtime::Policy::calibnet(),
+        NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
+    };
     let empty_deadlines_v8 =
         fil_actor_miner_state::v8::Deadlines::new(&policy, empty_deadline_v8_cid);
     let empty_deadlines_v8_cid = store.put_cbor_default(&empty_deadlines_v8)?;
@@ -60,13 +66,17 @@ where
     let empty_deadline_v9 = fil_actor_miner_state::v9::Deadline::new(store)?;
     let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
 
-    // FIXME: pass policy from chain config
-    let policy = fil_actors_shared::v9::runtime::Policy::calibnet();
+    let policy = match &chain_config.network {
+        NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
+        NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
+        NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
+    };
     let empty_deadlines_v9 =
         fil_actor_miner_state::v9::Deadlines::new(&policy, empty_deadline_v9_cid);
     let empty_deadlines_v9_cid = store.put_cbor_default(&empty_deadlines_v9)?;
 
     Ok(Arc::new(MinerMigrator {
+        network: chain_config.network.clone(),
         out_code,
         market_proposals,
         empty_precommit_map_cid_v9,
@@ -255,8 +265,11 @@ impl MinerMigrator {
                 .get_cbor(deadlines)?
                 .context("Failed to get in_deadlines")?;
 
-            // FIXME: pass policy from chain config
-            let policy = fil_actors_shared::v9::runtime::Policy::calibnet();
+            let policy = match &self.network {
+                NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
+                NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
+                NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
+            };
             let mut out_deadlines =
                 fil_actor_miner_state::v9::Deadlines::new(&policy, self.empty_deadline_v9_cid);
             for (i, c) in in_deadlines.due.iter().enumerate() {

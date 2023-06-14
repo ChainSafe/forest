@@ -28,6 +28,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         state: &Cid,
         new_manifest: &Cid,
         prior_epoch: ChainEpoch,
+        chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree
@@ -106,7 +107,12 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         self.add_migrator(
             *miner_v8_cid,
-            miner::miner_migrator(*miner_v9_cid, &store, market_state_v8.proposals)?,
+            miner::miner_migrator(
+                *miner_v9_cid,
+                &store,
+                market_state_v8.proposals,
+                chain_config,
+            )?,
         );
 
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
@@ -164,7 +170,13 @@ where
     let verifier = Arc::new(Verifier::default());
 
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    migration.add_nv17_migrations(blockstore.clone(), state, &new_manifest_cid, epoch)?;
+    migration.add_nv17_migrations(
+        blockstore.clone(),
+        state,
+        &new_manifest_cid,
+        epoch,
+        chain_config,
+    )?;
 
     let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
 
