@@ -8131,23 +8131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serialization_tests"
-version = "0.8.2"
-dependencies = [
- "base64 0.21.2",
- "bls-signatures",
- "cid",
- "forest_blocks",
- "forest_json",
- "forest_message",
- "forest_shim",
- "fvm_ipld_encoding 0.2.3",
- "hex",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "sha-1"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

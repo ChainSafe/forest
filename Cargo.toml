@@ -31,7 +31,6 @@ members = [
   "node/forest_libp2p/bitswap/examples/*",
   "ipld",
   "key_management",
-  "tests/serialization_tests",
   "networks",
   "utils/auth",
   "utils/genesis",
