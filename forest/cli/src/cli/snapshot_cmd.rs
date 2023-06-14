@@ -9,15 +9,15 @@ use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_cli_shared::snapshot;
+use forest_cli_shared::snapshot::{self, TrustedVendor};
 use forest_db::db_engine::{db_root, open_proxy_db};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_networks::NetworkChain;
 use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
+use forest_shim::clock::ChainEpoch;
 use forest_utils::{io::ProgressBar, net::get_fetch_progress_from_file};
-use fvm_shared::clock::ChainEpoch;
 use tempfile::TempDir;
 
 use super::*;
@@ -44,8 +44,8 @@ pub enum SnapshotCommands {
         #[arg(short, long, default_value = ".")]
         directory: PathBuf,
         /// Vendor to fetch the snapshot from
-        #[arg(short, long, value_enum, default_value_t = snapshot::Vendor::default())]
-        vendor: snapshot::Vendor,
+        #[arg(short, long, value_enum, default_value_t = snapshot::TrustedVendor::default())]
+        vendor: snapshot::TrustedVendor,
     },
 
     /// Validates the snapshot.
@@ -82,6 +82,7 @@ impl SnapshotCommands {
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
+                        TrustedVendor::Forest,
                         chain_name,
                         Utc::now().date_naive(),
                         chain_head.epoch(),

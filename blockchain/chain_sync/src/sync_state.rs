@@ -10,7 +10,7 @@ use forest_blocks::{
     tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
-use fvm_shared::clock::ChainEpoch;
+use forest_shim::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.

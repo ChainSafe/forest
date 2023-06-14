@@ -15,6 +15,8 @@ use forest_utils::io::progress_bar::downloading_style;
 use tracing::{info, warn};
 use url::Url;
 
+use crate::snapshot::parse::ParsedFilename;
+
 /// Who hosts the snapshot on the web?
 /// See [`stable_url`].
 #[derive(
@@ -30,19 +32,25 @@ use url::Url;
     clap::ValueEnum,   // allow values to be enumerated and parsed by clap
 )]
 #[strum(serialize_all = "kebab-case")]
-pub enum Vendor {
+pub enum TrustedVendor {
     #[default]
     Forest,
     Filops,
 }
 
-/// Common format for filenames for export and [`fetch`].
-/// Keep in sync with the CLI documentation for the `export` sub-command.
-pub fn filename(chain: impl Display, date: NaiveDate, height: i64) -> String {
-    format!(
-        "forest_snapshot_{chain}_date_{}_height_{height}.car.zst",
-        date.format("%Y-%m-%d")
-    )
+/// Create a filename in the "full" format. See [`parse`].
+// Common between export, and [`fetch`].
+// Keep in sync with the CLI documentation for the `snapshot` sub-command.
+pub fn filename(vendor: impl Display, chain: impl Display, date: NaiveDate, height: i64) -> String {
+    let vendor = vendor.to_string();
+    let chain = chain.to_string();
+    ParsedFilename::Full {
+        vendor: &vendor,
+        chain: &chain,
+        date,
+        height,
+    }
+    .to_string()
 }
 
 /// Fetch a compressed snapshot with `aria2c`, falling back to our own HTTP client.
@@ -50,11 +58,13 @@ pub fn filename(chain: impl Display, date: NaiveDate, height: i64) -> String {
 pub async fn fetch(
     directory: &Path,
     chain: &NetworkChain,
-    vendor: Vendor,
+    vendor: TrustedVendor,
 ) -> anyhow::Result<PathBuf> {
     let (_len, url) = peek(vendor, chain).await?;
-    let (height, date, _time) = parse::parse_url(&url)?;
-    let filename = filename(chain, date, height);
+    let (date, height) = ParsedFilename::parse_url(&url)
+        .context("unexpected url format")?
+        .date_and_height();
+    let filename = filename(vendor, chain, date, height);
 
     match download_aria2c(&url, directory, &filename).await {
         Ok(path) => Ok(path),
@@ -69,7 +79,7 @@ pub async fn fetch(
 /// Returns
 /// - The size of the snapshot from this vendor on this chain
 /// - The final URL of the snapshot
-pub async fn peek(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
+pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
     let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
@@ -179,13 +189,13 @@ define_urls!(
         "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
 );
 
-fn stable_url(vendor: Vendor, chain: &NetworkChain) -> anyhow::Result<Url> {
+fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<Url> {
     let s = match (vendor, chain) {
-        (Vendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
-        (Vendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
-        (Vendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
-        (Vendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
-        (Vendor::Forest | Vendor::Filops, NetworkChain::Devnet(_)) => {
+        (TrustedVendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
+        (TrustedVendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
+        (TrustedVendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
+        (TrustedVendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
+        (TrustedVendor::Forest | TrustedVendor::Filops, NetworkChain::Devnet(_)) => {
             bail!("unsupported chain {chain}")
         }
     };
@@ -200,37 +210,84 @@ fn parse_stable_urls() {
 }
 
 mod parse {
-    //! Filops and forest store metadata in the filename, in a conventional format.
-    //! [`parse_filename`] and [`parse_url`] are able to parse the contained metadata.
+    //! Vendors publish filenames with two formats:
+    //! `filecoin_snapshot_calibnet_2023-06-13_height_643680.car.zst` "full" and
+    //! `632400_2023_06_09T08_13_00Z.car.zst` "short".
+    //!
+    //! This module contains utilities for parsing and printing these formats.
 
-    use std::str::FromStr;
+    use std::{fmt::Display, str::FromStr};
 
     use anyhow::{anyhow, bail, Context};
-    use chrono::{NaiveDate, NaiveTime};
+    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use nom::{
         branch::alt,
-        bytes::complete::tag,
+        bytes::complete::{tag, take_until},
         character::complete::digit1,
         combinator::{map_res, recognize},
         error::ErrorKind,
         error_position,
         multi::many1,
         sequence::tuple,
-        Err, Parser as _,
+        Err,
     };
     use url::Url;
 
-    pub fn parse_filename(input: &str) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
-        enter_nom(_parse_filename, input)
+    #[derive(PartialEq, Debug, Clone, Hash)]
+    pub(super) enum ParsedFilename<'a> {
+        Short {
+            date: NaiveDate,
+            time: NaiveTime,
+            height: i64,
+        },
+        Full {
+            vendor: &'a str,
+            chain: &'a str,
+            date: NaiveDate,
+            height: i64,
+        },
     }
 
-    pub fn parse_url(url: &Url) -> anyhow::Result<(i64, NaiveDate, Option<NaiveTime>)> {
-        let filename = url
-            .path_segments()
-            .context("url cannot be a base")?
-            .last()
-            .context("url has no path")?;
-        parse_filename(filename)
+    impl Display for ParsedFilename<'_> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                ParsedFilename::Short { date, time, height } => f.write_fmt(format_args!(
+                    "{height}_{}.car.zst",
+                    NaiveDateTime::new(*date, *time).format("%Y_%m_%dT%H_%M_%SZ")
+                )),
+                ParsedFilename::Full {
+                    vendor,
+                    chain,
+                    date,
+                    height,
+                } => f.write_fmt(format_args!(
+                    "{vendor}_snapshot_{chain}_{}_height_{height}.car.zst",
+                    date.format("%Y-%m-%d")
+                )),
+            }
+        }
+    }
+
+    impl<'a> ParsedFilename<'a> {
+        pub fn date_and_height(&self) -> (NaiveDate, i64) {
+            match self {
+                ParsedFilename::Short { date, height, .. } => (*date, *height),
+                ParsedFilename::Full { date, height, .. } => (*date, *height),
+            }
+        }
+
+        pub fn parse_str(input: &'a str) -> anyhow::Result<Self> {
+            enter_nom(alt((short, full)), input)
+        }
+
+        pub fn parse_url(url: &'a Url) -> anyhow::Result<Self> {
+            let filename = url
+                .path_segments()
+                .context("url cannot be a base")?
+                .last()
+                .context("url has no path")?;
+            Self::parse_str(filename)
+        }
     }
 
     /// Parse a number using its [`FromStr`] implementation.
@@ -265,21 +322,30 @@ mod parse {
         }
     }
 
-    fn forest(input: &str) -> nom::IResult<&str, (NaiveDate, i64)> {
-        let (rest, (_, date, _, height, _)) = tuple((
-            alt((
-                tag("forest_snapshot_mainnet_"),
-                tag("forest_snapshot_calibnet_"),
-            )),
-            ymd("-"),
-            tag("_height_"),
-            number,
-            tag(".car.zst"),
-        ))(input)?;
-        Ok((rest, (date, height)))
+    fn full(input: &str) -> nom::IResult<&str, ParsedFilename> {
+        let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, _car_zst)) =
+            tuple((
+                take_until("_snapshot_"),
+                tag("_snapshot_"),
+                take_until("_"),
+                tag("_"),
+                ymd("-"),
+                tag("_height_"),
+                number,
+                tag(".car.zst"),
+            ))(input)?;
+        Ok((
+            rest,
+            ParsedFilename::Full {
+                vendor,
+                chain,
+                date,
+                height,
+            },
+        ))
     }
 
-    fn filops(input: &str) -> nom::IResult<&str, (i64, NaiveDate, NaiveTime)> {
+    fn short(input: &str) -> nom::IResult<&str, ParsedFilename> {
         let (rest, (height, _, date, _, time, _)) = tuple((
             number,
             tag("_"),
@@ -288,14 +354,7 @@ mod parse {
             hms("_"),
             tag("Z.car.zst"),
         ))(input)?;
-        Ok((rest, (height, date, time)))
-    }
-
-    fn _parse_filename(input: &str) -> nom::IResult<&str, (i64, NaiveDate, Option<NaiveTime>)> {
-        alt((
-            forest.map(|(date, height)| (height, date, None)),
-            filops.map(|(height, date, time)| (height, date, Some(time))),
-        ))(input)
+        Ok((rest, ParsedFilename::Short { date, time, height }))
     }
 
     fn enter_nom<'a, T>(
@@ -312,40 +371,79 @@ mod parse {
     }
 
     #[test]
-    fn test_parse_filename() {
-        fn make_expected(
-            year: i32,
-            month: u32,
-            day: u32,
-            hms: impl Into<Option<(u32, u32, u32)>>,
-            height: i64,
-        ) -> (i64, NaiveDate, Option<NaiveTime>) {
-            (
-                height,
-                NaiveDate::from_ymd_opt(year, month, day).unwrap(),
-                hms.into()
-                    .map(|(h, m, s)| NaiveTime::from_hms_opt(h, m, s).unwrap()),
-            )
+    fn test_serialization() {
+        impl ParsedFilename<'static> {
+            /// # Panics
+            /// - If `ymd`/`hms` aren't valid
+            fn short(
+                height: i64,
+                year: i32,
+                month: u32,
+                day: u32,
+                hour: u32,
+                min: u32,
+                sec: u32,
+            ) -> Self {
+                Self::Short {
+                    date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
+                    time: NaiveTime::from_hms_opt(hour, min, sec).unwrap(),
+                    height,
+                }
+            }
         }
-        for (input, expected) in [
+
+        impl<'a> ParsedFilename<'a> {
+            /// # Panics
+            /// - If `ymd` isn't valid
+            fn full(
+                vendor: &'a str,
+                chain: &'a str,
+                year: i32,
+                month: u32,
+                day: u32,
+                height: i64,
+            ) -> Self {
+                Self::Full {
+                    vendor,
+                    chain,
+                    date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
+                    height,
+                }
+            }
+        }
+
+        for (text, value) in [
             (
                 "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
-                make_expected(2023, 5, 30, None, 2905376),
+                ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376),
             ),
             (
                 "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
-                make_expected(2023, 5, 30, None, 604419),
+                ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419),
             ),
             (
                 "2905920_2023_05_30T22_00_00Z.car.zst",
-                make_expected(2023, 5, 30, (22, 0, 0), 2905920),
+                ParsedFilename::short(2905920, 2023, 5, 30, 22, 0, 0),
             ),
             (
                 "605520_2023_05_31T00_13_00Z.car.zst",
-                make_expected(2023, 5, 31, (0, 13, 0), 605520),
+                ParsedFilename::short(605520, 2023, 5, 31, 0, 13, 0),
+            ),
+            (
+                "filecoin_snapshot_calibnet_2023-06-13_height_643680.car.zst",
+                ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680),
+            ),
+            (
+                "venus_snapshot_pineconenet_2045-01-01_height_2.car.zst",
+                ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2),
             ),
         ] {
-            assert_eq!(expected, parse_filename(input).unwrap());
+            assert_eq!(
+                value,
+                ParsedFilename::parse_str(text).unwrap(),
+                "mismatch in deserialize"
+            );
+            assert_eq!(value.to_string(), text, "mismatch in serialize");
         }
     }
 }
