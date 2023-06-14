@@ -17,7 +17,7 @@ use forest_rpc_api::{
 use forest_shim::address::Address;
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 use std::{sync::Arc, time::Duration};
@@ -219,7 +219,7 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
     let mut task_set = JoinSet::new();
 
     let mut get_ipld_link = |ipld: &Ipld| match ipld {
-        Ipld::Link(cid) if cid.codec() == 0x71 && seen.insert(*cid) => Some(*cid),
+        Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(*cid) => Some(*cid),
         _ => None,
     };
 
