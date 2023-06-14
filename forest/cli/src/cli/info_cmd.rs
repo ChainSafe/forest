@@ -165,7 +165,7 @@ impl NodeStatusInfo {
         }
     }
 
-    fn format(&self, now: DateTime<Utc>) -> anyhow::Result<String> {
+    fn format(&self, now: DateTime<Utc>) -> String {
         let lines: Vec<ColoredString> = vec![
             self.network(),
             self.uptime(now),
@@ -179,18 +179,16 @@ impl NodeStatusInfo {
         .collect();
 
         let mut output = String::new();
-
-        writeln!(&mut output, "Network: {}", lines[0])?;
-        writeln!(&mut output, "Uptime: {}", lines[1])?;
-        writeln!(&mut output, "Chain: {}", lines[2])?;
-        writeln!(&mut output, "Chain health: {}", lines[3])?;
-        writeln!(
-            &mut output,
+        output.push_str(&format!("Network: {}", lines[0]));
+        output.push_str(&format!("Uptime: {}", lines[1]));
+        output.push_str(&format!("Chain: {}", lines[2]));
+        output.push_str(&format!("Chain health: {}", lines[3]));
+        output.push_str(&format!(
             "Default wallet address: {} {}",
             lines[4], lines[5]
-        )?;
+        ));
 
-        Ok(output)
+        output
     }
 }
 
@@ -233,7 +231,7 @@ impl InfoCommand {
                     default_wallet_address_balance,
                 );
 
-                print!("{}", node_status_info.format(Utc::now())?);
+                print!("{}", node_status_info.format(Utc::now()));
 
                 Ok(())
             }
@@ -247,7 +245,7 @@ fn balance(balance: &Option<String>) -> anyhow::Result<String> {
         let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
         Ok(format!("{:.4}", balance_token_amount.pretty()))
     } else {
-        Err(anyhow::anyhow!("error parsing balance"))
+        Err(anyhow::anyhow!("could not find balance"))
     }
 }
 
