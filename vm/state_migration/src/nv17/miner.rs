@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use ahash::HashMap;
 use anyhow::Context;
-use cid::{multibase::Base, multihash::Code::Blake2b256, Cid};
+use cid::{multibase::Base, Cid};
 use fil_actor_miner_state::{
     v8::State as MinerStateOld,
     v9::{util::sector_key, State as MinerStateNew},
@@ -192,13 +192,53 @@ impl MinerMigrator {
             let prev_in_root = cache.get(&miner_prev_sectors_in_key(miner_address));
             let prev_out_root = cache.get(&miner_prev_sectors_out_key(miner_address));
 
-            if let Some(prev_in_root) = prev_in_root {
+            let mut out_array = if let Some(prev_in_root) = prev_in_root {
                 if let Some(prev_out_root) = prev_out_root {
                     // we have previous work, but the AMT has changed -- diff them
+                    let prev_in_sectors = fil_actors_shared::v8::Array::<
+                        fil_actor_miner_state::v8::SectorOnChainInfo,
+                        _,
+                    >::load(prev_in_root, store)?;
+                    let in_sectors = fil_actors_shared::v8::Array::<
+                        fil_actor_miner_state::v8::SectorOnChainInfo,
+                        _,
+                    >::load(in_root, store)?;
+                    let changes = fvm_ipld_amt::diff(&prev_in_sectors, &in_sectors)?;
+                    let mut prev_out_sectors = fil_actors_shared::v9::Array::<
+                        fil_actor_miner_state::v9::SectorOnChainInfo,
+                        _,
+                    >::load(prev_out_root, store)?;
+                    for change in changes {
+                        use fvm_ipld_amt::ChangeType;
+                        match &change.change_type {
+                            ChangeType::Remove => {
+                                prev_out_sectors.delete(change.key)?;
+                            }
+                            // TODO: Double confirm `fallthrough` in `Go` is translated properly here
+                            ChangeType::Modify | ChangeType::Add => {
+                                let info_v8 = in_sectors
+                                    .get(change.key)?
+                                    .context("Failed to get info from in_sectors")?;
+                                prev_out_sectors.set(
+                                    change.key,
+                                    TypeMigrator::migrate_type(info_v8.clone(), store)?,
+                                )?;
+                            }
+                        };
+                    }
+                    prev_out_sectors
+                } else {
+                    migrate_from_scratch(store, &in_array)?
                 }
-            }
+            } else {
+                migrate_from_scratch(store, &in_array)?
+            };
 
-            todo!()
+            let out_root = out_array.flush()?;
+            cache.insert(miner_prev_sectors_in_key(miner_address), *in_root);
+            cache.insert(miner_prev_sectors_out_key(miner_address), out_root);
+
+            Ok(out_root)
         }
     }
 

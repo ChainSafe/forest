@@ -3878,6 +3878,7 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "frc46_token",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_hamt 0.6.1",
