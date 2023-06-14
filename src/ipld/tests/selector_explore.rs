@@ -56,10 +56,9 @@ fn process_vector(initial_selector: Selector, params: Vec<ExploreParams>) -> Opt
 
 #[test]
 fn selector_explore_tests() {
-    let file = File::open("./tests/ipld-traversal-vectors/selector_explore.json").unwrap();
-    let reader = BufReader::new(file);
+    let s = include_str!("ipld-traversal-vectors/selector_explore.json");
     let vectors: Vec<TestVector> =
-        serde_json::from_reader(reader).expect("Test vector deserialization failed");
+        serde_json::from_str(s).expect("Test vector deserialization failed");
     for tv in vectors {
         let result = process_vector(tv.initial_selector, tv.explore);
         assert!(

@@ -7,14 +7,14 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use async_trait::async_trait;
-use cid::Cid;
 use crate::db::MemoryDB;
 use crate::ipld::{
     json::{self, IpldJson},
     selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
 };
 use crate::utils::db::CborStoreExt;
+use async_trait::async_trait;
+use cid::Cid;
 use fvm_ipld_encoding::CborStore;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
@@ -212,28 +212,22 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     }
 }
 
-async fn process_file(file: &str) -> Result<(), String> {
-    let file = File::open(file).unwrap();
-    let reader = BufReader::new(file);
-    let vectors: Vec<TestVector> =
-        serde_json::from_reader(reader).expect("Test vector deserialization failed");
-    for tv in vectors.into_iter() {
-        process_vector(tv).await?
-    }
-
-    Ok(())
-}
-
 #[tokio::test]
 async fn selector_explore_tests() {
-    process_file("./tests/ipld-traversal-vectors/selector_walk.json")
-        .await
-        .unwrap();
+    let s = include_str!("ipld-traversal-vectors/selector_walk.json");
+    let vectors: Vec<TestVector> =
+        serde_json::from_str(s).expect("Test vector deserialization failed");
+    for tv in vectors.into_iter() {
+        process_vector(tv).await.unwrap()
+    }
 }
 
 #[tokio::test]
 async fn selector_explore_links_tests() {
-    process_file("./tests/ipld-traversal-vectors/selector_walk_links.json")
-        .await
-        .unwrap();
+    let s = include_str!("ipld-traversal-vectors/selector_walk_links.json");
+    let vectors: Vec<TestVector> =
+        serde_json::from_str(s).expect("Test vector deserialization failed");
+    for tv in vectors.into_iter() {
+        process_vector(tv).await.unwrap()
+    }
 }
