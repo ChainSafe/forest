@@ -351,7 +351,7 @@ where
         for cid in current.key().cids() {
             data.state_manager
                 .chain_store()
-                .unmark_block_as_validated(cid)?;
+                .unmark_block_as_validated(cid);
         }
         let parents = current.blocks()[0].parents();
         current = data.state_manager.chain_store().tipset_from_keys(parents)?;

@@ -9,6 +9,7 @@ pub mod deal;
 pub mod econ;
 pub mod error;
 pub mod executor;
+pub mod externs;
 pub mod gas;
 pub mod machine;
 pub mod message;
