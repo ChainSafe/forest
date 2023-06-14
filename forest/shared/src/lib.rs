@@ -15,3 +15,5 @@ pub use tikv_jemallocator;
 pub fn chain_path(config: &crate::cli::Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string())
 }
+
+pub mod snapshot;

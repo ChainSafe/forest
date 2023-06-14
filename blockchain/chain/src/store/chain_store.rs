@@ -41,6 +41,7 @@ use fvm_ipld_encoding::{Cbor, CborStore};
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{
@@ -58,8 +59,7 @@ use crate::Scale;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_utils::const_option!(NonZeroUsize::new(8192));
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.

@@ -42,7 +42,7 @@ const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 
 /// Context used in chain sync to handle network requests.
-/// This contains the peer manager, P2P service interface, and [`BlockStore`]
+/// This contains the peer manager, P2P service interface, and [`Blockstore`]
 /// required to make network requests.
 pub(crate) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
