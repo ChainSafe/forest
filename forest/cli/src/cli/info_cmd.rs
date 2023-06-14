@@ -46,7 +46,6 @@ pub struct NodeStatusInfo {
     pub network: String,
     pub default_wallet_address: Option<String>,
     pub default_wallet_address_balance: Option<String>,
-    use_color: bool,
 }
 
 impl NodeStatusInfo {
@@ -125,7 +124,6 @@ impl NodeStatusInfo {
         head: TipsetJson,
         start_time: DateTime<Utc>,
         network: String,
-        use_color: bool,
         default_wallet_address: Option<String>,
         default_wallet_address_balance: Option<String>,
     ) -> NodeStatusInfo {
@@ -158,13 +156,12 @@ impl NodeStatusInfo {
             sync_status,
             start_time,
             network,
-            use_color,
             default_wallet_address,
             default_wallet_address_balance,
         }
     }
 
-    fn format(&self, now: DateTime<Utc>) -> String {
+    fn format(&self, now: DateTime<Utc>, use_color: bool) -> String {
         let lines: Vec<ColoredString> = vec![
             self.network(),
             self.uptime(now),
@@ -174,7 +171,7 @@ impl NodeStatusInfo {
             self.wallet_balance(),
         ]
         .into_iter()
-        .map(|cs| if self.use_color { cs.clear() } else { cs })
+        .map(|cs| if use_color { cs.clear() } else { cs })
         .collect();
 
         let mut output = String::new();
@@ -197,17 +194,15 @@ impl InfoCommand {
             node_status((), &config.client.rpc_token),
             chain_head(&config.client.rpc_token),
             chain_get_name((), &config.client.rpc_token),
-            start_time(&config.client.rpc_token)
+            start_time(&config.client.rpc_token),
+            wallet_default_address((), &config.client.rpc_token)
         );
+
         match res {
-            Ok((node_status, head, network, start_time)) => {
+            Ok((node_status, head, network, start_time, default_wallet_address)) => {
                 let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
                 let blocks_per_tipset_last_finality =
                     node_status.chain_status.blocks_per_tipset_last_finality;
-
-                let default_wallet_address = wallet_default_address((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
 
                 let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
                 {
@@ -225,12 +220,14 @@ impl InfoCommand {
                     head,
                     start_time,
                     network,
-                    opts.color.coloring_enabled(),
                     default_wallet_address.clone(),
                     default_wallet_address_balance,
                 );
 
-                print!("{}", node_status_info.format(Utc::now()));
+                print!(
+                    "{}",
+                    node_status_info.format(Utc::now(), opts.color.coloring_enabled())
+                );
 
                 Ok(())
             }
@@ -272,7 +269,7 @@ mod tests {
         Arc::new(tipset)
     }
 
-    fn mock_node_status(use_color: bool) -> NodeStatusInfo {
+    fn mock_node_status() -> NodeStatusInfo {
         NodeStatusInfo {
             lag: 0,
             health: 90.,
@@ -283,7 +280,6 @@ mod tests {
             network: "calibnet".to_string(),
             default_wallet_address: Some("-".to_string()),
             default_wallet_address_balance: None,
-            use_color,
         }
     }
 
@@ -297,7 +293,6 @@ mod tests {
             )),
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
-            false,
             None,
             None,
         );
@@ -316,7 +311,6 @@ mod tests {
             TipsetJson(tipset),
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
-            false,
             None,
             None,
         );
@@ -339,7 +333,6 @@ mod tests {
             TipsetJson(tipset),
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
-            false,
             None,
             None,
         );
@@ -358,7 +351,6 @@ mod tests {
             TipsetJson(tipset),
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
-            false,
             None,
             None,
         );
@@ -367,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_lag_uptime_ahead() {
-        let mut node_status = mock_node_status(true);
+        let mut node_status = mock_node_status();
         node_status.lag = -360;
         assert!(node_status.chain_status().contains("6m ahead"));
     }
@@ -382,7 +374,6 @@ mod tests {
             TipsetJson(tipset),
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
-            false,
             None,
             None,
         );
@@ -397,7 +388,6 @@ mod tests {
             TipsetJson(tipset),
             DateTime::<chrono::Utc>::MIN_UTC,
             "calibnet".to_string(),
-            false,
             None,
             None,
         );
@@ -420,9 +410,9 @@ Chain health: 90.00%
 Default wallet address: - 
 "#;
 
-        let node_status = mock_node_status(false);
+        let node_status = mock_node_status();
         assert_eq!(
-            node_status.format(DateTime::<chrono::Utc>::MAX_UTC),
+            node_status.format(DateTime::<chrono::Utc>::MAX_UTC, false),
             no_color_expected_output
         );
 
@@ -436,9 +426,9 @@ Chain: \u{1b}[34m[sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 92233720368547
 Chain health: \u{1b}[32m90.00%\n\n\u{1b}[0m
 Default wallet address: \u{1b}[1m-\u{1b}[0m \u{1b}[1m\u{1b}[0m
 ";
-            let node_status = mock_node_status(true);
+            let node_status = mock_node_status();
             assert_eq!(
-                node_status.format(DateTime::<chrono::Utc>::MAX_UTC),
+                node_status.format(DateTime::<chrono::Utc>::MAX_UTC, color.coloring_enabled()),
                 with_color_expected_output
             );
         }
