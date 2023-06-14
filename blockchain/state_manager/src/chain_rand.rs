@@ -10,10 +10,10 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_networks::ChainConfig;
+use forest_shim::clock::ChainEpoch;
 use forest_shim::externs::Rand;
 use forest_utils::encoding::blake2b_256;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::clock::ChainEpoch;
 
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {

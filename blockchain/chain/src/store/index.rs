@@ -5,9 +5,9 @@ use std::{num::NonZeroUsize, sync::Arc};
 
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_metrics::metrics;
+use forest_shim::clock::ChainEpoch;
 use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::clock::ChainEpoch;
 use log::info;
 use lru::LruCache;
 use nonzero_ext::nonzero;

@@ -31,7 +31,6 @@ fvm_ipld_amt.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared = { workspace = true, default-features = false }
 fvm_shared3 = { workspace = true, default-features = false }
 lazy_static.workspace = true
 libipld.workspace = true

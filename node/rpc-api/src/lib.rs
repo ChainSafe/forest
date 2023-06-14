@@ -146,7 +146,7 @@ pub mod auth_api {
 /// Beacon API
 pub mod beacon_api {
     use forest_beacon::json::BeaconEntryJson;
-    use fvm_shared::clock::ChainEpoch;
+    use forest_shim::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
     pub type BeaconGetEntryParams = (ChainEpoch,);
@@ -162,7 +162,7 @@ pub mod chain_api {
         TipsetKeys,
     };
     use forest_json::{cid::CidJson, message::json::MessageJson};
-    use fvm_shared::clock::ChainEpoch;
+    use forest_shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
 
     use crate::data_types::BlockMessages;
