@@ -394,7 +394,7 @@ mod parse {
 
         impl<'a> ParsedFilename<'a> {
             /// # Panics
-            /// - If `ymd` isnt valid
+            /// - If `ymd` isn't valid
             fn full(
                 vendor: &'a str,
                 chain: &'a str,
