@@ -177,7 +177,7 @@ impl NodeStatusInfo {
         use std::fmt::Write;
 
         let mut output = String::new();
-        writeln!(&mut output, "Network: {}\n", lines[0]).unwrap();
+        writeln!(&mut output, "Network: {}", lines[0]).unwrap();
         writeln!(&mut output, "Uptime: {}", lines[1]).unwrap();
         writeln!(&mut output, "Chain: {}", lines[2]).unwrap();
         writeln!(&mut output, "Chain health: {}", lines[3]).unwrap();
