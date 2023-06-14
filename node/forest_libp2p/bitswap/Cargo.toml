@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-std = "1"
 async-trait.workspace = true
 cfg-if.workspace = true
 flume.workspace = true
