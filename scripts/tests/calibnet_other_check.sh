@@ -40,3 +40,13 @@ echo "Test subcommand: chain set-head"
 $FOREST_CLI_PATH chain set-head --epoch -10 --force
 
 $FOREST_CLI_PATH sync wait # allow the node to re-sync
+
+echo "Test IPLD traversal by walking the genesis block"
+# The IPLD graph for the calibnet genesis block contains 1197 CIDs
+EXPECTED_WALK="IPLD graph traversed! CIDs: 1197, failures: 0."
+ACTUAL_WALK=$($FOREST_CLI_PATH state fetch bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4)
+if [[ $EXPECTED_WALK != "$ACTUAL_WALK" ]]; then
+  printf "Invalid traversal of genesis block:\n%s" "$ACTUAL_WALK"
+  printf "Expected:\n%s" "$EXPECTED_WALK"
+  exit 1
+fi
