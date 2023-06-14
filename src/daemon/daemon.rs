@@ -57,11 +57,11 @@ use tokio::{
 };
 
 // Initialize Consensus
-#[cfg(not(any(feature = "crate::fil_cns", feature = "crate::deleg_cns")))]
-compile_error!("No consensus feature enabled; use e.g. `--feature crate::fil_cns` to pick one.");
+#[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
+compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "crate::deleg_cns")] {
+    if #[cfg(feature = "deleg_cns")] {
         // Custom consensus.
         use crate::deleg_cns::composition as cns;
     } else {
