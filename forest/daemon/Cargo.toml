@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
-atty.workspace = true
+byte-unit.workspace = true
 cfg-if.workspace = true
 clap.workspace = true
 daemonize-me = "2.0"

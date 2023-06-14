@@ -28,7 +28,7 @@ use forest_shim::{
 };
 use forest_utils::{
     db::{
-        file_backed_obj::{ChainMeta, FileBacked, SYNC_PERIOD},
+        file_backed_obj::{ChainMeta, FileBacked},
         BlockstoreExt, CborStoreExt,
     },
     io::{AsyncWriterWithChecksum, Checksum},
@@ -41,6 +41,7 @@ use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{Cbor, CborStore};
 use log::{debug, info, trace, warn};
 use lru::LruCache;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{
@@ -58,8 +59,7 @@ use crate::Scale;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_utils::const_option!(NonZeroUsize::new(8192));
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -95,8 +95,8 @@ pub struct ChainStore<DB> {
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
 
-    /// File backed validated blocks
-    file_backed_validated_blocks: Mutex<FileBacked<HashSet<Cid>>>,
+    /// validated blocks
+    validated_blocks: Mutex<HashSet<Cid>>,
 
     /// File backed chain metadata
     file_backed_chain_meta: Arc<Mutex<FileBacked<ChainMeta>>>,
@@ -158,11 +158,7 @@ where
             }
             head_store
         });
-        let file_backed_validated_blocks = Mutex::new(FileBacked::load_from_file_or_create(
-            chain_data_root.join("VALIDATED_BLOCKS"),
-            HashSet::default,
-            Some(SYNC_PERIOD),
-        )?);
+        let validated_blocks = Mutex::new(HashSet::default());
         let file_backed_chain_meta = Arc::new(Mutex::new(FileBacked::load_from_file_or_create(
             chain_data_root.join("meta.yaml"),
             ChainMeta::default,
@@ -177,7 +173,7 @@ where
             ts_cache,
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
-            file_backed_validated_blocks,
+            validated_blocks,
             file_backed_chain_meta,
         };
 
@@ -299,11 +295,7 @@ where
 
     /// Checks metadata file if block has already been validated.
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
-        let validated = self
-            .file_backed_validated_blocks
-            .lock()
-            .inner()
-            .contains(cid);
+        let validated = self.validated_blocks.lock().contains(cid);
         if validated {
             log::debug!("Block {cid} was previously validated");
         }
@@ -311,18 +303,14 @@ where
     }
 
     /// Marks block as validated in the metadata file.
-    pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
-        let mut file = self.file_backed_validated_blocks.lock();
-        Ok(file.with_inner(|inner| {
-            inner.insert(*cid);
-        })?)
+    pub fn mark_block_as_validated(&self, cid: &Cid) {
+        let mut file = self.validated_blocks.lock();
+        file.insert(*cid);
     }
 
-    pub fn unmark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
-        let mut file = self.file_backed_validated_blocks.lock();
-        Ok(file.with_inner(|inner| {
-            let _did_work = inner.remove(cid);
-        })?)
+    pub fn unmark_block_as_validated(&self, cid: &Cid) {
+        let mut file = self.validated_blocks.lock();
+        let _did_work = file.remove(cid);
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -1005,7 +993,7 @@ mod tests {
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));
 
-        cs.mark_block_as_validated(&cid).unwrap();
+        cs.mark_block_as_validated(&cid);
         assert!(cs.is_block_validated(&cid));
     }
 }

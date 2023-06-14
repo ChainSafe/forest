@@ -34,7 +34,7 @@ pub async fn process(
         Subcommand::Wallet(cmd) => cmd.run(config).await,
         Subcommand::Sync(cmd) => cmd.run(config).await,
         Subcommand::Mpool(cmd) => cmd.run(config),
-        Subcommand::State(cmd) => cmd.run(config),
+        Subcommand::State(cmd) => cmd.run(config).await,
         Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
         Subcommand::Send(cmd) => cmd.run(config).await,
         Subcommand::DB(cmd) => cmd.run(&config).await,
