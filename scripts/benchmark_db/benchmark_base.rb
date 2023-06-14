@@ -34,12 +34,30 @@ module ExecCommands
     end
   end
 
+  def export_snapshot(benchmark, pid, metrics)
+    Thread.new do
+      loop do
+        status = benchmark.start_export_command
+        if !status.nil?
+          @logger.info 'Exporting snapshot'
+          #TODO: export snapshot
+          break
+        end
+        sleep 5
+      end
+
+      @logger.info 'Stopping process...'
+      benchmark.stop_command(pid)
+    end
+  end
+
   # Calls online validation function and runs monitor to measure memory usage.
-  def proc_monitor(pid, benchmark)
+  def proc_monitor(options, pid, benchmark)
     metrics = Concurrent::Hash.new
     metrics[:rss] = []
     metrics[:vsz] = []
-    measure_online_validation(benchmark, pid, metrics) if benchmark
+    measure_online_validation(benchmark, pid, metrics) if benchmark && !options[:checksum]
+    export_snapshot(benchmark, pid, metrics) if options[:checksum]
     handle = Thread.new do
       loop do
         sample_proc(pid, metrics)
@@ -59,12 +77,12 @@ module ExecCommands
 
   # Helper function for measuring execution time; passes process ID to online
   # validation and process monitor.
-  def exec_command_aux(command, metrics, benchmark)
+  def exec_command_aux(options, command, metrics, benchmark)
     Open3.popen2(*command) do |i, o, t|
       pid = t.pid
       i.close
 
-      handle, proc_metrics = proc_monitor(pid, benchmark)
+      handle, proc_metrics = proc_monitor(options, pid, benchmark)
       o.each_line do |l|
         print l
       end
@@ -75,13 +93,13 @@ module ExecCommands
   end
 
   # Measures execution time of command.
-  def exec_command(command, benchmark = nil)
+  def exec_command(command, benchmark = nil, options = {})
     @logger.info "$ #{command.join(' ')}"
     return {} if @dry_run
 
     metrics = Concurrent::Hash.new
     t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    exec_command_aux(command, metrics, benchmark)
+    exec_command_aux(options, command, metrics, benchmark)
     t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     metrics[:elapsed] = trunc_seconds(t1 - t0)
     metrics
@@ -156,29 +174,29 @@ module RunCommands
     end
 
     validate_online_command = splice_args(@validate_online_command, args)
-    new_metrics = exec_command(validate_online_command, self)
+    new_metrics = exec_command(validate_online_command, self, options)
     new_metrics[:tpm] =
       new_metrics[:num_epochs] ? new_metrics[:num_epochs] / online_validation_secs : 'n/a'
-    new_metrics[:tpm] = new_metrics[:tpm].ceil(3) unless @dry_run
-    metrics[:validate_online] = new_metrics
+      new_metrics[:tpm] = new_metrics[:tpm].ceil(3) unless new_metrics[:tpm] == 'n/a'
+      metrics[:validate_online] = new_metrics
   end
 
   # Import snapshot, write metrics, and call validation function, returning metrics.
   def import_and_validation(options, args, metrics)
     import_command = splice_args(@import_command, args)
-    metrics[:import] = exec_command(import_command) unless options[:checksum]
+    metrics[:import] = exec_command(import_command)
 
     # Save db size just after import.
     metrics[:import][:db_size] = db_size unless @dry_run || options[:checksum]
 
     run_validation_step(options, args, metrics)
     metrics
-  rescue StandardError, Interrupt
-    @logger.error('Fiasco during benchmark run. Deleting downloaded files, cleaning DB and stopping process...')
-    FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
-    clean_db
-    FileUtils.rm_rf(repository_name) if @created_repository
-    exit(1)
+  # rescue StandardError, Interrupt
+  #   @logger.error('Fiasco during benchmark run. Deleting downloaded files, cleaning DB and stopping process...')
+  #   FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
+  #   clean_db
+  #   FileUtils.rm_rf(repository_name) if @created_repository
+  #   exit(1)
   end
 
   def forest_init(args)
@@ -207,11 +225,11 @@ module RunCommands
         metrics = Concurrent::Hash.new
         @metrics = import_and_validation(options, args, metrics)
       end
-    rescue StandardError, Interrupt
-      @logger.error('Fiasco during benchmark run. Deleting downloaded files and stopping process...')
-      FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
-      FileUtils.rm_rf(repository_name) if @created_repository
-      exit(1)
+    # rescue StandardError, Interrupt
+    #   @logger.error('Fiasco during benchmark run. Deleting downloaded files and stopping process...')
+    #   FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
+    #   FileUtils.rm_rf(repository_name) if @created_repository
+    #   exit(1)
     end
 
     @logger.info 'Cleaning database'
@@ -236,6 +254,14 @@ module RunCommands
     else
       [false, nil]
     end
+  end
+
+  # Check to see if message sync is finished
+  def start_export_command
+    puts 'Checking status'
+    output = syscall(*@sync_status_command)
+    status = output.match(/complete/m)
+    status
   end
 
   # Raise an error if repository name is not defined in each class instance.

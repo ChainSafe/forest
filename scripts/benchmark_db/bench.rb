@@ -237,11 +237,11 @@ def benchmarks_loop(benchmarks, options, bench_metrics)
     bench_metrics[bench.name] = bench.metrics
 
     puts "\n"
-  rescue StandardError, Interrupt
-    @logger.error('Fiasco during benchmark run. Exiting...')
-    # Delete snapshot if downloaded, but not if user-provided.
-    FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
-    exit(1)
+  # rescue StandardError, Interrupt
+  #   @logger.error('Fiasco during benchmark run. Exiting...')
+  #   # Delete snapshot if downloaded, but not if user-provided.
+  #   FileUtils.rm_f(@snapshot_path) if @snapshot_downloaded
+  #   exit(1)
   end
 end
 
@@ -285,7 +285,7 @@ raise "The file '#{@snapshot_path}' does not exist" if @snapshot_path && !File.f
 
 # Download snapshot if a snapshot path is not specified by the user.
 begin
-  if @snapshot_path.nil? && !options[:checksum]
+  if @snapshot_path.nil?
     @logger.info 'No snapshot provided, downloading one'
     download_snapshot(chain: options[:chain])
     @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
@@ -317,14 +317,10 @@ if options[:daily]
   ]
   run_benchmarks(selection, options)
 elsif options[:checksum]
-  # Download Lotus snapshot for import to Forest and checksum comparison.
-  @logger.info 'Downloading Lotus snapshot'
-  download_snapshot(chain: options[:chain])
-  @logger.info "Snapshot successfully downloaded to: #{@snapshot_path}"
-  @snapshot_downloaded = true
-  options[:snapshot_path] = @snapshot_path
-  # Run Forest client, export snapshot, and compare checksums.
+  # Run Forest client and export snapshot.
   run_benchmarks([ForestBenchmark.new(name: 'forest')], options)
+  # Run Lotus and export snapshot at same height as Forest snapshot.
+  run_benchmarks([LotusBenchmark.new(name: 'lotus')], options)
 else
   # Benchmarks for database metrics.
   selection = Set[]
