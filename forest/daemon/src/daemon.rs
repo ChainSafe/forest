@@ -493,7 +493,12 @@ async fn fetch_snapshot_if_required(
             let num_bytes = byte_unit::Byte::from(num_bytes)
                 .get_appropriate_unit(true)
                 .format(2);
-            let message = format!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled. Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). ");
+            // dialoguer will double-print long lines, so manually print the first clause ourselves,
+            // then let `Confirm` handle the second.
+            println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
+            let message = format!(
+                "Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). "
+            );
             let have_permission = asyncify(|| {
                 dialoguer::Confirm::with_theme(&ColorfulTheme::default())
                     .with_prompt(message)
