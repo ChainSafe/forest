@@ -27,6 +27,8 @@ use fvm_ipld_encoding::CborStore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
+use std::future::Future;
+use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
 /// Timeout for response from an RPC request
@@ -36,7 +38,7 @@ use tokio::task::JoinSet;
 const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Maximum number of concurrent chain exchange request being sent to the
-/// network
+/// network.
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 
 /// Context used in chain sync to handle network requests.
@@ -59,6 +61,49 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
             peer_manager: self.peer_manager.clone(),
             db: self.db.clone(),
         }
+    }
+}
+
+/// Race tasks to completion while limiting the number of tasks that may execute concurrently.
+/// Once a task finishes without error, the rest of the tasks are canceled.
+struct RaceBatch<T> {
+    tasks: JoinSet<Result<T, String>>,
+    semaphore: Arc<Semaphore>,
+}
+
+impl<T> RaceBatch<T>
+where
+    T: Send + 'static,
+{
+    pub fn new(max_concurrent_jobs: usize) -> Self {
+        RaceBatch {
+            tasks: JoinSet::new(),
+            semaphore: Arc::new(Semaphore::new(max_concurrent_jobs)),
+        }
+    }
+
+    pub fn add(&mut self, future: impl Future<Output = Result<T, String>> + Send + 'static) {
+        let sem = self.semaphore.clone();
+        self.tasks.spawn(async move {
+            let permit = sem
+                .acquire_owned()
+                .await
+                .map_err(|_| "Semaphore unexpectedly closed")?;
+            let result = future.await;
+            drop(permit);
+            result
+        });
+    }
+
+    /// Return first finishing `Ok` future else return `None` if all jobs failed
+    pub async fn get_ok(mut self) -> Option<T> {
+        while let Some(result) = self.tasks.join_next().await {
+            if let Ok(Ok(value)) = result {
+                return Some(value);
+            }
+        }
+        // So far every task have failed
+        None
     }
 }
 
@@ -202,59 +247,43 @@ where
             .await?
             .into_result()?,
             None => {
-                // Control max num of concurrent jobs
-                let (n_task_control_tx, n_task_control_rx) =
-                    flume::bounded(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
-                let (result_tx, result_rx) = flume::bounded::<Vec<T>>(1);
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled().await;
-                let mut tasks = JoinSet::new();
+
+                let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
-                    let n_task_control_tx = n_task_control_tx.clone();
-                    let n_task_control_rx = n_task_control_rx.clone();
-                    let result_tx = result_tx.clone();
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
-                    tasks.spawn(async move {
-                        if n_task_control_tx.send_async(()).await.is_ok() {
-                            match Self::chain_exchange_request(
-                                peer_manager,
-                                network_send,
-                                peer_id,
-                                request,
-                            )
-                            .await
-                            {
-                                Ok(chain_exchange_result) => {
-                                    match chain_exchange_result.into_result() {
-                                        Ok(r) => {
-                                            _ = result_tx.send_async(r).await;
-                                        }
-                                        Err(e) => {
-                                            lookup_failures.fetch_add(1, Ordering::Relaxed);
-                                            _ = n_task_control_rx.recv_async().await;
-                                            debug!("Failed chain_exchange response: {e}");
-                                        }
+                    batch.add(async move {
+                        match Self::chain_exchange_request(
+                            peer_manager,
+                            network_send,
+                            peer_id,
+                            request,
+                        )
+                        .await
+                        {
+                            Ok(chain_exchange_result) => {
+                                match chain_exchange_result.into_result::<T>() {
+                                    Ok(r) => Ok(r),
+                                    Err(e) => {
+                                        lookup_failures.fetch_add(1, Ordering::Relaxed);
+                                        debug!("Failed chain_exchange response: {e}");
+                                        Err(e)
                                     }
                                 }
-                                Err(e) => {
-                                    network_failures.fetch_add(1, Ordering::Relaxed);
-                                    _ = n_task_control_rx.recv_async().await;
-                                    debug!(
-                                        "Failed chain_exchange request to peer {peer_id:?}: {e}"
-                                    );
-                                }
+                            }
+                            Err(e) => {
+                                network_failures.fetch_add(1, Ordering::Relaxed);
+                                debug!("Failed chain_exchange request to peer {peer_id:?}: {e}");
+                                Err(e)
                             }
                         }
                     });
-                }
-
-                async fn wait_all<T: 'static>(tasks: &mut JoinSet<T>) {
-                    while tasks.join_next().await.is_some() {}
                 }
 
                 let make_failure_message = || {
@@ -272,14 +301,9 @@ where
                     message
                 };
 
-                tokio::select! {
-                    result = result_rx.recv_async() => {
-                        tasks.abort_all();
-                        log::debug!("Succeed: handle_chain_exchange_request");
-                        result.map_err(|e| e.to_string())?
-                    },
-                    _ = wait_all(&mut tasks) => return Err(make_failure_message()),
-                }
+                let v = batch.get_ok().await.ok_or_else(make_failure_message)?;
+                log::debug!("Succeed: handle_chain_exchange_request");
+                v
             }
         };
 
@@ -388,5 +412,98 @@ where
             .await?
             .ok();
         Ok((peer_id, sent, res))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+    #[tokio::test]
+    async fn race_batch_ok() {
+        let mut batch = RaceBatch::new(3);
+        batch.add(async move { Ok(1) });
+        batch.add(async move { Err("kaboom".into()) });
+
+        assert_eq!(batch.get_ok().await, Some(1));
+    }
+
+    #[tokio::test]
+    async fn race_batch_ok_faster() {
+        let mut batch = RaceBatch::new(3);
+        batch.add(async move {
+            tokio::time::sleep(Duration::from_secs(100)).await;
+            Ok(1)
+        });
+        batch.add(async move { Ok(2) });
+        batch.add(async move { Err("kaboom".into()) });
+
+        assert_eq!(batch.get_ok().await, Some(2));
+    }
+
+    #[tokio::test]
+    async fn race_batch_none() {
+        let mut batch: RaceBatch<i32> = RaceBatch::new(3);
+        batch.add(async move { Err("kaboom".into()) });
+        batch.add(async move { Err("banana".into()) });
+
+        assert_eq!(batch.get_ok().await, None);
+    }
+
+    #[tokio::test]
+    async fn race_batch_semaphore() {
+        const MAX_JOBS: usize = 30;
+        let counter = Arc::new(AtomicUsize::new(0));
+        let exceeded = Arc::new(AtomicBool::new(false));
+
+        let mut batch: RaceBatch<i32> = RaceBatch::new(MAX_JOBS);
+        for _ in 0..10000 {
+            let c = counter.clone();
+            let e = exceeded.clone();
+            batch.add(async move {
+                let prev = c.fetch_add(1, Ordering::Relaxed);
+                if prev >= MAX_JOBS {
+                    e.fetch_or(true, Ordering::Relaxed);
+                }
+
+                tokio::task::yield_now().await;
+                c.fetch_sub(1, Ordering::Relaxed);
+
+                Err("banana".into())
+            });
+        }
+
+        assert_eq!(batch.get_ok().await, None);
+        assert!(!exceeded.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn race_batch_semaphore_exceeded() {
+        const MAX_JOBS: usize = 30;
+        let counter = Arc::new(AtomicUsize::new(0));
+        let exceeded = Arc::new(AtomicBool::new(false));
+
+        // We add one more job to exceed the limit
+        let mut batch: RaceBatch<i32> = RaceBatch::new(MAX_JOBS + 1);
+        for _ in 0..10000 {
+            let c = counter.clone();
+            let e = exceeded.clone();
+            batch.add(async move {
+                let prev = c.fetch_add(1, Ordering::Relaxed);
+                if prev >= MAX_JOBS {
+                    e.fetch_or(true, Ordering::Relaxed);
+                }
+
+                tokio::task::yield_now().await;
+                c.fetch_sub(1, Ordering::Relaxed);
+
+                Err("banana".into())
+            });
+        }
+
+        assert_eq!(batch.get_ok().await, None);
+        assert!(exceeded.load(Ordering::Relaxed));
     }
 }
