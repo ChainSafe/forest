@@ -2,6 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
+#![allow(
+    deprecated,
+    unused,
+    clippy::upper_case_acronyms,
+    clippy::enum_variant_names,
+    clippy::module_inception
+)] // # 2991
 
 mod auth;
 mod beacon;
