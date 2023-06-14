@@ -39,7 +39,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: |
-        lerna bootstrap
+        yarn install
         lerna run lint
   docker-lint:
     runs-on: ubuntu-latest
