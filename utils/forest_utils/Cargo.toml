@@ -18,7 +18,6 @@ backoff = { workspace = true, features = ["tokio"] }
 blake2b_simd.workspace = true
 chrono.workspace = true
 cid.workspace = true
-const_format = "0.2.26"
 digest.workspace = true
 filecoin-proofs-api.workspace = true
 flume.workspace = true
@@ -31,7 +30,8 @@ git-version.workspace = true
 human-repr.workspace = true
 hyper-rustls.workspace = true
 hyper.workspace = true
-libc = "0.2"
+indicatif.workspace = true
+libc.workspace = true
 log.workspace = true
 memory-stats = "1.1"
 once_cell.workspace = true
@@ -43,6 +43,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
+smart-default.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util"] }
 tokio-util = { workspace = true, features = ["compat"] }

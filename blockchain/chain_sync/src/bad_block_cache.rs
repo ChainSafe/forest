@@ -5,6 +5,7 @@ use std::num::NonZeroUsize;
 
 use cid::Cid;
 use lru::LruCache;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 
 /// Thread-safe cache for tracking bad blocks.
@@ -17,7 +18,7 @@ pub struct BadBlockCache {
 
 impl Default for BadBlockCache {
     fn default() -> Self {
-        Self::new(forest_utils::const_option!(NonZeroUsize::new(1 << 15)))
+        Self::new(nonzero!(1usize << 15))
     }
 }
 

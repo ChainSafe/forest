@@ -34,7 +34,7 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
     NonEmpty::new(e.into())
 }
 
-/// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
+/// Validates block semantically according to <https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md>
 /// Returns all encountered errors, so they can be merged with the common
 /// validations performed by the synchronizer.
 ///
