@@ -222,6 +222,21 @@ strip = true
 panic = "abort"
 overflow-checks = true
 
+# These should be refactored (probably removed) in #2984
 [features]
-default = ["paritydb"]
+default = ["paritydb", "jemalloc", "fil_cns"]
+instrumented_kernel = ["dep:stdext"]
+insecure_post = []
+
+# Databases
 paritydb = ["dep:parity-db"]
+rocksdb = ["dep:rocksdb"]
+
+# Allocator
+rustalloc = []
+jemalloc = ["dep:tikv-jemallocator", "rocksdb?/jemalloc"]
+mimalloc = ["dep:mimalloc"]
+
+# Consensus
+fil_cns = []
+deleg_cns = []
