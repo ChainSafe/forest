@@ -1,10 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Doesn't run these unless feature specified
-#![cfg(feature = "submodule_tests")]
-
-use std::{fs::File, io::prelude::*, str::FromStr};
+use std::str::FromStr;
 
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bls_signatures::{PrivateKey, Serialize};
@@ -34,12 +31,11 @@ struct TestVec {
 fn signing_test() {
     set_current_network(Network::Testnet);
 
-    let mut file = File::open("serialization-vectors/message_signing.json").unwrap();
-    let mut string = String::new();
-    file.read_to_string(&mut string).unwrap();
+    let s = include_str!("../../../serialization-vectors/message_signing.json");
 
     let vectors: Vec<TestVec> =
-        serde_json::from_str(&string).expect("Test vector deserialization failed");
+        serde_json::from_str(s).expect("Test vector deserialization failed");
+
     for test_vec in vectors {
         let test = BASE64_STANDARD.decode(test_vec.private_key).unwrap();
         // TODO set up a private key based on sig type

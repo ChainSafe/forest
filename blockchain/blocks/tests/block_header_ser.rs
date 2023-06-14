@@ -1,10 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "submodule_tests")]
-
-use std::{fs::File, io::prelude::*};
-
 use cid::Cid;
 use forest_blocks::{header, BlockHeader};
 use forest_shim::address::{set_current_network, Network};
@@ -33,12 +29,11 @@ fn encode_assert_cbor(header: &BlockHeader, expected: &str, cid: &Cid) {
 fn header_cbor_vectors() {
     set_current_network(Network::Testnet);
 
-    let mut file = File::open("serialization-vectors/block_headers.json").unwrap();
-    let mut string = String::new();
-    file.read_to_string(&mut string).unwrap();
+    let s = include_str!("../../../serialization-vectors/block_headers.json");
 
     let vectors: Vec<BlockHeaderVector> =
-        serde_json::from_str(&string).expect("Test vector deserialization failed");
+        serde_json::from_str(s).expect("Test vector deserialization failed");
+
     for tv in vectors {
         encode_assert_cbor(&tv.block, &tv.cbor_hex, &tv.cid.parse().unwrap())
     }

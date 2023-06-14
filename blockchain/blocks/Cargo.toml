@@ -30,6 +30,7 @@ serde_tuple.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+bls-signatures.workspace = true
 forest_test_utils.workspace = true
 hex.workspace = true
 quickcheck_macros.workspace = true
