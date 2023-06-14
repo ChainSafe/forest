@@ -39,3 +39,6 @@ mod state_migration;
 mod statediff;
 mod test_utils;
 mod utils;
+mod cli;
+mod daemon;
+
