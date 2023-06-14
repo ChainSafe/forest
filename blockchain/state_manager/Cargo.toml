@@ -35,6 +35,7 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true }
 lazy_static.workspace = true
 lru.workspace = true
+nonzero_ext.workspace = true
 num-traits.workspace = true
 num.workspace = true
 once_cell.workspace = true
