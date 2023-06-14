@@ -4,11 +4,11 @@
 use ahash::{HashSet, HashSetExt};
 use forest_blocks::Tipset;
 use forest_message::Message;
+use forest_shim::clock::ChainEpoch;
 use forest_shim::econ::TokenAmount;
 use forest_shim::econ::BLOCK_GAS_LIMIT;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::clock::ChainEpoch;
 
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT / 2;

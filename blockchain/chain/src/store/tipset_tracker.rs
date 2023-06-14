@@ -6,9 +6,9 @@ use std::{collections::BTreeMap, sync::Arc};
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
 use forest_networks::ChainConfig;
+use forest_shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use fvm_shared::clock::ChainEpoch;
 use log::{debug, warn};
 use parking_lot::Mutex;
 

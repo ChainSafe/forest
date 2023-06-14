@@ -29,7 +29,6 @@ chrono.workspace = true
 cid.workspace = true
 flume.workspace = true
 fvm_ipld_blockstore.workspace = true
-fvm_shared = { workspace = true, default-features = false }
 jsonrpc-v2.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true

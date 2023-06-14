@@ -119,6 +119,7 @@ where
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB, B>)
+            .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB, B>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB, B>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB, B>)
