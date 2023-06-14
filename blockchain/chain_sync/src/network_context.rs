@@ -64,11 +64,8 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
     }
 }
 
-/// `RaceBatch` is a structure used to run multiple jobs concurrently
-/// while still being able to limit the amount (`max_concurrent_jobs`).
-/// `get_ok` is the main method that will return the first finishing job with an `Ok` result.
-/// Once at least one job succeed the remaining pending jobs are cancelled.
-/// If none of them succeed then the returned value is `None`.
+/// Race tasks to completion while limiting the number of tasks that may execute concurrently.
+/// Once a task finishes without error, the rest of the tasks are canceled.
 struct RaceBatch<T> {
     tasks: JoinSet<Result<T, String>>,
     semaphore: Arc<Semaphore>,
