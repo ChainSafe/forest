@@ -78,8 +78,10 @@ pub enum RetryError {
 
 #[cfg(test)]
 mod tests {
+    mod files;
+    
     use std::{future::ready, sync::atomic::AtomicUsize};
-
+    
     use RetryError::{RetriesExceeded, TimeoutExceeded};
 
     use super::*;
@@ -131,4 +133,3 @@ mod tests {
         assert!(count.load(SeqCst) > 5);
     }
 }
-#[cfg(test)]mod tests {mod files;}
