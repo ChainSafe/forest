@@ -44,6 +44,9 @@ members = [
 ]
 resolver = "2"
 
+[patch.crates-io]
+fvm_ipld_amt = { git = "https://github.com/hanabi1224/ref-fvm", branch = "hm/amt-diff-for-patching" }
+
 [workspace.dependencies]
 ahash = "0.8"
 anes = "0.1.6"
