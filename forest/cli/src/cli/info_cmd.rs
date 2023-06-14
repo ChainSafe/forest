@@ -16,7 +16,6 @@ use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
 use humantime::format_duration;
 use num::BigInt;
-use std::fmt::Write;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::Config;
@@ -423,9 +422,7 @@ Default wallet address: -
 
         let node_status = mock_node_status(false);
         assert_eq!(
-            node_status
-                .format(DateTime::<chrono::Utc>::MAX_UTC)
-                .unwrap(),
+            node_status.format(DateTime::<chrono::Utc>::MAX_UTC),
             no_color_expected_output
         );
 
@@ -441,9 +438,7 @@ Default wallet address: \u{1b}[1m-\u{1b}[0m \u{1b}[1m\u{1b}[0m
 ";
             let node_status = mock_node_status(true);
             assert_eq!(
-                node_status
-                    .format(DateTime::<chrono::Utc>::MAX_UTC)
-                    .unwrap(),
+                node_status.format(DateTime::<chrono::Utc>::MAX_UTC),
                 with_color_expected_output
             );
         }
