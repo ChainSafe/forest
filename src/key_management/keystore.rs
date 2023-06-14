@@ -547,7 +547,7 @@ mod test {
 
     #[test]
     fn test_read_old_encrypted_keystore() -> Result<()> {
-        let dir: PathBuf = "tests/keystore_encrypted_old".into();
+        let dir: PathBuf = "src/key_management/tests/keystore_encrypted_old".into();
         ensure!(dir.exists());
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(dir, PASSPHRASE.to_string()))?;
         ensure!(ks.persistence.is_some());
