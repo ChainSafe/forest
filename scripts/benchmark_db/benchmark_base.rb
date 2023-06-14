@@ -40,7 +40,7 @@ module ExecCommands
         status = benchmark.start_export_command
         if !status.nil?
           @logger.info 'Exporting snapshot'
-          #TODO: export snapshot
+          syscall(*@export_command)
           break
         end
         sleep 5
@@ -213,6 +213,7 @@ module RunCommands
 
       args = build_artefacts
       @sync_status_command = splice_args(@sync_status_command, args)
+      @export_command = splice_args(@export_command, args)
 
       forest_init(args) if @name == 'forest'
 
