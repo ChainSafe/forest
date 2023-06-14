@@ -33,25 +33,9 @@ mod pb {
 #[cfg(not(target_arch = "wasm32"))]
 pub mod task {
     //! Re-exports API(s) from the chosen task library
-
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "tokio")] {
-            pub use tokio::{spawn, task::spawn_blocking, time::{sleep, timeout}};
-        } else {
-            pub use async_std::{future::timeout, task::{spawn, sleep}};
-            pub use compat::spawn_blocking_compat as spawn_blocking;
-
-            mod compat {
-                use std::convert::Infallible;
-
-                pub async fn spawn_blocking_compat<F, T>(f: F) -> Result<T, Infallible>
-                where
-                    F: FnOnce() -> T + Send + 'static,
-                    T: Send + 'static,
-                {
-                    Ok(async_std::task::spawn_blocking(f).await)
-                }
-            }
-        }
-    }
+    pub use tokio::{
+        spawn,
+        task::spawn_blocking,
+        time::{sleep, timeout},
+    };
 }
