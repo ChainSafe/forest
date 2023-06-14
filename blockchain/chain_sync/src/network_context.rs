@@ -38,7 +38,7 @@ use tokio::task::JoinSet;
 const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Maximum number of concurrent chain exchange request being sent to the
-/// network
+/// network.
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 
 /// Context used in chain sync to handle network requests.
@@ -96,10 +96,9 @@ where
     }
 
     /// Return first finishing `Ok` future else return `None` if all jobs failed
-    pub async fn get_ok(&mut self) -> Option<T> {
+    pub async fn get_ok(mut self) -> Option<T> {
         while let Some(result) = self.tasks.join_next().await {
             if let Ok(Ok(value)) = result {
-                self.tasks.abort_all();
                 return Some(value);
             }
         }
