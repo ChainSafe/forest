@@ -3,7 +3,6 @@
 
 mod client;
 mod config;
-mod snapshot_fetch;
 
 use std::{
     net::SocketAddr,
@@ -23,7 +22,7 @@ use forest_utils::{
 use log::error;
 use num::BigInt;
 
-pub use self::{client::*, config::*, snapshot_fetch::*};
+pub use self::{client::*, config::*};
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}
@@ -309,14 +308,6 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
             1,
         )
     }
-}
-
-pub fn default_snapshot_dir(config: &Config) -> PathBuf {
-    config
-        .client
-        .data_dir
-        .join("snapshots")
-        .join(config.chain.network.to_string())
 }
 
 /// Gets chain data directory

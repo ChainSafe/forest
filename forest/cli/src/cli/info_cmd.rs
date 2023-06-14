@@ -171,18 +171,23 @@ impl NodeStatusInfo {
             self.wallet_balance(),
         ]
         .into_iter()
-        .map(|cs| if use_color { cs.clear() } else { cs })
+        .map(|cs| if use_color { cs } else { cs.clear() })
         .collect();
 
+        use std::fmt::Write;
+
         let mut output = String::new();
-        output.push_str(&format!("Network: {}", lines[0]));
-        output.push_str(&format!("Uptime: {}", lines[1]));
-        output.push_str(&format!("Chain: {}", lines[2]));
-        output.push_str(&format!("Chain health: {}", lines[3]));
-        output.push_str(&format!(
+        writeln!(&mut output, "Network: {}\n", lines[0]).unwrap();
+        writeln!(&mut output, "Network: {}", lines[0]).unwrap();
+        writeln!(&mut output, "Uptime: {}", lines[1]).unwrap();
+        writeln!(&mut output, "Chain: {}", lines[2]).unwrap();
+        writeln!(&mut output, "Chain health: {}", lines[3]).unwrap();
+        writeln!(
+            &mut output,
             "Default wallet address: {} {}",
             lines[4], lines[5]
-        ));
+        )
+        .unwrap();
 
         output
     }

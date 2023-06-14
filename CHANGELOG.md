@@ -25,6 +25,12 @@
 
 ## Forest unreleased
 
+### Breaking
+
+- [#2873](https://github.com/ChainSafe/forest/issues/2873)
+  - remove `--compressed` from the CLI. Snapshots are now always compressed.
+  - Remove snapshot ops - snapshots fetched to the current directory by default.
+
 ### Fixed
 
 - [#2967](https://github.com/ChainSafe/forest/issues/2967): Fix http-client
@@ -58,6 +64,8 @@
 
 - [#2950](https://github.com/ChainSafe/forest/pull/2950): Fix cases where ctrl-c
   would be ignored.
+- [#2934](https://github.com/ChainSafe/forest/issues/2934): Fix race condition
+  when connecting to development blockchains.
 
 ## Forest v0.8.2 "The Way"
 
