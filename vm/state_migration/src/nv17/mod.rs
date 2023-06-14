@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! This module contains the migration logic for the `NV18` upgrade.
+//! This module contains the migration logic for the `NV17` upgrade.
 //! The corresponding Go implementation can be found here:
 //! <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go>
 
