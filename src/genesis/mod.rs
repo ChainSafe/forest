@@ -20,7 +20,7 @@ use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
-#[cfg(feature = "testing")]
+#[cfg(test)]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 
 /// Uses an optional file path or the default genesis to parse the genesis and
