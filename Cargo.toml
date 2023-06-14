@@ -1,49 +1,12 @@
-[workspace.package]
+[package]
+name = "forest-filecoin"
 version = "0.8.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
-[workspace]
-members = [
-  "forest/cli",
-  "forest/daemon",
-  "forest/shared",
-  "blockchain/beacon",
-  "blockchain/blocks",
-  "blockchain/chain",
-  "blockchain/state_manager",
-  "blockchain/chain_sync",
-  "blockchain/beacon",
-  "blockchain/message_pool",
-  "blockchain/consensus/fil_cns",
-  "blockchain/consensus/deleg_cns",
-  "vm/message",
-  "vm/interpreter",
-  "vm/state_migration",
-  "node/db",
-  "node/rpc",
-  "node/rpc-client",
-  "node/rpc-api",
-  "node/forest_libp2p",
-  "node/forest_libp2p/bitswap",
-  "node/forest_libp2p/bitswap/examples/*",
-  "ipld",
-  "key_management",
-  "networks",
-  "utils/auth",
-  "utils/genesis",
-  "utils/statediff",
-  "utils/test_utils",
-  "utils/metrics",
-  "utils/json",
-  "utils/forest_utils",
-  "utils/forest_shim",
-]
-resolver = "2"
-
-[workspace.dependencies]
+[dependencies]
 ahash = "0.8"
 anes = "0.1.6"
 anyhow = "1.0"
@@ -56,8 +19,9 @@ axum = "0.6"
 backoff = "0.4"
 base64 = "0.21"
 blake2b_simd = "1.0"
-# blst-portable flag avoids using CPU instructions which aren't available on older CPUs
-bls-signatures = { version = "0.13", default-features = false, features = ["blst-portable"] }
+bls-signatures = { version = "0.13", default-features = false, features = [
+    "blst-portable",
+] } # blst-portable flag avoids using CPU instructions which aren't available on older CPUs
 byte-unit = "4.0"
 byteorder = "1.4.3"
 bytes = "1.2"
@@ -71,6 +35,13 @@ derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
+fil_actor_account_state = "5"
+fil_actor_init_state = "5"
+fil_actor_interface = "5"
+fil_actor_miner_state = "5"
+fil_actor_power_state = "5"
+fil_actor_system_state = "5"
+fil_actors_shared = "5"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
 fs_extra = "1.2"
@@ -91,6 +62,7 @@ git-version = "0.3"
 hex = "0.4"
 http = "0.2.8"
 human-repr = "1.0"
+humantime = "2.1.0"
 hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23"
 indexmap = { version = "1.9", features = ["serde-1"] }
@@ -127,8 +99,10 @@ quickcheck = "1"
 quickcheck_macros = "1"
 rand = "0.8"
 rayon = "1.5"
-# use rustls instead of native (openSSL) tls to drop the number of build dependencies
-reqwest = { version = "0.11.18", default-features = false, features = ["stream", "rustls-tls"] }
+reqwest = { version = "0.11.18", default-features = false, features = [
+    "stream",
+    "rustls-tls",
+] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 serde = { version = "1.0", default-features = false }
 serde_ipld_dagcbor = "0.2"
 serde_json = "1.0"
@@ -152,45 +126,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 walkdir = "2"
-
-fil_actor_account_state = "5"
-fil_actor_init_state = "5"
-fil_actor_interface = "5"
-fil_actor_miner_state = "5"
-fil_actor_power_state = "5"
-fil_actor_system_state = "5"
-fil_actors_shared = "5"
-
-forest_auth = { path = "./utils/auth" }
-forest_beacon = { path = "./blockchain/beacon" }
-forest_blocks = { path = "./blockchain/blocks" }
-forest_chain = { path = "./blockchain/chain" }
-forest_chain_sync = { path = "./blockchain/chain_sync" }
-forest_cli_shared = { path = "./forest/shared" }
-forest_db = { path = "./node/db" }
-forest_deleg_cns = { path = "./blockchain/consensus/deleg_cns" }
-forest_fil_cns = { path = "./blockchain/consensus/fil_cns" }
-forest_genesis = { path = "./utils/genesis" }
-forest_interpreter = { path = "./vm/interpreter" }
-forest_ipld = { path = "./ipld" }
-forest_json = { path = "./utils/json" }
-forest_key_management = { path = "./key_management" }
-forest_libp2p = { path = "./node/forest_libp2p" }
-forest_libp2p_bitswap = { path = "./node/forest_libp2p/bitswap" }
-forest_message = { path = "./vm/message", default-features = false }
-forest_message_pool = { path = "./blockchain/message_pool" }
-forest_metrics = { path = "./utils/metrics" }
-forest_networks = { path = "./networks" }
-forest_rpc = { path = "./node/rpc" }
-forest_rpc-api = { path = "./node/rpc-api" }
-forest_rpc-client = { path = "./node/rpc-client" }
-forest_shim = { path = "./utils/forest_shim" }
-forest_state_manager = { path = "./blockchain/state_manager" }
-forest_state_migration = { path = "./vm/state_migration" }
-forest_statediff = { path = "./utils/statediff" }
-forest_test_utils = { path = "./utils/test_utils" }
-forest_utils = { path = "./utils/forest_utils" }
-humantime = "2.1.0"
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
