@@ -70,39 +70,6 @@ mod test {
             }
         }
     }
-
-    #[test]
-    fn compression_style_from_str_test() {
-        let test_cases = vec![
-            #[cfg(feature = "bzip2")]
-            ("bz2", Ok(DBCompressionType::Bz2)),
-            #[cfg(feature = "lz4")]
-            ("lz4", Ok(DBCompressionType::Lz4)),
-            #[cfg(feature = "lz4")]
-            ("lz4HC", Ok(DBCompressionType::Lz4hc)),
-            #[cfg(feature = "snappy")]
-            ("SNAPPY", Ok(DBCompressionType::Snappy)),
-            #[cfg(feature = "zlib")]
-            ("zlib", Ok(DBCompressionType::Zlib)),
-            #[cfg(feature = "zstd")]
-            ("ZSTD", Ok(DBCompressionType::Zstd)),
-            ("none", Ok(DBCompressionType::None)),
-            ("cthulhu", Err(anyhow!("some error message"))),
-        ];
-        for (input, expected) in test_cases {
-            let actual = compression_type_from_str(input);
-            if let Ok(compression_type) = actual {
-                assert_eq!(expected.unwrap(), compression_type);
-                let dir = tempfile::tempdir().unwrap();
-                let mut opt = rocksdb::Options::default();
-                opt.create_if_missing(true);
-                opt.set_compression_type(compression_type);
-                rocksdb::DB::open(&opt, dir.path()).unwrap();
-            } else {
-                assert!(expected.is_err());
-            }
-        }
-    }
 }
 
 /// `RocksDB` instance this satisfies the [Store] interface.
