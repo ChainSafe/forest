@@ -20,7 +20,7 @@ mod tests {
 
     const TIMEOUT: Duration = Duration::from_secs(60);
     const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
-    const GO_APP_DIR: &str = "tests/go-app";
+    const GO_APP_DIR: &str = "src/libp2p_bitswap/tests/go-app";
 
     #[tokio::test(flavor = "multi_thread")]
     async fn bitswap_go_compat_test() {
