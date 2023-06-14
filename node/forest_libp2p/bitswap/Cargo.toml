@@ -9,7 +9,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-async-std = "1"
 async-trait.workspace = true
 cfg-if.workspace = true
 flume.workspace = true
@@ -21,11 +20,9 @@ parking_lot.workspace = true
 prometheus.workspace = true
 protobuf = "3.2"
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "macros"] }
 tracing.workspace = true
 unsigned-varint.workspace = true
-
-# Optional
-tokio = { workspace = true, optional = true, features = ["time", "rt"] }
 
 [dev-dependencies]
 flume.workspace = true
@@ -37,14 +34,8 @@ libp2p = { workspace = true, default-features = false, features = [
   "tokio",
 ] }
 rand.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "time", "macros"] }
 
 [build-dependencies]
 anyhow.workspace = true
 protobuf-codegen = "3.2"
 walkdir = "2.3"
-
-[features]
-default = []
-
-tokio = ["dep:tokio"]
