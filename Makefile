@@ -82,7 +82,7 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071
 
 spellcheck:
-	if ! cargo spellcheck --code 1; then echo "See .config/spellcheck.md for tips" && false; fi
+	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 
 lint: license clean lint-clippy
 	cargo fmt --all --check
