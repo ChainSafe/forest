@@ -22,8 +22,8 @@ pub mod version;
 /// The usage is awkward but it avoids code duplication.
 ///
 /// ```
-/// use crate::shim::Inner;
-/// use crate::shim::error::ExitCode;
+/// use forest_filecoin::shim::Inner;
+/// use forest_filecoin::shim::error::ExitCode;
 /// <ExitCode as Inner>::FVM::new(0);
 /// ```
 pub trait Inner {

@@ -122,8 +122,8 @@ mod parse {
     /// Parse token amounts as floats with SI prefixed-units.
     /// ```
     /// fn assert_attos(input: &str, attos: u64) {
-    ///     let expected = crate::shim::econ::TokenAmount::from_atto(attos);
-    ///     let actual = forest_cli::humantoken::parse(input).unwrap();
+    ///     let expected = forest_filecoin::shim::econ::TokenAmount::from_atto(attos);
+    ///     let actual = forest_filecoin::cli::humantoken::parse(input).unwrap();
     ///     assert_eq!(expected, actual);
     /// }
     /// assert_attos("1a", 1);
@@ -407,9 +407,9 @@ mod print {
         /// - `{:.#4}`: both
         ///
         /// ```
-        /// use forest_cli::humantoken::TokenAmountPretty as _;
+        /// use forest_filecoin::cli::humantoken::TokenAmountPretty as _;
         ///
-        /// let amount = crate::shim::econ::TokenAmount::from_nano(1500);
+        /// let amount = forest_filecoin::shim::econ::TokenAmount::from_nano(1500);
         ///
         /// // Defaults to precise, with SI prefix
         /// assert_eq!("1500 nanoFIL", format!("{}", amount.pretty()));

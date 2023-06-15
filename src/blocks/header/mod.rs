@@ -32,12 +32,12 @@ pub mod json;
 ///
 /// Usage:
 /// ```
-/// use crate::blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use crate::shim::address::Address;
+/// use forest_filecoin::blocks::{BlockHeader, TipsetKeys, Ticket};
+/// use forest_filecoin::shim::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;
-/// use crate::shim::crypto::Signature;
+/// use forest_filecoin::shim::crypto::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
 ///

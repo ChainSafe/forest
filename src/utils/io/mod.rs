@@ -71,7 +71,7 @@ pub fn read_file_to_string(path: &Path) -> Result<String> {
 /// # Example
 /// ```
 /// use serde::Deserialize;
-/// use crate::utils::io::read_toml;
+/// use forest_filecoin::utils::io::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {

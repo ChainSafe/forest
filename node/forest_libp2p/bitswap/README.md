@@ -30,7 +30,7 @@ receiving a request or a response, checkout `tests/go_compat.rs`. Note that a
 request manager is needed for a real-world application.
 
 ```rust
-use forest_libp2p_bitswap::BitswapBehaviour;
+use forest_filecoin::libp2p_bitswap::BitswapBehaviour;
 
 // Use default protocol ID(s), same with `go-bitswap` defaults
 let behaviour = BitswapBehaviour::default();
@@ -45,7 +45,7 @@ required. For hooking request manager in swarm event flow, requesting a block
 via request manager API, checkout `tests/request_manager.rs`.
 
 ```rust
-use forest_libp2p_bitswap::BitswapBehaviour;
+use forest_filecoin::libp2p_bitswap::BitswapBehaviour;
 
 let behaviour = BitswapBehaviour::default();
 // Gets the associated request manager from the bitswap behaviour
