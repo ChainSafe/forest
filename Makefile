@@ -109,8 +109,8 @@ test:
 	cargo nextest run
 
 	# different databases (repeated for clarity)
-	cargo nextest run --features=paritydb,rustalloc,fil_cns db
-	cargo nextest run --features=rocksdb,rustalloc,fil_cns  db
+	cargo nextest run --features=paritydb,rustalloc,fil_cns --no-default-features db
+	cargo nextest run --features=rocksdb,rustalloc,fil_cns  --no-default-features db
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	cargo test --doc
@@ -119,8 +119,8 @@ test-release:
 	cargo nextest run --release
 
 	# different databases (repeated for clarity)
-	cargo nextest run --release --features=paritydb,rustalloc,fil_cns db
-	cargo nextest run --release --features=rocksdb,rustalloc,fil_cns  db
+	cargo nextest run --release --features=paritydb,rustalloc,fil_cns --no-default-features db
+	cargo nextest run --release --features=rocksdb,rustalloc,fil_cns  --no-default-features db
 
 test-all: test test-release
 

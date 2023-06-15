@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{db_utils::parity::TempRocksDB, subtests};
+use super::{db_utils::rocks::TempRocksDB, subtests};
 
 #[test]
 fn db_write() {
