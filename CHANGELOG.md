@@ -41,6 +41,8 @@
 - [#2706](https://github.com/ChainSafe/forest/issues/2706): implement
   `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
   subcommand.
+- [#2979](https://github.com/ChainSafe/forest/pull/2979): implement command for
+  downloading an IPLD graph via bitswap.
 
 ### Changed
 

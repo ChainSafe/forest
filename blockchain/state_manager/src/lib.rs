@@ -24,6 +24,7 @@ use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::ChainConfig;
+use forest_shim::clock::ChainEpoch;
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
@@ -38,7 +39,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::CborStore;
-use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
