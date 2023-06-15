@@ -39,6 +39,15 @@
 
 ## Forest v0.9.0 "Fellowship"
 
+Notable updates:
+
+- `--compressed` option removed from CLI, snapshots are now always compressed.
+- Snapshot ops are removed, snapshots are fetched to current directory by default.
+- `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head` subcommand are now implemented.
+- IPLD graph can now be downloaded via bitswap.
+- `sendFIL` function has been updated to match recent changes in the Forest send command.
+- FIL amount parsing/printing has been improved and 2 new options are added to forest-cli wallet list (--no-round and --no-abbrev).
+
 ### Breaking
 
 - [#2873](https://github.com/ChainSafe/forest/issues/2873)
