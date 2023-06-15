@@ -415,7 +415,7 @@ impl RewardCalc for RewardActorMessageCalc {
         rew_msg.sequence = epoch as u64;
         rew_msg.gas_limit = 1 << 30;
 
-        Ok(Some(rew_msg.into()))
+        Ok(Some(rew_msg))
     }
 }
 
@@ -460,6 +460,6 @@ impl RewardCalc for FixedRewardCalc {
         msg.gas_limit = 1 << 30;
         msg.value = (gas_reward + &self.reward).into();
 
-        Ok(Some(msg.into()))
+        Ok(Some(msg))
     }
 }
