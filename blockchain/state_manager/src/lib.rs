@@ -1297,6 +1297,9 @@ where
     })
 }
 
+
+// Create a boxed closure for getting the keys of a tipset at a given epoch. The indirection is due
+// to the way we interface with the FVM. Most likely, this could be written a lot better.
 fn chain_epoch_tsk<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
