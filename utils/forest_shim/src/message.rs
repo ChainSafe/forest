@@ -117,3 +117,7 @@ impl From<&Message> for Message_v2 {
 }
 
 impl Cbor for Message {}
+
+impl crate::Inner for Message {
+    type FVM = Message_v3;
+}

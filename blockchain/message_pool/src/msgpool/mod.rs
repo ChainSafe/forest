@@ -352,16 +352,16 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let mut umsg = Message::default();
-        umsg.to = to.into();
-        umsg.from = from.into();
-        umsg.sequence = sequence;
-        umsg.gas_limit = gas_limit as u64;
-        umsg.gas_fee_cap = TokenAmount::from_atto(gas_price + 100).into();
-        umsg.gas_premium = TokenAmount::from_atto(gas_price).into();
+        let umsg = Message::default();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).to = to.into();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).from = from.into();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).sequence = sequence;
+        <Message as forest_shim::Inner>::FVM::from(&umsg).gas_limit = gas_limit as u64;
+        <Message as forest_shim::Inner>::FVM::from(&umsg).gas_fee_cap = TokenAmount::from_atto(gas_price + 100).into();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).gas_premium = TokenAmount::from_atto(gas_price).into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
-        SignedMessage::new_unchecked(umsg, sig)
+        SignedMessage::new_unchecked(umsg.into(), sig)
     }
 
     // Create a fake signed message with a dummy signature. While the signature is
@@ -375,15 +375,15 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let mut umsg = Message::default();
-        umsg.to = to.into();
-        umsg.from = from.into();
-        umsg.sequence = sequence;
-        umsg.gas_limit = gas_limit as u64;
-        umsg.gas_fee_cap = TokenAmount::from_atto(gas_price + 100).into();
-        umsg.gas_premium = TokenAmount::from_atto(gas_price).into();
+        let umsg = Message::default();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).to = to.into();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).from = from.into();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).sequence = sequence;
+        <Message as forest_shim::Inner>::FVM::from(&umsg).gas_limit = gas_limit as u64;
+        <Message as forest_shim::Inner>::FVM::from(&umsg).gas_fee_cap = TokenAmount::from_atto(gas_price + 100).into();
+        <Message as forest_shim::Inner>::FVM::from(&umsg).gas_premium = TokenAmount::from_atto(gas_price).into();
         let sig = Signature::new_secp256k1(vec![]);
-        let signed = SignedMessage::new_unchecked(umsg, sig);
+        let signed = SignedMessage::new_unchecked(umsg.into(), sig);
         let cid = signed.cid().unwrap();
         pool.sig_val_cache.lock().put(cid, ());
         signed
