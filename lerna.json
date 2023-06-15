@@ -1,9 +1,0 @@
-{
-  "packages": [
-    "forest/cli/src/cli/js"
-  ],
-  "version": "6.0.0",
-  "useWorkspaces": false,
-  "npmClient": "yarn",
-  "$schema": "node_modules/lerna/schemas/lerna-schema.json"
-}
