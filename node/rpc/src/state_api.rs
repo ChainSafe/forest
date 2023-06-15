@@ -245,7 +245,7 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
     // depth-first-search pauses until one of the work tasks returns. The memory usage of this
     // algorithm is dominated by the set of seen CIDs and the 'dfs' stack is not expected to grow to
     // more than 1000 elements (even when walking tens of millions of nodes).
-    let dfs: Arc<Mutex<Vec<Ipld>>> = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
+    let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
     let mut to_be_fetched = vec![];
     // Loop until: No more items in `dfs` AND no running worker tasks.
     loop {
