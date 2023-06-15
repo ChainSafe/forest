@@ -683,11 +683,11 @@ where
     ) -> Result<TipsetKeys, Error> {
         let ts = self
             .cs
-            .tipset_by_height(round, tipset.clone(), false)
+            .tipset_by_height(round, tipset, false)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if ts.epoch() != round {
             // Null tipset
-            return Ok(TipsetKeys::default())
+            return Ok(TipsetKeys::default());
         }
         Ok(ts.key().clone())
     }
@@ -1304,7 +1304,5 @@ fn chain_epoch_tsk<DB>(
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
-    Box::new(move |round| {
-        Ok(sm.get_epoch_tsk(tipset.clone(), round)?)
-    })
+    Box::new(move |round| Ok(sm.get_epoch_tsk(tipset.clone(), round)?))
 }
