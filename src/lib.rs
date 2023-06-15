@@ -55,3 +55,5 @@ mod utils;
 mod cli;
 mod daemon;
 
+pub use cli::main::main as forest_main;
+pub use daemon::main::main as forestd_main;

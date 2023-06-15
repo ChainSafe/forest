@@ -78,7 +78,7 @@ pub struct Cli {
     pub cmd: Option<String>,
 }
 
-fn main() -> anyhow::Result<()> {
+pub fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::parse();
 

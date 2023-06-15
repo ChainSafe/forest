@@ -10,7 +10,7 @@ use crate::cli_shared::{cli::LogConfig, logger};
 use crate::utils::io::ProgressBar;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+pub async fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::parse();
 
