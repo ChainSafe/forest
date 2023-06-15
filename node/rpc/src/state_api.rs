@@ -269,7 +269,6 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
                         to_be_fetched.push(new_cid);
                     }
                 }
-                drop(dfs_guard);
             }
 
             while let Some(cid) = to_be_fetched.pop() {
