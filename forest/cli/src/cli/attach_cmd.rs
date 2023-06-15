@@ -230,7 +230,7 @@ async fn send_message(
     message.method_num = METHOD_SEND;
     message.gas_limit = 0;
 
-    let json_message = MessageJson(message.into());
+    let json_message = MessageJson(message);
     mpool_push_message((json_message, None), auth_token).await
 }
 
