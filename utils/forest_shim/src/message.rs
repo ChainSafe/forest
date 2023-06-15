@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{address::Address, econ::TokenAmount};
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize, Debug, Hash)]
 #[serde(transparent)]
 pub struct Message(Message_v3);
 
@@ -117,9 +117,3 @@ impl From<&Message> for Message_v2 {
 }
 
 impl Cbor for Message {}
-
-impl Default for Message {
-    fn default() -> Self {
-        Message(Message_v3::default())
-    }
-}
