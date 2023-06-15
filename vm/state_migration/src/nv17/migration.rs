@@ -1,11 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
+use ahash::HashSet;
 use anyhow::{anyhow, Context};
 use cid::Cid;
-use fil_actor_interface::miner::{is_v8_miner_cid, is_v9_miner_cid};
+use fil_actor_interface::{
+    market::is_v9_market_cid,
+    miner::{is_v8_miner_cid, is_v9_miner_cid},
+};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
@@ -39,11 +43,13 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_cbor(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
+
         let current_manifest = ManifestOld::load(&store, &current_manifest_data, 1)?;
 
         let (version, new_manifest_data): (u32, Cid) = store
             .get_cbor(new_manifest)?
             .ok_or_else(|| anyhow!("new manifest not found"))?;
+
         let new_manifest = ManifestNew::load(&store, &new_manifest_data, version)?;
 
         let verifreg_actor_v8 = state_tree
@@ -96,19 +102,19 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         );
 
         // On go side, cid is found by name `storageminer`, however, no equivilent API is available on rust side.
-        let miner_v8_cid = current_manifest
+        let miner_v8_actor_code = current_manifest
             .builtin_actor_codes()
             .find(|cid| is_v8_miner_cid(cid))
             .context("Failed to retrieve miner v8 cid")?;
-        let miner_v9_cid = new_manifest
+        let miner_v9_actor_code = new_manifest
             .builtin_actor_codes()
             .find(|cid| is_v9_miner_cid(cid))
             .context("Failed to retrieve miner v9 cid")?;
 
         self.add_migrator(
-            *miner_v8_cid,
+            *miner_v8_actor_code,
             miner::miner_migrator(
-                *miner_v9_cid,
+                *miner_v9_actor_code,
                 &store,
                 market_state_v8.proposals,
                 chain_config,
@@ -119,11 +125,14 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_cbor(&verifreg_actor_v8.state)?
             .context("Failed to load verifreg state v8")?;
         let verifreg_code = *new_manifest
-            .code_by_id(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ID as _)
-            .context("verifreg code not found in new manifest")?;
+            .builtin_actor_codes()
+            .find(|cid| is_v9_verifreg_cid(cid))
+            .context("Failed to verifreg v9 cid")?;
         let market_code = *new_manifest
-            .code_by_id(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ID as _)
-            .context("verifreg code not found in new manifest")?;
+            .builtin_actor_codes()
+            .find(|cid| is_v9_market_cid(cid))
+            .context("Failed to market v9 cid")?;
+
         self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
             prior_epoch,
             init_state_v8,
@@ -193,9 +202,22 @@ where
         ActorState::new_empty(*datacap_code, None),
     )?;
 
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
+    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
     let new_state =
         migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
 
     Ok(new_state)
+}
+
+// TODO: Move to `fil_actor_states`
+fn is_v9_verifreg_cid(cid: &Cid) -> bool {
+    lazy_static::lazy_static! {
+        static ref KNOWN_CIDS: [Cid;3] = [
+            Cid::from_str("bafk2bzacecf3yodlyudzukumehbuabgqljyhjt5ifiv4vetcfohnvsxzynwga").unwrap(),
+            Cid::from_str("bafk2bzacebh7dj6j7yi5vadh7lgqjtq42qi2uq4n6zy2g5vjeathacwn2tscu").unwrap(),
+            Cid::from_str("bafk2bzacednorhcy446agy7ecpmfms2u4aoa3mj2eqomffuoerbik5yavrxyi").unwrap(),
+        ];
+    }
+
+    KNOWN_CIDS.contains(cid)
 }
