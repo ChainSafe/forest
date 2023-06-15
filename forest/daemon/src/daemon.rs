@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 
+use crate::bundle::load_bundles;
 use anyhow::{bail, Context};
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
@@ -21,7 +22,6 @@ use forest_cli_shared::{
     cli::{CliOpts, Config},
     snapshot,
 };
-use forest_daemon::bundle::load_bundles;
 use forest_db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
@@ -81,7 +81,7 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 }
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
-pub(super) async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
+pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
 

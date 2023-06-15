@@ -7,10 +7,6 @@ version.workspace = true
 authors.workspace = true
 edition = "2021"
 
-[[bin]]
-name = "forest"
-path = "src/main.rs"
-
 [dependencies]
 anyhow.workspace = true
 byte-unit.workspace = true

@@ -192,7 +192,6 @@ mod test {
                     max_open_files: i32::arbitrary(g),
                     max_background_jobs: Option::arbitrary(g),
                     compaction_style: String::arbitrary(g),
-                    compression_type: String::arbitrary(g),
                     enable_statistics: bool::arbitrary(g),
                     stats_dump_period_sec: u32::arbitrary(g),
                     log_level: String::arbitrary(g),

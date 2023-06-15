@@ -29,5 +29,4 @@ prometheus.workspace = true
 stdext = { version = "0.3", optional = true }
 
 [features]
-test_vectors = []
 instrumented_kernel = ["dep:stdext"]
