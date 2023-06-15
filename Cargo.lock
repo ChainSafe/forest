@@ -3050,7 +3050,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 3.3.1",
  "lazy_static",
  "libipld",
  "log",
@@ -3776,6 +3775,7 @@ dependencies = [
  "forest_message",
  "forest_shim",
  "fvm_ipld_encoding 0.2.3",
+ "fvm_shared 3.3.1",
  "num",
 ]
 

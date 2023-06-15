@@ -14,12 +14,9 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use forest_shim::{
-    address::Address,
-    crypto::Signature,
-    message::{Message, Message_v3},
-};
+use forest_shim::{address::Address, crypto::Signature, message::Message};
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
+use fvm_shared3::message::Message as Message_v3;
 use num::BigInt;
 
 /// Defines a `TipsetKey` used in testing

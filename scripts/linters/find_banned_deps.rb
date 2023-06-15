@@ -14,6 +14,8 @@ whitelist = {
   # `fvm` & `fvm3` are allowed).
   'fvm' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml'],
   'fvm3' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml']
+  # 'fvm_shared' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml'],
+  # 'fvm_shared3' => ['utils/forest_shim/Cargo.toml', 'vm/interpreter/Cargo.toml', 'utils/test_utils/Cargo.toml']
 }
 
 violations = Hash.new { |h, k| h[k] = [] }
