@@ -10,15 +10,8 @@ edition = "2021"
 [features]
 default = []
 
-rocksdb = ["dep:rocksdb", "lz4"]
-lz4 = ["rocksdb?/lz4"]
+rocksdb = ["dep:rocksdb"]
 jemalloc = ["rocksdb?/jemalloc"]
-# not included by default to reduce build time
-# uncomment when it needs to be used by other crates
-# snappy = ["rocksdb?/snappy"]
-# zlib   = ["rocksdb?/zlib"]
-# bzip2  = ["rocksdb?/bzip2"]
-# zstd = ["rocksdb?/zstd"]
 
 paritydb = ["dep:parity-db"]
 
@@ -50,7 +43,9 @@ uuid = { version = "1.3", features = ["v4"] }
 
 # optional
 parity-db = { version = "0.4.6", default-features = false, optional = true }
-rocksdb = { version = "0.20", default-features = false, optional = true }
+rocksdb = { version = "0.20", default-features = false, optional = true, features = [
+  "lz4",
+] } # only opt in to the compression we actually use
 
 [dev-dependencies]
 rand.workspace = true

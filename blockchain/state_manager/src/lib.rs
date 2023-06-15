@@ -24,6 +24,7 @@ use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::ChainConfig;
+use forest_shim::clock::ChainEpoch;
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
@@ -38,8 +39,8 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::CborStore;
-use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
+use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
@@ -51,8 +52,7 @@ use vm_circ_supply::GenesisInfo;
 
 pub use self::errors::*;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_utils::const_option!(NonZeroUsize::new(1024));
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);

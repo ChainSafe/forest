@@ -10,7 +10,7 @@ use forest_message::{Message, SignedMessage};
 use forest_rpc_client::{chain_ops::*, mpool_ops::*, state_ops::*, wallet_ops::*};
 use forest_shim::{address::Address, econ::TokenAmount};
 use fvm_ipld_encoding::Cbor;
-use num_bigint::BigInt;
+use num::BigInt;
 
 use super::Config;
 use crate::cli::handle_rpc_err;

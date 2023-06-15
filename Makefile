@@ -82,7 +82,7 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071
 
 spellcheck:
-	cargo spellcheck --code 1
+	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 
 lint: license clean lint-clippy
 	cargo fmt --all --check
@@ -102,7 +102,6 @@ lint-clippy:
 	cargo clippy --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --features submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
@@ -175,9 +174,10 @@ mdbook-build:
 # This isn't included by default, so we use a nightly toolchain, and the
 # (unstable) `--enable-index-page` option.
 # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
+# We document private items to ensure internal documentation is up-to-date (i.e passes lints)
 vendored-docs:
 	rustup toolchain install $(VENDORED_DOCS_TOOLCHAIN)
-	RUSTDOCFLAGS="-Dwarnings -Zunstable-options --enable-index-page" \
+	RUSTDOCFLAGS="--deny=warnings --allow=rustdoc::private-intra-doc-links --document-private-items -Zunstable-options --enable-index-page" \
 		cargo +$(VENDORED_DOCS_TOOLCHAIN) doc --workspace --no-deps
 
 .PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors vendored-docs

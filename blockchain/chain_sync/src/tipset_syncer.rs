@@ -21,15 +21,15 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
 use forest_shim::{
-    address::Address, crypto::verify_bls_aggregate, gas::price_list_by_network_version,
-    message::Message, state_tree::StateTree,
+    address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate,
+    gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
 use forest_state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{clock::ChainEpoch, ALLOWABLE_CLOCK_DRIFT};
+use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
 use fvm_shared3::BLOCK_GAS_LIMIT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
@@ -1117,12 +1117,13 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
                 state_manager.clone(),
                 &chainstore,
                 bad_block_cache,
-                full_tipset,
+                full_tipset.clone(),
                 genesis,
                 invalid_block_strategy,
             )
             .await?;
         }
+        chainstore.set_heaviest_tipset(Arc::new(full_tipset.into_tipset()))?;
         tracker.write().set_epoch(current_epoch);
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
@@ -1392,16 +1393,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
         return Err((*block_cid, TipsetRangeSyncerError::<C>::concat(errs)));
     }
 
-    chain_store
-        .mark_block_as_validated(block_cid)
-        .map_err(|e| {
-            (
-                *block_cid,
-                TipsetRangeSyncerError::<C>::Validation(format!(
-                    "failed to mark block {block_cid} as validated {e}"
-                )),
-            )
-        })?;
+    chain_store.mark_block_as_validated(block_cid);
 
     Ok(block)
 }

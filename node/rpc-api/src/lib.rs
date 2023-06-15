@@ -81,6 +81,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
+    access.insert(state_api::STATE_FETCH_ROOT, Access::Read);
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
@@ -147,7 +148,7 @@ pub mod auth_api {
 /// Beacon API
 pub mod beacon_api {
     use forest_beacon::json::BeaconEntryJson;
-    use fvm_shared::clock::ChainEpoch;
+    use forest_shim::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
     pub type BeaconGetEntryParams = (ChainEpoch,);
@@ -163,7 +164,7 @@ pub mod chain_api {
         TipsetKeys,
     };
     use forest_json::{cid::CidJson, message::json::MessageJson};
-    use fvm_shared::clock::ChainEpoch;
+    use forest_shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
 
     use crate::data_types::BlockMessages;
@@ -180,7 +181,6 @@ pub mod chain_api {
         pub recent_roots: i64,
         pub output_path: PathBuf,
         pub tipset_keys: TipsetKeysJson,
-        pub compressed: bool,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }
@@ -379,6 +379,10 @@ pub mod state_api {
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub type StateWaitMsgParams = (CidJson, i64);
     pub type StateWaitMsgResult = MessageLookup;
+
+    pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
+    pub type StateFetchRootParams = (CidJson,);
+    pub type StateFetchRootResult = String;
 }
 
 /// Gas API

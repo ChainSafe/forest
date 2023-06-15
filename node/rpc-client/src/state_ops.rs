@@ -12,3 +12,10 @@ pub async fn state_get_actor(
 ) -> Result<StateGetActorResult, Error> {
     call(STATE_GET_ACTOR, params, auth_token).await
 }
+
+pub async fn state_fetch_root(
+    params: StateFetchRootParams,
+    auth_token: &Option<String>,
+) -> Result<StateFetchRootResult, Error> {
+    call(STATE_FETCH_ROOT, params, auth_token).await
+}

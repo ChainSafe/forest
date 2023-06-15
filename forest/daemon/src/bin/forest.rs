@@ -14,50 +14,26 @@ cfg_if::cfg_if! {
     }
 }
 
-mod cli;
-mod daemon;
-
-use std::{cmp::max, fs::File, process, time::Duration};
-
 use anyhow::Context;
 use clap::Parser;
-use cli::Cli;
 use daemonize_me::{Daemon, Group, User};
+use forest_cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
+use forest_daemon::{daemon, ipc_shmem_conf};
 use forest_utils::io::ProgressBar;
-use lazy_static::lazy_static;
+use forest_utils::version::FOREST_VERSION_STRING;
 use log::info;
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
 };
-use shared_memory::ShmemConf;
-use tempfile::{Builder, TempPath};
+use std::{cmp::max, fs::File, process, time::Duration};
 use tokio::runtime::Builder as RuntimeBuilder;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
-
-lazy_static! {
-    static ref IPC_PATH: TempPath = Builder::new()
-        .prefix("forest-ipc")
-        .tempfile()
-        .expect("tempfile must succeed")
-        .into_temp_path();
-}
-
-// The parent process and the daemonized child communicate through an Event in
-// shared memory. The identity of the shared memory object is written to a
-// temporary file. The parent process is responsible for cleaning up the file
-// and the shared memory object.
-fn ipc_shmem_conf() -> ShmemConf {
-    ShmemConf::new()
-        .size(Event::size_of(None))
-        .force_create_flink()
-        .flink(IPC_PATH.as_os_str())
-}
 
 // Initiate an Event object in shared memory.
 fn create_ipc_lock() -> anyhow::Result<()> {
@@ -103,6 +79,16 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     });
 
     Ok(daemon)
+}
+
+/// CLI structure generated when interacting with Forest binary
+#[derive(Parser)]
+#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(help_template(HELP_MESSAGE))]
+pub struct Cli {
+    #[clap(flatten)]
+    pub opts: CliOpts,
+    pub cmd: Option<String>,
 }
 
 fn main() -> anyhow::Result<()> {

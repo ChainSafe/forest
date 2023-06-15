@@ -8,12 +8,11 @@ use forest_chain::*;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::Address,
-    clock::EPOCHS_IN_DAY,
+    clock::{ChainEpoch, EPOCHS_IN_DAY},
     econ::TokenAmount,
     state_tree::{ActorState, StateTree},
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
