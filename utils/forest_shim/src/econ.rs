@@ -258,3 +258,26 @@ impl Sub<TokenAmount> for &TokenAmount {
         (&self.0).sub(&rhs.0).into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn fvm_shim_of_const_block_gas_limit() {
+        assert_eq!(super::BLOCK_GAS_LIMIT, fvm_shared::BLOCK_GAS_LIMIT as u64)
+    }
+
+    #[test]
+    fn fvm3_shim_of_const_block_gas_limit() {
+        assert_eq!(super::BLOCK_GAS_LIMIT, fvm_shared3::BLOCK_GAS_LIMIT)
+    }
+
+    #[test]
+    fn fvm_shim_of_const_total_filecoin_base() {
+        assert_eq!(super::TOTAL_FILECOIN_BASE, fvm_shared::TOTAL_FILECOIN_BASE)
+    }
+
+    #[test]
+    fn fvm3_shim_of_const_total_filecoin_base() {
+        assert_eq!(super::TOTAL_FILECOIN_BASE, fvm_shared3::TOTAL_FILECOIN_BASE)
+    }
+}
