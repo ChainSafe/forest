@@ -57,3 +57,8 @@ mod daemon;
 
 pub use cli::main::main as forest_main;
 pub use daemon::main::main as forestd_main;
+pub use cli_shared::cli::{Client, Config};
+pub use auth::{verify_token, JWT_IDENTIFIER};
+pub use key_management::{
+    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
+};

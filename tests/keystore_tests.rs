@@ -4,8 +4,8 @@
 pub mod common;
 
 use anyhow::Result;
-use forest_auth::{verify_token, JWT_IDENTIFIER};
-use forest_key_management::{
+use forest_filecoin::{verify_token, JWT_IDENTIFIER};
+use forest_filecoin::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
 

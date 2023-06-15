@@ -4,7 +4,7 @@ use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr}
 
 use anyhow::*;
 use assert_cmd::Command;
-use forest_cli_shared::cli::{Client, Config};
+use forest_filecoin::{Client, Config};
 use rand::Rng;
 use tempfile::TempDir;
 
