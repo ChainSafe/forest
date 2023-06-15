@@ -10,6 +10,19 @@
     clippy::module_inception
 )] // # 2991
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rustalloc")] {
+    } else if #[cfg(feature = "mimalloc")] {
+        use crate::cli_shared::mimalloc::MiMalloc;
+        #[global_allocator]
+        static GLOBAL: MiMalloc = MiMalloc;
+    } else if #[cfg(feature = "jemalloc")] {
+        use crate::cli_shared::tikv_jemallocator::Jemalloc;
+        #[global_allocator]
+        static GLOBAL: Jemalloc = Jemalloc;
+    }
+}
+
 mod auth;
 mod beacon;
 mod blocks;

@@ -1,19 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "rustalloc")] {
-    } else if #[cfg(feature = "mimalloc")] {
-        use crate::cli_shared::mimalloc::MiMalloc;
-        #[global_allocator]
-        static GLOBAL: MiMalloc = MiMalloc;
-    } else if #[cfg(feature = "jemalloc")] {
-        use crate::cli_shared::tikv_jemallocator::Jemalloc;
-        #[global_allocator]
-        static GLOBAL: Jemalloc = Jemalloc;
-    }
-}
-
 use anyhow::Context;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
