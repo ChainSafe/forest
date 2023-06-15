@@ -675,7 +675,7 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
-    /// Get the TipsetKeys for a given epoch. The TipsetKeys may be null.
+    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may be null.
     pub fn get_epoch_tsk(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
