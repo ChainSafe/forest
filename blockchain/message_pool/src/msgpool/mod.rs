@@ -332,10 +332,7 @@ pub mod tests {
     use forest_message::SignedMessage;
     use forest_networks::ChainConfig;
     use forest_shim::{
-        address::Address,
-        crypto::SignatureType,
-        econ::TokenAmount,
-        message::{Message, Message_v3},
+        address::Address, crypto::SignatureType, econ::TokenAmount, message::Message,
     };
     use num_traits::Zero;
     use test_provider::*;
@@ -355,16 +352,13 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg: Message = Message_v3 {
-            to: to.into(),
-            from: from.into(),
-            sequence,
-            gas_limit: gas_limit as u64,
-            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
-            gas_premium: TokenAmount::from_atto(gas_price).into(),
-            ..Message_v3::default()
-        }
-        .into();
+        let mut umsg = Message::default();
+        umsg.to = to.into();
+        umsg.from = from.into();
+        umsg.sequence = sequence;
+        umsg.gas_limit = gas_limit as u64;
+        umsg.gas_fee_cap = TokenAmount::from_atto(gas_price + 100).into();
+        umsg.gas_premium = TokenAmount::from_atto(gas_price).into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_unchecked(umsg, sig)
@@ -381,16 +375,13 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg: Message = Message_v3 {
-            to: to.into(),
-            from: from.into(),
-            sequence,
-            gas_limit: gas_limit as u64,
-            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
-            gas_premium: TokenAmount::from_atto(gas_price).into(),
-            ..Message_v3::default()
-        }
-        .into();
+        let mut umsg = Message::default();
+        umsg.to = to.into();
+        umsg.from = from.into();
+        umsg.sequence = sequence;
+        umsg.gas_limit = gas_limit as u64;
+        umsg.gas_fee_cap = TokenAmount::from_atto(gas_price + 100).into();
+        umsg.gas_premium = TokenAmount::from_atto(gas_price).into();
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid().unwrap();

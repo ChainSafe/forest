@@ -98,12 +98,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use forest_message::{self, SignedMessage};
-    use forest_shim::{
-        address::Address,
-        crypto::Signature,
-        econ::TokenAmount,
-        message::{Message, Message_v3},
-    };
+    use forest_shim::{address::Address, crypto::Signature, econ::TokenAmount, message::Message};
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
     use serde_json::{self, from_str, to_string};
@@ -152,19 +147,16 @@ mod tests {
 
     #[test]
     fn message_json_annotations() {
-        let message: Message = Message_v3 {
-            version: 10,
-            from: Address::new_id(34).into(),
-            to: Address::new_id(12).into(),
-            sequence: 5,
-            value: TokenAmount::from_atto(6).into(),
-            method_num: 7,
-            params: Default::default(),
-            gas_limit: 8,
-            gas_fee_cap: TokenAmount::from_atto(10).into(),
-            gas_premium: TokenAmount::from_atto(9).into(),
-        }
-        .into();
+        let mut message = Message::default();
+        message.version = 10;
+        message.from = Address::new_id(34).into();
+        message.to = Address::new_id(12).into();
+        message.sequence = 5;
+        message.value = TokenAmount::from_atto(6).into();
+        message.method_num = 7;
+        message.gas_limit = 8;
+        message.gas_fee_cap = TokenAmount::from_atto(10).into();
+        message.gas_premium = TokenAmount::from_atto(9).into();
 
         let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 
