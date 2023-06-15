@@ -35,7 +35,7 @@ jobs:
           command: sudo make install-deps
       - uses: actions/setup-go@v4
         with:
-          go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
+          go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
