@@ -54,54 +54,18 @@ fn tipset_bundle_to_full_tipset() {
         .miner_address(Address::new_id(1))
         .build()
         .unwrap();
-    let ua = Message::new(
-        Default::default(),
-        Address::new_id(0).into(),
-        Address::new_id(0).into(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    );
-    let ub = Message::new(
-        Default::default(),
-        Address::new_id(1).into(),
-        Address::new_id(1).into(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    );
-    let uc = Message::new(
-        Default::default(),
-        Address::new_id(2).into(),
-        Address::new_id(2).into(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    );
-    let ud = Message::new(
-        Default::default(),
-        Address::new_id(3).into(),
-        Address::new_id(3).into(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    );
+    let mut ua = Message::default();
+    ua.to = Address::new_id(0).into();
+    ua.from = Address::new_id(0).into();
+    let mut ub = Message::default();
+    ub.to = Address::new_id(1).into();
+    ub.from = Address::new_id(1).into();
+    let mut uc = Message::default();
+    uc.to = Address::new_id(2).into();
+    uc.from = Address::new_id(2).into();
+    let mut ud = Message::default();
+    ud.to = Address::new_id(3).into();
+    ud.from = Address::new_id(3).into();
     let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
     let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
     let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));

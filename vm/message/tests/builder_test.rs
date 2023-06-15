@@ -7,18 +7,9 @@ use rand::{rngs::OsRng, RngCore};
 
 #[test]
 fn generate_signed_message() {
-    let msg = Message::new(
-        Default::default(),
-        Address::new_id(2).into(),
-        Address::new_id(1).into(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    );
+    let mut msg = Message::default();
+    msg.to = Address::new_id(1).into();
+    msg.from = Address::new_id(2).into();
 
     let mut dummy_sig = vec![0];
     OsRng.fill_bytes(&mut dummy_sig);

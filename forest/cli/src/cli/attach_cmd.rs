@@ -223,18 +223,12 @@ async fn send_message(
 ) -> Result<MpoolPushMessageResult, jsonrpc_v2::Error> {
     let (from, to, value) = params;
 
-    let message = Message::new(
-        Default::default(),
-        Address::from_str(&from)?,
-        Address::from_str(&to)?,
-        Default::default(),
-        humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
-        METHOD_SEND,
-        Default::default(),
-        0,
-        Default::default(),
-        Default::default(),
-    );
+    let mut message = Message::default();
+    message.from = Address::from_str(&from)?.into();
+    message.to = Address::from_str(&to)?.into();
+    message.value = humantoken::parse(&value)?.into(); // Convert forest_shim::TokenAmount to TokenAmount3
+    message.method_num = METHOD_SEND;
+    message.gas_limit = 0;
 
     let json_message = MessageJson(message);
     mpool_push_message((json_message, None), auth_token).await
