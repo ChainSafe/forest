@@ -137,8 +137,16 @@ impl NodeStatusInfo {
                 .clone()
                 .unwrap_or("address not set".to_string());
 
-            let wallet_balance = match balance(&self.default_wallet_address_balance) {
-                Ok(bal) => format!("[balance: {}]", bal),
+            let wallet_balance = match self
+                .default_wallet_address_balance
+                .as_ref()
+                .map(|s| balance(s))
+                .transpose()
+            {
+                Ok(bal) => format!(
+                    "[balance: {}]",
+                    bal.unwrap_or("could not find balance".to_string())
+                ),
                 Err(e) => e.to_string(),
             };
 
@@ -197,13 +205,9 @@ impl InfoCommand {
     }
 }
 
-fn balance(balance: &Option<String>) -> anyhow::Result<String> {
-    if let Some(bal) = balance {
-        let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
-        Ok(format!("{:.4}", balance_token_amount.pretty()))
-    } else {
-        Err(anyhow::anyhow!("could not find balance"))
-    }
+fn balance(bal: &str) -> Result<String, anyhow::Error> {
+    let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
+    Ok(format!("{:.4}", balance_token_amount.pretty()))
 }
 
 #[cfg(test)]
