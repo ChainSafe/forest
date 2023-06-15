@@ -712,14 +712,14 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() {
-        import_snapshot_from_file("test_files/chain4.car")
+        import_snapshot_from_file("test-snapshots/chain4.car")
             .await
             .unwrap();
     }
 
     #[tokio::test]
     async fn import_snapshot_from_compressed_file_valid() {
-        import_snapshot_from_file("test_files/chain4.car.zst")
+        import_snapshot_from_file("test-snapshots/chain4.car.zst")
             .await
             .unwrap()
     }
@@ -787,7 +787,7 @@ mod test {
             chain_config,
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, "test_files/chain4.car", false)
+        import_chain::<_>(&sm, "test-snapshots/chain4.car", false)
             .await
             .context("Failed to import chain")?;
 
