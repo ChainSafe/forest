@@ -222,7 +222,7 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
     let mut counter: usize = 0;
     let mut fetched: usize = 0;
     let mut failures: usize = 0;
-    let mut task_set: JoinSet<anyhow::Result<()>> = JoinSet::new();
+    let mut task_set = JoinSet::new();
 
     fn handle_worker(fetched: &mut usize, failures: &mut usize, ret: anyhow::Result<()>) {
         match ret {
