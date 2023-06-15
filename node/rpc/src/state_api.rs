@@ -272,7 +272,7 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
                 drop(dfs_guard);
             }
 
-            for cid in to_be_fetched.iter().cloned() {
+            while let Some(cid) = to_be_fetched.pop() {
                 if task_set.len() == MAX_CONCURRENT_REQUESTS {
                     if let Some(ret) = task_set.join_next().await {
                         handle_worker(&mut fetched, &mut failures, ret?)
@@ -302,7 +302,6 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
                     }
                 });
             }
-            to_be_fetched.clear();
             tokio::task::yield_now().await;
         }
         if let Some(ret) = task_set.join_next().await {
