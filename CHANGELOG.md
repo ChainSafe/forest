@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Fixed
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.9.0 "Fellowship"
+
+### Breaking
+
 - [#2873](https://github.com/ChainSafe/forest/issues/2873)
   - remove `--compressed` from the CLI. Snapshots are now always compressed.
   - Remove snapshot ops - snapshots fetched to the current directory by default.
