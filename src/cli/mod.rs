@@ -3,3 +3,4 @@
 pub mod cli;
 pub mod humantoken;
 pub mod subcommand;
+pub mod main;

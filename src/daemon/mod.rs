@@ -3,6 +3,7 @@
 
 pub mod bundle;
 pub mod daemon;
+pub mod main;
 
 use raw_sync::events::{Event, EventInit as _};
 use shared_memory::ShmemConf;

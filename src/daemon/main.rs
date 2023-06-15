@@ -22,7 +22,7 @@ use crate::cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use forest_daemon::{daemon, ipc_shmem_conf};
+use crate::daemon::{daemon, ipc_shmem_conf};
 use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
 use log::info;

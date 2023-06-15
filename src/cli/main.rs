@@ -14,7 +14,7 @@ cfg_if::cfg_if! {
     }
 }
 use clap::Parser;
-use forest_cli::{
+use crate::cli::{
     cli::{cli_error_and_die, Cli},
     subcommand,
 };
