@@ -129,9 +129,18 @@ pub fn construct_full_tipset() -> FullTipset {
 
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (Message, SignedMessage) {
-    let mut bls_messages = Message::default();
-    bls_messages.to = Address::new_id(1).into();
-    bls_messages.from = Address::new_id(2).into();
+    let bls_messages = Message::new(
+        Default::default(),
+        Address::new_id(2),
+        Address::new_id(1),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
 
     let secp_messages =
         SignedMessage::new_unchecked(bls_messages.clone(), Signature::new_secp256k1(vec![0]));

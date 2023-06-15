@@ -147,16 +147,18 @@ mod tests {
 
     #[test]
     fn message_json_annotations() {
-        let mut message = Message::default();
-        message.version = 10;
-        message.from = Address::new_id(34).into();
-        message.to = Address::new_id(12).into();
-        message.sequence = 5;
-        message.value = TokenAmount::from_atto(6).into();
-        message.method_num = 7;
-        message.gas_limit = 8;
-        message.gas_fee_cap = TokenAmount::from_atto(10).into();
-        message.gas_premium = TokenAmount::from_atto(9).into();
+        let message = Message::new(
+            10,
+            Address::new_id(34).into(),
+            Address::new_id(12).into(),
+            5,
+            TokenAmount::from_atto(6).into(),
+            7,
+            Default::default(),
+            8,
+            TokenAmount::from_atto(10).into(),
+            TokenAmount::from_atto(9).into(),
+        );
 
         let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 
