@@ -19,7 +19,6 @@ cfg-if.workspace = true
 chrono.workspace = true
 cid.workspace = true
 clap.workspace = true
-colored.workspace = true
 convert_case = "0.6.0"
 dialoguer.workspace = true
 directories.workspace = true

@@ -2920,7 +2920,6 @@ dependencies = [
  "chrono",
  "cid",
  "clap",
- "colored",
  "convert_case 0.6.0",
  "dialoguer",
  "directories",
