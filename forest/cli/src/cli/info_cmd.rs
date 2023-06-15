@@ -99,8 +99,7 @@ impl NodeStatusInfo {
         }
     }
 
-    fn format(&self, now: DateTime<Utc>) -> Vec<String> {
-        let mut output = Vec::new();
+    fn format(&self, now: DateTime<Utc>) -> String {
         let network = format!("Network: {}", self.network);
 
         let uptime = {
@@ -138,11 +137,9 @@ impl NodeStatusInfo {
                 .clone()
                 .unwrap_or("address not set".to_string());
 
-            let wallet_balance = {
-                match balance(&self.default_wallet_address_balance) {
-                    Ok(bal) => format!("[balance: {}]", bal),
-                    Err(e) => e.to_string(),
-                }
+            let wallet_balance = match balance(&self.default_wallet_address_balance) {
+                Ok(bal) => format!("[balance: {}]", bal),
+                Err(e) => e.to_string(),
             };
 
             format!(
@@ -151,13 +148,7 @@ impl NodeStatusInfo {
             )
         };
 
-        output.push(network);
-        output.push(uptime);
-        output.push(chain);
-        output.push(chain_health);
-        output.push(wallet_info);
-
-        output
+        vec![network, uptime, chain, chain_health, wallet_info].join("\n")
     }
 }
 
@@ -197,9 +188,7 @@ impl InfoCommand {
                     default_wallet_address_balance,
                 );
 
-                for line in node_status_info.format(Utc::now()) {
-                    println!("{}", line);
-                }
+                println!("{}", node_status_info.format(Utc::now()));
 
                 Ok(())
             }
@@ -308,8 +297,7 @@ mod tests {
 
         assert!(status
             .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .iter()
-            .any(|line| line.contains("10s behind")));
+            .contains("10s behind"));
     }
 
     #[test]
@@ -318,8 +306,7 @@ mod tests {
         status.lag = -360;
         assert!(status
             .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .iter()
-            .any(|line| line.contains("6m ahead")));
+            .contains("6m ahead"));
     }
 
     #[test]
@@ -331,8 +318,7 @@ mod tests {
             "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
         assert!(status
             .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .iter()
-            .any(|line| line.contains(&expected_status_fmt)));
+            .contains(&expected_status_fmt));
 
         let tipset = mock_tipset_at(duration.as_secs() - 30000);
         let status = node_status(duration, tipset.as_ref());
@@ -341,8 +327,7 @@ mod tests {
             "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
         assert!(status
             .format(DateTime::<chrono::Utc>::MIN_UTC)
-            .iter()
-            .any(|line| line.contains(&expected_status_fmt)));
+            .contains(&expected_status_fmt));
     }
 
     // FIXME: enable/debug this failing when color output is supported.
