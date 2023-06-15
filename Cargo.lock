@@ -2998,6 +2998,7 @@ dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "base64 0.21.2",
+ "bls-signatures",
  "cid",
  "derive_builder 0.12.0",
  "forest_beacon",
@@ -8127,23 +8128,6 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
-]
-
-[[package]]
-name = "serialization_tests"
-version = "0.8.2"
-dependencies = [
- "base64 0.21.2",
- "bls-signatures",
- "cid",
- "forest_blocks",
- "forest_json",
- "forest_message",
- "forest_shim",
- "fvm_ipld_encoding 0.2.3",
- "hex",
- "serde",
- "serde_json",
 ]
 
 [[package]]

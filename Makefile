@@ -1,4 +1,3 @@
-SER_TESTS = "tests/serialization_tests"
 VENDORED_DOCS_TOOLCHAIN := "nightly-2023-04-19"
 
 # Using https://github.com/tonistiigi/xx
@@ -102,7 +101,6 @@ lint-clippy:
 	cargo clippy --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --features submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
 DOCKERFILES=$(wildcard Dockerfile*)
@@ -127,11 +125,6 @@ docker-run:
 # Git submodule test vectors
 pull-serialization-tests:
 	git submodule update --init
-
-run-serialization-vectors:
-	cargo nextest run --manifest-path=$(SER_TESTS)/Cargo.toml --features submodule_tests
-
-run-vectors: run-serialization-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
@@ -180,4 +173,4 @@ vendored-docs:
 	RUSTDOCFLAGS="--deny=warnings --allow=rustdoc::private-intra-doc-links --document-private-items -Zunstable-options --enable-index-page" \
 		cargo +$(VENDORED_DOCS_TOOLCHAIN) doc --workspace --no-deps
 
-.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors vendored-docs
+.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs vendored-docs
