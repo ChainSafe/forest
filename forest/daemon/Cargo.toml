@@ -11,6 +11,7 @@ edition = "2021"
 anyhow.workspace = true
 byte-unit.workspace = true
 cfg-if.workspace = true
+chrono.workspace = true
 clap.workspace = true
 daemonize-me = "2.0"
 dialoguer.workspace = true

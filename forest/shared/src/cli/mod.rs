@@ -15,12 +15,14 @@ use byte_unit::Byte;
 use clap::Parser;
 use directories::ProjectDirs;
 use forest_networks::{ChainConfig, NetworkChain};
-use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
+use forest_utils::{
+    io::{read_file_to_string, read_toml, ProgressBarVisibility},
+    misc::LoggingColor,
+};
 use log::error;
 use num::BigInt;
 
 pub use self::{client::*, config::*};
-use crate::logger::LoggingColor;
 
 pub static HELP_MESSAGE: &str = "\
 {name} {version}

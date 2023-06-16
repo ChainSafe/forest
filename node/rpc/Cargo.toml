@@ -11,6 +11,7 @@ ahash.workspace = true
 anyhow.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
+chrono.workspace = true
 cid.workspace = true
 crossbeam = "0.8"
 fil_actor_interface.workspace = true
