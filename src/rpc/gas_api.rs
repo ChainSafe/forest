@@ -11,9 +11,9 @@ use crate::rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
+use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
