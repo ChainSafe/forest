@@ -1423,7 +1423,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
     for m in block.bls_msgs() {
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
-            &m.from.into(),
+            &m.from,
             *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
@@ -1474,7 +1474,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
         let sequence: u64 = match account_sequences.get(&msg.from()) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(&msg.from.into())?.ok_or_else(|| {
+                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
                     anyhow::anyhow!(
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )

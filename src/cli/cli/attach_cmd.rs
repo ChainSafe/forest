@@ -229,8 +229,6 @@ async fn send_message(
         Address::from_str(&from)?,
         Address::from_str(&to)?,
         humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
-        METHOD_SEND,
-        0,
     );
 
     let json_message = MessageJson(message);

@@ -9,18 +9,18 @@ pub fn valid_for_block_inclusion(
     min_gas: Gas,
     version: NetworkVersion,
 ) -> Result<(), anyhow::Error> {
-    use crate::shim::address::ZERO_ADDRESS;
+    use crate::shim::address::{Address, ZERO_ADDRESS};
     use crate::shim::econ::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }
-    if msg.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
+    if msg.to == Address::from(*ZERO_ADDRESS) && version >= NetworkVersion::V7 {
         anyhow::bail!("invalid 'to' address");
     }
     if msg.value.is_negative() {
         anyhow::bail!("message value cannot be negative");
     }
-    if msg.value > **TOTAL_FILECOIN {
+    if msg.value > *TOTAL_FILECOIN {
         anyhow::bail!("message value cannot be greater than total FIL supply");
     }
     if msg.gas_fee_cap.is_negative() {

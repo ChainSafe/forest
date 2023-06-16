@@ -675,12 +675,7 @@ where
                 )?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(
-                    &msg.from.into(),
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
             }
         }
     }
