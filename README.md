@@ -5,9 +5,6 @@
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
 [![Codecov](https://img.shields.io/codecov/c/gh/ChainSafe/forest?style=for-the-badge&token=1OHO2CSD17)](https://codecov.io/gh/ChainSafe/forest)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
-
-<!-- [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest) -->
-
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
 [![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE)
@@ -15,11 +12,15 @@
 [![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
 
-Forest is an implementation of [Filecoin](https://filecoin.io/) written in Rust.
-The implementation will take a modular approach to building a full Filecoin node
-in Rust from the
-[Filecoin Protocol Specification](https://filecoin-project.github.io/specs/),
-specifically the virtual machine, blockchain, and node system.
+Forest is a [Filecoin][filecoin] node written in [Rust][rust]. With Forest, you
+can:
+
+- Send and receive FIL,
+- participate in validating the Filecoin blockchain,
+- download and generate blockchain snapshots.
+
+While less feature-complete than the canonical Filecoin node, [Lotus][lotus],
+Forest aims to be the faster and easier-to-use alternative.
 
 ## Questions
 
@@ -276,7 +277,7 @@ You can detach Forest process via the `--detach` flag so that it runs in the
 background:
 
 ```bash
-./target/release/forest --target-peer-count 50 --detach
+./target/release/forest --detach
 ```
 
 The command will block until the detached Forest process has started its RPC
@@ -310,3 +311,7 @@ reproduction steps, version) to
 Forest is dual licensed under
 [MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) +
 [Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).
+
+[filecoin]: https://filecoin.io/
+[rust]: https://www.rust-lang.org/
+[lotus]: https://lotus.filecoin.io/
