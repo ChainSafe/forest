@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use fvm_ipld_encoding::{Cbor, RawBytes as RawBytes_v2};
 use fvm_ipld_encoding3::RawBytes as RawBytes_v3;
 use fvm_shared::message::Message as Message_v2;
-use fvm_shared3::message::Message as Message_v3;
+pub use fvm_shared3::message::Message as Message_v3;
 use serde::{Deserialize, Serialize};
 
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -118,35 +118,21 @@ impl From<&Message> for Message_v2 {
 
 impl Cbor for Message {}
 
-impl crate::shim::Inner for Message {
-    type FVM = Message_v3;
-}
-
 impl Message {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        version: u64,
+    pub fn transfer(
         from: Address,
         to: Address,
-        sequence: u64,
         value: TokenAmount,
         method_num: u64,
-        params: RawBytes_v3,
         gas_limit: u64,
-        gas_fee_cap: TokenAmount,
-        gas_premium: TokenAmount,
     ) -> Self {
         Message(Message_v3 {
-            version,
             from: from.into(),
             to: to.into(),
-            sequence,
             value: value.into(),
             method_num,
-            params,
             gas_limit,
-            gas_fee_cap: gas_fee_cap.into(),
-            gas_premium: gas_premium.into(),
+            ..Default::default()
         })
     }
 }

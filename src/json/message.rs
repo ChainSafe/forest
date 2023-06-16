@@ -8,6 +8,7 @@ pub mod json {
     use cid::Cid;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding3::RawBytes;
+    use fvm_shared3::message::Message as Message_v3;
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::json::address::json::AddressJson;
@@ -81,23 +82,23 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        let message = Message::new(
-            m.version,
-            Address::from(m.from),
-            Address::from(m.to),
-            m.sequence,
-            m.value,
-            m.method_num,
-            RawBytes::new(
+        Ok(Message_v3 {
+            version: m.version,
+            to: Address::from(m.to).into(),
+            from: Address::from(m.from).into(),
+            sequence: m.sequence,
+            value: m.value.into(),
+            gas_limit: m.gas_limit,
+            gas_fee_cap: m.gas_fee_cap.into(),
+            gas_premium: m.gas_premium.into(),
+            method_num: m.method_num,
+            params: RawBytes::new(
                 BASE64_STANDARD
                     .decode(m.params.unwrap_or_default())
                     .map_err(de::Error::custom)?,
             ),
-            m.gas_limit,
-            m.gas_fee_cap,
-            m.gas_premium,
-        );
-        Ok(message)
+        }
+        .into())
     }
 
     pub mod vec {

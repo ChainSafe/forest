@@ -332,7 +332,10 @@ pub mod tests {
     use crate::message::SignedMessage;
     use crate::networks::ChainConfig;
     use crate::shim::{
-        address::Address, crypto::SignatureType, econ::TokenAmount, message::Message,
+        address::Address,
+        crypto::SignatureType,
+        econ::TokenAmount,
+        message::{Message, Message_v3},
     };
     use num_traits::Zero;
     use test_provider::*;
@@ -352,15 +355,16 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg = Message::default();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).to = to.into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).from = from.into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).sequence = sequence;
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_limit = gas_limit as u64;
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_fee_cap =
-            TokenAmount::from_atto(gas_price + 100).into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_premium =
-            TokenAmount::from_atto(gas_price).into();
+        let umsg: Message = Message_v3 {
+            to: to.into(),
+            from: from.into(),
+            sequence,
+            gas_limit: gas_limit as u64,
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
+            gas_premium: TokenAmount::from_atto(gas_price).into(),
+            ..Message_v3::default()
+        }
+        .into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_unchecked(umsg, sig)
@@ -377,15 +381,16 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg = Message::default();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).to = to.into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).from = from.into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).sequence = sequence;
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_limit = gas_limit as u64;
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_fee_cap =
-            TokenAmount::from_atto(gas_price + 100).into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_premium =
-            TokenAmount::from_atto(gas_price).into();
+        let umsg: Message = Message_v3 {
+            to: to.into(),
+            from: from.into(),
+            sequence,
+            gas_limit: gas_limit as u64,
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
+            gas_premium: TokenAmount::from_atto(gas_price).into(),
+            ..Message_v3::default()
+        }
+        .into();
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid().unwrap();

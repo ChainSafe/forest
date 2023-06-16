@@ -8,7 +8,11 @@ use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use crate::message::SignedMessage;
-use crate::shim::{address::Address, crypto::Signature, message::Message};
+use crate::shim::{
+    address::Address,
+    crypto::Signature,
+    message::{Message, Message_v3},
+};
 use num::BigInt;
 
 #[test]
@@ -54,18 +58,30 @@ fn tipset_bundle_to_full_tipset() {
         .miner_address(Address::new_id(1))
         .build()
         .unwrap();
-    let ua = Message::default();
-    <Message as crate::shim::Inner>::FVM::from(&ua).to = Address::new_id(0).into();
-    <Message as crate::shim::Inner>::FVM::from(&ua).from = Address::new_id(0).into();
-    let ub = Message::default();
-    <Message as crate::shim::Inner>::FVM::from(&ub).to = Address::new_id(1).into();
-    <Message as crate::shim::Inner>::FVM::from(&ub).from = Address::new_id(1).into();
-    let uc = Message::default();
-    <Message as crate::shim::Inner>::FVM::from(&uc).to = Address::new_id(2).into();
-    <Message as crate::shim::Inner>::FVM::from(&uc).from = Address::new_id(2).into();
-    let ud = Message::default();
-    <Message as crate::shim::Inner>::FVM::from(&ud).to = Address::new_id(3).into();
-    <Message as crate::shim::Inner>::FVM::from(&ud).from = Address::new_id(3).into();
+    let ua: Message = Message_v3 {
+        to: Address::new_id(0).into(),
+        from: Address::new_id(0).into(),
+        ..Message_v3::default()
+    }
+    .into();
+    let ub: Message = Message_v3 {
+        to: Address::new_id(1).into(),
+        from: Address::new_id(1).into(),
+        ..Message_v3::default()
+    }
+    .into();
+    let uc: Message = Message_v3 {
+        to: Address::new_id(2).into(),
+        from: Address::new_id(2).into(),
+        ..Message_v3::default()
+    }
+    .into();
+    let ud: Message = Message_v3 {
+        to: Address::new_id(3).into(),
+        from: Address::new_id(3).into(),
+        ..Message_v3::default()
+    }
+    .into();
     let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
     let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
     let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));

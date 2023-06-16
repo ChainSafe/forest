@@ -12,7 +12,7 @@ use crate::shim::{
     executor::{ApplyRet, Receipt},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
-    message::Message,
+    message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
     Inner,
@@ -207,14 +207,21 @@ where
             &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
     ) -> Result<(), anyhow::Error> {
-        let mut cron_msg = Message::default();
-        cron_msg.from = Address::SYSTEM_ACTOR.into();
-        cron_msg.to = Address::CRON_ACTOR.into();
-        // Epoch as sequence is intentional
-        cron_msg.sequence = epoch as u64;
-        // Arbitrarily large gas limit for cron (matching Lotus value)
-        cron_msg.gas_limit = BLOCK_GAS_LIMIT as u64 * 10000;
-        cron_msg.method_num = cron::Method::EpochTick as u64;
+        let cron_msg: Message = Message_v3 {
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::CRON_ACTOR.into(),
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            // Arbitrarily large gas limit for cron (matching Lotus value)
+            gas_limit: BLOCK_GAS_LIMIT as u64 * 10000,
+            method_num: cron::Method::EpochTick as u64,
+            params: Default::default(),
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        }
+        .into();
 
         let ret = self.apply_implicit_message(&cron_msg)?;
         if let Some(err) = ret.failure_info() {
@@ -409,16 +416,21 @@ impl RewardCalc for RewardActorMessageCalc {
             win_count,
         })?;
 
-        let mut rew_msg = Message::default();
-        rew_msg.from = Address::SYSTEM_ACTOR.into();
-        rew_msg.to = Address::REWARD_ACTOR.into();
-        rew_msg.method_num = reward::Method::AwardBlockReward as u64;
-        rew_msg.params = params;
-        // Epoch as sequence is intentional
-        rew_msg.sequence = epoch as u64;
-        rew_msg.gas_limit = 1 << 30;
+        let rew_msg = Message_v3 {
+            from: Address::SYSTEM_ACTOR.into(),
+            to: Address::REWARD_ACTOR.into(),
+            method_num: reward::Method::AwardBlockReward as u64,
+            params,
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            gas_limit: 1 << 30,
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
 
-        Ok(Some(rew_msg))
+        Ok(Some(rew_msg.into()))
     }
 }
 
@@ -454,15 +466,20 @@ impl RewardCalc for FixedRewardCalc {
         _penalty: TokenAmount,
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
-        let mut msg = Message::default();
-        msg.from = Address::REWARD_ACTOR.into();
-        msg.to = miner.into();
-        msg.method_num = METHOD_SEND;
-        //Epoch as sequence is intentional
-        msg.sequence = epoch as u64;
-        msg.gas_limit = 1 << 30;
-        msg.value = (gas_reward + &self.reward).into();
+        let msg = Message_v3 {
+            from: Address::REWARD_ACTOR.into(),
+            to: miner.into(),
+            method_num: METHOD_SEND,
+            params: Default::default(),
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            gas_limit: 1 << 30,
+            value: (gas_reward + &self.reward).into(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
 
-        Ok(Some(msg))
+        Ok(Some(msg.into()))
     }
 }
