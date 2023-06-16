@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 48
+- Forest method count: 50
 - Lotus method count: 173
-- API coverage: 27.75%
+- API coverage: 28.90%
 
 ## Forest-only Methods
 
