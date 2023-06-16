@@ -5,7 +5,7 @@ use fvm::machine::MultiEngine as MultiEngine_v2;
 use fvm3::engine::MultiEngine as MultiEngine_v3;
 mod manifest_v3;
 pub use fvm::machine::Manifest as ManifestV2;
-pub use manifest_v3::ManifestV3;
+pub use manifest_v3::*;
 
 pub struct MultiEngine {
     pub v2: MultiEngine_v2,

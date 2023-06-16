@@ -2,55 +2,86 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use ahash::{HashMap, HashMapExt};
 use anyhow::{anyhow, Context};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding3::CborStore;
 
-const ACCOUNT_ACTOR_NAME: &str = "account";
-const INIT_ACTOR_NAME: &str = "init";
-const SYSTEM_ACTOR_NAME: &str = "system";
-const PLACEHOLDER_ACTOR_NAME: &str = "placeholder";
-const EAM_ACTOR_NAME: &str = "eam";
-const ETHACCOUNT_ACTOR_NAME: &str = "ethaccount";
-const MINER_ACTOR_NAME: &str = "storageminer";
-const POWER_ACTOR_NAME: &str = "storagepower";
+// For details on actor name and version: <https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/manifest/manifest.go#L36>
+
+pub const ACCOUNT_ACTOR_NAME: &str = "account";
+pub const CRON_ACTOR_NAME: &str = "cron";
+pub const INIT_ACTOR_NAME: &str = "init";
+pub const MARKET_ACTOR_NAME: &str = "storagemarket";
+pub const MINER_ACTOR_NAME: &str = "storageminer";
+pub const MULTISIG_ACTOR_NAME: &str = "multisig";
+pub const PAYCH_ACTOR_NAME: &str = "paymentchannel";
+pub const POWER_ACTOR_NAME: &str = "storagepower";
+pub const REWARD_ACTOR_NAME: &str = "reward";
+pub const SYSTEM_ACTOR_NAME: &str = "system";
+pub const VERIFREG_ACTOR_NAME: &str = "verifiedregistry";
+// actor version >= 9
+pub const DATACAP_ACTOR_NAME: &str = "datacap";
+// actor version >= 10
+pub const EVM_ACTOR_NAME: &str = "evm";
+pub const EAM_ACTOR_NAME: &str = "eam";
+pub const PLACEHOLDER_ACTOR_NAME: &str = "placeholder";
+pub const ETH_ACCOUNT_ACTOR_NAME: &str = "ethaccount";
+
+/// Manifest is serialized as a tuple of version and manifest actors cid
+pub type ManifestCbor = (u32, Cid);
+
+/// Manifest data is serialized as a vector of name-to-actor-cid pair
+pub type ManifestActorsCbor = Vec<(String, Cid)>;
 
 /// A mapping of builtin actor CIDs to their respective types.
 pub struct ManifestV3 {
-    account_code: Cid,
-    placeholder_code: Cid,
-    system_code: Cid,
-    init_code: Cid,
-    eam_code: Cid,
-    ethaccount_code: Cid,
-    miner_code: Cid,
-    power_code: Cid,
-
     by_id: HashMap<u32, Cid>,
     by_code: HashMap<Cid, u32>,
+    by_name: HashMap<String, Cid>,
+
+    actors_cid: Cid,
+
+    account_code: Cid,
+    cron_code: Cid,
+    init_code: Cid,
+    system_code: Cid,
 }
 
 impl ManifestV3 {
-    /// Load a manifest from the block store.
-    pub fn load<B: Blockstore>(bs: &B, root_cid: &Cid, ver: u32) -> anyhow::Result<Self> {
-        if ver != 1 {
-            return Err(anyhow!("unsupported manifest version {}", ver));
+    /// Load a manifest from the block store with manifest cid.
+    pub fn load<B: Blockstore>(bs: &B, manifest_cid: &Cid) -> anyhow::Result<Self> {
+        let (version, actors_cid): ManifestCbor = bs.get_cbor(manifest_cid)?.ok_or_else(|| {
+            anyhow::anyhow!("Failed to retrieve manifest with manifest cid {manifest_cid}")
+        })?;
+
+        Self::load_with_actors(bs, &actors_cid, version)
+    }
+
+    /// Load a manifest from the block store with actors cid and version.
+    pub fn load_with_actors<B: Blockstore>(
+        bs: &B,
+        actors_cid: &Cid,
+        version: u32,
+    ) -> anyhow::Result<Self> {
+        if version != 1 {
+            anyhow::bail!("unsupported manifest version {version}");
         }
 
-        let vec: Vec<(String, Cid)> = match bs.get_cbor(root_cid)? {
-            Some(vec) => vec,
-            None => {
-                return Err(anyhow!("cannot find manifest root cid {}", root_cid));
-            }
-        };
+        let actors: ManifestActorsCbor = bs.get_cbor(actors_cid)?.ok_or_else(|| {
+            anyhow::anyhow!("Failed to retrieve manifest actors with actors cid {actors_cid}")
+        })?;
 
-        Self::new(vec)
+        Self::new(actors, *actors_cid)
     }
 
     /// Construct a new manifest from actor name/CID tuples.
-    pub fn new(iter: impl IntoIterator<Item = (impl Into<String>, Cid)>) -> anyhow::Result<Self> {
+    fn new(
+        iter: impl IntoIterator<Item = (impl Into<String>, Cid)>,
+        actors_cid: Cid,
+    ) -> anyhow::Result<Self> {
         let mut by_name = HashMap::new();
         let mut by_id = HashMap::new();
         let mut by_code = HashMap::new();
@@ -69,51 +100,50 @@ impl ManifestV3 {
             .get(ACCOUNT_ACTOR_NAME)
             .context("manifest missing account actor")?;
 
-        let system_code = *by_name
-            .get(SYSTEM_ACTOR_NAME)
-            .context("manifest missing system actor")?;
+        let cron_code = *by_name
+            .get(CRON_ACTOR_NAME)
+            .context("manifest missing cron actor")?;
 
         let init_code = *by_name
             .get(INIT_ACTOR_NAME)
             .context("manifest missing init actor")?;
 
-        let placeholder_code = *by_name
-            .get(PLACEHOLDER_ACTOR_NAME)
-            .context("manifest missing placeholder actor")?;
-
-        let eam_code = *by_name
-            .get(EAM_ACTOR_NAME)
-            .context("manifest missing eam actor")?;
-
-        let ethaccount_code = *by_name
-            .get(ETHACCOUNT_ACTOR_NAME)
-            .context("manifest missing ethaccount actor")?;
-
-        let miner_code = *by_name
-            .get(MINER_ACTOR_NAME)
-            .context("manifest missing miner actor")?;
-
-        let power_code = *by_name
-            .get(POWER_ACTOR_NAME)
-            .context("manifest missing power actor")?;
+        let system_code = *by_name
+            .get(SYSTEM_ACTOR_NAME)
+            .context("manifest missing system actor")?;
 
         Ok(Self {
-            account_code,
-            system_code,
-            init_code,
-            placeholder_code,
-            eam_code,
-            ethaccount_code,
-            miner_code,
-            power_code,
             by_id,
             by_code,
+            by_name,
+            actors_cid,
+            account_code,
+            cron_code,
+            init_code,
+            system_code,
         })
+    }
+
+    /// Returns optional actors cid
+    pub fn actors_cid(&self) -> Cid {
+        self.actors_cid
     }
 
     /// Returns the code CID for a builtin actor, given the actor's ID.
     pub fn code_by_id(&self, id: u32) -> Option<&Cid> {
         self.by_id.get(&id)
+    }
+
+    /// Returns the code CID for a builtin actor, given the actor's name.
+    pub fn code_by_name(&self, name: &str) -> anyhow::Result<&Cid> {
+        self.by_name
+            .get(name)
+            .ok_or_else(|| anyhow!("Failed to retrieve actor code by name {name}"))
+    }
+
+    /// Returns true if the given code CID and actor name match.
+    pub fn is_actor_by_name(&self, cid: &Cid, name: &str) -> bool {
+        self.by_name.get(name).map(|c| c == cid).unwrap_or_default()
     }
 
     /// Returns the the actor code's "id" if it's a builtin actor. Otherwise,
@@ -122,62 +152,47 @@ impl ManifestV3 {
         self.by_code.get(code).copied().unwrap_or(0)
     }
 
-    /// Returns true id the passed code CID is the account actor.
-    pub fn is_account_actor(&self, cid: &Cid) -> bool {
-        &self.account_code == cid
-    }
-
-    /// Returns true id the passed code CID is the placeholder actor.
-    pub fn is_placeholder_actor(&self, cid: &Cid) -> bool {
-        &self.placeholder_code == cid
-    }
-
-    /// Returns true id the passed code CID is the `EthAccount` actor.
-    pub fn is_ethaccount_actor(&self, cid: &Cid) -> bool {
-        &self.ethaccount_code == cid
-    }
-
     pub fn builtin_actor_codes(&self) -> impl Iterator<Item = &Cid> {
         self.by_id.values()
     }
 
     /// Returns the code CID for the account actor.
-    pub fn get_account_code(&self) -> &Cid {
+    pub fn account_code(&self) -> &Cid {
         &self.account_code
     }
 
+    /// Returns true if the passed code CID is the account actor.
+    pub fn is_account_actor(&self, cid: &Cid) -> bool {
+        self.account_code() == cid
+    }
+
+    /// Returns the code CID for the cron actor.
+    pub fn cron_code(&self) -> &Cid {
+        &self.cron_code
+    }
+
+    /// Returns true if the passed code CID is the cron actor.
+    pub fn is_cron_actor(&self, cid: &Cid) -> bool {
+        self.cron_code() == cid
+    }
+
     /// Returns the code CID for the init actor.
-    pub fn get_init_code(&self) -> &Cid {
+    pub fn init_code(&self) -> &Cid {
         &self.init_code
     }
 
+    /// Returns true if the passed code CID is the init actor.
+    pub fn is_init_actor(&self, cid: &Cid) -> bool {
+        self.init_code() == cid
+    }
+
     /// Returns the code CID for the system actor.
-    pub fn get_system_code(&self) -> &Cid {
+    pub fn system_code(&self) -> &Cid {
         &self.system_code
     }
 
-    /// Returns the code CID for the `eam` actor.
-    pub fn get_eam_code(&self) -> &Cid {
-        &self.eam_code
-    }
-
-    /// Returns the code CID for the system actor.
-    pub fn get_placeholder_code(&self) -> &Cid {
-        &self.placeholder_code
-    }
-
-    /// Returns the code CID for the Ethereum Account actor.
-    pub fn get_ethaccount_code(&self) -> &Cid {
-        &self.ethaccount_code
-    }
-
-    /// Returns the code CID for the miner actor.
-    pub fn get_miner_code(&self) -> &Cid {
-        &self.miner_code
-    }
-
-    /// Returns the code CID for the power actor.
-    pub fn get_power_code(&self) -> &Cid {
-        &self.power_code
+    /// Returns true if the passed code CID is the system actor.
+    pub fn is_system_actor(&self, cid: &Cid) -> bool {
+        self.system_code() == cid
     }
 }
