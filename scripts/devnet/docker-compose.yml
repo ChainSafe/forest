@@ -4,29 +4,35 @@
 # - Lotus miner (2k build),
 # - Forest node.
 
-version: "3.7"
+version: "3.8"
 
 services:
+  # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
+  # to run a devnet. The initialisation is a lengthy process and occurs only at the first
+  # `docker-compose up`.
   lotus_init:
     build:
       context: .
       dockerfile: lotus.dockerfile
     volumes:
-      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
-      - lotus-data:/lotus_data
+      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - lotus-data:${LOTUS_DATA_DIR}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
-        lotus fetch-params 2048
-        if [ ! -f /lotus_data/NODE_INITIALISED ]; then
-          lotus-seed --sector-dir /lotus_data/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
-          lotus-seed --sector-dir /lotus_data/genesis-sectors genesis new /lotus_data/localnet.json
-          lotus-seed --sector-dir /lotus_data/genesis-sectors genesis add-miner /lotus_data/localnet.json /lotus_data/genesis-sectors/pre-seal-t01000.json
-          touch /lotus_data/NODE_INITIALISED
+        if [ ! -f ${LOTUS_DATA_DIR}/NODE_INITIALISED ]; then
+          lotus fetch-params 2048
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new ${LOTUS_DATA_DIR}/localnet.json
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis add-miner ${LOTUS_DATA_DIR}/localnet.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.json
+          touch ${LOTUS_DATA_DIR}/NODE_INITIALISED
         fi
 
+  # Lotus node that communicates with the miner and the Forest node.
+  # The RPC and P2P listening ports are exposed so Forest does not necessarily need to be running inside Docker.
+  # For development purposes it might be practical to comment out Forest part altogether and use a local build.
   lotus_node:
     depends_on:
       lotus_init:
@@ -46,18 +52,19 @@ services:
     networks:
       - devnet
     volumes:
-      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
-      - lotus-data:/lotus_data
+      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - lotus-data:${LOTUS_DATA_DIR}
     entrypoint: ["/bin/bash", "-c" ]
     ports:
-      - 1234:1234
-      - 9090:9090
+      - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
+      - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
     env_file:
       - lotus.env
     command:
       - |
-        lotus daemon --lotus-make-genesis=/lotus_data/devgen.car --genesis-template=/lotus_data/localnet.json --bootstrap=false
+        lotus daemon --lotus-make-genesis=${LOTUS_DATA_DIR}/devgen.car --genesis-template=${LOTUS_DATA_DIR}/localnet.json --bootstrap=false
 
+  # Lotus miner container. It communicates only with Lotus and not with Forest.
   lotus_miner:
     depends_on:
       lotus_node:
@@ -66,11 +73,18 @@ services:
       context: .
       dockerfile: lotus.dockerfile
     container_name: lotus-miner
+    healthcheck:
+      test: >-
+        curl -s http://lotus-miner:2345 || exit 1
+      interval: 20s
+      retries: 5
+      start_period: 6000s
+      timeout: 10s
     networks:
       - devnet
     volumes:
-      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
-      - lotus-data:/lotus_data
+      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - lotus-data:${LOTUS_DATA_DIR}
     entrypoint: ["/bin/bash", "-c" ]
     ports:
       - 2345:2345
@@ -79,10 +93,10 @@ services:
     restart: on-failure # lotus node might not be ready
     command:
       - |
-        if [ ! -f /lotus_data/MINER_INITIALISED ]; then
-          lotus wallet import --as-default /lotus_data/genesis-sectors/pre-seal-t01000.key
-          lotus-miner init --genesis-miner --actor=t01000 --sector-size=2KiB --pre-sealed-sectors=/lotus_data/genesis-sectors --pre-sealed-metadata=/lotus_data/genesis-sectors/pre-seal-t01000.json --nosync
-          touch /lotus_data/MINER_INITIALISED
+        if [ ! -f ${LOTUS_DATA_DIR}/MINER_INITIALISED ]; then
+          lotus wallet import --as-default ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.key
+          lotus-miner init --genesis-miner --actor=t01000 --sector-size=2KiB --pre-sealed-sectors=${LOTUS_DATA_DIR}/genesis-sectors --pre-sealed-metadata=${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.json --nosync
+          touch ${LOTUS_DATA_DIR}/MINER_INITIALISED
         fi
         lotus-miner run --nosync
 
@@ -95,7 +109,7 @@ services:
       context: .
       dockerfile: lotus.dockerfile
     volumes:
-      - lotus-data:/lotus_data
+      - lotus-data:${LOTUS_DATA_DIR}
     entrypoint: ["/bin/bash", "-c" ]
     env_file:
       - lotus.env
@@ -103,7 +117,7 @@ services:
       - devnet
     command:
       - |
-        lotus net id > /lotus_data/PEER_ID
+        lotus net id > ${LOTUS_DATA_DIR}/PEER_ID
 
   forest:
     user: root
@@ -115,34 +129,33 @@ services:
       dockerfile: Dockerfile
     healthcheck:
       test: |
-        export TOKEN=$$(cat /root/.local/share/forest/token.jwt)
-        export FULLNODE_API_INFO=$$TOKEN:/ip4/127.0.0.1/tcp/1236/http
+        export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http
         forest-cli sync status
       interval: 10s
       retries: 10
       timeout: 5s
       start_period: 15s
     volumes:
-      - lotus-data:/lotus_data
-      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
+      - lotus-data:${LOTUS_DATA_DIR}
+      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
-      - forest-data:/root/.local/share/forest
+      - forest-data:${FOREST_DATA_DIR}
     environment:
-      - FIL_PROOFS_PARAMETER_CACHE=/var/tmp/filecoin-proof-parameters
+      - FIL_PROOFS_PARAMETER_CACHE=${FILECOIN_PROOFS_DIR}
     networks:
       - devnet
     entrypoint:
       - /bin/bash
       - '-c'
       - |
-        set -eux
-        DATA_DIR=/root/.local/share/forest
-        if [ ! -f /root/.local/share/forest/forest_config.toml ]; then
-          export NETWORK_NAME=$$(grep -o \"localnet.*\" /lotus_data/localnet.json)
-          cp /forest/forest_config.toml.tpl $$DATA_DIR/forest_config.toml
-          echo name = $$NETWORK_NAME >> /root/.local/share/forest/forest_config.toml
+        set -eu
+        if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
+          export NETWORK_NAME=$$(grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json)
+          cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
+          echo name = $$NETWORK_NAME >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
-        forest --genesis /lotus_data/devgen.car --config $$DATA_DIR/forest_config.toml --save-token /root/.local/share/forest/token.jwt
+        forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt
 
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.
@@ -155,17 +168,18 @@ services:
       context: ../../.
       dockerfile: Dockerfile
     volumes:
-      - lotus-data:/lotus_data
-      - forest-data:/root/.local/share/forest
+      - lotus-data:${LOTUS_DATA_DIR}
+      - forest-data:${FOREST_DATA_DIR}
     networks:
       - devnet
     entrypoint:
       - /bin/bash
       - '-c'
       - |
-        export TOKEN=$$(cat /root/.local/share/forest/token.jwt)
-        export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/1236/http
-        forest-cli net connect /dns/lotus/tcp/9090/p2p/$$(cat /lotus_data/PEER_ID)
+        set -eu
+        export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
+        forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
 
 volumes:
   filecoin-proofs:

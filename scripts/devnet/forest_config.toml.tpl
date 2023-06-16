@@ -1,6 +1,7 @@
 [client]
-rpc_address = "0.0.0.0:1236"
+rpc_address = "0.0.0.0:3456"
 encrypt_keystore = false
+data_dir = "/forest_data"
 
 [network]
 kademlia = false
