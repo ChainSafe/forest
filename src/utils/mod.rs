@@ -131,3 +131,4 @@ mod tests {
         assert!(count.load(SeqCst) > 5);
     }
 }
+#[cfg(test)]mod tests {mod files;}

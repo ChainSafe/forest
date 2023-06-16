@@ -22,3 +22,4 @@ fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
 }
 
 pub use libipld_core::serde::{from_ipld, to_ipld};
+#[cfg(test)]mod tests {mod json_tests;mod selector_gen_tests;mod selector_explore;mod walk_tests;mod cbor_test;}

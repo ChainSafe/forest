@@ -8,3 +8,4 @@ mod mock_beacon;
 pub use beacon_entries::*;
 pub use drand::*;
 pub use mock_beacon::*;
+#[cfg(test)]mod tests {mod drand;}

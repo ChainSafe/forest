@@ -90,3 +90,4 @@ impl Message for ShimMessage {
         self.gas_premium = prem.into();
     }
 }
+#[cfg(test)]mod tests {mod builder_test;}

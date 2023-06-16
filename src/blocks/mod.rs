@@ -30,3 +30,4 @@ impl quickcheck::Arbitrary for ArbitraryCid {
         ))
     }
 }
+#[cfg(test)]mod tests {mod ticket_test;mod serialization_vectors;mod header_json_test;}
