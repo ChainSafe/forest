@@ -14,7 +14,7 @@ size or use `ulimit` to increase the open-files limit.
 Forest is compiled with `jemalloc` as a default allocator. If you are having
 problems running it, perhaps this checklist would help:
 
-1. Make sure you are using an arm64 version of homebrew, this could be a problem
+1. Make sure you are using an arm64 version of homebrew; this could be a problem
    one inherits when migrating from an Intel Mac to Apple Silicon:
    [Stackoverflow example](https://stackoverflow.com/a/68443301).
 2. Make sure your default host is set to `aarch64-apple-darwin` via
