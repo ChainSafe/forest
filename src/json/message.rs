@@ -97,7 +97,7 @@ pub mod json {
             m.gas_fee_cap,
             m.gas_premium,
         );
-        Ok(message.into())
+        Ok(message)
     }
 
     pub mod vec {

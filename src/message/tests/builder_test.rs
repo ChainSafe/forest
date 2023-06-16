@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::message::SignedMessage;
-use crate::shim::{
-    address::Address,
-    crypto::Signature,
-    message::Message,
-};
+use crate::shim::{address::Address, crypto::Signature, message::Message};
 use rand::{rngs::OsRng, RngCore};
 
 #[test]

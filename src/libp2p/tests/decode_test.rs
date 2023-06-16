@@ -8,11 +8,7 @@ use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use crate::message::SignedMessage;
-use crate::shim::{
-    address::Address,
-    crypto::Signature,
-    message::Message,
-};
+use crate::shim::{address::Address, crypto::Signature, message::Message};
 use num::BigInt;
 
 #[test]

@@ -232,7 +232,7 @@ async fn send_message(
     <Message as crate::shim::Inner>::FVM::from(&message).method_num = METHOD_SEND;
     <Message as crate::shim::Inner>::FVM::from(&message).gas_limit = 0;
 
-    let json_message = MessageJson(message.into());
+    let json_message = MessageJson(message);
     mpool_push_message((json_message, None), auth_token).await
 }
 

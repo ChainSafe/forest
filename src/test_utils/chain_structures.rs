@@ -9,11 +9,7 @@ use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use crate::message::SignedMessage;
-use crate::shim::{
-    address::Address,
-    crypto::Signature,
-    message::Message,
-};
+use crate::shim::{address::Address, crypto::Signature, message::Message};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use cid::{
     multihash::{Code::Blake2b256, MultihashDigest},
@@ -133,9 +129,9 @@ pub fn construct_full_tipset() -> FullTipset {
 
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (Message, SignedMessage) {
-let bls_messages = Message::default();
-<Message as crate::shim::Inner>::FVM::from(&bls_messages).to = Address::new_id(1).into();
-<Message as crate::shim::Inner>::FVM::from(&bls_messages).from = Address::new_id(2).into();
+    let bls_messages = Message::default();
+    <Message as crate::shim::Inner>::FVM::from(&bls_messages).to = Address::new_id(1).into();
+    <Message as crate::shim::Inner>::FVM::from(&bls_messages).from = Address::new_id(2).into();
 
     let secp_messages =
         SignedMessage::new_unchecked(bls_messages.clone(), Signature::new_secp256k1(vec![0]));

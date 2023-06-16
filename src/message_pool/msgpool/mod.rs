@@ -332,10 +332,7 @@ pub mod tests {
     use crate::message::SignedMessage;
     use crate::networks::ChainConfig;
     use crate::shim::{
-        address::Address,
-        crypto::SignatureType,
-        econ::TokenAmount,
-        message::Message,
+        address::Address, crypto::SignatureType, econ::TokenAmount, message::Message,
     };
     use num_traits::Zero;
     use test_provider::*;
@@ -362,7 +359,8 @@ pub mod tests {
         <Message as crate::shim::Inner>::FVM::from(&umsg).gas_limit = gas_limit as u64;
         <Message as crate::shim::Inner>::FVM::from(&umsg).gas_fee_cap =
             TokenAmount::from_atto(gas_price + 100).into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_premium = TokenAmount::from_atto(gas_price).into();
+        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_premium =
+            TokenAmount::from_atto(gas_price).into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_unchecked(umsg, sig)
@@ -386,7 +384,8 @@ pub mod tests {
         <Message as crate::shim::Inner>::FVM::from(&umsg).gas_limit = gas_limit as u64;
         <Message as crate::shim::Inner>::FVM::from(&umsg).gas_fee_cap =
             TokenAmount::from_atto(gas_price + 100).into();
-        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_premium = TokenAmount::from_atto(gas_price).into();
+        <Message as crate::shim::Inner>::FVM::from(&umsg).gas_premium =
+            TokenAmount::from_atto(gas_price).into();
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
         let cid = signed.cid().unwrap();

@@ -123,6 +123,7 @@ impl crate::shim::Inner for Message {
 }
 
 impl Message {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: u64,
         from: Address,

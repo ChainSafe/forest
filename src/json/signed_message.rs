@@ -98,12 +98,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use crate::message::{self, SignedMessage};
-    use crate::shim::{
-        address::Address,
-        crypto::Signature,
-        econ::TokenAmount,
-        message::Message,
-    };
+    use crate::shim::{address::Address, crypto::Signature, econ::TokenAmount, message::Message};
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
     use serde_json::{self, from_str, to_string};
