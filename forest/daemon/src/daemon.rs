@@ -119,6 +119,7 @@ pub(super) async fn start(
         FOREST_VERSION_STRING.as_str()
     );
 
+    let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = match get_keypair(&path.join("keypair")) {
         Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
@@ -365,6 +366,7 @@ pub(super) async fn start(
                     sync_state,
                     network_send,
                     network_name,
+                    start_time,
                     // TODO: the RPCState can fetch this itself from the StateManager
                     beacon: rpc_state_manager.beacon_schedule(),
                     chain_store: rpc_chain_store,

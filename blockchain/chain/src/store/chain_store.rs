@@ -38,7 +38,7 @@ use futures::{io::BufWriter, AsyncWrite};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use fvm_ipld_encoding::{Cbor, CborStore};
+use fvm_ipld_encoding::CborStore;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;

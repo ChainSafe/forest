@@ -9,6 +9,7 @@ mod db_api;
 mod gas_api;
 mod mpool_api;
 mod net_api;
+mod node_api;
 mod progress_api;
 mod rpc_http_handler;
 mod rpc_util;
@@ -24,8 +25,8 @@ use forest_beacon::Beacon;
 use forest_chain::Scale;
 use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
-    gas_api::*, mpool_api::*, net_api::*, progress_api::GET_PROGRESS, state_api::*, sync_api::*,
-    wallet_api::*,
+    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, progress_api::GET_PROGRESS,
+    state_api::*, sync_api::*, wallet_api::*,
 };
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Params, Server};
@@ -34,7 +35,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{
     beacon_api::beacon_get_entry,
-    common_api::{shutdown, version},
+    common_api::{shutdown, start_time, version},
     rpc_http_handler::rpc_http_handler,
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
@@ -128,6 +129,7 @@ where
             // Common API
             .with_method(VERSION, move || version(block_delay, forest_version))
             .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
+            .with_method(START_TIME, start_time::<DB, B>)
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)
@@ -137,6 +139,8 @@ where
             .with_method(DB_GC, db_api::db_gc::<DB, B>)
             // Progress API
             .with_method(GET_PROGRESS, progress_api::get_progress)
+            // Node API
+            .with_method(NODE_STATUS, node_api::node_status::<DB, B>)
             .finish_unwrapped(),
     );
 

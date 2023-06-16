@@ -86,6 +86,8 @@ Notable updates:
 
 - [#2967](https://github.com/ChainSafe/forest/issues/2967): Fix http-client
   concurrency issues caused by fetching root certificates multiple times.
+- [#2958](https://github.com/ChainSafe/forest/issues/2958): Fix occasional
+  consensus fault.
 - [#2950](https://github.com/ChainSafe/forest/pull/2950): Fix cases where ctrl-c
   would be ignored.
 - [#2934](https://github.com/ChainSafe/forest/issues/2934): Fix race condition

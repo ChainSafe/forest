@@ -10,8 +10,7 @@ edition = "2021"
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
-atty.workspace = true
-byte-unit.workspace = true
+byte-unit.workspace = "0.4"
 cfg-if.workspace = true
 chrono.workspace = true
 clap.workspace = true

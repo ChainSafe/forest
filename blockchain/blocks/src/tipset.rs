@@ -34,6 +34,16 @@ impl TipsetKeys {
     pub fn cids(&self) -> &[Cid] {
         &self.cids
     }
+
+    // Special encoding to match Lotus.
+    pub fn cid(&self) -> anyhow::Result<Cid> {
+        use fvm_ipld_encoding::RawBytes;
+        let mut bytes = Vec::new();
+        for cid in self.cids() {
+            bytes.append(&mut cid.to_bytes())
+        }
+        Ok(RawBytes::new(bytes).cid()?)
+    }
 }
 
 impl fmt::Display for TipsetKeys {
