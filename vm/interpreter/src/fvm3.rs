@@ -29,6 +29,7 @@ pub struct ForestExterns<DB> {
     epoch: ChainEpoch,
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
+    get_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<forest_blocks::TipsetKeys>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
 }
@@ -39,6 +40,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         epoch: ChainEpoch,
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
+        get_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<forest_blocks::TipsetKeys>>,
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
@@ -47,6 +49,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
             epoch,
             root,
             lookback,
+            get_tsk,
             db,
             chain_config,
         }
@@ -102,7 +105,7 @@ impl<DB: Blockstore> Externs for ForestExterns<DB> {}
 
 impl<DB> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
-        (self.lookback)(epoch)
+        (self.get_tsk)(epoch)?.cid()
     }
 }
 
