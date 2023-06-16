@@ -12,7 +12,7 @@ size or use `ulimit` to increase the open-files limit.
 #### Jemalloc issues on Apple Silicon macs
 
 Forest is compiled with `jemalloc` as a default allocator. If you are having
-problems running it, perhaps this checklist would help:
+problems running or compiling Forest, use this checklist:
 
 1. Make sure you are using an arm64 version of homebrew; this could be a problem
    one inherits when migrating from an Intel Mac to Apple Silicon:
