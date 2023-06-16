@@ -21,7 +21,7 @@ problems running or compiling Forest, use this checklist:
    `rustup set default-host aarch64-apple-darwin`.
 3. This could result in various errors related to the fact that you still have
    some of the libraries symlinked to `/usr/local/lib` from an intel Homebrew
-   version, this can be fixed by manually removing those and linking the correct
-   libraries from `/opt/homebrew/Cellar` or referencing `/opt/homebrew/lib`.
-   Note that you might need to install those libraries first using your arm64
-   Homebrew.
+   installation. The easiest fix for this is:
+   - Remove the libraries in question from `/usr/local/lib`.
+   - Add `export LIBRARY_PATH=/opt/homebrew/lib` to your bash profile.
+   - Source the new bash profile.
