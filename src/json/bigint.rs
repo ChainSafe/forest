@@ -61,7 +61,7 @@ mod tests {
     #[quickcheck]
     fn bigint_roundtrip(bigint: BigInt) {
         let serialized: String = crate::test_utils::to_string_with!(&bigint, json::serialize);
-        let parsed = crate::test_utils::from_str_with!(&serialized, json::deserialize);
+        let parsed = crate::from_str_with!(&serialized, json::deserialize);
         assert_eq!(bigint, parsed);
     }
 }

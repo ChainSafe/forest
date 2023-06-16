@@ -114,7 +114,7 @@ mod tests {
     fn postproof_roundtrip(postproof: PoStProof) {
         let serialized: String =
             crate::test_utils::to_string_with!(&postproof, super::json::serialize);
-        let parsed = crate::test_utils::from_str_with!(&serialized, super::json::deserialize);
+        let parsed = crate::from_str_with!(&serialized, super::json::deserialize);
         assert_eq!(postproof, parsed);
     }
 }

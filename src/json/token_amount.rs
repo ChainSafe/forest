@@ -67,7 +67,7 @@ mod tests {
     fn bigint_roundtrip(n: u64) {
         let token_amount = TokenAmount::from_atto(n);
         let serialized: String = crate::test_utils::to_string_with!(&token_amount, json::serialize);
-        let parsed = crate::test_utils::from_str_with!(&serialized, json::deserialize);
+        let parsed = crate::from_str_with!(&serialized, json::deserialize);
         assert_eq!(token_amount, parsed);
     }
 }

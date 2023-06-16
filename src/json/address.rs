@@ -127,7 +127,7 @@ mod tests {
     #[quickcheck]
     fn address_roundtrip(address: Address) {
         let serialized = crate::test_utils::to_string_with!(&address, json::serialize);
-        let parsed = crate::test_utils::from_str_with!(&serialized, json::deserialize);
+        let parsed = crate::from_str_with!(&serialized, json::deserialize);
         // Skip delegated addresses for now
         if address.protocol() != crate::shim::address::Protocol::Delegated {
             assert_eq!(address, parsed)
