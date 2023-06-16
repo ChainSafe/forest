@@ -15,8 +15,8 @@
 Forest is a [Filecoin] node written in [Rust]. With Forest, you can:
 
 - Send and receive FIL,
-- participate in validating the Filecoin blockchain,
-- download and generate blockchain snapshots.
+- validate the Filecoin blockchain,
+- generate blockchain snapshots.
 
 While less feature-complete than the canonical Filecoin node, [Lotus], Forest
 aims to be the faster and easier-to-use alternative.
