@@ -39,8 +39,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: |
-        lerna bootstrap
-        lerna run lint
+        yarn install
+        yarn js-lint
+        yarn js-fmt-check
   docker-lint:
     runs-on: ubuntu-latest
     steps:
