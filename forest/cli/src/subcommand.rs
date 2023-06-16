@@ -37,6 +37,7 @@ pub async fn process(
         Subcommand::State(cmd) => cmd.run(config).await,
         Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
         Subcommand::Send(cmd) => cmd.run(config).await,
+        Subcommand::Info(cmd) => cmd.run(config, opts).await,
         Subcommand::DB(cmd) => cmd.run(&config).await,
         Subcommand::Snapshot(cmd) => cmd.run(config).await,
         Subcommand::Attach(cmd) => cmd.run(config),

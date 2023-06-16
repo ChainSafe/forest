@@ -1,53 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
-
-use atty::Stream;
 use tracing_subscriber::{
     filter::{EnvFilter, LevelFilter},
     prelude::*,
 };
 
 use crate::cli::{CliOpts, LogConfig};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LoggingColor {
-    Always,
-    Auto,
-    Never,
-}
-
-impl LoggingColor {
-    fn coloring_enabled(&self) -> bool {
-        match self {
-            LoggingColor::Auto => atty::is(Stream::Stdout),
-            LoggingColor::Always => true,
-            LoggingColor::Never => false,
-        }
-    }
-}
-
-impl Default for LoggingColor {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
-
-impl FromStr for LoggingColor {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "auto" => Ok(LoggingColor::Auto),
-            "always" => Ok(LoggingColor::Always),
-            "never" => Ok(LoggingColor::Never),
-            _ => Err(Self::Err::msg(
-                "Invalid logging color output. Must be one of Auto, Always, Never",
-            )),
-        }
-    }
-}
 
 pub fn setup_logger(
     log_config: &LogConfig,

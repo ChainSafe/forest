@@ -12,6 +12,7 @@ mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
+mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
 pub mod send_cmd;
@@ -40,6 +41,7 @@ pub(super) use self::{
     shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
     sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
+use crate::cli::info_cmd::InfoCommand;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
@@ -97,6 +99,10 @@ pub enum Subcommand {
 
     /// Send funds between accounts
     Send(SendCommand),
+
+    /// Print node info
+    #[command(subcommand)]
+    Info(InfoCommand),
 
     /// Database management
     #[command(subcommand)]

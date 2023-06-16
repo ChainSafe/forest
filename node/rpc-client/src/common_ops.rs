@@ -19,3 +19,7 @@ pub async fn shutdown(
 ) -> Result<ShutdownResult, Error> {
     call(SHUTDOWN, params, auth_token).await
 }
+
+pub async fn start_time(auth_token: &Option<String>) -> Result<StartTimeResult, Error> {
+    call(START_TIME, (), auth_token).await
+}

@@ -35,6 +35,8 @@
 
 - [#2967](https://github.com/ChainSafe/forest/issues/2967): Fix http-client
   concurrency issues caused by fetching root certificates multiple times.
+- [#2958](https://github.com/ChainSafe/forest/issues/2958): Fix occasional
+  consensus fault.
 
 ### Added
 

@@ -20,6 +20,7 @@ These methods exist in Forest only and cannot be compared:
 - `Filecoin.ChainValidateTipSetCheckpoints`
 - `Filecoin.NetAddrsListen`
 - `Filecoin.NetPeers`
+- `Filecoin.StartTime`
 - `Filecoin.StateFetchRoot`
 - `Filecoin.StateGetReceipt`
 - `Filecoin.Version`
@@ -154,7 +155,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.MsigSwapApprove`                           | `-` | `-` |
 |   ❌    | `Filecoin.MsigSwapCancel`                            | `-` | `-` |
 |   ❌    | `Filecoin.MsigSwapPropose`                           | `-` | `-` |
-|   ❌    | `Filecoin.NodeStatus`                                | `-` | `-` |
+|   ✔️    | `Filecoin.NodeStatus`                                | `()` | `NodeStatus` |
 |   ❌    | `Filecoin.PaychAllocateLane`                         | `-` | `-` |
 |   ❌    | `Filecoin.PaychAvailableFunds`                       | `-` | `-` |
 |   ❌    | `Filecoin.PaychAvailableFundsByFromTo`               | `-` | `-` |

@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          submodules: "recursive" # checkout the serialization vectors
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
