@@ -37,7 +37,7 @@ pub type ManifestCbor = (u32, Cid);
 pub type ManifestActorsCbor = Vec<(String, Cid)>;
 
 /// A mapping of builtin actor CIDs to their respective types.
-pub struct ManifestV3 {
+pub struct Manifest {
     by_id: HashMap<u32, Cid>,
     by_code: HashMap<Cid, u32>,
     by_name: HashMap<String, Cid>,
@@ -50,7 +50,7 @@ pub struct ManifestV3 {
     system_code: Cid,
 }
 
-impl ManifestV3 {
+impl Manifest {
     /// Load a manifest from the block store with manifest cid.
     pub fn load<B: Blockstore>(bs: &B, manifest_cid: &Cid) -> anyhow::Result<Self> {
         let (version, actors_cid): ManifestCbor = bs.get_cbor(manifest_cid)?.ok_or_else(|| {
@@ -61,6 +61,7 @@ impl ManifestV3 {
     }
 
     /// Load a manifest from the block store with actors cid and version.
+    /// Note that only version 1 is supported.
     pub fn load_with_actors<B: Blockstore>(
         bs: &B,
         actors_cid: &Cid,

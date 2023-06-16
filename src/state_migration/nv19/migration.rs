@@ -7,7 +7,7 @@ use crate::networks::{ChainConfig, Height};
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::{ManifestV3, MINER_ACTOR_NAME, POWER_ACTOR_NAME},
+    machine::{Manifest, MINER_ACTOR_NAME, POWER_ACTOR_NAME},
     state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::anyhow;
@@ -35,9 +35,9 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .ok_or_else(|| anyhow!("system actor state not found"))?;
 
         let current_manifest =
-            ManifestV3::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
+            Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
 
-        let new_manifest = ManifestV3::load(&store, new_manifest)?;
+        let new_manifest = Manifest::load(&store, new_manifest)?;
 
         current_manifest.builtin_actor_codes().for_each(|code| {
             let id = current_manifest.id_by_code(code);
@@ -57,7 +57,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         self.add_migrator(
             *current_manifest.system_code(),
-            system::system_migrator(new_manifest.actors_cid(), *new_manifest.system_code()),
+            system::system_migrator(&new_manifest),
         );
 
         Ok(())

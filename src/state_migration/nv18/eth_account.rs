@@ -3,7 +3,7 @@
 
 use crate::shim::{
     address::Address,
-    machine::{ManifestV3, ETH_ACCOUNT_ACTOR_NAME},
+    machine::{Manifest, ETH_ACCOUNT_ACTOR_NAME},
     state_tree::{ActorState, StateTree},
 };
 use anyhow::anyhow;
@@ -41,7 +41,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for EthAccountPostMigrator {
             .ok_or_else(|| anyhow!("failed to get system actor state"))?;
 
         let new_manifest =
-            ManifestV3::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
+            Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
 
         let eth_account_actor = ActorState::new(
             *new_manifest.code_by_name(ETH_ACCOUNT_ACTOR_NAME)?,
