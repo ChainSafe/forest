@@ -1,63 +1,30 @@
-[workspace.package]
+[package]
+name = "forest-filecoin"
 version = "0.8.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
-[workspace]
-members = [
-  "forest/cli",
-  "forest/daemon",
-  "forest/shared",
-  "blockchain/beacon",
-  "blockchain/blocks",
-  "blockchain/chain",
-  "blockchain/state_manager",
-  "blockchain/chain_sync",
-  "blockchain/beacon",
-  "blockchain/message_pool",
-  "blockchain/consensus/fil_cns",
-  "blockchain/consensus/deleg_cns",
-  "vm/message",
-  "vm/interpreter",
-  "vm/state_migration",
-  "node/db",
-  "node/rpc",
-  "node/rpc-client",
-  "node/rpc-api",
-  "node/forest_libp2p",
-  "node/forest_libp2p/bitswap",
-  "node/forest_libp2p/bitswap/examples/*",
-  "ipld",
-  "key_management",
-  "networks",
-  "utils/auth",
-  "utils/genesis",
-  "utils/statediff",
-  "utils/test_utils",
-  "utils/metrics",
-  "utils/json",
-  "utils/forest_utils",
-  "utils/forest_shim",
-]
-resolver = "2"
-
-[workspace.dependencies]
+[dependencies]
 ahash = "0.8"
 anes = "0.1.6"
 anyhow = "1.0"
-assert_cmd = "2"
+argon2 = "0.5"
 async-compression = { version = "0.4", features = ["futures-io", "zstd"] }
 async-fs = "1"
+async-recursion = "1.0"
 async-trait = "0.1"
 atty = "0.2"
-axum = "0.6"
-backoff = "0.4"
+axum = { version = "0.6", features = ['ws'] }
+backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
+bigdecimal = "0.3.1"
 blake2b_simd = "1.0"
-# blst-portable flag avoids using CPU instructions which aren't available on older CPUs
-bls-signatures = { version = "0.13", default-features = false, features = ["blst-portable"] }
+bls-signatures = { version = "0.13", default-features = false, features = [
+  "blst-portable",
+] } # prevent SIGINT on CI runners by using portable assembly
+boa_engine = { version = "0.16.0", features = ["console"] }
 byte-unit = "4.0"
 byteorder = "1.4.3"
 bytes = "1.2"
@@ -65,12 +32,25 @@ cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
-colored = "2"
+colored = "2.0"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
+const-str = "0.5.4"
+convert_case = "0.6.0"
+crossbeam = "0.8"
+crossbeam-channel = "0.5"
+daemonize-me = "2.0"
+data-encoding = "2.3"
 derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
+fil_actor_account_state = "5"
+fil_actor_init_state = "5"
+fil_actor_interface = "5"
+fil_actor_miner_state = "5"
+fil_actor_power_state = "5"
+fil_actor_system_state = "5"
+fil_actors_shared = "5"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
 fs_extra = "1.2"
@@ -84,29 +64,60 @@ fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_shared = { version = "~2.4", default-features = false }
-fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false }
+fvm_shared = { version = "~2.4", default-features = false, features = ["testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = [
+  "testing",
+  "proofs",
+  "arb",
+] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
 http = "0.2.8"
 human-repr = "1.0"
+humantime = "2.1.0"
 hyper = { version = "0.14", features = ["client", "stream", "http1"] }
-hyper-rustls = "0.23"
+hyper-rustls = "0.23" # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
+jsonwebtoken = "8.1"
 lazy_static = "1.4"
 libc = "0.2"
-libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
-libipld-core = "0.14"
+libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
+libipld-core = { version = "0.14", features = ['serde-codec'] }
 libipld-macro = "0.14"
-libp2p = { version = "=0.51.1", default-features = false }
+libp2p = { version = "=0.51.1", default-features = false, features = [
+  'gossipsub',
+  'kad',
+  'identify',
+  'ping',
+  'mdns',
+  'noise',
+  'yamux',
+  'tcp',
+  'websocket',
+  'dns',
+  'request-response',
+  'metrics',
+  'tokio',
+  'macros',
+] }
 libsecp256k1 = "0.7"
-log = "0.4"
+log = { version = "0.4", features = ["serde"] }
 lru = "0.9"
+memory-stats = "1.1"
+mimalloc = { version = "0.1.34", optional = true, default_features = false }
 multibase = "0.9"
-multihash = { version = "0.16", default-features = false }
+multihash = { version = "0.16", features = [
+  'std',
+  'blake2b',
+  'derive',
+  'serde-codec',
+  'identity',
+  "multihash-impl",
+  "sha2",
+], default_features = false }
 nom = "7.1.3"
 nonempty = "0.8.0"
 nonzero_ext = "0.3.0"
@@ -117,31 +128,49 @@ num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
+parity-db = { version = "0.4.6", optional = true, default_features = false }
 parking_lot = "0.12"
 pbr = "1.1"
 pin-project-lite = "0.2"
 pretty_assertions = "1.3.0"
-prometheus = "0.13"
+prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.19"
+protobuf = "3.2"
 quickcheck = "1"
-quickcheck_macros = "1"
 rand = "0.8"
+rand_distr = "0.4"
+raw_sync = "0.1"
 rayon = "1.5"
-# use rustls instead of native (openSSL) tls to drop the number of build dependencies
-reqwest = { version = "0.11.18", default-features = false, features = ["stream", "rustls-tls"] }
-serde = { version = "1.0", default-features = false }
+reqwest = { version = "0.11.18", default-features = false, features = [
+  "stream",
+  "rustls-tls",
+] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
+rocksdb = { version = "0.20", optional = true, default_features = false, features = [
+  "lz4",
+] } #  only opt in to the compression we use, see #2227
+rustyline = "10.1.1"
+semver = "1.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.2"
 serde_json = "1.0"
 serde_tuple = "0.5"
 serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
+shared_memory = "0.12"
+similar = "2.2.1"
+slotmap = "1.0"
 smart-default = "0.7.1"
-strum = { version = "0.24.1", features = ["derive"] }
+statrs = "0.16"
+stdext = { version = "0.3", optional = true }
+strum = { version = "0.24", features = ["derive"] }
+strum_macros = "0.24"
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
-tokio = "1.28"
+ticker = "0.1"
+tikv-jemallocator = { version = "0.5", optional = true }
+tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7.0", features = ["compat"] }
 toml = "0.7"
@@ -151,46 +180,25 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
+uuid = { version = "1.3", features = ['v4'] }
 walkdir = "2"
+xsalsa20poly1305 = "0.9"
 
-fil_actor_account_state = "5"
-fil_actor_init_state = "5"
-fil_actor_interface = "5"
-fil_actor_miner_state = "5"
-fil_actor_power_state = "5"
-fil_actor_system_state = "5"
-fil_actors_shared = "5"
+[target.'cfg(unix)'.dependencies]
+termios = "0.3"
 
-forest_auth = { path = "./utils/auth" }
-forest_beacon = { path = "./blockchain/beacon" }
-forest_blocks = { path = "./blockchain/blocks" }
-forest_chain = { path = "./blockchain/chain" }
-forest_chain_sync = { path = "./blockchain/chain_sync" }
-forest_cli_shared = { path = "./forest/shared" }
-forest_db = { path = "./node/db" }
-forest_deleg_cns = { path = "./blockchain/consensus/deleg_cns" }
-forest_fil_cns = { path = "./blockchain/consensus/fil_cns" }
-forest_genesis = { path = "./utils/genesis" }
-forest_interpreter = { path = "./vm/interpreter" }
-forest_ipld = { path = "./ipld" }
-forest_json = { path = "./utils/json" }
-forest_key_management = { path = "./key_management" }
-forest_libp2p = { path = "./node/forest_libp2p" }
-forest_libp2p_bitswap = { path = "./node/forest_libp2p/bitswap" }
-forest_message = { path = "./vm/message", default-features = false }
-forest_message_pool = { path = "./blockchain/message_pool" }
-forest_metrics = { path = "./utils/metrics" }
-forest_networks = { path = "./networks" }
-forest_rpc = { path = "./node/rpc" }
-forest_rpc-api = { path = "./node/rpc-api" }
-forest_rpc-client = { path = "./node/rpc-client" }
-forest_shim = { path = "./utils/forest_shim" }
-forest_state_manager = { path = "./blockchain/state_manager" }
-forest_state_migration = { path = "./vm/state_migration" }
-forest_statediff = { path = "./utils/statediff" }
-forest_test_utils = { path = "./utils/test_utils" }
-forest_utils = { path = "./utils/forest_utils" }
-humantime = "2.1.0"
+[dev-dependencies]
+assert_cmd = "2"
+cs_serde_bytes = "0.12.2"
+libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
+multiaddr = "0.17.1"
+num-bigint = { version = "0.4", features = ['quickcheck'] }
+quickcheck_macros = "1"
+
+[build-dependencies]
+anyhow = "1"
+protobuf-codegen = "3.2"
+walkdir = "2.3"
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
@@ -209,3 +217,22 @@ lto = "off"
 strip = true
 panic = "abort"
 overflow-checks = true
+
+# These should be refactored (probably removed) in #2984
+[features]
+default = ["paritydb", "jemalloc", "fil_cns"]
+instrumented_kernel = ["dep:stdext"]
+insecure_post = []
+
+# Databases
+paritydb = ["dep:parity-db"]
+rocksdb = ["dep:rocksdb"]
+
+# Allocator
+rustalloc = []
+jemalloc = ["dep:tikv-jemallocator", "rocksdb?/jemalloc"]
+mimalloc = ["dep:mimalloc"]
+
+# Consensus
+fil_cns = []
+deleg_cns = []
