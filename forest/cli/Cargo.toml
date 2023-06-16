@@ -45,6 +45,7 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
+humantime.workspace = true
 jsonrpc-v2.workspace = true
 log.workspace = true
 multibase.workspace = true
@@ -54,6 +55,7 @@ rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde_tuple.workspace = true
+strum.workspace = true
 tempfile.workspace = true
 ticker = "0.1"
 tokio = { workspace = true, features = ["sync"] }
@@ -63,6 +65,7 @@ toml.workspace = true
 assert_cmd.workspace = true
 pretty_assertions.workspace = true
 quickcheck.workspace = true
+quickcheck_macros.workspace = true
 rand.workspace = true
 
 [features]

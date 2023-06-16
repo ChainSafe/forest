@@ -60,7 +60,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Wallet API
     access.insert(wallet_api::WALLET_BALANCE, Access::Write);
-    access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Write);
+    access.insert(wallet_api::WALLET_BALANCE, Access::Read);
+    access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Read);
     access.insert(wallet_api::WALLET_EXPORT, Access::Admin);
     access.insert(wallet_api::WALLET_HAS, Access::Write);
     access.insert(wallet_api::WALLET_IMPORT, Access::Admin);
@@ -90,6 +91,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Common API
     access.insert(common_api::VERSION, Access::Read);
     access.insert(common_api::SHUTDOWN, Access::Admin);
+    access.insert(common_api::START_TIME, Access::Read);
 
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
@@ -102,6 +104,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Progress API
     access.insert(progress_api::GET_PROGRESS, Access::Read);
+    // Node API
+    access.insert(node_api::NODE_STATUS, Access::Read);
 
     access
 });
@@ -402,6 +406,8 @@ pub mod gas_api {
 
 /// Common API
 pub mod common_api {
+    use chrono::Utc;
+
     use super::data_types::APIVersion;
 
     pub const VERSION: &str = "Filecoin.Version";
@@ -411,6 +417,10 @@ pub mod common_api {
     pub const SHUTDOWN: &str = "Filecoin.Shutdown";
     pub type ShutdownParams = ();
     pub type ShutdownResult = ();
+
+    pub const START_TIME: &str = "Filecoin.StartTime";
+    pub type StartTimeParams = ();
+    pub type StartTimeResult = chrono::DateTime<Utc>;
 }
 
 /// Net API
@@ -453,5 +463,39 @@ pub mod progress_api {
     pub enum GetProgressType {
         SnapshotExport,
         DatabaseGarbageCollection,
+    }
+}
+
+/// Node API
+pub mod node_api {
+    pub const NODE_STATUS: &str = "Filecoin.NodeStatus";
+    pub type NodeStatusParams = ();
+    pub type NodeStatusResult = NodeStatus;
+
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, Default)]
+    pub struct NodeSyncStatus {
+        pub epoch: u64,
+        pub behind: u64,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Default)]
+    pub struct NodePeerStatus {
+        pub peers_to_publish_msgs: u32,
+        pub peers_to_publish_blocks: u32,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Default)]
+    pub struct NodeChainStatus {
+        pub blocks_per_tipset_last_100: f64,
+        pub blocks_per_tipset_last_finality: f64,
+    }
+
+    #[derive(Debug, Deserialize, Default, Serialize)]
+    pub struct NodeStatus {
+        pub sync_status: NodeSyncStatus,
+        pub peer_status: NodePeerStatus,
+        pub chain_status: NodeChainStatus,
     }
 }

@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 46
+- Forest method count: 48
 - Lotus method count: 173
-- API coverage: 26.59%
+- API coverage: 27.75%
 
 ## Forest-only Methods
 
@@ -19,6 +19,7 @@ These methods exist in Forest only and cannot be compared:
 - `Filecoin.ChainValidateTipSetCheckpoints`
 - `Filecoin.NetAddrsListen`
 - `Filecoin.NetPeers`
+- `Filecoin.StartTime`
 - `Filecoin.StateFetchRoot`
 - `Filecoin.StateGetReceipt`
 - `Filecoin.Version`
@@ -153,7 +154,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.MsigSwapApprove`                           | `-` | `-` |
 |   ❌    | `Filecoin.MsigSwapCancel`                            | `-` | `-` |
 |   ❌    | `Filecoin.MsigSwapPropose`                           | `-` | `-` |
-|   ❌    | `Filecoin.NodeStatus`                                | `-` | `-` |
+|   ✔️    | `Filecoin.NodeStatus`                                | `()` | `NodeStatus` |
 |   ❌    | `Filecoin.PaychAllocateLane`                         | `-` | `-` |
 |   ❌    | `Filecoin.PaychAvailableFunds`                       | `-` | `-` |
 |   ❌    | `Filecoin.PaychAvailableFundsByFromTo`               | `-` | `-` |
