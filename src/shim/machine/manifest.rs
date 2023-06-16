@@ -30,10 +30,10 @@ pub const EAM_ACTOR_NAME: &str = "eam";
 pub const PLACEHOLDER_ACTOR_NAME: &str = "placeholder";
 pub const ETH_ACCOUNT_ACTOR_NAME: &str = "ethaccount";
 
-/// Manifest is serialized as a tuple of version and manifest actors cid
+/// Manifest is serialized as a tuple of version and manifest actors CID
 pub type ManifestCbor = (u32, Cid);
 
-/// Manifest data is serialized as a vector of name-to-actor-cid pair
+/// Manifest data is serialized as a vector of name-to-actor-CID pair
 pub type ManifestActorsCbor = Vec<(String, Cid)>;
 
 /// A mapping of builtin actor CIDs to their respective types.
@@ -51,7 +51,7 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    /// Load a manifest from the block store with manifest cid.
+    /// Load a manifest from the block store with manifest CID.
     pub fn load<B: Blockstore>(bs: &B, manifest_cid: &Cid) -> anyhow::Result<Self> {
         let (version, actors_cid): ManifestCbor = bs.get_cbor(manifest_cid)?.ok_or_else(|| {
             anyhow::anyhow!("Failed to retrieve manifest with manifest cid {manifest_cid}")
@@ -60,7 +60,7 @@ impl Manifest {
         Self::load_with_actors(bs, &actors_cid, version)
     }
 
-    /// Load a manifest from the block store with actors cid and version.
+    /// Load a manifest from the block store with actors CID and version.
     /// Note that only version 1 is supported.
     pub fn load_with_actors<B: Blockstore>(
         bs: &B,
@@ -125,7 +125,7 @@ impl Manifest {
         })
     }
 
-    /// Returns optional actors cid
+    /// Returns optional actors CID
     pub fn actors_cid(&self) -> Cid {
         self.actors_cid
     }
