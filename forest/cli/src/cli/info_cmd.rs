@@ -333,42 +333,4 @@ mod tests {
             .format(DateTime::<chrono::Utc>::MIN_UTC)
             .contains(&expected_status_fmt));
     }
-
-    // FIXME: enable/debug this failing when color output is supported.
-    //     #[test]
-
-    //     fn test_node_info_formattting() {
-    //         // no color tests
-    //         #[rustfmt::skip]
-    //         let no_color_expected_output = r#"Network: calibnet
-    // Uptime: 524277years 2months 24days 20h 52m 47s (Started at: -262144-01-01 00:00:00 +00:00)
-    // Chain: [sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 9223372036854775807]
-    // Chain health: 90.00%
-
-    // Default wallet address: -
-    // "#;
-
-    //         let node_status = mock_node_status();
-    //         assert_eq!(
-    //             node_status.format(DateTime::<chrono::Utc>::MAX_UTC, false),
-    //             no_color_expected_output
-    //         );
-
-    //         let color = LoggingColor::default();
-    //         if color.coloring_enabled() {
-    //             // with color tests
-    //             #[rustfmt::skip]
-    //             let with_color_expected_output = "Network: \u{1b}[32mcalibnet\u{1b}[0m
-    // Uptime: 524277years 2months 24days 20h 52m 47s (Started at: -262144-01-01 00:00:00 +00:00)
-    // Chain: \u{1b}[34m[sync: Ok! (0s behind)] [basefee: 1 FIL] [epoch: 9223372036854775807]\u{1b}[0m
-    // Chain health: \u{1b}[32m90.00%\n\n\u{1b}[0m
-    // Default wallet address: \u{1b}[1m-\u{1b}[0m \u{1b}[1m\u{1b}[0m
-    // ";
-    //             let node_status = mock_node_status();
-    //             assert_eq!(
-    //                 node_status.format(DateTime::<chrono::Utc>::MAX_UTC, color.coloring_enabled()),
-    //                 with_color_expected_output
-    //             );
-    //         }
-    //     }
 }
