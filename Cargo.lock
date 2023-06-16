@@ -3727,12 +3727,15 @@ dependencies = [
  "anyhow",
  "cid",
  "crossbeam-channel",
+ "fil_actor_account_state",
+ "fil_actor_cron_state",
  "fil_actor_datacap_state",
  "fil_actor_init_state",
  "fil_actor_interface",
  "fil_actor_market_state",
  "fil_actor_miner_state",
  "fil_actor_power_state",
+ "fil_actor_reward_state",
  "fil_actor_system_state",
  "fil_actor_verifreg_state",
  "fil_actors_shared",
@@ -3750,6 +3753,7 @@ dependencies = [
  "log",
  "num_cpus",
  "rayon",
+ "serde",
  "unsigned-varint",
 ]
 

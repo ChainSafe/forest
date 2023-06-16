@@ -36,3 +36,9 @@ fil_actor_power_state.workspace = true
 fil_actor_system_state.workspace = true
 fil_actor_verifreg_state.workspace = true
 fil_actors_shared.workspace = true
+
+[dev-dependencies]
+fil_actor_account_state.workspace = true
+fil_actor_cron_state.workspace = true
+fil_actor_reward_state.workspace = true
+serde = { workspace = true, features = ["derive"] }

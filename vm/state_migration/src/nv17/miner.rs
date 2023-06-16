@@ -371,3 +371,270 @@ fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
         cid.to_string_of_base(Base::Base32Lower)?,
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::nv17::ManifestOld;
+
+    use super::*;
+    use anyhow::*;
+    use cid::multihash::MultihashDigest;
+    use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
+    use forest_shim::{
+        econ::TokenAmount,
+        machine::ManifestV2,
+        state_tree::{ActorState, StateTree, StateTreeVersion},
+    };
+    use fvm_ipld_blockstore::MemoryBlockstore;
+    use fvm_ipld_encoding::IPLD_RAW;
+    use fvm_shared::{bigint::Zero, state::StateRoot};
+
+    #[test]
+    fn test_nv17_miner_migration() -> Result<()> {
+        let store = MemoryBlockstore::new();
+        make_input_tree(&store)?;
+
+        Ok(())
+    }
+
+    fn make_input_tree<BS: Blockstore + Clone>(store: BS) -> Result<Cid> {
+        let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
+
+        let (manifest_cid, manifest_data_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
+        let account_cid = manifest.get_account_code();
+        // fmt.Printf("accountCid: %s\n", accountCid)
+        ensure!(account_cid.to_string() == "bafkqadlgnfwc6obpmfrwg33vnz2a");
+        let system_cid = manifest.get_system_code();
+        // fmt.Printf("systemCid: %s\n", systemCid)
+        ensure!(system_cid.to_string() == "bafkqaddgnfwc6obpon4xg5dfnu");
+        let system_state = fil_actor_system_state::v9::State {
+            builtin_actors: manifest_data_cid,
+        };
+        let system_state_cid = store.put_cbor_default(&system_state)?;
+        ensure!(
+            system_state_cid.to_string()
+                == "bafy2bzacebrujchvrqxwiml3aaud4ts7kgj74kkf7qewwmrsj5tvhneeamtlq"
+        );
+        init_actor(
+            &mut tree,
+            system_state_cid,
+            *system_cid,
+            &fil_actor_interface::system::ADDRESS.into(),
+            Zero::zero(),
+        )?;
+
+        let init_cid = manifest.get_init_code();
+        // fmt.Printf("initCid: %s\n", initCid)
+        ensure!(init_cid.to_string() == "bafkqactgnfwc6obpnfxgs5a");
+        let init_state = fil_actor_init_state::v8::State::new(&store, "migrationtest".into())?;
+        let init_state_cid = store.put_cbor_default(&init_state)?;
+        ensure!(
+            init_state_cid.to_string()
+                == "bafy2bzacednf3o3eyjwkm2isixe5lezt6klncgz5axriewegbkw34r6pqszbe"
+        );
+        init_actor(
+            &mut tree,
+            init_state_cid,
+            *init_cid,
+            &fil_actor_interface::init::ADDRESS.into(),
+            Zero::zero(),
+        )?;
+
+        // Missing rust API, hard-coded here.
+        // fmt.Printf("rewardCid: %s\n", rewardCid)
+        let reward_cid = Cid::from_str("bafkqaddgnfwc6obpojsxoylsmq")?;
+        let reward_state = fil_actor_reward_state::v8::State::new(Default::default());
+        let reward_state_cid = store.put_cbor_default(&reward_state)?;
+        ensure!(
+            reward_state_cid.to_string()
+                == "bafy2bzaceaslbmsgmgmfi6pn2osvqcfuqinauuyt67zifnefurhpk4zxd2fos"
+        );
+        init_actor(
+            &mut tree,
+            reward_state_cid,
+            reward_cid,
+            &fil_actor_interface::reward::ADDRESS.into(),
+            TokenAmount::from_whole(1_100_000_000),
+        )?;
+
+        // Missing rust API, hard-coded here.
+        // fmt.Printf("cronCid: %s\n", cronCid)
+        let cron_cid = Cid::from_str("bafkqactgnfwc6obpmnzg63q")?;
+        let cron_state = fil_actor_cron_state::v8::State {
+            entries: vec![
+                fil_actor_cron_state::v8::Entry {
+                    receiver: fil_actor_interface::power::ADDRESS.into(),
+                    method_num: fil_actor_interface::power::Method::OnEpochTickEnd as u64,
+                },
+                fil_actor_cron_state::v8::Entry {
+                    receiver: fil_actor_interface::market::ADDRESS.into(),
+                    method_num: fil_actor_interface::market::Method::CronTick as u64,
+                },
+            ],
+        };
+        let cron_state_cid = store.put_cbor_default(&cron_state)?;
+        ensure!(
+            cron_state_cid.to_string()
+                == "bafy2bzacebs5dwwxmsjmzvoqcamx3qtl2x5qpqgpqxgnzl7scccmbvd37ulvs"
+        );
+        init_actor(
+            &mut tree,
+            cron_state_cid,
+            cron_cid,
+            &fil_actor_interface::cron::ADDRESS.into(),
+            Zero::zero(),
+        )?;
+        // Missing rust API, hard-coded here.
+        // fmt.Printf("powerCid: %s\n", powerCid)
+        let power_cid = Cid::from_str("bafkqaetgnfwc6obpon2g64tbm5sxa33xmvza")?;
+        let power_state = fil_actor_power_state::v8::State::new(&store)?;
+        let power_state_cid = store.put_cbor_default(&power_state)?;
+        ensure!(
+            power_state_cid.to_string()
+                == "bafy2bzacebx3h3ib435qrzwb7zj7enrgepqeiyyeqpq6zwygasoag4m3mhy3w"
+        );
+        init_actor(
+            &mut tree,
+            power_state_cid,
+            power_cid,
+            &fil_actor_interface::power::ADDRESS.into(),
+            Zero::zero(),
+        )?;
+
+        // Missing rust API, hard-coded here.
+        // fmt.Printf("marketCid: %s\n", marketCid)
+        let market_cid = Cid::from_str("bafkqae3gnfwc6obpon2g64tbm5sw2ylsnnsxi")?;
+        let market_state = fil_actor_market_state::v8::State::new(&store)?;
+        let market_state_cid = store.put_cbor_default(&market_state)?;
+        ensure!(
+            market_state_cid.to_string()
+                == "bafy2bzacea5udmevoj4io3yqy7ku7aitblugdvirbirg7wstzstb5xub5empc"
+        );
+        init_actor(
+            &mut tree,
+            market_state_cid,
+            market_cid,
+            &fil_actor_interface::market::ADDRESS.into(),
+            Zero::zero(),
+        )?;
+
+        // this will need to be replaced with the address of a multisig actor for the verified registry to be tested accurately
+        let verifreg_root = Address::new_id(80);
+        let account_state = fil_actor_account_state::v8::State {
+            address: verifreg_root.into(),
+        };
+        let account_state_cid = store.put_cbor_default(&account_state)?;
+        ensure!(
+            account_state_cid.to_string()
+                == "bafy2bzaceajm42pledpxusdh4owdrdfvv463dthqg24npeeaz4jlbgzdcgkve"
+        );
+        init_actor(
+            &mut tree,
+            account_state_cid,
+            *account_cid,
+            &account_state.address.into(),
+            Zero::zero(),
+        )?;
+
+        // Missing rust API, hard-coded here.
+        // fmt.Printf("verifregCid: %s\n", verifregCid)
+        let verifreg_cid = Cid::from_str("bafkqaftgnfwc6obpozsxe2lgnfswi4tfm5uxg5dspe")?;
+        let verifreg_state =
+            fil_actor_verifreg_state::v8::State::new(&store, verifreg_root.into())?;
+        let verifreg_state_cid = store.put_cbor_default(&verifreg_state)?;
+        ensure!(
+            verifreg_state_cid.to_string()
+                == "bafy2bzacea4jwfpd5vmqmq6y3qb5gnv4zv5nitpq5qkhvzzzqzd2hapcibwse"
+        );
+        init_actor(
+            &mut tree,
+            verifreg_state_cid,
+            verifreg_cid,
+            &fil_actors_shared::v8::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.into(),
+            Zero::zero(),
+        )?;
+
+        // burnt funds
+        let account_state = fil_actor_account_state::v8::State {
+            address: BURNT_FUNDS_ACTOR_ADDR,
+        };
+        let account_state_cid = store.put_cbor_default(&account_state)?;
+        ensure!(
+            account_state_cid.to_string()
+                == "bafy2bzacedpuk5ggwoq3s2wixsyjjnexpsjstdlyntio76vs2lt2jvy3o6mau"
+        );
+        init_actor(
+            &mut tree,
+            account_state_cid,
+            *account_cid,
+            &account_state.address.into(),
+            Zero::zero(),
+        )?;
+
+        let tree_root = tree.flush()?;
+        println!("tree_root: {tree_root}");
+        let state_root: StateRoot = store.get_cbor(&tree_root)?.unwrap();
+        ensure!(
+            state_root.actors.to_string()
+                == "bafy2bzacecrfiicgwyogqfyovj5jld3oylod5ezp36tpyebwcuiz7wo3xxszy"
+        );
+
+        Ok(state_root.actors)
+    }
+
+    fn init_actor<BS: Blockstore + Clone>(
+        tree: &mut StateTree<BS>,
+        state: Cid,
+        code: Cid,
+        addr: &Address,
+        balance: TokenAmount,
+    ) -> Result<()> {
+        let actor = ActorState::new(code, state, balance, 0, None);
+        tree.set_actor(addr, actor)?;
+
+        Ok(())
+    }
+
+    fn make_test_manifest<BS: Blockstore>(
+        store: &BS,
+        prefix: &str,
+    ) -> Result<(Cid, Cid, ManifestV2)> {
+        let mut manifest_data = vec![];
+        for name in [
+            "account",
+            "cron",
+            "init",
+            "storagemarket",
+            "storageminer",
+            "multisig",
+            "paymentchannel",
+            "storagepower",
+            "reward",
+            "system",
+            "verifiedregistry",
+            "datacap",
+        ] {
+            let hash = cid::multihash::Code::Identity.digest(format!("{prefix}{name}").as_bytes());
+            let code_cid = Cid::new_v1(IPLD_RAW, hash);
+            manifest_data.push((name, code_cid));
+        }
+        let manifest_data_cid = store.put_cbor_default(&manifest_data)?;
+        // Output from Go: fmt.Printf("manifestDataCid:%s\n", manifestDataCid.String())
+        ensure!(
+            manifest_data_cid.to_string()
+                == "bafy2bzaceb7wfqkjc5c3ccjyhaf7zuhkvbzpvhnb35feaettztoharc7zdndc"
+        );
+
+        let manifest = ManifestV2::new(manifest_data)?;
+        let manifest_cid = store.put_cbor_default(&(1, manifest_data_cid))?;
+        // Output from Go: fmt.Printf("manifestCid:%s\n", manifestCid.String())
+        ensure!(
+            manifest_cid.to_string()
+                == "bafy2bzaceay4j73u6k2sqskjk6ru47v6l6uw2qyen77u47eduj4gbdmpqu65o"
+        );
+
+        Ok((manifest_cid, manifest_data_cid, manifest))
+    }
+}
