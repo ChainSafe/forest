@@ -8,18 +8,18 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use forest_beacon::Beacon;
-use forest_blocks::{
+use crate::beacon::Beacon;
+use crate::blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use forest_json::{cid::CidJson, message::json::MessageJson};
-use forest_rpc_api::{
+use crate::json::{cid::CidJson, message::json::MessageJson};
+use crate::rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
-use forest_shim::message::Message;
-use forest_utils::io::VoidAsyncWriter;
+use crate::shim::message::Message;
+use crate::utils::io::VoidAsyncWriter;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
@@ -29,7 +29,7 @@ use tempfile::NamedTempFile;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
-pub(crate) async fn chain_get_message<DB, B>(
+pub(in crate::rpc) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetMessageParams>,
 ) -> Result<ChainGetMessageResult, JsonRpcError>
@@ -46,7 +46,7 @@ where
     Ok(MessageJson(ret))
 }
 
-pub(crate) async fn chain_export<DB, B>(
+pub(in crate::rpc) async fn chain_export<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(ChainExportParams {
         epoch,
@@ -149,7 +149,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn chain_read_obj<DB, B>(
+pub(in crate::rpc) async fn chain_read_obj<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainReadObjParams>,
 ) -> Result<ChainReadObjResult, JsonRpcError>
@@ -166,7 +166,7 @@ where
     Ok(hex::encode(ret))
 }
 
-pub(crate) async fn chain_has_obj<DB, B>(
+pub(in crate::rpc) async fn chain_has_obj<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainHasObjParams>,
 ) -> Result<ChainHasObjResult, JsonRpcError>
@@ -178,7 +178,7 @@ where
     Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
-pub(crate) async fn chain_get_block_messages<DB, B>(
+pub(in crate::rpc) async fn chain_get_block_messages<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetBlockMessagesParams>,
 ) -> Result<ChainGetBlockMessagesResult, JsonRpcError>
@@ -194,8 +194,8 @@ where
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
-        forest_chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
-    let (bls_msg, secp_msg) = forest_chain::block_messages_from_cids(
+        crate::chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
+    let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
         data.state_manager.blockstore(),
         &unsigned_cids,
         &signed_cids,
@@ -213,7 +213,7 @@ where
     Ok(ret)
 }
 
-pub(crate) async fn chain_get_tipset_by_height<DB, B>(
+pub(in crate::rpc) async fn chain_get_tipset_by_height<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetTipsetByHeightParams>,
 ) -> Result<ChainGetTipsetByHeightResult, JsonRpcError>
@@ -230,7 +230,7 @@ where
     Ok(TipsetJson(tss))
 }
 
-pub(crate) async fn chain_get_genesis<DB, B>(
+pub(in crate::rpc) async fn chain_get_genesis<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainGetGenesisResult, JsonRpcError>
 where
@@ -242,7 +242,7 @@ where
     Ok(Some(TipsetJson(gen_ts)))
 }
 
-pub(crate) async fn chain_head<DB, B>(
+pub(in crate::rpc) async fn chain_head<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainHeadResult, JsonRpcError>
 where
@@ -253,7 +253,7 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-pub(crate) async fn chain_get_block<DB, B>(
+pub(in crate::rpc) async fn chain_get_block<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetBlockParams>,
 ) -> Result<ChainGetBlockResult, JsonRpcError>
@@ -270,7 +270,7 @@ where
     Ok(BlockHeaderJson(blk))
 }
 
-pub(crate) async fn chain_get_tipset<DB, B>(
+pub(in crate::rpc) async fn chain_get_tipset<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetTipSetParams>,
 ) -> Result<ChainGetTipSetResult, JsonRpcError>
@@ -283,7 +283,7 @@ where
     Ok(TipsetJson(ts))
 }
 
-pub(crate) async fn chain_get_tipset_hash<DB, B>(
+pub(in crate::rpc) async fn chain_get_tipset_hash<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetTipSetHashParams>,
 ) -> Result<ChainGetTipSetHashResult, JsonRpcError>
@@ -296,7 +296,7 @@ where
     Ok(ts)
 }
 
-pub(crate) async fn chain_validate_tipset_checkpoints<DB, B>(
+pub(in crate::rpc) async fn chain_validate_tipset_checkpoints<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainValidateTipSetCheckpointsParams>,
 ) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
@@ -317,7 +317,7 @@ where
     Ok("Ok".to_string())
 }
 
-pub(crate) async fn chain_get_name<DB, B>(
+pub(in crate::rpc) async fn chain_get_name<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainGetNameResult, JsonRpcError>
 where
@@ -329,7 +329,7 @@ where
 
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
-pub(crate) async fn chain_set_head<DB, B>(
+pub(in crate::rpc) async fn chain_set_head<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainSetHeadParams>,
 ) -> Result<ChainSetHeadResult, JsonRpcError>

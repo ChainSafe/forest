@@ -9,7 +9,7 @@ use libipld::cid::{
 };
 use unsigned_varint::{decode as varint_decode, encode as varint_encode};
 
-use crate::*;
+use crate::libp2p_bitswap::*;
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]

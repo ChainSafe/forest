@@ -10,7 +10,7 @@ use libp2p::{
 use log::warn;
 
 use super::*;
-use crate::service::metrics;
+use crate::libp2p::service::metrics;
 
 type InnerBehaviour = request_response::Behaviour<HelloCodec>;
 

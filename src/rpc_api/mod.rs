@@ -149,8 +149,8 @@ pub mod auth_api {
 
 /// Beacon API
 pub mod beacon_api {
-    use forest_beacon::json::BeaconEntryJson;
-    use forest_shim::clock::ChainEpoch;
+    use crate::beacon::json::BeaconEntryJson;
+    use crate::shim::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
     pub type BeaconGetEntryParams = (ChainEpoch,);
@@ -161,15 +161,15 @@ pub mod beacon_api {
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use forest_blocks::{
+    use crate::blocks::{
         header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
         TipsetKeys,
     };
-    use forest_json::{cid::CidJson, message::json::MessageJson};
-    use forest_shim::clock::ChainEpoch;
+    use crate::json::{cid::CidJson, message::json::MessageJson};
+    use crate::shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
 
-    use crate::data_types::BlockMessages;
+    use crate::rpc_api::data_types::BlockMessages;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
@@ -240,14 +240,14 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
-    use forest_json::{
+    use crate::json::{
         cid::{vec::CidJsonVec, CidJson},
         message::json::MessageJson,
         signed_message::json::SignedMessageJson,
     };
-    use forest_message::SignedMessage;
+    use crate::message::SignedMessage;
 
-    use crate::data_types::MessageSendSpec;
+    use crate::rpc_api::data_types::MessageSendSpec;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
@@ -264,9 +264,9 @@ pub mod mpool_api {
 
 /// Sync API
 pub mod sync_api {
-    use forest_json::cid::CidJson;
+    use crate::json::cid::CidJson;
 
-    use crate::data_types::RPCSyncState;
+    use crate::rpc_api::data_types::RPCSyncState;
 
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
     pub type SyncCheckBadParams = (CidJson,);
@@ -283,11 +283,11 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use forest_json::{
+    use crate::json::{
         address::json::AddressJson,
         signature::json::{signature_type::SignatureTypeJson, SignatureJson},
     };
-    use forest_key_management::json::KeyInfoJson;
+    use crate::key_management::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);
@@ -333,15 +333,15 @@ pub mod wallet_api {
 /// State API
 pub mod state_api {
     use ahash::HashMap;
-    use forest_blocks::tipset_keys_json::TipsetKeysJson;
-    use forest_json::{
+    use crate::blocks::tipset_keys_json::TipsetKeysJson;
+    use crate::json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
         message_receipt::json::ReceiptJson,
     };
-    use forest_shim::version::NetworkVersion;
-    use forest_state_manager::{InvocResult, MarketBalance};
+    use crate::shim::version::NetworkVersion;
+    use crate::state_manager::{InvocResult, MarketBalance};
 
-    use crate::data_types::{MarketDeal, MessageLookup};
+    use crate::rpc_api::data_types::{MarketDeal, MessageLookup};
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
     pub type StateCallParams = (MessageJson, TipsetKeysJson);
@@ -382,10 +382,10 @@ pub mod state_api {
 
 /// Gas API
 pub mod gas_api {
-    use forest_blocks::tipset_keys_json::TipsetKeysJson;
-    use forest_json::{address::json::AddressJson, message::json::MessageJson};
+    use crate::blocks::tipset_keys_json::TipsetKeysJson;
+    use crate::json::{address::json::AddressJson, message::json::MessageJson};
 
-    use crate::data_types::MessageSendSpec;
+    use crate::rpc_api::data_types::MessageSendSpec;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
     pub type GasEstimateFeeCapParams = (MessageJson, i64, TipsetKeysJson);
@@ -425,7 +425,7 @@ pub mod common_api {
 
 /// Net API
 pub mod net_api {
-    use crate::data_types::AddrInfo;
+    use crate::rpc_api::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
     pub type NetAddrsListenParams = ();

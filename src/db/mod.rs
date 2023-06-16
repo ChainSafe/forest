@@ -101,18 +101,18 @@ pub trait DBStatistics {
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
-    use crate::rolling::*;
+    use crate::db::rolling::*;
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "rocksdb")] {
-            pub type Db = crate::rocks::RocksDb;
-            pub type DbConfig = crate::rocks_config::RocksDbConfig;
-            pub(crate) type DbError = rocksdb::Error;
+            pub type Db = crate::db::rocks::RocksDb;
+            pub type DbConfig = crate::db::rocks_config::RocksDbConfig;
+            pub(in crate::db) type DbError = rocksdb::Error;
             const DIR_NAME: &str = "rocksdb";
         } else if #[cfg(feature = "paritydb")] {
-            pub type Db = crate::parity_db::ParityDb;
-            pub type DbConfig = crate::parity_db_config::ParityDbConfig;
-            pub(crate) type DbError = parity_db::Error;
+            pub type Db = crate::db::parity_db::ParityDb;
+            pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
+            pub(in crate::db) type DbError = parity_db::Error;
             const DIR_NAME: &str = "paritydb";
         }
     }
@@ -121,7 +121,7 @@ pub mod db_engine {
         chain_data_root.join(DIR_NAME)
     }
 
-    pub(crate) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
+    pub(in crate::db) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
         Db::open(path, config).map_err(Into::into)
     }
 

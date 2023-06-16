@@ -1,22 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub(crate) mod metrics;
-pub(crate) mod msg_pool;
-pub(crate) mod provider;
+pub(in crate::message_pool) mod metrics;
+pub(in crate::message_pool) mod msg_pool;
+pub(in crate::message_pool) mod provider;
 mod selection;
 pub mod test_provider;
-pub(crate) mod utils;
+pub(in crate::message_pool) mod utils;
 
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use forest_blocks::Tipset;
-use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use forest_message::{Message as MessageTrait, SignedMessage};
-use forest_networks::ChainConfig;
-use forest_shim::{address::Address, crypto::Signature};
+use crate::blocks::Tipset;
+use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
+use crate::message::{Message as MessageTrait, SignedMessage};
+use crate::networks::ChainConfig;
+use crate::shim::{address::Address, crypto::Signature};
 use fvm_ipld_encoding::Cbor;
 use log::error;
 use lru::LruCache;
@@ -25,7 +25,7 @@ use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
-use crate::{
+use crate::message_pool::{
     msg_chain::{create_message_chains, Chains},
     msg_pool::{add_helper, remove, MsgSet},
     provider::Provider,
@@ -290,7 +290,7 @@ where
 /// This is a helper function for `head_change`. This method will remove a
 /// sequence for a from address from the messages selected by priority hash-map.
 /// It also removes the 'from' address and sequence from the `MessagePool`.
-pub(crate) fn remove_from_selected_msgs(
+pub(in crate::message_pool) fn remove_from_selected_msgs(
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
@@ -310,7 +310,7 @@ pub(crate) fn remove_from_selected_msgs(
 
 /// This is a helper function for `head_change`. This method will add a signed
 /// message to the given messages selected by priority `HashMap`.
-pub(crate) fn add_to_selected_msgs(
+pub(in crate::message_pool) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
@@ -327,11 +327,11 @@ pub(crate) fn add_to_selected_msgs(
 pub mod tests {
     use std::{borrow::BorrowMut, time::Duration};
 
-    use forest_blocks::Tipset;
-    use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use forest_message::SignedMessage;
-    use forest_networks::ChainConfig;
-    use forest_shim::{
+    use crate::blocks::Tipset;
+    use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
+    use crate::message::SignedMessage;
+    use crate::networks::ChainConfig;
+    use crate::shim::{
         address::Address,
         crypto::SignatureType,
         econ::TokenAmount,
@@ -342,7 +342,7 @@ pub mod tests {
     use tokio::task::JoinSet;
 
     use super::*;
-    use crate::{
+    use crate::message_pool::{
         msg_chain::{create_message_chains, Chains},
         msg_pool::MessagePool,
     };

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_message::SignedMessage;
-use forest_shim::message::Message;
+use crate::message::SignedMessage;
+use crate::shim::message::Message;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::BlockHeader;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_shim::clock::ChainEpoch;
+use crate::shim::clock::ChainEpoch;
 use lazy_static::lazy_static;
 use url::Url;
 
@@ -10,7 +10,7 @@ use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
     DrandPoint, Height, HeightInfo,
 };
-use crate::ActorBundleInfo;
+use crate::networks::ActorBundleInfo;
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 

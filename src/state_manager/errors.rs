@@ -3,7 +3,7 @@
 
 use std::fmt::Debug;
 
-use forest_db::Error as DbErr;
+use crate::db::Error as DbErr;
 use thiserror::Error;
 use tokio::task::JoinError;
 

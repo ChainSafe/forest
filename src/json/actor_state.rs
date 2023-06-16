@@ -5,8 +5,8 @@ pub mod json {
     use std::str::FromStr;
 
     use cid::Cid;
-    use forest_shim::econ::TokenAmount;
-    use forest_shim::state_tree::ActorState;
+    use crate::shim::econ::TokenAmount;
+    use crate::shim::state_tree::ActorState;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -33,9 +33,9 @@ pub mod json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateSer<'a> {
-            #[serde(with = "crate::cid")]
+            #[serde(with = "crate::json::cid")]
             pub code: &'a Cid,
-            #[serde(rename = "Head", with = "crate::cid")]
+            #[serde(rename = "Head", with = "crate::json::cid")]
             pub state: &'a Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,
@@ -57,9 +57,9 @@ pub mod json {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateDe {
-            #[serde(with = "crate::cid")]
+            #[serde(with = "crate::json::cid")]
             pub code: Cid,
-            #[serde(rename = "Head", with = "crate::cid")]
+            #[serde(rename = "Head", with = "crate::json::cid")]
             pub state: Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,
@@ -83,10 +83,10 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use forest_shim::state_tree::ActorState;
+    use crate::shim::state_tree::ActorState;
     use quickcheck_macros::quickcheck;
 
-    use crate::actor_state::json::{ActorStateJson, ActorStateJsonRef};
+    use crate::json::actor_state::json::{ActorStateJson, ActorStateJsonRef};
 
     #[quickcheck]
     fn actorstate_roundtrip(actorstate: ActorState) {

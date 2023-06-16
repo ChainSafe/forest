@@ -12,7 +12,7 @@ use fvm3::gas::{
     GasCharge as GasChargeV3, PriceList as PriceListV3, MILLIGAS_PRECISION,
 };
 
-use crate::version::NetworkVersion;
+use crate::shim::version::NetworkVersion;
 
 #[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Default)]
 pub struct Gas(GasV3);

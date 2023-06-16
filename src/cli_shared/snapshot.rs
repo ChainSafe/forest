@@ -10,12 +10,12 @@ use std::{
 
 use anyhow::{anyhow, bail, Context as _};
 use chrono::NaiveDate;
-use forest_networks::NetworkChain;
-use forest_utils::io::progress_bar::downloading_style;
+use crate::networks::NetworkChain;
+use crate::utils::io::progress_bar::downloading_style;
 use tracing::{info, warn};
 use url::Url;
 
-use crate::snapshot::parse::ParsedFilename;
+use crate::cli_shared::snapshot::parse::ParsedFilename;
 
 /// Who hosts the snapshot on the web?
 /// See [`stable_url`].

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_ipld::{
+use crate::ipld::{
     json::{self, IpldJson, IpldJsonRef},
     Ipld,
 };

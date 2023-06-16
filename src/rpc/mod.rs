@@ -21,9 +21,9 @@ mod wallet_api;
 use std::{net::TcpListener, sync::Arc};
 
 use axum::routing::{get, post};
-use forest_beacon::Beacon;
-use forest_chain::Scale;
-use forest_rpc_api::{
+use crate::beacon::Beacon;
+use crate::chain::Scale;
+use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, progress_api::GET_PROGRESS,
     state_api::*, sync_api::*, wallet_api::*,
@@ -33,7 +33,7 @@ use jsonrpc_v2::{Data, Error as JSONRPCError, Params, Server};
 use log::info;
 use tokio::sync::mpsc::Sender;
 
-use crate::{
+use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{shutdown, start_time, version},
     rpc_http_handler::rpc_http_handler,

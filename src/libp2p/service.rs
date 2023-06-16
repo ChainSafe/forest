@@ -11,14 +11,14 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
 use flume::Sender;
-use forest_blocks::GossipBlock;
-use forest_chain::ChainStore;
-use forest_libp2p_bitswap::{
+use crate::blocks::GossipBlock;
+use crate::chain::ChainStore;
+use crate::libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
-use forest_message::SignedMessage;
-use forest_shim::clock::ChainEpoch;
-use forest_utils::io::read_file_to_vec;
+use crate::message::SignedMessage;
+use crate::shim::clock::ChainEpoch;
+use crate::utils::io::read_file_to_vec;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -44,7 +44,7 @@ use super::{
     chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
 };
-use crate::{
+use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
     discovery::DiscoveryEvent,
     hello::{HelloBehaviour, HelloRequest, HelloResponse},
@@ -52,7 +52,7 @@ use crate::{
     PeerManager, PeerOperation,
 };
 
-pub(crate) mod metrics {
+pub(in crate::libp2p) mod metrics {
     use lazy_static::lazy_static;
     use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
     lazy_static! {
@@ -285,7 +285,7 @@ where
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
-        forest_metrics::add_metrics_registry("libp2p".into(), libp2p_registry).await;
+        crate::metrics::add_metrics_registry("libp2p".into(), libp2p_registry).await;
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {

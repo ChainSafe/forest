@@ -8,12 +8,12 @@ use std::{
 };
 
 use async_trait::async_trait;
-use forest_blocks::{Block, GossipBlock, Tipset};
-use forest_chain::Scale;
-use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
-use forest_message::SignedMessage;
-use forest_message_pool::MessagePool;
-use forest_state_manager::StateManager;
+use crate::blocks::{Block, GossipBlock, Tipset};
+use crate::chain::Scale;
+use crate::libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
+use crate::message::SignedMessage;
+use crate::message_pool::MessagePool;
+use crate::state_manager::StateManager;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -146,7 +146,7 @@ pub trait MessagePoolApi {
 
 impl<P> MessagePoolApi for MessagePool<P>
 where
-    P: forest_message_pool::Provider + Send + Sync + 'static,
+    P: crate::message_pool::Provider + Send + Sync + 'static,
 {
     fn select_signed<DB>(
         &self,

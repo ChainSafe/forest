@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::sync::Arc;
 
-use forest_beacon::DrandBeacon;
-use forest_chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
-use forest_key_management::KeyStore;
-use forest_state_manager::StateManager;
+use crate::beacon::DrandBeacon;
+use crate::chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
+use crate::key_management::KeyStore;
+use crate::state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::{sync::RwLock, task::JoinSet};
 
-use crate::FilecoinConsensus;
+use crate::fil_cns::FilecoinConsensus;
 
 pub type FullConsensus = FilecoinConsensus<DrandBeacon>;
 
 pub const FETCH_PARAMS: bool = true;
 
-pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
-    Arc::new(forest_interpreter::RewardActorMessageCalc)
+pub fn reward_calc() -> Arc<dyn crate::interpreter::RewardCalc> {
+    Arc::new(crate::interpreter::RewardActorMessageCalc)
 }
 
 #[allow(clippy::unused_async)]

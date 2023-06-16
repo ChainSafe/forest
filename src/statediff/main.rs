@@ -3,11 +3,11 @@
 use cid::Cid;
 use clap::Parser;
 use directories::ProjectDirs;
-use forest_cli_shared::cli::HELP_MESSAGE;
-use forest_db::db_engine::{db_root, open_proxy_db};
-use forest_statediff::print_state_diff;
+use crate::cli_shared::cli::HELP_MESSAGE;
+use crate::db::db_engine::{db_root, open_proxy_db};
+use crate::statediff::print_state_diff;
 
-impl crate::Subcommand {
+impl crate::statediff::Subcommand {
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
             Subcommand::ChainCommand {

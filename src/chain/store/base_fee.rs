@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::{HashSet, HashSetExt};
-use forest_blocks::Tipset;
-use forest_message::Message;
-use forest_shim::clock::ChainEpoch;
-use forest_shim::econ::TokenAmount;
+use crate::blocks::Tipset;
+use crate::message::Message;
+use crate::shim::clock::ChainEpoch;
+use crate::shim::econ::TokenAmount;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared3::BLOCK_GAS_LIMIT;
@@ -63,7 +63,7 @@ pub fn compute_base_fee<DB>(
     db: &DB,
     ts: &Tipset,
     smoke_height: ChainEpoch,
-) -> Result<TokenAmount, crate::Error>
+) -> Result<TokenAmount, crate::chain::Error>
 where
     DB: Blockstore,
 {
@@ -72,7 +72,7 @@ where
 
     // Add all unique messages' gas limit to get the total for the Tipset.
     for b in ts.blocks() {
-        let (msg1, msg2) = crate::block_messages(db, b)?;
+        let (msg1, msg2) = crate::chain::block_messages(db, b)?;
         for m in msg1 {
             let m_cid = m.cid()?;
             if !seen.contains(&m_cid) {
@@ -102,7 +102,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use forest_networks::{ChainConfig, Height};
+    use crate::networks::{ChainConfig, Height};
 
     use super::*;
 

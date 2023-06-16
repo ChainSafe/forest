@@ -9,14 +9,14 @@
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
-use forest_blocks::Tipset;
-use forest_message::{Message, SignedMessage};
-use forest_shim::{address::Address, econ::TokenAmount};
+use crate::blocks::Tipset;
+use crate::message::{Message, SignedMessage};
+use crate::shim::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
 use super::{msg_pool::MessagePool, provider::Provider};
-use crate::{
+use crate::message_pool::{
     add_to_selected_msgs,
     msg_chain::{create_message_chains, Chains, NodeKey},
     msg_pool::MsgSet,
@@ -177,7 +177,7 @@ where
         // 4. Compute effective performance for each chain, based on the partition they
         // fall into    The effective performance is the gas_perf of the chain *
         // block probability
-        let block_prob = crate::block_probabilities(ticket_quality);
+        let block_prob = crate::message_pool::block_probabilities(ticket_quality);
         let mut eff_chains = 0;
         for i in 0..MAX_BLOCKS {
             for k in &partitions[i] {
@@ -624,7 +624,7 @@ fn merge_and_trim(
 
 /// Like `head_change`, except it doesn't change the state of the `MessagePool`.
 /// It simulates a head change call.
-pub(crate) fn run_head_change<T>(
+pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     from: Tipset,
@@ -691,14 +691,14 @@ where
 mod test_selection {
     use std::sync::Arc;
 
-    use forest_db::MemoryDB;
-    use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use forest_message::Message;
-    use forest_shim::crypto::SignatureType;
+    use crate::db::MemoryDB;
+    use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
+    use crate::message::Message;
+    use crate::shim::crypto::SignatureType;
     use tokio::task::JoinSet;
 
     use super::*;
-    use crate::{
+    use crate::message_pool::{
         head_change,
         msgpool::{
             test_provider::{mock_block, TestApi},

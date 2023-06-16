@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use cid::Cid;
-use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use crate::networks::{ChainConfig, Height};
+use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     state_tree::{StateTree, StateTreeVersion},
@@ -18,7 +18,7 @@ use super::{
     eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system, verifier::Verifier,
     ManifestNew, ManifestOld, SystemStateOld,
 };
-use crate::common::{migrators::nil_migrator, StateMigration};
+use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv18_migrations(
         &mut self,

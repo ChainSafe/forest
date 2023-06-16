@@ -4,7 +4,7 @@
 use libp2p::request_response::ProtocolName;
 
 use super::*;
-use crate::rpc::CborRequestResponse;
+use crate::libp2p::rpc::CborRequestResponse;
 
 /// Libp2p Hello protocol ID.
 pub const HELLO_PROTOCOL_ID: &[u8] = b"/fil/hello/1.0.0";

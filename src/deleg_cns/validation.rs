@@ -3,13 +3,13 @@
 
 use std::sync::Arc;
 
-use forest_blocks::{Block, BlockHeader, Tipset};
-use forest_networks::ChainConfig;
-use forest_shim::address::Address;
-use forest_state_manager::StateManager;
+use crate::blocks::{Block, BlockHeader, Tipset};
+use crate::networks::ChainConfig;
+use crate::shim::address::Address;
+use crate::state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::DelegatedConsensusError;
+use crate::deleg_cns::DelegatedConsensusError;
 
 /// Validates block semantically according to the rules of Delegated Consensus.
 /// Returns all encountered errors, so they can be merged with the common
@@ -20,7 +20,7 @@ use crate::DelegatedConsensusError;
 /// * Timestamps
 /// * The block was proposed by the only only miner eligible
 #[allow(clippy::unused_async)]
-pub(crate) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static>(
+pub(in crate::deleg_cns) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static>(
     chosen_one: &Address,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,

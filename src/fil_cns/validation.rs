@@ -7,18 +7,18 @@ use cid::Cid;
 use fil_actor_interface::power;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
-use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use forest_blocks::{Block, BlockHeader, Tipset};
-use forest_chain_sync::collect_errs;
-use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use crate::blocks::{Block, BlockHeader, Tipset};
+use crate::chain_sync::collect_errs;
+use crate::networks::{ChainConfig, Height};
+use crate::shim::{
     address::Address,
     randomness::Randomness,
     sector::{PoStProof, SectorInfo},
     version::NetworkVersion,
 };
-use forest_state_manager::StateManager;
-use forest_utils::encoding::prover_id_from_u64;
+use crate::state_manager::StateManager;
+use crate::utils::encoding::prover_id_from_u64;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, Cbor};
@@ -28,7 +28,7 @@ use fvm_shared::{
 };
 use nonempty::NonEmpty;
 
-use crate::{metrics, FilecoinConsensusError};
+use crate::fil_cns::{metrics, FilecoinConsensusError};
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
     NonEmpty::new(e.into())
@@ -42,7 +42,7 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(crate) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
+pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,
     block: Arc<Block>,
@@ -257,7 +257,7 @@ fn validate_winner_election<DB: Blockstore + Clone + Sync + Send + 'static>(
     let miner_address = header.miner_address();
     let miner_address_buf = miner_address.marshal_cbor()?;
 
-    let vrf_base = forest_state_manager::chain_rand::draw_randomness(
+    let vrf_base = crate::state_manager::chain_rand::draw_randomness(
         beacon.data(),
         DomainSeparationTag::ElectionProofProduction as i64,
         header.epoch(),
@@ -313,7 +313,7 @@ fn validate_ticket_election(
 
     let beacon_base = header.beacon_entries().last().unwrap_or(prev_beacon);
 
-    let vrf_base = forest_state_manager::chain_rand::draw_randomness(
+    let vrf_base = crate::state_manager::chain_rand::draw_randomness(
         beacon_base.data(),
         DomainSeparationTag::TicketProduction as i64,
         header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
@@ -371,7 +371,7 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
         .iter()
         .last()
         .unwrap_or(prev_beacon_entry);
-    let rand = forest_state_manager::chain_rand::draw_randomness(
+    let rand = crate::state_manager::chain_rand::draw_randomness(
         rand_base.data(),
         DomainSeparationTag::WinningPoStChallengeSeed as i64,
         header.epoch(),

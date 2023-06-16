@@ -10,7 +10,7 @@ mod subtests;
 #[cfg(feature = "rocksdb")]
 mod rocksdb_tests {
     use super::*;
-    use crate::db_utils::rocks::TempRocksDB;
+    use crate::db::db_utils::rocks::TempRocksDB;
 
     #[test]
     fn db_write() {

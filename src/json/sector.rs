@@ -4,7 +4,7 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use forest_shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
+    use crate::shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
     use fvm_shared::sector::SectorNumber;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -24,7 +24,7 @@ pub mod json {
         #[serde(rename = "SealProof")]
         pub proof: RegisteredSealProof,
         pub sector_number: SectorNumber,
-        #[serde(with = "crate::cid")]
+        #[serde(with = "crate::json::cid")]
         #[serde(rename = "SealedCID")]
         pub sealed_cid: Cid,
     }
@@ -78,8 +78,8 @@ pub mod json {
     }
 
     pub mod vec {
-        use forest_shim::sector::PoStProof;
-        use forest_utils::json::GoVecVisitor;
+        use crate::shim::sector::PoStProof;
+        use crate::utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         use super::*;
@@ -106,15 +106,15 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use forest_shim::sector::PoStProof;
+    use crate::shim::sector::PoStProof;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
     #[quickcheck]
     fn postproof_roundtrip(postproof: PoStProof) {
         let serialized: String =
-            forest_test_utils::to_string_with!(&postproof, super::json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, super::json::deserialize);
+            crate::test_utils::to_string_with!(&postproof, super::json::serialize);
+        let parsed = crate::test_utils::from_str_with!(&serialized, super::json::deserialize);
         assert_eq!(postproof, parsed);
     }
 }

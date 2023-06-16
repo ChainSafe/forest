@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_utils::db::file_backed_obj::FileBackedObject;
+use crate::utils::db::file_backed_obj::FileBackedObject;
 use fvm_ipld_encoding::Cbor;
 
-use crate::*;
+use crate::blocks::*;
 
 impl FileBackedObject for TipsetKeys {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
@@ -21,7 +21,7 @@ mod tests {
     use std::path::Path;
 
     use anyhow::*;
-    use forest_utils::db::file_backed_obj::FileBacked;
+    use crate::utils::db::file_backed_obj::FileBacked;
 
     use super::*;
 

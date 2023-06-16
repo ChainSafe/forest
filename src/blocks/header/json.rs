@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_beacon::beacon_entries;
-use forest_json::{sector, signature};
-use forest_shim::sector::PoStProof;
+use crate::beacon::beacon_entries;
+use crate::json::{sector, signature};
+use crate::shim::sector::PoStProof;
 use serde::{de, Deserialize, Serialize};
 
 use super::*;
-use crate::{election_proof, ticket, tipset::tipset_keys_json};
+use crate::blocks::{election_proof, ticket, tipset::tipset_keys_json};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.
 #[derive(Deserialize, Serialize)]
@@ -46,11 +46,11 @@ where
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: &'a i64,
-        #[serde(rename = "ParentStateRoot", with = "forest_json::cid")]
+        #[serde(rename = "ParentStateRoot", with = "crate::json::cid")]
         state_root: &'a Cid,
-        #[serde(rename = "ParentMessageReceipts", with = "forest_json::cid")]
+        #[serde(rename = "ParentMessageReceipts", with = "crate::json::cid")]
         message_receipts: &'a Cid,
-        #[serde(with = "forest_json::cid")]
+        #[serde(with = "crate::json::cid")]
         messages: &'a Cid,
         #[serde(rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: &'a Option<Signature>,
@@ -104,11 +104,11 @@ where
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: i64,
-        #[serde(rename = "ParentStateRoot", with = "forest_json::cid")]
+        #[serde(rename = "ParentStateRoot", with = "crate::json::cid")]
         state_root: Cid,
-        #[serde(rename = "ParentMessageReceipts", with = "forest_json::cid")]
+        #[serde(rename = "ParentMessageReceipts", with = "crate::json::cid")]
         message_receipts: Cid,
-        #[serde(with = "forest_json::cid")]
+        #[serde(with = "crate::json::cid")]
         messages: Cid,
         #[serde(default, rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: Option<Signature>,
@@ -149,7 +149,7 @@ where
 }
 
 pub mod vec {
-    use forest_utils::json::GoVecVisitor;
+    use crate::utils::json::GoVecVisitor;
     use serde::ser::SerializeSeq;
 
     use super::*;

@@ -13,19 +13,19 @@ use std::{
 
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use forest_blocks::{
+use crate::blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
-use forest_chain::{persist_objects, ChainStore, Error as ChainStoreError};
-use forest_libp2p::chain_exchange::TipsetBundle;
-use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
-use forest_networks::Height;
-use forest_shim::{
+use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
+use crate::libp2p::chain_exchange::TipsetBundle;
+use crate::message::{message::valid_for_block_inclusion, Message as MessageTrait};
+use crate::networks::Height;
+use crate::shim::{
     address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
-use forest_state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
-use forest_utils::io::ProgressBar;
+use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
+use crate::utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -36,7 +36,7 @@ use nonempty::NonEmpty;
 use num::BigInt;
 use thiserror::Error;
 
-use crate::{
+use crate::chain_sync::{
     bad_block_cache::BadBlockCache,
     consensus::{collect_errs, Consensus},
     metrics,
@@ -244,9 +244,9 @@ impl TipsetGroup {
 /// for syncing from the `ChainMuxer` and the `SyncSubmitBlock` API before
 /// syncing. Each unique Tipset, by epoch and parents, is mapped into a Tipset
 /// range which will be synced into the Chain Store.
-pub(crate) struct TipsetProcessor<DB, C: Consensus> {
+pub(in crate::chain_sync) struct TipsetProcessor<DB, C: Consensus> {
     state: TipsetProcessorState<DB, C>,
-    tracker: crate::chain_muxer::WorkerState,
+    tracker: crate::chain_sync::chain_muxer::WorkerState,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the
     /// `TipsetValidator`
     tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
@@ -265,7 +265,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        tracker: crate::chain_muxer::WorkerState,
+        tracker: crate::chain_sync::chain_muxer::WorkerState,
         tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
@@ -621,7 +621,7 @@ enum InvalidBlockStrategy {
 type TipsetRangeSyncerFuture<C> =
     Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError<C>>> + Send>>;
 
-pub(crate) struct TipsetRangeSyncer<DB, C: Consensus> {
+pub(in crate::chain_sync) struct TipsetRangeSyncer<DB, C: Consensus> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,
@@ -641,7 +641,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        tracker: crate::chain_muxer::WorkerState,
+        tracker: crate::chain_sync::chain_muxer::WorkerState,
         proposed_head: Arc<Tipset>,
         current_head: Arc<Tipset>,
         consensus: Arc<C>,
@@ -763,7 +763,7 @@ where
 fn sync_tipset_range<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
-    tracker: crate::chain_muxer::WorkerState,
+    tracker: crate::chain_sync::chain_muxer::WorkerState,
     tipset_range_length: u64,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -849,7 +849,7 @@ fn sync_tipset_range<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensu
 /// locally. If they turn out to be on different forks, download more headers up
 /// to a certain limit to try to find a common ancestor.
 async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
-    tracker: crate::chain_muxer::WorkerState,
+    tracker: crate::chain_sync::chain_muxer::WorkerState,
     tipset_range_length: u64,
     proposed_head: Arc<Tipset>,
     current_head: &Tipset,
@@ -983,7 +983,7 @@ fn sync_tipset<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
         // Sync and validate messages from the tipsets
         if let Err(e) = sync_messages_check_state(
             // Include a dummy WorkerState
-            crate::chain_muxer::WorkerState::default(),
+            crate::chain_sync::chain_muxer::WorkerState::default(),
             consensus,
             state_manager,
             network,
@@ -1046,8 +1046,8 @@ async fn fetch_batch<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensu
 
             // Persist the messages in the store
             if let Some(m) = bundle.messages {
-                forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-                forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
+                crate::chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
+                crate::chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
             } else {
                 warn!("ChainExchange request for messages returned null messages");
             }
@@ -1064,7 +1064,7 @@ async fn fetch_batch<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensu
 /// tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensus>(
-    tracker: crate::chain_muxer::WorkerState,
+    tracker: crate::chain_sync::chain_muxer::WorkerState,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
@@ -1199,7 +1199,7 @@ async fn validate_tipset<DB: Blockstore + Clone + Send + Sync + 'static, C: Cons
     }
     // Doing flush here creates small sst files at ~20KB
     // Then we need to manually compact them by calling CompactFiles
-    // which however is not exposed by rocksdb or librocksdb-sys crates
+    // which however is not exposed by rocksdb or librocksdb-sys crate::chain_syncs
     // if let Err(e) = chainstore.db.flush() {
     //     warn!("Failed to flush db: {e}");
     // }
@@ -1298,7 +1298,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
             .with_label_values(&[metrics::values::BASE_FEE_CHECK])
             .start_timer();
-        let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
+        let base_fee = crate::chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetRangeSyncerError::<C>::Validation(format!("Could not compute base fee: {e}"))
             })?;
@@ -1617,9 +1617,9 @@ fn validate_tipset_against_cache<C: Consensus>(
 #[cfg(test)]
 mod test {
     use cid::Cid;
-    use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use forest_json::vrf::VRFProof;
-    use forest_shim::address::Address;
+    use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use crate::json::vrf::VRFProof;
+    use crate::shim::address::Address;
     use num_bigint::BigInt;
 
     use super::*;

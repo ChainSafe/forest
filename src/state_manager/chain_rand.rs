@@ -6,13 +6,13 @@ use std::{io::Write, sync::Arc};
 use anyhow::{bail, Context};
 use blake2b_simd::Params;
 use byteorder::{BigEndian, WriteBytesExt};
-use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
-use forest_blocks::{Tipset, TipsetKeys};
-use forest_chain::ChainStore;
-use forest_networks::ChainConfig;
-use forest_shim::clock::ChainEpoch;
-use forest_shim::externs::Rand;
-use forest_utils::encoding::blake2b_256;
+use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
+use crate::blocks::{Tipset, TipsetKeys};
+use crate::chain::ChainStore;
+use crate::networks::ChainConfig;
+use crate::shim::clock::ChainEpoch;
+use crate::shim::externs::Rand;
+use crate::utils::encoding::blake2b_256;
 use fvm_ipld_blockstore::Blockstore;
 
 /// Allows for deriving the randomness from a particular tipset.

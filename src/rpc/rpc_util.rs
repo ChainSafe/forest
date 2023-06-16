@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_rpc_api::{auth_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP};
+use crate::rpc_api::{auth_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP};
 use http::{HeaderMap, HeaderValue, StatusCode};
 use log::{debug, error};
 use serde::de::DeserializeOwned;

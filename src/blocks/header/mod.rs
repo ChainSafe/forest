@@ -8,9 +8,9 @@ use cid::{
     Cid,
 };
 use derive_builder::Builder;
-use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
-use forest_shim::clock::ChainEpoch;
-use forest_shim::{
+use crate::beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
+use crate::shim::clock::ChainEpoch;
+use crate::shim::{
     address::Address,
     bigint::{BigIntDe, BigIntSer},
     crypto::Signature,
@@ -18,7 +18,7 @@ use forest_shim::{
     sector::PoStProof,
     version::NetworkVersion,
 };
-use forest_utils::encoding::blake2b_256;
+use crate::utils::encoding::blake2b_256;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -32,12 +32,12 @@ pub mod json;
 ///
 /// Usage:
 /// ```
-/// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use forest_shim::address::Address;
+/// use crate::blocks::{BlockHeader, TipsetKeys, Ticket};
+/// use crate::shim::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;
-/// use forest_shim::crypto::Signature;
+/// use crate::shim::crypto::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
 ///
@@ -460,11 +460,11 @@ impl fmt::Display for BlockHeader {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use forest_shim::{address::Address, version::NetworkVersion};
+    use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use crate::shim::{address::Address, version::NetworkVersion};
     use fvm_ipld_encoding::Cbor;
 
-    use crate::{errors::Error, BlockHeader};
+    use crate::blocks::{errors::Error, BlockHeader};
 
     #[test]
     fn symmetric_header_encoding() {

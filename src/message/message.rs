@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_shim::{gas::Gas, message::Message, version::NetworkVersion};
+use crate::shim::{gas::Gas, message::Message, version::NetworkVersion};
 
 /// Semantic validation and validates the message has enough gas.
 pub fn valid_for_block_inclusion(
@@ -9,7 +9,7 @@ pub fn valid_for_block_inclusion(
     min_gas: Gas,
     version: NetworkVersion,
 ) -> Result<(), anyhow::Error> {
-    use forest_shim::address::ZERO_ADDRESS;
+    use crate::shim::address::ZERO_ADDRESS;
     use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);

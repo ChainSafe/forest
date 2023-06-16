@@ -62,9 +62,9 @@
 //!
 //! ### Sample mainnet log
 //! ```text
-//! 2023-03-16T19:50:40.323860Z  INFO forest_db::rolling::gc: Garbage collection started at epoch 2689660
-//! 2023-03-16T22:27:36.484245Z  INFO forest_db::rolling::gc: Garbage collection finished at epoch 2689660, took 9416s, reachable data size: 135.71GB
-//! 2023-03-16T22:27:38.793717Z  INFO forest_db::rolling::impls: Deleted database under /root/.local/share/forest/mainnet/paritydb/14d0f80992374fb8b20e3b1bd70d5d7b, size: 139.01GB
+//! 2023-03-16T19:50:40.323860Z  INFO crate::db::rolling::gc: Garbage collection started at epoch 2689660
+//! 2023-03-16T22:27:36.484245Z  INFO crate::db::rolling::gc: Garbage collection finished at epoch 2689660, took 9416s, reachable data size: 135.71GB
+//! 2023-03-16T22:27:38.793717Z  INFO crate::db::rolling::impls: Deleted database under /root/.local/share/forest/mainnet/paritydb/14d0f80992374fb8b20e3b1bd70d5d7b, size: 139.01GB
 //! ```
 
 use std::{
@@ -73,9 +73,9 @@ use std::{
 };
 
 use chrono::Utc;
-use forest_blocks::Tipset;
-use forest_ipld::util::*;
-use forest_utils::db::{file_backed_obj::ChainMeta, BlockstoreBufferedWriteExt, DB_KEY_BYTES};
+use crate::blocks::Tipset;
+use crate::ipld::util::*;
+use crate::utils::db::{file_backed_obj::ChainMeta, BlockstoreBufferedWriteExt, DB_KEY_BYTES};
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use tokio::sync::Mutex;

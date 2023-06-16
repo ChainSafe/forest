@@ -19,7 +19,7 @@ use fvm_shared::{
 };
 use stdext::function_name;
 
-use crate::{metrics, ForestMachine};
+use crate::interpreter::{metrics, ForestMachine};
 
 /// Calls the supplied lambda and updates the corresponding Prometheus metrics -
 /// call count and total call duration.
@@ -255,7 +255,7 @@ impl<DB: Blockstore> NetworkOps for ForestInstrumentedKernel<DB> {
         forward_instrumented!(|| self.0.network_epoch())
     }
 
-    fn network_version(&self) -> forest_shim::version::NetworkVersion_v2 {
+    fn network_version(&self) -> crate::shim::version::NetworkVersion_v2 {
         forward_instrumented!(|| self.0.network_version())
     }
 

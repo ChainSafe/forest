@@ -12,12 +12,12 @@ use std::{
 };
 
 use cid::Cid;
-use forest_blocks::{BlockHeader, Tipset};
-use forest_utils::io::{progress_bar, ProgressBar};
+use crate::blocks::{BlockHeader, Tipset};
+use crate::utils::io::{progress_bar, ProgressBar};
 use fvm_ipld_encoding::{from_slice, Cbor};
 use lazy_static::lazy_static;
 
-use crate::{CidHashSet, Ipld};
+use crate::ipld::{CidHashSet, Ipld};
 
 /// Traverses all Cid links, hashing and loading all unique values and using the
 /// callback function to interact with the data.

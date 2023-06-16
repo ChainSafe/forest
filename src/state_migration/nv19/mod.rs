@@ -13,11 +13,11 @@ mod power;
 /// module.
 pub use migration::run_migration;
 
-use crate::*;
+use crate::state_migration::*;
 
 define_manifests!(
-    forest_shim::machine::ManifestV3,
-    forest_shim::machine::ManifestV3
+    crate::shim::machine::ManifestV3,
+    crate::shim::machine::ManifestV3
 );
 define_system_states!(
     fil_actor_system_state::v10::State,

@@ -8,17 +8,17 @@ use std::sync::Arc;
 
 use cid::Cid;
 use fil_actor_init_state::{v10::State as InitStateNew, v9::State as InitStateOld};
-use forest_utils::db::CborStoreExt;
+use crate::utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use crate::common::{
+use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
 };
 
 pub struct InitMigrator(Cid);
 
-pub(crate) fn init_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(in crate::state_migration) fn init_migrator<BS: Blockstore + Clone + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(InitMigrator(cid))

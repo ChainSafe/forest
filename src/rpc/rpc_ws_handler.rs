@@ -11,13 +11,13 @@ use axum::{
     response::IntoResponse,
 };
 use crossbeam::atomic::AtomicCell;
-use forest_rpc_api::data_types::JsonRpcServerState;
+use crate::rpc_api::data_types::JsonRpcServerState;
 use futures::{stream::SplitSink, SinkExt, StreamExt};
 use http::{HeaderMap, HeaderValue};
 use log::{debug, error, info, warn};
 use tokio::sync::RwLock;
 
-use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
+use crate::rpc::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
 
 async fn rpc_ws_task(
     authorization_header: Option<HeaderValue>,

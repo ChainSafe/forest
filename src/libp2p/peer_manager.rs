@@ -9,18 +9,18 @@ use std::{
 
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
-use forest_blocks::Tipset;
+use crate::blocks::Tipset;
 use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
 use tokio::sync::RwLock;
 
-use crate::*;
+use crate::libp2p::*;
 
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
 
 /// Defines max number of peers to send each chain exchange request to.
-pub(crate) const SHUFFLE_PEERS_PREFIX: usize = 100;
+pub(in crate::libp2p) const SHUFFLE_PEERS_PREFIX: usize = 100;
 
 /// Local duration multiplier, affects duration delta change.
 const LOCAL_INV_ALPHA: u32 = 5;
@@ -112,7 +112,7 @@ impl PeerManager {
 
     /// Sort peers based on a score function with the success rate and latency
     /// of requests.
-    pub(crate) async fn sorted_peers(&self) -> Vec<PeerId> {
+    pub(in crate::libp2p) async fn sorted_peers(&self) -> Vec<PeerId> {
         let peer_lk = self.peers.read().await;
         let average_time = self.avg_global_time.read().await;
         let mut peers: Vec<_> = peer_lk

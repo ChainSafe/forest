@@ -20,7 +20,7 @@ use thiserror::Error;
 use url::Url;
 
 use super::https_client;
-use crate::{io::ProgressBar, misc::Either};
+use crate::utils::{io::ProgressBar, misc::Either};
 
 // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
 const ZSTD_MAGIC_HEADER: [u8; 4] = [0x28, 0xb5, 0x2f, 0xfd];
@@ -83,7 +83,7 @@ impl FetchProgress<BufReader<async_fs::File>> {
 
         let pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");
-        pb.set_units(crate::io::progress_bar::Units::Bytes);
+        pb.set_units(crate::utils::io::progress_bar::Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         Ok(FetchProgress {
@@ -99,7 +99,7 @@ impl FetchProgress<ZstdDecoder<BufReader<async_fs::File>>> {
 
         let pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");
-        pb.set_units(crate::io::progress_bar::Units::Bytes);
+        pb.set_units(crate::utils::io::progress_bar::Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         let inner = ZstdDecoder::new(BufReader::new(file));
@@ -191,7 +191,7 @@ async fn fetch_stream_from_url(url: &Url) -> anyhow::Result<(DownloadStream, Pro
 
     let pb = ProgressBar::new(total_size);
     pb.message("Downloading/Importing snapshot ");
-    pb.set_units(crate::io::progress_bar::Units::Bytes);
+    pb.set_units(crate::utils::io::progress_bar::Units::Bytes);
     pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
     let map_err: fn(hyper::Error) -> futures::io::Error =

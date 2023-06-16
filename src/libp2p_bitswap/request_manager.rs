@@ -15,7 +15,7 @@ use libipld::{Block, Cid};
 use libp2p::PeerId;
 use parking_lot::RwLock;
 
-use crate::{event_handlers::*, *};
+use crate::libp2p_bitswap::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -202,7 +202,7 @@ impl BitswapRequestManager {
         success
     }
 
-    pub(crate) fn on_inbound_response_event<S: BitswapStoreRead>(
+    pub(in crate::libp2p_bitswap) fn on_inbound_response_event<S: BitswapStoreRead>(
         &self,
         store: &S,
         response: BitswapInboundResponseEvent,
@@ -246,7 +246,7 @@ impl BitswapRequestManager {
         }
     }
 
-    pub(crate) fn on_peer_connected(&self, peer: PeerId) -> bool {
+    pub(in crate::libp2p_bitswap) fn on_peer_connected(&self, peer: PeerId) -> bool {
         let mut peers = self.peers.write();
         let success = peers.insert(peer);
         if success {
@@ -255,7 +255,7 @@ impl BitswapRequestManager {
         success
     }
 
-    pub(crate) fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
+    pub(in crate::libp2p_bitswap) fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
         let mut peers = self.peers.write();
         let success = peers.remove(peer);
         if success {

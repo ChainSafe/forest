@@ -4,9 +4,9 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use cid::Cid;
-use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
-use forest_message::SignedMessage;
-use forest_shim::message::Message;
+use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
+use crate::message::SignedMessage;
+use crate::shim::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 

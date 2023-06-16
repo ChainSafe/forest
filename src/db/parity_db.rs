@@ -5,13 +5,13 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use cid::Cid;
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use log::warn;
 use parity_db::{CompressionType, Db, Operation, Options};
 
 use super::errors::Error;
-use crate::{parity_db_config::ParityDbConfig, DBStatistics, Store};
+use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, Store};
 
 #[derive(Clone)]
 pub struct ParityDb {
@@ -77,7 +77,7 @@ impl Store for ParityDb {
     }
 
     /// [`parity_db::Db::commit`] API is doing extra allocations on keys,
-    /// See <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
+    /// See <https://docs.rs/crate::db/parity-db/0.4.3/source/src/db.rs>
     fn bulk_write(
         &self,
         values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
@@ -86,7 +86,7 @@ impl Store for ParityDb {
             .into_iter()
             .map(|(k, v)| (0, Operation::Set(k.into(), v.into())));
         self.db.commit_changes(tx).map_err(Error::from)
-        // <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
+        // <https://docs.rs/crate::db/parity-db/0.4.3/source/src/db.rs>
         // ```
         // fn commit<I, K>(&self, tx: I) -> Result<()>
         // where

@@ -2,23 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::sync::Arc;
 
-use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_key_management::KeyStore;
-use forest_shim::econ::TokenAmount;
-use forest_state_manager::StateManager;
+use crate::chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use crate::key_management::KeyStore;
+use crate::shim::econ::TokenAmount;
+use crate::state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use tokio::{sync::RwLock, task::JoinSet};
 
-use crate::DelegatedConsensus;
+use crate::deleg_cns::DelegatedConsensus;
 
 pub type FullConsensus = DelegatedConsensus;
 
 pub const FETCH_PARAMS: bool = false;
 
 // Reward 1FIL on top of the gas, which is what Eudico does.
-pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
-    Arc::new(forest_interpreter::FixedRewardCalc {
+pub fn reward_calc() -> Arc<dyn crate::interpreter::RewardCalc> {
+    Arc::new(crate::interpreter::FixedRewardCalc {
         reward: TokenAmount::from_whole(1),
     })
 }

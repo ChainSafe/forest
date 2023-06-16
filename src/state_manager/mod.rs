@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-use forest_state_migration::run_state_migrations;
+use crate::state_migration::run_state_migrations;
 pub use utils::is_valid_for_sending;
 
 mod vm_circ_supply;
@@ -17,15 +17,15 @@ use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::*;
 use fil_actors_shared::v10::runtime::Policy;
-use forest_beacon::{BeaconSchedule, DrandBeacon};
-use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_chain::{ChainStore, HeadChange};
-use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
-use forest_json::message_receipt;
-use forest_message::{ChainMessage, Message as MessageTrait};
-use forest_networks::ChainConfig;
-use forest_shim::clock::ChainEpoch;
-use forest_shim::{
+use crate::beacon::{BeaconSchedule, DrandBeacon};
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::chain::{ChainStore, HeadChange};
+use crate::interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
+use crate::json::message_receipt;
+use crate::message::{ChainMessage, Message as MessageTrait};
+use crate::networks::ChainConfig;
+use crate::shim::clock::ChainEpoch;
+use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
@@ -122,8 +122,8 @@ impl TipsetStateCache {
         });
         match status {
             Status::Done(x) => {
-                forest_metrics::metrics::LRU_CACHE_HIT
-                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                crate::metrics::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[crate::metrics::metrics::values::STATE_MANAGER_TIPSET])
                     .inc();
                 Ok(x)
             }
@@ -132,9 +132,9 @@ impl TipsetStateCache {
                 match self.get(key) {
                     Some(v) => {
                         // While locking someone else computed the pending task
-                        forest_metrics::metrics::LRU_CACHE_HIT
+                        crate::metrics::metrics::LRU_CACHE_HIT
                             .with_label_values(&[
-                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                                crate::metrics::metrics::values::STATE_MANAGER_TIPSET,
                             ])
                             .inc();
 
@@ -142,9 +142,9 @@ impl TipsetStateCache {
                     }
                     None => {
                         // Entry does not have state computed yet, compute value and fill the cache
-                        forest_metrics::metrics::LRU_CACHE_MISS
+                        crate::metrics::metrics::LRU_CACHE_MISS
                             .with_label_values(&[
-                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                                crate::metrics::metrics::values::STATE_MANAGER_TIPSET,
                             ])
                             .inc();
 
@@ -175,7 +175,7 @@ impl TipsetStateCache {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "forest_json::message::json")]
+    #[serde(with = "crate::json::message::json")]
     pub msg: Message,
     #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<Receipt>,
@@ -204,9 +204,9 @@ pub struct StateManager<DB> {
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache,
     genesis_info: GenesisInfo,
-    beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
-    engine: forest_shim::machine::MultiEngine,
+    engine: crate::shim::machine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
@@ -228,7 +228,7 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine: forest_shim::machine::MultiEngine::default(),
+            engine: crate::shim::machine::MultiEngine::default(),
             reward_calc,
         })
     }
@@ -267,9 +267,9 @@ where
     /// Returns the internal, protocol-level network name.
     pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
         let name = match &self.chain_config.network {
-            forest_networks::NetworkChain::Mainnet => "testnetnet",
-            forest_networks::NetworkChain::Calibnet => "calibrationnet",
-            forest_networks::NetworkChain::Devnet(name) => name,
+            crate::networks::NetworkChain::Mainnet => "testnetnet",
+            crate::networks::NetworkChain::Calibnet => "calibrationnet",
+            crate::networks::NetworkChain::Devnet(name) => name,
         }
         .to_owned();
 
@@ -861,7 +861,7 @@ where
                         s == msg_cid
                     ).unwrap_or_default() {
                         // When message Cid has been found, get receipt at index.
-                        let rct = forest_chain::get_parent_reciept(
+                        let rct = crate::chain::get_parent_reciept(
                             self.blockstore(),
                             tipset.blocks().first().unwrap(),
                             index,
@@ -934,7 +934,7 @@ where
     }
     /// Returns a message receipt from a given tipset and message CID.
     pub fn get_receipt(&self, tipset: Arc<Tipset>, msg: Cid) -> Result<Receipt, Error> {
-        let m = forest_chain::get_chain_message(self.blockstore(), &msg)
+        let m = crate::chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (&m.from(), &m.sequence());
         let message_receipt = self.tipset_executed_message(&tipset, msg, message_var)?;
@@ -969,7 +969,7 @@ where
     {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
-        let message = forest_chain::get_chain_message(self.blockstore(), &msg_cid)
+        let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (&message.from(), &message.sequence());
@@ -1178,7 +1178,7 @@ where
         Ok(out)
     }
 
-    /// Similar to `resolve_to_key_addr` in the `forest_vm` crate but does not
+    /// Similar to `resolve_to_key_addr` in the `forest_vm` crate::state_manager but does not
     /// allow `Actor` type of addresses. Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr(
         self: &Arc<Self>,

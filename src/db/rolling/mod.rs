@@ -20,12 +20,12 @@ use std::{
     sync::Arc,
 };
 
-use forest_utils::db::file_backed_obj::FileBacked;
+use crate::utils::db::file_backed_obj::FileBacked;
 use log::{info, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
-use crate::db_engine::{open_db, Db, DbConfig};
+use crate::db::db_engine::{open_db, Db, DbConfig};
 
 /// This DB wrapper is specially designed for supporting the concurrent,
 /// semi-space GC algorithm that is implemented in [`DbGarbageCollector`],

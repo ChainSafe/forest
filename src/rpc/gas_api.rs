@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use forest_beacon::Beacon;
-use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
-use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use forest_json::{address::json::AddressJson, message::json::MessageJson};
-use forest_message::{ChainMessage, Message as MessageTrait};
-use forest_rpc_api::{
+use crate::beacon::Beacon;
+use crate::blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
+use crate::json::{address::json::AddressJson, message::json::MessageJson};
+use crate::message::{ChainMessage, Message as MessageTrait};
+use crate::rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
-use forest_shim::{econ::TokenAmount, message::Message};
+use crate::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -22,7 +22,7 @@ use rand_distr::{Distribution, Normal};
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
-pub(crate) async fn gas_estimate_fee_cap<DB, B>(
+pub(in crate::rpc) async fn gas_estimate_fee_cap<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateFeeCapParams>,
 ) -> Result<GasEstimateFeeCapResult, JsonRpcError>
@@ -54,13 +54,13 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let mut out: forest_shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
+    let mut out: crate::shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
     out += msg.gas_premium();
     Ok(out)
 }
 
 /// Estimate the fee cap
-pub(crate) async fn gas_estimate_gas_premium<DB, B>(
+pub(in crate::rpc) async fn gas_estimate_gas_premium<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateGasPremiumParams>,
 ) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
@@ -105,7 +105,7 @@ where
             .chain_store()
             .tipset_from_keys(ts.parents())?;
         blocks += pts.blocks().len();
-        let msgs = forest_chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
+        let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
 
         prices.append(
             &mut msgs
@@ -161,7 +161,7 @@ where
 }
 
 /// Estimate the gas limit
-pub(crate) async fn gas_estimate_gas_limit<DB, B>(
+pub(in crate::rpc) async fn gas_estimate_gas_limit<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateGasLimitParams>,
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
@@ -217,7 +217,7 @@ where
 }
 
 /// Estimates the gas parameters for a given message
-pub(crate) async fn gas_estimate_message_gas<DB, B>(
+pub(in crate::rpc) async fn gas_estimate_message_gas<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateMessageGasParams>,
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
@@ -231,7 +231,7 @@ where
         .map(MessageJson::from)
 }
 
-pub(crate) async fn estimate_message_gas<DB, B>(
+pub(in crate::rpc) async fn estimate_message_gas<DB, B>(
     data: &Data<RPCState<DB, B>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,

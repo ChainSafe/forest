@@ -6,7 +6,7 @@ use libp2p::{core::upgrade, request_response};
 use pb::bitswap_pb;
 use protobuf::Message;
 
-use crate::{prefix::Prefix, protocol::*, *};
+use crate::libp2p_bitswap::{prefix::Prefix, protocol::*, *};
 
 // 2MB Block Size according to the specs at https://github.com/ipfs/specs/blob/main/BITSWAP.md
 const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
@@ -91,7 +91,7 @@ impl request_response::Codec for BitswapRequestResponseCodec {
         T: AsyncWrite + Send + Unpin,
     {
         // TODO: Low priority, batch sending is not supported in `libp2p-bitswap` either
-        // panic here means bug in public API of this crate
+        // panic here means bug in public API of this crate::libp2p_bitswap
         assert!(
             messages.len() == 1,
             "It's only supported to send a single message"

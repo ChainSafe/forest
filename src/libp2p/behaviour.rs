@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::{HashMap, HashSet};
-use forest_libp2p_bitswap::BitswapBehaviour;
-use forest_utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
+use crate::libp2p_bitswap::BitswapBehaviour;
+use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use libp2p::{
     core::identity::Keypair,
     gossipsub::{
@@ -20,7 +20,7 @@ use libp2p::{
 };
 use log::warn;
 
-use crate::{
+use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
     config::Libp2pConfig,
     discovery::{DiscoveryBehaviour, DiscoveryConfig},
@@ -31,7 +31,7 @@ use crate::{
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
 /// for a Filecoin node.
 #[derive(NetworkBehaviour)]
-pub(crate) struct ForestBehaviour {
+pub(in crate::libp2p) struct ForestBehaviour {
     gossipsub: gossipsub::Behaviour,
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
@@ -86,7 +86,7 @@ impl ForestBehaviour {
             ],
             Default::default(),
         );
-        if let Err(err) = forest_libp2p_bitswap::register_metrics(prometheus::default_registry()) {
+        if let Err(err) = crate::libp2p_bitswap::register_metrics(prometheus::default_registry()) {
             warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
         }
 

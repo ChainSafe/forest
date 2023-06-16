@@ -13,7 +13,7 @@ use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
-use forest_shim::crypto::SignatureType;
+use crate::shim::crypto::SignatureType;
 use log::{error, warn};
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -71,7 +71,7 @@ impl KeyInfo {
 }
 
 pub mod json {
-    use forest_json::signature::json::signature_type::SignatureTypeJson;
+    use crate::json::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
@@ -341,7 +341,7 @@ impl KeyStore {
 
                 // Restrict permissions on files containing private keys
                 #[cfg(unix)]
-                forest_utils::io::set_user_perm(&file)?;
+                crate::utils::io::set_user_perm(&file)?;
 
                 let mut writer = BufWriter::new(file);
 
@@ -502,7 +502,7 @@ mod test {
     use quickcheck_macros::quickcheck;
 
     use super::*;
-    use crate::{
+    use crate::key_management::{
         json::{KeyInfoJson, KeyInfoJsonRef},
         wallet,
     };
@@ -611,8 +611,8 @@ mod test {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
                 .choose(&[
-                    forest_shim::crypto::SignatureType::BLS,
-                    forest_shim::crypto::SignatureType::Secp256k1,
+                    crate::shim::crypto::SignatureType::BLS,
+                    crate::shim::crypto::SignatureType::Secp256k1,
                 ])
                 .unwrap();
             KeyInfo {

@@ -3,12 +3,12 @@
 
 use std::convert::TryFrom;
 
-use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::chain_exchange::{
+use crate::blocks::{Block, BlockHeader, FullTipset};
+use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use forest_message::SignedMessage;
-use forest_shim::{
+use crate::message::SignedMessage;
+use crate::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},

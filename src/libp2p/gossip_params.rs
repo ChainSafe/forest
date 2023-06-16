@@ -7,7 +7,7 @@ use libp2p::gossipsub::{
     score_parameter_decay, IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams,
 };
 
-use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
+use crate::libp2p::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
 
 // All these parameters are copied from what Lotus has set for their Topic
 // scores. They are currently unused because enabling them causes GossipSub
@@ -78,7 +78,7 @@ fn build_block_topic_config() -> TopicScoreParams {
     }
 }
 
-pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
+pub(in crate::libp2p) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     #[allow(clippy::disallowed_types)]
     let mut psp_topics = std::collections::HashMap::new();
 
@@ -110,7 +110,7 @@ pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     }
 }
 
-pub(crate) fn build_peer_score_threshold() -> PeerScoreThresholds {
+pub(in crate::libp2p) fn build_peer_score_threshold() -> PeerScoreThresholds {
     PeerScoreThresholds {
         gossip_threshold: -500.0,
         publish_threshold: -1000.0,

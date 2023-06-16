@@ -4,7 +4,7 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use ahash::{HashMap, HashMapExt};
-use forest_shim::{
+use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
 };
@@ -22,7 +22,7 @@ pub struct Key {
 }
 
 impl TryFrom<KeyInfo> for Key {
-    type Error = crate::errors::Error;
+    type Error = crate::key_management::errors::Error;
 
     fn try_from(key_info: KeyInfo) -> Result<Self, Self::Error> {
         let public_key = wallet_helpers::to_public(*key_info.key_type(), key_info.private_key())?;
@@ -236,11 +236,11 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Addr
 
 #[cfg(test)]
 mod tests {
-    use forest_utils::encoding::blake2b_256;
+    use crate::utils::encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     use super::*;
-    use crate::{generate, KeyStoreConfig};
+    use crate::key_management::{generate, KeyStoreConfig};
 
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();

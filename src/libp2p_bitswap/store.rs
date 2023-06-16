@@ -3,7 +3,7 @@
 
 use libipld::Block;
 
-use crate::*;
+use crate::libp2p_bitswap::*;
 
 /// Trait implemented by a block store for reading.
 pub trait BitswapStoreRead {

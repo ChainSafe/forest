@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_utils::db::file_backed_obj::FileBackedObject;
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::utils::db::file_backed_obj::FileBackedObject;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use parking_lot::RwLock;
 use uuid::Uuid;
 
 use super::*;
-use crate::*;
+use crate::db::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
@@ -69,7 +69,7 @@ impl Blockstore for RollingDB {
 }
 
 impl Store for RollingDB {
-    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, crate::Error>
+    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, crate::db::Error>
     where
         K: AsRef<[u8]>,
     {
@@ -82,7 +82,7 @@ impl Store for RollingDB {
         Ok(None)
     }
 
-    fn exists<K>(&self, key: K) -> Result<bool, crate::Error>
+    fn exists<K>(&self, key: K) -> Result<bool, crate::db::Error>
     where
         K: AsRef<[u8]>,
     {
@@ -95,7 +95,7 @@ impl Store for RollingDB {
         Ok(false)
     }
 
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::Error>
+    fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::db::Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
@@ -106,11 +106,11 @@ impl Store for RollingDB {
     fn bulk_write(
         &self,
         values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
-    ) -> Result<(), crate::Error> {
+    ) -> Result<(), crate::db::Error> {
         Store::bulk_write(&self.current(), values)
     }
 
-    fn flush(&self) -> Result<(), crate::Error> {
+    fn flush(&self) -> Result<(), crate::db::Error> {
         Store::flush(&self.current())
     }
 }
@@ -275,7 +275,7 @@ mod tests {
 
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
-    use forest_libp2p_bitswap::BitswapStoreRead;
+    use crate::libp2p_bitswap::BitswapStoreRead;
     use fvm_ipld_blockstore::Blockstore;
     use rand::Rng;
     use tempfile::TempDir;

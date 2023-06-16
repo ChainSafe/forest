@@ -5,13 +5,13 @@ use std::sync::Arc;
 
 use ahash::HashMap;
 use cid::Cid;
-use forest_shim::state_tree::StateTree;
+use crate::shim::state_tree::StateTree;
 
 use super::Migrator;
 
 /// The implementation should verify that the migration specification is
 /// correct. This is to prevent accidental migration errors.
-pub(crate) trait ActorMigrationVerifier<BS> {
+pub(in crate::state_migration) trait ActorMigrationVerifier<BS> {
     fn verify_migration(
         &self,
         store: &BS,
@@ -21,4 +21,4 @@ pub(crate) trait ActorMigrationVerifier<BS> {
 }
 
 /// Type implementing the `ActorMigrationVerifier` trait.
-pub(crate) type MigrationVerifier<BS> = Arc<dyn ActorMigrationVerifier<BS> + Send + Sync>;
+pub(in crate::state_migration) type MigrationVerifier<BS> = Arc<dyn ActorMigrationVerifier<BS> + Send + Sync>;

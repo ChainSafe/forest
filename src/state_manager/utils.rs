@@ -4,19 +4,19 @@
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
 use filecoin_proofs_api::post;
-use forest_shim::{
+use crate::shim::{
     address::{Address, Payload},
     randomness::Randomness,
     sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
     state_tree::ActorState,
     version::NetworkVersion,
 };
-use forest_utils::encoding::prover_id_from_u64;
+use crate::utils::encoding::prover_id_from_u64;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 
-use crate::{errors::*, StateManager};
+use crate::state_manager::{errors::*, StateManager};
 
 impl<DB> StateManager<DB>
 where
@@ -177,7 +177,7 @@ fn generate_winning_post_sector_challenge(
 #[cfg(test)]
 mod test {
     use cid::Cid;
-    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 
     use super::*;
 

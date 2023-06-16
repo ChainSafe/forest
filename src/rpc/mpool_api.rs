@@ -5,16 +5,16 @@
 use std::convert::TryFrom;
 
 use ahash::{HashSet, HashSetExt};
-use forest_beacon::Beacon;
-use forest_blocks::TipsetKeys;
-use forest_json::{
+use crate::beacon::Beacon;
+use crate::blocks::TipsetKeys;
+use crate::json::{
     cid::{vec::CidJsonVec, CidJson},
     message::json::MessageJson,
     signed_message::json::SignedMessageJson,
 };
-use forest_message::SignedMessage;
-use forest_rpc_api::{data_types::RPCState, mpool_api::*};
-use forest_shim::address::Protocol;
+use crate::message::SignedMessage;
+use crate::rpc_api::{data_types::RPCState, mpool_api::*};
+use crate::shim::address::Protocol;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -22,7 +22,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use super::gas_api::estimate_message_gas;
 
 /// Return `Vec` of pending messages in `mpool`
-pub(crate) async fn mpool_pending<DB, B>(
+pub(in crate::rpc) async fn mpool_pending<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPendingParams>,
 ) -> Result<MpoolPendingResult, JsonRpcError>
@@ -82,7 +82,7 @@ where
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
-pub(crate) async fn mpool_push<DB, B>(
+pub(in crate::rpc) async fn mpool_push<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
@@ -98,7 +98,7 @@ where
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
-pub(crate) async fn mpool_push_message<DB, B>(
+pub(in crate::rpc) async fn mpool_push_message<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
@@ -132,11 +132,11 @@ where
     }
     let nonce = data.mpool.get_sequence(&from.into())?;
     umsg.sequence = nonce;
-    let key = forest_key_management::Key::try_from(forest_key_management::try_find(
+    let key = crate::key_management::Key::try_from(crate::key_management::try_find(
         &key_addr,
         &mut keystore,
     )?)?;
-    let sig = forest_key_management::sign(
+    let sig = crate::key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         umsg.cid().unwrap().to_bytes().as_slice(),

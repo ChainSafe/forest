@@ -5,18 +5,18 @@
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fil_actor_interface::market;
-use forest_beacon::Beacon;
-use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_ipld::json::IpldJson;
-use forest_ipld::CidHashSet;
-use forest_json::cid::CidJson;
-use forest_libp2p::NetworkMessage;
-use forest_rpc_api::{
+use crate::beacon::Beacon;
+use crate::blocks::tipset_keys_json::TipsetKeysJson;
+use crate::ipld::json::IpldJson;
+use crate::ipld::CidHashSet;
+use crate::json::cid::CidJson;
+use crate::libp2p::NetworkMessage;
+use crate::rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
 };
-use forest_shim::address::Address;
-use forest_state_manager::InvocResult;
+use crate::shim::address::Address;
+use crate::state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -29,7 +29,7 @@ use tokio::task::JoinSet;
 // defaulting to Full).
 
 /// runs the given message and returns its result without any persisted changes.
-pub(crate) async fn state_call<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn state_call<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateCallParams>,
 ) -> Result<StateCallResult, JsonRpcError> {
@@ -45,7 +45,7 @@ pub(crate) async fn state_call<DB: Blockstore + Clone + Send + Sync + 'static, B
 
 /// returns the result of executing the indicated message, assuming it was
 /// executed in the indicated tipset.
-pub(crate) async fn state_replay<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn state_replay<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateReplayParams>,
 ) -> Result<StateReplayResult, JsonRpcError> {
@@ -66,7 +66,7 @@ pub(crate) async fn state_replay<DB: Blockstore + Clone + Send + Sync + 'static,
 }
 
 /// gets network name from state manager
-pub(crate) async fn state_network_name<
+pub(in crate::rpc) async fn state_network_name<
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
@@ -80,7 +80,7 @@ pub(crate) async fn state_network_name<
         .map_err(|e| e.into())
 }
 
-pub(crate) async fn state_get_network_version<
+pub(in crate::rpc) async fn state_get_network_version<
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
@@ -94,7 +94,7 @@ pub(crate) async fn state_get_network_version<
 
 /// looks up the Escrow and Locked balances of the given address in the Storage
 /// Market
-pub(crate) async fn state_market_balance<
+pub(in crate::rpc) async fn state_market_balance<
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
@@ -112,7 +112,7 @@ pub(crate) async fn state_market_balance<
         .map_err(|e| e.into())
 }
 
-pub(crate) async fn state_market_deals<
+pub(in crate::rpc) async fn state_market_deals<
     DB: Blockstore + Clone + Send + Sync + 'static,
     B: Beacon,
 >(
@@ -151,7 +151,7 @@ pub(crate) async fn state_market_deals<
 }
 
 /// returns the message receipt for the given message
-pub(crate) async fn state_get_receipt<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateGetReceiptParams>,
 ) -> Result<StateGetReceiptResult, JsonRpcError> {
@@ -169,7 +169,7 @@ pub(crate) async fn state_get_receipt<DB: Blockstore + Clone + Send + Sync + 'st
 }
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
-pub(crate) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateWaitMsgParams>,
 ) -> Result<StateWaitMsgResult, JsonRpcError> {
@@ -207,7 +207,7 @@ pub(crate) async fn state_wait_msg<DB: Blockstore + Clone + Send + Sync + 'stati
 /// This function has two primary uses: (1) Downloading specific state-roots when Forest deviates
 /// from the mainline blockchain, (2) fetching historical state-trees to verify past versions of the
 /// consensus rules.
-pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
+pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params((CidJson(root_cid),)): Params<StateFetchRootParams>,
 ) -> Result<StateFetchRootResult, JsonRpcError> {
@@ -257,7 +257,7 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
                 for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                     counter += 1;
                     if counter % 1_000 == 0 {
-                        // set RUST_LOG=forest_rpc::state_api=debug to enable these printouts.
+                        // set RUST_LOG=crate::rpc::state_api=debug to enable these printouts.
                         log::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
                                 dfs_guard.len(), task_set.len()

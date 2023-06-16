@@ -10,7 +10,7 @@ use libp2p::{
 use log::debug;
 
 use super::*;
-use crate::{rpc::RequestResponseError, service::metrics};
+use crate::libp2p::{rpc::RequestResponseError, service::metrics};
 
 type InnerBehaviour = request_response::Behaviour<ChainExchangeCodec>;
 

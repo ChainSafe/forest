@@ -9,16 +9,16 @@ use async_compression::futures::write::ZstdEncoder;
 use bls_signatures::Serialize as SerializeBls;
 use cid::Cid;
 use digest::Digest;
-use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_interpreter::BlockMessages;
-use forest_ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use forest_metrics::metrics;
-use forest_networks::{ChainConfig, NetworkChain};
-use forest_shim::clock::ChainEpoch;
-use forest_shim::{
+use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
+use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use crate::interpreter::BlockMessages;
+use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::metrics::metrics;
+use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::clock::ChainEpoch;
+use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
@@ -26,7 +26,7 @@ use forest_shim::{
     message::Message,
     state_tree::StateTree,
 };
-use forest_utils::{
+use crate::utils::{
     db::{
         file_backed_obj::{ChainMeta, FileBacked},
         BlockstoreExt, CborStoreExt,
@@ -54,7 +54,7 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::Scale;
+use crate::chain::Scale;
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -188,7 +188,7 @@ where
     }
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
-    /// `{forest_chain_store}/HEAD`
+    /// `{crate::chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.file_backed_heaviest_tipset_keys
             .lock()
@@ -634,10 +634,10 @@ where
     }
 }
 
-pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
+pub(in crate::chain) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Loads a tipset from memory given the tipset keys and cache.
-pub(crate) fn tipset_from_keys<BS>(
+pub(in crate::chain) fn tipset_from_keys<BS>(
     cache: &TipsetCache,
     store: &BS,
     tsk: &TipsetKeys,
@@ -844,7 +844,7 @@ where
 }
 
 pub mod headchange_json {
-    use forest_blocks::tipset_json::TipsetJson;
+    use crate::blocks::tipset_json::TipsetJson;
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -952,7 +952,7 @@ mod tests {
         },
         Cid,
     };
-    use forest_shim::address::Address;
+    use crate::shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use tempfile::TempDir;
 
@@ -960,7 +960,7 @@ mod tests {
 
     #[test]
     fn genesis_test() {
-        let db = forest_db::MemoryDB::default();
+        let db = crate::db::MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
 
         let gen_block = BlockHeader::builder()
@@ -980,7 +980,7 @@ mod tests {
 
     #[test]
     fn block_validation_cache_basic() {
-        let db = forest_db::MemoryDB::default();
+        let db = crate::db::MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block = BlockHeader::builder()
             .miner_address(Address::new_id(0))

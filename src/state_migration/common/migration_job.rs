@@ -3,27 +3,27 @@
 
 use std::sync::Arc;
 
-use forest_shim::{address::Address, clock::ChainEpoch, state_tree::ActorState, Inner};
+use crate::shim::{address::Address, clock::ChainEpoch, state_tree::ActorState, Inner};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::{ActorMigration, ActorMigrationInput};
 
 /// Defines migration result for a single actor migration.
 #[derive(Debug)]
-pub(crate) struct MigrationJobOutput {
+pub(in crate::state_migration) struct MigrationJobOutput {
     pub address: Address,
     pub actor_state: ActorState,
 }
 
 /// Defines migration job for a single actor migration.
-pub(crate) struct MigrationJob<BS: Blockstore> {
+pub(in crate::state_migration) struct MigrationJob<BS: Blockstore> {
     pub address: Address,
     pub actor_state: ActorState,
     pub actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> MigrationJob<BS> {
-    pub(crate) fn run(
+    pub(in crate::state_migration) fn run(
         &self,
         store: BS,
         prior_epoch: ChainEpoch,

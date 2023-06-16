@@ -6,7 +6,7 @@ mod tests {
     use std::{process::Command, time::Duration};
 
     use anyhow::{Context, Result};
-    use forest_libp2p_bitswap::{
+    use crate::libp2p_bitswap::{
         BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
     };
     use libipld::{

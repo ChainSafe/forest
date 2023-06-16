@@ -5,7 +5,7 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::anyhow;
 use cid::Cid;
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use rocksdb::{
     BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
@@ -13,7 +13,7 @@ use rocksdb::{
 };
 
 use super::{errors::Error, Store};
-use crate::{metrics, rocks_config::RocksDbConfig, DBStatistics};
+use crate::db::{metrics, rocks_config::RocksDbConfig, DBStatistics};
 
 lazy_static::lazy_static! {
     static ref WRITE_OPT_NO_WAL: WriteOptions = {
@@ -83,8 +83,8 @@ pub struct RocksDb {
 ///
 /// Usage:
 /// ```no_run
-/// use forest_db::rocks::RocksDb;
-/// use forest_db::rocks_config::RocksDbConfig;
+/// use crate::db::rocks::RocksDb;
+/// use crate::db::rocks_config::RocksDbConfig;
 ///
 /// let mut db = RocksDb::open("test_db", &RocksDbConfig::default()).unwrap();
 /// ```

@@ -3,8 +3,8 @@
 
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
-use forest_blocks::{Tipset, TipsetKeys};
-use forest_chain::{ChainStore, Error as ChainError};
+use crate::blocks::{Tipset, TipsetKeys};
+use crate::chain::{ChainStore, Error as ChainError};
 use fvm_ipld_blockstore::Blockstore;
 use log::debug;
 
@@ -98,7 +98,7 @@ where
     let mut secp_msg_includes: Vec<Vec<u64>> = vec![];
 
     for block_header in tipset.blocks().iter() {
-        let (bls_cids, secp_cids) = forest_chain::read_msg_cids(db, block_header.messages())?;
+        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, block_header.messages())?;
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());
         for bls_cid in bls_cids.into_iter() {
@@ -135,7 +135,7 @@ where
     }
 
     let (bls_msgs, secp_msgs) =
-        forest_chain::block_messages_from_cids(db, &bls_cids_combined, &secp_cids_combined)?;
+        crate::chain::block_messages_from_cids(db, &bls_cids_combined, &secp_cids_combined)?;
 
     Ok(CompactedMessages {
         bls_msgs,
@@ -149,11 +149,11 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use forest_blocks::BlockHeader;
-    use forest_db::MemoryDB;
-    use forest_genesis::EXPORT_SR_40;
-    use forest_networks::ChainConfig;
-    use forest_shim::address::Address;
+    use crate::blocks::BlockHeader;
+    use crate::db::MemoryDB;
+    use crate::genesis::EXPORT_SR_40;
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
     use fvm_ipld_car::load_car;
     use tempfile::TempDir;
     use tokio::io::BufReader;

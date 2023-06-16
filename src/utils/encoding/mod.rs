@@ -3,7 +3,7 @@
 
 use blake2b_simd::Params;
 use filecoin_proofs_api::ProverId;
-use forest_shim::address::Address;
+use crate::shim::address::Address;
 use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
@@ -16,7 +16,7 @@ pub mod serde_byte_array {
     /// <https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L16>
     pub const BYTE_ARRAY_MAX_LEN: usize = 2 << 20;
 
-    /// checked if `input > crate::BYTE_ARRAY_MAX_LEN`
+    /// checked if `input > crate::utils::BYTE_ARRAY_MAX_LEN`
     pub fn serialize<T, S>(bytes: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         T: ?Sized + Serialize + AsRef<[u8]>,
@@ -32,7 +32,7 @@ pub mod serde_byte_array {
         Serialize::serialize(bytes, serializer)
     }
 
-    /// checked if `output > crate::ByteArrayMaxLen`
+    /// checked if `output > crate::utils::ByteArrayMaxLen`
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
     where
         T: Deserialize<'de> + AsRef<[u8]>,
@@ -54,7 +54,7 @@ pub mod serde_byte_array {
 ///
 /// # Example
 /// ```
-/// use forest_utils::encoding::blake2b_256;
+/// use crate::utils::encoding::blake2b_256;
 ///
 /// let ingest: Vec<u8> = vec![];
 /// let hash = blake2b_256(&ingest);
@@ -86,7 +86,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
+    use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
 
     #[test]
     fn vector_hashing() {

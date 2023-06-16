@@ -6,7 +6,7 @@ use fvm_shared::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use serde::{Deserialize, Serialize};
 
-use crate::Inner;
+use crate::shim::Inner;
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
 ///
@@ -15,8 +15,8 @@ use crate::Inner;
 /// let fvm2_success = fvm_shared::error::ExitCode::new(0);
 /// let fvm3_success = fvm_shared3::error::ExitCode::new(0);
 ///
-/// let shim_from_v2 = forest_shim::error::ExitCode::from(fvm2_success);
-/// let shim_from_v3 = forest_shim::error::ExitCode::from(fvm3_success);
+/// let shim_from_v2 = crate::shim::error::ExitCode::from(fvm2_success);
+/// let shim_from_v3 = crate::shim::error::ExitCode::from(fvm3_success);
 ///
 /// assert_eq!(shim_from_v2, shim_from_v3);
 /// assert_eq!(shim_from_v2, fvm2_success.into());

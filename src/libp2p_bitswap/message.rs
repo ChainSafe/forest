@@ -5,7 +5,7 @@ use pb::bitswap_pb;
 use protobuf::{EnumOrUnknown, Message};
 use serde::{Deserialize, Serialize};
 
-use crate::{prefix::Prefix, *};
+use crate::libp2p_bitswap::{prefix::Prefix, *};
 
 /// Type of a `bitswap` request
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Deserialize, Serialize)]

@@ -5,22 +5,22 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use cid::Cid;
-use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_chain::HeadChange;
-use forest_message::{ChainMessage, SignedMessage};
-use forest_networks::Height;
-use forest_shim::{
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::chain::HeadChange;
+use crate::message::{ChainMessage, SignedMessage};
+use crate::networks::Height;
+use crate::shim::{
     address::Address,
     econ::TokenAmount,
     message::Message,
     state_tree::{ActorState, StateTree},
 };
-use forest_state_manager::StateManager;
-use forest_utils::db::CborStoreExt;
+use crate::state_manager::StateManager;
+use crate::utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
-use crate::errors::Error;
+use crate::message_pool::errors::Error;
 
 /// Provider Trait. This trait will be used by the message pool to interact with
 /// some medium in order to do the operations that are listed below that are
@@ -106,7 +106,7 @@ where
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
-        forest_chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
+        crate::chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
@@ -118,7 +118,7 @@ where
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
-        forest_chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
+        crate::chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())
             .map(Into::into)
     }

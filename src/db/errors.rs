@@ -12,7 +12,7 @@ pub enum Error {
     Unopened,
     #[cfg(any(feature = "rocksdb", feature = "paritydb"))]
     #[error(transparent)]
-    Database(#[from] crate::db_engine::DbError),
+    Database(#[from] crate::db::db_engine::DbError),
     #[error("{0}")]
     Other(String),
 }

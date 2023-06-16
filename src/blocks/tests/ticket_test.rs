@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_blocks::*;
-use forest_test_utils::construct_ticket;
+use crate::blocks::*;
+use crate::test_utils::construct_ticket;
 use fvm_ipld_encoding::{from_slice, to_vec};
 
 // From Lotus

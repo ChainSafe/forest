@@ -5,9 +5,9 @@ use std::{cell::Ref, sync::Arc};
 
 use anyhow::bail;
 use cid::Cid;
-use forest_blocks::BlockHeader;
-use forest_networks::ChainConfig;
-use forest_shim::{
+use crate::blocks::BlockHeader;
+use crate::networks::ChainConfig;
+use crate::shim::{
     gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
 };
 use fvm3::{
@@ -22,14 +22,14 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use fvm_shared3::consensus::{ConsensusFault, ConsensusFaultType};
 
-use crate::resolve_to_key_addr;
+use crate::interpreter::resolve_to_key_addr;
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-    get_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<forest_blocks::TipsetKeys>>,
+    get_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
 }
@@ -40,7 +40,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         epoch: ChainEpoch,
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-        get_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<forest_blocks::TipsetKeys>>,
+        get_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {

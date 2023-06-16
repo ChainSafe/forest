@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod json {
     use cid::Cid;
-    use forest_message::SignedMessage;
-    use forest_shim::{crypto::Signature, message::Message};
+    use crate::message::SignedMessage;
+    use crate::shim::{crypto::Signature, message::Message};
     use fvm_ipld_encoding::Cbor;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
-    use crate::{message, signature};
+    use crate::json::{message, signature};
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -42,7 +42,7 @@ pub mod json {
             message: &'a Message,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
-            #[serde(default, rename = "CID", with = "crate::cid::opt")]
+            #[serde(default, rename = "CID", with = "crate::json::cid::opt")]
             cid: Option<Cid>,
         }
         SignedMessageSer {
@@ -70,7 +70,7 @@ pub mod json {
     }
 
     pub mod vec {
-        use forest_utils::json::GoVecVisitor;
+        use crate::utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         use super::*;
@@ -97,8 +97,8 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use forest_message::{self, SignedMessage};
-    use forest_shim::{
+    use crate::message::{self, SignedMessage};
+    use crate::shim::{
         address::Address,
         crypto::Signature,
         econ::TokenAmount,
@@ -109,7 +109,7 @@ mod tests {
     use serde_json::{self, from_str, to_string};
 
     use super::json::{SignedMessageJson, SignedMessageJsonRef};
-    use crate::{
+    use crate::json::{
         message,
         message::json::{MessageJson, MessageJsonRef},
     };
@@ -119,8 +119,8 @@ mod tests {
         let serialized = serde_json::to_string(&SignedMessageJsonRef(&signed_message)).unwrap();
         let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
         // Skip delegated addresses for now
-        if (signed_message.message.from.protocol() != forest_shim::address::Protocol::Delegated)
-            && (signed_message.message.to.protocol() != forest_shim::address::Protocol::Delegated)
+        if (signed_message.message.from.protocol() != crate::shim::address::Protocol::Delegated)
+            && (signed_message.message.to.protocol() != crate::shim::address::Protocol::Delegated)
         {
             assert_eq!(signed_message, parsed.0)
         }
@@ -172,7 +172,7 @@ mod tests {
         struct TestStruct {
             #[serde(with = "message::json")]
             unsigned: Message,
-            #[serde(with = "crate::signed_message::json")]
+            #[serde(with = "crate::json::signed_message::json")]
             signed: SignedMessage,
         }
         let test_json = r#"

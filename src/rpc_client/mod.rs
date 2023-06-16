@@ -16,8 +16,8 @@ pub mod wallet_ops;
 
 use std::env;
 
-use forest_libp2p::{Multiaddr, Protocol};
-use forest_utils::net::{https_client, hyper, hyper::http::HeaderValue, HyperBodyExt};
+use crate::libp2p::{Multiaddr, Protocol};
+use crate::utils::net::{https_client, hyper, hyper::http::HeaderValue, HyperBodyExt};
 /// Filecoin HTTP JSON-RPC client methods
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};

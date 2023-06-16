@@ -4,7 +4,7 @@
 #![cfg(feature = "json")]
 
 use cid::Cid;
-use forest_json::cid::json::{self, CidJson, CidJsonRef};
+use crate::json::cid::json::{self, CidJson, CidJsonRef};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 

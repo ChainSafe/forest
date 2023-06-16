@@ -8,7 +8,7 @@ use cid::{
     },
     Cid,
 };
-use forest_ipld::{to_ipld, Ipld};
+use crate::ipld::{to_ipld, Ipld};
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};

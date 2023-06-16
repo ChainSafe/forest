@@ -11,19 +11,19 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context;
 use cid::Cid;
-use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
-use forest_db::Store;
-use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
-use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
-use forest_shim::{
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
+use crate::db::Store;
+use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
+use crate::message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
+use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     gas::{price_list_by_network_version, Gas},
 };
-use forest_state_manager::is_valid_for_sending;
+use crate::state_manager::is_valid_for_sending;
 use futures::StreamExt;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
@@ -33,7 +33,7 @@ use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 
-use crate::{
+use crate::message_pool::{
     config::MpoolConfig,
     errors::Error,
     head_change, metrics,
@@ -53,7 +53,7 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 /// from address, v: a message which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
-    pub(crate) msgs: HashMap<u64, SignedMessage>,
+    pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
 }
 
@@ -597,7 +597,7 @@ where
 /// hash-map. If an entry in the hash-map does not yet exist, create a new
 /// `mset` that will correspond to the from message and push it to the pending
 /// hash-map.
-pub(crate) fn add_helper<T>(
+pub(in crate::message_pool) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,

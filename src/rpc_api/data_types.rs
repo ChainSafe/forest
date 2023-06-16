@@ -7,19 +7,19 @@ use ahash::HashSet;
 use chrono::Utc;
 use cid::Cid;
 use fil_actor_interface::market::{DealProposal, DealState};
-use forest_beacon::{Beacon, BeaconSchedule};
-use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
-use forest_chain::ChainStore;
-use forest_chain_sync::{BadBlockCache, SyncState};
-use forest_ipld::json::IpldJson;
-use forest_json::{cid::CidJson, message_receipt::json::ReceiptJson, token_amount::json};
-use forest_key_management::KeyStore;
-pub use forest_libp2p::{Multiaddr, Protocol};
-use forest_libp2p::{Multihash, NetworkMessage};
-use forest_message::signed_message::SignedMessage;
-use forest_message_pool::{MessagePool, MpoolRpcProvider};
-use forest_shim::{econ::TokenAmount, message::Message};
-use forest_state_manager::StateManager;
+use crate::beacon::{Beacon, BeaconSchedule};
+use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use crate::chain::ChainStore;
+use crate::chain_sync::{BadBlockCache, SyncState};
+use crate::ipld::json::IpldJson;
+use crate::json::{cid::CidJson, message_receipt::json::ReceiptJson, token_amount::json};
+use crate::key_management::KeyStore;
+pub use crate::libp2p::{Multiaddr, Protocol};
+use crate::libp2p::{Multihash, NetworkMessage};
+use crate::message::signed_message::SignedMessage;
+use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::shim::{econ::TokenAmount, message::Message};
+use crate::state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use parking_lot::RwLock as SyncRwLock;
@@ -58,14 +58,14 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "forest_json::message::json::vec")]
+    #[serde(rename = "BlsMessages", with = "crate::json::message::json::vec")]
     pub bls_msg: Vec<Message>,
     #[serde(
         rename = "SecpkMessages",
-        with = "forest_json::signed_message::json::vec"
+        with = "crate::json::signed_message::json::vec"
     )]
     pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "forest_json::cid::vec")]
+    #[serde(rename = "Cids", with = "crate::json::cid::vec")]
     pub cids: Vec<Cid>,
 }
 

@@ -9,7 +9,7 @@ use libp2p::{
     PeerId,
 };
 
-use crate::{codec::*, protocol::*, request_manager::*, *};
+use crate::libp2p_bitswap::{codec::*, protocol::*, request_manager::*, *};
 
 /// `libp2p` swarm network behavior event of `bitswap`
 pub type BitswapBehaviourEvent = request_response::Event<Vec<BitswapMessage>, ()>;

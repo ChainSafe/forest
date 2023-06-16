@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use axum::response::IntoResponse;
-use forest_rpc_api::data_types::JsonRpcServerState;
+use crate::rpc_api::data_types::JsonRpcServerState;
 use http::{HeaderMap, StatusCode};
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 
-use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
+use crate::rpc::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
 pub async fn rpc_http_handler(
     headers: HeaderMap,

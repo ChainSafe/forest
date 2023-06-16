@@ -5,9 +5,9 @@ use std::{cell::Ref, sync::Arc};
 
 use anyhow::bail;
 use cid::Cid;
-use forest_blocks::BlockHeader;
-use forest_networks::ChainConfig;
-use forest_shim::{
+use crate::blocks::BlockHeader;
+use crate::networks::ChainConfig;
+use crate::shim::{
     gas::{price_list_by_network_version, Gas, GasTracker},
     state_tree::StateTree,
     version::NetworkVersion,
@@ -24,7 +24,7 @@ use fvm_shared::{
     consensus::{ConsensusFault, ConsensusFaultType},
 };
 
-use crate::resolve_to_key_addr;
+use crate::interpreter::resolve_to_key_addr;
 
 pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,

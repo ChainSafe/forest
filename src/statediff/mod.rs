@@ -17,9 +17,9 @@ use fil_actor_interface::{
     miner::State as MinerState, multisig::State as MultiSigState, power::State as PowerState,
     reward::State as RewardState, system::State as SystemState,
 };
-use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_json::cid::CidJson;
-use forest_shim::{
+use crate::ipld::json::{IpldJson, IpldJsonRef};
+use crate::json::cid::CidJson;
+use crate::shim::{
     address::Address,
     state_tree::{ActorState, StateTree},
 };
@@ -221,9 +221,9 @@ where
 mod tests {
     use cid::Cid;
     use fil_actor_account_state::v10::State as AccountState;
-    use forest_db::MemoryDB;
-    use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
-    use forest_utils::db::CborStoreExt;
+    use crate::db::MemoryDB;
+    use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use crate::utils::db::CborStoreExt;
     use fvm_ipld_blockstore::Blockstore;
 
     use super::pp_actor_state;

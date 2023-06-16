@@ -4,14 +4,14 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use forest_message::Message as MessageTrait;
-    use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+    use crate::message::Message as MessageTrait;
+    use crate::shim::{address::Address, econ::TokenAmount, message::Message};
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding3::RawBytes;
     use fvm_shared3::message::Message as Message_v3;
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
-    use crate::address::json::AddressJson;
+    use crate::json::address::json::AddressJson;
 
     /// Wrapper for serializing and de-serializing a Message from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -43,17 +43,17 @@ pub mod json {
         from: AddressJson,
         #[serde(rename = "Nonce")]
         sequence: u64,
-        #[serde(with = "crate::token_amount::json")]
+        #[serde(with = "crate::json::token_amount::json")]
         value: TokenAmount,
         gas_limit: u64,
-        #[serde(with = "crate::token_amount::json")]
+        #[serde(with = "crate::json::token_amount::json")]
         gas_fee_cap: TokenAmount,
-        #[serde(with = "crate::token_amount::json")]
+        #[serde(with = "crate::json::token_amount::json")]
         gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
-        #[serde(default, rename = "CID", with = "crate::cid::opt")]
+        #[serde(default, rename = "CID", with = "crate::json::cid::opt")]
         cid: Option<Cid>,
     }
 
@@ -102,7 +102,7 @@ pub mod json {
     }
 
     pub mod vec {
-        use forest_utils::json::GoVecVisitor;
+        use crate::utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         use super::*;
@@ -129,7 +129,7 @@ pub mod json {
 
 #[cfg(test)]
 pub mod tests {
-    use forest_shim::message::Message;
+    use crate::shim::message::Message;
     use quickcheck_macros::quickcheck;
 
     use super::json::{MessageJson, MessageJsonRef};
@@ -139,8 +139,8 @@ pub mod tests {
         let serialized = serde_json::to_string(&MessageJsonRef(&message)).unwrap();
         let parsed: MessageJson = serde_json::from_str(&serialized).unwrap();
         // Skip delegated addresses for now
-        if (message.from.protocol() != forest_shim::address::Protocol::Delegated)
-            && (message.to.protocol() != forest_shim::address::Protocol::Delegated)
+        if (message.from.protocol() != crate::shim::address::Protocol::Delegated)
+            && (message.to.protocol() != crate::shim::address::Protocol::Delegated)
         {
             assert_eq!(message, parsed.0)
         }

@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use forest_utils::io::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
+use crate::utils::io::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
 use serde_derive::Deserialize;
 
 // Please use with caution, remove_dir_all will completely delete a directory

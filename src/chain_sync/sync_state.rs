@@ -6,11 +6,11 @@ use std::{fmt, sync::Arc};
 #[cfg(test)]
 use chrono::TimeZone;
 use chrono::{DateTime, Duration, Utc};
-use forest_blocks::{
+use crate::blocks::{
     tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
-use forest_shim::clock::ChainEpoch;
+use crate::shim::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.

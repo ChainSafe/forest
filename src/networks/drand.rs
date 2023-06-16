@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use forest_beacon::{ChainInfo, DrandConfig, DrandNetwork};
+use crate::beacon::{ChainInfo, DrandConfig, DrandNetwork};
 
 pub(super) static DRAND_MAINNET: DrandConfig<'static> = DrandConfig {
     server: "https://api.drand.sh",

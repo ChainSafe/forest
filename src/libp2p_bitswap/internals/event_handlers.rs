@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use libp2p::{request_response, PeerId};
 
-use crate::{request_manager::*, *};
+use crate::libp2p_bitswap::{request_manager::*, *};
 
 #[derive(Debug, Clone)]
 pub enum BitswapInboundResponseEvent {

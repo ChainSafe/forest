@@ -5,8 +5,8 @@ use std::fmt;
 
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use forest_shim::address::Address;
-use forest_shim::clock::ChainEpoch;
+use crate::shim::address::Address;
+use crate::shim::clock::ChainEpoch;
 use fvm_ipld_encoding::Cbor;
 use log::info;
 use num::BigInt;
@@ -110,7 +110,7 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
-    use crate::ArbitraryCid;
+    use crate::blocks::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -377,7 +377,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        forest_json::cid::vec::serialize(m.cids(), serializer)
+        crate::json::cid::vec::serialize(m.cids(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
@@ -385,7 +385,7 @@ pub mod tipset_keys_json {
         D: Deserializer<'de>,
     {
         Ok(TipsetKeys {
-            cids: forest_json::cid::vec::deserialize(deserializer)?,
+            cids: crate::json::cid::vec::deserialize(deserializer)?,
         })
     }
 }
@@ -470,12 +470,12 @@ mod test {
         multihash::{Code::Identity, MultihashDigest},
         Cid,
     };
-    use forest_json::vrf::VRFProof;
-    use forest_shim::address::Address;
+    use crate::json::vrf::VRFProof;
+    use crate::shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
 
-    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
+    use crate::blocks::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);

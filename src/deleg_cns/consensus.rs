@@ -4,12 +4,12 @@ use std::{fmt::Debug, str::FromStr, sync::Arc};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use forest_blocks::{Block, Tipset};
-use forest_chain::{Error as ChainStoreError, Scale, Weight};
-use forest_chain_sync::consensus::Consensus;
-use forest_key_management::KeyStore;
-use forest_shim::address::Address;
-use forest_state_manager::{Error as StateManagerError, StateManager};
+use crate::blocks::{Block, Tipset};
+use crate::chain::{Error as ChainStoreError, Scale, Weight};
+use crate::chain_sync::consensus::Consensus;
+use crate::key_management::KeyStore;
+use crate::shim::address::Address;
+use crate::state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use log::info;
@@ -18,7 +18,7 @@ use num::BigInt;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::DelegatedProposer;
+use crate::deleg_cns::DelegatedProposer;
 
 #[derive(Debug, Error)]
 pub enum DelegatedConsensusError {
@@ -40,14 +40,14 @@ pub enum DelegatedConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
-impl From<forest_chain::Error> for Box<DelegatedConsensusError> {
-    fn from(err: forest_chain::Error) -> Self {
+impl From<crate::chain::Error> for Box<DelegatedConsensusError> {
+    fn from(err: crate::chain::Error) -> Self {
         Box::new(Into::into(err))
     }
 }
 
-impl From<forest_state_manager::Error> for Box<DelegatedConsensusError> {
-    fn from(err: forest_state_manager::Error) -> Self {
+impl From<crate::state_manager::Error> for Box<DelegatedConsensusError> {
+    fn from(err: crate::state_manager::Error) -> Self {
         Box::new(Into::into(err))
     }
 }
@@ -108,9 +108,9 @@ impl DelegatedConsensus {
             self.chosen_one, work_addr
         );
 
-        match forest_key_management::find_key(&work_addr, &*keystore.as_ref().read().await) {
+        match crate::key_management::find_key(&work_addr, &*keystore.as_ref().read().await) {
             Ok(key) => Ok(Some(DelegatedProposer::new(self.chosen_one, key))),
-            Err(forest_key_management::Error::KeyInfo) => Ok(None),
+            Err(crate::key_management::Error::KeyInfo) => Ok(None),
             Err(e) => Err(anyhow!(e)),
         }
     }
@@ -144,7 +144,7 @@ impl Consensus for DelegatedConsensus {
     where
         DB: Blockstore + Clone + Sync + Send + 'static,
     {
-        crate::validation::validate_block(&self.chosen_one, state_manager, block)
+        crate::deleg_cns::validation::validate_block(&self.chosen_one, state_manager, block)
             .await
             .map_err(NonEmpty::new)
     }

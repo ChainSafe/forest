@@ -4,14 +4,14 @@
 use std::borrow::Borrow;
 
 use cid::Cid;
-use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::{Cbor, Error};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
-use crate::signed_message::SignedMessage;
+use crate::message::signed_message::SignedMessage;
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with
 /// both types

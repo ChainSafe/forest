@@ -15,7 +15,7 @@ use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::{address::Address, econ::TokenAmount, Inner};
+use crate::shim::{address::Address, econ::TokenAmount, Inner};
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -85,7 +85,7 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// FVM `StateTree` variant. The `new_from_root` constructor will try to resolve
 /// to a valid `StateTree` version or fail if we don't support it at the moment.
 /// Other methods usage should be transparent (using shimmed versions of
-/// structures introduced in this crate.
+/// structures introduced in this crate::shim.
 ///
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
@@ -218,7 +218,7 @@ where
 /// fvm_shared3::econ::TokenAmount::from_atto(42), 0, None);
 ///
 /// // Create a shim out of fvm2 state, ensure conversions are correct
-/// let state_shim = forest_shim::state_tree::ActorState::from(fvm2_actor_state.clone());
+/// let state_shim = crate::shim::state_tree::ActorState::from(fvm2_actor_state.clone());
 /// assert_eq!(fvm3_actor_state, *state_shim);
 /// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```

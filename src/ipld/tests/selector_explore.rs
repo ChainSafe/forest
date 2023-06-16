@@ -3,7 +3,7 @@
 
 use std::{fs::File, io::BufReader};
 
-use forest_ipld::{json, selector::Selector, Ipld};
+use crate::ipld::{json, selector::Selector, Ipld};
 use serde::Deserialize;
 
 #[derive(Deserialize)]

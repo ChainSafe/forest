@@ -6,7 +6,7 @@ use tracing_subscriber::{
     prelude::*,
 };
 
-use crate::cli::{CliOpts, LogConfig};
+use crate::cli_shared::cli::{CliOpts, LogConfig};
 
 pub fn setup_logger(
     log_config: &LogConfig,

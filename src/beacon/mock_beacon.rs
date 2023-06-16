@@ -5,10 +5,10 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-use forest_shim::version::NetworkVersion;
-use forest_utils::encoding::blake2b_256;
+use crate::shim::version::NetworkVersion;
+use crate::utils::encoding::blake2b_256;
 
-use crate::{Beacon, BeaconEntry};
+use crate::beacon::{Beacon, BeaconEntry};
 
 /// Mock beacon used for testing. Deterministic based on an interval.
 pub struct MockBeacon {

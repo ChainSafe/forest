@@ -4,10 +4,10 @@
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
-use forest_blocks::{header, BlockHeader};
-use forest_json::{message, signature};
-use forest_message::signed_message::SignedMessage;
-use forest_shim::{
+use crate::blocks::{header, BlockHeader};
+use crate::json::{message, signature};
+use crate::message::signed_message::SignedMessage;
+use crate::shim::{
     address::{set_current_network, Network},
     crypto::Signature,
     message::Message,

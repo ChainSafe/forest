@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_message::SignedMessage;
-use forest_shim::{
+use crate::message::SignedMessage;
+use crate::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},

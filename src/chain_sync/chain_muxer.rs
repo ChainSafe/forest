@@ -9,17 +9,17 @@ use std::{
 };
 
 use cid::Cid;
-use forest_blocks::{
+use crate::blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
-use forest_chain::{ChainStore, Error as ChainStoreError};
-use forest_libp2p::{
+use crate::chain::{ChainStore, Error as ChainStoreError};
+use crate::libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
 };
-use forest_message::SignedMessage;
-use forest_message_pool::{MessagePool, Provider};
-use forest_shim::{clock::EPOCHS_IN_DAY, message::Message};
-use forest_state_manager::StateManager;
+use crate::message::SignedMessage;
+use crate::message_pool::{MessagePool, Provider};
+use crate::shim::{clock::EPOCHS_IN_DAY, message::Message};
+use crate::state_manager::StateManager;
 use futures::{
     future::{try_join_all, Future},
     stream::FuturesUnordered,
@@ -31,7 +31,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{
+use crate::chain_sync::{
     bad_block_cache::BadBlockCache,
     consensus::Consensus,
     metrics,
@@ -43,7 +43,7 @@ use crate::{
     validation::{TipsetValidationError, TipsetValidator},
 };
 
-pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
+pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
 
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
@@ -235,7 +235,7 @@ where
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
-                forest_chain::block_messages(chain_store.blockstore(), header)?;
+                crate::chain::block_messages(chain_store.blockstore(), header)?;
             // Construct a full block
             blocks.push(Block {
                 header: header.clone(),
@@ -497,9 +497,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            forest_chain::persist_objects(&chain_store.db, &[block.header()])?;
-            forest_chain::persist_objects(&chain_store.db, block.bls_msgs())?;
-            forest_chain::persist_objects(&chain_store.db, block.secp_msgs())?;
+            crate::chain::persist_objects(&chain_store.db, &[block.header()])?;
+            crate::chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+            crate::chain::persist_objects(&chain_store.db, block.secp_msgs())?;
         }
 
         // Update the peer head
@@ -931,14 +931,14 @@ mod tests {
 
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use forest_blocks::{BlockHeader, Tipset};
-    use forest_db::MemoryDB;
-    use forest_message::SignedMessage;
-    use forest_networks::{ChainConfig, Height};
-    use forest_shim::{address::Address, message::Message};
-    use forest_test_utils::construct_messages;
+    use crate::blocks::{BlockHeader, Tipset};
+    use crate::db::MemoryDB;
+    use crate::message::SignedMessage;
+    use crate::networks::{ChainConfig, Height};
+    use crate::shim::{address::Address, message::Message};
+    use crate::test_utils::construct_messages;
 
-    use crate::validation::TipsetValidator;
+    use crate::chain_sync::validation::TipsetValidator;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
@@ -980,6 +980,6 @@ mod tests {
             .unwrap();
         let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(forest_chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
+        assert!(crate::chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }
 }

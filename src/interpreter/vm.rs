@@ -6,9 +6,9 @@ use std::sync::Arc;
 use ahash::HashSet;
 use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
-use forest_message::ChainMessage;
-use forest_networks::ChainConfig;
-use forest_shim::{
+use crate::message::ChainMessage;
+use crate::networks::ChainConfig;
+use crate::shim::{
     address::Address,
     econ::TokenAmount,
     error::ExitCode,
@@ -37,10 +37,10 @@ use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
 
-use crate::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
+use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
 
-pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
-pub(crate) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
+pub(in crate::interpreter) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
+pub(in crate::interpreter) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
 
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
@@ -55,7 +55,7 @@ type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 
 #[cfg(feature = "instrumented_kernel")]
-type ForestExecutor<DB> = DefaultExecutor<crate::instrumented_kernel::ForestInstrumentedKernel<DB>>;
+type ForestExecutor<DB> = DefaultExecutor<crate::interpreter::instrumented_kernel::ForestInstrumentedKernel<DB>>;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.
@@ -109,7 +109,7 @@ where
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-        epoch_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<forest_blocks::TipsetKeys>>,
+        epoch_tsk: Box<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
         timestamp: u64,

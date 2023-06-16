@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_rpc_api::node_api::{NodeStatusParams, NodeStatusResult, NODE_STATUS};
+use crate::rpc_api::node_api::{NodeStatusParams, NodeStatusResult, NODE_STATUS};
 use jsonrpc_v2::Error;
 
-use crate::call;
+use crate::rpc_client::call;
 
 pub async fn node_status(
     params: NodeStatusParams,

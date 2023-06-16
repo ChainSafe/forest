@@ -21,5 +21,5 @@ pub use libp2p::{
 };
 pub use multihash::Multihash;
 
-pub(crate) use self::behaviour::*;
+pub(in crate::libp2p) use self::behaviour::*;
 pub use self::{config::*, peer_manager::*, service::*};

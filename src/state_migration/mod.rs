@@ -7,12 +7,12 @@ use std::sync::{
 };
 
 use cid::Cid;
-use forest_networks::{ChainConfig, Height};
-use forest_shim::clock::ChainEpoch;
-use forest_utils::misc::reveal_five_trees;
+use crate::networks::{ChainConfig, Height};
+use crate::shim::clock::ChainEpoch;
+use crate::utils::misc::reveal_five_trees;
 use fvm_ipld_blockstore::Blockstore;
 
-pub(crate) mod common;
+pub(in crate::state_migration) mod common;
 mod nv18;
 mod nv19;
 mod type_migrations;

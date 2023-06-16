@@ -4,11 +4,11 @@ use std::{fmt::Debug, sync::Arc};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use forest_beacon::{Beacon, BeaconSchedule};
-use forest_blocks::{Block, Tipset};
-use forest_chain::{Error as ChainStoreError, Scale, Weight};
-use forest_chain_sync::Consensus;
-use forest_state_manager::{Error as StateManagerError, StateManager};
+use crate::beacon::{Beacon, BeaconSchedule};
+use crate::blocks::{Block, Tipset};
+use crate::chain::{Error as ChainStoreError, Scale, Weight};
+use crate::chain_sync::Consensus;
+use crate::state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;

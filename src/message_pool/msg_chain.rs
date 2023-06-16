@@ -8,10 +8,10 @@ use std::{
 };
 
 use ahash::HashMap;
-use forest_blocks::Tipset;
-use forest_message::{Message, SignedMessage};
-use forest_networks::ChainConfig;
-use forest_shim::{
+use crate::blocks::Tipset;
+use crate::message::{Message, SignedMessage};
+use crate::networks::ChainConfig;
+use crate::shim::{
     address::Address,
     econ::TokenAmount,
     gas::{price_list_by_network_version, Gas},
@@ -22,7 +22,7 @@ use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
 
 use super::errors::Error;
-use crate::{
+use crate::message_pool::{
     provider::Provider,
     utils::{get_gas_perf, get_gas_reward},
 };
@@ -39,13 +39,13 @@ new_key_type! {
 /// as `NodeKey` to the entries in the map With this design, we get around the
 /// borrow checker rule issues when implementing the optimal selection
 /// algorithm.
-pub(crate) struct Chains {
+pub(in crate::message_pool) struct Chains {
     pub map: SlotMap<NodeKey, MsgChainNode>,
     pub key_vec: Vec<NodeKey>,
 }
 
 impl Chains {
-    pub(crate) fn new() -> Self {
+    pub(in crate::message_pool) fn new() -> Self {
         Self {
             map: SlotMap::with_key(),
             key_vec: vec![],
@@ -54,14 +54,14 @@ impl Chains {
 
     /// Pushes a `msg` chain node into slot map and places the key in the
     /// `node_vec` passed as parameter.
-    pub(crate) fn push_with(&mut self, cur_chain: MsgChainNode, node_vec: &mut Vec<NodeKey>) {
+    pub(in crate::message_pool) fn push_with(&mut self, cur_chain: MsgChainNode, node_vec: &mut Vec<NodeKey>) {
         let key = self.map.insert(cur_chain);
         node_vec.push(key);
     }
 
     /// Sorts the chains with `compare` method. If rev is true, sorts in
     /// descending order.
-    pub(crate) fn sort(&mut self, rev: bool) {
+    pub(in crate::message_pool) fn sort(&mut self, rev: bool) {
         // replace dance to get around borrow checker
         let mut chains = mem::take(&mut self.key_vec);
         chains.sort_by(|a, b| {
@@ -77,7 +77,7 @@ impl Chains {
     }
 
     // Sort by effective perf with cmp_effective
-    pub(crate) fn sort_effective(&mut self) {
+    pub(in crate::message_pool) fn sort_effective(&mut self) {
         let mut chains = mem::take(&mut self.key_vec);
         chains.sort_by(|a, b| {
             let a = self.map.get(*a).unwrap();
@@ -88,7 +88,7 @@ impl Chains {
     }
 
     // Sort by effective `perf` on a range
-    pub(crate) fn sort_range_effective(&mut self, range: std::ops::RangeFrom<usize>) {
+    pub(in crate::message_pool) fn sort_range_effective(&mut self, range: std::ops::RangeFrom<usize>) {
         let mut chains = mem::take(&mut self.key_vec);
         chains[range].sort_by(|a, b| {
             self.map
@@ -100,14 +100,14 @@ impl Chains {
     }
 
     /// Retrieves the `msg` chain node by the given `NodeKey`
-    pub(crate) fn get_mut(&mut self, k: NodeKey) -> Option<&mut MsgChainNode> {
+    pub(in crate::message_pool) fn get_mut(&mut self, k: NodeKey) -> Option<&mut MsgChainNode> {
         self.map.get_mut(k)
     }
 
     /// Retrieves the `msg` chain node by the given `NodeKey` along with the
     /// data required from previous chain (if exists) to set effective
     /// performance of this node.
-    pub(crate) fn get_mut_with_prev_eff(
+    pub(in crate::message_pool) fn get_mut_with_prev_eff(
         &mut self,
         k: NodeKey,
     ) -> (Option<&mut MsgChainNode>, Option<(f64, u64)>) {
@@ -128,49 +128,49 @@ impl Chains {
     }
 
     /// Retrieves the `msg` chain node by the given `NodeKey`
-    pub(crate) fn get(&self, k: NodeKey) -> Option<&MsgChainNode> {
+    pub(in crate::message_pool) fn get(&self, k: NodeKey) -> Option<&MsgChainNode> {
         self.map.get(k)
     }
 
     /// Retrieves the `msg` chain node at the given index
-    pub(crate) fn get_mut_at(&mut self, i: usize) -> Option<&mut MsgChainNode> {
+    pub(in crate::message_pool) fn get_mut_at(&mut self, i: usize) -> Option<&mut MsgChainNode> {
         let key = self.key_vec.get(i)?;
         self.get_mut(*key)
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
-    pub(crate) fn get_from(&self, i: usize, vec: &[NodeKey]) -> &MsgChainNode {
+    pub(in crate::message_pool) fn get_from(&self, i: usize, vec: &[NodeKey]) -> &MsgChainNode {
         self.map.get(vec[i]).unwrap()
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
-    pub(crate) fn get_mut_from(&mut self, i: usize, vec: &[NodeKey]) -> &mut MsgChainNode {
+    pub(in crate::message_pool) fn get_mut_from(&mut self, i: usize, vec: &[NodeKey]) -> &mut MsgChainNode {
         self.map.get_mut(vec[i]).unwrap()
     }
 
     // Retrieves the node key at the given index
-    pub(crate) fn get_key_at(&self, i: usize) -> Option<NodeKey> {
+    pub(in crate::message_pool) fn get_key_at(&self, i: usize) -> Option<NodeKey> {
         self.key_vec.get(i).copied()
     }
 
     /// Retrieves the `msg` chain node at the given index
-    pub(crate) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
+    pub(in crate::message_pool) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
         self.map.get(self.get_key_at(i)?)
     }
 
     /// Retrieves the amount of items.
-    pub(crate) fn len(&self) -> usize {
+    pub(in crate::message_pool) fn len(&self) -> usize {
         self.map.len()
     }
 
     /// Returns true is the chain is empty and otherwise. We check the map as
     /// the source of truth as `key_vec` can be extended time to time.
-    pub(crate) fn is_empty(&self) -> bool {
+    pub(in crate::message_pool) fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
     /// Removes messages from the given index and resets effective `perfs`
-    pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: u64, base_fee: &TokenAmount) {
+    pub(in crate::message_pool) fn trim_msgs_at(&mut self, idx: usize, gas_limit: u64, base_fee: &TokenAmount) {
         let prev = match idx {
             0 => None,
             _ => self
@@ -209,7 +209,7 @@ impl Chains {
         }
     }
 
-    pub(crate) fn invalidate(&mut self, mut key: Option<NodeKey>) {
+    pub(in crate::message_pool) fn invalidate(&mut self, mut key: Option<NodeKey>) {
         let mut next_keys = vec![];
 
         while let Some(nk) = key {
@@ -228,7 +228,7 @@ impl Chains {
     }
 
     /// Drops nodes which are no longer valid after the merge step
-    pub(crate) fn drop_invalid(&mut self, key_vec: &mut Vec<NodeKey>) {
+    pub(in crate::message_pool) fn drop_invalid(&mut self, key_vec: &mut Vec<NodeKey>) {
         let mut valid_keys = vec![];
         for k in key_vec.iter() {
             if let true = self.map.get(*k).map(|n| n.valid).unwrap() {
@@ -283,7 +283,7 @@ impl MsgChainNode {
         Ordering::Less
     }
 
-    pub(crate) fn cmp_effective(&self, other: &Self) -> Ordering {
+    pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
         if self.merged && !other.merged
             || self.gas_perf >= 0.0 && other.gas_perf < 0.0
             || self.eff_perf > other.eff_perf
@@ -342,7 +342,7 @@ impl std::default::Default for MsgChainNode {
     }
 }
 
-pub(crate) fn create_message_chains<T>(
+pub(in crate::message_pool) fn create_message_chains<T>(
     api: &T,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,

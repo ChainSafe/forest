@@ -9,12 +9,12 @@ use std::{
 
 use async_trait::async_trait;
 use cid::Cid;
-use forest_db::MemoryDB;
-use forest_ipld::{
+use crate::db::MemoryDB;
+use crate::ipld::{
     json::{self, IpldJson},
     selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
 };
-use forest_utils::db::CborStoreExt;
+use crate::utils::db::CborStoreExt;
 use fvm_ipld_encoding::CborStore;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
@@ -39,7 +39,7 @@ enum IpldValue {
     List,
     #[serde(rename = "map")]
     Map,
-    #[serde(rename = "link", with = "forest_json::cid")]
+    #[serde(rename = "link", with = "crate::json::cid")]
     Link(Cid),
 }
 
@@ -81,7 +81,7 @@ mod last_block_json {
         struct LastBlockDe {
             #[serde(with = "super::path_json")]
             path: Path,
-            #[serde(with = "forest_json::cid")]
+            #[serde(with = "crate::json::cid")]
             link: Cid,
         }
         match Deserialize::deserialize(deserializer)? {

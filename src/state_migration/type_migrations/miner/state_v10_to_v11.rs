@@ -5,12 +5,12 @@ use fil_actor_miner_state::{
     v10::{MinerInfo as MinerInfoV10, State as MinerStateV10},
     v11::{MinerInfo as MinerInfoV11, State as MinerStateV11},
 };
-use forest_shim::sector::convert_window_post_proof_v1_to_v1p1;
-use forest_utils::db::CborStoreExt;
+use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
+use crate::utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use crate::common::{TypeMigration, TypeMigrator};
+use crate::state_migration::common::{TypeMigration, TypeMigrator};
 
 impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
     fn migrate_type(from: MinerStateV10, store: &impl Blockstore) -> anyhow::Result<MinerStateV11> {

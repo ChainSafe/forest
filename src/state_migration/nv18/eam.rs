@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_shim::{
+use crate::shim::{
     address::Address,
     machine::ManifestV3,
     state_tree::{ActorState, StateTree},
@@ -9,7 +9,7 @@ use forest_shim::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use crate::common::PostMigrator;
+use crate::state_migration::common::PostMigrator;
 
 use super::SystemStateNew;
 

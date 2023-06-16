@@ -4,17 +4,17 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use base64::{prelude::BASE64_STANDARD, Engine};
-use forest_beacon::Beacon;
-use forest_json::{address::json::AddressJson, signature::json::SignatureJson};
-use forest_key_management::{json::KeyInfoJson, Error, Key};
-use forest_rpc_api::{data_types::RPCState, wallet_api::*};
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
+use crate::beacon::Beacon;
+use crate::json::{address::json::AddressJson, signature::json::SignatureJson};
+use crate::key_management::{json::KeyInfoJson, Error, Key};
+use crate::rpc_api::{data_types::RPCState, wallet_api::*};
+use crate::shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::Zero;
 
 /// Return the balance from `StateManager` for a given `Address`
-pub(crate) async fn wallet_balance<DB, B>(
+pub(in crate::rpc) async fn wallet_balance<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletBalanceParams>,
 ) -> Result<WalletBalanceResult, JsonRpcError>
@@ -43,7 +43,7 @@ where
 }
 
 /// Get the default Address for the Wallet
-pub(crate) async fn wallet_default_address<DB, B>(
+pub(in crate::rpc) async fn wallet_default_address<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<WalletDefaultAddressResult, JsonRpcError>
 where
@@ -52,12 +52,12 @@ where
 {
     let keystore = data.keystore.read().await;
 
-    let addr = forest_key_management::get_default(&keystore)?;
+    let addr = crate::key_management::get_default(&keystore)?;
     Ok(addr.map(|s| s.to_string()))
 }
 
 /// Export `KeyInfo` from the Wallet given its address
-pub(crate) async fn wallet_export<DB, B>(
+pub(in crate::rpc) async fn wallet_export<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletExportParams>,
 ) -> Result<WalletExportResult, JsonRpcError>
@@ -70,12 +70,12 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key_info = forest_key_management::export_key_info(&addr, &keystore)?;
+    let key_info = crate::key_management::export_key_info(&addr, &keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
 /// Return whether or not a Key is in the Wallet
-pub(crate) async fn wallet_has<DB, B>(
+pub(in crate::rpc) async fn wallet_has<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletHasParams>,
 ) -> Result<WalletHasResult, JsonRpcError>
@@ -88,12 +88,12 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key = forest_key_management::find_key(&addr, &keystore).is_ok();
+    let key = crate::key_management::find_key(&addr, &keystore).is_ok();
     Ok(key)
 }
 
 /// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
-pub(crate) async fn wallet_import<DB, B>(
+pub(in crate::rpc) async fn wallet_import<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletImportParams>,
 ) -> Result<WalletImportResult, JsonRpcError>
@@ -101,7 +101,7 @@ where
     DB: Blockstore,
     B: Beacon,
 {
-    let key_info: forest_key_management::KeyInfo = match params.first().cloned() {
+    let key_info: crate::key_management::KeyInfo = match params.first().cloned() {
         Some(key_info) => key_info.into(),
         None => return Err(JsonRpcError::INTERNAL_ERROR),
     };
@@ -126,7 +126,7 @@ where
 }
 
 /// List all Addresses in the Wallet
-pub(crate) async fn wallet_list<DB, B>(
+pub(in crate::rpc) async fn wallet_list<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<WalletListResult, JsonRpcError>
 where
@@ -134,14 +134,14 @@ where
     B: Beacon,
 {
     let keystore = data.keystore.read().await;
-    Ok(forest_key_management::list_addrs(&keystore)?
+    Ok(crate::key_management::list_addrs(&keystore)?
         .into_iter()
         .map(AddressJson::from)
         .collect())
 }
 
 /// Generate a new Address that is stored in the Wallet
-pub(crate) async fn wallet_new<DB, B>(
+pub(in crate::rpc) async fn wallet_new<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletNewParams>,
 ) -> Result<WalletNewResult, JsonRpcError>
@@ -151,7 +151,7 @@ where
 {
     let (sig_raw,) = params;
     let mut keystore = data.keystore.write().await;
-    let key = forest_key_management::generate_key(sig_raw.0)?;
+    let key = crate::key_management::generate_key(sig_raw.0)?;
 
     let addr = format!("wallet-{}", key.address);
     keystore.put(addr, key.key_info.clone())?;
@@ -164,7 +164,7 @@ where
 }
 
 /// Set the default Address for the Wallet
-pub(crate) async fn wallet_set_default<DB, B>(
+pub(in crate::rpc) async fn wallet_set_default<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletSetDefaultParams>,
 ) -> Result<WalletSetDefaultResult, JsonRpcError>
@@ -183,7 +183,7 @@ where
 }
 
 /// Sign a vector of bytes
-pub(crate) async fn wallet_sign<DB, B>(
+pub(in crate::rpc) async fn wallet_sign<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletSignParams>,
 ) -> Result<WalletSignResult, JsonRpcError>
@@ -199,15 +199,15 @@ where
         .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
-    let key = match forest_key_management::find_key(&key_addr, keystore) {
+    let key = match crate::key_management::find_key(&key_addr, keystore) {
         Ok(key) => key,
         Err(_) => {
-            let key_info = forest_key_management::try_find(&key_addr, keystore)?;
+            let key_info = crate::key_management::try_find(&key_addr, keystore)?;
             Key::try_from(key_info)?
         }
     };
 
-    let sig = forest_key_management::sign(
+    let sig = crate::key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         &BASE64_STANDARD.decode(msg_string)?,
@@ -217,7 +217,7 @@ where
 }
 
 /// Verify a Signature, true if verified, false otherwise
-pub(crate) async fn wallet_verify<DB, B>(
+pub(in crate::rpc) async fn wallet_verify<DB, B>(
     _data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletVerifyParams>,
 ) -> Result<WalletVerifyResult, JsonRpcError>

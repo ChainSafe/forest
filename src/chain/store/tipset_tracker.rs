@@ -4,9 +4,9 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use cid::Cid;
-use forest_blocks::{BlockHeader, Tipset};
-use forest_networks::ChainConfig;
-use forest_shim::clock::ChainEpoch;
+use crate::blocks::{BlockHeader, Tipset};
+use crate::networks::ChainConfig;
+use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use log::{debug, warn};
@@ -16,7 +16,7 @@ use super::Error;
 
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
-pub(crate) struct TipsetTracker<DB> {
+pub(in crate::chain) struct TipsetTracker<DB> {
     entries: Mutex<BTreeMap<ChainEpoch, Vec<Cid>>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
@@ -121,7 +121,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
 #[cfg(test)]
 mod test {
-    use forest_db::MemoryDB;
+    use crate::db::MemoryDB;
 
     use super::*;
 

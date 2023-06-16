@@ -3,17 +3,17 @@
 
 use ahash::HashMap;
 use cid::Cid;
-use forest_shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
-use crate::common::migration_job::{MigrationJob, MigrationJobOutput};
+use crate::state_migration::common::migration_job::{MigrationJob, MigrationJobOutput};
 
 /// Handles several cases of migration:
 /// - nil migrations, essentially mapping one Actor to another,
 /// - migrations where state upgrade is required,
 /// - creating new actors that were not present in the prior network version.
-pub(crate) struct StateMigration<BS> {
+pub(in crate::state_migration) struct StateMigration<BS> {
     migrations: HashMap<Cid, Migrator<BS>>,
     /// Verifies correctness of the migration specification.
     verifier: Option<MigrationVerifier<BS>>,
@@ -22,7 +22,7 @@ pub(crate) struct StateMigration<BS> {
 }
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
-    pub(crate) fn new(verifier: Option<MigrationVerifier<BS>>) -> Self {
+    pub(in crate::state_migration) fn new(verifier: Option<MigrationVerifier<BS>>) -> Self {
         Self {
             migrations: Default::default(),
             verifier,
@@ -31,16 +31,16 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     }
 
     /// Inserts a new migrator into the migration specification.
-    pub(crate) fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
+    pub(in crate::state_migration) fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
         self.migrations.insert(prior_cid, migrator);
     }
 
     /// Inserts a new post migrator into the post migration specification.
-    pub(crate) fn add_post_migrator(&mut self, post_migrator: PostMigratorArc<BS>) {
+    pub(in crate::state_migration) fn add_post_migrator(&mut self, post_migrator: PostMigratorArc<BS>) {
         self.post_migrators.push(post_migrator);
     }
 
-    pub(crate) fn migrate_state_tree(
+    pub(in crate::state_migration) fn migrate_state_tree(
         &self,
         store: BS,
         prior_epoch: ChainEpoch,

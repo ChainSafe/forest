@@ -7,17 +7,17 @@ use std::{
 };
 
 use cid::Cid;
-use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
-use forest_chain::ChainStore;
-use forest_message::SignedMessage;
-use forest_shim::message::Message;
-use forest_utils::db::CborStoreExt;
+use crate::blocks::{Block, FullTipset, Tipset, TxMeta};
+use crate::chain::ChainStore;
+use crate::message::SignedMessage;
+use crate::shim::message::Message;
+use crate::utils::db::CborStoreExt;
 use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
 use thiserror::Error;
 
-use crate::bad_block_cache::BadBlockCache;
+use crate::chain_sync::bad_block_cache::BadBlockCache;
 
 const MAX_HEIGHT_DRIFT: u64 = 5;
 

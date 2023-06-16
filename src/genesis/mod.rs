@@ -5,9 +5,9 @@ use std::{sync::Arc, time};
 
 use anyhow::bail;
 use cid::Cid;
-use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_state_manager::StateManager;
-use forest_utils::{
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::state_manager::StateManager;
+use crate::utils::{
     db::BlockstoreBufferedWriteExt,
     net::{get_fetch_progress_from_file, get_fetch_progress_from_url},
 };

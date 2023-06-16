@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use url::Url;
 
 use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
-use crate::ActorBundleInfo;
+use crate::networks::ActorBundleInfo;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");

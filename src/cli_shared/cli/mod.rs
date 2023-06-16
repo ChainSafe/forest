@@ -14,8 +14,8 @@ use ahash::HashSet;
 use byte_unit::Byte;
 use clap::Parser;
 use directories::ProjectDirs;
-use forest_networks::{ChainConfig, NetworkChain};
-use forest_utils::{
+use crate::networks::{ChainConfig, NetworkChain};
+use crate::utils::{
     io::{read_file_to_string, read_toml, ProgressBarVisibility},
     misc::LoggingColor,
 };

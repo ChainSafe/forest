@@ -4,9 +4,9 @@
 use anyhow::Context;
 use cid::Cid;
 use fil_actor_interface::{market, power, reward};
-use forest_chain::*;
-use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use crate::chain::*;
+use crate::networks::{ChainConfig, Height};
+use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
     econ::TokenAmount,
@@ -34,7 +34,7 @@ const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
 
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
-pub(crate) struct GenesisInfo {
+pub(in crate::state_manager) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state

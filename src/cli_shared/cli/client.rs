@@ -9,8 +9,8 @@ use std::{
 
 use chrono::Duration;
 use directories::ProjectDirs;
-use forest_rpc_client::DEFAULT_PORT;
-use forest_utils::io::ProgressBarVisibility;
+use crate::rpc_client::DEFAULT_PORT;
+use crate::utils::io::ProgressBarVisibility;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 

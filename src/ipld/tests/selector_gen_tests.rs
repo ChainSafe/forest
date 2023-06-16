@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_ipld::selector::{RecursionLimit, Selector};
+use crate::ipld::selector::{RecursionLimit, Selector};
 use indexmap::IndexMap;
 use serde_json::{from_str, to_string};
 // For readability of tests

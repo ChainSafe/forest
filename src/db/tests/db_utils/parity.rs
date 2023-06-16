@@ -3,7 +3,7 @@
 
 use std::ops::Deref;
 
-use forest_db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
+use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {

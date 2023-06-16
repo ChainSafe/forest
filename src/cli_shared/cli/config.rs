@@ -4,11 +4,11 @@
 use core::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
-use forest_chain_sync::SyncConfig;
+use crate::chain_sync::SyncConfig;
 #[cfg(any(feature = "paritydb", feature = "rocksdb"))]
-use forest_db::db_engine::DbConfig;
-use forest_libp2p::Libp2pConfig;
-use forest_networks::ChainConfig;
+use crate::db::db_engine::DbConfig;
+use crate::libp2p::Libp2pConfig;
+use crate::networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,7 @@ pub struct LogConfig {
 }
 
 impl LogConfig {
-    pub(crate) fn to_filter_string(&self) -> String {
+    pub(in crate::cli_shared) fn to_filter_string(&self) -> String {
         self.filters
             .iter()
             .map(|f| format!("{}={}", f.module, f.level))
@@ -100,8 +100,8 @@ pub struct TokioConfig {
 #[serde(default)]
 pub struct Config {
     pub client: Client,
-    pub rocks_db: forest_db::rocks_config::RocksDbConfig,
-    pub parity_db: forest_db::parity_db_config::ParityDbConfig,
+    pub rocks_db: crate::db::rocks_config::RocksDbConfig,
+    pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
@@ -132,7 +132,7 @@ mod test {
     };
 
     use chrono::Duration;
-    use forest_utils::io::ProgressBarVisibility;
+    use crate::utils::io::ProgressBarVisibility;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use tracing_subscriber::EnvFilter;
@@ -145,10 +145,10 @@ mod test {
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
-        rocks_db: forest_db::rocks_config::RocksDbConfig,
-        parity_db: forest_db::parity_db_config::ParityDbConfig,
-        network: forest_libp2p::Libp2pConfig,
-        sync: forest_chain_sync::SyncConfig,
+        rocks_db: crate::db::rocks_config::RocksDbConfig,
+        parity_db: crate::db::parity_db_config::ParityDbConfig,
+        network: crate::libp2p::Libp2pConfig,
+        sync: crate::chain_sync::SyncConfig,
     }
 
     impl From<ConfigPartial> for Config {
@@ -185,7 +185,7 @@ mod test {
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
-                rocks_db: forest_db::rocks_config::RocksDbConfig {
+                rocks_db: crate::db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
                     write_buffer_size: u32::arbitrary(g) as _,
@@ -198,7 +198,7 @@ mod test {
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
                 },
-                parity_db: forest_db::parity_db_config::ParityDbConfig {
+                parity_db: crate::db::parity_db_config::ParityDbConfig {
                     enable_statistics: bool::arbitrary(g),
                     compression_type: String::arbitrary(g),
                 },

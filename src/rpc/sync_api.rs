@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use forest_beacon::Beacon;
-use forest_chain_sync::SyncState;
-use forest_json::cid::CidJson;
-use forest_rpc_api::{
+use crate::beacon::Beacon;
+use crate::chain_sync::SyncState;
+use crate::json::cid::CidJson;
+use crate::rpc_api::{
     data_types::{RPCState, RPCSyncState},
     sync_api::*,
 };
@@ -14,7 +14,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
-pub(crate) async fn sync_check_bad<DB, B>(
+pub(in crate::rpc) async fn sync_check_bad<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<SyncCheckBadParams>,
 ) -> Result<SyncCheckBadResult, JsonRpcError>
@@ -27,7 +27,7 @@ where
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(crate) async fn sync_mark_bad<DB, B>(
+pub(in crate::rpc) async fn sync_mark_bad<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<SyncMarkBadParams>,
 ) -> Result<SyncMarkBadResult, JsonRpcError>
@@ -46,7 +46,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub(crate) async fn sync_state<DB, B>(
+pub(in crate::rpc) async fn sync_state<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<SyncStateResult, JsonRpcError>
 where
@@ -61,17 +61,17 @@ where
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
-    use forest_blocks::{BlockHeader, Tipset};
-    use forest_chain::ChainStore;
-    use forest_chain_sync::SyncStage;
-    use forest_db::{MemoryDB, Store};
-    use forest_key_management::{KeyStore, KeyStoreConfig};
-    use forest_libp2p::NetworkMessage;
-    use forest_message_pool::{MessagePool, MpoolRpcProvider};
-    use forest_networks::ChainConfig;
-    use forest_shim::address::Address;
-    use forest_state_manager::StateManager;
+    use crate::beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
+    use crate::blocks::{BlockHeader, Tipset};
+    use crate::chain::ChainStore;
+    use crate::chain_sync::SyncStage;
+    use crate::db::{MemoryDB, Store};
+    use crate::key_management::{KeyStore, KeyStoreConfig};
+    use crate::libp2p::NetworkMessage;
+    use crate::message_pool::{MessagePool, MpoolRpcProvider};
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
+    use crate::state_manager::StateManager;
     use fvm_ipld_encoding::Cbor;
     use serde_json::from_str;
     use tempfile::TempDir;
@@ -117,7 +117,7 @@ mod tests {
             StateManager::new(
                 cs_arc.clone(),
                 chain_config,
-                Arc::new(forest_interpreter::RewardActorMessageCalc),
+                Arc::new(crate::interpreter::RewardActorMessageCalc),
             )
             .unwrap(),
         );

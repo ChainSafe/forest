@@ -3,17 +3,17 @@
 
 use std::{num::NonZeroUsize, sync::Arc};
 
-use forest_blocks::{Tipset, TipsetKeys};
-use forest_metrics::metrics;
-use forest_shim::clock::ChainEpoch;
-use forest_utils::io::ProgressBar;
+use crate::blocks::{Tipset, TipsetKeys};
+use crate::metrics::metrics;
+use crate::shim::clock::ChainEpoch;
+use crate::utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 
-use crate::{tipset_from_keys, Error, TipsetCache};
+use crate::chain::{tipset_from_keys, Error, TipsetCache};
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
 
@@ -28,8 +28,8 @@ pub(super) mod checkpoint_tipsets {
 
     use ahash::HashSet;
     use cid::Cid;
-    use forest_blocks::{Tipset, TipsetKeys};
-    use forest_networks::NetworkChain;
+    use crate::blocks::{Tipset, TipsetKeys};
+    use crate::networks::NetworkChain;
     use serde::{Deserialize, Serialize};
 
     // Represents a static map of validated tipset hashes which helps to remove the
@@ -55,13 +55,13 @@ pub(super) mod checkpoint_tipsets {
         let key = tipset_hash(tsk);
         if KNOWN_CHECKPOINTS.mainnet.contains(&key) {
             return Some(TipsetKeys::new(vec![Cid::from_str(
-                forest_networks::mainnet::GENESIS_CID,
+                crate::networks::mainnet::GENESIS_CID,
             )
             .unwrap()]));
         }
         if KNOWN_CHECKPOINTS.calibnet.contains(&key) {
             return Some(TipsetKeys::new(vec![Cid::from_str(
-                forest_networks::calibnet::GENESIS_CID,
+                crate::networks::calibnet::GENESIS_CID,
             )
             .unwrap()]));
         }
@@ -80,10 +80,10 @@ pub(super) mod checkpoint_tipsets {
     pub fn validate_genesis_cid(ts: &Tipset, network: &NetworkChain) -> bool {
         match network {
             NetworkChain::Mainnet => {
-                ts.min_ticket_block().cid().to_string() == forest_networks::mainnet::GENESIS_CID
+                ts.min_ticket_block().cid().to_string() == crate::networks::mainnet::GENESIS_CID
             }
             NetworkChain::Calibnet => {
-                ts.min_ticket_block().cid().to_string() == forest_networks::calibnet::GENESIS_CID
+                ts.min_ticket_block().cid().to_string() == crate::networks::calibnet::GENESIS_CID
             }
             NetworkChain::Devnet(_) => true, // skip and pass through if an unsupported network found
         }
@@ -99,7 +99,7 @@ pub(super) mod checkpoint_tipsets {
 /// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
 /// doing `lookbacks`.
 #[derive(Clone, PartialEq, Debug)]
-pub(crate) struct LookbackEntry {
+pub(in crate::chain) struct LookbackEntry {
     tipset: Arc<Tipset>,
     parent_height: ChainEpoch,
     target_height: ChainEpoch,
@@ -108,7 +108,7 @@ pub(crate) struct LookbackEntry {
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub(crate) struct ChainIndex<BS> {
+pub(in crate::chain) struct ChainIndex<BS> {
     /// Cache of look-back entries to speed up lookup.
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
@@ -120,7 +120,7 @@ pub(crate) struct ChainIndex<BS> {
 }
 
 impl<BS: Blockstore> ChainIndex<BS> {
-    pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
+    pub(in crate::chain) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
             skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
@@ -134,7 +134,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or
     /// loading parents from the `blockstore`.
-    pub(crate) fn get_tipset_by_height(
+    pub(in crate::chain) fn get_tipset_by_height(
         &self,
         from: Arc<Tipset>,
         to: ChainEpoch,
@@ -204,7 +204,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
     /// Walks back from the tipset, ignoring the cached entries.
     /// This should only be used when the cache is checked to be invalidated.
-    pub(crate) fn get_tipset_by_height_without_cache(
+    pub(in crate::chain) fn get_tipset_by_height_without_cache(
         &self,
         from: Arc<Tipset>,
         to: ChainEpoch,

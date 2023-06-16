@@ -12,8 +12,8 @@ use std::{
 
 use anyhow::Context;
 use cid::Cid;
-use forest_blocks::{FullTipset, Tipset, TipsetKeys};
-use forest_libp2p::{
+use crate::blocks::{FullTipset, Tipset, TipsetKeys};
+use crate::libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
         MESSAGES,
@@ -22,7 +22,7 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
-use forest_shim::clock::ChainEpoch;
+use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use log::{debug, trace, warn};
@@ -44,7 +44,7 @@ const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`Blockstore`]
 /// required to make network requests.
-pub(crate) struct SyncNetworkContext<DB> {
+pub(in crate::chain_sync) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
     network_send: flume::Sender<NetworkMessage>,
 

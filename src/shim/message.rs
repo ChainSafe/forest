@@ -8,7 +8,7 @@ use fvm_shared::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
 use serde::{Deserialize, Serialize};
 
-use crate::{address::Address, econ::TokenAmount};
+use crate::shim::{address::Address, econ::TokenAmount};
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug, Hash)]
 #[serde(transparent)]

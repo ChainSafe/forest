@@ -3,7 +3,7 @@
 
 use std::ops::Deref;
 
-use forest_db::{rocks::RocksDb, rocks_config::RocksDbConfig};
+use crate::db::{rocks::RocksDb, rocks_config::RocksDbConfig};
 
 /// Temporary, self-cleaning RocksDB
 pub struct TempRocksDB {

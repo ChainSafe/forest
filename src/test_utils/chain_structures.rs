@@ -8,13 +8,13 @@ use cid::{
     multihash::{Code::Blake2b256, MultihashDigest},
     Cid,
 };
-use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
-use forest_json::vrf::VRFProof;
-use forest_libp2p::chain_exchange::{
+use crate::blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
+use crate::json::vrf::VRFProof;
+use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use forest_message::SignedMessage;
-use forest_shim::{
+use crate::message::SignedMessage;
+use crate::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},

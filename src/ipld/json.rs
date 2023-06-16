@@ -9,7 +9,7 @@
 //!
 //! For example:
 //!
-//! `forest_ipld`
+//! `crate::ipld`
 //! `{ "/": { "bytes": "mVGhlIHF1aQ" } }`
 //!
 //! `libipld-json`

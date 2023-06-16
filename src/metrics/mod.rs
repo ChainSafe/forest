@@ -8,7 +8,7 @@ use std::{net::TcpListener, path::PathBuf};
 
 use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
-use forest_db::DBStatistics;
+use crate::db::DBStatistics;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
 use tokio::sync::RwLock;
@@ -32,7 +32,7 @@ where
     let registry = prometheus::default_registry();
 
     // Add the DBCollector to the registry
-    let db_collector = crate::db::DBCollector::new(db_directory);
+    let db_collector = crate::metrics::db::DBCollector::new(db_directory);
     registry.register(Box::new(db_collector))?;
 
     // Create an configure HTTP server

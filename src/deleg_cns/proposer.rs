@@ -6,20 +6,20 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use forest_blocks::{BlockHeader, GossipBlock, Tipset};
-use forest_chain::Scale;
-use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_key_management::Key;
-use forest_networks::Height;
-use forest_shim::address::Address;
-use forest_state_manager::StateManager;
+use crate::blocks::{BlockHeader, GossipBlock, Tipset};
+use crate::chain::Scale;
+use crate::chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use crate::key_management::Key;
+use crate::networks::Height;
+use crate::shim::address::Address;
+use crate::state_manager::StateManager;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use log::{error, info};
 use tokio::task::JoinSet;
 use tokio_stream::wrappers::IntervalStream;
 
-use crate::DelegatedConsensus;
+use crate::deleg_cns::DelegatedConsensus;
 
 // `DelegatedProposer` could have fields such as the `chain_config`,
 // but since everything is accessible through the `StateManager`
@@ -40,7 +40,7 @@ pub struct DelegatedProposer {
 }
 
 impl DelegatedProposer {
-    pub(crate) fn new(miner_addr: Address, key: Key) -> Self {
+    pub(in crate::deleg_cns) fn new(miner_addr: Address, key: Key) -> Self {
         Self { miner_addr, key }
     }
 
@@ -58,12 +58,12 @@ impl DelegatedProposer {
 
         let (parent_state_root, parent_receipts) = state_manager.tipset_state(base).await?;
         let parent_base_fee =
-            forest_chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
+            crate::chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
 
         let parent_weight = DelegatedConsensus::weight(state_manager.blockstore(), base)?;
         let msgs = mpool.select_signed(state_manager, base)?;
         let msgs = msgs.iter().map(|m| m.as_ref()).collect();
-        let persisted = forest_chain::persist_block_messages(state_manager.blockstore(), msgs)?;
+        let persisted = crate::chain::persist_block_messages(state_manager.blockstore(), msgs)?;
 
         let mut header = BlockHeader::builder()
             .messages(persisted.msg_cid)
@@ -78,7 +78,7 @@ impl DelegatedProposer {
             .message_receipts(parent_receipts)
             .build()?;
 
-        let sig = forest_key_management::sign(
+        let sig = crate::key_management::sign(
             *self.key.key_info.key_type(),
             self.key.key_info.private_key(),
             &header.to_signing_bytes(),

@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use cid::Cid;
-use forest_networks::{ChainConfig, Height};
-use forest_shim::{
+use crate::networks::{ChainConfig, Height};
+use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     state_tree::{StateTree, StateTreeVersion},
@@ -15,7 +15,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
 use super::{miner, power, system, verifier::Verifier, ManifestNew, ManifestOld, SystemStateOld};
-use crate::common::{migrators::nil_migrator, StateMigration};
+use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv19_migrations(

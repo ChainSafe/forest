@@ -7,7 +7,7 @@ mod tests {
 
     use ahash::HashMap;
     use anyhow::Result;
-    use forest_libp2p_bitswap::*;
+    use crate::libp2p_bitswap::*;
     use futures::StreamExt;
     use libipld::{
         multihash::{self, MultihashDigest},

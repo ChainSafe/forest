@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #[cfg(feature = "paritydb")]
-pub(crate) mod parity;
+pub(in crate::db) mod parity;
 
 #[cfg(feature = "rocksdb")]
-pub(crate) mod rocks;
+pub(in crate::db) mod rocks;

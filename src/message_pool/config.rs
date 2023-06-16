@@ -3,8 +3,8 @@
 
 use std::time::Duration;
 
-use forest_db::Store;
-use forest_shim::address::Address;
+use crate::db::Store;
+use crate::shim::address::Address;
 use fvm_ipld_encoding::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 
@@ -15,9 +15,9 @@ const PRUNE_COOLDOWN: Duration = Duration::from_secs(60); // 1 minute
 const REPLACE_BY_FEE_RATIO: f64 = 1.25;
 const GAS_LIMIT_OVERESTIMATION: f64 = 1.25;
 
-/// Configuration available for the [`crate::MessagePool`].
+/// Configuration available for the [`crate::message_pool::MessagePool`].
 ///
-/// [MessagePool]: crate::MessagePool
+/// [MessagePool]: crate::message_pool::MessagePool
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MpoolConfig {
     pub priority_addrs: Vec<Address>,

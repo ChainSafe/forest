@@ -5,7 +5,7 @@ use cid::Cid;
 use fvm_ipld_encoding::Cbor;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-use crate::{ArbitraryCid, BlockHeader};
+use crate::blocks::{ArbitraryCid, BlockHeader};
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -37,7 +37,7 @@ pub mod json {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
-    use crate::header;
+    use crate::blocks::header;
 
     /// Wrapper for serializing and de-serializing a `GossipBlock` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -58,9 +58,9 @@ pub mod json {
         struct GossipBlockSer<'a> {
             #[serde(with = "header::json")]
             pub header: &'a BlockHeader,
-            #[serde(with = "forest_json::cid::vec")]
+            #[serde(with = "crate::json::cid::vec")]
             pub bls_messages: &'a [Cid],
-            #[serde(with = "forest_json::cid::vec")]
+            #[serde(with = "crate::json::cid::vec")]
             pub secpk_messages: &'a [Cid],
         }
         GossipBlockSer {
@@ -80,9 +80,9 @@ pub mod json {
         struct GossipBlockDe {
             #[serde(with = "header::json")]
             pub header: BlockHeader,
-            #[serde(with = "forest_json::cid::vec")]
+            #[serde(with = "crate::json::cid::vec")]
             pub bls_messages: Vec<Cid>,
-            #[serde(with = "forest_json::cid::vec")]
+            #[serde(with = "crate::json::cid::vec")]
             pub secpk_messages: Vec<Cid>,
         }
         let GossipBlockDe {

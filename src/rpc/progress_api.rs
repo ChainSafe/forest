@@ -5,14 +5,14 @@
 
 use std::sync::atomic;
 
-use forest_ipld::{
+use crate::ipld::{
     ProgressBarCurrentTotalPair, WALK_SNAPSHOT_PROGRESS_DB_GC, WALK_SNAPSHOT_PROGRESS_EXPORT,
 };
-use forest_rpc_api::progress_api::{GetProgressParams, GetProgressResult, GetProgressType};
+use crate::rpc_api::progress_api::{GetProgressParams, GetProgressResult, GetProgressType};
 
-use crate::*;
+use crate::rpc::*;
 
-pub(crate) async fn get_progress(
+pub(in crate::rpc) async fn get_progress(
     Params((typ,)): Params<GetProgressParams>,
 ) -> RpcResult<GetProgressResult> {
     let tracker: &ProgressBarCurrentTotalPair = match typ {
