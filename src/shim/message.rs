@@ -118,6 +118,34 @@ impl From<&Message> for Message_v2 {
 
 impl Cbor for Message {}
 
-impl crate::Inner for Message {
+impl crate::shim::Inner for Message {
     type FVM = Message_v3;
+}
+
+impl Message {
+    pub fn new(
+        version: u64,
+        from: Address,
+        to: Address,
+        sequence: u64,
+        value: TokenAmount,
+        method_num: u64,
+        params: RawBytes_v3,
+        gas_limit: u64,
+        gas_fee_cap: TokenAmount,
+        gas_premium: TokenAmount,
+    ) -> Self {
+        Message(Message_v3 {
+            version,
+            from: from.into(),
+            to: to.into(),
+            sequence,
+            value: value.into(),
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap: gas_fee_cap.into(),
+            gas_premium: gas_premium.into(),
+        })
+    }
 }

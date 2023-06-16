@@ -102,7 +102,7 @@ mod tests {
         address::Address,
         crypto::Signature,
         econ::TokenAmount,
-        message::{Message, Message_v3},
+        message::Message,
     };
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
@@ -149,19 +149,18 @@ mod tests {
 
     #[test]
     fn message_json_annotations() {
-        let message: Message = Message_v3 {
-            version: 10,
-            from: Address::new_id(34).into(),
-            to: Address::new_id(12).into(),
-            sequence: 5,
-            value: TokenAmount::from_atto(6).into(),
-            method_num: 7,
-            params: Default::default(),
-            gas_limit: 8,
-            gas_fee_cap: TokenAmount::from_atto(10).into(),
-            gas_premium: TokenAmount::from_atto(9).into(),
-        }
-        .into();
+        let message: Message = Message::new(
+            10,
+            Address::new_id(34),
+            Address::new_id(12),
+            5,
+            TokenAmount::from_atto(6),
+            7,
+            Default::default(),
+            8,
+            TokenAmount::from_atto(10),
+            TokenAmount::from_atto(9),
+        );
 
         let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 

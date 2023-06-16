@@ -12,7 +12,7 @@ use crate::json::message::json::MessageJson;
 use crate::rpc_api::mpool_api::MpoolPushMessageResult;
 use crate::rpc_client::node_ops::node_status;
 use crate::rpc_client::*;
-use crate::shim::{address::Address, clock::ChainEpoch, message::Message_v3};
+use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
 use boa_engine::{
     object::{FunctionBuilder, JsArray},
     prelude::JsObject,
@@ -225,16 +225,12 @@ async fn send_message(
 ) -> Result<MpoolPushMessageResult, jsonrpc_v2::Error> {
     let (from, to, value) = params;
 
-    let value = humantoken::parse(&value)?;
-
-    let message = Message_v3 {
-        from: Address::from_str(&from)?.into(),
-        to: Address::from_str(&to)?.into(),
-        value: value.into(), // Convert crate::shim::TokenAmount to TokenAmount3
-        method_num: METHOD_SEND,
-        gas_limit: 0,
-        ..Default::default()
-    };
+    let message = Message::default();
+    <Message as crate::shim::Inner>::FVM::from(&message).from = Address::from_str(&from)?.into();
+    <Message as crate::shim::Inner>::FVM::from(&message).to = Address::from_str(&to)?.into();
+    <Message as crate::shim::Inner>::FVM::from(&message).value = humantoken::parse(&value)?.into(); // Convert crate::shim::TokenAmount to TokenAmount3
+    <Message as crate::shim::Inner>::FVM::from(&message).method_num = METHOD_SEND;
+    <Message as crate::shim::Inner>::FVM::from(&message).gas_limit = 0;
 
     let json_message = MessageJson(message.into());
     mpool_push_message((json_message, None), auth_token).await
