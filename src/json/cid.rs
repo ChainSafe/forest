@@ -117,7 +117,7 @@ mod tests {
 
     #[quickcheck]
     fn cid_roundtrip(cid: CidJson) {
-        let serialized = crate::test_utils::to_string_with!(&cid.0, serialize);
+        let serialized = crate::to_string_with!(&cid.0, serialize);
         let parsed: Cid = crate::from_str_with!(&serialized, deserialize);
         assert_eq!(cid.0, parsed);
     }
