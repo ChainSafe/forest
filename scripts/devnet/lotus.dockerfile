@@ -10,6 +10,9 @@ RUN git clone --depth 1 --branch ${LOTUS_TAG} https://github.com/filecoin-projec
 
 FROM ubuntu:22.04
 
+# Needed for the healthcheck
+RUN apt-get update && apt-get install -y curl
+
 # Need to copy the relevant shared libraries from the builder image.
 # See https://github.com/filecoin-project/lotus/blob/master/Dockerfile
 COPY --from=lotus-builder /etc/ssl/certs            /etc/ssl/certs

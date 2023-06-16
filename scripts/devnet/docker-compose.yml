@@ -34,6 +34,14 @@ services:
     build:
       context: .
       dockerfile: lotus.dockerfile
+    healthcheck:
+      test: >-
+        curl -s -x post -h "content-type: application/json"
+        --data '{ "jsonrpc": "2.0", "method": "filecoin.chainhead", "params": [], "id": 1 }'
+        http://lotus_node:1234/rpc/v0 || exit 1
+      interval: 10s
+      retries: 10
+      timeout: 5s
     container_name: lotus
     networks:
       - devnet
@@ -52,8 +60,8 @@ services:
 
   lotus_miner:
     depends_on:
-      lotus_init:
-        condition: service_completed_successfully
+      lotus_node:
+        condition: service_healthy
     build:
       context: .
       dockerfile: lotus.dockerfile
@@ -78,9 +86,91 @@ services:
         fi
         lotus-miner run --nosync
 
+  # This container dumps relevant (for Forest) Lotus configuration to the shared volume.
+  lotus_config:
+    depends_on:
+      lotus_node:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: lotus.dockerfile
+    volumes:
+      - lotus-data:/lotus_data
+    entrypoint: ["/bin/bash", "-c" ]
+    env_file:
+      - lotus.env
+    networks:
+      - devnet
+    command:
+      - |
+        lotus net id > /lotus_data/PEER_ID
+
+  forest:
+    user: root
+    depends_on:
+      lotus_config:
+        condition: service_completed_successfully
+    build:
+      context: ../../.
+      dockerfile: Dockerfile
+    healthcheck:
+      test: |
+        export TOKEN=$$(cat /root/.local/share/forest/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/ip4/127.0.0.1/tcp/1236/http
+        forest-cli sync status
+      interval: 10s
+      retries: 10
+      timeout: 5s
+      start_period: 15s
+    volumes:
+      - lotus-data:/lotus_data
+      - filecoin-proofs:/var/tmp/filecoin-proof-parameters
+      - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
+      - forest-data:/root/.local/share/forest
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=/var/tmp/filecoin-proof-parameters
+    networks:
+      - devnet
+    entrypoint:
+      - /bin/bash
+      - '-c'
+      - |
+        set -eux
+        DATA_DIR=/root/.local/share/forest
+        if [ ! -f /root/.local/share/forest/forest_config.toml ]; then
+          export NETWORK_NAME=$$(grep -o \"localnet.*\" /lotus_data/localnet.json)
+          cp /forest/forest_config.toml.tpl $$DATA_DIR/forest_config.toml
+          echo name = $$NETWORK_NAME >> /root/.local/share/forest/forest_config.toml
+        fi
+        forest --genesis /lotus_data/devgen.car --config $$DATA_DIR/forest_config.toml --save-token /root/.local/share/forest/token.jwt
+
+  # At the moment of writing, Forest was not able to connect to a devnet node using its config.
+  # This is a workaround to force the connection.
+  forest_connecter:
+    user: root
+    depends_on:
+      forest:
+        condition: service_healthy
+    build:
+      context: ../../.
+      dockerfile: Dockerfile
+    volumes:
+      - lotus-data:/lotus_data
+      - forest-data:/root/.local/share/forest
+    networks:
+      - devnet
+    entrypoint:
+      - /bin/bash
+      - '-c'
+      - |
+        export TOKEN=$$(cat /root/.local/share/forest/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/1236/http
+        forest-cli net connect /dns/lotus/tcp/9090/p2p/$$(cat /lotus_data/PEER_ID)
+
 volumes:
   filecoin-proofs:
   lotus-data:
+  forest-data:
 
 networks:
   devnet:
