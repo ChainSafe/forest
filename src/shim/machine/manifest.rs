@@ -9,7 +9,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding3::CborStore;
 
-// For details on actor name and version: <https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/manifest/manifest.go#L36>
+// For details on actor name and version, see <https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/manifest/manifest.go#L36>
 
 pub const ACCOUNT_ACTOR_NAME: &str = "account";
 pub const CRON_ACTOR_NAME: &str = "cron";
@@ -38,8 +38,6 @@ pub type ManifestActorsCbor = Vec<(String, Cid)>;
 
 /// A mapping of builtin actor CIDs to their respective types.
 pub struct Manifest {
-    by_id: HashMap<u32, Cid>,
-    by_code: HashMap<Cid, u32>,
     by_name: HashMap<String, Cid>,
 
     actors_cid: Cid,
@@ -79,23 +77,8 @@ impl Manifest {
     }
 
     /// Construct a new manifest from actor name/CID tuples.
-    fn new(
-        iter: impl IntoIterator<Item = (impl Into<String>, Cid)>,
-        actors_cid: Cid,
-    ) -> anyhow::Result<Self> {
-        let mut by_name = HashMap::new();
-        let mut by_id = HashMap::new();
-        let mut by_code = HashMap::new();
-
-        // Actors are indexed sequentially, starting at 1, in the order in which they
-        // appear in the manifest. 0 is reserved for "everything else" (i.e.,
-        // not a builtin actor).
-        for ((name, code_cid), id) in iter.into_iter().zip(1u32..) {
-            let name = name.into();
-            by_id.insert(id, code_cid);
-            by_code.insert(code_cid, id);
-            by_name.insert(name, code_cid);
-        }
+    fn new(iter: impl IntoIterator<Item = (String, Cid)>, actors_cid: Cid) -> anyhow::Result<Self> {
+        let by_name = HashMap::from_iter(iter.into_iter());
 
         let account_code = *by_name
             .get(ACCOUNT_ACTOR_NAME)
@@ -114,8 +97,6 @@ impl Manifest {
             .context("manifest missing system actor")?;
 
         Ok(Self {
-            by_id,
-            by_code,
             by_name,
             actors_cid,
             account_code,
@@ -130,11 +111,6 @@ impl Manifest {
         self.actors_cid
     }
 
-    /// Returns the code CID for a builtin actor, given the actor's ID.
-    pub fn code_by_id(&self, id: u32) -> Option<&Cid> {
-        self.by_id.get(&id)
-    }
-
     /// Returns the code CID for a builtin actor, given the actor's name.
     pub fn code_by_name(&self, name: &str) -> anyhow::Result<&Cid> {
         self.by_name
@@ -147,14 +123,12 @@ impl Manifest {
         self.by_name.get(name).map(|c| c == cid).unwrap_or_default()
     }
 
-    /// Returns the the actor code's "id" if it's a builtin actor. Otherwise,
-    /// returns 0.
-    pub fn id_by_code(&self, code: &Cid) -> u32 {
-        self.by_code.get(code).copied().unwrap_or(0)
+    pub fn actors_count(&self) -> usize {
+        self.by_name.len()
     }
 
-    pub fn builtin_actor_codes(&self) -> impl Iterator<Item = &Cid> {
-        self.by_id.values()
+    pub fn builtin_actors(&self) -> impl Iterator<Item = (&String, &Cid)> {
+        self.by_name.iter()
     }
 
     /// Returns the code CID for the account actor.

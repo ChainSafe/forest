@@ -36,7 +36,7 @@ macro_rules! impl_verifier {
                         .ok_or_else(|| anyhow::anyhow!("system actor state not found"))?;
                     let manifest =
                         Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
-                    let manifest_actors_count = manifest.builtin_actor_codes().count();
+                    let manifest_actors_count = manifest.actors_count();
                     if manifest_actors_count == migrations.len() {
                         log::debug!("Migration spec is correct.");
                     } else {
