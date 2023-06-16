@@ -3016,6 +3016,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
+ "multihash 0.16.3",
  "num",
  "num-bigint",
  "once_cell",
