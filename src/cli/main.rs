@@ -4,11 +4,11 @@
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
     } else if #[cfg(feature = "mimalloc")] {
-        use forest_cli_shared::mimalloc::MiMalloc;
+        use crate::cli_shared::mimalloc::MiMalloc;
         #[global_allocator]
         static GLOBAL: MiMalloc = MiMalloc;
     } else if #[cfg(feature = "jemalloc")] {
-        use forest_cli_shared::tikv_jemallocator::Jemalloc;
+        use crate::cli_shared::tikv_jemallocator::Jemalloc;
         #[global_allocator]
         static GLOBAL: Jemalloc = Jemalloc;
     }
@@ -18,8 +18,8 @@ use forest_cli::{
     cli::{cli_error_and_die, Cli},
     subcommand,
 };
-use forest_cli_shared::{cli::LogConfig, logger};
-use forest_utils::io::ProgressBar;
+use crate::cli_shared::{cli::LogConfig, logger};
+use crate::utils::io::ProgressBar;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

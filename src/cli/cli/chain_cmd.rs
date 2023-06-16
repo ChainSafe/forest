@@ -4,10 +4,10 @@
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
-use forest_blocks::TipsetKeys;
-use forest_json::cid::CidJson;
-use forest_rpc_client::chain_ops::*;
-use forest_shim::clock::ChainEpoch;
+use crate::blocks::TipsetKeys;
+use crate::json::cid::CidJson;
+use crate::rpc_client::chain_ops::*;
+use crate::shim::clock::ChainEpoch;
 use futures::TryFutureExt;
 
 use super::*;
@@ -75,7 +75,7 @@ impl ChainCommands {
             }
             Self::Head => print_rpc_res_cids(chain_head(&config.client.rpc_token).await),
             Self::TipsetHash { epoch } => {
-                use forest_blocks::tipset_keys_json::TipsetKeysJson;
+                use crate::blocks::tipset_keys_json::TipsetKeysJson;
 
                 let TipsetJson(head) = chain_head(&config.client.rpc_token)
                     .await

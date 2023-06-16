@@ -8,9 +8,9 @@ use std::{
 
 use cid::Cid;
 use clap::Subcommand;
-use forest_chain_sync::SyncStage;
-use forest_json::cid::CidJson;
-use forest_rpc_client::*;
+use crate::chain_sync::SyncStage;
+use crate::json::cid::CidJson;
+use crate::rpc_client::*;
 use ticker::Ticker;
 
 use super::Config;

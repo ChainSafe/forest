@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 
-use forest_cli_shared::cli::CliOpts;
-use forest_networks::ChainConfig;
-use forest_rpc_client::chain_get_name;
+use crate::cli_shared::cli::CliOpts;
+use crate::networks::ChainConfig;
+use crate::rpc_client::chain_get_name;
 
 use super::cli::{Config, Subcommand};
 
@@ -23,7 +23,7 @@ pub async fn process(
         }
     }
     if config.chain.is_testnet() {
-        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
+        crate::shim::address::set_current_network(crate::shim::address::Network::Testnet);
     }
     // Run command
     match command {

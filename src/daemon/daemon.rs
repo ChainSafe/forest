@@ -13,33 +13,33 @@ use std::{
 use crate::bundle::load_bundles;
 use anyhow::{bail, Context};
 use dialoguer::{console::Term, theme::ColorfulTheme};
-use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
-use forest_blocks::Tipset;
-use forest_chain::ChainStore;
-use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
-use forest_cli_shared::{
+use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
+use crate::blocks::Tipset;
+use crate::chain::ChainStore;
+use crate::chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
+use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
     snapshot,
 };
-use forest_db::{
+use crate::db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
     Store,
 };
-use forest_genesis::{
+use crate::genesis::{
     get_network_name_from_genesis, import_chain, read_genesis_header, validate_chain,
 };
-use forest_key_management::{
+use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
-use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use forest_rpc::start_rpc;
-use forest_rpc_api::data_types::RPCState;
-use forest_shim::{clock::ChainEpoch, version::NetworkVersion};
-use forest_state_manager::StateManager;
-use forest_utils::{
+use crate::libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use crate::rpc::start_rpc;
+use crate::rpc_api::data_types::RPCState;
+use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
+use crate::state_manager::StateManager;
+use crate::utils::{
     io::write_to_file, monitoring::MemStatsTracker,
     proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
     RetryArgs,
@@ -57,16 +57,16 @@ use tokio::{
 };
 
 // Initialize Consensus
-#[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
-compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
+#[cfg(not(any(feature = "crate::fil_cns", feature = "crate::deleg_cns")))]
+compile_error!("No consensus feature enabled; use e.g. `--feature crate::fil_cns` to pick one.");
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "forest_deleg_cns")] {
+    if #[cfg(feature = "crate::deleg_cns")] {
         // Custom consensus.
-        use forest_deleg_cns::composition as cns;
+        use crate::deleg_cns::composition as cns;
     } else {
         // Default consensus
-        use forest_fil_cns::composition as cns;
+        use crate::fil_cns::composition as cns;
     }
 }
 
@@ -100,7 +100,7 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
             Ok(())
         },
     };
-    forest_utils::io::terminal_cleanup();
+    crate::utils::io::terminal_cleanup();
     result
 }
 
@@ -111,7 +111,7 @@ pub(super) async fn start(
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
-        forest_shim::address::set_current_network(forest_shim::address::Network::Testnet);
+        crate::shim::address::set_current_network(crate::shim::address::Network::Testnet);
     }
 
     info!(
@@ -122,9 +122,9 @@ pub(super) async fn start(
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = match get_keypair(&path.join("keypair")) {
-        Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
+        Some(keypair) => Ok::<crate::libp2p::Keypair, std::io::Error>(keypair),
         None => {
-            let gen_keypair = forest_libp2p::Keypair::generate_ed25519();
+            let gen_keypair = crate::libp2p::Keypair::generate_ed25519();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
             let file = write_to_file(
@@ -137,7 +137,7 @@ pub(super) async fn start(
                 "keypair",
             )?;
             // Restrict permissions on files containing private keys
-            forest_utils::io::set_user_perm(&file)?;
+            crate::utils::io::set_user_perm(&file)?;
             Ok(gen_keypair)
         }
     }?;
@@ -179,10 +179,10 @@ pub(super) async fn start(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = forest_db::db_engine::db_root(&chain_path(&config));
+        let db_directory = crate::db::db_engine::db_root(&chain_path(&config));
         let db = db.clone();
         services.spawn(async {
-            forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
+            crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
                 .await
                 .context("Failed to initiate prometheus server")
         });
@@ -390,7 +390,7 @@ pub(super) async fn start(
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
     if cns::FETCH_PARAMS {
-        forest_utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
             &config.client.data_dir,
         );
     }
@@ -474,7 +474,7 @@ async fn fetch_snapshot_if_required(
                     max_retries: Some(max_retries),
                     delay: Some(Duration::from_secs(60)),
                 },
-                || forest_cli_shared::snapshot::fetch(path, chain, vendor),
+                || crate::cli_shared::snapshot::fetch(path, chain, vendor),
             )
             .await
             {
@@ -489,7 +489,7 @@ async fn fetch_snapshot_if_required(
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let (num_bytes, _url) =
-                forest_cli_shared::snapshot::peek(vendor, &config.chain.network)
+                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
                     .await
                     .context("couldn't get snapshot size")?;
             let num_bytes = byte_unit::Byte::from(num_bytes)
@@ -513,7 +513,7 @@ async fn fetch_snapshot_if_required(
             if !have_permission {
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
-            match forest_cli_shared::snapshot::fetch(path, chain, vendor).await {
+            match crate::cli_shared::snapshot::fetch(path, chain, vendor).await {
                 Ok(path) => {
                     config.client.snapshot_path = Some(path);
                     config.client.snapshot = true;
@@ -702,10 +702,10 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
 
 #[cfg(test)]
 mod test {
-    use forest_blocks::BlockHeader;
-    use forest_db::MemoryDB;
-    use forest_networks::ChainConfig;
-    use forest_shim::address::Address;
+    use crate::blocks::BlockHeader;
+    use crate::db::MemoryDB;
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
     use tempfile::TempDir;
 
     use super::*;
@@ -760,7 +760,7 @@ mod test {
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
-            Arc::new(forest_interpreter::RewardActorMessageCalc),
+            Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
         import_chain::<_>(&sm, file_path, false).await?;
         Ok(())
@@ -785,7 +785,7 @@ mod test {
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
-            Arc::new(forest_interpreter::RewardActorMessageCalc),
+            Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
         import_chain::<_>(&sm, "test_files/chain4.car", false)
             .await

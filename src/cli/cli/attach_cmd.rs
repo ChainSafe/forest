@@ -16,12 +16,12 @@ use boa_engine::{
 };
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
-use forest_chain_sync::SyncStage;
-use forest_json::message::json::MessageJson;
-use forest_rpc_api::mpool_api::MpoolPushMessageResult;
-use forest_rpc_client::node_ops::node_status;
-use forest_rpc_client::*;
-use forest_shim::{address::Address, clock::ChainEpoch, message::Message_v3};
+use crate::chain_sync::SyncStage;
+use crate::json::message::json::MessageJson;
+use crate::rpc_api::mpool_api::MpoolPushMessageResult;
+use crate::rpc_client::node_ops::node_status;
+use crate::rpc_client::*;
+use crate::shim::{address::Address, clock::ChainEpoch, message::Message_v3};
 use fvm_shared::METHOD_SEND;
 
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
@@ -230,7 +230,7 @@ async fn send_message(
     let message = Message_v3 {
         from: Address::from_str(&from)?.into(),
         to: Address::from_str(&to)?.into(),
-        value: value.into(), // Convert forest_shim::TokenAmount to TokenAmount3
+        value: value.into(), // Convert crate::shim::TokenAmount to TokenAmount3
         method_num: METHOD_SEND,
         gas_limit: 0,
         ..Default::default()

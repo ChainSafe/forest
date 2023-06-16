@@ -7,17 +7,17 @@ use anyhow::bail;
 use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
-use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use forest_chain::ChainStore;
-use forest_cli_shared::snapshot::{self, TrustedVendor};
-use forest_db::db_engine::{db_root, open_proxy_db};
-use forest_genesis::{forest_load_car, read_genesis_header};
-use forest_ipld::{recurse_links_hash, CidHashSet};
-use forest_networks::NetworkChain;
-use forest_rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
-use forest_rpc_client::{chain_ops::*, progress_ops::get_progress};
-use forest_shim::clock::ChainEpoch;
-use forest_utils::{io::ProgressBar, net::get_fetch_progress_from_file};
+use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
+use crate::chain::ChainStore;
+use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::db::db_engine::{db_root, open_proxy_db};
+use crate::genesis::{forest_load_car, read_genesis_header};
+use crate::ipld::{recurse_links_hash, CidHashSet};
+use crate::networks::NetworkChain;
+use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
+use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
+use crate::shim::clock::ChainEpoch;
+use crate::utils::{io::ProgressBar, net::get_fetch_progress_from_file};
 use tempfile::TempDir;
 
 use super::*;
@@ -232,7 +232,7 @@ where
     let mut tsk = ts.parents().clone();
 
     let total_size = ts.epoch();
-    let pb = forest_utils::io::ProgressBar::new(total_size as u64);
+    let pb = crate::utils::io::ProgressBar::new(total_size as u64);
     pb.message("Validating tipsets: ");
     pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 

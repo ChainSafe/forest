@@ -3,13 +3,13 @@
 
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
-use forest_blocks::Tipset;
-use forest_cli_shared::cli::CliOpts;
-use forest_rpc_client::{
+use crate::blocks::Tipset;
+use crate::cli_shared::cli::CliOpts;
+use crate::rpc_client::{
     chain_get_name, chain_head, node_ops::node_status, start_time, wallet_balance,
     wallet_default_address,
 };
-use forest_shim::econ::TokenAmount;
+use crate::shim::econ::TokenAmount;
 
 use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
@@ -213,8 +213,8 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
-    use forest_blocks::{BlockHeader, Tipset};
-    use forest_shim::{address::Address, econ::TokenAmount};
+    use crate::blocks::{BlockHeader, Tipset};
+    use crate::shim::{address::Address, econ::TokenAmount};
     use fvm_shared::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};

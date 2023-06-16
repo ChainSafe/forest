@@ -4,11 +4,11 @@
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
     } else if #[cfg(feature = "mimalloc")] {
-        use forest_cli_shared::mimalloc::MiMalloc;
+        use crate::cli_shared::mimalloc::MiMalloc;
         #[global_allocator]
         static GLOBAL: MiMalloc = MiMalloc;
     } else if #[cfg(feature = "jemalloc")] {
-        use forest_cli_shared::tikv_jemallocator::Jemalloc;
+        use crate::cli_shared::tikv_jemallocator::Jemalloc;
         #[global_allocator]
         static GLOBAL: Jemalloc = Jemalloc;
     }
@@ -17,14 +17,14 @@ cfg_if::cfg_if! {
 use anyhow::Context;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
-use forest_cli_shared::cli::{CliOpts, HELP_MESSAGE};
-use forest_cli_shared::{
+use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
+use crate::cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
 use forest_daemon::{daemon, ipc_shmem_conf};
-use forest_utils::io::ProgressBar;
-use forest_utils::version::FOREST_VERSION_STRING;
+use crate::utils::io::ProgressBar;
+use crate::utils::version::FOREST_VERSION_STRING;
 use log::info;
 use raw_sync::{
     events::{Event, EventInit},

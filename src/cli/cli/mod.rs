@@ -26,10 +26,10 @@ use std::io::{self, Write};
 
 use cid::Cid;
 use clap::Parser;
-use forest_blocks::tipset_json::TipsetJson;
-pub(crate) use forest_cli_shared::cli::Config;
-use forest_cli_shared::cli::{CliOpts, HELP_MESSAGE};
-use forest_utils::version::FOREST_VERSION_STRING;
+use crate::blocks::tipset_json::TipsetJson;
+pub(crate) use crate::cli_shared::cli::Config;
+use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
+use crate::utils::version::FOREST_VERSION_STRING;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
@@ -204,7 +204,7 @@ fn prompt_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
-    use forest_cli_shared::cli::to_size_string;
+    use crate::cli_shared::cli::to_size_string;
     use num::{BigInt, Zero};
 
     #[test]

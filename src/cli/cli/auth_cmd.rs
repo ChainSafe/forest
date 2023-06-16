@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use clap::Subcommand;
-use forest_auth::*;
-use forest_libp2p::{Multiaddr, Protocol};
-use forest_rpc_api::auth_api::AuthNewParams;
-use forest_rpc_client::auth_new;
+use crate::auth::*;
+use crate::libp2p::{Multiaddr, Protocol};
+use crate::rpc_api::auth_api::AuthNewParams;
+use crate::rpc_client::auth_new;
 use jsonrpc_v2::Error as JsonRpcError;
 
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};

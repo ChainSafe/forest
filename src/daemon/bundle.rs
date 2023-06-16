@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_cli_shared::cli::Config;
-use forest_genesis::forest_load_car;
-use forest_networks::Height;
-use forest_shim::clock::ChainEpoch;
-use forest_utils::net::FetchProgress;
+use crate::cli_shared::cli::Config;
+use crate::genesis::forest_load_car;
+use crate::networks::Height;
+use crate::shim::clock::ChainEpoch;
+use crate::utils::net::FetchProgress;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use tokio::{

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_rpc_client::shutdown;
+use crate::rpc_client::shutdown;
 
 use super::{handle_rpc_err, Config};
 use crate::cli::prompt_confirm;
