@@ -41,4 +41,6 @@ fil_actors_shared.workspace = true
 fil_actor_account_state.workspace = true
 fil_actor_cron_state.workspace = true
 fil_actor_reward_state.workspace = true
+forest_db.workspace = true
+fvm_ipld_bitfield.workspace = true
 serde = { workspace = true, features = ["derive"] }

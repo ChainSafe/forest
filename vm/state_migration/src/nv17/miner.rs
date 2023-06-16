@@ -374,32 +374,242 @@ fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use crate::nv17::ManifestOld;
-
     use super::*;
     use anyhow::*;
-    use cid::multihash::MultihashDigest;
+    use cid::multihash::{Multihash, MultihashDigest};
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
+    use forest_networks::Height;
     use forest_shim::{
         econ::TokenAmount,
         machine::ManifestV2,
         state_tree::{ActorState, StateTree, StateTreeVersion},
     };
+    use fvm_ipld_bitfield::BitField;
     use fvm_ipld_blockstore::MemoryBlockstore;
     use fvm_ipld_encoding::IPLD_RAW;
-    use fvm_shared::{bigint::Zero, state::StateRoot};
+    use fvm_shared::{
+        bigint::Zero,
+        commcid::{
+            FIL_COMMITMENT_SEALED, FIL_COMMITMENT_UNSEALED, POSEIDON_BLS12_381_A1_FC1,
+            SHA2_256_TRUNC254_PADDED,
+        },
+        piece::PaddedPieceSize,
+        state::StateRoot,
+    };
+    use std::str::FromStr;
 
     #[test]
     fn test_nv17_miner_migration() -> Result<()> {
-        let store = MemoryBlockstore::new();
-        make_input_tree(&store)?;
+        let store = forest_db::MemoryDB::default();
+        let (mut state_tree_old, manifest) = make_input_tree(&store)?;
+        let system_actor_old = state_tree_old
+            .get_actor(&fil_actor_interface::system::ADDRESS.into())?
+            .unwrap();
+        let system_state_old: fil_actor_system_state::v9::State =
+            store.get_cbor(&system_actor_old.state)?.unwrap();
+        let manifest_data_cid_old = system_state_old.builtin_actors;
+        ensure!(
+            manifest_data_cid_old.to_string()
+                == "bafy2bzaceb7wfqkjc5c3ccjyhaf7zuhkvbzpvhnb35feaettztoharc7zdndc"
+        );
+
+        let base_addr_id = 10000;
+        let base_addr = Address::new_id(base_addr_id);
+        let base_worker_addr = Address::new_id(base_addr_id + 100);
+
+        // create 3 deal proposals
+        let mut market_actor_old = state_tree_old
+            .get_actor(&fil_actor_interface::market::ADDRESS.into())?
+            .unwrap();
+        let mut market_state_old: fil_actor_market_state::v8::State =
+            store.get_cbor(&market_actor_old.state)?.unwrap();
+        let mut proposals = fil_actors_shared::v8::Array::<
+            fil_actor_market_state::v8::DealProposal,
+            _,
+        >::load(&market_state_old.proposals, &store)?;
+        let base_deal = fil_actor_market_state::v8::DealProposal {
+            piece_cid: Default::default(),
+            piece_size: PaddedPieceSize(512),
+            verified_deal: false,
+            client: base_addr.into(),
+            provider: base_addr.into(),
+            label: fil_actor_market_state::v8::Label::String("".into()),
+            start_epoch: 0,
+            end_epoch: 0,
+            storage_price_per_epoch: Zero::zero(),
+            provider_collateral: Zero::zero(),
+            client_collateral: Zero::zero(),
+        };
+        let deal0 = {
+            let mut deal = base_deal.clone();
+            deal.piece_cid = make_piece_cid("0".as_bytes())?;
+            ensure!(
+                deal.piece_cid.to_string()
+                    == "baga6ea4seaqf73hlm374q3zy3fjhq3dnnfwhtqw3yi452turwrtstvz2e75vp2i"
+            );
+            deal
+        };
+        let deal1 = {
+            let mut deal = base_deal.clone();
+            deal.piece_cid = make_piece_cid("1".as_bytes())?;
+            ensure!(
+                deal.piece_cid.to_string()
+                    == "baga6ea4seaqgxbvsop7tj7hbtvvyatx7li7vor5nutvkely5jhab4uw5w6dvwsy"
+            );
+            deal
+        };
+        let deal2 = {
+            let mut deal = base_deal.clone();
+            deal.piece_cid = make_piece_cid("2".as_bytes())?;
+            ensure!(
+                deal.piece_cid.to_string()
+                    == "baga6ea4seaqni426hitf4fxo4a7vs4mltnoqgam4a7mlnri7sdnduzto5qj2wni"
+            );
+            deal
+        };
+        proposals.set(0, deal0)?;
+        proposals.set(1, deal1)?;
+        proposals.set(2, deal2)?;
+
+        let proposal_cid = proposals.flush()?;
+        ensure!(
+            proposal_cid.to_string()
+                == "bafy2bzacea7rwa3xjbxdxgqt7yqa6kfpon3hzuknosrlkkym5yenyckywejpw"
+        );
+        market_state_old.proposals = proposal_cid;
+        let market_state_cid_old = store.put_cbor_default(&market_state_old)?;
+        ensure!(
+            market_state_cid_old.to_string()
+                == "bafy2bzacedrj5levrmmfqrn5njhjncsip2mkwgnwojwton7vodrju4zdlb542"
+        );
+        market_actor_old.state = market_state_cid_old;
+        state_tree_old.set_actor(
+            &fil_actor_interface::market::ADDRESS.into(),
+            market_actor_old,
+        )?;
+
+        // base stuff to create miners
+        let miner_cid_old = Cid::from_str("bafkqaetgnfwc6obpon2g64tbm5sw22lomvza")?;
+        let base_miner_state = make_base_miner_state(&store, &base_addr, &base_worker_addr)?;
+
+        let base_precommit = fil_actor_miner_state::v8::SectorPreCommitOnChainInfo {
+            pre_commit_deposit: Zero::zero(),
+            pre_commit_epoch: 0,
+            deal_weight: Zero::zero(),
+            verified_deal_weight: Zero::zero(),
+            info: fil_actor_miner_state::v8::SectorPreCommitInfo {
+                seal_proof: fvm_shared::sector::RegisteredSealProof::StackedDRG32GiBV1P1,
+                sealed_cid: make_sealed_cid("100".as_bytes())?,
+                ..Default::default()
+            },
+        };
+        ensure!(
+            base_precommit.info.sealed_cid.to_string()
+                == "bagboea4b5abcblkxgzugketokvsj5szdvyourcdvislw57venjeowxmfu3xljuyg"
+        );
+
+        // make 3 miners
+        // miner1 has no precommits at all
+        // miner2 has 4 precommits, but with no deals
+        // miner3 has 3 precommits, with deals [0], [1,2], and []
+
+        // miner1 has no precommits at all
+        let miner1_state_cid = store.put_cbor_default(&base_miner_state)?;
+        ensure!(
+            miner1_state_cid.to_string()
+                == "bafy2bzaceaqtktd7f5b2gutreh3b2czp2mkqu4ilyuu7mjcpwrk75g5nl6w6k"
+        );
+
+        let miner1 = ActorState::new(miner_cid_old, miner1_state_cid, Zero::zero(), 0, None);
+        let addr1 = Address::new_id(base_addr_id + 1);
+        state_tree_old.set_actor(&addr1, miner1)?;
+
+        // miner2 has precommits, but they have no deals
+        let mut precommits2 = fil_actors_shared::v8::make_map_with_root::<
+            _,
+            fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
+        >(&base_miner_state.pre_committed_sectors, &store)?;
+        precommits2.set(sector_key(0)?, base_precommit.clone())?;
+        precommits2.set(sector_key(1)?, base_precommit.clone())?;
+        precommits2.set(sector_key(2)?, base_precommit.clone())?;
+        precommits2.set(sector_key(3)?, base_precommit.clone())?;
+
+        let precommit2_cid = precommits2.flush()?;
+        ensure!(
+            precommit2_cid.to_string()
+                == "bafy2bzacedogkdulyeaujgdsiqzo323s5dpz44efwihxsuekkkpo4znpl3g2s"
+        );
+
+        let mut miner2_state = base_miner_state.clone();
+        miner2_state.pre_committed_sectors = precommit2_cid;
+        let miner2_state_cid = store.put_cbor_default(&miner2_state)?;
+        ensure!(
+            miner2_state_cid.to_string()
+                == "bafy2bzacedad6xkymehkuoij4rhg2inzqnfin3er52znw53lddn5364usp2bi"
+        );
+
+        let miner2 = ActorState::new(miner_cid_old, miner2_state_cid, Zero::zero(), 0, None);
+        let addr2 = Address::new_id(base_addr_id + 2);
+        state_tree_old.set_actor(&addr2, miner2)?;
+
+        // miner 3 has precommits, some of which have deals
+        let mut precommits3 = fil_actors_shared::v8::make_map_with_root::<
+            _,
+            fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
+        >(&base_miner_state.pre_committed_sectors, &store)?;
+        let mut precommits3dot0 = base_precommit.clone();
+        precommits3dot0.info.deal_ids = vec![0];
+        precommits3dot0.info.sector_number = 0;
+
+        let mut precommits3dot1 = base_precommit.clone();
+        precommits3dot1.info.deal_ids = vec![1, 2];
+        precommits3dot1.info.sector_number = 1;
+
+        let mut precommits3dot2 = base_precommit.clone();
+        precommits3dot2.info.sector_number = 2;
+
+        precommits3.set(sector_key(0)?, precommits3dot0)?;
+        precommits3.set(sector_key(1)?, precommits3dot1)?;
+        precommits3.set(sector_key(2)?, precommits3dot2)?;
+
+        let precommits3_cid = precommits3.flush()?;
+        ensure!(
+            precommits3_cid.to_string()
+                == "bafy2bzacecdpddgu5sxniq5iez3xapyxvi3dg7pc5oxthywuclvxyj4h2vweo"
+        );
+
+        let mut miner3_state = base_miner_state.clone();
+        miner3_state.pre_committed_sectors = precommits3_cid;
+        let miner3_state_cid = store.put_cbor_default(&miner3_state)?;
+        ensure!(
+            miner3_state_cid.to_string()
+                == "bafy2bzaceb7ojujla7jb6iaxeuk4etg2kui4gtjujwqadqkc7lkp4ugoqrh2m"
+        );
+
+        let miner3 = ActorState::new(miner_cid_old, miner3_state_cid, Zero::zero(), 0, None);
+        let addr3 = Address::new_id(base_addr_id + 3);
+        state_tree_old.set_actor(&addr3, miner3)?;
+
+        let tree_root = state_tree_old.flush()?;
+        let state_root: StateRoot = store.get_cbor(&tree_root)?.unwrap();
+        ensure!(
+            state_root.actors.to_string()
+                == "bafy2bzacebt6nrksprrhp6fzav6lhnt4ymz4h6iolaxdrfpit5b7j33xzjdky"
+        );
+
+        let (new_manifest_cid, new_manifest_data_cid, new_manifest) =
+            make_test_manifest(&store, "fil/9/")?;
+
+        let mut chain_config = ChainConfig::calibnet();
+        if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
+            bundle.manifest = new_manifest_cid;
+        }
+        // super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
 
         Ok(())
     }
 
-    fn make_input_tree<BS: Blockstore + Clone>(store: BS) -> Result<Cid> {
+    fn make_input_tree<BS: Blockstore + Clone>(store: BS) -> Result<(StateTree<BS>, ManifestV2)> {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
 
         let (manifest_cid, manifest_data_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
@@ -574,14 +784,13 @@ mod tests {
         )?;
 
         let tree_root = tree.flush()?;
-        println!("tree_root: {tree_root}");
         let state_root: StateRoot = store.get_cbor(&tree_root)?.unwrap();
         ensure!(
             state_root.actors.to_string()
                 == "bafy2bzacecrfiicgwyogqfyovj5jld3oylod5ezp36tpyebwcuiz7wo3xxszy"
         );
 
-        Ok(state_root.actors)
+        Ok((tree, manifest))
     }
 
     fn init_actor<BS: Blockstore + Clone>(
@@ -621,20 +830,143 @@ mod tests {
             manifest_data.push((name, code_cid));
         }
         let manifest_data_cid = store.put_cbor_default(&manifest_data)?;
-        // Output from Go: fmt.Printf("manifestDataCid:%s\n", manifestDataCid.String())
-        ensure!(
-            manifest_data_cid.to_string()
-                == "bafy2bzaceb7wfqkjc5c3ccjyhaf7zuhkvbzpvhnb35feaettztoharc7zdndc"
-        );
 
         let manifest = ManifestV2::new(manifest_data)?;
         let manifest_cid = store.put_cbor_default(&(1, manifest_data_cid))?;
-        // Output from Go: fmt.Printf("manifestCid:%s\n", manifestCid.String())
-        ensure!(
-            manifest_cid.to_string()
-                == "bafy2bzaceay4j73u6k2sqskjk6ru47v6l6uw2qyen77u47eduj4gbdmpqu65o"
-        );
 
         Ok((manifest_cid, manifest_data_cid, manifest))
+    }
+
+    fn make_base_miner_state<BS: Blockstore>(
+        store: &BS,
+        base_addr: &Address,
+        base_worker_addr: &Address,
+    ) -> Result<fil_actor_miner_state::v8::State> {
+        let empty_precommit_map_cid = fil_actors_shared::v8::make_empty_map::<_, ()>(
+            store,
+            fil_actors_shared::v8::builtin::HAMT_BIT_WIDTH,
+        );
+        let empty_miner_info = fil_actor_miner_state::v8::MinerInfo {
+            owner: base_addr.into(),
+            worker: base_worker_addr.into(),
+            control_addresses: vec![],
+            pending_worker_key: None,
+            peer_id: vec![],
+            multi_address: vec![],
+            window_post_proof_type: fvm_shared::sector::RegisteredPoStProof::Invalid(0),
+            sector_size: fvm_shared::sector::SectorSize::_2KiB, // 0 not available in rust API, change Go code to 2 << 10 and all tests still pass
+            window_post_partition_sectors: 0,
+            consensus_fault_elapsed: 0,
+            pending_owner_address: None,
+        };
+
+        let empty_miner_info_cid = store.put_cbor_default(&empty_miner_info)?;
+        ensure!(
+            empty_miner_info_cid.to_string()
+                == "bafy2bzacec2hqnovjvqle3wjznb4xeohxrm3qq7psydlpcgzfk5kdtnkqtqc6"
+        );
+
+        // let empty_vesting_funds = fil_actor_miner_state::v8::VestingFunds::new();
+        // let empty_vesting_funds_cid = store.put_cbor_default(&empty_vesting_funds)?;
+        // ensure!(
+        //     empty_vesting_funds_cid.to_string()
+        //         == "bafy2bzacealbq6s7ptdud6gvpc2yv54opwotncjlqjxmzb2q2rnjxv753rwdc"
+        // );
+
+        // let mut empty_precommits_cleanup_array =
+        //     fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(store, 6);
+        // let empty_precommits_cleanup_array_cid = empty_precommits_cleanup_array.flush()?;
+        // ensure!(
+        //     empty_precommits_cleanup_array_cid.to_string()
+        //         == "bafy2bzaceaa2jny7gkgdwnid4kuldau6bnvgyss5bszo4uy6uikrncvdu5mc2"
+        // );
+
+        // let mut empty_sector_array = fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
+        //     store,
+        //     fil_actor_miner_state::v8::SECTORS_AMT_BITWIDTH,
+        // );
+        // let empty_sector_array_cid = empty_sector_array.flush()?;
+        // ensure!(
+        //     empty_sector_array_cid.to_string()
+        //         == "bafy2bzaceacu3yonapahihxmnhzuvk76yupwjmyeymd2l5n6xfs5st52shm6a"
+        // );
+
+        // let empty_bit_field = BitField::new();
+        // let empty_bit_field_cid = store.put_cbor_default(&empty_bit_field)?;
+        // ensure!(
+        //     empty_bit_field_cid.to_string()
+        //         == "bafy2bzacea456askyutsf7uk4ta2q5aojrlcji4mhaqokbfalgvoq4ueeh4l2"
+        // );
+
+        // let mut empty_partitions_array = fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
+        //     store,
+        //     fil_actor_miner_state::v8::DEADLINE_PARTITIONS_AMT_BITWIDTH,
+        // );
+        // let empty_partitions_array_cid = empty_partitions_array.flush()?;
+        // ensure!(
+        //     empty_partitions_array_cid.to_string()
+        //         == "bafy2bzacedijw74yui7otvo63nfl3hdq2vdzuy7wx2tnptwed6zml4vvz7wee"
+        // );
+
+        // let mut empty_deadline_expiration_array =
+        //     fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
+        //         store,
+        //         fil_actor_miner_state::v8::DEADLINE_EXPIRATIONS_AMT_BITWIDTH,
+        //     );
+        // let empty_deadline_expiration_array_cid = empty_deadline_expiration_array.flush()?;
+        // ensure!(
+        //     empty_deadline_expiration_array_cid.to_string()
+        //         == "bafy2bzaceacu3yonapahihxmnhzuvk76yupwjmyeymd2l5n6xfs5st52shm6a"
+        // );
+
+        // let mut empty_post_submissions_array =
+        //     fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
+        //         store,
+        //         fil_actor_miner_state::v8::DEADLINE_OPTIMISTIC_POST_SUBMISSIONS_AMT_BITWIDTH,
+        //     );
+        // let empty_post_submissions_array_cid = empty_post_submissions_array.flush()?;
+        // ensure!(
+        //     empty_post_submissions_array_cid.to_string()
+        //         == "bafy2bzacebpbl7msg6mta4gjy3xmntdo6tt7wiikvctwtrkukkem5kvw5bw2i"
+        // );
+
+        // let empty_deadline = fil_actor_miner_state::v8::Deadline::new(store)?;
+        // let empty_deadline_cid = store.put_cbor_default(&empty_deadline)?;
+        // ensure!(
+        //     empty_deadline_cid.to_string()
+        //         == "bafy2bzacedh5oro2npo2wzxvbaemt5zmibium7gmiwavbtn3rfjztovxv7hpc"
+        // );
+
+        // let empty_deadlines = fil_actor_miner_state::v8::Deadlines::new(
+        //     &fil_actors_shared::v8::runtime::Policy::calibnet(),
+        //     empty_deadline_cid,
+        // );
+        // let empty_deadlines_cid = store.put_cbor_default(&empty_deadlines)?;
+        // ensure!(
+        //     empty_deadlines_cid.to_string()
+        //         == "bafy2bzacebx7jpdhnsrri7womvthfo6xlhpavdabnlsguhahje35pm3ankpiy"
+        // );
+
+        let empty_miner_state = fil_actor_miner_state::v8::State::new(
+            &fil_actors_shared::v8::runtime::Policy::calibnet(),
+            store,
+            empty_miner_info_cid,
+            0,
+            0,
+        )?;
+
+        Ok(empty_miner_state)
+    }
+
+    fn make_piece_cid(data: &[u8]) -> Result<Cid> {
+        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest())?;
+        Ok(Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash))
+    }
+
+    fn make_sealed_cid(data: &[u8]) -> Result<Cid> {
+        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = Multihash::wrap(POSEIDON_BLS12_381_A1_FC1, hash.digest())?;
+        Ok(Cid::new_v1(FIL_COMMITMENT_SEALED, hash))
     }
 }
