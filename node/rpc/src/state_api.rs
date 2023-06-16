@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fil_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_ipld::json::IpldJson;
+use forest_ipld::CidHashSet;
 use forest_json::cid::CidJson;
 use forest_libp2p::NetworkMessage;
 use forest_rpc_api::{
@@ -20,8 +21,9 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
+use parking_lot::Mutex;
 use std::{sync::Arc, time::Duration};
-use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
+use tokio::task::JoinSet;
 
 // TODO handle using configurable verification implementation in RPC (all
 // defaulting to Full).
@@ -209,72 +211,114 @@ pub(crate) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Send + 'sta
     data: Data<RPCState<DB, B>>,
     Params((CidJson(root_cid),)): Params<StateFetchRootParams>,
 ) -> Result<StateFetchRootResult, JsonRpcError> {
-    const MAX_CONCURRENT_REQUESTS: usize = 16;
+    let network_send = data.network_send.clone();
+    let db = data.chain_store.db.clone();
+    drop(data);
+
+    const MAX_CONCURRENT_REQUESTS: usize = 64;
     const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
-    let sem = Arc::new(Semaphore::new(MAX_CONCURRENT_REQUESTS));
-    let mut seen: HashSet<Cid> = HashSet::new();
+    let mut seen: CidHashSet = CidHashSet::default();
     let mut counter: usize = 0;
+    let mut fetched: usize = 0;
     let mut failures: usize = 0;
     let mut task_set = JoinSet::new();
 
+    fn handle_worker(fetched: &mut usize, failures: &mut usize, ret: anyhow::Result<()>) {
+        match ret {
+            Ok(()) => *fetched += 1,
+            Err(msg) => {
+                *failures += 1;
+                log::debug!("Request failed: {msg}");
+            }
+        }
+    }
+
+    // When walking an Ipld graph, we're only interested in the DAG_CBOR encoded nodes.
     let mut get_ipld_link = |ipld: &Ipld| match ipld {
-        Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(*cid) => Some(*cid),
+        Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(cid, &|_| {}) => Some(*cid),
         _ => None,
     };
 
-    task_set.spawn(async move { Ok(Ipld::Link(root_cid)) });
-
-    // Iterate until there are no more ipld nodes to traverse
-    while let Some(result) = task_set.join_next().await {
-        match result? {
-            Ok(ipld) => {
+    // Do a depth-first-search of the IPLD graph (DAG). Nodes that are _not_ present in our database
+    // are fetched in background tasks. If the number of tasks reaches MAX_CONCURRENT_REQUESTS, the
+    // depth-first-search pauses until one of the work tasks returns. The memory usage of this
+    // algorithm is dominated by the set of seen CIDs and the 'dfs' stack is not expected to grow to
+    // more than 1000 elements (even when walking tens of millions of nodes).
+    let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
+    let mut to_be_fetched = vec![];
+    // Loop until: No more items in `dfs` AND no running worker tasks.
+    loop {
+        while let Some(ipld) = lock_pop(&dfs) {
+            {
+                let mut dfs_guard = dfs.lock();
+                // Scan for unseen CIDs. Available IPLD nodes are pushed to the depth-first-search
+                // stack, unavailable nodes will be requested in worker tasks.
                 for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
                     counter += 1;
                     if counter % 1_000 == 0 {
                         // set RUST_LOG=forest_rpc::state_api=debug to enable these printouts.
                         log::debug!(
-                            "Still downloading. Fetched: {counter}, Failures: {failures}, Concurrent: {}",
-                            MAX_CONCURRENT_REQUESTS - sem.available_permits()
-                        );
+                                "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
+                                dfs_guard.len(), task_set.len()
+                            );
                     }
-                    task_set.spawn({
-                        let network_send = data.network_send.clone();
-                        let db = data.chain_store.db.clone();
-                        let sem = sem.clone();
-                        async move {
-                            if !db.has(&new_cid)? {
-                                // If a CID isn't in our database, request it via bitswap (limited
-                                // by MAX_CONCURRENT_REQUESTS)
-                                let permit = sem.acquire_owned().await?;
-                                let (tx, rx) = flume::bounded(1);
-                                network_send
-                                    .send_async(NetworkMessage::BitswapRequest {
-                                        epoch: 0,
-                                        cid: new_cid,
-                                        response_channel: tx,
-                                    })
-                                    .await?;
-                                // Bitswap requests do not fail. They are just ignored if no-one has
-                                // the requested data. Here we arbitrary decide to only wait for
-                                // REQUEST_TIMEOUT before deciding that the data is unavailable.
-                                let _ignore = timeout(REQUEST_TIMEOUT, rx.recv_async()).await;
-                                drop(permit);
-                            }
-
-                            db.get_cbor::<Ipld>(&new_cid)?
-                                .ok_or_else(|| anyhow::anyhow!("Request failed: {new_cid}"))
-                        }
-                    });
+                    if let Some(next_ipld) = db.get_cbor(&new_cid)? {
+                        dfs_guard.push(next_ipld);
+                    } else {
+                        to_be_fetched.push(new_cid);
+                    }
                 }
             }
-            Err(msg) => {
-                failures += 1;
-                log::debug!("Request failed: {msg}");
+
+            while let Some(cid) = to_be_fetched.pop() {
+                if task_set.len() == MAX_CONCURRENT_REQUESTS {
+                    if let Some(ret) = task_set.join_next().await {
+                        handle_worker(&mut fetched, &mut failures, ret?)
+                    }
+                }
+                task_set.spawn_blocking({
+                    let network_send = network_send.clone();
+                    let db = db.clone();
+                    let dfs_vec = Arc::clone(&dfs);
+                    move || {
+                        let (tx, rx) = flume::bounded(1);
+                        network_send.send(NetworkMessage::BitswapRequest {
+                            epoch: 0,
+                            cid,
+                            response_channel: tx,
+                        })?;
+                        // Bitswap requests do not fail. They are just ignored if no-one has
+                        // the requested data. Here we arbitrary decide to only wait for
+                        // REQUEST_TIMEOUT before judging that the data is unavailable.
+                        let _ignore = rx.recv_timeout(REQUEST_TIMEOUT);
+
+                        let new_ipld = db
+                            .get_cbor::<Ipld>(&cid)?
+                            .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
+                        dfs_vec.lock().push(new_ipld);
+                        Ok(())
+                    }
+                });
             }
+            tokio::task::yield_now().await;
+        }
+        if let Some(ret) = task_set.join_next().await {
+            handle_worker(&mut fetched, &mut failures, ret?)
+        } else {
+            // We are out of work items (dfs) and all worker threads have finished, this means
+            // the entire graph has been walked and fetched.
+            break;
         }
     }
+
     Ok(format!(
-        "IPLD graph traversed! CIDs: {counter}, failures: {failures}."
+        "IPLD graph traversed! CIDs: {counter}, fetched: {fetched}, failures: {failures}."
     ))
+}
+
+// Convenience function for locking and popping a value out of a vector. If this function is
+// inlined, the mutex guard isn't dropped early enough.
+fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
+    mutex.lock().pop()
 }
