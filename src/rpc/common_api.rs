@@ -24,7 +24,9 @@ pub(in crate::rpc) async fn version(
     })
 }
 
-pub(in crate::rpc) async fn shutdown(shutdown_send: Sender<()>) -> Result<ShutdownResult, JsonRpcError> {
+pub(in crate::rpc) async fn shutdown(
+    shutdown_send: Sender<()>,
+) -> Result<ShutdownResult, JsonRpcError> {
     // Trigger graceful shutdown
     if let Err(err) = shutdown_send.send(()).await {
         return Err(JsonRpcError::from(err));
@@ -33,7 +35,10 @@ pub(in crate::rpc) async fn shutdown(shutdown_send: Sender<()>) -> Result<Shutdo
 }
 
 /// gets start time from network
-pub(in crate::rpc) async fn start_time<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn start_time<
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    B: Beacon,
+>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<StartTimeResult, JsonRpcError> {
     Ok(data.start_time)

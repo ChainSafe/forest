@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use crate::shim::crypto::{Signature, SignatureType};
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.

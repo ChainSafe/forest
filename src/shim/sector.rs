@@ -265,7 +265,8 @@ mod tests {
         let orig_sector_size = fvm_shared3::sector::SectorSize::_2KiB;
         let orig_json_repr = serde_json::to_string(&orig_sector_size).unwrap();
 
-        let shimmed_sector_size = crate::shim::sector::SectorSize(fvm_shared3::sector::SectorSize::_2KiB);
+        let shimmed_sector_size =
+            crate::shim::sector::SectorSize(fvm_shared3::sector::SectorSize::_2KiB);
         let shimmed_json_repr = serde_json::to_string(&shimmed_sector_size).unwrap();
 
         assert_eq!(orig_json_repr, shimmed_json_repr);

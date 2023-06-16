@@ -3,10 +3,10 @@
 
 use std::fmt;
 
-use ahash::{HashSet, HashSetExt};
-use cid::Cid;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use ahash::{HashSet, HashSetExt};
+use cid::Cid;
 use fvm_ipld_encoding::Cbor;
 use log::info;
 use num::BigInt;
@@ -466,12 +466,12 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod test {
+    use crate::json::vrf::VRFProof;
+    use crate::shim::address::Address;
     use cid::{
         multihash::{Code::Identity, MultihashDigest},
         Cid,
     };
-    use crate::json::vrf::VRFProof;
-    use crate::shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
 

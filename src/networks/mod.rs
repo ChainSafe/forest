@@ -3,12 +3,12 @@
 
 use std::{fmt::Display, str::FromStr, sync::Arc};
 
-use anyhow::Error;
-use cid::Cid;
-use fil_actors_shared::v10::runtime::Policy;
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::version::NetworkVersion;
+use anyhow::Error;
+use cid::Cid;
+use fil_actors_shared::v10::runtime::Policy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use url::Url;

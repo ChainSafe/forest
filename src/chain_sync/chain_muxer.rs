@@ -8,7 +8,6 @@ use std::{
     time::SystemTime,
 };
 
-use cid::Cid;
 use crate::blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
@@ -20,6 +19,7 @@ use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
 use crate::shim::{clock::EPOCHS_IN_DAY, message::Message};
 use crate::state_manager::StateManager;
+use cid::Cid;
 use futures::{
     future::{try_join_all, Future},
     stream::FuturesUnordered,
@@ -929,14 +929,14 @@ where
 mod tests {
     use std::convert::TryFrom;
 
-    use base64::{prelude::BASE64_STANDARD, Engine};
-    use cid::Cid;
     use crate::blocks::{BlockHeader, Tipset};
     use crate::db::MemoryDB;
     use crate::message::SignedMessage;
     use crate::networks::{ChainConfig, Height};
     use crate::shim::{address::Address, message::Message};
     use crate::test_utils::construct_messages;
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use cid::Cid;
 
     use crate::chain_sync::validation::TipsetValidator;
 

@@ -3,11 +3,6 @@
 
 use std::convert::TryFrom;
 
-use base64::{prelude::BASE64_STANDARD, Engine};
-use cid::{
-    multihash::{Code::Blake2b256, MultihashDigest},
-    Cid,
-};
 use crate::blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use crate::json::vrf::VRFProof;
 use crate::libp2p::chain_exchange::{
@@ -18,6 +13,11 @@ use crate::shim::{
     address::Address,
     crypto::Signature,
     message::{Message, Message_v3},
+};
+use base64::{prelude::BASE64_STANDARD, Engine};
+use cid::{
+    multihash::{Code::Blake2b256, MultihashDigest},
+    Cid,
 };
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
 use num::BigInt;

@@ -131,8 +131,8 @@ mod test {
         path::PathBuf,
     };
 
-    use chrono::Duration;
     use crate::utils::io::ProgressBarVisibility;
+    use chrono::Duration;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use tracing_subscriber::EnvFilter;

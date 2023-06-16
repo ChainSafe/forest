@@ -20,8 +20,8 @@ impl FileBackedObject for TipsetKeys {
 mod tests {
     use std::path::Path;
 
-    use anyhow::*;
     use crate::utils::db::file_backed_obj::FileBacked;
+    use anyhow::*;
 
     use super::*;
 

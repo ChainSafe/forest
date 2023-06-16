@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
 use crate::shim::clock::ChainEpoch;
+use cid::Cid;
 use lazy_static::lazy_static;
 use url::Url;
 

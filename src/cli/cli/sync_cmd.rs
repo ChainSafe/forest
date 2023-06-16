@@ -6,11 +6,11 @@ use std::{
     time::Duration,
 };
 
-use cid::Cid;
-use clap::Subcommand;
 use crate::chain_sync::SyncStage;
 use crate::json::cid::CidJson;
 use crate::rpc_client::*;
+use cid::Cid;
+use clap::Subcommand;
 use ticker::Ticker;
 
 use super::Config;

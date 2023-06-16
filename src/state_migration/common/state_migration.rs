@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use ahash::HashMap;
 use cid::Cid;
-use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
@@ -31,12 +31,19 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     }
 
     /// Inserts a new migrator into the migration specification.
-    pub(in crate::state_migration) fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
+    pub(in crate::state_migration) fn add_migrator(
+        &mut self,
+        prior_cid: Cid,
+        migrator: Migrator<BS>,
+    ) {
         self.migrations.insert(prior_cid, migrator);
     }
 
     /// Inserts a new post migrator into the post migration specification.
-    pub(in crate::state_migration) fn add_post_migrator(&mut self, post_migrator: PostMigratorArc<BS>) {
+    pub(in crate::state_migration) fn add_post_migrator(
+        &mut self,
+        post_migrator: PostMigratorArc<BS>,
+    ) {
         self.post_migrators.push(post_migrator);
     }
 

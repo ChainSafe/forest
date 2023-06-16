@@ -3,8 +3,8 @@
 
 #![cfg(feature = "json")]
 
-use cid::Cid;
 use crate::json::cid::json::{self, CidJson, CidJsonRef};
+use cid::Cid;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 

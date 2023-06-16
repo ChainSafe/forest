@@ -3,10 +3,10 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use cid::Cid;
 use crate::blocks::{BlockHeader, Tipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use log::{debug, warn};

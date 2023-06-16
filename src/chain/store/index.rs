@@ -26,10 +26,10 @@ const SKIP_LENGTH: ChainEpoch = 20;
 pub(super) mod checkpoint_tipsets {
     use std::str::FromStr;
 
-    use ahash::HashSet;
-    use cid::Cid;
     use crate::blocks::{Tipset, TipsetKeys};
     use crate::networks::NetworkChain;
+    use ahash::HashSet;
+    use cid::Cid;
     use serde::{Deserialize, Serialize};
 
     // Represents a static map of validated tipset hashes which helps to remove the

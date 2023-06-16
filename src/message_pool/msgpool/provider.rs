@@ -3,8 +3,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use cid::Cid;
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
 use crate::message::{ChainMessage, SignedMessage};
@@ -17,6 +15,8 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::db::CborStoreExt;
+use async_trait::async_trait;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 

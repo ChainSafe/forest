@@ -332,7 +332,6 @@ pub mod wallet_api {
 
 /// State API
 pub mod state_api {
-    use ahash::HashMap;
     use crate::blocks::tipset_keys_json::TipsetKeysJson;
     use crate::json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
@@ -340,6 +339,7 @@ pub mod state_api {
     };
     use crate::shim::version::NetworkVersion;
     use crate::state_manager::{InvocResult, MarketBalance};
+    use ahash::HashMap;
 
     use crate::rpc_api::data_types::{MarketDeal, MessageLookup};
 

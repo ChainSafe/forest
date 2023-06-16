@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::utils::db::file_backed_obj::FileBackedObject;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use parking_lot::RwLock;
@@ -273,9 +273,9 @@ fn delete_db(db_path: &Path) {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
+    use crate::libp2p_bitswap::BitswapStoreRead;
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
-    use crate::libp2p_bitswap::BitswapStoreRead;
     use fvm_ipld_blockstore::Blockstore;
     use rand::Rng;
     use tempfile::TempDir;

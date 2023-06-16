@@ -1,9 +1,5 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-/// These tests use the `serialization-vectors` submodule at the root of this repo
-use base64::{prelude::BASE64_STANDARD, Engine};
-use bls_signatures::{PrivateKey, Serialize};
-use cid::Cid;
 use crate::blocks::{header, BlockHeader};
 use crate::json::{message, signature};
 use crate::message::signed_message::SignedMessage;
@@ -12,6 +8,10 @@ use crate::shim::{
     crypto::Signature,
     message::Message,
 };
+/// These tests use the `serialization-vectors` submodule at the root of this repo
+use base64::{prelude::BASE64_STANDARD, Engine};
+use bls_signatures::{PrivateKey, Serialize};
+use cid::Cid;
 use fvm_ipld_encoding::{to_vec, Cbor};
 use hex::encode;
 use serde::Deserialize;

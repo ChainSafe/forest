@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 
+use crate::shim::state_tree::StateTree;
 use ahash::HashMap;
 use cid::Cid;
-use crate::shim::state_tree::StateTree;
 
 use super::Migrator;
 
@@ -21,4 +21,5 @@ pub(in crate::state_migration) trait ActorMigrationVerifier<BS> {
 }
 
 /// Type implementing the `ActorMigrationVerifier` trait.
-pub(in crate::state_migration) type MigrationVerifier<BS> = Arc<dyn ActorMigrationVerifier<BS> + Send + Sync>;
+pub(in crate::state_migration) type MigrationVerifier<BS> =
+    Arc<dyn ActorMigrationVerifier<BS> + Send + Sync>;

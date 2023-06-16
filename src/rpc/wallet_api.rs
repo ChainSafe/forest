@@ -3,12 +3,12 @@
 #![allow(clippy::unused_async)]
 use std::{convert::TryFrom, str::FromStr};
 
-use base64::{prelude::BASE64_STANDARD, Engine};
 use crate::beacon::Beacon;
 use crate::json::{address::json::AddressJson, signature::json::SignatureJson};
 use crate::key_management::{json::KeyInfoJson, Error, Key};
 use crate::rpc_api::{data_types::RPCState, wallet_api::*};
 use crate::shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
+use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::Zero;

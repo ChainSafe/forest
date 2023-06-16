@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::ipld::{to_ipld, Ipld};
 use cid::{
     multihash::{
         Code::{Blake2b256, Identity},
@@ -8,7 +9,6 @@ use cid::{
     },
     Cid,
 };
-use crate::ipld::{to_ipld, Ipld};
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};

@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
 };
 use crate::utils::encoding::blake2b_256;
+use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 

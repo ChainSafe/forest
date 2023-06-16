@@ -3,10 +3,6 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use cid::Cid;
-use fil_actor_interface::power;
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, Tipset};
 use crate::chain_sync::collect_errs;
@@ -19,6 +15,10 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::encoding::prover_id_from_u64;
+use cid::Cid;
+use fil_actor_interface::power;
+use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, Cbor};
@@ -42,7 +42,10 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, B: Beacon>(
+pub(in crate::fil_cns) async fn validate_block<
+    DB: Blockstore + Clone + Sync + Send + 'static,
+    B: Beacon,
+>(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,
     block: Arc<Block>,

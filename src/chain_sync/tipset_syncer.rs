@@ -11,8 +11,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use ahash::{HashMap, HashMapExt, HashSet};
-use cid::Cid;
 use crate::blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -26,6 +24,8 @@ use crate::shim::{
 };
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use crate::utils::io::ProgressBar;
+use ahash::{HashMap, HashMapExt, HashSet};
+use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -1616,10 +1616,10 @@ fn validate_tipset_against_cache<C: Consensus>(
 
 #[cfg(test)]
 mod test {
-    use cid::Cid;
     use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use crate::json::vrf::VRFProof;
     use crate::shim::address::Address;
+    use cid::Cid;
     use num_bigint::BigInt;
 
     use super::*;

@@ -10,4 +10,5 @@ pub use errors::*;
 pub use keystore::*;
 pub use wallet::*;
 pub use wallet_helpers::*;
-#[cfg(test)]mod tests {}
+#[cfg(test)]
+mod tests {}

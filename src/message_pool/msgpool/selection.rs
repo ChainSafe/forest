@@ -8,10 +8,10 @@
 
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
-use ahash::{HashMap, HashMapExt};
 use crate::blocks::Tipset;
 use crate::message::{Message, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount};
+use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 

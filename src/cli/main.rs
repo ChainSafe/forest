@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use clap::Parser;
 use crate::cli::{
     cli::{cli_error_and_die, Cli},
     subcommand,
 };
 use crate::cli_shared::{cli::LogConfig, logger};
 use crate::utils::io::ProgressBar;
+use clap::Parser;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {

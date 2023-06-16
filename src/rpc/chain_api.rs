@@ -7,7 +7,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Result};
 use crate::beacon::Beacon;
 use crate::blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -20,6 +19,7 @@ use crate::rpc_api::{
 };
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
+use anyhow::{Context, Result};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;

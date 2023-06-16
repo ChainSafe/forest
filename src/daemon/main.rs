@@ -1,9 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::Context;
-use clap::Parser;
-use daemonize_me::{Daemon, Group, User};
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use crate::cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
@@ -12,6 +9,9 @@ use crate::cli_shared::{
 use crate::daemon::{daemon, ipc_shmem_conf};
 use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
+use anyhow::Context;
+use clap::Parser;
+use daemonize_me::{Daemon, Group, User};
 use log::info;
 use raw_sync::{
     events::{Event, EventInit},

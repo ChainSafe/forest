@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
+use crate::utils::db::CborStoreExt;
 use fil_actor_miner_state::{
     v10::{MinerInfo as MinerInfoV10, State as MinerStateV10},
     v11::{MinerInfo as MinerInfoV11, State as MinerStateV11},
 };
-use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
-use crate::utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 

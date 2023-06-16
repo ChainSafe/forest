@@ -20,9 +20,9 @@ macro_rules! impl_system {
             use std::sync::Arc;
 
             use cid::Cid;
-            use $crate::utils::db::CborStoreExt;
             use fvm_ipld_blockstore::Blockstore;
             use $crate::state_migration::common::*;
+            use $crate::utils::db::CborStoreExt;
 
             pub(super) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
                 new_builtin_actors_cid: Cid,

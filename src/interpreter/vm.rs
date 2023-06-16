@@ -3,9 +3,6 @@
 
 use std::sync::Arc;
 
-use ahash::HashSet;
-use cid::Cid;
-use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
 use crate::shim::{
@@ -20,6 +17,9 @@ use crate::shim::{
     version::NetworkVersion,
     Inner,
 };
+use ahash::HashSet;
+use cid::Cid;
+use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use fvm::{
     executor::{DefaultExecutor, Executor},
     machine::{DefaultMachine, Machine, NetworkConfig},
@@ -55,7 +55,8 @@ type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 
 #[cfg(feature = "instrumented_kernel")]
-type ForestExecutor<DB> = DefaultExecutor<crate::interpreter::instrumented_kernel::ForestInstrumentedKernel<DB>>;
+type ForestExecutor<DB> =
+    DefaultExecutor<crate::interpreter::instrumented_kernel::ForestInstrumentedKernel<DB>>;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.

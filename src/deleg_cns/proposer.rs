@@ -4,8 +4,6 @@
 use core::time::Duration;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use crate::blocks::{BlockHeader, GossipBlock, Tipset};
 use crate::chain::Scale;
 use crate::chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
@@ -13,6 +11,8 @@ use crate::key_management::Key;
 use crate::networks::Height;
 use crate::shim::address::Address;
 use crate::state_manager::StateManager;
+use anyhow::{anyhow, Context};
+use async_trait::async_trait;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use log::{error, info};

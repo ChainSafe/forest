@@ -6,10 +6,6 @@ use std::{
     str::{self, FromStr},
 };
 
-use anyhow::Context;
-use base64::{prelude::BASE64_STANDARD, Engine};
-use clap::{arg, Subcommand};
-use dialoguer::{theme::ColorfulTheme, Password};
 use crate::json::{
     address::json::AddressJson,
     signature::json::{signature_type::SignatureTypeJson, SignatureJson},
@@ -22,6 +18,10 @@ use crate::shim::{
     econ::TokenAmount,
 };
 use crate::utils::io::read_file_to_string;
+use anyhow::Context;
+use base64::{prelude::BASE64_STANDARD, Engine};
+use clap::{arg, Subcommand};
+use dialoguer::{theme::ColorfulTheme, Password};
 use num::BigInt;
 
 use super::{handle_rpc_err, Config};

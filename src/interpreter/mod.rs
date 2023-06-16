@@ -9,11 +9,11 @@ mod instrumented_kernel;
 mod metrics;
 mod vm;
 
-use fil_actor_interface::account;
 use crate::shim::{
     address::{Address, Protocol},
     state_tree::StateTree,
 };
+use fil_actor_interface::account;
 use fvm_ipld_blockstore::Blockstore;
 
 pub use self::vm::*;

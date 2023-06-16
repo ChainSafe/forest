@@ -10,8 +10,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use anyhow::Context;
-use cid::Cid;
 use crate::blocks::{FullTipset, Tipset, TipsetKeys};
 use crate::libp2p::{
     chain_exchange::{
@@ -23,6 +21,8 @@ use crate::libp2p::{
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
 use crate::shim::clock::ChainEpoch;
+use anyhow::Context;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use log::{debug, trace, warn};

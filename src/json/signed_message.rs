@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod json {
-    use cid::Cid;
     use crate::message::SignedMessage;
     use crate::shim::{crypto::Signature, message::Message};
+    use cid::Cid;
     use fvm_ipld_encoding::Cbor;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -109,9 +109,7 @@ mod tests {
     use serde_json::{self, from_str, to_string};
 
     use super::json::{SignedMessageJson, SignedMessageJsonRef};
-    use crate::json::{
-        message::json::{MessageJson, MessageJsonRef},
-    };
+    use crate::json::message::json::{MessageJson, MessageJsonRef};
 
     #[quickcheck]
     fn signed_message_roundtrip(signed_message: SignedMessage) {

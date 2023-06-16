@@ -3,9 +3,6 @@
 
 use std::{io::Write, sync::Arc};
 
-use anyhow::{bail, Context};
-use blake2b_simd::Params;
-use byteorder::{BigEndian, WriteBytesExt};
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
@@ -13,6 +10,9 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
 use crate::utils::encoding::blake2b_256;
+use anyhow::{bail, Context};
+use blake2b_simd::Params;
+use byteorder::{BigEndian, WriteBytesExt};
 use fvm_ipld_blockstore::Blockstore;
 
 /// Allows for deriving the randomness from a particular tipset.

@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chrono::{DateTime, Utc};
-use clap::Subcommand;
 use crate::blocks::Tipset;
 use crate::cli_shared::cli::CliOpts;
 use crate::rpc_client::{
@@ -10,6 +8,8 @@ use crate::rpc_client::{
     wallet_default_address,
 };
 use crate::shim::econ::TokenAmount;
+use chrono::{DateTime, Utc};
+use clap::Subcommand;
 
 use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
@@ -212,9 +212,9 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
     use crate::blocks::{BlockHeader, Tipset};
     use crate::shim::{address::Address, econ::TokenAmount};
+    use chrono::DateTime;
     use fvm_shared::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};

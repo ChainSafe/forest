@@ -3,12 +3,6 @@
 
 use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
-use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Result;
-use async_compression::futures::write::ZstdEncoder;
-use bls_signatures::Serialize as SerializeBls;
-use cid::Cid;
-use digest::Digest;
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
@@ -34,6 +28,12 @@ use crate::utils::{
     io::{AsyncWriterWithChecksum, Checksum},
     misc::Either,
 };
+use ahash::{HashMap, HashMapExt, HashSet};
+use anyhow::Result;
+use async_compression::futures::write::ZstdEncoder;
+use bls_signatures::Serialize as SerializeBls;
+use cid::Cid;
+use digest::Digest;
 use futures::{io::BufWriter, AsyncWrite};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
@@ -945,6 +945,7 @@ pub fn persist_block_messages<DB: Blockstore>(
 
 #[cfg(test)]
 mod tests {
+    use crate::shim::address::Address;
     use cid::{
         multihash::{
             Code::{Blake2b256, Identity},
@@ -952,7 +953,6 @@ mod tests {
         },
         Cid,
     };
-    use crate::shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
     use tempfile::TempDir;
 

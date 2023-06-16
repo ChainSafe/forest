@@ -3,10 +3,10 @@
 
 use std::sync::Arc;
 
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
-use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 

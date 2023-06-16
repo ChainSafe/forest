@@ -23,11 +23,12 @@ lazy_static! {
         &["type"],
     )
     .expect("Infallible");
-    pub(in crate::libp2p_bitswap) static ref GET_BLOCK_TIME: Histogram = Histogram::with_opts(HistogramOpts {
-        common_opts: Opts::new("bitswap_get_block_time", "Duration of get_block"),
-        buckets: vec![0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
-    })
-    .expect("Infallible");
+    pub(in crate::libp2p_bitswap) static ref GET_BLOCK_TIME: Histogram =
+        Histogram::with_opts(HistogramOpts {
+            common_opts: Opts::new("bitswap_get_block_time", "Duration of get_block"),
+            buckets: vec![0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+        })
+        .expect("Infallible");
 }
 
 /// Register bitswap metrics
@@ -64,39 +65,48 @@ pub(in crate::libp2p_bitswap) fn message_counter_get_block_failure() -> GenericC
     MESSAGE_COUNTER.with_label_values(&["get_block_failure"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_have() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_have() -> GenericCounter<AtomicU64>
+{
     MESSAGE_COUNTER.with_label_values(&["inbound_request_have"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_block() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_request_block() -> GenericCounter<AtomicU64>
+{
     MESSAGE_COUNTER.with_label_values(&["inbound_request_block"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_cancel() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_cancel(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["outbound_request_cancel"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_block() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_block(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["outbound_request_block"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_have() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_request_have() -> GenericCounter<AtomicU64>
+{
     MESSAGE_COUNTER.with_label_values(&["outbound_request_have"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_yes() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_yes(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_have_yes"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_no() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_have_no(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_have_no"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block_update_db"])
 }
 
@@ -105,20 +115,23 @@ pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_already_
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block_already_exists_in_db"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_not_requested() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_not_requested(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block_not_requested"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db_failure() -> GenericCounter<AtomicU64>
-{
+pub(in crate::libp2p_bitswap) fn message_counter_inbound_response_block_update_db_failure(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block_update_db_failure"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_have() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_have(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["outbound_response_have"])
 }
 
-pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_block() -> GenericCounter<AtomicU64> {
+pub(in crate::libp2p_bitswap) fn message_counter_outbound_response_block(
+) -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["outbound_response_block"])
 }
 

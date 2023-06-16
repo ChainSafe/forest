@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashSet;
-use clap::Subcommand;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::rpc_api::data_types::AddrInfo;
 use crate::rpc_client::net_ops::*;
+use ahash::HashSet;
+use clap::Subcommand;
 
 use super::{handle_rpc_err, print_stdout, Config};
 use crate::cli::cli::cli_error_and_die;

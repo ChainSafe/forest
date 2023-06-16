@@ -3,8 +3,6 @@
 
 use std::{cell::Ref, sync::Arc};
 
-use anyhow::bail;
-use cid::Cid;
 use crate::blocks::BlockHeader;
 use crate::networks::ChainConfig;
 use crate::shim::{
@@ -12,6 +10,8 @@ use crate::shim::{
     state_tree::StateTree,
     version::NetworkVersion,
 };
+use anyhow::bail;
+use cid::Cid;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},

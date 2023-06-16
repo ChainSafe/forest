@@ -4,9 +4,9 @@
 pub mod json {
     use std::str::FromStr;
 
-    use cid::Cid;
     use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::ActorState;
+    use cid::Cid;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 

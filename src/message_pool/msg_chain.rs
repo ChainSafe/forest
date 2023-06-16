@@ -7,7 +7,6 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use ahash::HashMap;
 use crate::blocks::Tipset;
 use crate::message::{Message, SignedMessage};
 use crate::networks::ChainConfig;
@@ -16,6 +15,7 @@ use crate::shim::{
     econ::TokenAmount,
     gas::{price_list_by_network_version, Gas},
 };
+use ahash::HashMap;
 use fvm_ipld_encoding::Cbor;
 use log::warn;
 use num_traits::Zero;
@@ -54,7 +54,11 @@ impl Chains {
 
     /// Pushes a `msg` chain node into slot map and places the key in the
     /// `node_vec` passed as parameter.
-    pub(in crate::message_pool) fn push_with(&mut self, cur_chain: MsgChainNode, node_vec: &mut Vec<NodeKey>) {
+    pub(in crate::message_pool) fn push_with(
+        &mut self,
+        cur_chain: MsgChainNode,
+        node_vec: &mut Vec<NodeKey>,
+    ) {
         let key = self.map.insert(cur_chain);
         node_vec.push(key);
     }
@@ -88,7 +92,10 @@ impl Chains {
     }
 
     // Sort by effective `perf` on a range
-    pub(in crate::message_pool) fn sort_range_effective(&mut self, range: std::ops::RangeFrom<usize>) {
+    pub(in crate::message_pool) fn sort_range_effective(
+        &mut self,
+        range: std::ops::RangeFrom<usize>,
+    ) {
         let mut chains = mem::take(&mut self.key_vec);
         chains[range].sort_by(|a, b| {
             self.map
@@ -144,7 +151,11 @@ impl Chains {
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
-    pub(in crate::message_pool) fn get_mut_from(&mut self, i: usize, vec: &[NodeKey]) -> &mut MsgChainNode {
+    pub(in crate::message_pool) fn get_mut_from(
+        &mut self,
+        i: usize,
+        vec: &[NodeKey],
+    ) -> &mut MsgChainNode {
         self.map.get_mut(vec[i]).unwrap()
     }
 
@@ -170,7 +181,12 @@ impl Chains {
     }
 
     /// Removes messages from the given index and resets effective `perfs`
-    pub(in crate::message_pool) fn trim_msgs_at(&mut self, idx: usize, gas_limit: u64, base_fee: &TokenAmount) {
+    pub(in crate::message_pool) fn trim_msgs_at(
+        &mut self,
+        idx: usize,
+        gas_limit: u64,
+        base_fee: &TokenAmount,
+    ) {
         let prev = match idx {
             0 => None,
             _ => self

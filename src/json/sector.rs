@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
+    use crate::shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use crate::shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
     use fvm_shared::sector::SectorNumber;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -112,8 +112,7 @@ mod tests {
 
     #[quickcheck]
     fn postproof_roundtrip(postproof: PoStProof) {
-        let serialized: String =
-            crate::to_string_with!(&postproof, super::json::serialize);
+        let serialized: String = crate::to_string_with!(&postproof, super::json::serialize);
         let parsed = crate::from_str_with!(&serialized, super::json::deserialize);
         assert_eq!(postproof, parsed);
     }

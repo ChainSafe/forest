@@ -3,14 +3,14 @@
 
 use std::{sync::Arc, time};
 
-use anyhow::bail;
-use cid::Cid;
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::state_manager::StateManager;
 use crate::utils::{
     db::BlockstoreBufferedWriteExt,
     net::{get_fetch_progress_from_file, get_fetch_progress_from_url},
 };
+use anyhow::bail;
+use cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};

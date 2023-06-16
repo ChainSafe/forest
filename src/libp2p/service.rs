@@ -7,10 +7,6 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use ahash::{HashMap, HashSet};
-use anyhow::Context;
-use cid::Cid;
-use flume::Sender;
 use crate::blocks::GossipBlock;
 use crate::chain::ChainStore;
 use crate::libp2p_bitswap::{
@@ -19,6 +15,10 @@ use crate::libp2p_bitswap::{
 use crate::message::SignedMessage;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::read_file_to_vec;
+use ahash::{HashMap, HashSet};
+use anyhow::Context;
+use cid::Cid;
+use flume::Sender;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;

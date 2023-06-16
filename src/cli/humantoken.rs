@@ -104,9 +104,9 @@ mod si {
 mod parse {
     // ENHANCE(aatifsyed): could accept pairs like "1 nano 1 atto"
 
+    use crate::shim::econ::TokenAmount;
     use anyhow::{anyhow, bail};
     use bigdecimal::{BigDecimal, ParseBigDecimalError};
-    use crate::shim::econ::TokenAmount;
     use nom::{
         bytes::complete::tag,
         character::complete::multispace0,
@@ -349,8 +349,8 @@ mod parse {
 mod print {
     use std::fmt;
 
-    use bigdecimal::BigDecimal;
     use crate::shim::econ::TokenAmount;
+    use bigdecimal::BigDecimal;
     use num::{BigInt, Zero as _};
 
     use super::si;

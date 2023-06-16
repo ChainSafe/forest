@@ -5,10 +5,10 @@
 mod tests {
     use std::{process::Command, time::Duration};
 
-    use anyhow::{Context, Result};
     use crate::libp2p_bitswap::{
         BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
     };
+    use anyhow::{Context, Result};
     use libipld::{
         multihash::{self, MultihashDigest},
         Cid,

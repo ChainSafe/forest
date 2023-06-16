@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::rpc_api::data_types::JsonRpcServerState;
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -11,7 +12,6 @@ use axum::{
     response::IntoResponse,
 };
 use crossbeam::atomic::AtomicCell;
-use crate::rpc_api::data_types::JsonRpcServerState;
 use futures::{stream::SplitSink, SinkExt, StreamExt};
 use http::{HeaderMap, HeaderValue};
 use log::{debug, error, info, warn};

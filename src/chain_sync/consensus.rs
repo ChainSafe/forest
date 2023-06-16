@@ -7,13 +7,13 @@ use std::{
     sync::Arc,
 };
 
-use async_trait::async_trait;
 use crate::blocks::{Block, GossipBlock, Tipset};
 use crate::chain::Scale;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use crate::message::SignedMessage;
 use crate::message_pool::MessagePool;
 use crate::state_manager::StateManager;
+use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;

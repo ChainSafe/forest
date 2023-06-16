@@ -3,14 +3,14 @@
 
 use std::{fmt, sync::Arc};
 
-#[cfg(test)]
-use chrono::TimeZone;
-use chrono::{DateTime, Duration, Utc};
 use crate::blocks::{
     tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
 use crate::shim::clock::ChainEpoch;
+#[cfg(test)]
+use chrono::TimeZone;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.

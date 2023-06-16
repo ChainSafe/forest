@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod cli;
 pub mod humantoken;
-pub mod subcommand;
 pub mod main;
+pub mod subcommand;

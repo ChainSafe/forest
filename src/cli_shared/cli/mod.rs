@@ -10,15 +10,15 @@ use std::{
     sync::Arc,
 };
 
-use ahash::HashSet;
-use byte_unit::Byte;
-use clap::Parser;
-use directories::ProjectDirs;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::utils::{
     io::{read_file_to_string, read_toml, ProgressBarVisibility},
     misc::LoggingColor,
 };
+use ahash::HashSet;
+use byte_unit::Byte;
+use clap::Parser;
+use directories::ProjectDirs;
 use log::error;
 use num::BigInt;
 

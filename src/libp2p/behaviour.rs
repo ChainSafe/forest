@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashMap, HashSet};
 use crate::libp2p_bitswap::BitswapBehaviour;
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
+use ahash::{HashMap, HashSet};
 use libp2p::{
     core::identity::Keypair,
     gossipsub::{

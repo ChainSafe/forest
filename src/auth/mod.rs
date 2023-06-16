@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chrono::{Duration, Utc};
 use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
+use chrono::{Duration, Utc};
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::{decode, encode, errors::Result as JWTResult, DecodingKey, EncodingKey, Header};
 use once_cell::sync::Lazy;

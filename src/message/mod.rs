@@ -5,8 +5,8 @@ pub mod chain_message;
 pub mod message;
 pub mod signed_message;
 
-pub use chain_message::ChainMessage;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message as ShimMessage};
+pub use chain_message::ChainMessage;
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
 pub use signed_message::SignedMessage;
@@ -90,4 +90,7 @@ impl Message for ShimMessage {
         self.gas_premium = prem.into();
     }
 }
-#[cfg(test)]mod tests {mod builder_test;}
+#[cfg(test)]
+mod tests {
+    mod builder_test;
+}

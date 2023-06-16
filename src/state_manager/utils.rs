@@ -1,9 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::Cid;
-use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
-use filecoin_proofs_api::post;
 use crate::shim::{
     address::{Address, Payload},
     randomness::Randomness,
@@ -12,6 +9,9 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::utils::encoding::prover_id_from_u64;
+use cid::Cid;
+use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use filecoin_proofs_api::post;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
@@ -176,8 +176,8 @@ fn generate_winning_post_sector_challenge(
 
 #[cfg(test)]
 mod test {
-    use cid::Cid;
     use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+    use cid::Cid;
 
     use super::*;
 

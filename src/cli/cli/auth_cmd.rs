@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use clap::Subcommand;
 use crate::auth::*;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::rpc_api::auth_api::AuthNewParams;
 use crate::rpc_client::auth_new;
+use clap::Subcommand;
 use jsonrpc_v2::Error as JsonRpcError;
 
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};

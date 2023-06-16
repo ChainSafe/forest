@@ -7,10 +7,10 @@ use std::{
     str::FromStr,
 };
 
-use chrono::Duration;
-use directories::ProjectDirs;
 use crate::rpc_client::DEFAULT_PORT;
 use crate::utils::io::ProgressBarVisibility;
+use chrono::Duration;
+use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 

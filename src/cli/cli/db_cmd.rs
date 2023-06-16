@@ -3,13 +3,13 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
-use clap::Subcommand;
 use crate::cli_shared::{chain_path, cli::Config};
 use crate::db::db_engine::db_root;
 use crate::rpc_api::progress_api::GetProgressType;
 use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
 use crate::utils::io::ProgressBar;
+use chrono::Utc;
+use clap::Subcommand;
 use log::error;
 
 use crate::cli::cli::{handle_rpc_err, prompt_confirm};

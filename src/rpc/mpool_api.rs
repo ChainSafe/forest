@@ -4,7 +4,6 @@
 
 use std::convert::TryFrom;
 
-use ahash::{HashSet, HashSetExt};
 use crate::beacon::Beacon;
 use crate::blocks::TipsetKeys;
 use crate::json::{
@@ -15,6 +14,7 @@ use crate::json::{
 use crate::message::SignedMessage;
 use crate::rpc_api::{data_types::RPCState, mpool_api::*};
 use crate::shim::address::Protocol;
+use ahash::{HashSet, HashSetExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};

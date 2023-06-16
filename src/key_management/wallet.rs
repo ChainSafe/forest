@@ -3,11 +3,11 @@
 
 use std::{convert::TryFrom, str::FromStr};
 
-use ahash::{HashMap, HashMapExt};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
 };
+use ahash::{HashMap, HashMapExt};
 use serde::{Deserialize, Serialize};
 
 use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};

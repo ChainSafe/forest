@@ -12,4 +12,10 @@ pub mod signature;
 pub mod signed_message;
 pub mod token_amount;
 pub mod vrf;
-#[cfg(test)]mod tests {mod json_tests;mod base_cid_tests;mod address_test;mod serde_tests;}
+#[cfg(test)]
+mod tests {
+    mod address_test;
+    mod base_cid_tests;
+    mod json_tests;
+    mod serde_tests;
+}

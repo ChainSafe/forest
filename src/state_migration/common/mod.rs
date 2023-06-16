@@ -6,8 +6,8 @@
 
 use std::sync::Arc;
 
-use cid::Cid;
 use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
 mod macros;
@@ -49,7 +49,9 @@ pub(in crate::state_migration) trait ActorMigration<BS: Blockstore + Clone + Sen
 }
 
 /// Trait that defines the interface for actor migration job to be executed after the state migration.
-pub(in crate::state_migration) trait PostMigrator<BS: Blockstore>: Send + Sync {
+pub(in crate::state_migration) trait PostMigrator<BS: Blockstore>:
+    Send + Sync
+{
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()>;
 }
 

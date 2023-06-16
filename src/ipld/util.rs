@@ -11,9 +11,9 @@ use std::{
     time::Duration,
 };
 
-use cid::Cid;
 use crate::blocks::{BlockHeader, Tipset};
 use crate::utils::io::{progress_bar, ProgressBar};
+use cid::Cid;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use lazy_static::lazy_static;
 

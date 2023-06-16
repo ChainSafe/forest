@@ -6,6 +6,8 @@
 
 use std::sync::Arc;
 
+use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
+use crate::utils::db::CborStoreExt;
 use cid::Cid;
 use fil_actor_power_state::{
     v10::{Claim as ClaimV10, State as StateV10},
@@ -14,8 +16,6 @@ use fil_actor_power_state::{
 use fil_actors_shared::v11::{
     builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth,
 };
-use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
-use crate::utils::db::CborStoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 

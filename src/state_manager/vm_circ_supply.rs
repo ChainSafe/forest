@@ -1,9 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::Context;
-use cid::Cid;
-use fil_actor_interface::{market, power, reward};
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::{
@@ -12,6 +9,9 @@ use crate::shim::{
     econ::TokenAmount,
     state_tree::{ActorState, StateTree},
 };
+use anyhow::Context;
+use cid::Cid;
+use fil_actor_interface::{market, power, reward};
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
 

@@ -131,9 +131,11 @@ pub mod db_engine {
 }
 #[cfg(test)]
 mod tests {
-    pub mod subtests;
     pub mod db_utils;
     mod mem_test;
-    #[cfg(feature = "paritydb")] mod parity_test;
-    #[cfg(feature = "rocksdb")] mod rocks_test;
+    #[cfg(feature = "paritydb")]
+    mod parity_test;
+    #[cfg(feature = "rocksdb")]
+    mod rocks_test;
+    pub mod subtests;
 }

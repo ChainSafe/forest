@@ -7,9 +7,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::blocks::Tipset;
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
-use crate::blocks::Tipset;
 use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
 use tokio::sync::RwLock;

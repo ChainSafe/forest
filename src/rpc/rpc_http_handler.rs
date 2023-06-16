@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use axum::response::IntoResponse;
 use crate::rpc_api::data_types::JsonRpcServerState;
+use axum::response::IntoResponse;
 use http::{HeaderMap, StatusCode};
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 

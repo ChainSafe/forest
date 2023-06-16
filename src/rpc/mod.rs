@@ -20,7 +20,6 @@ mod wallet_api;
 
 use std::{net::TcpListener, sync::Arc};
 
-use axum::routing::{get, post};
 use crate::beacon::Beacon;
 use crate::chain::Scale;
 use crate::rpc_api::{
@@ -28,6 +27,7 @@ use crate::rpc_api::{
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, progress_api::GET_PROGRESS,
     state_api::*, sync_api::*, wallet_api::*,
 };
+use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Params, Server};
 use log::info;

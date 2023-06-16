@@ -3,10 +3,10 @@
 
 use std::time::Duration;
 
-use async_trait::async_trait;
-use byteorder::{BigEndian, ByteOrder};
 use crate::shim::version::NetworkVersion;
 use crate::utils::encoding::blake2b_256;
+use async_trait::async_trait;
+use byteorder::{BigEndian, ByteOrder};
 
 use crate::beacon::{Beacon, BeaconEntry};
 

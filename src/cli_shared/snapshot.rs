@@ -8,10 +8,10 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail, Context as _};
-use chrono::NaiveDate;
 use crate::networks::NetworkChain;
 use crate::utils::io::progress_bar::downloading_style;
+use anyhow::{anyhow, bail, Context as _};
+use chrono::NaiveDate;
 use tracing::{info, warn};
 use url::Url;
 

@@ -5,9 +5,9 @@
 mod tests {
     use std::{sync::Arc, time::Duration};
 
+    use crate::libp2p_bitswap::*;
     use ahash::HashMap;
     use anyhow::Result;
-    use crate::libp2p_bitswap::*;
     use futures::StreamExt;
     use libipld::{
         multihash::{self, MultihashDigest},

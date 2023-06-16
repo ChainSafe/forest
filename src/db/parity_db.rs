@@ -3,9 +3,9 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use anyhow::anyhow;
 use cid::Cid;
-use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use log::warn;
 use parity_db::{CompressionType, Db, Operation, Options};

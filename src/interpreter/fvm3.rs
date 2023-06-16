@@ -3,13 +3,13 @@
 
 use std::{cell::Ref, sync::Arc};
 
-use anyhow::bail;
-use cid::Cid;
 use crate::blocks::BlockHeader;
 use crate::networks::ChainConfig;
 use crate::shim::{
     gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
 };
+use anyhow::bail;
+use cid::Cid;
 use fvm3::{
     externs::{Chain, Consensus, Externs, Rand},
     gas::{Gas, GasTracker},

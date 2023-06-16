@@ -3,8 +3,8 @@
 
 use std::borrow::Borrow;
 
-use cid::Cid;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
+use cid::Cid;
 use fvm_ipld_encoding::{Cbor, Error};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;

@@ -6,9 +6,9 @@ pub mod metrics;
 
 use std::{net::TcpListener, path::PathBuf};
 
+use crate::db::DBStatistics;
 use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
-use crate::db::DBStatistics;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
 use tokio::sync::RwLock;

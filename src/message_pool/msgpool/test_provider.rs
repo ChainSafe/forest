@@ -5,14 +5,14 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
-use ahash::{HashMap, HashMapExt};
-use async_trait::async_trait;
-use cid::Cid;
 use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
 use crate::json::vrf::VRFProof;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
+use ahash::{HashMap, HashMapExt};
+use async_trait::async_trait;
+use cid::Cid;
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;

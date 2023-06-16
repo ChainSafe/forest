@@ -8,12 +8,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::shim::crypto::SignatureType;
 use ahash::{HashMap, HashMapExt};
 use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
-use crate::shim::crypto::SignatureType;
 use log::{error, warn};
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};

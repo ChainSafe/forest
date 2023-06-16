@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use base64::{prelude::BASE64_STANDARD, Engine};
-    use cid::Cid;
     use crate::message::Message as MessageTrait;
     use crate::shim::{address::Address, econ::TokenAmount, message::Message};
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use cid::Cid;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding3::RawBytes;
     use fvm_shared3::message::Message as Message_v3;

@@ -39,4 +39,8 @@ pub mod task {
         time::{sleep, timeout},
     };
 }
-#[cfg(test)]mod tests {mod request_manager;mod go_compat;}
+#[cfg(test)]
+mod tests {
+    mod go_compat;
+    mod request_manager;
+}

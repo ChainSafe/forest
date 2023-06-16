@@ -4,8 +4,8 @@
 use crate::shim::executor::{Receipt, Receipt_v3};
 
 pub mod json {
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use crate::shim::error::ExitCode;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use fvm_ipld_encoding3::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 

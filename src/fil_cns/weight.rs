@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use fil_actor_interface::power;
 use crate::blocks::Tipset;
 use crate::shim::{address::Address, state_tree::StateTree};
+use fil_actor_interface::power;
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
 use num_traits::Zero;

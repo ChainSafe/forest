@@ -21,4 +21,7 @@ pub use multihash::Multihash;
 
 pub(in crate::libp2p) use self::behaviour::*;
 pub use self::{config::*, peer_manager::*, service::*};
-#[cfg(test)]mod tests {mod decode_test;}
+#[cfg(test)]
+mod tests {
+    mod decode_test;
+}

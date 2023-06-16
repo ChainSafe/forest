@@ -3,14 +3,14 @@
 
 use std::{borrow::Cow, sync::Arc};
 
+use crate::shim::clock::ChainEpoch;
+use crate::shim::version::NetworkVersion;
+use crate::utils::net::{https_client, HyperBodyExt};
 use ahash::HashMap;
 use anyhow::Context;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
-use crate::shim::clock::ChainEpoch;
-use crate::shim::version::NetworkVersion;
-use crate::utils::net::{https_client, HyperBodyExt};
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;

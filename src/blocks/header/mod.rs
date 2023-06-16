@@ -3,11 +3,6 @@
 
 use std::fmt;
 
-use cid::{
-    multihash::{Code::Blake2b256, MultihashDigest},
-    Cid,
-};
-use derive_builder::Builder;
 use crate::beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
@@ -19,6 +14,11 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::utils::encoding::blake2b_256;
+use cid::{
+    multihash::{Code::Blake2b256, MultihashDigest},
+    Cid,
+};
+use derive_builder::Builder;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use num::BigInt;
 use once_cell::sync::OnceCell;

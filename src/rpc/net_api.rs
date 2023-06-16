@@ -14,7 +14,10 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::error;
 
-pub(in crate::rpc) async fn net_addrs_listen<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn net_addrs_listen<
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    B: Beacon,
+>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<NetAddrsListenResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -53,7 +56,10 @@ pub(in crate::rpc) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'st
     Ok(connections)
 }
 
-pub(in crate::rpc) async fn net_connect<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn net_connect<
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    B: Beacon,
+>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetConnectParams>,
 ) -> Result<NetConnectResult, JsonRpcError> {
@@ -77,7 +83,10 @@ pub(in crate::rpc) async fn net_connect<DB: Blockstore + Clone + Send + Sync + '
     }
 }
 
-pub(in crate::rpc) async fn net_disconnect<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+pub(in crate::rpc) async fn net_disconnect<
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    B: Beacon,
+>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetDisconnectParams>,
 ) -> Result<NetDisconnectResult, JsonRpcError> {
