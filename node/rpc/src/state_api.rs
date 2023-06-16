@@ -8,8 +8,8 @@ use fil_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_ipld::json::IpldJson;
-use forest_json::{actor_state::json::ActorStateJson, address::json::AddressJson, cid::CidJson};
 use forest_ipld::CidHashSet;
+use forest_json::{actor_state::json::ActorStateJson, address::json::AddressJson, cid::CidJson};
 use forest_libp2p::NetworkMessage;
 use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
