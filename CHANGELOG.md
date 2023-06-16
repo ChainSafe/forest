@@ -42,6 +42,7 @@ Notable updates:
 - `--compressed` option removed from CLI, snapshots are now always compressed.
 - Snapshot ops are removed, snapshots are fetched to current directory by
   default.
+- Added new subcommand `forest-cli info show`.
 - `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
   subcommand are now implemented.
 - IPLD graph can now be downloaded via bitswap.
@@ -63,6 +64,8 @@ Notable updates:
   subcommand.
 - [#2979](https://github.com/ChainSafe/forest/pull/2979): implement command for
   downloading an IPLD graph via bitswap.
+- [#2578](https://github.com/ChainSafe/forest/pull/2578): implement initial
+  support for `forest-cli info`
 
 ### Changed
 
