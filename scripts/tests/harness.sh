@@ -48,8 +48,8 @@ function forest_init {
 }
 
 function forest_print_logs_and_metrics {
-  echo "--- Forest STDOUT ---"; cat forest.out
   echo "--- Forest STDERR ---"; cat forest.err
+  echo "--- Forest STDOUT ---"; cat forest.out
 
   echo "Get and print metrics"
   wget -O metrics.log http://localhost:6116/metrics
