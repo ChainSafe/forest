@@ -40,8 +40,9 @@
 Notable updates:
 
 - `--compressed` option removed from CLI, snapshots are now always compressed.
-- Snapshot ops are removed, snapshots are fetched to current directory by
-  default.
+- The `dir`, `list`, `prune` and `remove` snapshot commands have been removed
+  from the CLI.
+- Snapshots are fetched to current directory by default.
 - Added new subcommand `forest-cli info show`.
 - `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
   subcommand are now implemented.
