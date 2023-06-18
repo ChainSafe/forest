@@ -57,12 +57,11 @@ impl CidHashSet {
     }
 
     pub fn len(&self) -> usize {
-        self.v1_dagcbor_blake2b.len() + self.v1_dagcbor_blake2b.len() + self.fallback.len()
+        self.v1_dagcbor_blake2b.len() + self.fallback.len()
     }
 
     pub fn is_empty(&self) -> bool {
         self.v1_dagcbor_blake2b.is_empty()
-            && self.v1_dagcbor_blake2b.is_empty()
             && self.fallback.is_empty()
     }
 }
