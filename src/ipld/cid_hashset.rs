@@ -42,7 +42,7 @@ impl TryFrom<Cid> for CidVariant {
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Default)]
 pub struct CidHashSet {
-    v1_dagcbor_blake2b: BTreeSet<[u8; 32]>,
+    v1_dagcbor_blake2b: HashSet<[u8; 32]>,
     fallback: HashSet<Cid>,
 }
 
