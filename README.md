@@ -21,21 +21,6 @@ in Rust from the
 [Filecoin Protocol Specification](https://filecoin-project.github.io/specs/),
 specifically the virtual machine, blockchain, and node system.
 
-Our crates:
-
-| component        | description/crates                                              |
-| ---------------- | --------------------------------------------------------------- |
-| `forest`         | the command-line interface and daemon (3 crate/workspace)       |
-| `node`           | the networking stack and storage (7 crates)                     |
-| `blockchain`     | the chain structure and synchronization (8 crates)              |
-| `vm`             | state transition and actors, messages, addresses (9 crates)     |
-| `key_management` | Filecoin account management (1 crate)                           |
-| `crypto`         | cryptographic functions, signatures, and verification (1 crate) |
-| `encoding`       | serialization library for encoding and decoding (1 crate)       |
-| `ipld`           | the IPLD model for content-addressable data (9 crates)          |
-| `types`          | the forest types (2 crates)                                     |
-| `utils`          | the forest toolbox (12 crates)                                  |
-
 ## Questions
 
 Have questions? Feel free to post them in

@@ -1,0 +1,190 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use std::{str::FromStr, sync::Arc};
+
+use crate::networks::{ChainConfig, Height};
+use crate::shim::machine::{
+    DATACAP_ACTOR_NAME, MARKET_ACTOR_NAME, MINER_ACTOR_NAME, VERIFREG_ACTOR_NAME,
+};
+use crate::shim::{
+    address::Address,
+    clock::ChainEpoch,
+    machine::Manifest,
+    state_tree::{ActorState, StateTree, StateTreeVersion},
+};
+use ahash::HashSet;
+use anyhow::{anyhow, Context};
+use cid::Cid;
+use fil_actor_interface::{
+    market::is_v9_market_cid,
+    miner::{is_v8_miner_cid, is_v9_miner_cid},
+};
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
+
+use super::super::common::{migrators::nil_migrator, StateMigration};
+use super::{
+    datacap, miner, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
+    verifreg_market::VerifregMarketPostMigrator, SystemStateOld,
+};
+
+impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
+    pub fn add_nv17_migrations(
+        &mut self,
+        store: BS,
+        state: &Cid,
+        new_manifest: &Cid,
+        prior_epoch: ChainEpoch,
+        chain_config: &ChainConfig,
+    ) -> anyhow::Result<()> {
+        let state_tree = StateTree::new_from_root(store.clone(), state)?;
+        let system_actor = state_tree
+            .get_actor(&Address::new_id(0))?
+            .ok_or_else(|| anyhow!("system actor not found"))?;
+
+        let system_actor_state: SystemStateOld = store
+            .get_cbor(&system_actor.state)?
+            .ok_or_else(|| anyhow!("system actor state not found"))?;
+        let current_manifest_data = system_actor_state.builtin_actors;
+
+        let current_manifest = Manifest::load_with_actors(&store, &current_manifest_data, 1)?;
+
+        let new_manifest = Manifest::load(&store, new_manifest)?;
+
+        let verifreg_actor_v8 = state_tree
+            .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
+            .context("Failed to load verifreg actor v8")?;
+
+        let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
+            .get_cbor(&verifreg_actor_v8.state)?
+            .context("Failed to load verifreg state v8")?;
+
+        let market_actor_v8 = state_tree
+            .get_actor(&fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.into())?
+            .context("Failed to load market actor v8")?;
+
+        let market_state_v8: fil_actor_market_state::v8::State = store
+            .get_cbor(&market_actor_v8.state)?
+            .context("Failed to load market state v8")?;
+
+        let init_actor_v8 = state_tree
+            .get_actor(&fil_actors_shared::v8::INIT_ACTOR_ADDR.into())?
+            .context("Failed to load init actor v8")?;
+
+        let init_state_v8: fil_actor_init_state::v8::State = store
+            .get_cbor(&init_actor_v8.state)?
+            .context("Failed to load init state v8")?;
+
+        let (pending_verified_deals, pending_verified_deal_size) =
+            get_pending_verified_deals_and_total_size(&store, &market_state_v8)?;
+
+        current_manifest.builtin_actors().for_each(|(name, code)| {
+            let new_code = new_manifest.code_by_name(name).unwrap();
+            self.add_migrator(*code, nil_migrator(*new_code));
+        });
+
+        //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
+        self.add_migrator(
+            *current_manifest.system_code(),
+            system::system_migrator(&new_manifest),
+        );
+
+        let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
+        self.add_migrator(
+            // Use the new code as prior code here, have set an empty actor in `run_migrations` to
+            // migrate from
+            *datacap_code,
+            datacap::datacap_migrator(verifreg_state_v8, pending_verified_deal_size)?,
+        );
+
+        // On go side, cid is found by name `storageminer`, however, no equivilent API is available on rust side.
+        let miner_v8_actor_code = current_manifest.code_by_name(MINER_ACTOR_NAME)?;
+        let miner_v9_actor_code = new_manifest.code_by_name(MINER_ACTOR_NAME)?;
+
+        self.add_migrator(
+            *miner_v8_actor_code,
+            miner::miner_migrator(
+                *miner_v9_actor_code,
+                &store,
+                market_state_v8.proposals,
+                chain_config,
+            )?,
+        );
+
+        let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
+            .get_cbor(&verifreg_actor_v8.state)?
+            .context("Failed to load verifreg state v8")?;
+        let verifreg_code = *new_manifest.code_by_name(VERIFREG_ACTOR_NAME)?;
+        let market_code = *new_manifest.code_by_name(MARKET_ACTOR_NAME)?;
+
+        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
+            prior_epoch,
+            init_state_v8,
+            market_state_v8,
+            verifreg_state_v8,
+            pending_verified_deals,
+            verifreg_actor_v8,
+            market_actor_v8,
+            verifreg_code,
+            market_code,
+        }));
+
+        Ok(())
+    }
+}
+
+/// Runs the migration for `NV17`. Returns the new state root.
+pub fn run_migration<DB>(
+    chain_config: &ChainConfig,
+    blockstore: &DB,
+    state: &Cid,
+    epoch: ChainEpoch,
+) -> anyhow::Result<Cid>
+where
+    DB: 'static + Blockstore + Clone + Send + Sync,
+{
+    let new_manifest_cid = chain_config
+        .height_infos
+        .get(Height::Shark as usize)
+        .ok_or_else(|| anyhow!("no height info for network version NV17"))?
+        .bundle
+        .as_ref()
+        .ok_or_else(|| anyhow!("no bundle info for network version NV17"))?
+        .manifest;
+
+    blockstore.get(&new_manifest_cid)?.ok_or_else(|| {
+        anyhow!(
+            "manifest for network version NV17 not found in blockstore: {}",
+            new_manifest_cid
+        )
+    })?;
+
+    // Add migration specification verification
+    let verifier = Arc::new(Verifier::default());
+
+    let mut migration = StateMigration::<DB>::new(Some(verifier));
+    migration.add_nv17_migrations(
+        blockstore.clone(),
+        state,
+        &new_manifest_cid,
+        epoch,
+        chain_config,
+    )?;
+
+    let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
+
+    // Sets empty datacap actor to migrate from
+    let new_manifest = Manifest::load(&blockstore, &new_manifest_cid)?;
+    let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
+    actors_in.set_actor(
+        &fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ADDR.into(),
+        ActorState::new_empty(*datacap_code, None),
+    )?;
+
+    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
+    let new_state =
+        migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
+
+    Ok(new_state)
+}
