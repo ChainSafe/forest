@@ -13,12 +13,8 @@ mod power;
 /// module.
 pub use migration::run_migration;
 
-use crate::{define_manifests, define_system_states, impl_system, impl_verifier};
+use crate::{define_system_states, impl_system, impl_verifier};
 
-define_manifests!(
-    crate::shim::machine::ManifestV3,
-    crate::shim::machine::ManifestV3
-);
 define_system_states!(
     fil_actor_system_state::v10::State,
     fil_actor_system_state::v11::State
