@@ -1,34 +1,31 @@
-SER_TESTS = "tests/serialization_tests"
 VENDORED_DOCS_TOOLCHAIN := "nightly-2023-04-19"
 
 # Using https://github.com/tonistiigi/xx
 # Use in Docker images when cross-compiling.
 install-xx:
-	xx-cargo install --locked --path forest/cli --force
-	xx-cargo install --locked --path forest/daemon --force
+	xx-cargo install --locked --path . --force
 
+# Redundancy tracked by #2991
 install-cli:
-	cargo install --locked --path forest/cli --force
+	cargo install --locked --path . --force
 
 install-daemon:
-	cargo install --locked --path forest/daemon --force
+	cargo install --locked --path . --force
 
-install: install-cli install-daemon
+install:
+	cargo install --locked --path . --force
 
 # Installs Forest binaries with RocksDb backend
 install-with-rocksdb:
-	cargo install --locked --path forest/daemon --force --features rocksdb
-	cargo install --locked --path forest/cli --features rocksdb
+	cargo install --locked --path . --force --no-default-features --features jemalloc,rocksdb,fil_cns
 
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
-	cargo install --locked --path forest/daemon --force --features rustalloc
-	cargo install --locked --path forest/cli --force --features rustalloc
+	cargo install --locked --path . --force --no-default-features --features rustalloc,paritydb,fil_cns
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
-	cargo install --locked --path forest/daemon --force --features mimalloc
-	cargo install --locked --path forest/cli --force --features mimalloc
+	cargo install --locked --path . --force --no-default-features --features mimalloc,paritydb,fil_cns
 
 install-deps:
 	apt-get update -y
@@ -54,26 +51,7 @@ clean-all:
 	cargo clean
 
 clean:
-	@echo "Cleaning local packages..."
-	@cargo clean -p forest-cli
-	@cargo clean -p forest-daemon
-	@cargo clean -p forest_cli_shared
-	@cargo clean -p forest_libp2p
-	@cargo clean -p forest_blocks
-	@cargo clean -p forest_chain_sync
-	@cargo clean -p forest_message
-	@cargo clean -p forest_state_manager
-	@cargo clean -p forest_interpreter
-	@cargo clean -p forest_ipld
-	@cargo clean -p forest_json
-	@cargo clean -p forest_rpc
-	@cargo clean -p forest_key_management
-	@cargo clean -p forest_utils
-	@cargo clean -p forest_test_utils
-	@cargo clean -p forest_message_pool
-	@cargo clean -p forest_genesis
-	@cargo clean -p forest_networks
-	@echo "Done cleaning."
+	cargo clean
 
 # Lints with everything we have in our CI arsenal
 lint-all: lint audit spellcheck
@@ -82,29 +60,31 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071
 
 spellcheck:
-	cargo spellcheck --code 1
+	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
 
 lint: license clean lint-clippy
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
-	
+
+# Don't bother linting different allocators
+# Don't lint all permutations, just different versions of database, cns
+# This should be simplified in #2984
+# --quiet: don't show build logs
 lint-clippy:
-	# Default features: paritydb,jemalloc,forest_fil_cns
-	cargo clippy -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	# Override jemalloc with rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --features rustalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	# Override jemalloc with mimalloc
-	cargo clippy --features mimalloc -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	# Override forest_fil_cns with forest_deleg_cns
-	cargo clippy --features forest_deleg_cns -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	# Override paritydb with rocksdb
-	cargo clippy --features rocksdb -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	
-	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --features submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --quiet --no-deps -- --deny=warnings
+
+	# add-on features
+	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings
+	cargo clippy --features=instrumented_kernel --quiet --no-deps -- --deny=warnings
+
+	# different consensus algos (repeated for clarity)
+	cargo clippy --features=paritydb,rustalloc,fil_cns   --no-default-features --quiet --no-deps -- --deny=warnings
+	cargo clippy --features=paritydb,rustalloc,deleg_cns --no-default-features --quiet --no-deps -- --deny=warnings
+
+	# different databases (repeated for clarity)
+	cargo clippy --features=paritydb,rustalloc,fil_cns --no-default-features --quiet --no-deps -- --deny=warnings
+	cargo clippy --features=rocksdb,rustalloc,fil_cns  --no-default-features --quiet --no-deps -- --deny=warnings
 
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
@@ -117,44 +97,35 @@ fmt:
 	yarn md-fmt
 
 build:
-	cargo build --bin forest --bin forest-cli
+	cargo build
 
 release:
-	cargo build --release --bin forest --bin forest-cli
+	cargo build --release
 
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
-# Git submodule test vectors
-pull-serialization-tests:
-	git submodule update --init
-
-run-serialization-vectors:
-	cargo nextest run --manifest-path=$(SER_TESTS)/Cargo.toml --features submodule_tests
-
-run-vectors: run-serialization-vectors
-
-test-vectors: pull-serialization-tests run-vectors
-
-# Test all without the submodule test vectors with release configuration
 test:
-	cargo nextest run --all --exclude serialization_tests
-	cargo nextest run -p forest_db --no-default-features --features paritydb
-	cargo nextest run -p forest_db --no-default-features --features rocksdb
+	cargo nextest run
+
+	# different databases (repeated for clarity)
+	cargo nextest run --features=paritydb,rustalloc,fil_cns --no-default-features db
+	cargo nextest run --features=rocksdb,rustalloc,fil_cns  --no-default-features db
+
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	cargo test --doc
 
 test-release:
-	cargo nextest run --release --all --exclude serialization_tests
-	cargo nextest run --release -p forest_db --no-default-features --features paritydb
-	cargo nextest run --release -p forest_db --no-default-features --features rocksdb
+	cargo nextest run --release
+
+	# different databases (repeated for clarity)
+	cargo nextest run --release --features=paritydb,rustalloc,fil_cns --no-default-features db
+	cargo nextest run --release --features=rocksdb,rustalloc,fil_cns  --no-default-features db
+
+test-all: test test-release
 
 smoke-test:
 	./scripts/smoke_test.sh
-
-test-all: test test-vectors
-
-test-all-release: test-release test-vectors
 
 # Checks if all headers are present and adds if not
 license:
@@ -175,9 +146,10 @@ mdbook-build:
 # This isn't included by default, so we use a nightly toolchain, and the
 # (unstable) `--enable-index-page` option.
 # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
+# We document private items to ensure internal documentation is up-to-date (i.e passes lints)
 vendored-docs:
 	rustup toolchain install $(VENDORED_DOCS_TOOLCHAIN)
-	RUSTDOCFLAGS="-Dwarnings -Zunstable-options --enable-index-page" \
+	RUSTDOCFLAGS="--deny=warnings --allow=rustdoc::private-intra-doc-links --document-private-items -Zunstable-options --enable-index-page" \
 		cargo +$(VENDORED_DOCS_TOOLCHAIN) doc --workspace --no-deps
 
-.PHONY: clean clean-all lint lint-docker lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors vendored-docs
+.PHONY: $(MAKECMDGOALS)

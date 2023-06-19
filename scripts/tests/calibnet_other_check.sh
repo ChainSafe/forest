@@ -13,9 +13,9 @@ echo "Validating checkpoint tipset hashes"
 $FOREST_CLI_PATH chain validate-tipset-checkpoints
 
 echo "Running database garbage collection"
-du -hS ~/.local/share/forest/calibnet
+forest_check_db_stats
 $FOREST_CLI_PATH db gc
-du -hS ~/.local/share/forest/calibnet
+forest_check_db_stats
 
 echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
@@ -39,4 +39,18 @@ echo "Test dev commands (which could brick the node/cause subsequent snapshots t
 echo "Test subcommand: chain set-head"
 $FOREST_CLI_PATH chain set-head --epoch -10 --force
 
+echo "Test subcommand: info show"
+$FOREST_CLI_PATH info show
+
 $FOREST_CLI_PATH sync wait # allow the node to re-sync
+
+echo "Test IPLD traversal by fetching the state of epoch 1"
+# The IPLD graph for the state-root of epoch 1 contains 1197 CIDs
+EXPECTED_WALK="IPLD graph traversed! CIDs: 1195, fetched: 11, failures: 0."
+# The state-root of epoch 1 can be found here: https://calibration.filscan.io/tipset/chain?hash=bafy2bzaced577h7b7wzib6tryq4w6mnzdwtrjpyii4srahqwfqxsfey5kyxos
+ACTUAL_WALK=$($FOREST_CLI_PATH state fetch bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo)
+if [[ $EXPECTED_WALK != "$ACTUAL_WALK" ]]; then
+  printf "Invalid traversal:\n%s" "$ACTUAL_WALK"
+  printf "Expected:\n%s" "$EXPECTED_WALK"
+  exit 1
+fi
