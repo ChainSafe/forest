@@ -7,12 +7,12 @@ use crate::cli_shared::{cli::LogConfig, logger};
 use crate::networks::ChainConfig;
 use crate::utils::io::ProgressBar;
 use crate::{
-    cli::cli::{cli_error_and_die, Cli},
+    cli::subcommands::{cli_error_and_die, Cli},
     rpc_client::chain_get_name,
 };
 use clap::Parser;
 
-use super::cli::Subcommand;
+use super::subcommands::Subcommand;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
