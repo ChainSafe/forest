@@ -20,7 +20,7 @@
 //! receiving a request or a response, checkout `tests/go_compat.rs`. Note that a
 //! request manager is needed for a real-world application.
 //!
-//! To use the builtin request manager that is optimized for filecoin network, a
+//! To use the builtin request manager that is optimized for Filecoin network, a
 //! data store that implements `BitswapStoreRead` and `BitswapStoreReadWrite` is
 //! required. For hooking request manager in swarm event flow, requesting a block
 //! via request manager API, checkout `tests/request_manager.rs`.
