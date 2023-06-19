@@ -9,10 +9,6 @@
 //! - Compatible with [`go-bitswap`](https://github.com/ipfs/go-bitswap)
 //! - Optional request manager
 //! - Prometheus metrics
-//! - Multiple async task API support, `async-std` and `tokio`(optional behind
-//!   feature `tokio`)
-//! - Compiles into WebAssembly and works in browser.
-//!   (`examples/bitswap-in-browser`)
 //!
 //! ## Usage
 //!
