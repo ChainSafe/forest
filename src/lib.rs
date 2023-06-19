@@ -55,6 +55,28 @@ mod statediff;
 mod test_utils;
 mod utils;
 
+/// These items are semver-exempt, and exist for forest author use only
+// We want to have doctests, but don't want our internals to be public because:
+// - We don't want to be concerned with library compat
+//   (We want our cargo semver to be _for the command line_).
+// - We don't want to mistakenly export items which we never actually use.
+//
+// So we re-export the relevant items and test with `cargo test --doc --features doctest-private`
+#[cfg(feature = "doctest-private")]
+#[doc(hidden)]
+pub mod doctest_private {
+    pub use crate::{
+        blocks::{BlockHeader, Ticket, TipsetKeys},
+        cli::humantoken::{parse, TokenAmountPretty},
+        shim::{
+            address::Address, crypto::Signature, econ::TokenAmount, error::ExitCode,
+            randomness::Randomness, sector::RegisteredSealProof, state_tree::ActorState,
+            version::NetworkVersion, Inner,
+        },
+        utils::{encoding::blake2b_256, io::read_toml},
+    };
+}
+
 pub use auth::{verify_token, JWT_IDENTIFIER};
 pub use cli::main::main as forest_main;
 pub use cli_shared::cli::{Client, Config};
