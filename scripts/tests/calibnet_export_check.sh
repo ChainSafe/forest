@@ -9,11 +9,8 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init
 
-echo "Exporting uncompressed snapshot"
-$FOREST_CLI_PATH snapshot export
-
 echo "Exporting zstd compressed snapshot"
-$FOREST_CLI_PATH snapshot export --compressed
+$FOREST_CLI_PATH snapshot export
 
 echo "Verifing snapshot checksum"
 sha256sum -c ./*.sha256sum

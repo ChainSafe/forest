@@ -2,11 +2,14 @@
   "name": "root",
   "private": true,
   "devDependencies": {
-    "lerna": "^6.4.1",
-    "prettier": "^2.8.4"
+    "prettier": "^2.8.4",
+    "eslint": "^8.34.0"
   },
   "scripts": {
     "md-fmt": "prettier --write '**/*.md'",
-    "md-check": "prettier --check '**/*.md'"
+    "md-check": "prettier --check '**/*.md'",
+    "js-lint": "eslint  '**/*.js'",
+    "js-fmt": "prettier --write '**/*.js'",
+    "js-fmt-check": "prettier --check '**/*.js'"
   }
 }

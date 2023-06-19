@@ -47,6 +47,8 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          submodules: "recursive" # checkout the serialization vectors
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -59,7 +61,7 @@ jobs:
           command: sudo make install-deps
       - uses: actions/setup-go@v4
         with:
-          go-version-file: "node/forest_libp2p/bitswap/tests/go-app/go.mod"
+          go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-all
