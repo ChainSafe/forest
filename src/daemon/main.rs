@@ -6,7 +6,7 @@ use crate::cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use crate::daemon::{daemon, ipc_shmem_conf};
+use crate::daemon::ipc_shmem_conf;
 use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context;
@@ -148,7 +148,7 @@ pub fn main() -> anyhow::Result<()> {
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let ret = rt.block_on(daemon::start_interruptable(opts, cfg));
+            let ret = rt.block_on(super::start_interruptable(opts, cfg));
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs_f32(0.5));
             info!("Forest finish shutdown");
