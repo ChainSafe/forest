@@ -12,5 +12,8 @@ forest_init
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export
 
-echo "Verifing snapshot checksum"
+echo "Testing snapshot validity"
+zstd -t ./*.car.zst
+
+echo "Verifying snapshot checksum"
 sha256sum -c ./*.sha256sum
