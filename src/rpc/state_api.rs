@@ -251,7 +251,7 @@ pub(in crate::rpc) async fn state_fetch_root<
 
     // When walking an Ipld graph, we're only interested in the DAG_CBOR encoded nodes.
     let mut get_ipld_link = |ipld: &Ipld| match ipld {
-        Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(cid) => Some(*cid),
+        &Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(cid) => Some(cid),
         _ => None,
     };
 

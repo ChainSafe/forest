@@ -47,7 +47,7 @@ pub struct CidHashSet {
 }
 
 impl CidHashSet {
-    pub fn insert(&mut self, &cid: &Cid) -> bool {
+    pub fn insert(&mut self, cid: Cid) -> bool {
         match cid.try_into() {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => self.v1_dagcbor_blake2b.insert(bytes),
             Err(()) => self.fallback.insert(cid),
