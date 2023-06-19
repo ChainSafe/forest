@@ -3,7 +3,7 @@
 
 use crate::shim::{
     address::Address,
-    machine::ManifestV3,
+    machine::{Manifest, EAM_ACTOR_NAME},
     state_tree::{ActorState, StateTree},
 };
 use fvm_ipld_blockstore::Blockstore;
@@ -25,9 +25,9 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for EamPostMigrator {
             .get_cbor(&sys_actor.state)?
             .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
 
-        let manifest = ManifestV3::load(&store, &sys_state.builtin_actors, 1)?;
+        let manifest = Manifest::load_with_actors(&store, &sys_state.builtin_actors, 1)?;
 
-        let eam_actor = ActorState::new_empty(*manifest.get_eam_code(), None);
+        let eam_actor = ActorState::new_empty(*manifest.code_by_name(EAM_ACTOR_NAME)?, None);
         actors_out.set_actor(&Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR, eam_actor)?;
         Ok(())
     }
