@@ -18,7 +18,7 @@ For mainnet, run the same commands but use `--chain mainnet` instead of `--chain
 
 Issue TODOs:
 
-- [ ]: Add calibnet checkpoint to the [yaml file][yaml].
-- [ ]: Add mainnet checkpoint to the [yaml file][yaml].
+- [ ] Add calibnet checkpoint to the [yaml file][yaml].
+- [ ] Add mainnet checkpoint to the [yaml file][yaml].
 
 [yaml]: https://github.com/ChainSafe/forest/blob/main/blockchain/chain/src/store/known_checkpoints.yaml
