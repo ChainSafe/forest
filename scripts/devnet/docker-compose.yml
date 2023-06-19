@@ -44,7 +44,7 @@ services:
       test: >-
         curl -s -x post -h "content-type: application/json"
         --data '{ "jsonrpc": "2.0", "method": "filecoin.chainhead", "params": [], "id": 1 }'
-        http://lotus_node:1234/rpc/v0 || exit 1
+        http://lotus_node:${LOTUS_RPC_PORT}/rpc/v0 || exit 1
       interval: 10s
       retries: 10
       timeout: 5s
@@ -54,12 +54,12 @@ services:
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
-    entrypoint: ["/bin/bash", "-c" ]
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
     env_file:
       - lotus.env
+    entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
         lotus daemon --lotus-make-genesis=${LOTUS_DATA_DIR}/devgen.car --genesis-template=${LOTUS_DATA_DIR}/localnet.json --bootstrap=false
@@ -75,7 +75,7 @@ services:
     container_name: lotus-miner
     healthcheck:
       test: >-
-        curl -s http://lotus-miner:2345 || exit 1
+        curl -s http://lotus-miner:${MINER_RPC_PORT} || exit 1
       interval: 20s
       retries: 5
       start_period: 6000s
@@ -87,7 +87,7 @@ services:
       - lotus-data:${LOTUS_DATA_DIR}
     entrypoint: ["/bin/bash", "-c" ]
     ports:
-      - 2345:2345
+      - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
       - lotus-miner.env
     restart: on-failure # lotus node might not be ready
@@ -116,8 +116,7 @@ services:
     networks:
       - devnet
     command:
-      - |
-        lotus net id > ${LOTUS_DATA_DIR}/PEER_ID
+      - lotus net id > ${LOTUS_DATA_DIR}/PEER_ID
 
   forest:
     user: root
@@ -131,7 +130,7 @@ services:
       test: |
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
         export FULLNODE_API_INFO=$$TOKEN:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http
-        forest-cli sync status
+        forest-cli sync status || exit 1
       interval: 10s
       retries: 10
       timeout: 5s
@@ -139,15 +138,14 @@ services:
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
-      - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
       - forest-data:${FOREST_DATA_DIR}
+      - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FILECOIN_PROOFS_DIR}
     networks:
       - devnet
-    entrypoint:
-      - /bin/bash
-      - '-c'
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
       - |
         set -eu
         if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
@@ -155,7 +153,7 @@ services:
           cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
           echo name = $$NETWORK_NAME >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
-        forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt
+        forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.
@@ -172,9 +170,8 @@ services:
       - forest-data:${FOREST_DATA_DIR}
     networks:
       - devnet
-    entrypoint:
-      - /bin/bash
-      - '-c'
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
       - |
         set -eu
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
@@ -182,7 +179,9 @@ services:
         forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
 
 volumes:
+  # Shared proof parameter files. It is re-used by both Lotus and Forest.
   filecoin-proofs:
+  # Lotus node, miner and network data.
   lotus-data:
   forest-data:
 
