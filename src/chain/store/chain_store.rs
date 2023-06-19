@@ -627,6 +627,9 @@ where
         let mut writer = writer.lock().await;
         let digest = match &mut *writer {
             Either::Left(left) => {
+                left.flush()
+                    .await
+                    .map_err(|e| Error::Other(e.to_string()))?;
                 left.close()
                     .await
                     .map_err(|e| Error::Other(e.to_string()))?;

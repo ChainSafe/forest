@@ -64,7 +64,6 @@ impl<D: Digest + Send, W: AsyncWriteExt + Send + Unpin> Checksum<D>
     for AsyncWriterWithChecksum<D, W>
 {
     async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>> {
-        self.inner.get_mut().flush().await;
         if let Some(hasher) = &mut self.hasher {
             let hasher = std::mem::replace(hasher, D::new());
             Ok(Some(hasher.finalize()))
