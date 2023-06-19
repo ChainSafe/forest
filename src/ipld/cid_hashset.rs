@@ -17,13 +17,11 @@ enum CidVariant {
 impl TryFrom<Cid> for CidVariant {
     type Error = ();
     fn try_from(cid: Cid) -> Result<Self, Self::Error> {
-        if cid.version() == Version::V1 {
-            if cid.codec() == DAG_CBOR {
-                if let Ok(small_hash) = cid.hash().resize() {
-                    let (code, bytes, size) = small_hash.into_inner();
-                    if code == BLAKE2B256 && size == 32 {
-                        return Ok(CidVariant::V1DagCborBlake2b(bytes));
-                    }
+        if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
+            if let Ok(small_hash) = cid.hash().resize() {
+                let (code, bytes, size) = small_hash.into_inner();
+                if code == BLAKE2B256 && size == 32 {
+                    return Ok(CidVariant::V1DagCborBlake2b(bytes));
                 }
             }
         }
@@ -48,7 +46,6 @@ pub struct CidHashSet {
     fallback: HashSet<Cid>,
 }
 
-
 impl CidHashSet {
     pub fn insert(&mut self, &cid: &Cid) -> bool {
         match cid.try_into() {
@@ -62,8 +59,7 @@ impl CidHashSet {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.v1_dagcbor_blake2b.is_empty()
-            && self.fallback.is_empty()
+        self.v1_dagcbor_blake2b.is_empty() && self.fallback.is_empty()
     }
 }
 
