@@ -16,6 +16,9 @@ pub struct FetchCommands {
     /// Download only verification keys
     #[arg(short, long)]
     keys: bool,
+    /// Print out download location instead of downloading files
+    #[arg(short, long)]
+    dry_run: bool,
     /// Size in bytes
     params_size: Option<String>,
 }
@@ -36,7 +39,7 @@ impl FetchCommands {
             );
         };
 
-        get_params_default(&config.client.data_dir, sizes).await
+        get_params_default(&config.client.data_dir, sizes, self.dry_run).await
     }
 }
 

@@ -79,7 +79,7 @@ pub async fn ensure_params_downloaded() -> anyhow::Result<()> {
     if data_dir.is_empty() {
         anyhow::bail!("Proof parameter data dir is not set");
     }
-    get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys).await?;
+    get_params_default(Path::new(&data_dir), SectorSizeOpt::Keys, false).await?;
 
     Ok(())
 }
@@ -90,7 +90,14 @@ pub async fn get_params(
     data_dir: &Path,
     param_json: &str,
     storage_size: SectorSizeOpt,
+    dry_run: bool,
 ) -> Result<(), anyhow::Error> {
+    // Just print out the parameters download directory path and exit.
+    if dry_run {
+        println!("{}", param_dir(data_dir).to_string_lossy());
+        return Ok(());
+    }
+
     fs::create_dir_all(param_dir(data_dir)).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
@@ -144,8 +151,9 @@ pub async fn get_params(
 pub async fn get_params_default(
     data_dir: &Path,
     storage_size: SectorSizeOpt,
+    dry_run: bool,
 ) -> Result<(), anyhow::Error> {
-    get_params(data_dir, DEFAULT_PARAMETERS, storage_size).await
+    get_params(data_dir, DEFAULT_PARAMETERS, storage_size, dry_run).await
 }
 
 async fn fetch_verify_params(

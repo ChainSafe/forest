@@ -21,16 +21,16 @@ macro_rules! impl_system {
 
             use cid::Cid;
             use fvm_ipld_blockstore::Blockstore;
+            use $crate::shim::machine::Manifest;
             use $crate::state_migration::common::*;
             use $crate::utils::db::CborStoreExt;
 
             pub(super) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
-                new_builtin_actors_cid: Cid,
-                new_code_cid: Cid,
+                new_manifest: &Manifest,
             ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
                 Arc::new(SystemMigrator {
-                    new_builtin_actors_cid,
-                    new_code_cid,
+                    new_builtin_actors_cid: new_manifest.actors_cid(),
+                    new_code_cid: *new_manifest.system_code(),
                 })
             }
 

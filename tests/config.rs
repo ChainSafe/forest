@@ -1,6 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
 use anyhow::*;
 use assert_cmd::Command;
@@ -136,12 +136,10 @@ fn test_download_location_of_proof_parameter_files_env() {
         .env("FIL_PROOFS_PARAMETER_CACHE", tmp_dir.path())
         .arg("fetch-params")
         .arg("--keys")
+        .arg("--dry-run")
         .assert()
+        .stdout(tmp_dir.into_path().to_string_lossy().into_owned() + "\n")
         .success();
-
-    let list_files = read_dir(tmp_dir.path()).unwrap();
-
-    assert!(list_files.count() > 0);
 }
 
 #[test]
@@ -166,10 +164,8 @@ fn test_download_location_of_proof_parameter_files_default() {
         .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("fetch-params")
         .arg("--keys")
+        .arg("--dry-run")
         .assert()
+        .stdout(tmp_param_dir.to_string_lossy().into_owned() + "\n")
         .success();
-
-    let list_files = read_dir(tmp_param_dir).unwrap();
-
-    assert!(list_files.count() > 0);
 }

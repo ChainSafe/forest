@@ -3,7 +3,7 @@
 
 use crate::shim::{
     address::Address,
-    machine::ManifestV3,
+    machine::{Manifest, ETH_ACCOUNT_ACTOR_NAME},
     state_tree::{ActorState, StateTree},
 };
 use anyhow::anyhow;
@@ -40,11 +40,11 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for EthAccountPostMigrator {
             .get_cbor::<SystemStateNew>(&system_actor.state)?
             .ok_or_else(|| anyhow!("failed to get system actor state"))?;
 
-        let manifest_data = system_actor_state.builtin_actors;
-        let new_manifest = ManifestV3::load(&store, &manifest_data, 1)?;
+        let new_manifest =
+            Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
 
         let eth_account_actor = ActorState::new(
-            *new_manifest.get_ethaccount_code(),
+            *new_manifest.code_by_name(ETH_ACCOUNT_ACTOR_NAME)?,
             fil_actors_shared::v10::runtime::EMPTY_ARR_CID,
             Default::default(),
             0,
