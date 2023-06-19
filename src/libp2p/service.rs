@@ -321,7 +321,7 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    info!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                    debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
                 },
                 cs_pair_opt = cx_response_rx_stream.next() => {
                     if let Some((_request_id, channel, cx_response)) = cs_pair_opt {
@@ -475,11 +475,11 @@ async fn handle_discovery_event(
 ) {
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
-            info!("Peer connected, {:?}", peer_id);
+            debug!("Peer connected, {:?}", peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
-            info!("Peer disconnected, {:?}", peer_id);
+            debug!("Peer disconnected, {:?}", peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
     }
