@@ -4,7 +4,8 @@ use std::{pin::Pin, task::Poll};
 
 use async_trait::async_trait;
 use digest::{Digest, Output};
-use futures::{io::BufWriter, AsyncWrite, AsyncWriteExt};
+use futures::{io::BufWriter, AsyncWrite};
+use futures_util::AsyncWriteExt;
 use pin_project_lite::pin_project;
 
 pin_project! {
@@ -25,7 +26,7 @@ pub trait Checksum<D: Digest> {
     async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>>;
 }
 
-impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D, W> {
+impl<D: Digest, W: AsyncWriteExt + Unpin> AsyncWrite for AsyncWriterWithChecksum<D, W> {
     fn poll_write(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -59,9 +60,10 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
 }
 
 #[async_trait]
-impl<D: Digest + Send, W: AsyncWrite + Send + Unpin> Checksum<D> for AsyncWriterWithChecksum<D, W> {
+impl<D: Digest + Send, W: AsyncWriteExt + Send + Unpin> Checksum<D>
+    for AsyncWriterWithChecksum<D, W>
+{
     async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>> {
-        self.inner.flush().await?;
         if let Some(hasher) = &mut self.hasher {
             let hasher = std::mem::replace(hasher, D::new());
             Ok(Some(hasher.finalize()))
@@ -132,6 +134,9 @@ mod test {
             OsRng.fill_bytes(&mut bytes);
             temp_file_writer.write_all(&bytes).await?;
         }
+
+        temp_file_writer.flush().await?;
+        temp_file_writer.close().await?;
 
         let checksum = temp_file_writer.finalize().await?;
 

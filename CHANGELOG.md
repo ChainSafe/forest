@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#3006](https://github.com/ChainSafe/forest/issues/3006): Fix `premature end`
+  error when exporting a snapshot.
+
 ## Forest v0.9.0 "Fellowship"
 
 Notable updates:

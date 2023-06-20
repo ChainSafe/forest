@@ -7,6 +7,7 @@ use crate::networks::{ChainConfig, Height};
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
+    machine::{Manifest, MINER_ACTOR_NAME, POWER_ACTOR_NAME},
     state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::anyhow;
@@ -14,7 +15,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{miner, power, system, verifier::Verifier, ManifestNew, ManifestOld, SystemStateOld};
+use super::{miner, power, system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
@@ -32,33 +33,30 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let system_actor_state = store
             .get_cbor::<SystemStateOld>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
-        let current_manifest_data = system_actor_state.builtin_actors;
-        let current_manifest = ManifestOld::load(&store, &current_manifest_data, 1)?;
 
-        let (version, new_manifest_data): (u32, Cid) = store
-            .get_cbor(new_manifest)?
-            .ok_or_else(|| anyhow!("new manifest not found"))?;
-        let new_manifest = ManifestNew::load(&store, &new_manifest_data, version)?;
+        let current_manifest =
+            Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
 
-        current_manifest.builtin_actor_codes().for_each(|code| {
-            let id = current_manifest.id_by_code(code);
-            let new_code = new_manifest.code_by_id(id).unwrap();
+        let new_manifest = Manifest::load(&store, new_manifest)?;
+
+        current_manifest.builtin_actors().for_each(|(name, code)| {
+            let new_code = new_manifest.code_by_name(name).unwrap();
             self.add_migrator(*code, nil_migrator(*new_code));
         });
 
         self.add_migrator(
-            *current_manifest.get_miner_code(),
-            miner::miner_migrator(*new_manifest.get_miner_code()),
+            *current_manifest.code_by_name(MINER_ACTOR_NAME)?,
+            miner::miner_migrator(*new_manifest.code_by_name(MINER_ACTOR_NAME)?),
         );
 
         self.add_migrator(
-            *current_manifest.get_power_code(),
-            power::power_migrator(*new_manifest.get_power_code()),
+            *current_manifest.code_by_name(POWER_ACTOR_NAME)?,
+            power::power_migrator(*new_manifest.code_by_name(POWER_ACTOR_NAME)?),
         );
 
         self.add_migrator(
-            *current_manifest.get_system_code(),
-            system::system_migrator(new_manifest_data, *new_manifest.get_system_code()),
+            *current_manifest.system_code(),
+            system::system_migrator(&new_manifest),
         );
 
         Ok(())
