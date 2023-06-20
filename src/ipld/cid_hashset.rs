@@ -7,11 +7,12 @@ use fvm_ipld_encoding::DAG_CBOR;
 use std::collections::BTreeSet;
 
 const BLAKE2B256: u64 = 0xb220;
+const BLAKE2B256_SIZE: usize = 32;
 
 // Nearly all Filecoin CIDs are V1, DagCbor encoded, and hashed with Blake2b265. If other types of
 // CID become popular, they can be added to the CidVariant structure.
 enum CidVariant {
-    V1DagCborBlake2b([u8; 32]),
+    V1DagCborBlake2b([u8; BLAKE2B256_SIZE]),
 }
 
 impl TryFrom<Cid> for CidVariant {
@@ -20,7 +21,7 @@ impl TryFrom<Cid> for CidVariant {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
             if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
-                if code == BLAKE2B256 && size == 32 {
+                if code == BLAKE2B256 && size as usize == BLAKE2B256_SIZE {
                     return Ok(CidVariant::V1DagCborBlake2b(bytes));
                 }
             }
@@ -42,7 +43,7 @@ impl TryFrom<Cid> for CidVariant {
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Default)]
 pub struct CidHashSet {
-    v1_dagcbor_blake2b: HashSet<[u8; 32]>,
+    v1_dagcbor_blake2b: HashSet<[u8; BLAKE2B256_SIZE]>,
     fallback: HashSet<Cid>,
 }
 
