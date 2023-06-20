@@ -9,6 +9,9 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init
 
+echo "Cleaning up the initial snapshot"
+rm -rf ./*.car.*
+
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export
 
