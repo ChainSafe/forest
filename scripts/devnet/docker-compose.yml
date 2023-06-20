@@ -85,12 +85,12 @@ services:
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
-    entrypoint: ["/bin/bash", "-c" ]
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
       - lotus-miner.env
     restart: on-failure # lotus node might not be ready
+    entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
         if [ ! -f ${LOTUS_DATA_DIR}/MINER_INITIALISED ]; then
@@ -126,6 +126,7 @@ services:
     build:
       context: ../../.
       dockerfile: Dockerfile
+    container_name: forest
     healthcheck:
       test: |
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
@@ -144,6 +145,8 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FILECOIN_PROOFS_DIR}
     networks:
       - devnet
+    ports:
+      - ${FOREST_RPC_PORT}:${FOREST_RPC_PORT}
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
