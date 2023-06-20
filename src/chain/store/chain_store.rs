@@ -630,8 +630,6 @@ where
                 left.flush()
                     .await
                     .map_err(|e| Error::Other(e.to_string()))?;
-                // Note: the ZstdEncoder also needs to be closed, otherwise the resulting archive
-                // might end up being invalid.
                 left.close()
                     .await
                     .map_err(|e| Error::Other(e.to_string()))?;
@@ -640,6 +638,10 @@ where
             Either::Right(right) => {
                 right
                     .flush()
+                    .await
+                    .map_err(|e| Error::Other(e.to_string()))?;
+                right
+                    .close()
                     .await
                     .map_err(|e| Error::Other(e.to_string()))?;
                 right.finalize().await

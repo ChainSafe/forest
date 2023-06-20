@@ -133,8 +133,10 @@ mod test {
             let mut bytes = [0; 1024];
             OsRng.fill_bytes(&mut bytes);
             temp_file_writer.write_all(&bytes).await?;
-            temp_file_writer.flush().await?;
         }
+
+        temp_file_writer.flush().await?;
+        temp_file_writer.close().await?;
 
         let checksum = temp_file_writer.finalize().await?;
 
