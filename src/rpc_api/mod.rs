@@ -202,12 +202,12 @@ pub mod chain_api {
     pub type ChainGetTipsetByHeightResult = TipsetJson;
 
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
-    #[allow(unused)] // TODO(aatifsyed)
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainGetGenesisParams = ();
     pub type ChainGetGenesisResult = Option<TipsetJson>;
 
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
-    #[allow(unused)] // TODO(aatifsyed)
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainHeadParams = ();
     pub type ChainHeadResult = TipsetJson;
 
@@ -350,7 +350,7 @@ pub mod state_api {
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
-    #[allow(unused)] // TODO(aatifsyed)
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type StateNetworkNameParams = ();
     pub type StateNetworkNameResult = String;
 
@@ -418,7 +418,7 @@ pub mod common_api {
     pub type ShutdownResult = ();
 
     pub const START_TIME: &str = "Filecoin.StartTime";
-    #[allow(unused)] // TODO(aatifsyed)
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type StartTimeParams = ();
     pub type StartTimeResult = chrono::DateTime<Utc>;
 }
