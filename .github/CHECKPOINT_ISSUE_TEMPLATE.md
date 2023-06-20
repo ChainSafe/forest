@@ -1,6 +1,6 @@
 ---
 title: Create new snapshot checkpoints
-labels: Enhancement, "Priority: 3 - Medium"
+labels: ["Enhancement", "Priority: 3 - Medium"]
 ---
 
 Forest uses checkpoints to improve performance when loading a snapshot. Without checkpoints, the blockchain has to be fully traversed to verify we have the right genesis block. Checkpoints short-circuit this search and shave off tens of minutes in boot time.
@@ -18,7 +18,7 @@ For mainnet, run the same commands but use `--chain mainnet` instead of `--chain
 
 Issue TODOs:
 
-- [ ]: Add calibnet checkpoint to the [yaml file][yaml].
-- [ ]: Add mainnet checkpoint to the [yaml file][yaml].
+- [ ] Add calibnet checkpoint to the [yaml file][yaml].
+- [ ] Add mainnet checkpoint to the [yaml file][yaml].
 
 [yaml]: https://github.com/ChainSafe/forest/blob/main/blockchain/chain/src/store/known_checkpoints.yaml
