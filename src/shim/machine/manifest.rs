@@ -14,7 +14,7 @@ use fvm_ipld_encoding3::CborStore;
 macro_rules! name {
     ($($ident:ident = $lit:literal),* $(,)?) => {
         $(
-            #[allow(unused)] // TODO(aatifsyed)
+            #[allow(unused)] // included for completeness
             pub const $ident: &str = $lit;
         )*
     }
