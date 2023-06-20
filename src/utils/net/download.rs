@@ -25,6 +25,7 @@ use crate::utils::{io::ProgressBar, misc::Either};
 
 // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
 const ZSTD_MAGIC_HEADER: [u8; 4] = [0x28, 0xb5, 0x2f, 0xfd];
+const ZSTD_MAX_HEADER_SIZE: u8 = 18;
 
 #[derive(Debug, Error)]
 enum DownloadError {
@@ -123,7 +124,7 @@ pub async fn get_fetch_progress_from_file(
 > {
     let mut file = async_fs::File::open(file_path.as_ref()).await?;
 
-    let mut header = [0; 18];
+    let mut header = [0; ZSTD_MAX_HEADER_SIZE];
     file.read_exact(&mut header).await?;
     file.seek(SeekFrom::Start(0)).await?;
 
