@@ -66,7 +66,12 @@ impl CidHashSet {
 
 #[cfg(test)]
 mod tests {
-    use cid::{multihash::MultihashDigest, Cid};
+    use super::CidVariant;
+    use cid::{
+        multihash::{Code, MultihashDigest},
+        Cid,
+    };
+    use fvm_ipld_encoding::DAG_CBOR;
     use std::mem::size_of;
 
     // If this stops being true, please update the documentation above.
@@ -78,9 +83,20 @@ mod tests {
     // If this stops being true, please update the BLAKE2B256 constant.
     #[test]
     fn blake_code_assumption() {
-        assert_eq!(
-            cid::multihash::Code::Blake2b256.digest(&[]).code(),
-            super::BLAKE2B256
-        );
+        assert_eq!(Code::Blake2b256.digest(&[]).code(), super::BLAKE2B256);
+    }
+
+    #[test]
+    fn known_v1_blake2b() {
+        let cid = Cid::new(
+            cid::Version::V1,
+            DAG_CBOR,
+            Code::Blake2b256.digest("blake".as_bytes()),
+        )
+        .unwrap();
+        assert!(matches!(
+            cid.try_into(),
+            Ok(CidVariant::V1DagCborBlake2b(_))
+        ));
     }
 }
