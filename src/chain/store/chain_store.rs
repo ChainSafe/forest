@@ -192,7 +192,13 @@ where
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
     /// `{crate::chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, tipset: Arc<Tipset>) -> Result<(), Error> {
-        let last_head_epoch = self.heaviest_tipset().epoch();
+        let epoch = self.heaviest_tipset().epoch();
+        let last_head_epoch = if epoch == 0 {
+            // Workaround in case of genesis tipset found
+            tipset.epoch()
+        } else {
+            epoch
+        };
 
         self.file_backed_heaviest_tipset_keys
             .lock()
@@ -208,6 +214,7 @@ where
                 break;
             }
         }
+        log::info!("vec size {}", tipsets.len());
 
         if self.publisher.send(HeadChange::Apply(tipsets)).is_err() {
             debug!("did not publish head change, no active receivers");
