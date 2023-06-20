@@ -6,14 +6,6 @@ use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
 
-#[allow(unused)] // TODO(aatifsyed)
-pub async fn mpool_pending(
-    params: MpoolPendingParams,
-    auth_token: &Option<String>,
-) -> Result<MpoolPendingResult, Error> {
-    call(MPOOL_PENDING, params, auth_token).await
-}
-
 pub async fn mpool_push_message(
     params: MpoolPushMessageParams,
     auth_token: &Option<String>,
