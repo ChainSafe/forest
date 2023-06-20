@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::db::Store;
 use crate::shim::address::Address;
-use fvm_ipld_encoding::{from_slice, to_vec};
+use fvm_ipld_encoding::from_slice;
 use serde::{Deserialize, Serialize};
 
 const MPOOL_CONFIG_KEY: &[u8] = b"/mpool/config";
@@ -40,20 +40,11 @@ impl Default for MpoolConfig {
         }
     }
 }
-
+#[cfg(test)]
 impl MpoolConfig {
     /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), anyhow::Error> {
-        Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
-    }
-
-    /// Load `config` from store, if exists. If there is no `config`, uses
-    /// default.
-    pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
-        match store.read(MPOOL_CONFIG_KEY)? {
-            Some(v) => Ok(from_slice(&v)?),
-            None => Ok(Default::default()),
-        }
+        Ok(store.write(MPOOL_CONFIG_KEY, fvm_ipld_encoding::to_vec(&self)?)?)
     }
 
     /// Returns the low limit capacity of messages to allocate.
@@ -64,5 +55,16 @@ impl MpoolConfig {
     /// Returns slice of [Address]es to prioritize when selecting messages.
     pub fn priority_addrs(&self) -> &[Address] {
         &self.priority_addrs
+    }
+}
+
+impl MpoolConfig {
+    /// Load `config` from store, if exists. If there is no `config`, uses
+    /// default.
+    pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
+        match store.read(MPOOL_CONFIG_KEY)? {
+            Some(v) => Ok(from_slice(&v)?),
+            None => Ok(Default::default()),
+        }
     }
 }

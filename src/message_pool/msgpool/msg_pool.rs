@@ -10,6 +10,7 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
+#[cfg(test)]
 use crate::db::Store;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use crate::message::{valid_for_block_inclusion, ChainMessage, Message, SignedMessage};

@@ -37,7 +37,6 @@ where
     /// Forest employs a sophisticated algorithm for selecting messages
     /// for inclusion from the pool, given the ticket quality of a miner.
     /// This method selects messages for including in a block.
-    #[cfg(test)]
     pub fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.lock().clone();
         // if the ticket quality is high enough that the first block has higher
@@ -532,6 +531,7 @@ where
     }
 }
 
+#[cfg(test)]
 /// Returns merged and trimmed messages with the gas limit
 fn merge_and_trim(
     chains: &mut Chains,
@@ -625,6 +625,7 @@ fn merge_and_trim(
 
 /// Like `head_change`, except it doesn't change the state of the `MessagePool`.
 /// It simulates a head change call.
+#[cfg(test)]
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,
