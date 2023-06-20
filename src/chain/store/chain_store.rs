@@ -630,7 +630,7 @@ where
                 left.flush()
                     .await
                     .map_err(|e| Error::Other(e.to_string()))?;
-                // Note: this ZstdEncoder also needs to be closed, otherwise the resulting archive
+                // Note: the ZstdEncoder also needs to be closed, otherwise the resulting archive
                 // might end up being invalid.
                 left.close()
                     .await
