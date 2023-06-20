@@ -19,4 +19,4 @@ echo "Testing snapshot validity"
 zstd --test ./*.car.zst
 
 echo "Verifying snapshot checksum"
-sha256sum -c ./*.sha256sum
+sha256sum --check ./*.sha256sum
