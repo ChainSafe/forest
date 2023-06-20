@@ -29,7 +29,7 @@ use crate::utils::{
     misc::Either,
 };
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_compression::futures::write::ZstdEncoder;
 use bls_signatures::Serialize as SerializeBls;
 use cid::Cid;
