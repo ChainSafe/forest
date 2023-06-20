@@ -225,4 +225,4 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
-        run:
+        run: ./scripts/tests/calibnet_export_check.sh

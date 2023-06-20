@@ -625,27 +625,17 @@ where
         );
 
         let mut writer = writer.lock().await;
+        writer
+            .flush()
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
+        writer
+            .close()
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
         let digest = match &mut *writer {
-            Either::Left(left) => {
-                left.flush()
-                    .await
-                    .map_err(|e| Error::Other(e.to_string()))?;
-                left.close()
-                    .await
-                    .map_err(|e| Error::Other(e.to_string()))?;
-                left.get_mut().finalize().await
-            }
-            Either::Right(right) => {
-                right
-                    .flush()
-                    .await
-                    .map_err(|e| Error::Other(e.to_string()))?;
-                right
-                    .close()
-                    .await
-                    .map_err(|e| Error::Other(e.to_string()))?;
-                right.finalize().await
-            }
+            Either::Left(left) => left.get_mut().finalize().await,
+            Either::Right(right) => right.finalize().await,
         }
         .map_err(|e| Error::Other(e.to_string()))?;
 
