@@ -63,7 +63,7 @@ impl Selector {
 
 /// Provides reason for callback in traversal for `walk_all`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(unused)] // TODO(aatifsyed)
+#[allow(unused)] // https://github.com/ChainSafe/forest/issues/3031
 pub enum VisitReason {
     /// IPLD node visited was a specific match.
     SelectionMatch,
