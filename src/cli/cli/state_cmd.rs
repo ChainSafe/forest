@@ -36,9 +36,6 @@ pub enum StateCommands {
         pre: Cid,
         /// The post CID state root
         post: Cid,
-        /// The name of the chain
-        #[arg(short, long, default_value = "mainnet")]
-        chain: String,
         /// The depth at which IPLD links are resolved
         #[arg(short, long)]
         depth: Option<u64>,
@@ -56,13 +53,11 @@ impl StateCommands {
                         .map_err(handle_rpc_err)?
                 );
             }
-            Self::Diff {
-                pre,
-                post,
-                chain,
-                depth,
-            } => {
-                let chain_path = config.client.data_dir.join(chain);
+            Self::Diff { pre, post, depth } => {
+                let chain_path = config
+                    .client
+                    .data_dir
+                    .join(config.chain.network.to_string());
                 let blockstore = open_proxy_db(db_root(&chain_path), Default::default())?;
 
                 if let Err(err) = print_state_diff(&blockstore, &pre, &post, depth) {
