@@ -138,7 +138,7 @@ pub async fn get_fetch_progress_from_file(
     if is_zstd_compressed {
         let size = zstd_safe::get_frame_content_size(&header);
         let size = match size {
-            Ok(size) if size.is_some() => size.unwrap(),
+            Ok(Some(size)) => size,
             _ => file.metadata().await?.len(),
         };
         Ok(Either::Right(
