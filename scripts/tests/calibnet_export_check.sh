@@ -16,7 +16,7 @@ echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export
 
 echo "Testing snapshot validity"
-zstd -t ./*.car.zst
+zstd --test ./*.car.zst
 
 echo "Verifying snapshot checksum"
 sha256sum -c ./*.sha256sum
