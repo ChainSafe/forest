@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use crate::auth::Error;
 use async_compression::futures::bufread::ZstdDecoder;
 use futures::{
     io::BufReader,
@@ -94,10 +95,11 @@ impl FetchProgress<BufReader<async_fs::File>> {
 }
 
 impl FetchProgress<ZstdDecoder<BufReader<async_fs::File>>> {
-    async fn fetch_from_zstd_compressed_file(file: async_fs::File) -> anyhow::Result<Self> {
-        let total_size = file.metadata().await?.len();
-
-        let pb = ProgressBar::new(total_size);
+    async fn fetch_from_zstd_compressed_file(
+        file: async_fs::File,
+        size: u64,
+    ) -> anyhow::Result<Self> {
+        let pb = ProgressBar::new(size);
         pb.message("Importing snapshot ");
         pb.set_units(crate::utils::io::progress_bar::Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
@@ -120,19 +122,26 @@ pub async fn get_fetch_progress_from_file(
     >,
 > {
     let mut file = async_fs::File::open(file_path.as_ref()).await?;
-    let is_zstd_compressed = {
-        let mut header = [0; ZSTD_MAGIC_HEADER.len()];
-        file.read_exact(&mut header).await?;
-        file.seek(SeekFrom::Start(0)).await?;
-        header == ZSTD_MAGIC_HEADER
-    };
+
+    let mut header = [0; 18];
+    file.read_exact(&mut header).await?;
+    file.seek(SeekFrom::Start(0)).await?;
+
+    let is_zstd_compressed = { header[0..ZSTD_MAGIC_HEADER.len()] == ZSTD_MAGIC_HEADER };
+
     log::info!(
         "Loading {}, is_zstd_compressed: {is_zstd_compressed}",
         file_path.as_ref().display()
     );
+
     if is_zstd_compressed {
+        let size = zstd_safe::get_frame_content_size(&header);
+        let size = match size {
+            Ok(size) if size.is_some() => size.unwrap(),
+            _ => file.metadata().await?.len(),
+        };
         Ok(Either::Right(
-            FetchProgress::fetch_from_zstd_compressed_file(file).await?,
+            FetchProgress::fetch_from_zstd_compressed_file(file, size).await?,
         ))
     } else {
         Ok(Either::Left(FetchProgress::fetch_from_file(file).await?))
