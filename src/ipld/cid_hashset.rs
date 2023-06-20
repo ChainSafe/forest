@@ -1,34 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::HashSet;
 use cid::{Cid, Version};
 use fvm_ipld_encoding::DAG_CBOR;
 use std::collections::BTreeSet;
-
-const BLAKE2B256: u64 = 0xb220;
-const BLAKE2B256_SIZE: usize = 32;
-
-// Nearly all Filecoin CIDs are V1, DagCbor encoded, and hashed with Blake2b265. If other types of
-// CID become popular, they can be added to the CidVariant structure.
-enum CidVariant {
-    V1DagCborBlake2b([u8; BLAKE2B256_SIZE]),
-}
-
-impl TryFrom<Cid> for CidVariant {
-    type Error = ();
-    fn try_from(cid: Cid) -> Result<Self, Self::Error> {
-        if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
-            if let Ok(small_hash) = cid.hash().resize() {
-                let (code, bytes, size) = small_hash.into_inner();
-                if code == BLAKE2B256 && size as usize == BLAKE2B256_SIZE {
-                    return Ok(CidVariant::V1DagCborBlake2b(bytes));
-                }
-            }
-        }
-        Err(())
-    }
-}
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -65,38 +42,4 @@ impl CidHashSet {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::CidVariant;
-    use cid::{
-        multihash::{Code, MultihashDigest},
-        Cid,
-    };
-    use fvm_ipld_encoding::DAG_CBOR;
-    use std::mem::size_of;
-
-    // If this stops being true, please update the documentation above.
-    #[test]
-    fn cid_size_assumption() {
-        assert_eq!(size_of::<Cid>(), 96);
-    }
-
-    // If this stops being true, please update the BLAKE2B256 constant.
-    #[test]
-    fn blake_code_assumption() {
-        assert_eq!(Code::Blake2b256.digest(&[]).code(), super::BLAKE2B256);
-    }
-
-    #[test]
-    fn known_v1_blake2b() {
-        let cid = Cid::new(
-            cid::Version::V1,
-            DAG_CBOR,
-            Code::Blake2b256.digest("blake".as_bytes()),
-        )
-        .unwrap();
-        assert!(matches!(
-            cid.try_into(),
-            Ok(CidVariant::V1DagCborBlake2b(_))
-        ));
-    }
-}
+mod tests {}
