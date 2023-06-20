@@ -635,7 +635,17 @@ where
                     .map_err(|e| Error::Other(e.to_string()))?;
                 left.get_mut().finalize().await
             }
-            Either::Right(right) => right.finalize().await,
+            Either::Right(right) => {
+                right
+                    .flush()
+                    .await
+                    .map_err(|e| Error::Other(e.to_string()))?;
+                right
+                    .close()
+                    .await
+                    .map_err(|e| Error::Other(e.to_string()))?;
+                right.finalize().await
+            }
         }
         .map_err(|e| Error::Other(e.to_string()))?;
 
