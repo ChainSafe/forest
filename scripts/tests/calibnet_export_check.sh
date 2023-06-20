@@ -9,8 +9,14 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init
 
+echo "Cleaning up the initial snapshot"
+rm -rf ./*.car.*
+
 echo "Exporting zstd compressed snapshot"
 $FOREST_CLI_PATH snapshot export
 
-echo "Verifing snapshot checksum"
-sha256sum -c ./*.sha256sum
+echo "Testing snapshot validity"
+zstd --test ./*.car.zst
+
+echo "Verifying snapshot checksum"
+sha256sum --check ./*.sha256sum

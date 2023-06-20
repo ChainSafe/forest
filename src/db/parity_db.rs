@@ -41,6 +41,14 @@ impl ParityDb {
             salt: None,
             columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
+                    // The `preimage` flag tells ParityDB that a given value always has the same
+                    // key. With this flag enabled, ParityDB can short-circuit insertions when the
+                    // keys already exist in the database (as opposed to updating the value).
+                    // Forest is exclusively storing IPLD data where the key is the hash of the
+                    // value. While we try not to insert the same data multiple times, it does
+                    // happen on occasion, and this flag improves the DB performance in those
+                    // scenarios.
+                    preimage: true,
                     compression,
                     // btree_index: true,
                     ..Default::default()
