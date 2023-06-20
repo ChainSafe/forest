@@ -65,6 +65,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
 #[derive(Clone, Debug)]
+#[allow(unused)] // TODO(aatifsyed)
 pub enum HeadChange {
     Current(Arc<Tipset>),
     Apply(Arc<Tipset>),
@@ -861,6 +862,7 @@ pub mod headchange_json {
         Revert(TipsetJson),
     }
 
+    #[allow(unused)] // TODO(aatifsyed)
     pub type SubscriptionHeadChange = (i64, Vec<HeadChangeJson>);
 
     impl From<HeadChange> for HeadChangeJson {

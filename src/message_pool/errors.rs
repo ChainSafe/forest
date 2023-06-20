@@ -27,8 +27,6 @@ pub enum Error {
     InvalidFromAddr,
     #[error("Message with sequence already in mempool")]
     DuplicateSequence,
-    #[error("State inconsistency with message. Try again")]
-    TryAgain,
     #[error("Validation Error: {0}")]
     SoftValidationFailure(String),
     #[error("{0}")]

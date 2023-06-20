@@ -159,16 +159,9 @@ struct EncryptedKeyStore {
 
 #[derive(Debug, Error)]
 pub enum EncryptedKeyStoreError {
-    /// Possibly indicates incorrect passphrase
-    #[error("Error decrypting data")]
-    DecryptionError,
     /// An error occurred while encrypting keys
     #[error("Error encrypting data")]
     EncryptionError,
-    /// Unlock called without `encrypted_keystore` being enabled in
-    /// `config.toml`
-    #[error("Error with forest configuration")]
-    ConfigurationError,
 }
 
 impl KeyStore {

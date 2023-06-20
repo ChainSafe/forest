@@ -11,8 +11,6 @@ use thiserror::Error;
 pub enum Error {
     #[error("{0}")]
     Encoding(String),
-    #[error("{0}")]
-    Other(&'static str),
     #[error("Failed to traverse link: {0}")]
     Link(String),
     #[error("{0}")]

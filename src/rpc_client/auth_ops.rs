@@ -14,6 +14,7 @@ pub async fn auth_new(
     call(AUTH_NEW, perm, auth_token).await
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 pub async fn auth_verify(
     token: AuthVerifyParams,
     auth_token: &Option<String>,

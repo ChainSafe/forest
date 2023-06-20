@@ -81,40 +81,6 @@ pub mod json {
             deserializer.deserialize_any(GoVecVisitor::<Address, AddressJson>::new())
         }
     }
-
-    pub mod opt {
-        use std::borrow::Cow;
-
-        use serde::{self, Deserialize, Deserializer, Serializer};
-
-        use super::*;
-
-        const UNDEF_ADDR_STRING: &str = "<empty>";
-
-        pub fn serialize<S>(v: &Option<Address>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            if let Some(unwrapped_address) = v.as_ref() {
-                serializer.serialize_str(&unwrapped_address.to_string())
-            } else {
-                serializer.serialize_str(UNDEF_ADDR_STRING)
-            }
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Address>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-            if address_as_string == UNDEF_ADDR_STRING {
-                return Ok(None);
-            }
-            Ok(Some(
-                Address::from_str(&address_as_string).map_err(de::Error::custom)?,
-            ))
-        }
-    }
 }
 
 #[cfg(test)]

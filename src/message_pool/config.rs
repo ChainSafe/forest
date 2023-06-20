@@ -42,36 +42,6 @@ impl Default for MpoolConfig {
 }
 
 impl MpoolConfig {
-    pub fn new(
-        priority_addrs: Vec<Address>,
-        size_limit_high: i64,
-        size_limit_low: i64,
-        replace_by_fee_ratio: f64,
-        prune_cooldown: Duration,
-        gas_limit_overestimation: f64,
-    ) -> Result<Self, String> {
-        // Validate if parameters are valid
-        if replace_by_fee_ratio < REPLACE_BY_FEE_RATIO {
-            return Err(format!(
-                "replace_by_fee_ratio:{replace_by_fee_ratio} is less than required: {REPLACE_BY_FEE_RATIO}"
-            ));
-        }
-        if gas_limit_overestimation < 1.0 {
-            return Err(format!(
-                "gas_limit_overestimation of: {} is less than required: {}",
-                gas_limit_overestimation, 1
-            ));
-        }
-        Ok(Self {
-            priority_addrs,
-            size_limit_high,
-            size_limit_low,
-            replace_by_fee_ratio,
-            prune_cooldown,
-            gas_limit_overestimation,
-        })
-    }
-
     /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), anyhow::Error> {
         Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)

@@ -51,6 +51,7 @@ pub async fn chain_read_obj(
     call(CHAIN_READ_OBJ, cid, auth_token).await
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 pub async fn chain_get_tipset(
     keys: ChainGetTipSetParams,
     auth_token: &Option<String>,

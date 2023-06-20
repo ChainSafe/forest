@@ -74,6 +74,7 @@ impl BitswapBehaviour {
     }
 
     /// Hook the `bitswap` network event into its [`BitswapRequestManager`]
+    #[allow(unused)] // TODO(aatifsyed)
     pub fn handle_event<S: BitswapStoreRead>(
         &mut self,
         store: &S,

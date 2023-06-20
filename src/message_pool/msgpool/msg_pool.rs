@@ -8,7 +8,7 @@
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 use crate::db::Store;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
@@ -446,11 +446,6 @@ where
         Ok(TokenAmount::from(&actor.balance))
     }
 
-    /// Remove a message given a sequence and address from the message pool.
-    pub fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
-        remove(from, self.pending.as_ref(), sequence, applied)
-    }
-
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
     pub fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
@@ -503,24 +498,6 @@ where
         Ok(msg_vec)
     }
 
-    /// Return gas price estimate this has been translated from lotus, a more
-    /// smart implementation will most likely need to be implemented.
-    // TODO: UPDATE https://github.com/ChainSafe/forest/issues/901
-    pub fn estimate_gas_premium(
-        &self,
-        nblocksincl: u64,
-        _sender: Address,
-        _gas_limit: u64,
-        _tsk: TipsetKeys,
-    ) -> Result<BigInt, Error> {
-        let min_gas_price = 0;
-        match nblocksincl {
-            0 => Ok(BigInt::from(min_gas_price + 2)),
-            1 => Ok(BigInt::from(min_gas_price + 1)),
-            _ => Ok(BigInt::from(min_gas_price)),
-        }
-    }
-
     /// Loads local messages to the message pool to be applied.
     pub fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write();
@@ -535,33 +512,13 @@ where
 
         Ok(())
     }
-    /// If `local = true`, the local messages will be removed as well as pending
-    /// messages. If `local = false`, pending messages will be removed while
-    /// retaining local messages.
-    pub fn clear(&mut self, local: bool) {
-        if local {
-            for a in self.local_addrs.read().iter() {
-                let pending = self.pending.read().get(a).cloned();
-                if let Some(mset) = pending {
-                    for m in mset.msgs.values() {
-                        if !self.local_msgs.write().remove(m) {
-                            warn!("error deleting local message");
-                        }
-                    }
-                }
-            }
-            self.pending.write().clear();
-            self.republished.write().clear();
-        } else {
-            let local_addrs = self.local_addrs.read();
-            let mut pending = self.pending.write();
-            pending.retain(|a, _| local_addrs.contains(a));
-        }
-    }
 
+    #[allow(unused)] // TODO(aatifsyed)
     pub fn get_config(&self) -> &MpoolConfig {
         &self.config
     }
+
+    #[allow(unused)] // TODO(aatifsyed)
     pub fn set_config<DB: Store>(&mut self, db: &DB, cfg: MpoolConfig) -> Result<(), Error> {
         cfg.save_config(db)
             .map_err(|e| Error::Other(e.to_string()))?;

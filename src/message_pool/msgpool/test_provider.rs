@@ -52,6 +52,7 @@ impl Default for TestApi {
     }
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 impl TestApi {
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&self, addr: &Address, sequence: u64) {
@@ -78,6 +79,7 @@ impl TestApi {
     }
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 impl TestApiInner {
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
@@ -212,6 +214,7 @@ pub fn create_header(weight: u64) -> BlockHeader {
         .unwrap()
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -235,29 +238,7 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         .unwrap()
 }
 
-pub fn mock_block_with_epoch(epoch: i64, weight: u64, ticket_sequence: u64) -> BlockHeader {
-    let addr = Address::new_id(1234561);
-    let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
-
-    let fmt_str = format!("===={ticket_sequence}=====");
-    let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
-    let election_proof = ElectionProof {
-        win_count: 0,
-        vrfproof: VRFProof::new(fmt_str.into_bytes()),
-    };
-    let weight_inc = BigInt::from(weight);
-    BlockHeader::builder()
-        .miner_address(addr)
-        .election_proof(Some(election_proof))
-        .ticket(Some(ticket))
-        .message_receipts(c)
-        .messages(c)
-        .state_root(c)
-        .weight(weight_inc)
-        .epoch(epoch)
-        .build()
-        .unwrap()
-}
+#[allow(unused)] // TODO(aatifsyed)
 pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();

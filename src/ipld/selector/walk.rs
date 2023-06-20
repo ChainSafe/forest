@@ -10,6 +10,7 @@ use super::{
     Selector,
 };
 
+#[allow(unused)] // TODO(aatifsyed)
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback
     /// with progress and IPLD node. An optional link loader/resolver is
@@ -95,6 +96,7 @@ pub struct LastBlockInfo {
     pub link: Cid,
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 impl<L> Progress<L>
 where
     L: LinkResolver + Sync + Send,

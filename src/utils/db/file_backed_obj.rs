@@ -18,8 +18,6 @@ pub struct FileBacked<T: FileBackedObject> {
     sync_period: Option<Duration>,
 }
 
-pub const SYNC_PERIOD: Duration = Duration::from_secs(600);
-
 impl<T: FileBackedObject> FileBacked<T> {
     /// Gets a borrow of the inner object
     pub fn inner(&self) -> &T {
@@ -38,6 +36,7 @@ impl<T: FileBackedObject> FileBacked<T> {
     }
 
     /// Calls function with inner mutable reference and try sync to file
+    #[allow(unused)] // TODO(aatifsyed)
     pub fn with_inner<F>(&mut self, func: F) -> anyhow::Result<()>
     where
         F: FnOnce(&mut T),

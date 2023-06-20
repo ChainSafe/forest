@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use crate::beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
+use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address,

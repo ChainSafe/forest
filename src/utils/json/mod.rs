@@ -63,6 +63,7 @@ where
     }
 }
 
+#[allow(unused)] // TODO(aatifsyed)
 pub mod go_vec_visitor {
     use serde::{
         de::{Deserialize, Deserializer},
@@ -97,7 +98,7 @@ mod tests {
     use serde::{Deserialize, Deserializer};
     use serde_json::from_str;
 
-    use super::{go_vec_visitor, *};
+    use super::*;
 
     #[test]
     fn test_json_basic() {

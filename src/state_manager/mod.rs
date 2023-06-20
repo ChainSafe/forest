@@ -1145,20 +1145,6 @@ where
         }
     }
 
-    /// Return the heaviest tipset's balance from self.db for a given address
-    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let cid = *self.cs.heaviest_tipset().parent_state();
-        self.get_balance(addr, cid)
-    }
-
-    /// Return the balance of a given address and `state_cid`
-    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
-        let act = self.get_actor(addr, cid)?;
-        let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
-        let balance = TokenAmount::from(&actor.balance);
-        Ok(balance)
-    }
-
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())

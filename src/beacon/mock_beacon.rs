@@ -12,10 +12,12 @@ use crate::beacon::{Beacon, BeaconEntry};
 
 /// Mock beacon used for testing. Deterministic based on an interval.
 pub struct MockBeacon {
+    #[allow(unused)] // TODO(aatifsyed)
     interval: Duration,
 }
 
 impl MockBeacon {
+    #[allow(unused)] // TODO(aatifsyed)
     pub fn new(interval: Duration) -> Self {
         MockBeacon { interval }
     }
@@ -24,9 +26,6 @@ impl MockBeacon {
         BigEndian::write_u64(&mut buf, index);
         let rval = blake2b_256(&buf);
         BeaconEntry::new(index, rval.to_vec())
-    }
-    pub fn round_time(&self) -> Duration {
-        self.interval
     }
 }
 
