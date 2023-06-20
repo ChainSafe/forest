@@ -625,14 +625,8 @@ where
         );
 
         let mut writer = writer.lock().await;
-        writer
-            .flush()
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?;
-        writer
-            .close()
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?;
+        writer.flush().await.context("failed to flush")?;
+        writer.close().await.context("failed to close")?;
 
         let digest = match &mut *writer {
             Either::Left(left) => left.get_mut().finalize().await,
