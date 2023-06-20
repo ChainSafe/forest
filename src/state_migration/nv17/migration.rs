@@ -22,6 +22,7 @@ use fil_actor_interface::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use fvm_shared::state::StateRoot;
 
 use super::super::common::{migrators::nil_migrator, StateMigration};
 use super::{
@@ -81,36 +82,40 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         current_manifest.builtin_actors().for_each(|(name, code)| {
             let new_code = new_manifest.code_by_name(name).unwrap();
-            self.add_migrator(*code, nil_migrator(*new_code));
+            if name != VERIFREG_ACTOR_NAME && name != MARKET_ACTOR_NAME {
+                println!("Add nil_migrator, name: {name}, code: {code}, new_code: {new_code}");
+                self.add_migrator(*code, nil_migrator(*new_code));
+            }
         });
+        println!("verifreg_actor_v8.code: {}", verifreg_actor_v8.code);
 
         //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
-        self.add_migrator(
-            *current_manifest.system_code(),
-            system::system_migrator(&new_manifest),
-        );
+        // self.add_migrator(
+        //     *current_manifest.system_code(),
+        //     system::system_migrator(&new_manifest),
+        // );
 
         let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
-        self.add_migrator(
-            // Use the new code as prior code here, have set an empty actor in `run_migrations` to
-            // migrate from
-            *datacap_code,
-            datacap::datacap_migrator(verifreg_state_v8, pending_verified_deal_size)?,
-        );
+        // self.add_migrator(
+        //     // Use the new code as prior code here, have set an empty actor in `run_migrations` to
+        //     // migrate from
+        //     *datacap_code,
+        //     datacap::datacap_migrator(verifreg_state_v8, pending_verified_deal_size)?,
+        // );
 
         // On go side, cid is found by name `storageminer`, however, no equivilent API is available on rust side.
         let miner_v8_actor_code = current_manifest.code_by_name(MINER_ACTOR_NAME)?;
         let miner_v9_actor_code = new_manifest.code_by_name(MINER_ACTOR_NAME)?;
 
-        self.add_migrator(
-            *miner_v8_actor_code,
-            miner::miner_migrator(
-                *miner_v9_actor_code,
-                &store,
-                market_state_v8.proposals,
-                chain_config,
-            )?,
-        );
+        // self.add_migrator(
+        //     *miner_v8_actor_code,
+        //     miner::miner_migrator(
+        //         *miner_v9_actor_code,
+        //         &store,
+        //         market_state_v8.proposals,
+        //         chain_config,
+        //     )?,
+        // );
 
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
             .get_cbor(&verifreg_actor_v8.state)?
@@ -118,17 +123,17 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let verifreg_code = *new_manifest.code_by_name(VERIFREG_ACTOR_NAME)?;
         let market_code = *new_manifest.code_by_name(MARKET_ACTOR_NAME)?;
 
-        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
-            prior_epoch,
-            init_state_v8,
-            market_state_v8,
-            verifreg_state_v8,
-            pending_verified_deals,
-            verifreg_actor_v8,
-            market_actor_v8,
-            verifreg_code,
-            market_code,
-        }));
+        // self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
+        //     prior_epoch,
+        //     init_state_v8,
+        //     market_state_v8,
+        //     verifreg_state_v8,
+        //     pending_verified_deals,
+        //     verifreg_actor_v8,
+        //     market_actor_v8,
+        //     verifreg_code,
+        //     market_code,
+        // }));
 
         Ok(())
     }
@@ -182,7 +187,13 @@ where
         ActorState::new_empty(*datacap_code, None),
     )?;
 
-    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
+    let mut actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
+    let actors_out_cid = actors_out.flush()?;
+    let actors_out_state_root: StateRoot = blockstore.get_cbor(&actors_out_cid)?.unwrap();
+    println!(
+        "actors_out_cid: {actors_out_cid}, actors_out_state_root.actors: {}",
+        actors_out_state_root.actors
+    );
     let new_state =
         migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
 

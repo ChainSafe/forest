@@ -609,7 +609,16 @@ mod tests {
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
             bundle.manifest = new_manifest_cid;
         }
-        // super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
+        let new_state_cid = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
+        let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
+        println!(
+            "new_state_cid: {new_state_cid}, actors_out_state_root.actors: {}",
+            actors_out_state_root.actors
+        );
+        ensure!(
+            actors_out_state_root.actors.to_string()
+                == "bafy2bzacealcrnmsuozpsrzpt57rto67a6kwzru7lmgapamjiiwxzylxfqexi"
+        );
 
         Ok(())
     }
@@ -678,11 +687,11 @@ mod tests {
         let cron_state = fil_actor_cron_state::v8::State {
             entries: vec![
                 fil_actor_cron_state::v8::Entry {
-                    receiver: fil_actor_interface::power::ADDRESS.into(),
+                    receiver: fil_actor_interface::power::ADDRESS,
                     method_num: fil_actor_interface::power::Method::OnEpochTickEnd as u64,
                 },
                 fil_actor_cron_state::v8::Entry {
-                    receiver: fil_actor_interface::market::ADDRESS.into(),
+                    receiver: fil_actor_interface::market::ADDRESS,
                     method_num: fil_actor_interface::market::Method::CronTick as u64,
                 },
             ],
