@@ -37,6 +37,8 @@
 
 - [#3006](https://github.com/ChainSafe/forest/issues/3006): Fix `premature end`
   error when exporting a snapshot.
+- [#3005](https://github.com/ChainSafe/forest/issues/3005): Fix incorrect
+  progress reported when importing compressed snapshots.
 
 ## Forest v0.9.0 "Fellowship"
 
