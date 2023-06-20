@@ -21,6 +21,7 @@ pub enum Error {
     SequenceTooLow,
     #[error("Not enough funds to execute transaction")]
     NotEnoughFunds,
+    #[cfg(test)]
     #[error("Invalid to address for message")]
     InvalidToAddr,
     #[error("Invalid from address")]

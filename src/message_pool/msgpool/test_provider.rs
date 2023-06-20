@@ -17,11 +17,8 @@ use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
 
-use crate::message_pool::{
-    msgpool::{Publisher, Subscriber},
-    provider::Provider,
-    Error,
-};
+use crate::message_pool::{provider::Provider, Error};
+use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Structure used for creating a provider when writing tests involving message
 /// pool
@@ -52,7 +49,6 @@ impl Default for TestApi {
     }
 }
 
-#[allow(unused)] // TODO(aatifsyed)
 impl TestApi {
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&self, addr: &Address, sequence: u64) {
@@ -79,7 +75,6 @@ impl TestApi {
     }
 }
 
-#[allow(unused)] // TODO(aatifsyed)
 impl TestApiInner {
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
@@ -214,7 +209,6 @@ pub fn create_header(weight: u64) -> BlockHeader {
         .unwrap()
 }
 
-#[allow(unused)] // TODO(aatifsyed)
 pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -238,7 +232,6 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         .unwrap()
 }
 
-#[allow(unused)] // TODO(aatifsyed)
 pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
