@@ -152,6 +152,7 @@ impl From<&Message> for Message_v2 {
 impl Cbor for Message {}
 
 impl Message {
+    /// Does some basic checks on the Message to see if the fields are valid.
     pub fn check(self: &Message) -> anyhow::Result<()> {
         if self.gas_limit == 0 {
             return Err(anyhow!("Message has no gas limit set"));
@@ -162,6 +163,7 @@ impl Message {
         Ok(())
     }
 
+    /// Creates a new Message to transfer an amount of FIL specified in the `value` field.
     pub fn transfer(from: Address, to: Address, value: TokenAmount) -> Self {
         Message {
             from,
