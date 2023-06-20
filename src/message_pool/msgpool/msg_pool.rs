@@ -229,10 +229,10 @@ where
                                 vec![tipset.as_ref().clone()],
                                 Vec::new(),
                             ),
-                            HeadChange::Apply(tipset) => (
+                            HeadChange::Apply(tipsets) => (
                                 cur_tipset.clone(),
                                 Vec::new(),
-                                vec![tipset.as_ref().clone()],
+                                tipsets.iter().map(|ts| ts.as_ref().clone()).collect(),
                             ),
                         };
                         head_change(

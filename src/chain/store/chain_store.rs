@@ -42,6 +42,7 @@ use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
+use nonempty::NonEmpty;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
@@ -67,7 +68,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
-    Apply(Arc<Tipset>),
+    Apply(NonEmpty<Arc<Tipset>>),
     Revert(Arc<Tipset>),
 }
 
@@ -190,11 +191,25 @@ where
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
     /// `{crate::chain_store}/HEAD`
-    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, tipset: Arc<Tipset>) -> Result<(), Error> {
+        let last_head_epoch = self.heaviest_tipset().epoch();
+
         self.file_backed_heaviest_tipset_keys
             .lock()
-            .set_inner(ts.key().clone())?;
-        if self.publisher.send(HeadChange::Apply(ts)).is_err() {
+            .set_inner(tipset.key().clone())?;
+
+        let mut tipsets = NonEmpty::new(tipset.clone());
+        let mut cur_tipset = tipset;
+        while let Ok(ts) = self.tipset_from_keys(cur_tipset.parents()) {
+            if ts.epoch() >= last_head_epoch {
+                tipsets.push(ts.clone());
+                cur_tipset = ts.clone();
+            } else {
+                break;
+            }
+        }
+
+        if self.publisher.send(HeadChange::Apply(tipsets)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
@@ -868,7 +883,9 @@ pub mod headchange_json {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
+                HeadChange::Apply(tipsets) => {
+                    HeadChangeJson::Apply(TipsetJson(tipsets.first().clone()))
+                }
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
         }
