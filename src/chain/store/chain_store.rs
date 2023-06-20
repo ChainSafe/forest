@@ -633,6 +633,7 @@ where
             .close()
             .await
             .map_err(|e| Error::Other(e.to_string()))?;
+
         let digest = match &mut *writer {
             Either::Left(left) => left.get_mut().finalize().await,
             Either::Right(right) => right.finalize().await,
