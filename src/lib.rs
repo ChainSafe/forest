@@ -45,6 +45,7 @@ mod shim;
 mod state_manager;
 mod state_migration;
 mod statediff;
+#[cfg(test)]
 mod test_utils;
 mod utils;
 
