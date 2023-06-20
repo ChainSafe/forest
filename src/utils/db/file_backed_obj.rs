@@ -18,6 +18,18 @@ pub struct FileBacked<T: FileBackedObject> {
     sync_period: Option<Duration>,
 }
 
+#[cfg(test)]
+impl<T: FileBackedObject> FileBacked<T> {
+    /// Calls function with inner mutable reference and try sync to file
+    pub fn with_inner<F>(&mut self, func: F) -> anyhow::Result<()>
+    where
+        F: FnOnce(&mut T),
+    {
+        func(&mut self.inner);
+        self.try_sync()
+    }
+}
+
 impl<T: FileBackedObject> FileBacked<T> {
     /// Gets a borrow of the inner object
     pub fn inner(&self) -> &T {
@@ -32,16 +44,6 @@ impl<T: FileBackedObject> FileBacked<T> {
     /// Sets the inner object and try sync to file
     pub fn set_inner(&mut self, inner: T) -> anyhow::Result<()> {
         self.inner = inner;
-        self.try_sync()
-    }
-
-    /// Calls function with inner mutable reference and try sync to file
-    #[allow(unused)] // TODO(aatifsyed)
-    pub fn with_inner<F>(&mut self, func: F) -> anyhow::Result<()>
-    where
-        F: FnOnce(&mut T),
-    {
-        func(&mut self.inner);
         self.try_sync()
     }
 
