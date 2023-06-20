@@ -5,9 +5,6 @@
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
 [![Codecov](https://img.shields.io/codecov/c/gh/ChainSafe/forest?style=for-the-badge&token=1OHO2CSD17)](https://codecov.io/gh/ChainSafe/forest)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
-
-<!-- [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest) -->
-
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
 [![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE)
@@ -15,16 +12,18 @@
 [![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
 
-Forest is an implementation of [Filecoin](https://filecoin.io/) written in Rust.
-The implementation will take a modular approach to building a full Filecoin node
-in Rust from the
-[Filecoin Protocol Specification](https://filecoin-project.github.io/specs/),
-specifically the virtual machine, blockchain, and node system.
+Forest is a [Filecoin] node written in [Rust]. With Forest, you can:
+
+- Send and receive FIL (at your own risk - Forest is experimental),
+- validate the Filecoin blockchain,
+- generate blockchain snapshots.
+
+While less feature-complete than the canonical Filecoin node, [Lotus], Forest
+aims to be the faster and easier-to-use alternative.
 
 ## Questions
 
-Have questions? Feel free to post them in
-[Forest Q&A](https://github.com/ChainSafe/forest/discussions/categories/forest-q-a)!
+Have questions? Feel free to post them in [Forest Q&A]!
 
 ## Run with Docker
 
@@ -49,9 +48,9 @@ docker exec -it forest /bin/bash
 ```
 
 For more in-depth usage and sample use cases, please refer to the Forest Docker
-documentation in the [Forest Book](https://chainsafe.github.io/forest/). Keep in
-mind that the `latest` tag is the latest stable release. If you want to current
-development build, use the `edge` tag.
+documentation in the [Forest Book]. Keep in mind that the `latest` tag is the
+latest stable release. If you want to use the current development build, use the
+`edge` tag.
 
 ## Dependencies
 
@@ -199,8 +198,7 @@ make test-all
 ```
 
 Chain synchronization checks are run after every merge to `main`. This code is
-maintained in a separate repository -
-[Forest IaC](https://github.com/ChainSafe/forest-iac).
+maintained in a separate repository - [Forest IaC].
 
 ### Linters
 
@@ -276,7 +274,7 @@ You can detach Forest process via the `--detach` flag so that it runs in the
 background:
 
 ```bash
-./target/release/forest --target-peer-count 50 --detach
+./target/release/forest --detach
 ```
 
 The command will block until the detached Forest process has started its RPC
@@ -284,13 +282,12 @@ server, allowing you to chain some RPC command immediately after.
 
 ### Documentation
 
-- [forest book (_Work in progress_)](https://chainsafe.github.io/forest/)
+- [Forest Book]
 - [rust doc](https://chainsafe.github.io/forest/rustdoc/)
 
 ## Contributing
 
-- Check out our contribution guidelines:
-  [CONTRIBUTING.md](documentation/src/developer_documentation/contributing.md)
+- Check out our contribution guidelines: [CONTRIBUTING.md]
 
 ## ChainSafe Security Policy
 
@@ -302,11 +299,20 @@ confirmed, we will take all necessary precautions to ensure a statement and
 patch release is made in a timely manner.
 
 Please email a description of the flaw and any related information (e.g.
-reproduction steps, version) to
-[security at chainsafe dot io](mailto:security@chainsafe.io).
+reproduction steps, version) to [security at chainsafe dot io].
 
 ## License
 
-Forest is dual licensed under
-[MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) +
-[Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).
+Forest is dual licensed under [MIT] + [Apache 2.0].
+
+[Filecoin]: https://filecoin.io/
+[Rust]: https://www.rust-lang.org/
+[Lotus]: https://lotus.filecoin.io/
+[Forest Book]: https://chainsafe.github.io/forest/
+[Forest Q&A]:
+  https://github.com/ChainSafe/forest/discussions/categories/forest-q-a
+[CONTRIBUTING.md]: documentation/src/developer_documentation/contributing.md
+[Forest IaC]: https://github.com/ChainSafe/forest-iac
+[security at chainsafe dot io]: mailto:security@chainsafe.io
+[MIT]: https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT
+[Apache 2.0]: https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE
