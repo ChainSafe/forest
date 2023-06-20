@@ -49,7 +49,7 @@ resolver = "2"
 [workspace.dependencies]
 ahash = "0.8"
 anes = "0.1.6"
-anyhow = "1.0"
+anyhow = "=1.0.69"
 assert_cmd = "2"
 async-compression = { version = "0.4", features = ["futures-io", "zstd"] }
 async-fs = "1"
@@ -192,7 +192,7 @@ hamtv0 = { path = "./utils/hamtv0" }
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
 # temporarily comment it out.
 [profile.dev]
-debug = 0
+debug = 1
 split-debuginfo = "unpacked"
 
 [profile.quick]

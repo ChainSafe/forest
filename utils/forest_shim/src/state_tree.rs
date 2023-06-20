@@ -84,7 +84,8 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
     }
 }
 
-mod state_tree_v0 {
+// ported from commit hash b622af
+pub mod state_tree_v0 {
     use std::{cell::RefCell, collections::HashMap, error::Error};
 
     use cid::Cid;
@@ -97,11 +98,25 @@ mod state_tree_v0 {
     use fvm_ipld_encoding::repr::*;
     use fvm_ipld_encoding::tuple::*;
     use fvm_ipld_encoding::Cbor;
+    use libipld::Ipld;
     use serde::{Deserialize, Serialize};
 
     use crate::address::Address;
+    use crate::econ::TokenAmount;
 
-    use super::ActorState;
+    /// State of all actor implementations.
+    #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+    pub struct ActorState {
+        /// Link to code for the actor.
+        pub code: Cid,
+        /// Link to the state of the actor.
+        pub state: Cid,
+        /// Sequence of the actor.
+        pub sequence: u64,
+        /// Tokens available to the actor.
+        pub balance: TokenAmount,
+    }
+
 
     /// State tree implementation using hamt. This structure is not threadsafe and should only be used
     /// in sync contexts.
@@ -168,7 +183,9 @@ mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let hamt = hamtv0::Hamt::load_with_bit_width(&actors, store, 8).unwrap();
+                    let a: Option<Ipld> = store.get_cbor(&actors).unwrap();
+                    dbg!(&a);
+                    let hamt: hamtv0::Hamt<S, ActorState> = hamtv0::Hamt::load_with_bit_width(&actors, store, 5).unwrap();
 
                     Ok(Self {
                         hamt,
