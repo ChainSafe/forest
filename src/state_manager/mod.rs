@@ -1039,12 +1039,6 @@ where
             loop {
                 match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
-                        HeadChange::Revert(_tipset) => {
-                            if candidate_tipset.is_some() {
-                                candidate_tipset = None;
-                                candidate_receipt = None;
-                            }
-                        }
                         HeadChange::Apply(tipset) => {
                             if candidate_tipset
                                 .as_ref()
@@ -1072,7 +1066,6 @@ where
                                 candidate_receipt = Some(receipt)
                             }
                         }
-                        _ => (),
                     },
                     Err(RecvError::Lagged(i)) => {
                         warn!(

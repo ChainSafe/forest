@@ -223,12 +223,6 @@ where
                 match subscriber.recv().await {
                     Ok(ts) => {
                         let (cur, rev, app) = match ts {
-                            HeadChange::Current(_tipset) => continue,
-                            HeadChange::Revert(tipset) => (
-                                cur_tipset.clone(),
-                                vec![tipset.as_ref().clone()],
-                                Vec::new(),
-                            ),
                             HeadChange::Apply(tipset) => (
                                 cur_tipset.clone(),
                                 Vec::new(),
