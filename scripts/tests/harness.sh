@@ -48,6 +48,7 @@ function forest_init {
 }
 
 function forest_print_logs_and_metrics {
+  dmseg
   echo "--- Forest STDERR ---"; cat forest.err
   echo "--- Forest STDOUT ---"; cat forest.out
 
