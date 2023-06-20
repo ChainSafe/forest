@@ -43,19 +43,21 @@ where
                 traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
             }
         }
-        Ipld::Link(cid) => {
+        &Ipld::Link(cid) => {
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
             if cid.codec() == fvm_shared::IPLD_RAW {
-                if !walked.insert(cid, on_inserted) {
+                if !walked.insert(cid) {
                     return Ok(());
                 }
-                let _ = load_block(*cid).await?;
+                on_inserted(walked.len());
+                let _ = load_block(cid).await?;
             }
             if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                if !walked.insert(cid, on_inserted) {
+                if !walked.insert(cid) {
                     return Ok(());
                 }
-                let bytes = load_block(*cid).await?;
+                on_inserted(walked.len());
+                let bytes = load_block(cid).await?;
                 let ipld = from_slice(&bytes)?;
                 traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
             }
@@ -76,10 +78,11 @@ where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
 {
-    if !walked.insert(&root, on_inserted) {
+    if !walked.insert(root) {
         // Cid has already been traversed
         return Ok(());
     }
+    on_inserted(walked.len());
     if root.codec() != fvm_ipld_encoding::DAG_CBOR {
         return Ok(());
     }
@@ -142,9 +145,10 @@ where
     };
 
     while let Some(next) = blocks_to_walk.pop_front() {
-        if !seen.insert(&next, &on_inserted) {
+        if !seen.insert(next) {
             continue;
         };
+        on_inserted(seen.len());
 
         if !should_save_block_to_snapshot(&next) {
             continue;
