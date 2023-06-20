@@ -507,12 +507,12 @@ where
         Ok(())
     }
 
-    #[allow(unused)] // TODO(aatifsyed)
+    #[cfg(test)]
     pub fn get_config(&self) -> &MpoolConfig {
         &self.config
     }
 
-    #[allow(unused)] // TODO(aatifsyed)
+    #[cfg(test)]
     pub fn set_config<DB: Store>(&mut self, db: &DB, cfg: MpoolConfig) -> Result<(), Error> {
         cfg.save_config(db)
             .map_err(|e| Error::Other(e.to_string()))?;

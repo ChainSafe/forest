@@ -37,7 +37,7 @@ where
     /// Forest employs a sophisticated algorithm for selecting messages
     /// for inclusion from the pool, given the ticket quality of a miner.
     /// This method selects messages for including in a block.
-    #[allow(unused)] // TODO(aatifsyed)
+    #[cfg(test)]
     pub fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.lock().clone();
         // if the ticket quality is high enough that the first block has higher
