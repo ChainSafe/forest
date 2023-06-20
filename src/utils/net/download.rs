@@ -25,7 +25,7 @@ use crate::utils::{io::ProgressBar, misc::Either};
 
 // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
 const ZSTD_MAGIC_HEADER: [u8; 4] = [0x28, 0xb5, 0x2f, 0xfd];
-const ZSTD_MAX_HEADER_SIZE: u8 = 18;
+const ZSTD_MAX_HEADER_SIZE: usize = 18;
 
 #[derive(Debug, Error)]
 enum DownloadError {
