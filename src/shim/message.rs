@@ -3,6 +3,8 @@
 use anyhow::anyhow;
 use std::ops::{Deref, DerefMut};
 
+use fvm_ipld_encoding::de::Deserializer;
+use fvm_ipld_encoding::ser::Serializer;
 use fvm_ipld_encoding::{Cbor, RawBytes as RawBytes_v2};
 use fvm_ipld_encoding3::RawBytes as RawBytes_v3;
 use fvm_shared::message::Message as Message_v2;
@@ -12,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::shim::{address::Address, econ::TokenAmount};
 
-#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize, Debug, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 pub struct Message {
     pub version: u64,
     pub from: Address,
@@ -168,5 +170,58 @@ impl Message {
             method_num: METHOD_SEND,
             ..Default::default()
         }
+    }
+}
+
+impl Serialize for Message {
+    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (
+            &self.version,
+            &self.to,
+            &self.from,
+            &self.sequence,
+            &self.value,
+            &self.gas_limit,
+            &self.gas_fee_cap,
+            &self.gas_premium,
+            &self.method_num,
+            &self.params,
+        )
+            .serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Message {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let (
+            version,
+            to,
+            from,
+            sequence,
+            value,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+            method_num,
+            params,
+        ) = Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            version,
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+        })
     }
 }
