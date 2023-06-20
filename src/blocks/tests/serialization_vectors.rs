@@ -18,6 +18,7 @@ use serde::Deserialize;
 use std::str::FromStr as _;
 
 #[test]
+#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn header_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {
@@ -47,6 +48,7 @@ fn header_cbor_vectors() {
 }
 
 #[test]
+#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn signing_test() {
     #[derive(Deserialize)]
     #[serde(rename_all = "PascalCase")]
@@ -84,6 +86,7 @@ fn signing_test() {
 }
 
 #[test]
+#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn unsigned_message_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {

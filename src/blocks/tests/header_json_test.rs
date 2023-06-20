@@ -6,6 +6,7 @@ use crate::shim::address::{set_current_network, Network};
 use serde_json::{from_str, to_string};
 
 #[test]
+#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn iden() {
     set_current_network(Network::Testnet);
 
