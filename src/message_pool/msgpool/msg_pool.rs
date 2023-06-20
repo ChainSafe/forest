@@ -559,7 +559,7 @@ pub(in crate::message_pool) fn add_helper<T>(
 where
     T: Provider,
 {
-    if msg.signature().signature_type() == SignatureType::BLS {
+    if msg.signature().signature_type() == SignatureType::Bls {
         bls_sig_cache
             .lock()
             .put(msg.cid()?, msg.signature().clone());

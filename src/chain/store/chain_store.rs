@@ -898,7 +898,7 @@ pub fn persist_block_messages<DB: Blockstore>(
 
     let mut bls_sigs = Vec::new();
     for msg in messages {
-        if msg.signature().signature_type() == SignatureType::BLS {
+        if msg.signature().signature_type() == SignatureType::Bls {
             let c = db.put_cbor_default(&msg.message)?;
             bls_cids.push(c);
             bls_sigs.push(&msg.signature);

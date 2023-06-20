@@ -571,7 +571,7 @@ mod test {
         let keystore_location = tempfile::tempdir()?.into_path();
         let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone()))?;
 
-        let key = wallet::generate_key(SignatureType::BLS)?;
+        let key = wallet::generate_key(SignatureType::Bls)?;
 
         let addr = format!("wallet-{}", key.address);
         ks.put(addr.clone(), key.key_info)?;
@@ -604,7 +604,7 @@ mod test {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
                 .choose(&[
-                    crate::shim::crypto::SignatureType::BLS,
+                    crate::shim::crypto::SignatureType::Bls,
                     crate::shim::crypto::SignatureType::Secp256k1,
                 ])
                 .unwrap();

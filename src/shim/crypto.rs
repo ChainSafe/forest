@@ -71,7 +71,7 @@ impl Signature {
     /// Creates a BLS Signature given the raw bytes.
     pub fn new_bls(bytes: Vec<u8>) -> Self {
         Self {
-            sig_type: SignatureType::BLS,
+            sig_type: SignatureType::Bls,
             bytes,
         }
     }
@@ -92,7 +92,7 @@ impl Signature {
     pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> Result<(), String> {
         use fvm_shared3::crypto::signature::ops::{verify_bls_sig, verify_secp256k1_sig};
         match self.sig_type {
-            SignatureType::BLS => verify_bls_sig(&self.bytes, data, addr),
+            SignatureType::Bls => verify_bls_sig(&self.bytes, data, addr),
             SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
             SignatureType::Delegated => Ok(()),
         }
@@ -112,7 +112,7 @@ impl TryFrom<&Signature> for BlsSignature {
             SignatureType::Secp256k1 => {
                 anyhow::bail!("cannot convert Secp256k1 signature to bls signature")
             }
-            SignatureType::BLS => Ok(BlsSignature::from_bytes(&value.bytes)?),
+            SignatureType::Bls => Ok(BlsSignature::from_bytes(&value.bytes)?),
             SignatureType::Delegated => {
                 anyhow::bail!("cannot convert delegated signature to bls signature")
             }
@@ -165,7 +165,7 @@ impl quickcheck::Arbitrary for Signature {
 #[repr(u8)]
 pub enum SignatureType {
     Secp256k1 = 1,
-    BLS = 2,
+    Bls = 2,
     Delegated = 3,
 }
 
@@ -173,7 +173,7 @@ impl quickcheck::Arbitrary for SignatureType {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         *g.choose(&[
             SignatureType::Secp256k1,
-            SignatureType::BLS,
+            SignatureType::Bls,
             SignatureType::Delegated,
         ])
         .unwrap()

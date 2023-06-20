@@ -244,8 +244,8 @@ mod tests {
             let secp_key = Key::try_from(secp_key_info).unwrap();
             secp_keys.push(secp_key);
 
-            let bls_priv_key = generate(SignatureType::BLS).unwrap();
-            let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
+            let bls_priv_key = generate(SignatureType::Bls).unwrap();
+            let bls_key_info = KeyInfo::new(SignatureType::Bls, bls_priv_key);
             let bls_key = Key::try_from(bls_key_info).unwrap();
             bls_keys.push(bls_key);
         }
@@ -273,9 +273,9 @@ mod tests {
         // make sure that has_key returns true as well
         assert!(wallet.has_key(&addr));
 
-        let new_priv_key = generate(SignatureType::BLS).unwrap();
+        let new_priv_key = generate(SignatureType::Bls).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::BLS, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_public(SignatureType::Bls, new_priv_key.as_slice()).unwrap();
         let address = Address::new_bls(pub_key.as_slice()).unwrap();
 
         // test to see if the new key has been created and added to the wallet
@@ -377,11 +377,11 @@ mod tests {
     #[test]
     fn generate_new_key() {
         let mut wallet = generate_wallet();
-        let addr = wallet.generate_addr(SignatureType::BLS).unwrap();
+        let addr = wallet.generate_addr(SignatureType::Bls).unwrap();
         let key = wallet.keystore.get("default").unwrap();
         // make sure that the newly generated key is the default key - checking by key
         // type
-        assert_eq!(&SignatureType::BLS, key.key_type());
+        assert_eq!(&SignatureType::Bls, key.key_type());
 
         let address = format!("wallet-{addr}");
 
@@ -390,7 +390,7 @@ mod tests {
 
         // these assertions will make sure that the key has actually been added to the
         // wallet
-        assert_eq!(key_info.key_type(), &SignatureType::BLS);
+        assert_eq!(key_info.key_type(), &SignatureType::Bls);
         assert_eq!(key.address, addr);
     }
 
@@ -440,8 +440,8 @@ mod tests {
 
     #[test]
     fn bls_verify_test() {
-        let bls_priv_key = generate(SignatureType::BLS).unwrap();
-        let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
+        let bls_priv_key = generate(SignatureType::Bls).unwrap();
+        let bls_key_info = KeyInfo::new(SignatureType::Bls, bls_priv_key);
         let bls_key = Key::try_from(bls_key_info).unwrap();
         let addr = bls_key.address;
         let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -453,7 +453,7 @@ mod tests {
         sig.verify(&msg, &addr).unwrap();
 
         // invalid verify check
-        let invalid_addr = wallet.generate_addr(SignatureType::BLS).unwrap();
+        let invalid_addr = wallet.generate_addr(SignatureType::Bls).unwrap();
         assert!(sig.verify(&msg, &invalid_addr).is_err())
     }
 }

@@ -465,7 +465,7 @@ pub mod tests {
         let tipset = Tipset::from(&a);
         let b = mock_block_with_parents(&tipset, 1, 1);
 
-        let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
+        let sender = wallet.generate_addr(SignatureType::Bls).unwrap();
         let target = Address::new_id(1001);
 
         let mut smsg_vec = Vec::new();
