@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
-
 use crate::shim::version::NetworkVersion;
 use crate::utils::encoding::blake2b_256;
 use async_trait::async_trait;
@@ -11,15 +9,11 @@ use byteorder::{BigEndian, ByteOrder};
 use crate::beacon::{Beacon, BeaconEntry};
 
 /// Mock beacon used for testing. Deterministic based on an interval.
-pub struct MockBeacon {
-    #[allow(unused)] // TODO(aatifsyed)
-    interval: Duration,
-}
+pub struct MockBeacon {}
 
 impl MockBeacon {
-    #[allow(unused)] // TODO(aatifsyed)
-    pub fn new(interval: Duration) -> Self {
-        MockBeacon { interval }
+    pub fn new() -> Self {
+        Self {}
     }
     fn entry_for_index(index: u64) -> BeaconEntry {
         let mut buf = [0; 8];
