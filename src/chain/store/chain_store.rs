@@ -29,12 +29,13 @@ use crate::utils::{
     misc::Either,
 };
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_compression::futures::write::ZstdEncoder;
 use bls_signatures::Serialize as SerializeBls;
 use cid::Cid;
 use digest::Digest;
 use futures::{io::BufWriter, AsyncWrite};
+use futures_util::AsyncWriteExt;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -624,6 +625,9 @@ where
         );
 
         let mut writer = writer.lock().await;
+        writer.flush().await.context("failed to flush")?;
+        writer.close().await.context("failed to close")?;
+
         let digest = match &mut *writer {
             Either::Left(left) => left.get_mut().finalize().await,
             Either::Right(right) => right.finalize().await,
