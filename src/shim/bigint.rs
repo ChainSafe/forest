@@ -9,11 +9,18 @@ pub use fvm_shared3::{
     bigint::bigint_ser::{BigIntDe, BigIntSer},
     sector::StoragePower as StoragePowerV3,
 };
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct BigInt(#[serde(with = "bigint_ser")] BigInt_v3);
+
+impl BigInt {
+    pub fn inner(&self) -> &BigInt_v3 {
+        &self.0
+    }
+}
 
 impl Deref for BigInt {
     type Target = BigInt_v3;
