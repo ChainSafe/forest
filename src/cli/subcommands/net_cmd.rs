@@ -8,7 +8,7 @@ use ahash::HashSet;
 use clap::Subcommand;
 
 use super::{handle_rpc_err, print_stdout, Config};
-use crate::cli::cli::cli_error_and_die;
+use crate::cli::subcommands::cli_error_and_die;
 
 #[derive(Debug, Subcommand)]
 pub enum NetCommands {
