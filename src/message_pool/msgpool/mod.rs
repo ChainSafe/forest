@@ -614,6 +614,8 @@ pub mod tests {
         )
         .unwrap();
 
+        let mut head_updated = mpool.api.inner.lock().publisher_change.subscribe();
+
         let mut smsg_vec = Vec::new();
         for i in 0..3 {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -634,8 +636,7 @@ pub mod tests {
         let ts = tipset.clone();
         mpool.api.set_heaviest_tipset(Arc::new(ts));
 
-        // sleep allows for async block to update mpool's cur_tipset
-        tokio::time::sleep(Duration::new(2, 0)).await;
+        head_updated.recv().await.unwrap();
 
         let cur_ts = mpool.cur_tipset.lock().clone();
         assert_eq!(cur_ts.as_ref(), &tipset);
