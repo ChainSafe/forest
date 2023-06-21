@@ -17,8 +17,8 @@ in case of absence, passing the task to a different team member.
    Cherry-picking of patches may be necessary.
 3. Run the manual tests steps outlined in the TEST_PLAN.md. Caveat: Right now
    there are no manual test steps so this step can be skipped.
-4. Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` in
-   the release.
+4. Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
+   version change in the release.
 5. Once the changes in step 1 and step 2 have been merged, tag the commit with
    the new version number. The version tag should start with a lowercase 'v'.
    Example: v0.4.1
