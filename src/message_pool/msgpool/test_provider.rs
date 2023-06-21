@@ -213,7 +213,7 @@ impl Provider for TestApi {
     }
 
     fn head_changed(&self) {
-        self.inner.lock().publisher_change.send(()).unwrap();
+        self.inner.lock().publisher_change.send(());
     }
 }
 
