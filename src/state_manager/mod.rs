@@ -265,6 +265,9 @@ where
     // This function used to do this: Returns the network name from the init actor
     // state.
     /// Returns the internal, protocol-level network name.
+    // TODO: Once we are able to query the init actor state to obtain the network name from the
+    // genesis file, this should be removed. It is work in progress here:
+    // https://github.com/ChainSafe/forest/pull/2913
     pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
         let name = match &self.chain_config.network {
             crate::networks::NetworkChain::Mainnet => "testnetnet",
