@@ -20,7 +20,8 @@ in case of absence, passing the task to a different team member.
 4. Once the changes in step 1 and step 2 have been merged, tag the commit with
    the new version number. The version tag should start with a lowercase 'v'.
    Example: v0.4.1
-5. (NOT YET APPLICABLE) Publish new crates on crates.io.
+5. Publish new crates on crates.io according to the
+   [manual](https://doc.rust-lang.org/cargo/reference/publishing.html).
 6. Go to https://github.com/ChainSafe/forest/releases/new and create a new
    release. Use the tag created in step 4, follow the title convention of the
    previous releases, and write a small summary of the release (similar or
@@ -30,12 +31,7 @@ in case of absence, passing the task to a different team member.
    hour).
 8. Verify that the new release is available in the Github Container Registry.
    Use `docker pull ghcr.io/chainsafe/forest:<version>` and ensure that it is
-   present in the [packages][2]
-9. Update the [Forest Progress][1] wiki with the changes in the new release. If
-   in doubt about what has been accomplished, is in progress, or what's included
-   in the future plans, ask in the #fil-devs slack channel and tag authors of
-   related PRs.
-10. Make sure the `Cargo.lock` change is included in the pull request.
+   present in the [packages][1]
+9. Make sure the `Cargo.lock` change is included in the pull request.
 
-[1]: https://github.com/ChainSafe/forest/wiki/Forest-Progress
-[2]: https://github.com/ChainSafe/forest/pkgs/container/forest
+[1]: https://github.com/ChainSafe/forest/pkgs/container/forest
