@@ -74,5 +74,6 @@ validator/S
 verifier
 VM
 VRF
+WebAssembly
 WebSocket
 zstd
