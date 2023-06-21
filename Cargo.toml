@@ -223,6 +223,7 @@ overflow-checks = true
 default = ["paritydb", "jemalloc", "fil_cns"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
+doctest-private = []                          # see lib.rs::doctest_private
 
 # Databases
 paritydb = ["dep:parity-db"]
