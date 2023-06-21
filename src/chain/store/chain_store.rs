@@ -9,7 +9,7 @@ use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::metrics::metrics;
+use crate::metrics;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{

@@ -122,8 +122,8 @@ impl TipsetStateCache {
         });
         match status {
             Status::Done(x) => {
-                crate::metrics::metrics::LRU_CACHE_HIT
-                    .with_label_values(&[crate::metrics::metrics::values::STATE_MANAGER_TIPSET])
+                crate::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[crate::metrics::values::STATE_MANAGER_TIPSET])
                     .inc();
                 Ok(x)
             }
@@ -132,20 +132,16 @@ impl TipsetStateCache {
                 match self.get(key) {
                     Some(v) => {
                         // While locking someone else computed the pending task
-                        crate::metrics::metrics::LRU_CACHE_HIT
-                            .with_label_values(&[
-                                crate::metrics::metrics::values::STATE_MANAGER_TIPSET,
-                            ])
+                        crate::metrics::LRU_CACHE_HIT
+                            .with_label_values(&[crate::metrics::values::STATE_MANAGER_TIPSET])
                             .inc();
 
                         Ok(v)
                     }
                     None => {
                         // Entry does not have state computed yet, compute value and fill the cache
-                        crate::metrics::metrics::LRU_CACHE_MISS
-                            .with_label_values(&[
-                                crate::metrics::metrics::values::STATE_MANAGER_TIPSET,
-                            ])
+                        crate::metrics::LRU_CACHE_MISS
+                            .with_label_values(&[crate::metrics::values::STATE_MANAGER_TIPSET])
                             .inc();
 
                         let cid_pair = compute().await?;

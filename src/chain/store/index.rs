@@ -4,7 +4,7 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::metrics::metrics;
+use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
