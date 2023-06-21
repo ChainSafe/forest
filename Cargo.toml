@@ -222,7 +222,7 @@ overflow-checks = true
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "fil_cns"]
+default = ["jemalloc"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
 doctest-private = []                 # see lib.rs::doctest_private
@@ -232,10 +232,6 @@ benchmark-private = []               # see lib.rs::benchmark_private
 rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
-
-# Consensus
-fil_cns = []
-deleg_cns = []
 
 [[bench]]
 name = "example-benchmark"
