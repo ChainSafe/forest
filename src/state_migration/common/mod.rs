@@ -45,7 +45,7 @@ pub(in crate::state_migration) trait ActorMigration<BS: Blockstore + Clone + Sen
         &self,
         store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<ActorMigrationOutput>;
+    ) -> anyhow::Result<Option<ActorMigrationOutput>>;
 }
 
 /// Trait that defines the interface for actor migration job to be executed after the state migration.
