@@ -99,7 +99,7 @@ where
         &self,
         store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<ActorMigrationOutput> {
+    ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let mut cache: HashMap<String, Cid> = Default::default();
         println!("miner input.head: {}", input.head);
         let in_state: MinerStateOld = store
@@ -126,10 +126,10 @@ where
         let new_head = store.put_cbor_default(&out_state)?;
         println!("miner new_head: {new_head}");
 
-        Ok(ActorMigrationOutput {
+        Ok(Some(ActorMigrationOutput {
             new_code_cid: self.out_code,
             new_head,
-        })
+        }))
     }
 }
 

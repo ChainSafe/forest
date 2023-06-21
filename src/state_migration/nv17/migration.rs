@@ -22,7 +22,10 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_shared::state::StateRoot;
 
-use super::super::common::{migrators::nil_migrator, StateMigration};
+use super::super::common::{
+    migrators::{nil_migrator, DeferredMigrator},
+    StateMigration,
+};
 use super::{
     datacap, miner, system, util::get_pending_verified_deals_and_total_size, verifier::Verifier,
     verifreg_market::VerifregMarketPostMigrator, SystemStateOld,
@@ -76,8 +79,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             get_pending_verified_deals_and_total_size(&store, &market_state_v8)?;
 
         current_manifest.builtin_actors().for_each(|(name, code)| {
-            let new_code = new_manifest.code_by_name(name).unwrap();
-            if name != MARKET_ACTOR_NAME && name != VERIFREG_ACTOR_NAME {
+            if name == MARKET_ACTOR_NAME || name == VERIFREG_ACTOR_NAME {
+                self.add_migrator(*code, Arc::new(DeferredMigrator))
+            } else {
+                let new_code = new_manifest.code_by_name(name).unwrap();
                 self.add_migrator(*code, nil_migrator(*new_code));
             }
         });

@@ -47,7 +47,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
         &self,
         store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<ActorMigrationOutput> {
+    ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         let verified_clients = fil_actors_shared::v8::make_map_with_root::<_, BigInt>(
@@ -99,9 +99,9 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
 
         let new_head = store.put_cbor_default(&datacap_state)?;
 
-        Ok(ActorMigrationOutput {
+        Ok(Some(ActorMigrationOutput {
             new_code_cid: self.new_code_cid,
             new_head,
-        })
+        }))
     }
 }
