@@ -602,8 +602,7 @@ mod tests {
                 == "bafy2bzacebt6nrksprrhp6fzav6lhnt4ymz4h6iolaxdrfpit5b7j33xzjdky"
         );
 
-        let (new_manifest_cid, new_manifest_data_cid, new_manifest) =
-            make_test_manifest(&store, "fil/9/")?;
+        let (new_manifest_cid, new_manifest) = make_test_manifest(&store, "fil/9/")?;
 
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
@@ -626,7 +625,7 @@ mod tests {
     fn make_input_tree<BS: Blockstore + Clone>(store: BS) -> Result<(StateTree<BS>, Manifest)> {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
 
-        let (manifest_cid, manifest_data_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
+        let (manifest_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
         let account_cid = manifest.account_code();
         // fmt.Printf("accountCid: %s\n", accountCid)
         ensure!(account_cid.to_string() == "bafkqadlgnfwc6obpmfrwg33vnz2a");
@@ -634,7 +633,7 @@ mod tests {
         // fmt.Printf("systemCid: %s\n", systemCid)
         ensure!(system_cid.to_string() == "bafkqaddgnfwc6obpon4xg5dfnu");
         let system_state = fil_actor_system_state::v9::State {
-            builtin_actors: manifest_data_cid,
+            builtin_actors: manifest.actors_cid(),
         };
         let system_state_cid = store.put_cbor_default(&system_state)?;
         ensure!(
@@ -818,10 +817,7 @@ mod tests {
         Ok(())
     }
 
-    fn make_test_manifest<BS: Blockstore>(
-        store: &BS,
-        prefix: &str,
-    ) -> Result<(Cid, Cid, Manifest)> {
+    fn make_test_manifest<BS: Blockstore>(store: &BS, prefix: &str) -> Result<(Cid, Manifest)> {
         let mut manifest_data = vec![];
         for name in [
             "account",
@@ -841,11 +837,11 @@ mod tests {
             let code_cid = Cid::new_v1(IPLD_RAW, hash);
             manifest_data.push((name, code_cid));
         }
-        let manifest_data_cid = store.put_cbor_default(&manifest_data)?;
-        let manifest_cid = store.put_cbor_default(&(1, manifest_data_cid))?;
+
+        let manifest_cid = store.put_cbor_default(&(1, store.put_cbor_default(&manifest_data)?))?;
         let manifest = Manifest::load(store, &manifest_cid)?;
 
-        Ok((manifest_cid, manifest_data_cid, manifest))
+        Ok((manifest_cid, manifest))
     }
 
     fn make_base_miner_state<BS: Blockstore>(

@@ -4,9 +4,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use crate::networks::{ChainConfig, Height};
-use crate::shim::machine::{
-    DATACAP_ACTOR_NAME, MARKET_ACTOR_NAME, MINER_ACTOR_NAME, VERIFREG_ACTOR_NAME,
-};
+use crate::shim::machine::*;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -34,13 +32,12 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub fn add_nv17_migrations(
         &mut self,
         store: BS,
-        state: &Cid,
+        actors_in: &mut StateTree<BS>,
         new_manifest: &Cid,
         prior_epoch: ChainEpoch,
         chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
-        let state_tree = StateTree::new_from_root(store.clone(), state)?;
-        let system_actor = state_tree
+        let system_actor = actors_in
             .get_actor(&Address::new_id(0))?
             .ok_or_else(|| anyhow!("system actor not found"))?;
 
@@ -53,7 +50,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         let new_manifest = Manifest::load(&store, new_manifest)?;
 
-        let verifreg_actor_v8 = state_tree
+        let verifreg_actor_v8 = actors_in
             .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
             .context("Failed to load verifreg actor v8")?;
 
@@ -61,7 +58,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_cbor(&verifreg_actor_v8.state)?
             .context("Failed to load verifreg state v8")?;
 
-        let market_actor_v8 = state_tree
+        let market_actor_v8 = actors_in
             .get_actor(&fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.into())?
             .context("Failed to load market actor v8")?;
 
@@ -69,7 +66,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_cbor(&market_actor_v8.state)?
             .context("Failed to load market state v8")?;
 
-        let init_actor_v8 = state_tree
+        let init_actor_v8 = actors_in
             .get_actor(&fil_actors_shared::v8::INIT_ACTOR_ADDR.into())?
             .context("Failed to load init actor v8")?;
 
@@ -82,7 +79,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         current_manifest.builtin_actors().for_each(|(name, code)| {
             let new_code = new_manifest.code_by_name(name).unwrap();
-            if name != VERIFREG_ACTOR_NAME && name != MARKET_ACTOR_NAME {
+            if name != MARKET_ACTOR_NAME && name != VERIFREG_ACTOR_NAME {
                 println!("Add nil_migrator, name: {name}, code: {code}, new_code: {new_code}");
                 self.add_migrator(*code, nil_migrator(*new_code));
             }
@@ -90,10 +87,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         println!("verifreg_actor_v8.code: {}", verifreg_actor_v8.code);
 
         //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
-        // self.add_migrator(
-        //     *current_manifest.system_code(),
-        //     system::system_migrator(&new_manifest),
-        // );
+        self.add_migrator(
+            *current_manifest.system_code(),
+            system::system_migrator(&new_manifest),
+        );
 
         let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
         // self.add_migrator(
@@ -123,17 +120,17 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let verifreg_code = *new_manifest.code_by_name(VERIFREG_ACTOR_NAME)?;
         let market_code = *new_manifest.code_by_name(MARKET_ACTOR_NAME)?;
 
-        // self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
-        //     prior_epoch,
-        //     init_state_v8,
-        //     market_state_v8,
-        //     verifreg_state_v8,
-        //     pending_verified_deals,
-        //     verifreg_actor_v8,
-        //     market_actor_v8,
-        //     verifreg_code,
-        //     market_code,
-        // }));
+        self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
+            prior_epoch,
+            init_state_v8,
+            market_state_v8,
+            verifreg_state_v8,
+            pending_verified_deals,
+            verifreg_actor_v8,
+            market_actor_v8,
+            verifreg_code,
+            market_code,
+        }));
 
         Ok(())
     }
@@ -165,19 +162,19 @@ where
         )
     })?;
 
+    let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
+
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
 
     let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv17_migrations(
         blockstore.clone(),
-        state,
+        &mut actors_in,
         &new_manifest_cid,
         epoch,
         chain_config,
     )?;
-
-    let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
 
     // Sets empty datacap actor to migrate from
     let new_manifest = Manifest::load(&blockstore, &new_manifest_cid)?;
@@ -186,6 +183,7 @@ where
         &fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ADDR.into(),
         ActorState::new_empty(*datacap_code, None),
     )?;
+    actors_in.flush()?;
 
     let mut actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
     let actors_out_cid = actors_out.flush()?;
