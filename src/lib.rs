@@ -3,7 +3,6 @@
 
 #![recursion_limit = "1024"]
 #![allow(
-    deprecated,
     unused,
     clippy::upper_case_acronyms,
     clippy::enum_variant_names,
