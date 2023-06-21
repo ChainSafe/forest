@@ -53,6 +53,7 @@ where
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
         fil_actor_miner_state::v8::Deadline::new(store)?;
     let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
+    println!("empty_deadline_v8_cid: {empty_deadline_v8_cid}");
 
     let policy = match &chain_config.network {
         NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
@@ -62,9 +63,11 @@ where
     let empty_deadlines_v8 =
         fil_actor_miner_state::v8::Deadlines::new(&policy, empty_deadline_v8_cid);
     let empty_deadlines_v8_cid = store.put_cbor_default(&empty_deadlines_v8)?;
+    println!("empty_deadlines_v8_cid: {empty_deadlines_v8_cid}");
 
     let empty_deadline_v9 = fil_actor_miner_state::v9::Deadline::new(store)?;
     let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
+    println!("empty_deadline_v9_cid: {empty_deadline_v9_cid}");
 
     let policy = match &chain_config.network {
         NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
@@ -74,6 +77,7 @@ where
     let empty_deadlines_v9 =
         fil_actor_miner_state::v9::Deadlines::new(&policy, empty_deadline_v9_cid);
     let empty_deadlines_v9_cid = store.put_cbor_default(&empty_deadlines_v9)?;
+    println!("empty_deadlines_v9_cid: {empty_deadlines_v9_cid}");
 
     Ok(Arc::new(MinerMigrator {
         network: chain_config.network.clone(),
@@ -97,21 +101,30 @@ where
         input: ActorMigrationInput,
     ) -> anyhow::Result<ActorMigrationOutput> {
         let mut cache: HashMap<String, Cid> = Default::default();
+        println!("miner input.head: {}", input.head);
         let in_state: MinerStateOld = store
             .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
         let new_pre_committed_sectors =
             self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
+        println!("miner new_pre_committed_sectors: {new_pre_committed_sectors}");
         let new_sectors =
             self.migrate_sectors_with_cache(&mut cache, &store, &input.address, &in_state.sectors)?;
+        println!("miner new_sectors: {new_sectors}");
         let new_deadlines = self.migrate_deadlines(&mut cache, &store, &in_state.deadlines)?;
+        println!(
+            "miner new_deadlines: {new_deadlines}, in_state.deadlines: {}",
+            in_state.deadlines
+        );
 
         let mut out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
         out_state.pre_committed_sectors = new_pre_committed_sectors;
         out_state.sectors = new_sectors;
         out_state.deadlines = new_deadlines;
 
+        println!("miner out_state: {out_state:?}");
         let new_head = store.put_cbor_default(&out_state)?;
+        println!("miner new_head: {new_head}");
 
         Ok(ActorMigrationOutput {
             new_code_cid: self.out_code,
@@ -261,7 +274,7 @@ impl MinerMigrator {
         deadlines: &Cid,
     ) -> anyhow::Result<Cid> {
         if deadlines == &self.empty_deadlines_v8_cid {
-            Ok(self.empty_deadline_v9_cid)
+            Ok(self.empty_deadlines_v9_cid)
         } else {
             let in_deadlines: fil_actor_miner_state::v8::Deadlines = store
                 .get_cbor(deadlines)?
@@ -621,7 +634,7 @@ mod tests {
         );
         ensure!(
             actors_out_state_root.actors.to_string()
-                == "bafy2bzacealcrnmsuozpsrzpt57rto67a6kwzru7lmgapamjiiwxzylxfqexi"
+                == "bafy2bzacecfv5ii635kgitgotd2ogkpnpu2zujhpeqt7gm32vartmjhoad6i4"
         );
 
         Ok(())

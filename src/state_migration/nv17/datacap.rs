@@ -81,25 +81,10 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
         let verifreg_balance =
             StoragePowerV2::from(self.pending_verified_deal_size) * DATA_CAP_GRANULARITY;
         token_supply = &token_supply + &verifreg_balance;
-        println!(
-            "balances_map before set: {}, verifreg_balance: {verifreg_balance}",
-            balances_map.flush()?
-        );
-        println!(
-            "balances_map set key: {}",
-            hex::encode(
-                fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()
-            )
-        );
-        println!(
-            "verifreg_balance cbor: {:?}",
-            hex::encode(fvm_ipld_encoding::to_vec(&verifreg_balance)?)
-        );
         balances_map.set(
             BytesKey(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()),
             verifreg_balance.into(),
         )?;
-        println!("balances_map after set: {}", balances_map.flush()?);
 
         let mut token =
             frc46_token::token::state::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
@@ -111,8 +96,6 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             governor: fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR,
             token,
         };
-
-        println!("datacap_state: {datacap_state:?}");
 
         let new_head = store.put_cbor_default(&datacap_state)?;
 

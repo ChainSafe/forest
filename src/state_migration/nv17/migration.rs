@@ -109,16 +109,16 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         let miner_v8_actor_code = current_manifest.code_by_name(MINER_ACTOR_NAME)?;
         let miner_v9_actor_code = new_manifest.code_by_name(MINER_ACTOR_NAME)?;
-
-        // self.add_migrator(
-        //     *miner_v8_actor_code,
-        //     miner::miner_migrator(
-        //         *miner_v9_actor_code,
-        //         &store,
-        //         market_state_v8.proposals,
-        //         chain_config,
-        //     )?,
-        // );
+        println!("miner out code: {miner_v9_actor_code}");
+        self.add_migrator(
+            *miner_v8_actor_code,
+            miner::miner_migrator(
+                *miner_v9_actor_code,
+                &store,
+                market_state_v8.proposals,
+                chain_config,
+            )?,
+        );
 
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
             .get_cbor(&verifreg_actor_v8.state)?
