@@ -26,7 +26,6 @@ mod cli;
 mod cli_shared;
 mod daemon;
 mod db;
-mod deleg_cns;
 mod fil_cns;
 mod genesis;
 mod interpreter;
