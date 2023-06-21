@@ -21,7 +21,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm};
 use tempfile::TempDir;
 
 use super::*;
-use crate::cli::cli::{cli_error_and_die, handle_rpc_err};
+use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {

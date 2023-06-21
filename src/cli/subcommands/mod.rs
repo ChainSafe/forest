@@ -41,7 +41,7 @@ pub(super) use self::{
     shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
     sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
-use crate::cli::cli::info_cmd::InfoCommand;
+use crate::cli::subcommands::info_cmd::InfoCommand;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
