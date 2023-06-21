@@ -30,8 +30,7 @@ in case of absence, passing the task to a different team member.
    hour).
 8. Verify that the new release is available in the Github Container Registry.
    Use `docker pull ghcr.io/chainsafe/forest:<version>` and ensure that it is
-   present in the [packages][2]
+   present in the [packages][1]
 9. Make sure the `Cargo.lock` change is included in the pull request.
 
-[1]: https://github.com/ChainSafe/forest/wiki/Forest-Progress
-[2]: https://github.com/ChainSafe/forest/pkgs/container/forest
+[1]: https://github.com/ChainSafe/forest/pkgs/container/forest
