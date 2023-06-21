@@ -104,7 +104,7 @@ mod tests {
         let peer_id = PeerId::from(id_keys.public());
         let transport = tcp::tokio::Transport::default()
             .upgrade(core::upgrade::Version::V1)
-            .authenticate(noise::NoiseAuthenticated::xx(&id_keys)?)
+            .authenticate(noise::Config::new(&id_keys)?)
             .multiplex(yamux::Config::default())
             .timeout(TIMEOUT)
             .boxed();

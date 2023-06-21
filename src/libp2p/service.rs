@@ -829,12 +829,7 @@ pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, Stre
     let transport =
         libp2p::websocket::WsConfig::new(build_dns_tcp()?).or_transport(build_dns_tcp()?);
 
-    let auth_config = {
-        let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
-            .into_authentic(&local_key)
-            .context("Noise key generation failed")?;
-        noise::NoiseConfig::xx(dh_keys).into_authenticated()
-    };
+    let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;
 
     Ok(transport
         .upgrade(core::upgrade::Version::V1)
