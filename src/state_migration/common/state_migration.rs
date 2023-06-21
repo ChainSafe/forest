@@ -114,17 +114,18 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             });
 
             while let Ok(job_output) = job_rx.recv() {
-                let MigrationJobOutput {
+                if let Some(MigrationJobOutput {
                     address,
                     actor_state,
-                } = job_output;
-                actors_out
-                    .set_actor(&address, actor_state)
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "Failed setting new actor state at given address: {address}, Reason: {e}"
-                        )
-                    });
+                }) = job_output {
+                    actors_out
+                        .set_actor(&address, actor_state)
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Failed setting new actor state at given address: {address}, Reason: {e}"
+                            )
+                        });
+                }
             }
         });
 
