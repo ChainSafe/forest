@@ -91,26 +91,24 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let store_clone = store_clone.clone();
-                    if let Some(migrator) = self.migrations.get(&state.code).cloned()
-                    {
-                        scope.spawn(move |_| {
-                            let job = MigrationJob {
-                                address,
-                                actor_state: state,
-                                actor_migration: migrator,
-                            };
+                    let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
+                    scope.spawn(move |_| {
+                        let job = MigrationJob {
+                            address,
+                            actor_state: state,
+                            actor_migration: migrator,
+                        };
 
-                            let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
-                                panic!(
-                                    "failed executing job for address: {address}, Reason: {e}"
-                                )
-                            });
-
-                            job_tx.send(job_output).unwrap_or_else(|_| {
-                                panic!("failed sending job output for address: {address}")
-                            });
+                        let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
+                            panic!(
+                                "failed executing job for address: {address}, Reason: {e}"
+                            )
                         });
-                    }
+
+                        job_tx.send(job_output).unwrap_or_else(|_| {
+                            panic!("failed sending job output for address: {address}")
+                        });
+                    });
                 }
                 drop(job_tx);
             });

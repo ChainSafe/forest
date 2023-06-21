@@ -91,7 +91,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
         self.add_migrator(
             *current_manifest.system_code(),
-            system::system_migrator(&new_manifest),
+            system::system_migrator(new_manifest),
         );
 
         // Sets empty datacap actor to migrate from
