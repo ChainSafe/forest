@@ -702,7 +702,7 @@ mod test_selection {
         head_change,
         msgpool::{
             test_provider::{mock_block, TestApi},
-            tests::{create_fake_smsg, create_smsg},
+            tests::{create_fake_smsg, create_smsg, make_range},
         },
     };
 
@@ -752,7 +752,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(b1)],
+            make_range(&b1),
         )
         .await
         .unwrap();
@@ -810,7 +810,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(b2)],
+            make_range(&b2),
         )
         .await
         .unwrap();
@@ -914,7 +914,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(b1)],
+            make_range(&b1),
         )
         .await
         .unwrap();
@@ -995,7 +995,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(b1)],
+            make_range(&b1),
         )
         .await
         .unwrap();
@@ -1089,7 +1089,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(b1)],
+            make_range(&b1),
         )
         .await
         .unwrap();
@@ -1168,7 +1168,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(b1)],
+            make_range(&b1),
         )
         .await
         .unwrap();
@@ -1285,7 +1285,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(block)],
+            make_range(&block),
         )
         .await
         .unwrap();

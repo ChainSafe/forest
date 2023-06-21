@@ -303,6 +303,8 @@ where
             }
         }
     }
+    api.head_changed();
+
     Ok(())
 }
 
@@ -346,6 +348,7 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
 pub mod tests {
     use std::{borrow::BorrowMut, time::Duration};
 
+    use crate::blocks::BlockHeader;
     use crate::blocks::Tipset;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::message::SignedMessage;
@@ -365,6 +368,11 @@ pub mod tests {
         msg_chain::{create_message_chains, Chains},
         msg_pool::MessagePool,
     };
+
+    pub fn make_range(block: &BlockHeader) -> Option<(Arc<Tipset>, i64)> {
+        let epoch = block.epoch();
+        Some((Arc::new(Tipset::from(block)), epoch))
+    }
 
     pub fn create_smsg(
         to: &Address,
@@ -467,7 +475,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(a)],
+            make_range(&a),
         )
         .await
         .unwrap();
@@ -535,7 +543,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(a)],
+            make_range(&a),
         )
         .await
         .unwrap();
@@ -557,7 +565,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b)],
+            make_range(&b),
         )
         .await
         .unwrap();
@@ -574,7 +582,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             vec![Tipset::from(b)],
-            Vec::new(),
+            None,
         )
         .await
         .unwrap();
@@ -968,5 +976,108 @@ pub mod tests {
                 m.sequence()
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_remove_messages() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::default();
+        tma.set_state_sequence(&sender, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+            &mut services,
+        )
+        .unwrap();
+
+        let mut head_updated = mpool.api.inner.lock().publisher_change.subscribe();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        mpool.add(smsg_vec[0].clone()).unwrap();
+        mpool.add(smsg_vec[1].clone()).unwrap();
+        mpool.add(smsg_vec[2].clone()).unwrap();
+        mpool.add(smsg_vec[3].clone()).unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 4);
+
+        let header_a = mock_block(1, 1);
+
+        mpool
+            .api
+            .inner
+            .lock()
+            .set_block_messages(&header_a, smsg_vec.clone());
+
+        let tipset_a = Tipset::from(&header_a.clone());
+
+        let ts = tipset_a.clone();
+        mpool.api.set_heaviest_tipset(Arc::new(ts));
+
+        head_updated.recv().await.unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert!(p.is_empty());
+
+        // clear and create a new vector
+        smsg_vec.clear();
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        mpool.add(smsg_vec[0].clone()).unwrap();
+        mpool.add(smsg_vec[1].clone()).unwrap();
+        mpool.add(smsg_vec[2].clone()).unwrap();
+        mpool.add(smsg_vec[3].clone()).unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 4);
+
+        // build chain a <- b <- c
+        let header_b = mock_block_with_parents(&tipset_a, 1, 1);
+        mpool
+            .api
+            .inner
+            .lock()
+            .set_block_messages(&header_b, smsg_vec.clone());
+        let tipset_b = Tipset::from(&header_b.clone());
+
+        let header_c = mock_block_with_parents(&tipset_b, 1, 1);
+        let tipset_c = Tipset::from(&header_c.clone());
+
+        // Test 1: calling set_heaviest_tipset does not clear mpool messages present in head ancestors
+        mpool.api.set_heaviest_tipset(Arc::new(tipset_c.clone()));
+
+        head_updated.recv().await.unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert_eq!(p.len(), 4);
+
+        // Test 2: calling set_tipset_chain clear all mpool messages in chain section a <- b <- c
+        mpool
+            .api
+            .set_tipset_chain((Arc::new(tipset_c), tipset_a.epoch()));
+
+        head_updated.recv().await.unwrap();
+
+        let (p, _) = mpool.pending().unwrap();
+        assert!(p.is_empty());
     }
 }
