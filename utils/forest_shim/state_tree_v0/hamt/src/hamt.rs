@@ -3,44 +3,13 @@
 
 use crate::node::Node;
 use crate::{Error, Hash, HashAlgorithm, Sha256, DEFAULT_BIT_WIDTH};
-use cid::Cid;
-use cid::multihash::Code;
-// use cid::{Cid, Code::Blake2b256};
+use cid::{Cid, Code::Blake2b256};
 use forest_hash_utils::BytesKey;
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-use fvm_ipld_encoding::tuple::{Serialize_tuple, Deserialize_tuple};
-use fvm_ipld_encoding::tuple::*;
-use serde::Deserialize;
+use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
-
-// #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-// pub struct TokenAmount {
-//     atto: num_bigint::BigInt,
-// }
-
-/// State of all actor implementations.
-#[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct ActorState {
-    /// Link to code for the actor.
-    pub code: Cid,
-    /// Link to the state of the actor.
-    pub state: Cid,
-    /// Sequence of the actor.
-    pub sequence: u64,
-    /// Tokens available to the actor.
-    pub balance: fvm_shared3::econ::TokenAmount,
-}
-
-#[test]
-fn test_deserialize() {
-    let data = std::fs::read("/root/forest/fails.bin").unwrap();
-    
-    let node: Node<BytesKey, ActorState, Sha256> = fvm_ipld_encoding::from_slice(&data).unwrap();
-}
 
 /// Implementation of the HAMT data structure for IPLD.
 ///
@@ -81,7 +50,9 @@ where
     }
 }
 
-impl<K: PartialEq, V: PartialEq, S: Blockstore, H: HashAlgorithm> PartialEq for Hamt<S, V, K, H> {
+impl<'a, K: PartialEq, V: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq
+    for Hamt<S, V, K, H>
+{
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
@@ -91,7 +62,7 @@ impl<BS, V, K, H> Hamt<BS, V, K, H>
 where
     K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned,
     V: Serialize + DeserializeOwned,
-    BS: Blockstore,
+    BS: BlockStore,
     H: HashAlgorithm,
 {
     pub fn new(store: BS) -> Self {
@@ -109,29 +80,26 @@ where
     }
 
     /// Lazily instantiate a hamt from this root Cid.
-    pub fn load(cid: &cid::Cid, store: BS) -> Result<Self, Error> {
+    pub fn load(cid: &Cid, store: BS) -> Result<Self, Error> {
         Self::load_with_bit_width(cid, store, DEFAULT_BIT_WIDTH)
     }
 
     /// Lazily instantiate a hamt from this root Cid with a specified bit width.
-    pub fn load_with_bit_width(cid: &cid::Cid, store: BS, bit_width: u32) -> Result<Self, Error> {
-        std::fs::write("test.bin", store.get(cid).unwrap().unwrap()).unwrap();
-        match store.get_cbor(cid)? {
+    pub fn load_with_bit_width(cid: &Cid, store: BS, bit_width: u32) -> Result<Self, Error> {
+        match store.get(cid)? {
             Some(root) => Ok(Self {
                 root,
                 store,
                 bit_width,
                 hash: Default::default(),
             }),
-            None => {
-                Err(Error::CidNotFound(cid.to_string()))
-            },
+            None => Err(Error::CidNotFound(cid.to_string())),
         }
     }
 
     /// Sets the root based on the Cid of the root node using the Hamt store
-    pub fn set_root(&mut self, cid: &cid::Cid) -> Result<(), Error> {
-        match self.store.get_cbor(cid)? {
+    pub fn set_root(&mut self, cid: &Cid) -> Result<(), Error> {
+        match self.store.get(cid)? {
             Some(root) => self.root = root,
             None => return Err(Error::CidNotFound(cid.to_string())),
         }
@@ -170,7 +138,7 @@ where
         V: PartialEq,
     {
         self.root
-            .set(key, value, self.store.borrow(), self.bit_width, true)
+            .set(key, value, &self.store, self.bit_width, true)
             .map(|(r, _)| r)
     }
 
@@ -204,7 +172,7 @@ where
         V: PartialEq,
     {
         self.root
-            .set(key, value, self.store.borrow(), self.bit_width, false)
+            .set(key, value, &self.store, self.bit_width, false)
             .map(|(_, set)| set)
     }
 
@@ -233,7 +201,7 @@ where
         Q: Hash + Eq,
         V: DeserializeOwned,
     {
-        match self.root.get(k, self.store.borrow(), self.bit_width)? {
+        match self.root.get(k, &self.store, self.bit_width)? {
             Some(v) => Ok(Some(v)),
             None => Ok(None),
         }
@@ -263,10 +231,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        Ok(self
-            .root
-            .get(k, self.store.borrow(), self.bit_width)?
-            .is_some())
+        Ok(self.root.get(k, &self.store, self.bit_width)?.is_some())
     }
 
     /// Removes a key from the HAMT, returning the value at the key if the key
@@ -293,14 +258,13 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.root
-            .remove_entry(k, self.store.borrow(), self.bit_width)
+        self.root.remove_entry(k, &self.store, self.bit_width)
     }
 
     /// Flush root and return Cid for hamt
-    pub fn flush(&mut self) -> Result<cid::Cid, Error> {
-        self.root.flush(self.store.borrow())?;
-        Ok(self.store.put_cbor(&self.root, Code::Blake2b256)?)
+    pub fn flush(&mut self) -> Result<Cid, Error> {
+        self.root.flush(&self.store)?;
+        Ok(self.store.put(&self.root, Blake2b256)?)
     }
 
     /// Returns true if the HAMT has no entries
@@ -336,6 +300,6 @@ where
         V: DeserializeOwned,
         F: FnMut(&K, &V) -> Result<(), Box<dyn StdError>>,
     {
-        self.root.for_each(self.store.borrow(), &mut f)
+        self.root.for_each(&self.store, &mut f)
     }
 }

@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use anyhow::{bail, Context};
 use cid::Cid;
 use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
-use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
+use fvm3::state_tree::{self, ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared::state::StateTreeVersion as StateTreeVersionV2;
@@ -16,8 +16,6 @@ use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::{address::Address, econ::TokenAmount, Inner};
-
-use self::state_tree_v0::StateTreeV0;
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -84,143 +82,6 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
     }
 }
 
-// ported from commit hash b622af
-pub mod state_tree_v0 {
-    use std::{cell::RefCell, collections::HashMap, error::Error};
-
-    use cid::Cid;
-    use fvm_ipld_blockstore::Blockstore;
-    use fvm_ipld_encoding3::CborStore;
-    use fvm_ipld_hamt::Hamt;
-    // use fvm_shared::state::StateRoot;
-
-    // use cid::Cid;
-    use fvm_ipld_encoding::repr::*;
-    use fvm_ipld_encoding::tuple::*;
-    use fvm_ipld_encoding::Cbor;
-    use libipld::Ipld;
-    use serde::{Deserialize, Serialize};
-
-    use crate::address::Address;
-    use crate::econ::TokenAmount;
-
-    /// State of all actor implementations.
-    #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-    pub struct ActorState {
-        /// Link to code for the actor.
-        pub code: Cid,
-        /// Link to the state of the actor.
-        pub state: Cid,
-        /// Sequence of the actor.
-        pub sequence: u64,
-        /// Tokens available to the actor.
-        pub balance: TokenAmount,
-    }
-
-
-    /// State tree implementation using hamt. This structure is not threadsafe and should only be used
-    /// in sync contexts.
-    pub struct StateTreeV0<S> {
-        hamt: hamtv0::Hamt<S, ActorState>,
-
-        version: StateTreeVersion,
-        info: Option<Cid>,
-
-        /// State cache
-        snaps: StateSnapshots,
-    }
-
-    /// Specifies the version of the state tree
-    #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr)]
-    #[repr(u64)]
-    pub enum StateTreeVersion {
-        /// Corresponds to actors < v2
-        V0,
-        /// Corresponds to actors = v2
-        V1,
-        /// Corresponds to actors = v3
-        V2,
-        /// Corresponds to actors = v4
-        V3,
-        /// Corresponds to actors >= v5
-        V4,
-    }
-
-    /// State root information. Contains information about the version of the state tree,
-    /// the root of the tree, and a link to the information about the tree.
-    #[derive(Deserialize_tuple, Serialize_tuple)]
-    pub struct StateRoot {
-        /// State tree version
-        pub version: StateTreeVersion,
-
-        /// Actors tree. The structure depends on the state root version.
-        pub actors: Cid,
-
-        /// Info. The structure depends on the state root version.
-        pub info: Cid,
-    }
-
-    impl<S> StateTreeV0<S>
-    where
-        S: Blockstore,
-    {
-        /// Constructor for a hamt state tree given an IPLD store
-        pub fn new_from_root(store: S, c: &Cid) -> Result<Self, Box<dyn std::error::Error>> {
-            // Try to load state root, if versioned
-            let (version, info, actors) = if let Ok(Some(StateRoot {
-                version,
-                info,
-                actors,
-            })) = store.get_cbor(c)
-            {
-                (StateTreeVersion::from(version), Some(info), actors)
-            } else {
-                // Fallback to v0 state tree if retrieval fails
-                (StateTreeVersion::V0, None, *c)
-            };
-
-            dbg!(&version, &info, &actors);
-
-            match version {
-                StateTreeVersion::V0 => {
-                    let a: Option<Ipld> = store.get_cbor(&actors).unwrap();
-                    dbg!(&a);
-                    let hamt: hamtv0::Hamt<S, ActorState> = hamtv0::Hamt::load_with_bit_width(&actors, store, 5).unwrap();
-
-                    Ok(Self {
-                        hamt,
-                        version,
-                        info,
-                        snaps: StateSnapshots::new(),
-                    })
-                }
-                _ => unimplemented!(),
-            }
-        }
-    }
-
-    /// Collection of state snapshots
-    struct StateSnapshots {
-        layers: Vec<StateSnapLayer>,
-    }
-
-    /// State snap shot layer
-    #[derive(Debug, Default)]
-    struct StateSnapLayer {
-        actors: RefCell<HashMap<Address, Option<ActorState>>>,
-        resolve_cache: RefCell<HashMap<Address, Address>>,
-    }
-
-    impl StateSnapshots {
-        /// State snapshot constructor
-        fn new() -> Self {
-            Self {
-                layers: vec![StateSnapLayer::default()],
-            }
-        }
-    }
-}
-
 /// FVM `StateTree` variant. The `new_from_root` constructor will try to resolve
 /// to a valid `StateTree` version or fail if we don't support it at the moment.
 /// Other methods usage should be transparent (using shimmed versions of
@@ -229,7 +90,7 @@ pub mod state_tree_v0 {
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
 pub enum StateTree<S> {
-    V0(state_tree_v0::StateTreeV0<S>),
+    V0(state_tree_v0::StateTree<S>),
     V2(StateTreeV2<S>),
     V3(StateTreeV3<S>),
 }
@@ -254,7 +115,7 @@ where
             Ok(StateTree::V3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
             Ok(StateTree::V2(st))
-        } else if let Ok(st) = StateTreeV0::new_from_root(store, c) {
+        } else if let Ok(st) = state_tree_v0::StateTree::new_from_root(store, c) {
             Ok(StateTree::V0(st))
         } else {
             bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version.")

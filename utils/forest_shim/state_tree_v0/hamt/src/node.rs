@@ -5,11 +5,8 @@ use super::bitfield::Bitfield;
 use super::hash_bits::HashBits;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
-use cid::multihash::{Blake2b256, Code};
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-// use cid::Code::Blake2b256;
-// use ipld_blockstore::BlockStore;
+use cid::Code::Blake2b256;
+use ipld_blockstore::BlockStore;
 use once_cell::unsync::OnceCell;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -47,8 +44,8 @@ where
 
 impl<'de, K, V, H> Deserialize<'de> for Node<K, V, H>
 where
-    K: DeserializeOwned + std::fmt::Debug,
-    V: DeserializeOwned + std::fmt::Debug,
+    K: DeserializeOwned,
+    V: DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -79,7 +76,7 @@ where
     H: HashAlgorithm,
     V: Serialize + DeserializeOwned,
 {
-    pub fn set<S: Blockstore>(
+    pub fn set<S: BlockStore>(
         &mut self,
         key: K,
         value: V,
@@ -103,7 +100,7 @@ where
     }
 
     #[inline]
-    pub fn get<Q: ?Sized, S: Blockstore>(
+    pub fn get<Q: ?Sized, S: BlockStore>(
         &self,
         k: &Q,
         store: &S,
@@ -126,7 +123,7 @@ where
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
-        S: Blockstore,
+        S: BlockStore,
     {
         let hash = H::hash(k);
         self.rm_value(&mut HashBits::new(&hash), bit_width, 0, k, store)
@@ -139,7 +136,7 @@ where
     pub(crate) fn for_each<S, F>(&self, store: &S, f: &mut F) -> Result<(), Box<dyn StdError>>
     where
         F: FnMut(&K, &V) -> Result<(), Box<dyn StdError>>,
-        S: Blockstore,
+        S: BlockStore,
     {
         for p in &self.pointers {
             match p {
@@ -147,7 +144,7 @@ where
                     if let Some(cached_node) = cache.get() {
                         cached_node.for_each(store, f)?
                     } else {
-                        let node = if let Some(node) = store.get_cbor(cid)? {
+                        let node = if let Some(node) = store.get(cid)? {
                             node
                         } else {
                             #[cfg(not(feature = "ignore-dead-links"))]
@@ -174,7 +171,7 @@ where
     }
 
     /// Search for a key.
-    fn search<Q: ?Sized, S: Blockstore>(
+    fn search<Q: ?Sized, S: BlockStore>(
         &self,
         q: &Q,
         store: &S,
@@ -188,7 +185,7 @@ where
         self.get_value(&mut HashBits::new(&hash), bit_width, 0, q, store)
     }
 
-    fn get_value<Q: ?Sized, S: Blockstore>(
+    fn get_value<Q: ?Sized, S: BlockStore>(
         &self,
         hashed_key: &mut HashBits,
         bit_width: u32,
@@ -214,7 +211,7 @@ where
                     // Link node is cached
                     cached_node.get_value(hashed_key, bit_width, depth + 1, key, store)
                 } else {
-                    let node: Box<Node<K, V, H>> = if let Some(node) = store.get_cbor(cid)? {
+                    let node: Box<Node<K, V, H>> = if let Some(node) = store.get(cid)? {
                         node
                     } else {
                         #[cfg(not(feature = "ignore-dead-links"))]
@@ -236,7 +233,7 @@ where
 
     /// Internal method to modify values.
     #[allow(clippy::too_many_arguments)]
-    fn modify_value<S: Blockstore>(
+    fn modify_value<S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
         bit_width: u32,
@@ -264,7 +261,7 @@ where
             Pointer::Link { cid, cache } => {
                 cache.get_or_try_init(|| {
                     store
-                        .get_cbor(cid)?
+                        .get(cid)?
                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))
                 })?;
                 let child_node = cache.get_mut().expect("filled line above");
@@ -358,7 +355,7 @@ where
     }
 
     /// Internal method to delete entries.
-    fn rm_value<Q: ?Sized, S: Blockstore>(
+    fn rm_value<Q: ?Sized, S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
         bit_width: u32,
@@ -384,7 +381,7 @@ where
             Pointer::Link { cid, cache } => {
                 cache.get_or_try_init(|| {
                     store
-                        .get_cbor(cid)?
+                        .get(cid)?
                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))
                 })?;
                 let child_node = cache.get_mut().expect("filled line above");
@@ -428,14 +425,14 @@ where
         }
     }
 
-    pub fn flush<S: Blockstore>(&mut self, store: &S) -> Result<(), Error> {
+    pub fn flush<S: BlockStore>(&mut self, store: &S) -> Result<(), Error> {
         for pointer in &mut self.pointers {
             if let Pointer::Dirty(node) = pointer {
                 // Flush cached sub node to clear it's cache
                 node.flush(store)?;
 
                 // Put node in blockstore and retrieve Cid
-                let cid = store.put_cbor(node, Code::Blake2b256)?;
+                let cid = store.put(node, Blake2b256)?;
 
                 // Can keep the flushed node in link cache
                 let cache = OnceCell::from(std::mem::take(node));

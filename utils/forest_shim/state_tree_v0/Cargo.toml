@@ -1,0 +1,19 @@
+[package]
+name = "state_tree_v0"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+num-bigint = { package = "forest_bigint", path = "./bigint", version = "0.1.1" }
+address = { package = "forest_address", version = "0.3" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+serde = { version = "1.0", features = ["derive"] }
+cid = { package = "forest_cid", path = "./cid", features = ["cbor", "json"] }
+ipld_hamt = { path = "./hamt" }
+ipld_blockstore = "0.1"
+serde_tuple = "0.5"
+forest_hash_utils = {path = "./hash_utils"}
+serde_repr = "0.1.7"
+thiserror = "1"

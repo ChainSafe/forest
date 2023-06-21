@@ -10,10 +10,10 @@ edition = "2018"
 cargo-fuzz = true
 
 [dependencies]
-ahash = "0.6"
-arbitrary = { version = "0.4", features = ["derive"] }
-db = { package = "forest_db", path = "../../../node/db" }
 libfuzzer-sys = "0.3"
+arbitrary = { version = "0.4", features = ["derive"] }
+ahash = "0.6"
+db = { package = "forest_db", path = "../../../node/db" }
 
 [dependencies.ipld_hamt]
 path = ".."

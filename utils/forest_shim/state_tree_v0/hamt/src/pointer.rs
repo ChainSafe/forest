@@ -1,60 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Sha256;
-
 use super::node::Node;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
-use forest_ipld::Ipld;
 use once_cell::unsync::OnceCell;
-use serde::de::{DeserializeOwned, self};
+use serde::de::DeserializeOwned;
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
-use std::convert::{TryFrom, TryInto};
-
-// fn deserialize_u8() {}
-// fn deserialize_any() {
-//     "" => serde_json::Value::String(...)
-//     1 => serde_json::Value::Number(...)
-// }
-
-#[test]
-fn pointer_round_trip() {
-    type Test = Pointer::<u8, u8, Sha256>;
-
-    let empty_values: Test = Pointer::Values(vec![]);
-    let values: Test = Pointer::Values(vec![KeyValuePair(1,1)]);
-    let link: Test = Pointer::Link { cid: Cid::default(), cache: OnceCell::new() };
-
-    for case in [empty_values, values, link] {
-        println!("{case:?}");
-        let serialized = fvm_ipld_encoding::to_vec(&case).unwrap();
-        let deserialized = fvm_ipld_encoding::from_slice::<Test>(&serialized).unwrap();
-        assert_eq!(deserialized, case);    
-    }
-}
-
-#[test]
-fn link_round_trip() {
-    type Test = Pointer::<u8, u8, Sha256>;
-    let link: Test = Pointer::Link { cid: Cid::default(), cache: OnceCell::new() };
-
-    let serialized = fvm_ipld_encoding::to_vec(&link).unwrap();
-    let deserialized = fvm_ipld_encoding::from_slice::<Test>(&serialized).unwrap();
-    assert_eq!(deserialized, link);    
-
-}
-
-#[test]
-fn cid_round_trip() {
-    let cid = Cid::default();
-    let serialized = fvm_ipld_encoding::to_vec(&cid).unwrap();
-    let deserialized = fvm_ipld_encoding::from_slice::<Cid>(&serialized).unwrap();
-    assert_eq!(deserialized, cid);    
-}
-
+use std::convert::TryFrom;
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug)]
@@ -112,7 +67,7 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 #[serde(untagged)]
 enum PointerDe<K, V> {
     Vals(Vec<KeyValuePair<K, V>>),
@@ -133,32 +88,15 @@ impl<K, V, H> From<PointerDe<K, V>> for Pointer<K, V, H> {
 
 impl<'de, K, V, H> Deserialize<'de> for Pointer<K, V, H>
 where
-    K: DeserializeOwned + std::fmt::Debug,
-    V: DeserializeOwned + std::fmt::Debug,
+    K: DeserializeOwned,
+    V: DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let pointer_de = 
-        PointerDe::<K, V>::deserialize(deserializer)?;
-        dbg!(pointer_de);
-        todo!()
-        // use serde_value::Value;
-        // let value = dbg!(Value::deserialize(deserializer))?;
-        // match value {
-        //     value @ Value::Seq(_) => {
-        //         let values = 
-        //         value.deserialize_into::<Vec<(K, V)>>().unwrap();
-        //         Ok(Self::Values(values.into_iter().map(|(k, v)|KeyValuePair(k, v)).collect()))
-        //     },
-        //     Value::Bytes(v) => {
-        //         let cid = dbg!(Cid::read_bytes(&v[..])).unwrap();
-        //         // let cid = value.deserialize_into::<Cid>().unwrap();
-        //         Ok(Self::Link{cid, cache: OnceCell::new()})
-        //     },
-        //     other => todo!(),
-        // }
+        let pointer_de: PointerDe<K, V> = Deserialize::deserialize(deserializer)?;
+        Ok(Pointer::from(pointer_de))
     }
 }
 

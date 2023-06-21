@@ -5,7 +5,7 @@ extern crate serde;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use forest_encoding::tuple::*;
-use hamtv0::Hamt;
+use ipld_hamt::Hamt;
 
 const ITEM_COUNT: u8 = 40;
 

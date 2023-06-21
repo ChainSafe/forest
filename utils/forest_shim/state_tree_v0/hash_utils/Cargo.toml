@@ -1,0 +1,12 @@
+[package]
+name = "forest_hash_utils"
+description = "Shared hashing utilities used in Ipld Hamt and shared references of it."
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
