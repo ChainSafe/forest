@@ -29,7 +29,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
         &self,
         store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<ActorMigrationOutput> {
+    ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: InitStateOld = store
             .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
@@ -38,9 +38,9 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
 
         let new_head = store.put_cbor_default(&out_state)?;
 
-        Ok(ActorMigrationOutput {
+        Ok(Some(ActorMigrationOutput {
             new_code_cid: self.0,
             new_head,
-        })
+        }))
     }
 }
