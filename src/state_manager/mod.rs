@@ -1014,8 +1014,7 @@ where
                                 candidate_receipt = None;
                             }
                         }
-                        HeadChange::Apply(tipsets) => {
-                            let (tipset, _) = tipsets;
+                        HeadChange::Apply((tipset, _)) => {
                             if candidate_tipset
                                 .as_ref()
                                 .map(|s| tipset.epoch() >= s.epoch() + confidence)
