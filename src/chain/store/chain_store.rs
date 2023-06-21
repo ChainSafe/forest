@@ -42,7 +42,6 @@ use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use nonempty::NonEmpty;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};

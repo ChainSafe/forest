@@ -13,7 +13,6 @@ use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_t
 use ahash::{HashMap, HashMapExt};
 use async_trait::async_trait;
 use cid::Cid;
-use nonempty::NonEmpty;
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
