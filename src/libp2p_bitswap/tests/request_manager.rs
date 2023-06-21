@@ -105,7 +105,7 @@ mod tests {
         let transport = tcp::tokio::Transport::default()
             .upgrade(core::upgrade::Version::V1)
             .authenticate(noise::NoiseAuthenticated::xx(&id_keys)?)
-            .multiplex(yamux::YamuxConfig::default())
+            .multiplex(yamux::Config::default())
             .timeout(TIMEOUT)
             .boxed();
         let behaviour = BitswapBehaviour::new(&[b"/test/ipfs/bitswap/1.0.0"], Default::default());

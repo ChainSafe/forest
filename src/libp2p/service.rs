@@ -34,8 +34,7 @@ use libp2p::{
     noise, ping,
     request_response::{self, RequestId, ResponseChannel},
     swarm::{SwarmBuilder, SwarmEvent},
-    yamux::YamuxConfig,
-    PeerId, Swarm, Transport,
+    yamux, PeerId, Swarm, Transport,
 };
 use log::{debug, error, info, trace, warn};
 use tokio_stream::wrappers::IntervalStream;
@@ -840,7 +839,7 @@ pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, Stre
     Ok(transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
-        .multiplex(YamuxConfig::default())
+        .multiplex(yamux::Config::default())
         .timeout(Duration::from_secs(20))
         .boxed())
 }
