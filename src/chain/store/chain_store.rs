@@ -877,7 +877,7 @@ pub mod headchange_json {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
                 HeadChange::Apply(tipsets) => {
                     let (tipset, _) = tipsets;
-                    HeadChangeJson::Apply(TipsetJson(tipset.clone()))
+                    HeadChangeJson::Apply(TipsetJson(tipset))
                 }
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
