@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
-#![allow(unused)] // # 2991
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
