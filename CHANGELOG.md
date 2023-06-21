@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
+
 ### Changed
 
 ### Removed
