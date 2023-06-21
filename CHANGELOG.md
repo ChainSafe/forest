@@ -39,7 +39,7 @@
 ### Fixed
 
 [#2761](https://github.com/ChainSafe/forest/issues/2761): Fix issue with
-  messages that where not properly deleted from Forest mpool.
+messages that where not properly deleted from Forest mpool.
 
 ## Forest v0.10.0 "Premature"
 
