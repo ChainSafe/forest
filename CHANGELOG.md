@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
+  `forest-cli state diff ...`
+
 ### Changed
 
 ### Removed
