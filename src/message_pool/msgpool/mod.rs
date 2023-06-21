@@ -215,7 +215,7 @@ pub async fn head_change<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
     revert: Vec<Tipset>,
-    apply: Vec<Tipset>,
+    apply: Option<(Arc<Tipset>, i64)>,
 ) -> Result<(), Error>
 where
     T: Provider + 'static,
@@ -241,35 +241,54 @@ where
         }
     }
 
-    for ts in apply.into_iter().rev() {
-        for b in ts.blocks() {
-            let (msgs, smsgs) = api.messages_for_block(b)?;
+    if let Some((head, last_head_epoch)) = apply {
+        let mut ts = head.clone();
+        loop {
+            for b in ts.blocks() {
+                let (msgs, smsgs) = api.messages_for_block(b)?;
 
-            for msg in smsgs {
-                remove_from_selected_msgs(
-                    &msg.from(),
-                    pending,
-                    msg.sequence(),
-                    rmsgs.borrow_mut(),
-                )?;
-                if !repub && republished.write().insert(msg.cid()?) {
-                    repub = true;
+                for msg in smsgs {
+                    remove_from_selected_msgs(
+                        &msg.from(),
+                        pending,
+                        msg.sequence(),
+                        rmsgs.borrow_mut(),
+                    )?;
+                    // TODO: understand the purpose of republishing those
+                    if !repub && republished.write().insert(msg.cid()?) {
+                        repub = true;
+                    }
+                }
+                for msg in msgs {
+                    remove_from_selected_msgs(
+                        &msg.from.into(),
+                        pending,
+                        msg.sequence,
+                        rmsgs.borrow_mut(),
+                    )?;
+                    // TODO: understand the purpose of republishing those
+                    if !repub && republished.write().insert(msg.cid()?) {
+                        repub = true;
+                    }
                 }
             }
-            for msg in msgs {
-                remove_from_selected_msgs(
-                    &msg.from.into(),
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
-                if !repub && republished.write().insert(msg.cid()?) {
-                    repub = true;
+
+            if pending.read().is_empty() {
+                break;
+            }
+
+            if let Ok(pts) = api.load_tipset(ts.parents()) {
+                // We want to remove messages in the range [last_head_epoch, HEAD]
+                if pts.epoch() >= last_head_epoch {
+                    ts = pts;
+                    continue;
                 }
             }
+            break;
         }
-        *cur_tipset.lock() = Arc::new(ts);
+        *cur_tipset.lock() = head;
     }
+
     if repub {
         repub_trigger
             .send_async(())

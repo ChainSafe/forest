@@ -224,16 +224,12 @@ where
                     Ok(ts) => {
                         let (cur, rev, app) = match ts {
                             HeadChange::Current(_tipset) => continue,
-                            HeadChange::Revert(tipset) => (
-                                cur_tipset.clone(),
-                                vec![tipset.as_ref().clone()],
-                                Vec::new(),
-                            ),
-                            HeadChange::Apply(tipsets) => (
-                                cur_tipset.clone(),
-                                Vec::new(),
-                                tipsets.iter().map(|ts| ts.as_ref().clone()).collect(),
-                            ),
+                            HeadChange::Revert(tipset) => {
+                                (cur_tipset.clone(), vec![tipset.as_ref().clone()], None)
+                            }
+                            HeadChange::Apply(tipsets) => {
+                                (cur_tipset.clone(), Vec::new(), Some(tipsets))
+                            }
                         };
                         head_change(
                             api.as_ref(),

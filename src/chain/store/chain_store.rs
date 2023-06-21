@@ -68,7 +68,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
-    Apply(NonEmpty<Arc<Tipset>>),
+    Apply((Arc<Tipset>, i64)),
     Revert(Arc<Tipset>),
 }
 
@@ -192,31 +192,17 @@ where
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
     /// `{crate::chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, tipset: Arc<Tipset>) -> Result<(), Error> {
-        let epoch = self.heaviest_tipset().epoch();
-        let last_head_epoch = if epoch == 0 {
-            // Workaround in case of genesis tipset found
-            tipset.epoch()
-        } else {
-            epoch
-        };
+        let last_head_epoch = self.heaviest_tipset().epoch();
 
         self.file_backed_heaviest_tipset_keys
             .lock()
             .set_inner(tipset.key().clone())?;
 
-        let mut tipsets = NonEmpty::new(tipset.clone());
-        let mut cur_tipset = tipset;
-        while let Ok(ts) = self.tipset_from_keys(cur_tipset.parents()) {
-            if ts.epoch() >= last_head_epoch {
-                tipsets.push(ts.clone());
-                cur_tipset = ts.clone();
-            } else {
-                break;
-            }
-        }
-        log::info!("vec size {}", tipsets.len());
-
-        if self.publisher.send(HeadChange::Apply(tipsets)).is_err() {
+        if self
+            .publisher
+            .send(HeadChange::Apply((tipset, last_head_epoch)))
+            .is_err()
+        {
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
@@ -891,7 +877,8 @@ pub mod headchange_json {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
                 HeadChange::Apply(tipsets) => {
-                    HeadChangeJson::Apply(TipsetJson(tipsets.first().clone()))
+                    let (tipset, _) = tipsets;
+                    HeadChangeJson::Apply(TipsetJson(tipset.clone()))
                 }
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }

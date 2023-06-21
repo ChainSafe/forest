@@ -116,6 +116,7 @@ where
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         Ok(self.sm.chain_store().tipset_from_keys(tsk)?)
     }
+
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         crate::chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)

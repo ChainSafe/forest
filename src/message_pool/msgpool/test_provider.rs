@@ -71,9 +71,7 @@ impl TestApi {
 
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
-        self.publisher
-            .send(HeadChange::Apply(NonEmpty::new(ts)))
-            .unwrap();
+        self.publisher.send(HeadChange::Apply((ts, 0))).unwrap();
     }
 
     pub fn next_block(&self) -> BlockHeader {

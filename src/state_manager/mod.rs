@@ -1019,8 +1019,7 @@ where
                             }
                         }
                         HeadChange::Apply(tipsets) => {
-                            // TODO: test
-                            let tipset = tipsets.first().clone();
+                            let (tipset, _) = tipsets;
                             if candidate_tipset
                                 .as_ref()
                                 .map(|s| tipset.epoch() >= s.epoch() + confidence)
