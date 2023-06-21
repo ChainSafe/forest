@@ -17,21 +17,22 @@ in case of absence, passing the task to a different team member.
    Cherry-picking of patches may be necessary.
 3. Run the manual tests steps outlined in the TEST_PLAN.md. Caveat: Right now
    there are no manual test steps so this step can be skipped.
-4. Once the changes in step 1 and step 2 have been merged, tag the commit with
+4. Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
+   version change in the release.
+5. Once the changes in step 1 and step 2 have been merged, tag the commit with
    the new version number. The version tag should start with a lowercase 'v'.
    Example: v0.4.1
-5. Publish the new crate on crates.io according to the
+6. Publish the new crate on crates.io according to the
    [manual](https://doc.rust-lang.org/cargo/reference/publishing.html).
-6. Go to https://github.com/ChainSafe/forest/releases/new and create a new
+7. Go to https://github.com/ChainSafe/forest/releases/new and create a new
    release. Use the tag created in step 4, follow the title convention of the
    previous releases, and write a small summary of the release (similar or
    identical to the summary in the CHANGELOG.md file).
-7. Verify that the new release contains assets for both Linux and MacOS (the
+8. Verify that the new release contains assets for both Linux and MacOS (the
    assets are automatically generated and should show up after 30 minutes to an
    hour).
-8. Verify that the new release is available in the Github Container Registry.
+9. Verify that the new release is available in the Github Container Registry.
    Use `docker pull ghcr.io/chainsafe/forest:<version>` and ensure that it is
    present in the [packages][1]
-9. Make sure the `Cargo.lock` change is included in the pull request.
 
 [1]: https://github.com/ChainSafe/forest/pkgs/container/forest
