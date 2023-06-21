@@ -20,7 +20,7 @@ in case of absence, passing the task to a different team member.
 4. Once the changes in step 1 and step 2 have been merged, tag the commit with
    the new version number. The version tag should start with a lowercase 'v'.
    Example: v0.4.1
-5. Publish new crates on crates.io according to the
+5. Publish the new crate on crates.io according to the
    [manual](https://doc.rust-lang.org/cargo/reference/publishing.html).
 6. Go to https://github.com/ChainSafe/forest/releases/new and create a new
    release. Use the tag created in step 4, follow the title convention of the
