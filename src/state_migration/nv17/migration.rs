@@ -33,7 +33,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         &mut self,
         store: BS,
         actors_in: &mut StateTree<BS>,
-        new_manifest: &Cid,
+        new_manifest: &Manifest,
         prior_epoch: ChainEpoch,
         chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
@@ -47,8 +47,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let current_manifest_data = system_actor_state.builtin_actors;
 
         let current_manifest = Manifest::load_with_actors(&store, &current_manifest_data, 1)?;
-
-        let new_manifest = Manifest::load(&store, new_manifest)?;
 
         let verifreg_actor_v8 = actors_in
             .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
@@ -80,7 +78,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         current_manifest.builtin_actors().for_each(|(name, code)| {
             let new_code = new_manifest.code_by_name(name).unwrap();
             if name != MARKET_ACTOR_NAME && name != VERIFREG_ACTOR_NAME {
-                println!("Add nil_migrator, name: {name}, code: {code}, new_code: {new_code}");
                 self.add_migrator(*code, nil_migrator(*new_code));
             }
         });
@@ -92,15 +89,24 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             system::system_migrator(&new_manifest),
         );
 
+        // Sets empty datacap actor to migrate from
         let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
-        // self.add_migrator(
-        //     // Use the new code as prior code here, have set an empty actor in `run_migrations` to
-        //     // migrate from
-        //     *datacap_code,
-        //     datacap::datacap_migrator(verifreg_state_v8, pending_verified_deal_size)?,
-        // );
+        actors_in.set_actor(
+            &fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ADDR.into(),
+            ActorState::new_empty(*datacap_code, None),
+        )?;
+        actors_in.flush()?;
+        self.add_migrator(
+            // Use the new code as prior code here, have set an empty actor in `run_migrations` to
+            // migrate from
+            *datacap_code,
+            datacap::datacap_migrator(
+                *datacap_code,
+                verifreg_state_v8,
+                pending_verified_deal_size,
+            )?,
+        );
 
-        // On go side, cid is found by name `storageminer`, however, no equivilent API is available on rust side.
         let miner_v8_actor_code = current_manifest.code_by_name(MINER_ACTOR_NAME)?;
         let miner_v9_actor_code = new_manifest.code_by_name(MINER_ACTOR_NAME)?;
 
@@ -162,6 +168,8 @@ where
         )
     })?;
 
+    let new_manifest = Manifest::load(&blockstore, &new_manifest_cid)?;
+
     let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
 
     // Add migration specification verification
@@ -171,19 +179,10 @@ where
     migration.add_nv17_migrations(
         blockstore.clone(),
         &mut actors_in,
-        &new_manifest_cid,
+        &new_manifest,
         epoch,
         chain_config,
     )?;
-
-    // Sets empty datacap actor to migrate from
-    let new_manifest = Manifest::load(&blockstore, &new_manifest_cid)?;
-    let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
-    actors_in.set_actor(
-        &fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ADDR.into(),
-        ActorState::new_empty(*datacap_code, None),
-    )?;
-    actors_in.flush()?;
 
     let mut actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
     let actors_out_cid = actors_out.flush()?;

@@ -120,7 +120,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     address,
                     actor_state,
                 } = job_output;
-                    println!("Setting ACTOR_ADDR {} {}", address.id().unwrap(), (*actor_state).code);
                     actors_out
                         .set_actor(&address, actor_state)
                         .unwrap_or_else(|e| {

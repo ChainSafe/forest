@@ -8,8 +8,10 @@ use std::{str::FromStr, sync::Arc};
 
 use crate::shim::{bigint::StoragePowerV2, econ::TokenAmount_v2};
 use crate::utils::db::CborStoreExt;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
+use num_traits::Zero;
 
 use super::super::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
@@ -22,15 +24,18 @@ lazy_static::lazy_static! {
 }
 
 pub struct DataCapMigrator {
+    new_code_cid: Cid,
     verifreg_state: fil_actor_verifreg_state::v8::State,
     pending_verified_deal_size: u64,
 }
 
 pub(super) fn datacap_migrator<BS: Blockstore + Clone + Send + Sync>(
+    new_code_cid: Cid,
     verifreg_state: fil_actor_verifreg_state::v8::State,
     pending_verified_deal_size: u64,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>> {
     Ok(Arc::new(DataCapMigrator {
+        new_code_cid,
         verifreg_state,
         pending_verified_deal_size,
     }))
@@ -49,7 +54,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             &store,
         )?;
 
-        let mut token_supply = StoragePowerV2::default();
+        let mut token_supply = StoragePowerV2::zero();
 
         let mut balances_map =
             fil_actors_shared::v9::make_empty_map::<_, StoragePowerV2>(&store, HAMT_BIT_WIDTH);
@@ -75,10 +80,20 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
         let verifreg_balance =
             StoragePowerV2::from(self.pending_verified_deal_size) * DATA_CAP_GRANULARITY;
         token_supply = &token_supply + &verifreg_balance;
-        balances_map.set(
-            BytesKey(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()),
-            verifreg_balance,
-        )?;
+        println!(
+            "balances_map before set: {}, verifreg_balance: {verifreg_balance}",
+            balances_map.flush()?
+        );
+        println!(
+            "balances_map set key {}",
+            hex::encode(
+                fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()
+            )
+        );
+        // balances_map.set(
+        //     BytesKey(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()),
+        //     verifreg_balance,
+        // )?;
 
         let mut token =
             frc46_token::token::state::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
@@ -91,10 +106,12 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
             token,
         };
 
+        println!("datacap_state: {datacap_state:?}");
+
         let new_head = store.put_cbor_default(&datacap_state)?;
 
         Ok(ActorMigrationOutput {
-            new_code_cid: input.head,
+            new_code_cid: self.new_code_cid,
             new_head,
         })
     }

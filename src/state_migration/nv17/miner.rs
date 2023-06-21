@@ -377,8 +377,8 @@ mod tests {
     use super::*;
     use crate::networks::Height;
     use crate::shim::machine::{
-        MARKET_ACTOR_NAME, MINER_ACTOR_NAME, POWER_ACTOR_NAME, REWARD_ACTOR_NAME,
-        VERIFREG_ACTOR_NAME,
+        DATACAP_ACTOR_NAME, MARKET_ACTOR_NAME, MINER_ACTOR_NAME, POWER_ACTOR_NAME,
+        REWARD_ACTOR_NAME, VERIFREG_ACTOR_NAME,
     };
     use crate::shim::{
         econ::TokenAmount,
@@ -603,7 +603,12 @@ mod tests {
         );
 
         let (new_manifest_cid, new_manifest) = make_test_manifest(&store, "fil/9/")?;
-
+        println!(
+            "new_manifest_cid: {new_manifest_cid}, new_manifest.actors_cid: {}",
+            new_manifest.actors_cid()
+        );
+        let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
+        println!("datacap_code from new manifest 1: {datacap_code}");
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
             bundle.manifest = new_manifest_cid;
