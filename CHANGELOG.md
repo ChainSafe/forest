@@ -25,11 +25,63 @@
 
 ## Forest unreleased
 
+### Breaking
+
+### Added
+
+- [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
+  `forest-cli state diff ...`
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.10.0 "Premature"
+
+### Breaking
+
+- [#3007](https://github.com/ChainSafe/forest/pull/3007): Optimize DB
+  parameters. This requires all existing databases to be re-initialized.
+
+### Fixed
+
+- [#3006](https://github.com/ChainSafe/forest/issues/3006): Fix `premature end`
+  error when exporting a snapshot.
+
+## Forest v0.9.0 "Fellowship"
+
+Notable updates:
+
+- `--compressed` option removed from CLI, snapshots are now always compressed.
+- The `dir`, `list`, `prune` and `remove` snapshot commands have been removed
+  from the CLI.
+- Snapshots are fetched to current directory by default.
+- Added new subcommand `forest-cli info show`.
+- `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
+  subcommand are now implemented.
+- IPLD graph can now be downloaded via bitswap.
+- `sendFIL` function has been updated to match recent changes in the Forest send
+  command.
+- FIL amount parsing/printing has been improved and 2 new options are added to
+  forest-cli wallet list (--no-round and --no-abbrev).
+
+### Breaking
+
+- [#2873](https://github.com/ChainSafe/forest/issues/2873)
+  - remove `--compressed` from the CLI. Snapshots are now always compressed.
+  - Remove snapshot ops - snapshots fetched to the current directory by default.
+
 ### Added
 
 - [#2706](https://github.com/ChainSafe/forest/issues/2706): implement
   `Filecoin.ChainSetHead` RPC endpoint and `forest-cli chain set-head`
   subcommand.
+- [#2979](https://github.com/ChainSafe/forest/pull/2979): implement command for
+  downloading an IPLD graph via bitswap.
+- [#2578](https://github.com/ChainSafe/forest/pull/2578): implement initial
+  support for `forest-cli info`
 
 ### Changed
 
@@ -50,6 +102,15 @@
   `forest-cli`.
 
 ### Fixed
+
+- [#2967](https://github.com/ChainSafe/forest/issues/2967): Fix http-client
+  concurrency issues caused by fetching root certificates multiple times.
+- [#2958](https://github.com/ChainSafe/forest/issues/2958): Fix occasional
+  consensus fault.
+- [#2950](https://github.com/ChainSafe/forest/pull/2950): Fix cases where ctrl-c
+  would be ignored.
+- [#2934](https://github.com/ChainSafe/forest/issues/2934): Fix race condition
+  when connecting to development blockchains.
 
 ## Forest v0.8.2 "The Way"
 
