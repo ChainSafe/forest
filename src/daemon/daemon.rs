@@ -130,9 +130,9 @@ pub(super) async fn start(
             let file = write_to_file(
                 &gen_keypair
                     .clone()
-                    .into_ed25519()
-                    .ok_or(anyhow::anyhow!("couldn't convert keypair to ed25519"))?
-                    .encode(),
+                    .try_into_ed25519()
+                    .context("couldn't convert keypair to ed25519")?
+                    .to_bytes(),
                 &path,
                 "keypair",
             )?;

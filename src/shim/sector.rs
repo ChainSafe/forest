@@ -22,7 +22,7 @@ pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 ///
 /// # Examples
 /// ```
-///
+/// # use forest_filecoin::doctest_private::RegisteredSealProof;
 /// // Create FVM2 RegisteredSealProof normally
 /// let fvm2_proof = fvm_shared::sector::RegisteredSealProof::StackedDRG2KiBV1;
 ///
@@ -30,7 +30,7 @@ pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 /// let fvm3_proof = fvm_shared3::sector::RegisteredSealProof::StackedDRG2KiBV1;
 ///
 /// // Create a shim out of fvm2 proof, ensure conversions are correct
-/// let proof_shim = forest_filecoin::shim::sector::RegisteredSealProof::from(fvm2_proof);
+/// let proof_shim = RegisteredSealProof::from(fvm2_proof);
 /// assert_eq!(fvm3_proof, *proof_shim);
 /// assert_eq!(fvm2_proof, proof_shim.into());
 /// ```

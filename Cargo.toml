@@ -1,10 +1,11 @@
 [package]
 name = "forest-filecoin"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "Rust Filecoin implementation."
 
 [dependencies]
 ahash = "0.8"
@@ -233,6 +234,7 @@ overflow-checks = true
 default = ["paritydb", "jemalloc", "fil_cns"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
+doctest-private = []                          # see lib.rs::doctest_private
 
 # Databases
 paritydb = ["dep:parity-db"]

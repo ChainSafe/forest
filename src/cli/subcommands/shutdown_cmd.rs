@@ -4,7 +4,7 @@
 use crate::rpc_client::shutdown;
 
 use super::{handle_rpc_err, Config};
-use crate::cli::cli::prompt_confirm;
+use crate::cli::subcommands::prompt_confirm;
 
 #[derive(Debug, clap::Args)]
 pub struct ShutdownCommand {

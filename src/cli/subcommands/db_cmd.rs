@@ -12,7 +12,7 @@ use chrono::Utc;
 use clap::Subcommand;
 use log::error;
 
-use crate::cli::cli::{handle_rpc_err, prompt_confirm};
+use crate::cli::subcommands::{handle_rpc_err, prompt_confirm};
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {

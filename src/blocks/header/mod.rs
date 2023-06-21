@@ -32,12 +32,10 @@ pub mod json;
 ///
 /// Usage:
 /// ```
-/// use forest_filecoin::blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use forest_filecoin::shim::address::Address;
+/// # use forest_filecoin::doctest_private::{BlockHeader, TipsetKeys, Ticket, Signature, Address};
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;
-/// use forest_filecoin::shim::crypto::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
 ///

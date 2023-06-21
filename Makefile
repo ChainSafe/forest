@@ -113,7 +113,8 @@ test:
 	cargo nextest run --features=rocksdb,rustalloc,fil_cns  --no-default-features db
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
-	cargo test --doc
+	# see also lib.rs::doctest_private
+	cargo test --doc --features doctest-private
 
 test-release:
 	cargo nextest run --release

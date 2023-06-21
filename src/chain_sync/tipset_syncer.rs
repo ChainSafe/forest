@@ -16,7 +16,7 @@ use crate::blocks::{
 };
 use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use crate::libp2p::chain_exchange::TipsetBundle;
-use crate::message::{message::valid_for_block_inclusion, Message as MessageTrait};
+use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
 use crate::shim::{
     address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate,
