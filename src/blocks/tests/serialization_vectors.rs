@@ -18,7 +18,6 @@ use serde::Deserialize;
 use std::str::FromStr as _;
 
 #[test]
-#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn header_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {
@@ -27,8 +26,6 @@ fn header_cbor_vectors() {
         cbor_hex: String,
         cid: String,
     }
-
-    set_current_network(Network::Testnet);
 
     let s = include_str!("../../../serialization-vectors/block_headers.json");
 
@@ -48,7 +45,6 @@ fn header_cbor_vectors() {
 }
 
 #[test]
-#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn signing_test() {
     #[derive(Deserialize)]
     #[serde(rename_all = "PascalCase")]
@@ -60,8 +56,6 @@ fn signing_test() {
         #[serde(with = "signature::json")]
         signature: Signature,
     }
-
-    set_current_network(Network::Testnet);
 
     let s = include_str!("../../../serialization-vectors/message_signing.json");
 
@@ -86,7 +80,6 @@ fn signing_test() {
 }
 
 #[test]
-#[ignore = "set_current_network sets global state and it messes up other tests"]
 fn unsigned_message_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {
@@ -94,8 +87,6 @@ fn unsigned_message_cbor_vectors() {
         message: Message,
         hex_cbor: String,
     }
-
-    set_current_network(Network::Testnet);
 
     let s = include_str!("../../../serialization-vectors/unsigned_messages.json");
 
