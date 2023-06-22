@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::cli_shared::{cli::LogConfig, logger};
 use crate::networks::ChainConfig;
+use crate::shim::address::{CurrentNetwork, Network};
 use crate::utils::io::ProgressBar;
 use crate::{
     cli::subcommands::{cli_error_and_die, Cli},
@@ -35,7 +36,7 @@ pub async fn main() -> anyhow::Result<()> {
                 }
             }
             if config.chain.is_testnet() {
-                crate::shim::address::CurrentNetwork::set_global(crate::shim::address::Network::Testnet);
+                CurrentNetwork::set_global(Network::Testnet);
             }
             // Run command
             match cmd {
