@@ -16,6 +16,7 @@
 - [Developer documentation](./developer_documentation/introduction.md)
   - [Application architecture](./developer_documentation/application_architecture.md)
   - [Contributing](./developer_documentation/contributing.md)
+  - [Local GH Actions](./developer_documentation/local_actions.md)
   - [Mainnet compatibility](./developer_documentation/mainnet_compatibility.md)
   - [Memory analysis](./developer_documentation/memory-analysis.md)
   - [Release checklist](./developer_documentation/release_checklist.md)
