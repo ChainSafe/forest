@@ -227,9 +227,14 @@ where
                             HeadChange::Revert(tipset) => {
                                 (cur_tipset.clone(), vec![tipset.as_ref().clone()], None)
                             }
-                            HeadChange::Apply(tipsets) => {
-                                (cur_tipset.clone(), Vec::new(), Some(tipsets))
-                            }
+                            HeadChange::Apply {
+                                tipset,
+                                last_head_epoch,
+                            } => (
+                                cur_tipset.clone(),
+                                Vec::new(),
+                                Some((tipset, last_head_epoch)),
+                            ),
                         };
                         head_change(
                             api.as_ref(),

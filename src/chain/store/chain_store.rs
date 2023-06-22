@@ -67,7 +67,10 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
-    Apply((Arc<Tipset>, i64)),
+    Apply {
+        tipset: Arc<Tipset>,
+        last_head_epoch: i64,
+    },
     Revert(Arc<Tipset>),
 }
 
@@ -199,7 +202,10 @@ where
 
         if self
             .publisher
-            .send(HeadChange::Apply((tipset, last_head_epoch)))
+            .send(HeadChange::Apply {
+                tipset,
+                last_head_epoch,
+            })
             .is_err()
         {
             debug!("did not publish head change, no active receivers");
@@ -875,10 +881,10 @@ pub mod headchange_json {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
                 HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
-                HeadChange::Apply(tipsets) => {
-                    let (tipset, _) = tipsets;
-                    HeadChangeJson::Apply(TipsetJson(tipset))
-                }
+                HeadChange::Apply {
+                    tipset,
+                    last_head_epoch: _,
+                } => HeadChangeJson::Apply(TipsetJson(tipset)),
                 HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
         }
