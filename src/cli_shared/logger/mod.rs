@@ -58,7 +58,7 @@ pub fn setup_logger(
         None
     };
     let (chrome_layer, guard) = ChromeLayerBuilder::new()
-        .trace_style(TraceStyle::Async)
+        // .trace_style(TraceStyle::Async)
         .build();
 
     tracing_subscriber::registry()

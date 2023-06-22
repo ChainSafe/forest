@@ -6,7 +6,8 @@ mod errors;
 mod metrics;
 mod utils;
 use crate::state_migration::run_state_migrations;
-use anyhow::bail;
+use anyhow::{bail, Context as _};
+use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
 mod vm_circ_supply;
 pub use self::errors::*;
@@ -205,6 +206,9 @@ pub struct StateManager<DB> {
     engine: crate::shim::machine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
 }
+
+#[allow(clippy::type_complexity)] // TODO(aatifsyeđ): smell
+const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -444,11 +448,8 @@ where
 
                     (*tipset.parent_state(), *message_receipts.message_receipts())
                 } else {
-                    // generic constants are not implemented yet this is a lowcost method for now
-                    let no_func =
-                        None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
                     let ts_state = self
-                        .compute_tipset_state(Arc::clone(tipset), no_func)
+                        .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
                         .await?;
                     debug!("Completed tipset state calculation {:?}", tipset.cids());
                     ts_state
@@ -754,6 +755,7 @@ where
 
     /// Performs a state transition, and returns the state and receipt root of
     /// the transition.
+    #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking<CB: 'static>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
@@ -1231,15 +1233,11 @@ where
     }
 
     /// Validates all tipsets at epoch `start..=end`
-    ///
-    /// Chain validation is a compute-heavy, single threaded task.
     #[tracing::instrument(skip(self))]
-    pub async fn validate_chain_range_single_thread(
-        self: &Arc<Self>,
-        epochs: RangeInclusive<i64>,
-    ) -> anyhow::Result<()> {
+    pub fn validate_parallel(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
+        use rayon::iter::ParallelIterator as _;
+
         let heaviest = self.cs.heaviest_tipset();
-        // TODO(aatifsyed): this is non-trivial work, and we could bottleneck here...
         let end = self
             .cs
             .tipset_by_height(*epochs.end(), heaviest, false)
@@ -1253,27 +1251,36 @@ where
             Some(child)
         });
 
-        for (child, parent) in tipsets
+        tipsets
             .take_while(|tipset| tipset.epoch() >= *epochs.start())
             .tuple_windows()
-        {
-            info!(height = parent.epoch(), "compute parent state");
-            let (actual_state, actual_receipt) = self.tipset_state(&parent).await.unwrap();
-            let expected_receipt = child.blocks().first().unwrap().message_receipts();
-            let expected_state = child.parent_state();
-            if (expected_state, expected_receipt) != (&actual_state, &actual_receipt) {
-                error!(
-                    height = child.epoch(),
-                    ?expected_state,
-                    ?expected_receipt,
-                    ?actual_state,
-                    ?actual_receipt,
-                    "state mismatch"
-                );
-                bail!("state mismatch");
-            }
-        }
-        Ok(())
+            .par_bridge()
+            .try_for_each(|(child, parent)| {
+                info!(height = parent.epoch(), "compute parent state");
+                let (actual_state, actual_receipt) = self
+                    .compute_tipset_state_blocking(parent, NO_CALLBACK)
+                    .context("couldn't compute tipset state")?;
+                let expected_receipt = child
+                    .blocks()
+                    .first()
+                    .context("child has no receipts")?
+                    .message_receipts();
+                let expected_state = child.parent_state();
+                match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
+                    true => Ok(()),
+                    false => {
+                        error!(
+                            height = child.epoch(),
+                            ?expected_state,
+                            ?expected_receipt,
+                            ?actual_state,
+                            ?actual_receipt,
+                            "state mismatch"
+                        );
+                        bail!("state mismatch");
+                    }
+                }
+            })
     }
 
     pub async fn validate_chain(

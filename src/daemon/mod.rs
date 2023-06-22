@@ -439,7 +439,7 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
-    try_join_all([state_manager.validate_chain_range_single_thread(447000..=450000)]).await?;
+    state_manager.validate_parallel(400000..=450000);
     return Ok(());
 
     if config.client.snapshot {
