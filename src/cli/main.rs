@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::ffi::OsString;
 use std::sync::Arc;
 
 use crate::cli_shared::{cli::LogConfig, logger};
@@ -14,53 +15,63 @@ use clap::Parser;
 
 use super::subcommands::Subcommand;
 
-#[tokio::main]
-pub async fn main() -> anyhow::Result<()> {
+pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
+where
+    ArgT: Into<OsString> + Clone,
+{
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::parse();
+    let Cli { opts, cmd } = Cli::parse_from(args);
 
-    match opts.to_config() {
-        Ok((mut config, _)) => {
-            logger::setup_logger(&config.log, &opts);
-            ProgressBar::set_progress_bars_visibility(config.client.show_progress_bars);
-            if opts.dry_run {
-                return Ok(());
-            }
-            let opts = &opts;
-            if opts.chain.is_none() {
-                if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
-                    if name == "calibnet" {
-                        config.chain = Arc::new(ChainConfig::calibnet());
-                    } else if name == "devnet" {
-                        config.chain = Arc::new(ChainConfig::devnet());
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            match opts.to_config() {
+                Ok((mut config, _)) => {
+                    logger::setup_logger(&config.log, &opts);
+                    ProgressBar::set_progress_bars_visibility(config.client.show_progress_bars);
+                    if opts.dry_run {
+                        return Ok(());
+                    }
+                    let opts = &opts;
+                    if opts.chain.is_none() {
+                        if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
+                            if name == "calibnet" {
+                                config.chain = Arc::new(ChainConfig::calibnet());
+                            } else if name == "devnet" {
+                                config.chain = Arc::new(ChainConfig::devnet());
+                            }
+                        }
+                    }
+                    if config.chain.is_testnet() {
+                        crate::shim::address::set_current_network(
+                            crate::shim::address::Network::Testnet,
+                        );
+                    }
+                    // Run command
+                    match cmd {
+                        Subcommand::Fetch(cmd) => cmd.run(config).await,
+                        Subcommand::Chain(cmd) => cmd.run(config).await,
+                        Subcommand::Auth(cmd) => cmd.run(config).await,
+                        Subcommand::Net(cmd) => cmd.run(config).await,
+                        Subcommand::Wallet(cmd) => cmd.run(config).await,
+                        Subcommand::Sync(cmd) => cmd.run(config).await,
+                        Subcommand::Mpool(cmd) => cmd.run(config),
+                        Subcommand::State(cmd) => cmd.run(config).await,
+                        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
+                        Subcommand::Send(cmd) => cmd.run(config).await,
+                        Subcommand::Info(cmd) => cmd.run(config, opts).await,
+                        Subcommand::DB(cmd) => cmd.run(&config).await,
+                        Subcommand::Snapshot(cmd) => cmd.run(config).await,
+                        Subcommand::Attach(cmd) => cmd.run(config),
+                        Subcommand::Shutdown(cmd) => cmd.run(config).await,
                     }
                 }
+                Err(e) => {
+                    logger::setup_logger(&LogConfig::default(), &opts);
+                    cli_error_and_die(format!("Error parsing config: {e}"), 1);
+                }
             }
-            if config.chain.is_testnet() {
-                crate::shim::address::set_current_network(crate::shim::address::Network::Testnet);
-            }
-            // Run command
-            match cmd {
-                Subcommand::Fetch(cmd) => cmd.run(config).await,
-                Subcommand::Chain(cmd) => cmd.run(config).await,
-                Subcommand::Auth(cmd) => cmd.run(config).await,
-                Subcommand::Net(cmd) => cmd.run(config).await,
-                Subcommand::Wallet(cmd) => cmd.run(config).await,
-                Subcommand::Sync(cmd) => cmd.run(config).await,
-                Subcommand::Mpool(cmd) => cmd.run(config),
-                Subcommand::State(cmd) => cmd.run(config).await,
-                Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
-                Subcommand::Send(cmd) => cmd.run(config).await,
-                Subcommand::Info(cmd) => cmd.run(config, opts).await,
-                Subcommand::DB(cmd) => cmd.run(&config).await,
-                Subcommand::Snapshot(cmd) => cmd.run(config).await,
-                Subcommand::Attach(cmd) => cmd.run(config),
-                Subcommand::Shutdown(cmd) => cmd.run(config).await,
-            }
-        }
-        Err(e) => {
-            logger::setup_logger(&LogConfig::default(), &opts);
-            cli_error_and_die(format!("Error parsing config: {e}"), 1);
-        }
-    }
+        })
 }
