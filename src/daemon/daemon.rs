@@ -111,7 +111,7 @@ pub(super) async fn start(
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
-        crate::shim::address::set_current_network(crate::shim::address::Network::Testnet);
+        crate::shim::address::set_global_network(crate::shim::address::Network::Testnet);
     }
 
     info!(
