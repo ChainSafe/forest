@@ -1237,14 +1237,15 @@ where
         // TODO(aatifsyed): this is non-trivial work, and we could bottleneck here...
         let end = self.cs.tipset_by_height(end, heaviest, false).unwrap();
 
-        // start at the end
-        let mut cursor = end;
-        for (parent, child) in std::iter::once(cursor.clone()) // start at the end
-            .chain(std::iter::repeat_with(|| {
-                // lookup the parent of the current tipset
-                let parent_of_cursor = self.cs.tipset_from_keys(cursor.key()).unwrap();
-                std::mem::replace(&mut cursor, parent_of_cursor)
-            }))
+        // lookup tipset parents as we go along
+        let tipsets = itertools::unfold(Some(end), |tipset| {
+            let child = tipset.take()?;
+            // if this has parents, unfold them in the next iteration
+            *tipset = self.cs.tipset_from_keys(child.parents()).ok();
+            Some(child)
+        });
+
+        for (parent, child) in tipsets
             .take_while(|tipset| tipset.epoch() >= start)
             .tuple_windows()
         {
