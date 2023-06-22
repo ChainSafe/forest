@@ -280,6 +280,11 @@ background:
 The command will block until the detached Forest process has started its RPC
 server, allowing you to chain some RPC command immediately after.
 
+### Forest snapshot links
+
+- [calibration network](https://forest.chainsafe.io/calibnet/snapshot-latest)
+- [main network](https://forest.chainsafe.io/mainnet/snapshot-latest)
+
 ### Documentation
 
 - [Forest Book]
