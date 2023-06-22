@@ -28,7 +28,11 @@ use crate::libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManage
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
-use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
+use crate::shim::{
+    address::{CurrentNetwork, Network},
+    clock::ChainEpoch,
+    version::NetworkVersion,
+};
 use crate::state_manager::StateManager;
 use crate::utils::{
     io::write_to_file, monitoring::MemStatsTracker,
@@ -135,7 +139,7 @@ pub(super) async fn start(
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
-        crate::shim::address::set_current_network(crate::shim::address::Network::Testnet);
+        CurrentNetwork::set_global(Network::Testnet);
     }
 
     info!(
@@ -440,12 +444,6 @@ pub(super) async fn start(
             validate_chain(&state_manager, validate_height).await?;
         }
     }
-
-    // For convenience, flush the database after we've potentially loaded a new
-    // snapshot. This ensures the snapshot won't have to be re-imported if
-    // Forest is interrupted. As of writing, flushing only affects RocksDB and
-    // is a no-op with ParityDB.
-    state_manager.blockstore().flush()?;
 
     // Halt
     if opts.halt_after_import {
