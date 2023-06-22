@@ -39,7 +39,7 @@ use crate::message_pool::{
     head_change, metrics,
     msgpool::{
         recover_sig, republish_pending_messages, select_messages_for_block,
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, PROPAGATION_DELAY_SECS, RBF_DENOM, RBF_NUM,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, RBF_DENOM, RBF_NUM,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -265,7 +265,7 @@ where
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
-        let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
+        let republish_interval = 10 * block_delay + chain_config.propagation_delay_secs;
         // Reacts to republishing requests
         services.spawn(async move {
             let mut repub_trigger_rx = repub_trigger_rx.stream();
