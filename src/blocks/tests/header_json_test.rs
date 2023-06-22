@@ -19,7 +19,9 @@ fn iden() {
     let BlockHeaderJson(cid_d) = from_str(header_json).unwrap();
 
     // Serialize
-    let ser_cid = with_network(Network::Testnet, || to_string(&BlockHeaderJsonRef(&cid_d)).unwrap());
+    let ser_cid = with_network(Network::Testnet, || {
+        to_string(&BlockHeaderJsonRef(&cid_d)).unwrap()
+    });
 
     assert_eq!(ser_cid, expected);
 }

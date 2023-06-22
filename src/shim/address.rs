@@ -37,8 +37,7 @@ pub fn current_network() -> Network {
 }
 
 fn current_global_network() -> Network {
-    FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Relaxed))
-        .unwrap_or(Network::Mainnet)
+    FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Relaxed)).unwrap_or(Network::Mainnet)
 }
 
 /// Sets the default network.
@@ -156,7 +155,6 @@ impl Cbor for Address {}
 use data_encoding::Encoding;
 use data_encoding_macro::new_encoding;
 
-use crate::GLOBAL;
 /// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
     symbols: "abcdefghijklmnopqrstuvwxyz234567",
@@ -239,7 +237,7 @@ impl DerefMut for Address {
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct StrictAddress(Address);
+pub struct StrictAddress(pub Address);
 impl Display for StrictAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -269,6 +267,12 @@ impl From<Address> for StrictAddress {
 impl From<StrictAddress> for Address {
     fn from(other: StrictAddress) -> Self {
         other.0
+    }
+}
+
+impl From<StrictAddress> for Address_v3 {
+    fn from(other: StrictAddress) -> Self {
+        other.0.into()
     }
 }
 
@@ -385,6 +389,8 @@ fn inherit_global_network() {
     set_global_network(inner_network);
     std::thread::spawn(move || {
         assert_eq!(current_network(), inner_network);
-    }).join().unwrap();
+    })
+    .join()
+    .unwrap();
     set_global_network(outer_network);
 }
