@@ -439,7 +439,17 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
-    state_manager.validate_parallel(400000..=450000);
+    let from = std::env::var("VALIDATE_FROM").unwrap().parse().unwrap();
+
+    ensure_params_downloaded().await?;
+    match std::env::var("VALIDATION_METHOD").unwrap().as_str() {
+        "parallel" => {
+            let to = std::env::var("VALIDATE_TO").unwrap().parse().unwrap();
+            state_manager.validate_parallel(from..=to);
+        }
+        "legacy" => validate_chain(&state_manager, from).await?,
+        _ => panic!(),
+    }
     return Ok(());
 
     if config.client.snapshot {
