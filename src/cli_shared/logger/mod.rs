@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use tracing_chrome::{ChromeLayerBuilder, FlushGuard};
+use tracing_chrome::{ChromeLayerBuilder, FlushGuard, TraceStyle};
 use tracing_subscriber::{
     filter::{self, EnvFilter, LevelFilter},
     prelude::*,
@@ -57,7 +57,9 @@ pub fn setup_logger(
     } else {
         None
     };
-    let (chrome_layer, guard) = ChromeLayerBuilder::new().build();
+    let (chrome_layer, guard) = ChromeLayerBuilder::new()
+        .trace_style(TraceStyle::Async)
+        .build();
 
     tracing_subscriber::registry()
         .with(tracing_tokio_console)
