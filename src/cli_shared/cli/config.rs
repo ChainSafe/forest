@@ -5,7 +5,6 @@ use core::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
 use crate::chain_sync::SyncConfig;
-#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
@@ -100,7 +99,6 @@ pub struct TokioConfig {
 #[serde(default)]
 pub struct Config {
     pub client: Client,
-    pub rocks_db: crate::db::rocks_config::RocksDbConfig,
     pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
@@ -111,16 +109,8 @@ pub struct Config {
 }
 
 impl Config {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "rocksdb")] {
-            pub fn db_config(&self) -> &DbConfig {
-                &self.rocks_db
-            }
-        } else if #[cfg(feature = "paritydb")] {
-            pub fn db_config(&self) -> &DbConfig {
-                &self.parity_db
-            }
-        }
+    pub fn db_config(&self) -> &DbConfig {
+        &self.parity_db
     }
 }
 
@@ -145,7 +135,6 @@ mod test {
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
-        rocks_db: crate::db::rocks_config::RocksDbConfig,
         parity_db: crate::db::parity_db_config::ParityDbConfig,
         network: crate::libp2p::Libp2pConfig,
         sync: crate::chain_sync::SyncConfig,
@@ -155,7 +144,6 @@ mod test {
         fn from(val: ConfigPartial) -> Self {
             Config {
                 client: val.client,
-                rocks_db: val.rocks_db,
                 parity_db: val.parity_db,
                 network: val.network,
                 sync: val.sync,
@@ -184,19 +172,6 @@ mod test {
                     rpc_address: SocketAddr::arbitrary(g),
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
-                },
-                rocks_db: crate::db::rocks_config::RocksDbConfig {
-                    create_if_missing: bool::arbitrary(g),
-                    parallelism: i32::arbitrary(g),
-                    write_buffer_size: u32::arbitrary(g) as _,
-                    max_open_files: i32::arbitrary(g),
-                    max_background_jobs: Option::arbitrary(g),
-                    compaction_style: String::arbitrary(g),
-                    enable_statistics: bool::arbitrary(g),
-                    stats_dump_period_sec: u32::arbitrary(g),
-                    log_level: String::arbitrary(g),
-                    optimize_filters_for_hits: bool::arbitrary(g),
-                    optimize_for_point_lookup: i32::arbitrary(g),
                 },
                 parity_db: crate::db::parity_db_config::ParityDbConfig {
                     enable_statistics: bool::arbitrary(g),
