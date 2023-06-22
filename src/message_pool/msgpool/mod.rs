@@ -1074,7 +1074,7 @@ pub mod tests {
         // Test 2: calling set_tipset_chain clear all mpool messages in chain section a <- b <- c
         mpool
             .api
-            .set_tipset_chain((Arc::new(tipset_c), tipset_a.epoch()));
+            .set_tipset_chain(Arc::new(tipset_c), tipset_a.epoch());
 
         head_updated.recv().await.unwrap();
 
