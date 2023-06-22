@@ -26,11 +26,6 @@ lazy_static! {
     pub static ref ZERO_ADDRESS: Address_v3 = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
 }
 
-// The network is used to differentiate between different filecoin networks _in text_ but isn't
-// actually encoded in the binary representation of addresses. Changing the current network will:
-//
-// 1. Change the prefix used when formatting an address as a string.
-// 2. Change the prefix _accepted_ when parsing a `StrictAddress`.
 static GLOBAL_NETWORK: AtomicU8 = AtomicU8::new(Network::Mainnet as u8);
 
 thread_local! {
