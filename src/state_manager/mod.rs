@@ -6,6 +6,7 @@ mod errors;
 mod metrics;
 mod utils;
 use crate::state_migration::run_state_migrations;
+use anyhow::bail;
 pub use utils::is_valid_for_sending;
 mod vm_circ_supply;
 pub use self::errors::*;
@@ -1232,12 +1233,16 @@ where
     ///
     /// Chain validation is a compute-heavy, single threaded task.
     #[tracing::instrument(skip(self))]
-    pub async fn validate_chain_range_single_thread(self: &Arc<Self>, start: i64, end: i64) {
+    pub async fn validate_chain_range_single_thread(
+        self: &Arc<Self>,
+        start: i64,
+        end: i64,
+    ) -> anyhow::Result<()> {
         let heaviest = self.cs.heaviest_tipset();
         // TODO(aatifsyed): this is non-trivial work, and we could bottleneck here...
         let end = self.cs.tipset_by_height(end, heaviest, false).unwrap();
 
-        // lookup tipset parents as we go along
+        // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = itertools::unfold(Some(end), |tipset| {
             let child = tipset.take()?;
             // if this has parents, unfold them in the next iteration
@@ -1245,18 +1250,27 @@ where
             Some(child)
         });
 
-        for (parent, child) in tipsets
+        for (child, parent) in tipsets
             .take_while(|tipset| tipset.epoch() >= start)
             .tuple_windows()
         {
-            trace!(height = parent.epoch(), "compute state");
+            info!(height = parent.epoch(), "compute parent state");
             let (actual_state, actual_receipt) = self.tipset_state(&parent).await.unwrap();
             let expected_receipt = child.blocks().first().unwrap().message_receipts();
             let expected_state = child.parent_state();
             if (expected_state, expected_receipt) != (&actual_state, &actual_receipt) {
-                panic!()
+                error!(
+                    height = child.epoch(),
+                    ?expected_state,
+                    ?expected_receipt,
+                    ?actual_state,
+                    ?actual_receipt,
+                    "state mismatch"
+                );
+                bail!("state mismatch");
             }
         }
+        Ok(())
     }
 
     pub async fn validate_chain(

@@ -64,8 +64,9 @@ pub fn setup_logger(
         .with(tracing_loki)
         .with(tracing_rolling_file)
         .with(chrome_layer.with_filter(filter::filter_fn(|meta| {
-            meta.file()
-                .is_some_and(|it| it.ends_with("state_manager/mod.rs"))
+            meta.file().is_some_and(|it| {
+                it.ends_with("state_manager/mod.rs") || it.ends_with("chain_store.rs")
+            })
         })))
         .with(
             tracing_subscriber::fmt::Layer::new()

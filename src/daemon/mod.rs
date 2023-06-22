@@ -438,6 +438,10 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
+    state_manager
+        .validate_chain_range_single_thread(449500, 450000)
+        .await?;
+
     if config.client.snapshot {
         if let Some(validate_height) = config.client.snapshot_height {
             ensure_params_downloaded().await?;
