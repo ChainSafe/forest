@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use tracing_chrome::{ChromeLayerBuilder, FlushGuard};
 use tracing_subscriber::{
-    filter::{EnvFilter, LevelFilter},
+    filter::{self, EnvFilter, LevelFilter},
     prelude::*,
 };
 
@@ -11,7 +12,7 @@ use crate::cli_shared::cli::{CliOpts, LogConfig};
 pub fn setup_logger(
     log_config: &LogConfig,
     opts: &CliOpts,
-) -> (Option<tracing_loki::BackgroundTask>,) {
+) -> (Option<tracing_loki::BackgroundTask>, FlushGuard) {
     let mut loki_task = None;
     let tracing_tokio_console = if opts.tokio_console {
         Some(
@@ -56,18 +57,23 @@ pub fn setup_logger(
     } else {
         None
     };
+    let (chrome_layer, guard) = ChromeLayerBuilder::new().build();
 
     tracing_subscriber::registry()
         .with(tracing_tokio_console)
         .with(tracing_loki)
         .with(tracing_rolling_file)
+        .with(chrome_layer.with_filter(filter::filter_fn(|meta| {
+            meta.file()
+                .is_some_and(|it| it.ends_with("state_manager/mod.rs"))
+        })))
         .with(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(opts.color.coloring_enabled())
                 .with_filter(build_env_filter(log_config)),
         )
         .init();
-    (loki_task,)
+    (loki_task, guard)
 }
 
 fn build_env_filter(log_config: &LogConfig) -> EnvFilter {

@@ -2945,6 +2945,7 @@ dependencies = [
  "toml 0.7.4",
  "tracing",
  "tracing-appender",
+ "tracing-chrome",
  "tracing-loki",
  "tracing-subscriber",
  "unsigned-varint",
@@ -8178,6 +8179,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.18",
+]
+
+[[package]]
+name = "tracing-chrome"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "496b3cd5447f7ff527bbbf19b071ad542a000adf297d4127078b4dfdb931f41a"
+dependencies = [
+ "serde_json",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]
