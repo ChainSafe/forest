@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
-#![allow(
-    unused,
-    clippy::upper_case_acronyms,
-    clippy::enum_variant_names,
-    clippy::module_inception
-)] // # 2991
+#![allow(unused, clippy::upper_case_acronyms, clippy::enum_variant_names)] // # 2991
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
@@ -75,6 +70,12 @@ pub mod doctest_private {
         utils::{encoding::blake2b_256, io::read_toml},
     };
 }
+
+/// These items are semver-exempt, and exist for forest author use only
+// Allow benchmarks of forest internals
+#[cfg(feature = "benchmark-private")]
+#[doc(hidden)]
+pub mod benchmark_private {}
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};

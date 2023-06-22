@@ -6,7 +6,7 @@ use crate::cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use crate::daemon::{daemon, ipc_shmem_conf};
+use crate::daemon::ipc_shmem_conf;
 use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context;
@@ -17,6 +17,7 @@ use raw_sync::{
     events::{Event, EventInit},
     Timeout,
 };
+use std::ffi::OsString;
 use std::{cmp::max, fs::File, process, time::Duration};
 use tokio::runtime::Builder as RuntimeBuilder;
 
@@ -78,9 +79,12 @@ pub struct Cli {
     pub cmd: Option<String>,
 }
 
-pub fn main() -> anyhow::Result<()> {
+pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
+where
+    ArgT: Into<OsString> + Clone,
+{
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::parse();
+    let Cli { opts, cmd } = Cli::parse_from(args);
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 
@@ -148,7 +152,7 @@ pub fn main() -> anyhow::Result<()> {
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let ret = rt.block_on(daemon::start_interruptable(opts, cfg));
+            let ret = rt.block_on(super::start_interruptable(opts, cfg));
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs_f32(0.5));
             info!("Forest finish shutdown");
