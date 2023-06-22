@@ -165,7 +165,7 @@ impl FromStr for Address {
 
 impl Cbor for Address {}
 
-/// defines the encoder for base32 encoding with the provided string with no padding
+/// defines the encoder for `base32` encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
     symbols: "abcdefghijklmnopqrstuvwxyz234567",
     padding: None,
