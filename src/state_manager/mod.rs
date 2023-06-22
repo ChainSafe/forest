@@ -46,6 +46,7 @@ use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -1235,12 +1236,14 @@ where
     #[tracing::instrument(skip(self))]
     pub async fn validate_chain_range_single_thread(
         self: &Arc<Self>,
-        start: i64,
-        end: i64,
+        epochs: RangeInclusive<i64>,
     ) -> anyhow::Result<()> {
         let heaviest = self.cs.heaviest_tipset();
         // TODO(aatifsyed): this is non-trivial work, and we could bottleneck here...
-        let end = self.cs.tipset_by_height(end, heaviest, false).unwrap();
+        let end = self
+            .cs
+            .tipset_by_height(*epochs.end(), heaviest, false)
+            .unwrap();
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = itertools::unfold(Some(end), |tipset| {
@@ -1251,7 +1254,7 @@ where
         });
 
         for (child, parent) in tipsets
-            .take_while(|tipset| tipset.epoch() >= start)
+            .take_while(|tipset| tipset.epoch() >= *epochs.start())
             .tuple_windows()
         {
             info!(height = parent.epoch(), "compute parent state");

@@ -43,6 +43,7 @@ use anyhow::{bail, Context};
 use bundle::load_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
+use futures_util::future::try_join_all;
 use lazy_static::lazy_static;
 use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit as _, EventState};
@@ -438,9 +439,8 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
-    state_manager
-        .validate_chain_range_single_thread(449500, 450000)
-        .await?;
+    try_join_all([state_manager.validate_chain_range_single_thread(447000..=450000)]).await?;
+    return Ok(());
 
     if config.client.snapshot {
         if let Some(validate_height) = config.client.snapshot_height {
