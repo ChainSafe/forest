@@ -13,7 +13,7 @@ use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
-use crate::utils::{io::ProgressBar, net::get_fetch_progress_from_file};
+use crate::utils::io::ProgressBar;
 use anyhow::bail;
 use chrono::Utc;
 use clap::Subcommand;
@@ -22,6 +22,7 @@ use tempfile::TempDir;
 
 use super::*;
 use crate::cli::cli::{cli_error_and_die, handle_rpc_err};
+use crate::utils::net::FileReader;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -195,7 +196,8 @@ async fn validate(
         )?);
 
         let (cids, _n_records) = {
-            let reader = get_fetch_progress_from_file(&snapshot).await?;
+            let reader =
+                FileReader::read(snapshot.as_path().display().to_string().as_str()).await?;
             forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
 

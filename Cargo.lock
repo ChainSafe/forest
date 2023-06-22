@@ -2909,7 +2909,6 @@ dependencies = [
  "uuid",
  "walkdir",
  "xsalsa20poly1305",
- "zstd-safe",
 ]
 
 [[package]]

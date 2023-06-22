@@ -7,13 +7,29 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{AsyncRead, AsyncWrite};
+use futures::{AsyncBufRead, AsyncRead, AsyncWrite};
 use futures_util::io::{Close, Flush, IntoSink, Write, WriteAll, WriteVectored};
 use futures_util::AsyncWriteExt;
 
 pub enum Either<L, R> {
     Left(L),
     Right(R),
+}
+
+impl<L: AsyncBufRead + Unpin, R: AsyncBufRead + Unpin> AsyncBufRead for Either<L, R> {
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<&[u8]>> {
+        match Pin::into_inner(self) {
+            Self::Left(left) => Pin::new(left).poll_fill_buf(cx),
+            Self::Right(right) => Pin::new(right).poll_fill_buf(cx),
+        }
+    }
+
+    fn consume(self: Pin<&mut Self>, amt: usize) {
+        match Pin::into_inner(self) {
+            Self::Left(left) => Pin::new(left).consume(amt),
+            Self::Right(right) => Pin::new(right).consume(amt),
+        }
+    }
 }
 
 impl<L: AsyncRead + Unpin, R: AsyncRead + Unpin> AsyncRead for Either<L, R> {
