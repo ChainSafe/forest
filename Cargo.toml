@@ -190,6 +190,7 @@ termios = "0.3"
 
 [dev-dependencies]
 assert_cmd = "2"
+criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
 libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 multiaddr = "0.17.1"
@@ -225,6 +226,7 @@ default = ["paritydb", "jemalloc", "fil_cns"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
 doctest-private = []                          # see lib.rs::doctest_private
+benchmark-private = []                        # see lib.rs::benchmark_private
 
 # Databases
 paritydb = ["dep:parity-db"]
@@ -238,3 +240,8 @@ mimalloc = ["dep:mimalloc"]
 # Consensus
 fil_cns = []
 deleg_cns = []
+
+[[bench]]
+name = "example-benchmark"
+harness = false
+required-features = ["benchmark-private"]
