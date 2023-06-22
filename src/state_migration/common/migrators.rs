@@ -17,11 +17,11 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for NilMigrator {
         &self,
         _store: BS,
         input: ActorMigrationInput,
-    ) -> anyhow::Result<ActorMigrationOutput> {
-        Ok(ActorMigrationOutput {
+    ) -> anyhow::Result<Option<ActorMigrationOutput>> {
+        Ok(Some(ActorMigrationOutput {
             new_code_cid: self.0,
             new_head: input.head,
-        })
+        }))
     }
 }
 
@@ -31,4 +31,17 @@ pub(in crate::state_migration) fn nil_migrator<BS: Blockstore + Clone + Send + S
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(NilMigrator(cid))
+}
+
+/// A migrator that does nothing but delegates the explicit migration logic to post migrator(s)
+pub(in crate::state_migration) struct DeferredMigrator;
+
+impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DeferredMigrator {
+    fn migrate_state(
+        &self,
+        _store: BS,
+        input: ActorMigrationInput,
+    ) -> anyhow::Result<Option<ActorMigrationOutput>> {
+        Ok(None)
+    }
 }

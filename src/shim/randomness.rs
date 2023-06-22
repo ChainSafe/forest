@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 /// ```
+/// # use forest_filecoin::doctest_private::Randomness;
 ///
 /// // Create FVM2 Randomness normally
 /// let fvm2_rand = fvm_shared::randomness::Randomness(vec![]);
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// let fvm3_rand = fvm_shared3::randomness::Randomness(vec![]);
 ///
 /// // Create a shim Randomness, ensure conversions are correct
-/// let rand_shim = forest_filecoin::shim::randomness::Randomness::new(vec![]);
+/// let rand_shim = Randomness::new(vec![]);
 /// assert_eq!(fvm3_rand, *rand_shim);
 /// assert_eq!(fvm2_rand, rand_shim.into());
 /// ```
