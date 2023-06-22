@@ -5,3 +5,8 @@ Dockerfile
 *.md
 target/
 scripts/
+
+# Ignore CAR files fetched to the project directory which tends to happen during development.
+# Without it, the Docker context may bloat to hundreds of gigabytes of data.
+/*.car
+/*.car.zst
