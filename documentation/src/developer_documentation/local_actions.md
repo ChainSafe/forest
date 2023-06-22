@@ -1,5 +1,5 @@
 There are often cases where the jobs fail at the CI and not locally, which tends
-to be cumbersome to debug. Also, when developing an integration test it is
+to be cumbersome to debug. Also, when developing an integration test, it is
 useful to get immediate feedback instead of relying on Github Actions (which, on
 a side note, are sometimes down).
 
@@ -19,7 +19,7 @@ To install Act, follow the instructions specific to your OS in the
 
 On the first run, `act` will ask you to pick the image size. Either choose the
 biggest one (it's ~60GiB unzipped) or the medium one. The large one should have
-less issues with the missing software, but it will take longer to download and
+fewer issues with the missing software, but it will take longer to download and
 is based on an older Ubuntu base. You can always edit this later in
 `$HOME/.actrc`.
 
@@ -33,7 +33,7 @@ workflow looks like this:
 3. In another job, download the artifacts to the test runner.
 4. Run the integration test.
 
-There are some huddles to overcome.
+There are some hurdles to overcome.
 
 ## sccache
 
@@ -95,7 +95,7 @@ sudo mv sccache-v0.5.3-x86_64-unknown-linux-musl/sccache /usr/bin/ && sudo chmod
 
 ## Uploading/downloading artifacts
 
-If your job use one of those actions, you can support it with the
+If your job uses one of those actions, you can support it with the
 `--artifact-server-path <temporary-path`. Make sure the directory is created
 before running the job.
 
