@@ -19,8 +19,8 @@ pub struct SendCommand {
     /// optionally specify the account to send funds from (otherwise the default
     /// one will be used)
     #[arg(long)]
-    from: Option<StrictAddress>,
-    target_address: StrictAddress,
+    from: Option<String>,
+    target_address: String,
     #[arg(value_parser = humantoken::parse)]
     amount: TokenAmount,
     #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
@@ -34,8 +34,8 @@ pub struct SendCommand {
 
 impl SendCommand {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
-        let from: Address = if let Some(StrictAddress(from)) = self.from {
-            from
+        let from: Address = if let Some(from) = &self.from {
+            StrictAddress::from_str(from)?.into()
         } else {
             Address::from_str(
                 &wallet_default_address((), &config.client.rpc_token)
@@ -51,7 +51,7 @@ impl SendCommand {
 
         let message = Message {
             from: from.into(),
-            to: self.target_address.into(),
+            to: StrictAddress::from_str(&self.target_address)?.into(),
             value: self.amount.clone().into(),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit as u64,
