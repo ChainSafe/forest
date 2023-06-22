@@ -39,11 +39,6 @@ pub trait Store {
             .into_iter()
             .try_for_each(|(key, value)| self.write(key.into(), value.into()))
     }
-
-    /// Flush writing buffer if there is any. Default implementation is blank
-    fn flush(&self) -> Result<(), Error> {
-        Ok(())
-    }
 }
 
 impl<BS: Store> Store for &BS {
