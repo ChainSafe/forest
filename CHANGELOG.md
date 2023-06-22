@@ -27,6 +27,9 @@
 
 ### Breaking
 
+- [#3048](https://github.com/ChainSafe/forest/pull/3048): Remove support for
+  rocksdb
+
 ### Added
 
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
