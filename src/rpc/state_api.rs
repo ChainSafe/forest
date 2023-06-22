@@ -6,6 +6,8 @@ use crate::beacon::Beacon;
 use crate::blocks::tipset_keys_json::TipsetKeysJson;
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
+use crate::json::actor_state::json::ActorStateJson;
+use crate::json::address::json::AddressJson;
 use crate::json::cid::CidJson;
 use crate::libp2p::NetworkMessage;
 use crate::rpc_api::{
@@ -96,6 +98,18 @@ pub(in crate::rpc) async fn state_get_network_version<
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
+}
+
+pub(crate) async fn state_get_actor<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateGetActorParams>,
+) -> Result<StateGetActorResult, JsonRpcError> {
+    let (AddressJson(addr), TipsetKeysJson(tsk)) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let state = data.state_manager.get_actor(&addr, *ts.parent_state());
+    state
+        .map(|opt| opt.map(ActorStateJson))
+        .map_err(|e| e.into())
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage

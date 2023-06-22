@@ -91,6 +91,10 @@ where
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
             .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB, B>)
             .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB, B>)
+            .with_method(
+                CHAIN_GET_MIN_BASE_FEE,
+                chain_api::chain_get_min_base_fee::<DB, B>,
+            )
             // Message Pool API
             .with_method(MPOOL_PENDING, mpool_pending::<DB, B>)
             .with_method(MPOOL_PUSH, mpool_push::<DB, B>)
@@ -115,7 +119,7 @@ where
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
-            .with_method(STATE_REPLAY, state_replay::<DB, B>)
+            .with_method(STATE_GET_ACTOR, state_get_actor::<DB, B>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB, B>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
