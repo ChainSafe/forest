@@ -222,8 +222,8 @@ overflow-checks = true
 default = ["jemalloc", "fil_cns"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
-doctest-private = []                          # see lib.rs::doctest_private
-benchmark-private = []                        # see lib.rs::benchmark_private
+doctest-private = []                 # see lib.rs::doctest_private
+benchmark-private = []               # see lib.rs::benchmark_private
 
 # Allocator
 rustalloc = []
