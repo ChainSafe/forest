@@ -7,11 +7,8 @@ mod metrics;
 mod utils;
 use crate::state_migration::run_state_migrations;
 pub use utils::is_valid_for_sending;
-
 mod vm_circ_supply;
-
-use std::{num::NonZeroUsize, sync::Arc};
-
+pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
@@ -39,6 +36,7 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::CborStore;
+use itertools::Itertools as _;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
@@ -46,11 +44,11 @@ use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
-
-pub use self::errors::*;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -1228,6 +1226,36 @@ where
         let ps = power::State::load(self.blockstore(), actor.code, actor.state)?;
 
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
+    }
+
+    /// Validates all tipsets at epoch `start..=end`
+    ///
+    /// Chain validation is a compute-heavy, single threaded task.
+    #[tracing::instrument(skip(self))]
+    pub async fn validate_chain_range_single_thread(self: &Arc<Self>, start: i64, end: i64) {
+        let heaviest = self.cs.heaviest_tipset();
+        // TODO(aatifsyed): this is non-trivial work, and we could bottleneck here...
+        let end = self.cs.tipset_by_height(end, heaviest, false).unwrap();
+
+        // start at the end
+        let mut cursor = end;
+        for (parent, child) in std::iter::once(cursor.clone()) // start at the end
+            .chain(std::iter::repeat_with(|| {
+                // lookup the parent of the current tipset
+                let parent_of_cursor = self.cs.tipset_from_keys(cursor.key()).unwrap();
+                std::mem::replace(&mut cursor, parent_of_cursor)
+            }))
+            .take_while(|tipset| tipset.epoch() >= start)
+            .tuple_windows()
+        {
+            trace!(height = parent.epoch(), "compute state");
+            let (actual_state, actual_receipt) = self.tipset_state(&parent).await.unwrap();
+            let expected_receipt = child.blocks().first().unwrap().message_receipts();
+            let expected_state = child.parent_state();
+            if (expected_state, expected_receipt) != (&actual_state, &actual_receipt) {
+                panic!()
+            }
+        }
     }
 
     pub async fn validate_chain(
