@@ -17,6 +17,7 @@ use raw_sync::{
     events::{Event, EventInit},
     Timeout,
 };
+use std::ffi::OsString;
 use std::{cmp::max, fs::File, process, time::Duration};
 use tokio::runtime::Builder as RuntimeBuilder;
 
@@ -78,9 +79,12 @@ pub struct Cli {
     pub cmd: Option<String>,
 }
 
-pub fn main() -> anyhow::Result<()> {
+pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
+where
+    ArgT: Into<OsString> + Clone,
+{
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::parse();
+    let Cli { opts, cmd } = Cli::parse_from(args);
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 
