@@ -261,21 +261,17 @@ where
     // This function used to do this: Returns the network name from the init actor
     // state.
     /// Returns the internal, protocol-level network name.
+    // TODO: Once we are able to query the init actor state to obtain the network name from the
+    // genesis file, this should be removed. It is work in progress here:
+    // https://github.com/ChainSafe/forest/pull/2913
     pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
         let name = match &self.chain_config.network {
             crate::networks::NetworkChain::Mainnet => "testnetnet",
             crate::networks::NetworkChain::Calibnet => "calibrationnet",
             crate::networks::NetworkChain::Devnet(name) => name,
         }
-        .to_owned();
-
+        .to_string();
         Ok(name)
-        // let init_act = self
-        //     .get_actor(actor::init::ADDRESS, *st)?
-        //     .ok_or_else(|| Error::State("Init actor address could not be
-        // resolved".to_string()))?; let state =
-        // init::State::load(self.blockstore(), &init_act)?;
-        // Ok(state.into_network_name())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
@@ -645,10 +641,9 @@ where
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
-            // This is not allowed to happen after network V3.
-            return Err(Error::Other(
-                "Failed to find look-back tipset: Unexpected number of null blocks.".to_string(),
-            ));
+            let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
+            let (state, _) = self.compute_tipset_state_blocking(tipset.clone(), no_func)?;
+            return Ok((tipset, state));
         }
 
         let next_ts = self
@@ -767,6 +762,20 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
+        // special case for genesis block
+        if tipset.epoch() == 0 {
+            // NB: This is here because the process that executes blocks requires that the
+            // block miner reference a valid miner in the state tree. Unless we create some
+            // magical genesis miner, this won't work properly, so we short circuit here
+            // This avoids the question of 'who gets paid the genesis block reward'
+            let message_receipts = tipset
+                .blocks()
+                .first()
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+
+            return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
+        }
+
         let block_headers = tipset.blocks();
         let first_block = block_headers
             .first()
