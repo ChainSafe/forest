@@ -12,7 +12,7 @@ use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 use crate::db::Store;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use crate::message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
+use crate::message::{valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use crate::shim::{
     address::Address,

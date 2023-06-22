@@ -31,9 +31,21 @@
 
 - [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
 
+- [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
+  `forest-cli state diff ...`
+
 ### Changed
 
 ### Removed
+
+### Fixed
+
+## Forest v0.10.0 "Premature"
+
+### Breaking
+
+- [#3007](https://github.com/ChainSafe/forest/pull/3007): Optimize DB
+  parameters. This requires all existing databases to be re-initialized.
 
 ### Fixed
 

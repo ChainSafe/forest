@@ -34,8 +34,7 @@ use libp2p::{
     noise, ping,
     request_response::{self, RequestId, ResponseChannel},
     swarm::{SwarmBuilder, SwarmEvent},
-    yamux::YamuxConfig,
-    PeerId, Swarm, Transport,
+    yamux, PeerId, Swarm, Transport,
 };
 use log::{debug, error, info, trace, warn};
 use tokio_stream::wrappers::IntervalStream;
@@ -830,17 +829,12 @@ pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, Stre
     let transport =
         libp2p::websocket::WsConfig::new(build_dns_tcp()?).or_transport(build_dns_tcp()?);
 
-    let auth_config = {
-        let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
-            .into_authentic(&local_key)
-            .context("Noise key generation failed")?;
-        noise::NoiseConfig::xx(dh_keys).into_authenticated()
-    };
+    let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;
 
     Ok(transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
-        .multiplex(YamuxConfig::default())
+        .multiplex(yamux::Config::default())
         .timeout(Duration::from_secs(20))
         .boxed())
 }
