@@ -4,24 +4,11 @@
 mod errors;
 mod memory;
 mod metrics;
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "rocksdb")] {
-        pub mod rocks;
-    } else if #[cfg(feature = "paritydb")] {
-        pub mod parity_db;
-    }
-}
-
-// Not using conditional compilation here because DB config types are used in
-// forest config
+pub mod parity_db;
 pub mod parity_db_config;
-pub mod rocks_config;
-
 pub use errors::Error;
 pub use memory::MemoryDB;
 
-#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 pub mod rolling;
 
 /// Store interface used as a KV store implementation
@@ -51,11 +38,6 @@ pub trait Store {
         values
             .into_iter()
             .try_for_each(|(key, value)| self.write(key.into(), value.into()))
-    }
-
-    /// Flush writing buffer if there is any. Default implementation is blank
-    fn flush(&self) -> Result<(), Error> {
-        Ok(())
     }
 }
 
@@ -97,25 +79,15 @@ pub trait DBStatistics {
     }
 }
 
-#[cfg(any(feature = "paritydb", feature = "rocksdb"))]
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
     use crate::db::rolling::*;
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "rocksdb")] {
-            pub type Db = crate::db::rocks::RocksDb;
-            pub type DbConfig = crate::db::rocks_config::RocksDbConfig;
-            pub(in crate::db) type DbError = rocksdb::Error;
-            const DIR_NAME: &str = "rocksdb";
-        } else if #[cfg(feature = "paritydb")] {
-            pub type Db = crate::db::parity_db::ParityDb;
-            pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
-            pub(in crate::db) type DbError = parity_db::Error;
-            const DIR_NAME: &str = "paritydb";
-        }
-    }
+    pub type Db = crate::db::parity_db::ParityDb;
+    pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
+    pub(in crate::db) type DbError = parity_db::Error;
+    const DIR_NAME: &str = "paritydb";
 
     pub fn db_root(chain_data_root: &Path) -> PathBuf {
         chain_data_root.join(DIR_NAME)
@@ -133,9 +105,6 @@ pub mod db_engine {
 mod tests {
     pub mod db_utils;
     mod mem_test;
-    #[cfg(feature = "paritydb")]
     mod parity_test;
-    #[cfg(feature = "rocksdb")]
-    mod rocks_test;
     pub mod subtests;
 }

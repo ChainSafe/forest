@@ -27,6 +27,9 @@
 
 ### Breaking
 
+- [#3048](https://github.com/ChainSafe/forest/pull/3048): Remove support for
+  rocksdb
+
 ### Added
 
 - [#2761](https://github.com/ChainSafe/forest/issues/2761): Add a per actor

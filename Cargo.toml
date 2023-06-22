@@ -129,7 +129,7 @@ num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
-parity-db = { version = "0.4.6", optional = true, default_features = false }
+parity-db = { version = "0.4.6", default_features = false }
 parking_lot = "0.12"
 pbr = "1.1"
 pin-project-lite = "0.2"
@@ -146,9 +146,6 @@ reqwest = { version = "0.11.18", default-features = false, features = [
   "stream",
   "rustls-tls",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rocksdb = { version = "0.20", optional = true, default_features = false, features = [
-  "lz4",
-] } #  only opt in to the compression we use, see #2227
 rustyline = "10.1.1"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -222,19 +219,15 @@ overflow-checks = true
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["paritydb", "jemalloc", "fil_cns"]
+default = ["jemalloc", "fil_cns"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
-doctest-private = []                          # see lib.rs::doctest_private
-benchmark-private = []                        # see lib.rs::benchmark_private
-
-# Databases
-paritydb = ["dep:parity-db"]
-rocksdb = ["dep:rocksdb"]
+doctest-private = []                 # see lib.rs::doctest_private
+benchmark-private = []               # see lib.rs::benchmark_private
 
 # Allocator
 rustalloc = []
-jemalloc = ["dep:tikv-jemallocator", "rocksdb?/jemalloc"]
+jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
 
 # Consensus
