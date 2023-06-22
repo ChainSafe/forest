@@ -40,6 +40,7 @@ Kademlia
 libp2p
 localhost
 mainnet
+testnet
 MDNS
 mempool
 Merkle
