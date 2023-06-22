@@ -141,7 +141,8 @@ where
     if !skip_load {
         let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
-        if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
+        if sm.chain_config().genesis_cid.is_some()
+            && !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {
             bail!(
                 "Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or \

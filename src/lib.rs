@@ -71,6 +71,12 @@ pub mod doctest_private {
     };
 }
 
+/// These items are semver-exempt, and exist for forest author use only
+// Allow benchmarks of forest internals
+#[cfg(feature = "benchmark-private")]
+#[doc(hidden)]
+pub mod benchmark_private {}
+
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};
 pub use cli::main::main as forest_main;
