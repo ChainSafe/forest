@@ -1058,7 +1058,7 @@ mod test_selection {
     #[tokio::test]
     async fn test_optimal_msg_selection1() {
         // this test uses just a single actor sending messages with a low tq
-        // the chain depenent merging algorithm should pick messages from the actor
+        // the chain dependent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
         let mpool = make_test_mpool(&mut joinset);
@@ -1097,9 +1097,12 @@ mod test_selection {
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
-        let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        // this constant is to avoid bumping into forest mpool limits
+        const LIMIT_RATIO: i64 = 5;
 
-        // we create 10 messages from each actor to another, with the first actor paying
+        let n_msgs = fvm_shared::BLOCK_GAS_LIMIT / (TEST_GAS_LIMIT * LIMIT_RATIO);
+
+        // we create n_msgs messages from each actor to another, with the first actor paying
         // higher gas prices than the second; we expect message selection to
         // order his messages first
         for i in 0..(n_msgs as usize) {
@@ -1117,7 +1120,7 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 0.25).unwrap();
 
-        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / (TEST_GAS_LIMIT * LIMIT_RATIO);
 
         assert_eq!(msgs.len(), expected_msgs as usize);
 
