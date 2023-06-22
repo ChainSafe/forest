@@ -33,15 +33,15 @@ thread_local! {
     static LOCAL_NETWORK: AtomicU8 = AtomicU8::new(GLOBAL_NETWORK.load(Ordering::Relaxed));
 }
 
-// For user safety, Filecoin has different addresses for its mainnet and test networks: Mainnet
-// and testnet addresses are prefixed with `f` and `t`, respectively.
-//
-// We use a thread-local variable to determine which format to use when parsing and pretty-printing
-// addresses. Note that the `Address` structure will parse both forms, while `StrictAddress`
-// will only succeed if the address has the correct network prefix.
-//
-// The thread-local network variable is initialized to the value of the global network. This global
-// network variable is set once when Forest has figured out which network it is using.
+/// For user safety, Filecoin has different addresses for its mainnet and test networks: Mainnet
+/// and testnet addresses are prefixed with `f` and `t`, respectively.
+///
+/// We use a thread-local variable to determine which format to use when parsing and pretty-printing
+/// addresses. Note that the [`Address`] structure will parse both forms, while [`StrictAddress`]
+/// will only succeed if the address has the correct network prefix.
+///
+/// The thread-local network variable is initialized to the value of the global network. This global
+/// network variable is set once when Forest has figured out which network it is using.
 pub struct CurrentNetwork();
 impl CurrentNetwork {
     pub fn get() -> Network {
@@ -85,6 +85,16 @@ impl Drop for NetworkGuard {
     }
 }
 
+/// A Filecoin address is an identifier that refers to an actor in the Filecoin state. All actors
+/// (miner actors, the storage market actor, account actors) have an address. This address encodes
+/// information about the network to which an actor belongs, the specific type of address encoding,
+/// the address payload itself, and a checksum. The goal of this format is to provide a robust
+/// address format that is both easy to use and resistant to errors.
+///
+/// Addresses are prefixed with either a mainnet tag or a testnet tag. The [`Address`] type will
+/// parse both versions and discard the prefix. See also [`StrictAddress`].
+///
+/// For more information, see: <https://spec.filecoin.io/appendix/address/>
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Address(Address_v3);
@@ -235,6 +245,16 @@ impl DerefMut for Address {
     }
 }
 
+/// A Filecoin address is an identifier that refers to an actor in the Filecoin state. All actors
+/// (miner actors, the storage market actor, account actors) have an address. This address encodes
+/// information about the network to which an actor belongs, the specific type of address encoding,
+/// the address payload itself, and a checksum. The goal of this format is to provide a robust
+/// address format that is both easy to use and resistant to errors.
+///
+/// Addresses are prefixed with either a mainnet tag or a testnet tag. The [`StrictAddress`] type
+/// will fail to parse addresses unless they have the correct tag indicated by [`CurrentNetwork`].
+///
+/// For more information, see: <https://spec.filecoin.io/appendix/address/>
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct StrictAddress(pub Address);
