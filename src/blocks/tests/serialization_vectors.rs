@@ -4,7 +4,7 @@ use crate::blocks::{header, BlockHeader};
 use crate::json::{message, signature};
 use crate::message::signed_message::SignedMessage;
 use crate::shim::{
-    address::{set_current_network, Network},
+    address::{CurrentNetwork, Network},
     crypto::Signature,
     message::Message,
 };

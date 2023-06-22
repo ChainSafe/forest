@@ -7,6 +7,8 @@ use std::{
     str::FromStr,
 };
 
+use data_encoding::Encoding;
+use data_encoding_macro::new_encoding;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
@@ -24,6 +26,11 @@ lazy_static! {
     pub static ref ZERO_ADDRESS: Address_v3 = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
 }
 
+// The network is used to differentiate between different filecoin networks _in text_ but isn't
+// actually encoded in the binary representation of addresses. Changing the current network will:
+//
+// 1. Change the prefix used when formatting an address as a string.
+// 2. Change the prefix _accepted_ when parsing a `StrictAddress`.
 static GLOBAL_NETWORK: AtomicU8 = AtomicU8::new(Network::Mainnet as u8);
 
 thread_local! {
@@ -31,55 +38,56 @@ thread_local! {
     static LOCAL_NETWORK: AtomicU8 = AtomicU8::new(GLOBAL_NETWORK.load(Ordering::Relaxed));
 }
 
-pub fn current_network() -> Network {
-    FromPrimitive::from_u8(LOCAL_NETWORK.with(|ident| ident.load(Ordering::Relaxed)))
-        .unwrap_or(Network::Mainnet)
-}
+// For user safety, Filecoin has different addresses for its mainnet and test networks: Mainnet
+// and testnet addresses are prefixed with `f` and `t`, respectively.
+//
+// We use a thread-local variable to determine which format to use when parsing and pretty-printing
+// addresses. Note that the `Address` structure will parse both forms, while `StrictAddress`
+// will only succeed if the address has the correct network prefix.
+//
+// The thread-local network variable is initialized to the value of the global network. This global
+// network variable is set once when Forest has figured out which network it is using.
+pub struct CurrentNetwork();
+impl CurrentNetwork {
+    pub fn get() -> Network {
+        FromPrimitive::from_u8(LOCAL_NETWORK.with(|ident| ident.load(Ordering::Relaxed)))
+            .unwrap_or(Network::Mainnet)
+    }
 
-fn current_global_network() -> Network {
-    FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Relaxed)).unwrap_or(Network::Mainnet)
-}
+    pub fn set(network: Network) {
+        LOCAL_NETWORK.with(|ident| ident.store(network as u8, Ordering::Relaxed));
+    }
 
-/// Sets the default network.
-///
-/// The network is used to differentiate between different filecoin networks _in text_ but isn't
-/// actually encoded in the binary representation of addresses. Changing the current network will:
-///
-/// 1. Change the prefix used when formatting an address as a string.
-/// 2. Change the prefix _accepted_ when parsing a `StrictAddress`.
-///
-/// The current network is thread-local.
-pub fn set_current_network(network: Network) {
-    LOCAL_NETWORK.with(|ident| ident.store(network as u8, Ordering::Relaxed));
-}
+    pub fn set_global(network: Network) {
+        GLOBAL_NETWORK.store(network as u8, Ordering::Relaxed);
+        CurrentNetwork::set(network);
+    }
 
-// Set global network identifier. The thread-local network inherits this value.
-pub fn set_global_network(network: Network) {
-    GLOBAL_NETWORK.store(network as u8, Ordering::Relaxed);
+    pub fn with<X>(network: Network, cb: impl FnOnce() -> X) -> X {
+        let guard = NetworkGuard::new(network);
+        let result = cb();
+        drop(guard);
+        result
+    }
+
+    fn get_global() -> Network {
+        FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Relaxed)).unwrap_or(Network::Mainnet)
+    }
 }
 
 struct NetworkGuard(Network);
 impl NetworkGuard {
     fn new(new_network: Network) -> Self {
-        let previous_network = current_network();
-        set_current_network(new_network);
+        let previous_network = CurrentNetwork::get();
+        CurrentNetwork::set(new_network);
         NetworkGuard(previous_network)
     }
 }
 
 impl Drop for NetworkGuard {
     fn drop(&mut self) {
-        set_current_network(self.0);
+        CurrentNetwork::set(self.0);
     }
-}
-
-// Set the current network for the duration of a single function call. The current network may or
-// may not be reset on panic.
-pub fn with_network<X>(network: Network, cb: impl FnOnce() -> X) -> X {
-    let guard = NetworkGuard::new(network);
-    let result = cb();
-    drop(guard);
-    result
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -152,9 +160,6 @@ impl FromStr for Address {
 
 impl Cbor for Address {}
 
-use data_encoding::Encoding;
-use data_encoding_macro::new_encoding;
-
 /// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
     symbols: "abcdefghijklmnopqrstuvwxyz234567",
@@ -169,7 +174,7 @@ impl Display for Address {
 
         let protocol = self.protocol();
 
-        let prefix = if matches!(current_network(), Network::Mainnet) {
+        let prefix = if matches!(CurrentNetwork::get(), Network::Mainnet) {
             MAINNET_PREFIX
         } else {
             TESTNET_PREFIX
@@ -248,7 +253,7 @@ impl FromStr for StrictAddress {
     type Err = <Address_v3 as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let fvm_addr = current_network().parse_address(s)?;
+        let fvm_addr = CurrentNetwork::get().parse_address(s)?;
         Ok(StrictAddress(fvm_addr.into()))
     }
 }
@@ -348,11 +353,11 @@ fn relaxed_address_parsing() {
 
 #[test]
 fn strict_address_parsing() {
-    with_network(Network::Mainnet, || {
+    CurrentNetwork::with(Network::Mainnet, || {
         assert!(StrictAddress::from_str("f01234").is_ok());
         assert!(StrictAddress::from_str("t01234").is_err());
     });
-    with_network(Network::Testnet, || {
+    CurrentNetwork::with(Network::Testnet, || {
         assert!(StrictAddress::from_str("f01234").is_err());
         assert!(StrictAddress::from_str("t01234").is_ok());
     });
@@ -360,37 +365,37 @@ fn strict_address_parsing() {
 
 #[test]
 fn set_with_network() {
-    let outer_network = current_network();
+    let outer_network = CurrentNetwork::get();
     let inner_network = flip_network(outer_network);
-    with_network(inner_network, || {
-        assert_eq!(current_network(), inner_network);
+    CurrentNetwork::with(inner_network, || {
+        assert_eq!(CurrentNetwork::get(), inner_network);
     });
-    assert_eq!(outer_network, current_network());
+    assert_eq!(outer_network, CurrentNetwork::get());
 }
 
 #[test]
 fn unwind_current_network_on_panic() {
-    let outer_network = current_network();
+    let outer_network = CurrentNetwork::get();
     let inner_network = flip_network(outer_network);
     assert!(std::panic::catch_unwind(|| {
-        with_network(inner_network, || {
+        CurrentNetwork::with(inner_network, || {
             panic!("unwinding stack");
         })
     })
     .is_err());
-    let new_outer_network = current_network();
+    let new_outer_network = CurrentNetwork::get();
     assert_eq!(outer_network, new_outer_network);
 }
 
 #[test]
 fn inherit_global_network() {
-    let outer_network = current_global_network();
+    let outer_network = CurrentNetwork::get_global();
     let inner_network = flip_network(outer_network);
-    set_global_network(inner_network);
+    CurrentNetwork::set_global(inner_network);
     std::thread::spawn(move || {
-        assert_eq!(current_network(), inner_network);
+        assert_eq!(CurrentNetwork::get(), inner_network);
     })
     .join()
     .unwrap();
-    set_global_network(outer_network);
+    CurrentNetwork::set_global(outer_network);
 }

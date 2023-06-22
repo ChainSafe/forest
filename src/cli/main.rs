@@ -35,7 +35,7 @@ pub async fn main() -> anyhow::Result<()> {
                 }
             }
             if config.chain.is_testnet() {
-                crate::shim::address::set_global_network(crate::shim::address::Network::Testnet);
+                crate::shim::address::CurrentNetwork::set_global(crate::shim::address::Network::Testnet);
             }
             // Run command
             match cmd {

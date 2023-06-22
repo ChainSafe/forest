@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::header::json::{BlockHeaderJson, BlockHeaderJsonRef};
-use crate::shim::address::{with_network, Network};
+use crate::shim::address::{CurrentNetwork, Network};
 use serde_json::{from_str, to_string};
 
 #[test]
@@ -19,7 +19,7 @@ fn iden() {
     let BlockHeaderJson(cid_d) = from_str(header_json).unwrap();
 
     // Serialize
-    let ser_cid = with_network(Network::Testnet, || {
+    let ser_cid = CurrentNetwork::with(Network::Testnet, || {
         to_string(&BlockHeaderJsonRef(&cid_d)).unwrap()
     });
 
