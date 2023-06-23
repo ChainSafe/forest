@@ -12,7 +12,7 @@ use crate::cli_shared::cli::{CliOpts, LogConfig};
 pub fn setup_logger(
     log_config: &LogConfig,
     opts: &CliOpts,
-) -> (Option<tracing_loki::BackgroundTask>, FlushGuard) {
+) -> (Option<tracing_loki::BackgroundTask>, Option<FlushGuard>) {
     let mut loki_task = None;
     let tracing_tokio_console = if opts.tokio_console {
         Some(
@@ -57,27 +57,30 @@ pub fn setup_logger(
     } else {
         None
     };
-    let (chrome_layer, guard) = ChromeLayerBuilder::new()
-        .file(std::env::var("TRACE_FILE").unwrap())
-        // .trace_style(TraceStyle::Async)
-        .build();
+
+    // Go to <https://ui.perfetto.dev> to browse trace files.
+    // You may want to call ChromeLayerBuilder::trace_style as appropriate
+    let (chrome_layer, flush_guard) =
+        match std::env::var_os("CHROME_TRACE_FILE").map(|path| match path.is_empty() {
+            true => ChromeLayerBuilder::new().build(),
+            false => ChromeLayerBuilder::new().file(path).build(),
+        }) {
+            Some((a, b)) => (Some(a), Some(b)),
+            None => (None, None),
+        };
 
     tracing_subscriber::registry()
         .with(tracing_tokio_console)
         .with(tracing_loki)
         .with(tracing_rolling_file)
-        .with(chrome_layer.with_filter(filter::filter_fn(|meta| {
-            meta.file().is_some_and(|it| {
-                it.ends_with("state_manager/mod.rs") || it.ends_with("chain_store.rs")
-            })
-        })))
+        .with(chrome_layer)
         .with(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(opts.color.coloring_enabled())
                 .with_filter(build_env_filter(log_config)),
         )
         .init();
-    (loki_task, guard)
+    (loki_task, flush_guard)
 }
 
 fn build_env_filter(log_config: &LogConfig) -> EnvFilter {

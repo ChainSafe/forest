@@ -753,8 +753,26 @@ where
             .await?
     }
 
-    /// Performs a state transition, and returns the state and receipt root of
-    /// the transition.
+    /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.
+    /// Each _block_ contains _messages_, which are executed by the _Filecoin Virtual Machine_
+    /// in a _transaction_.
+    ///
+    /// VM transaction execution essentially looks like this:
+    /// ```text
+    /// previous_state * transaction = new_state
+    /// ```
+    ///
+    /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
+    /// a [`Cid`] - the _state root_
+    ///
+    /// Each transaction costs FIL to execute - this is _gas_.
+    /// After execution, the transaction has a _receipt_, showing how much gas was spent.
+    /// This is similarly a [`Cid`] into the block store.
+    ///
+    /// Each [`Tipset`] knows its previous state, so computing tipset state consists of:
+    /// - fetching the previous state
+    /// - executing a transaction using all messages in the tipset
+    /// - returning the _new state root_ and the _receipt root_ of the transaction
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking<CB: 'static>(
         self: &Arc<Self>,
@@ -1232,16 +1250,42 @@ where
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), &addr.into())
     }
 
-    /// Validates all tipsets at epoch `start..=end`
+    /// Validates all tipsets at epoch `start..=end` behind the heaviest tipset.
+    ///
+    /// This spawns [`rayon::current_num_threads`] threads to do the compute-heavy work
+    /// of tipset validation.
+    ///
+    /// # What is validation?
+    /// Every state transition returns a new _state root_, which is typically retained in e.g snapshots.
+    /// For "full" snapshots, all state roots are retained.
+    /// For standard snapshots, the last 1800 or so state roots are retained.
+    ///
+    /// _receipts_ meanwhile, are typically ephemeral, but each tipset knows the _receipt root_
+    /// (hash) of the previous tipset.
+    ///
+    /// This function takes advantage of that fact to validate tipsets:
+    /// - `tipset[N]` claims that `receipt_root[N-1]` should be `0xDEADBEEF`
+    /// - find `tipset[N-1]`, and perform its state transition to get the actual `receipt_root`
+    /// - assert that they match
+    ///
+    /// See [`Self::compute_tipset_state_blocking`] for an explanation of state transitions.
+    ///
+    /// # Known issues
+    /// This function is blocking, but we do observe threads waiting and synchronizing.
+    /// This is suspected to be due to the VM's use of the chain store, or maybe JIT-ing.
     #[tracing::instrument(skip(self))]
-    pub fn validate_parallel(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
+    pub fn validate(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         use rayon::iter::ParallelIterator as _;
 
         let heaviest = self.cs.heaviest_tipset();
+        let heaviest_epoch = heaviest.epoch();
         let end = self
             .cs
             .tipset_by_height(*epochs.end(), heaviest, false)
-            .unwrap();
+            .context(format!(
+            "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
+            *epochs.end(),
+        ))?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = itertools::unfold(Some(end), |tipset| {
@@ -1281,55 +1325,6 @@ where
                     }
                 }
             })
-    }
-
-    pub async fn validate_chain(
-        self: &Arc<Self>,
-        mut ts: Arc<Tipset>,
-        height: i64,
-    ) -> Result<(), anyhow::Error> {
-        if height > ts.epoch() {
-            anyhow::bail!(
-                "height {height} cannot be greater than tipset epoch {}",
-                ts.epoch()
-            );
-        }
-        let mut ts_chain = Vec::<Arc<Tipset>>::new();
-        while ts.epoch() != height {
-            let next = self.cs.tipset_from_keys(ts.parents())?;
-            ts_chain.push(std::mem::replace(&mut ts, next));
-        }
-        ts_chain.push(ts);
-
-        let mut last_state = *ts_chain.last().unwrap().parent_state();
-        let mut last_receipt = *ts_chain.last().unwrap().blocks()[0].message_receipts();
-        for ts in ts_chain.iter().rev() {
-            if ts.parent_state() != &last_state {
-                anyhow::bail!(
-                    "Tipset chain has state mismatch at height: {}, {} != {}, \
-                        receipts mismatched: {}",
-                    ts.epoch(),
-                    ts.parent_state(),
-                    last_state,
-                    ts.blocks()[0].message_receipts() != &last_receipt
-                );
-            }
-            if ts.blocks()[0].message_receipts() != &last_receipt {
-                anyhow::bail!(
-                    "Tipset message receipts has a mismatch at height: {}",
-                    ts.epoch(),
-                );
-            }
-            info!(
-                "Computing state (height: {}, ts={:?})",
-                ts.epoch(),
-                ts.cids()
-            );
-            let (st, msg_root) = self.tipset_state(ts).await?;
-            last_state = st;
-            last_receipt = msg_root;
-        }
-        Ok(())
     }
 
     fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
