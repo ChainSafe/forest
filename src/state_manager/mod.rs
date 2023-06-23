@@ -258,20 +258,14 @@ where
         &self.cs
     }
 
-    // This function used to do this: Returns the network name from the init actor
-    // state.
     /// Returns the internal, protocol-level network name.
-    // TODO: Once we are able to query the init actor state to obtain the network name from the
-    // genesis file, this should be removed. It is work in progress here:
-    // https://github.com/ChainSafe/forest/pull/2913
-    pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
-        let name = match &self.chain_config.network {
-            crate::networks::NetworkChain::Mainnet => "testnetnet",
-            crate::networks::NetworkChain::Calibnet => "calibrationnet",
-            crate::networks::NetworkChain::Devnet(name) => name,
-        }
-        .to_string();
-        Ok(name)
+    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
+        let init_act = self
+            .get_actor(&fil_actor_interface::init::ADDRESS.into(), *st)?
+            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+        let state = init::State::load(self.blockstore(), init_act.code, init_act.state)?;
+
+        Ok(state.into_network_name())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.

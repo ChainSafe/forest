@@ -10,6 +10,7 @@ pub mod error;
 pub mod executor;
 pub mod externs;
 pub mod gas;
+pub mod hamtv0;
 pub mod machine;
 pub mod message;
 pub mod randomness;

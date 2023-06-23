@@ -90,6 +90,7 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
 pub enum StateTree<S> {
+    V0(state_tree_v0::StateTreeV0<S>),
     V2(StateTreeV2<S>),
     V3(StateTreeV3<S>),
 }
@@ -112,8 +113,10 @@ where
     pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::V3(st))
-        } else if let Ok(st) = StateTreeV2::new_from_root(store, c) {
+        } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
             Ok(StateTree::V2(st))
+        } else if let Ok(st) = state_tree_v0::StateTreeV0::new_from_root(store, c) {
+            Ok(StateTree::V0(st))
         } else {
             bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version.")
         }
@@ -137,6 +140,17 @@ where
                     Ok(None)
                 }
             }
+            StateTree::V0(st) => {
+                let id = st.lookup_id(addr)?;
+                if let Some(id) = id {
+                    Ok(st
+                        .get_actor(&id)
+                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .map(Into::into))
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 
@@ -145,6 +159,7 @@ where
         match self {
             StateTree::V2(st) => st.store(),
             StateTree::V3(st) => st.store(),
+            StateTree::V0(st) => st.store(),
         }
     }
 
@@ -155,6 +170,7 @@ where
                 .lookup_id(&addr.into())
                 .map_err(|e| anyhow::anyhow!("{e}")),
             StateTree::V3(st) => Ok(st.lookup_id(&addr.into())?),
+            _ => todo!(),
         }
     }
 
@@ -175,6 +191,7 @@ where
                 };
                 st.for_each(inner)
             }
+            _ => todo!(),
         }
     }
 
@@ -183,6 +200,7 @@ where
         match self {
             StateTree::V2(st) => st.flush().map_err(|e| anyhow::anyhow!("{e}")),
             StateTree::V3(st) => Ok(st.flush()?),
+            _ => todo!(),
         }
     }
 
@@ -199,6 +217,7 @@ where
                 st.set_actor(id, actor.into());
                 Ok(())
             }
+            _ => todo!(),
         }
     }
 }
@@ -333,6 +352,18 @@ impl From<&ActorState> for ActorStateV2 {
     }
 }
 
+impl From<state_tree_v0::ActorState> for ActorState {
+    fn from(value: state_tree_v0::ActorState) -> Self {
+        ActorState(ActorStateV3 {
+            code: value.code,
+            state: value.state,
+            sequence: value.sequence,
+            balance: TokenAmount::from(value.balance).into(),
+            delegated_address: None,
+        })
+    }
+}
+
 impl quickcheck::Arbitrary for ActorState {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let cid = Cid::new_v1(
@@ -340,5 +371,249 @@ impl quickcheck::Arbitrary for ActorState {
             cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
         );
         ActorState::new(cid, cid, TokenAmount::arbitrary(g), u64::arbitrary(g), None)
+    }
+}
+
+// ported from commit hash b622af
+pub mod state_tree_v0 {
+    use std::{cell::RefCell, collections::HashMap, error::Error};
+
+    use cid::Cid;
+    use fvm_ipld_blockstore::Blockstore;
+    use fvm_ipld_encoding3::CborStore;
+    use fvm_ipld_hamt::Hamt;
+    // use fvm_shared::state::StateRoot;
+
+    // use cid::Cid;
+    use fvm_ipld_encoding::repr::*;
+    use fvm_ipld_encoding::tuple::*;
+    use fvm_ipld_encoding::Cbor;
+    use libipld::Ipld;
+    use serde::{Deserialize, Serialize};
+
+    use crate::shim::address::Address;
+    use crate::shim::econ::TokenAmount;
+
+    /// State of all actor implementations.
+    #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+    pub struct ActorState {
+        /// Link to code for the actor.
+        pub code: Cid,
+        /// Link to the state of the actor.
+        pub state: Cid,
+        /// Sequence of the actor.
+        pub sequence: u64,
+        /// Tokens available to the actor.
+        pub balance: TokenAmount,
+    }
+
+    /// State tree implementation using hamt. This structure is not threadsafe and should only be used
+    /// in sync contexts.
+    pub struct StateTreeV0<S> {
+        hamt: crate::shim::hamtv0::Hamt<S, ActorState>,
+
+        version: StateTreeVersion,
+        info: Option<Cid>,
+
+        /// State cache
+        snaps: StateSnapshots,
+    }
+
+    /// Specifies the version of the state tree
+    #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr)]
+    #[repr(u64)]
+    pub enum StateTreeVersion {
+        /// Corresponds to actors < v2
+        V0,
+        /// Corresponds to actors = v2
+        V1,
+        /// Corresponds to actors = v3
+        V2,
+        /// Corresponds to actors = v4
+        V3,
+        /// Corresponds to actors >= v5
+        V4,
+    }
+
+    /// State root information. Contains information about the version of the state tree,
+    /// the root of the tree, and a link to the information about the tree.
+    #[derive(Deserialize_tuple, Serialize_tuple)]
+    pub struct StateRoot {
+        /// State tree version
+        pub version: StateTreeVersion,
+
+        /// Actors tree. The structure depends on the state root version.
+        pub actors: Cid,
+
+        /// Info. The structure depends on the state root version.
+        pub info: Cid,
+    }
+
+    impl<S> StateTreeV0<S>
+    where
+        S: Blockstore,
+    {
+        /// Constructor for a hamt state tree given an IPLD store
+        pub fn new_from_root(store: S, c: &Cid) -> Result<Self, Box<dyn std::error::Error>> {
+            // Try to load state root, if versioned
+            let (version, info, actors) = if let Ok(Some(StateRoot {
+                version,
+                info,
+                actors,
+            })) = store.get_cbor(c)
+            {
+                (StateTreeVersion::from(version), Some(info), actors)
+            } else {
+                // Fallback to v0 state tree if retrieval fails
+                (StateTreeVersion::V0, None, *c)
+            };
+
+            dbg!(&version, &info);
+
+            match version {
+                StateTreeVersion::V0 => {
+                    let a: Ipld = store.get_cbor(&actors).unwrap().unwrap();
+                    // dbg!(&a);
+                    let hamt: crate::shim::hamtv0::Hamt<S, ActorState> =
+                        crate::shim::hamtv0::Hamt::load_with_bit_width(&actors, store, 5).unwrap();
+
+                    Ok(Self {
+                        hamt,
+                        version,
+                        info,
+                        snaps: StateSnapshots::new(),
+                    })
+                }
+                _ => unimplemented!(),
+            }
+        }
+
+        /// Retrieve store reference to modify db.
+        pub fn store(&self) -> &S {
+            self.hamt.store()
+        }
+
+        // pub(crate) fn lookup_id<S>(&self, addr: Address) -> _ where S: Blockstore + Clone {
+        //     todo!()
+        // }
+
+        /// Get actor state from an address. Will be resolved to ID address.
+        pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
+            let addr = match self.lookup_id(addr)? {
+                Some(addr) => addr,
+                None => return Ok(None),
+            };
+
+            // Check cache for actor state
+            if let Some(actor_state) = self.snaps.get_actor(&addr) {
+                return Ok(Some(actor_state));
+            }
+
+            // if state doesn't exist, find using hamt
+            let act = self.hamt.get(&addr.to_bytes())?.cloned();
+
+            // Update cache if state was found
+            if let Some(act_s) = &act {
+                self.snaps.set_actor(addr, act_s.clone()).unwrap(); // FIXME: restore ?
+            }
+
+            Ok(act)
+        }
+
+        /// Get an ID address from any Address
+        pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<Address>> {
+            dbg!("@@ lookup id");
+            if addr.protocol() == fvm_shared3::address::Protocol::ID {
+                return Ok(Some(*addr));
+            }
+
+            if let Some(res_address) = self.snaps.resolve_address(addr) {
+                return Ok(Some(res_address));
+            }
+
+            let init_act = self
+                .get_actor(&Address::INIT_ACTOR)?
+                .ok_or(anyhow::anyhow!("Init actor address could not be resolved"))?;
+
+            let state = fil_actor_interface::init::State::load(
+                self.hamt.store(),
+                init_act.code,
+                init_act.state,
+            )?;
+
+            // FIXME: needs resolve_address method on fil-actor-states crate.
+            // let a: Address = match state
+            //     .resolve_address(self.hamt.store(), addr)
+            //     .map_err(|e| format!("Could not resolve address: {:?}", e))?
+            // {
+            //     Some(a) => a,
+            //     None => return Ok(None),
+            // };
+
+            // self.snaps.cache_resolve_address(*addr, a)?;
+
+            // Ok(Some(a))
+            todo!()
+        }
+    }
+
+    /// Collection of state snapshots
+    struct StateSnapshots {
+        layers: Vec<StateSnapLayer>,
+    }
+
+    /// State snap shot layer
+    #[derive(Debug, Default)]
+    struct StateSnapLayer {
+        actors: RefCell<HashMap<Address, Option<ActorState>>>,
+        resolve_cache: RefCell<HashMap<Address, Address>>,
+    }
+
+    impl StateSnapshots {
+        /// State snapshot constructor
+        fn new() -> Self {
+            Self {
+                layers: vec![StateSnapLayer::default()],
+            }
+        }
+
+        fn resolve_address(&self, addr: &Address) -> Option<Address> {
+            for layer in self.layers.iter().rev() {
+                if let Some(res_addr) = layer.resolve_cache.borrow().get(addr).cloned() {
+                    return Some(res_addr);
+                }
+            }
+
+            None
+        }
+
+        fn get_actor(&self, addr: &Address) -> Option<ActorState> {
+            for layer in self.layers.iter().rev() {
+                if let Some(state) = layer.actors.borrow().get(addr) {
+                    return state.clone();
+                }
+            }
+
+            None
+        }
+
+        fn set_actor(
+            &self,
+            addr: Address,
+            actor: ActorState,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            self.layers
+                .last()
+                .ok_or_else(|| {
+                    format!(
+                        "set actor failed to index snapshot layer at index: {}",
+                        &self.layers.len() - 1
+                    )
+                })?
+                .actors
+                .borrow_mut()
+                .insert(addr, Some(actor));
+            Ok(())
+        }
     }
 }
