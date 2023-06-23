@@ -79,11 +79,8 @@ impl SnapshotCommands {
 
                 let chain_name = state_network_name((), &config.client.rpc_token)
                     .await
+                    .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
                     .map_err(handle_rpc_err)?;
-
-                // let chain_name = chain_get_name((), &config.client.rpc_token)
-                //     .await
-                //     .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
