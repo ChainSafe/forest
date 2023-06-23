@@ -5,12 +5,13 @@ use std::ffi::OsString;
 use std::sync::Arc;
 
 use crate::cli_shared::{cli::LogConfig, logger};
+use crate::daemon::get_actual_chain_name;
 use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::utils::io::ProgressBar;
 use crate::{
     cli::subcommands::{cli_error_and_die, Cli},
-    rpc_client::chain_get_name,
+    rpc_client::state_network_name,
 };
 use clap::Parser;
 
@@ -37,7 +38,8 @@ where
                     }
                     let opts = &opts;
                     if opts.chain.is_none() {
-                        if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
+                        if let Ok(name) = state_network_name((), &config.client.rpc_token).await {
+                            let name = get_actual_chain_name(&name);
                             if name == "calibnet" {
                                 config.chain = Arc::new(ChainConfig::calibnet());
                             } else if name == "devnet" {

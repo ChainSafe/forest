@@ -72,13 +72,6 @@ pub async fn chain_validate_tipset_checkpoints(
     call(CHAIN_VALIDATE_TIPSET_CHECKPOINTS, keys, auth_token).await
 }
 
-pub async fn chain_get_name(
-    params: ChainGetNameParams,
-    auth_token: &Option<String>,
-) -> Result<ChainGetNameResult, Error> {
-    call(CHAIN_GET_NAME, params, auth_token).await
-}
-
 pub async fn chain_set_head(
     params: ChainSetHeadParams,
     auth_token: &Option<String>,

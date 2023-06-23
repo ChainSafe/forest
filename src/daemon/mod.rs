@@ -578,7 +578,7 @@ async fn propagate_error(
     std::future::pending().await
 }
 
-fn get_actual_chain_name(internal_network_name: &str) -> &str {
+pub fn get_actual_chain_name(internal_network_name: &str) -> &str {
     match internal_network_name {
         "testnetnet" => "mainnet",
         "calibrationnet" => "calibnet",

@@ -11,6 +11,7 @@ use crate::genesis::{forest_load_car, read_genesis_header};
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
+use crate::rpc_client::state_ops::state_network_name;
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::{io::ProgressBar, net::get_fetch_progress_from_file};
@@ -76,9 +77,13 @@ impl SnapshotCommands {
 
                 let epoch = chain_head.epoch();
 
-                let chain_name = chain_get_name((), &config.client.rpc_token)
+                let chain_name = state_network_name((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
+
+                // let chain_name = chain_get_name((), &config.client.rpc_token)
+                //     .await
+                //     .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(

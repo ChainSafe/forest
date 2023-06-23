@@ -12,3 +12,10 @@ pub async fn state_fetch_root(
 ) -> Result<StateFetchRootResult, Error> {
     call(STATE_FETCH_ROOT, params, auth_token).await
 }
+
+pub async fn state_network_name(
+    params: StateNetworkNameParams,
+    auth_token: &Option<String>,
+) -> Result<StateNetworkNameResult, Error> {
+    call(STATE_NETWORK_NAME, params, auth_token).await
+}

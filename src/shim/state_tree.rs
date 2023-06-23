@@ -468,8 +468,6 @@ pub mod state_tree_v0 {
                 (StateTreeVersion::V0, None, *c)
             };
 
-            dbg!(&version, &info);
-
             match version {
                 StateTreeVersion::V0 => {
                     let a: Ipld = store.get_cbor(&actors).unwrap().unwrap();
@@ -522,7 +520,6 @@ pub mod state_tree_v0 {
 
         /// Get an ID address from any Address
         pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<Address>> {
-            dbg!("@@ lookup id");
             if addr.protocol() == fvm_shared3::address::Protocol::ID {
                 return Ok(Some(*addr));
             }
