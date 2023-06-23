@@ -137,7 +137,6 @@ pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.19"
 protobuf = "3.2"
-quickcheck = "1"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync = "0.1"
@@ -192,6 +191,7 @@ cs_serde_bytes = "0.12.2"
 libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 multiaddr = "0.17.1"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
+quickcheck = "1"
 quickcheck_macros = "1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
 

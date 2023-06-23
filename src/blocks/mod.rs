@@ -19,9 +19,11 @@ pub use header::BlockHeader;
 pub use ticket::Ticket;
 pub use tipset::*;
 
+#[cfg(test)]
 #[derive(Clone)]
 struct ArbitraryCid(Cid);
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for ArbitraryCid {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         ArbitraryCid(Cid::new_v1(

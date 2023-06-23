@@ -74,6 +74,7 @@ impl SignedMessage {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for SignedMessage {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         SignedMessage {

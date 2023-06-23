@@ -156,6 +156,7 @@ impl Drop for ProgressBar {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for ProgressBarVisibility {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         *g.choose(&[
