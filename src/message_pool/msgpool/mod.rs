@@ -343,7 +343,6 @@ pub mod tests {
     use crate::message_pool::{
         msg_chain::{create_message_chains, Chains},
         msg_pool::MessagePool,
-        msg_pool::MAX_ACTOR_PENDING_MESSAGES,
     };
 
     #[tokio::test]
@@ -367,12 +366,11 @@ pub mod tests {
         )
         .unwrap();
         let mut smsg_vec = Vec::new();
-        for i in 0..(MAX_ACTOR_PENDING_MESSAGES as u64 + 1) {
+        for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
 
-        // Current limit is of 1000 messages per (trusted) account actor
         let (last, body) = smsg_vec.split_last().unwrap();
         for smsg in body {
             mpool.add(smsg.clone()).unwrap();
