@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
 use crate::message::{ChainMessage, SignedMessage};
+use crate::message_pool::msg_pool::MAX_ACTOR_PENDING_MESSAGES;
 use crate::networks::Height;
 use crate::shim::{
     address::Address,
@@ -49,6 +50,8 @@ pub trait Provider {
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
+    // Get max number of messages per actor in the pool
+    fn max_actor_pending_messages(&self) -> u64;
 }
 
 /// This is the default Provider implementation that will be used for the
@@ -122,5 +125,9 @@ where
         crate::chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())
             .map(Into::into)
+    }
+
+    fn max_actor_pending_messages(&self) -> u64 {
+        MAX_ACTOR_PENDING_MESSAGES
     }
 }

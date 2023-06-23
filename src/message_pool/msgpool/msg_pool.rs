@@ -49,8 +49,8 @@ use crate::message_pool::{
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
-pub const MAX_ACTOR_PENDING_MESSAGES: usize = 1000;
-const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: usize = 10;
+pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
+const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -58,15 +58,17 @@ const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: usize = 10;
 pub struct MsgSet {
     pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
+    max_actor_pending_messages: u64,
 }
 
 impl MsgSet {
     /// Generate a new `MsgSet` with an empty hash-map and setting the sequence
     /// specifically.
-    pub fn new(sequence: u64) -> Self {
+    pub fn new(sequence: u64, max_actor_pending_messages: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
             next_sequence: sequence,
+            max_actor_pending_messages,
         }
     }
 
@@ -76,7 +78,7 @@ impl MsgSet {
         let max_actor_pending_messages = if untrusted {
             MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES
         } else {
-            MAX_ACTOR_PENDING_MESSAGES
+            self.max_actor_pending_messages
         };
 
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
@@ -97,7 +99,7 @@ impl MsgSet {
             }
         }
 
-        if self.msgs.len() >= max_actor_pending_messages {
+        if self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
                 m.message.from().to_string(),
                 !untrusted,
@@ -155,8 +157,6 @@ pub struct MessagePool<T> {
     /// The minimum gas price needed for executing the transaction based on
     /// number of included blocks
     pub min_gas_price: BigInt,
-    /// This is max number of messages in the pool.
-    pub max_tx_pool_size: i64,
     // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
@@ -210,7 +210,6 @@ where
             cur_tipset: tipset,
             api: Arc::new(api),
             min_gas_price: Default::default(),
-            max_tx_pool_size: 5000,
             network_name,
             bls_sig_cache,
             sig_val_cache,
@@ -644,7 +643,7 @@ where
     match msett {
         Some(mset) => mset.add(msg, false)?,
         None => {
-            let mut mset = MsgSet::new(sequence);
+            let mut mset = MsgSet::new(sequence, api.max_actor_pending_messages());
             let from = msg.from();
             mset.add(msg, false)?;
             pending.insert(from, mset);

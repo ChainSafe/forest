@@ -202,6 +202,10 @@ impl Provider for TestApi {
     fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<TokenAmount, Error> {
         Ok(TokenAmount::from_atto(100))
     }
+
+    fn max_actor_pending_messages(&self) -> u64 {
+        20000
+    }
 }
 
 pub fn create_header(weight: u64) -> BlockHeader {

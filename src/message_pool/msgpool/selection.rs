@@ -919,7 +919,6 @@ mod test_selection {
         .await
         .unwrap();
 
-        // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
@@ -1097,10 +1096,7 @@ mod test_selection {
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
-        // this constant is to avoid bumping into forest mpool limits
-        const LIMIT_RATIO: i64 = 5;
-
-        let n_msgs = fvm_shared::BLOCK_GAS_LIMIT / (TEST_GAS_LIMIT * LIMIT_RATIO);
+        let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         // we create n_msgs messages from each actor to another, with the first actor paying
         // higher gas prices than the second; we expect message selection to
@@ -1120,7 +1116,7 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 0.25).unwrap();
 
-        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / (TEST_GAS_LIMIT * LIMIT_RATIO);
+        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         assert_eq!(msgs.len(), expected_msgs as usize);
 
