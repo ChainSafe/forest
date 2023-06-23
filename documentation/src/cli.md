@@ -157,9 +157,9 @@ A positive `past` number indicates messages that have been mined but that are
 still present in the message pool and/or messages that could not get included in
 a block. A positive `cur` number indicates all messages that are waiting to be
 included in a block. A high number here could mean that the network is enduring
-some congestion (if those messages are yours, you need to pay attention of the
+some congestion (if those messages are yours, you need to pay attention to the
 different fees you are using and adjust them). A positive `future` number means
-either that your forest node is not fully sync yet or if you are in sync that
+either that your forest node is not fully synced yet or if you are in sync that
 some messages are using a too small nonce.
 
 The `FeeCap cur` and `min-60` indicate how many messages from the sending
