@@ -139,7 +139,7 @@ You can retrieve statistics about the current messages in the pool.
 
 Usage: `forest-cli mpool stat`
 
-Exemple:
+Example:
 
 ```
 t3ub2uupkvfwp7zckda2songtluquirgxnooocjfifq6qesxre4igoc3u62njgvmmgnyccmowshbmrolkuni7a: Nonce past: 3, cur: 0, future: 1; FeeCap cur: 0, min-60: 0, gasLimit: 186447391
