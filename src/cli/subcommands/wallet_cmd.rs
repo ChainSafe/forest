@@ -13,7 +13,7 @@ use crate::json::{
 use crate::key_management::json::KeyInfoJson;
 use crate::rpc_client::wallet_ops::*;
 use crate::shim::{
-    address::{Address, Protocol},
+    address::{Address, Protocol, StrictAddress},
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
 };
@@ -223,8 +223,8 @@ impl WalletCommands {
                 Ok(())
             }
             Self::SetDefault { key } => {
-                let key =
-                    Address::from_str(key).with_context(|| format!("Invalid address: {key}"))?;
+                let StrictAddress(key) = StrictAddress::from_str(key)
+                    .with_context(|| format!("Invalid address: {key}"))?;
 
                 let key_json = AddressJson(key);
                 wallet_set_default((key_json,), &config.client.rpc_token)
@@ -233,7 +233,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Sign { address, message } => {
-                let address = Address::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(address)
                     .with_context(|| format!("Invalid address: {address}"))?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
@@ -255,7 +255,7 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let address = Address::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(address)
                     .with_context(|| format!("Invalid address: {address}"))?;
                 let signature = match address.protocol() {
                     Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),

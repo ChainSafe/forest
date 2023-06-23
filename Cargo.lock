@@ -2837,6 +2837,7 @@ dependencies = [
  "cs_serde_bytes",
  "daemonize-me",
  "data-encoding",
+ "data-encoding-macro",
  "derive_builder 0.12.0",
  "dialoguer",
  "digest 0.10.7",
