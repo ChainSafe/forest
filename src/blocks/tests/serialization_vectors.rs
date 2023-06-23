@@ -4,7 +4,7 @@ use crate::blocks::{header, BlockHeader};
 use crate::json::{message, signature};
 use crate::message::signed_message::SignedMessage;
 use crate::shim::{
-    address::{set_current_network, Network},
+    address::{CurrentNetwork, Network},
     crypto::Signature,
     message::Message,
 };
@@ -26,8 +26,6 @@ fn header_cbor_vectors() {
         cbor_hex: String,
         cid: String,
     }
-
-    set_current_network(Network::Testnet);
 
     let s = include_str!("../../../serialization-vectors/block_headers.json");
 
@@ -59,8 +57,6 @@ fn signing_test() {
         signature: Signature,
     }
 
-    set_current_network(Network::Testnet);
-
     let s = include_str!("../../../serialization-vectors/message_signing.json");
 
     let vectors: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
@@ -91,8 +87,6 @@ fn unsigned_message_cbor_vectors() {
         message: Message,
         hex_cbor: String,
     }
-
-    set_current_network(Network::Testnet);
 
     let s = include_str!("../../../serialization-vectors/unsigned_messages.json");
 
