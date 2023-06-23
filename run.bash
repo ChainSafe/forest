@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export VALIDATE_FROM=400000
+export VALIDATE_FROM=300000
 export VALIDATE_TO=450000
 
 
