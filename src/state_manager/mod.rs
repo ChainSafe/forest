@@ -207,7 +207,7 @@ pub struct StateManager<DB> {
     reward_calc: Arc<dyn RewardCalc>,
 }
 
-#[allow(clippy::type_complexity)] // TODO(aatifsyeđ): smell
+#[allow(clippy::type_complexity)]
 const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
@@ -759,20 +759,22 @@ where
     ///
     /// VM transaction execution essentially looks like this:
     /// ```text
-    /// previous_state * transaction = new_state
+    /// state[N-1800..N] * transaction = state[N+1]
     /// ```
     ///
     /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
-    /// a [`Cid`] - the _state root_
+    /// a [`Cid`] - the _state root_.
+    /// The previous 1800 states can be queried in a transaction, so a store needs at least that many.
+    /// (a snapshot typically contains 2000, for example).
     ///
     /// Each transaction costs FIL to execute - this is _gas_.
     /// After execution, the transaction has a _receipt_, showing how much gas was spent.
     /// This is similarly a [`Cid`] into the block store.
     ///
     /// Each [`Tipset`] knows its previous state, so computing tipset state consists of:
-    /// - fetching the previous state
-    /// - executing a transaction using all messages in the tipset
-    /// - returning the _new state root_ and the _receipt root_ of the transaction
+    /// - fetching the previous state, and its 1799 ancestors.
+    /// - executing a transaction using all messages in the tipset.
+    /// - returning the _new state root_ and the _receipt root_ of the transaction.
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking<CB: 'static>(
         self: &Arc<Self>,
@@ -1258,7 +1260,7 @@ where
     /// # What is validation?
     /// Every state transition returns a new _state root_, which is typically retained in e.g snapshots.
     /// For "full" snapshots, all state roots are retained.
-    /// For standard snapshots, the last 1800 or so state roots are retained.
+    /// For standard snapshots, the last 2000 or so state roots are retained.
     ///
     /// _receipts_ meanwhile, are typically ephemeral, but each tipset knows the _receipt root_
     /// (hash) of the previous tipset.
@@ -1304,11 +1306,7 @@ where
                 let (actual_state, actual_receipt) = self
                     .compute_tipset_state_blocking(parent, NO_CALLBACK)
                     .context("couldn't compute tipset state")?;
-                let expected_receipt = child
-                    .blocks()
-                    .first()
-                    .context("child has no receipts")?
-                    .message_receipts();
+                let expected_receipt = child.min_ticket_block().message_receipts();
                 let expected_state = child.parent_state();
                 match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
                     true => Ok(()),
