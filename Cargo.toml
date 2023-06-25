@@ -82,6 +82,7 @@ hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23" # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
+itertools = "0.10.5"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 jsonwebtoken = "8.1"
 lazy_static = "1.4"
@@ -175,6 +176,7 @@ tokio-util = { version = "0.7.0", features = ["compat"] }
 toml = "0.7"
 tracing = "0.1"
 tracing-appender = "0.2"
+tracing-chrome = "0.7.1"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", default-features = false }
