@@ -1258,7 +1258,7 @@ where
     /// of tipset validation.
     ///
     /// # What is validation?
-    /// Every state transition returns a new _state root_, which is typically retained in e.g snapshots.
+    /// Every state transition returns a new _state root_, which is typically retained in, e.g., snapshots.
     /// For "full" snapshots, all state roots are retained.
     /// For standard snapshots, the last 2000 or so state roots are retained.
     ///
