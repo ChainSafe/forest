@@ -18,9 +18,7 @@ use crate::db::{
     rolling::DbGarbageCollector,
     Store,
 };
-use crate::genesis::{
-    get_network_name_from_genesis, import_chain, read_genesis_header, validate_chain,
-};
+use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
@@ -43,6 +41,7 @@ use anyhow::{bail, Context};
 use bundle::load_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
+use futures_util::future::try_join_all;
 use lazy_static::lazy_static;
 use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit as _, EventState};
@@ -438,10 +437,15 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
-    if config.client.snapshot {
-        if let Some(validate_height) = config.client.snapshot_height {
-            ensure_params_downloaded().await?;
-            validate_chain(&state_manager, validate_height).await?;
+    if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
+        /// We've been provided a snapshot and asked to validate it
+        ensure_params_downloaded().await?;
+        let current_height = state_manager.chain_store().heaviest_tipset().epoch();
+        assert!(current_height.is_positive());
+        match validate_from.is_negative() {
+            // allow --height=-1000 to scroll back from the current head
+            true => state_manager.validate((current_height + validate_from)..=current_height)?,
+            false => state_manager.validate(validate_from..=current_height)?,
         }
     }
 
