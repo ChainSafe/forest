@@ -1274,7 +1274,7 @@ where
     ///
     /// # Known issues
     /// This function is blocking, but we do observe threads waiting and synchronizing.
-    /// This is suspected to be due to the VM's use of the chain store, or maybe JIT-ing.
+    /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
     pub fn validate(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         use rayon::iter::ParallelIterator as _;
