@@ -343,7 +343,7 @@ pub(in crate::message_pool) fn add_to_selected_msgs(
 
 #[cfg(test)]
 pub mod tests {
-    use std::{borrow::BorrowMut, time::Duration};
+    use std::borrow::BorrowMut;
 
     use crate::blocks::BlockHeader;
     use crate::blocks::Tipset;
@@ -366,7 +366,7 @@ pub mod tests {
         msg_pool::MessagePool,
     };
 
-    pub fn make_tipset(block: &BlockHeader) -> Option<(Arc<Tipset>)> {
+    pub fn make_tipset(block: &BlockHeader) -> Option<Arc<Tipset>> {
         Some(Arc::new(Tipset::from(block)))
     }
 

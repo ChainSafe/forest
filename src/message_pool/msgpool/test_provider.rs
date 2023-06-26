@@ -74,7 +74,7 @@ impl TestApi {
     }
 
     /// Set the tipset chain for `TestApi`
-    pub fn set_tipset_chain(&self, ts: Arc<Tipset>, last_head_epoch: i64) {
+    pub fn set_tipset_chain(&self, ts: Arc<Tipset>, _last_head_epoch: i64) {
         self.publisher.send(HeadChange::Apply(ts)).unwrap();
     }
 
@@ -209,7 +209,7 @@ impl Provider for TestApi {
     }
 
     fn head_changed(&self) {
-        self.inner.lock().publisher_change.send(());
+        let _ = self.inner.lock().publisher_change.send(());
     }
 }
 
