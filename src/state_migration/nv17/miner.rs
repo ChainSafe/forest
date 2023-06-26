@@ -425,6 +425,7 @@ mod tests {
         let system_state_old: fil_actor_system_state::v9::State =
             store.get_cbor(&system_actor_old.state)?.unwrap();
         let manifest_data_cid_old = system_state_old.builtin_actors;
+        ensure!(manifest_data_cid_old == manifest_old.actors_cid());
         ensure!(
             manifest_data_cid_old.to_string()
                 == "bafy2bzaceb7wfqkjc5c3ccjyhaf7zuhkvbzpvhnb35feaettztoharc7zdndc"
@@ -635,6 +636,56 @@ mod tests {
         ensure!(
             actors_out_state_root.actors.to_string()
                 == "bafy2bzacecfv5ii635kgitgotd2ogkpnpu2zujhpeqt7gm32vartmjhoad6i4"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fip0029_miner_migration() -> Result<()> {
+        let store = crate::db::MemoryDB::default();
+        let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
+        let system_actor_old = state_tree_old
+            .get_actor(&fil_actor_interface::system::ADDRESS.into())?
+            .unwrap();
+        let system_state_old: fil_actor_system_state::v9::State =
+            store.get_cbor(&system_actor_old.state)?.unwrap();
+        let manifest_data_cid_old = system_state_old.builtin_actors;
+        let addr = Address::new_id(10000);
+        let worker_addr = Address::new_id(20000);
+        let miner_cid_old = manifest_old.code_by_name(MINER_ACTOR_NAME)?;
+        let miner_state = make_base_miner_state(&store, &addr, &worker_addr)?;
+        let miner_state_cid = store.put_cbor_default(&miner_state)?;
+        println!("miner_state_cid: {miner_state_cid}, miner_state: {miner_state:?}");
+        ensure!(
+            miner_state_cid.to_string()
+                == "bafy2bzaceacitm72b4zks7ivplygpmyqa6aas2pxkv4rkiknluxiko5mn4ng6"
+        );
+        let miner_info_old: fil_actor_miner_state::v8::MinerInfo =
+            store.get_cbor(&miner_state.info)?.unwrap();
+        let miner_actor = ActorState::new(*miner_cid_old, miner_state_cid, Zero::zero(), 0, None);
+        state_tree_old.set_actor(&addr, miner_actor)?;
+        let state_tree_old_root = state_tree_old.flush()?;
+        let state_root: StateRoot = store.get_cbor(&state_tree_old_root)?.unwrap();
+        ensure!(
+            state_root.actors.to_string()
+                == "bafy2bzacebdhxpk5z6qencxxmsnn6ra4rtfdjkkdr7b4gxokoynqasonera2u"
+        );
+        let (new_manifest_cid, new_manifest) = make_test_manifest(&store, "fil/9/")?;
+        let mut chain_config = ChainConfig::calibnet();
+        if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
+            bundle.manifest = new_manifest_cid;
+        }
+        let new_state_cid =
+            super::super::run_migration(&chain_config, &store, &state_tree_old_root, 200)?;
+        let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
+        println!(
+            "new_state_cid: {new_state_cid}, actors_out_state_root.actors: {}",
+            actors_out_state_root.actors
+        );
+        ensure!(
+            actors_out_state_root.actors.to_string()
+                == "bafy2bzacealcrnmsuozpsrzpt57rto67a6kwzru7lmgapamjiiwxzylxfqexi"
         );
 
         Ok(())
@@ -886,91 +937,6 @@ mod tests {
         };
 
         let empty_miner_info_cid = store.put_cbor_default(&empty_miner_info)?;
-        ensure!(
-            empty_miner_info_cid.to_string()
-                == "bafy2bzacec2hqnovjvqle3wjznb4xeohxrm3qq7psydlpcgzfk5kdtnkqtqc6"
-        );
-
-        // let empty_vesting_funds = fil_actor_miner_state::v8::VestingFunds::new();
-        // let empty_vesting_funds_cid = store.put_cbor_default(&empty_vesting_funds)?;
-        // ensure!(
-        //     empty_vesting_funds_cid.to_string()
-        //         == "bafy2bzacealbq6s7ptdud6gvpc2yv54opwotncjlqjxmzb2q2rnjxv753rwdc"
-        // );
-
-        // let mut empty_precommits_cleanup_array =
-        //     fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(store, 6);
-        // let empty_precommits_cleanup_array_cid = empty_precommits_cleanup_array.flush()?;
-        // ensure!(
-        //     empty_precommits_cleanup_array_cid.to_string()
-        //         == "bafy2bzaceaa2jny7gkgdwnid4kuldau6bnvgyss5bszo4uy6uikrncvdu5mc2"
-        // );
-
-        // let mut empty_sector_array = fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
-        //     store,
-        //     fil_actor_miner_state::v8::SECTORS_AMT_BITWIDTH,
-        // );
-        // let empty_sector_array_cid = empty_sector_array.flush()?;
-        // ensure!(
-        //     empty_sector_array_cid.to_string()
-        //         == "bafy2bzaceacu3yonapahihxmnhzuvk76yupwjmyeymd2l5n6xfs5st52shm6a"
-        // );
-
-        // let empty_bit_field = BitField::new();
-        // let empty_bit_field_cid = store.put_cbor_default(&empty_bit_field)?;
-        // ensure!(
-        //     empty_bit_field_cid.to_string()
-        //         == "bafy2bzacea456askyutsf7uk4ta2q5aojrlcji4mhaqokbfalgvoq4ueeh4l2"
-        // );
-
-        // let mut empty_partitions_array = fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
-        //     store,
-        //     fil_actor_miner_state::v8::DEADLINE_PARTITIONS_AMT_BITWIDTH,
-        // );
-        // let empty_partitions_array_cid = empty_partitions_array.flush()?;
-        // ensure!(
-        //     empty_partitions_array_cid.to_string()
-        //         == "bafy2bzacedijw74yui7otvo63nfl3hdq2vdzuy7wx2tnptwed6zml4vvz7wee"
-        // );
-
-        // let mut empty_deadline_expiration_array =
-        //     fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
-        //         store,
-        //         fil_actor_miner_state::v8::DEADLINE_EXPIRATIONS_AMT_BITWIDTH,
-        //     );
-        // let empty_deadline_expiration_array_cid = empty_deadline_expiration_array.flush()?;
-        // ensure!(
-        //     empty_deadline_expiration_array_cid.to_string()
-        //         == "bafy2bzaceacu3yonapahihxmnhzuvk76yupwjmyeymd2l5n6xfs5st52shm6a"
-        // );
-
-        // let mut empty_post_submissions_array =
-        //     fil_actors_shared::v8::Array::<(), _>::new_with_bit_width(
-        //         store,
-        //         fil_actor_miner_state::v8::DEADLINE_OPTIMISTIC_POST_SUBMISSIONS_AMT_BITWIDTH,
-        //     );
-        // let empty_post_submissions_array_cid = empty_post_submissions_array.flush()?;
-        // ensure!(
-        //     empty_post_submissions_array_cid.to_string()
-        //         == "bafy2bzacebpbl7msg6mta4gjy3xmntdo6tt7wiikvctwtrkukkem5kvw5bw2i"
-        // );
-
-        // let empty_deadline = fil_actor_miner_state::v8::Deadline::new(store)?;
-        // let empty_deadline_cid = store.put_cbor_default(&empty_deadline)?;
-        // ensure!(
-        //     empty_deadline_cid.to_string()
-        //         == "bafy2bzacedh5oro2npo2wzxvbaemt5zmibium7gmiwavbtn3rfjztovxv7hpc"
-        // );
-
-        // let empty_deadlines = fil_actor_miner_state::v8::Deadlines::new(
-        //     &fil_actors_shared::v8::runtime::Policy::calibnet(),
-        //     empty_deadline_cid,
-        // );
-        // let empty_deadlines_cid = store.put_cbor_default(&empty_deadlines)?;
-        // ensure!(
-        //     empty_deadlines_cid.to_string()
-        //         == "bafy2bzacebx7jpdhnsrri7womvthfo6xlhpavdabnlsguhahje35pm3ankpiy"
-        // );
 
         let empty_miner_state = fil_actor_miner_state::v8::State::new(
             &fil_actors_shared::v8::runtime::Policy::calibnet(),
