@@ -215,7 +215,8 @@ pub async fn head_change<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
     revert: Vec<Tipset>,
-    apply: Option<(Arc<Tipset>, i64)>,
+    apply: Option<Arc<Tipset>>,
+    last_known_head: &Mutex<Option<i64>>,
 ) -> Result<(), Error>
 where
     T: Provider + 'static,
@@ -241,7 +242,7 @@ where
         }
     }
 
-    if let Some((head, last_head_epoch)) = apply {
+    if let Some(head) = apply {
         let mut ts = head.clone();
         loop {
             for b in ts.blocks() {
@@ -254,7 +255,6 @@ where
                         msg.sequence(),
                         rmsgs.borrow_mut(),
                     )?;
-                    // TODO: understand the purpose of republishing those
                     if !repub && republished.write().insert(msg.cid()?) {
                         repub = true;
                     }
@@ -266,26 +266,24 @@ where
                         msg.sequence,
                         rmsgs.borrow_mut(),
                     )?;
-                    // TODO: understand the purpose of republishing those
                     if !repub && republished.write().insert(msg.cid()?) {
                         repub = true;
                     }
                 }
             }
 
-            if pending.read().is_empty() {
-                break;
-            }
-
-            if let Ok(pts) = api.load_tipset(ts.parents()) {
-                // We want to remove messages in the range [last_head_epoch, HEAD]
-                if pts.epoch() >= last_head_epoch {
-                    ts = pts;
-                    continue;
+            let guard = last_known_head.lock();
+            if let Some(epoch) = *guard {
+                if let Ok(pts) = api.load_tipset(ts.parents()) {
+                    if pts.epoch() >= epoch {
+                        ts = pts;
+                        continue;
+                    }
                 }
             }
             break;
         }
+        *last_known_head.lock() = Some(head.epoch());
         *cur_tipset.lock() = head;
     }
 
@@ -369,9 +367,8 @@ pub mod tests {
         msg_pool::MessagePool,
     };
 
-    pub fn make_range(block: &BlockHeader) -> Option<(Arc<Tipset>, i64)> {
-        let epoch = block.epoch();
-        Some((Arc::new(Tipset::from(block)), epoch))
+    pub fn make_tipset(block: &BlockHeader) -> Option<(Arc<Tipset>)> {
+        Some(Arc::new(Tipset::from(block)))
     }
 
     pub fn create_smsg(
@@ -467,6 +464,8 @@ pub mod tests {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
+
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -475,7 +474,8 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&a),
+            make_tipset(&a),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -535,6 +535,8 @@ pub mod tests {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
+
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -543,7 +545,8 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&a),
+            make_tipset(&a),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -556,6 +559,7 @@ pub mod tests {
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
+        let last_known_head = mpool.last_known_head.clone();
 
         head_change(
             api.as_ref(),
@@ -565,7 +569,8 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b),
+            make_tipset(&a),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -583,6 +588,7 @@ pub mod tests {
             cur_tipset.as_ref(),
             vec![Tipset::from(b)],
             None,
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();

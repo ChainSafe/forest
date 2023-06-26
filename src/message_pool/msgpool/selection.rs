@@ -702,7 +702,7 @@ mod test_selection {
         head_change,
         msgpool::{
             test_provider::{mock_block, TestApi},
-            tests::{create_fake_smsg, create_smsg, make_range},
+            tests::{create_fake_smsg, create_smsg, make_tipset},
         },
     };
 
@@ -743,6 +743,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
 
         head_change(
             api.as_ref(),
@@ -752,7 +753,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b1),
+            make_tipset(&b1),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -810,7 +812,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b2),
+            make_tipset(&b2),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -906,6 +909,8 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
+        
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -914,7 +919,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b1),
+            make_tipset(&b1),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -987,6 +993,8 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
+        
         head_change(
             mpool.api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -995,7 +1003,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b1),
+            make_tipset(&b1),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -1080,6 +1089,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
 
         head_change(
             api.as_ref(),
@@ -1089,7 +1099,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b1),
+            make_tipset(&b1),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -1159,6 +1170,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
 
         head_change(
             api.as_ref(),
@@ -1168,7 +1180,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&b1),
+            make_tipset(&b1),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();
@@ -1276,6 +1289,7 @@ mod test_selection {
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
+        let last_known_head = mpool.last_known_head.clone();
 
         head_change(
             api.as_ref(),
@@ -1285,7 +1299,8 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            make_range(&block),
+            make_tipset(&block),
+            last_known_head.as_ref(),
         )
         .await
         .unwrap();

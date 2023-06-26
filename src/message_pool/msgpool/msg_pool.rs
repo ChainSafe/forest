@@ -159,6 +159,8 @@ pub struct MessagePool<T> {
     pub config: MpoolConfig,
     /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
+    /// The last known head epoch
+    pub last_known_head: Arc<Mutex<Option<i64>>>,
 }
 
 impl<T> MessagePool<T>
@@ -203,6 +205,7 @@ where
             network_sender,
             repub_trigger,
             chain_config: Arc::clone(&chain_config),
+            last_known_head: Arc::new(Mutex::new(None)),
         };
 
         mp.load_local()?;
@@ -216,6 +219,7 @@ where
 
         let cur_tipset = mp.cur_tipset.clone();
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
+        let last_known_head = mp.last_known_head.clone();
 
         // Reacts to new HeadChanges
         services.spawn(async move {
@@ -230,11 +234,7 @@ where
                             HeadChange::Apply {
                                 tipset,
                                 last_head_epoch,
-                            } => (
-                                cur_tipset.clone(),
-                                Vec::new(),
-                                Some((tipset, last_head_epoch)),
-                            ),
+                            } => (cur_tipset.clone(), Vec::new(), Some(tipset)),
                         };
                         head_change(
                             api.as_ref(),
@@ -245,6 +245,7 @@ where
                             cur.as_ref(),
                             rev,
                             app,
+                            last_known_head.as_ref(),
                         )
                         .await
                         .context("Error changing head")?;
