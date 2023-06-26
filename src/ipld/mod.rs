@@ -11,8 +11,9 @@ pub use libipld::Path;
 pub use libipld_core::ipld::Ipld;
 pub use util::*;
 
-pub use self::{cid_hashset::CidHashSet, error::Error};
+pub use self::cid_hashset::CidHashSet;
 
+#[cfg(test)]
 fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
     match ipld {
         Ipld::Map(map) => map.get(segment),

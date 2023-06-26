@@ -1,20 +1,28 @@
+# Compilation artifacts
 /target
+/node_modules
+
+# Backup files
 **/*.rs.bk
-.idea/
-config*.toml
-.DS_STORE
-.vscode
-/test_dir*
-/devnet.car
 *.orig
-criterion
-genesis.json
+
+# IDE files
+.idea/
+.vscode
+
+# MacOS Junk
+.DS_STORE
+
+# Ignore everything except toml files in .cargo
 /.cargo/*
 !/.cargo/*.toml
-node/rpc-api/static/ast.ron
-documentation/book/**/*
-node_modules
-/scripts/benchmark_db/.bundle/
-/scripts/benchmark_db/vendor/
-/scripts/benchmark_db/*.md
-/scripts/benchmark_db/*.csv
+
+# Uncategorized
+config*.toml
+/test_dir*
+/devnet.car
+genesis.json
+
+# Tracing/profiling
+/perf.data*
+/trace-*.json

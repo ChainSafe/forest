@@ -4,7 +4,9 @@
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
 pub(in crate::message_pool) mod provider;
+#[cfg(test)]
 mod selection;
+#[cfg(test)]
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
 
@@ -21,7 +23,6 @@ use fvm_ipld_encoding::Cbor;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
@@ -37,8 +38,6 @@ const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
-const PROPAGATION_DELAY_SECS: u64 = 6;
-// TODO: Implement guess gas module
 const MIN_GAS: u64 = 1298450;
 
 /// Get the state of the `base_sequence` for a given address in the current
@@ -493,7 +492,7 @@ pub mod tests {
         let tipset = Tipset::from(&a);
         let b = mock_block_with_parents(&tipset, 1, 1);
 
-        let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
+        let sender = wallet.generate_addr(SignatureType::Bls).unwrap();
         let target = Address::new_id(1001);
 
         let mut smsg_vec = Vec::new();

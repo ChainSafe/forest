@@ -27,7 +27,14 @@
 
 ### Breaking
 
+- [#3048](https://github.com/ChainSafe/forest/pull/3048): Remove support for
+  rocksdb
+- [#3047](https://github.com/ChainSafe/forest/pull/3047): Remove support for
+  compiling with delegated consensus
+
 ### Added
+
+- [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
 
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`

@@ -3,7 +3,7 @@
 
 use std::{sync::Arc, time};
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
 use crate::utils::{
     db::BlockstoreBufferedWriteExt,
@@ -66,21 +66,6 @@ where
     Ok(network_name)
 }
 
-pub async fn initialize_genesis<BS>(
-    genesis_fp: Option<&String>,
-    state_manager: &StateManager<BS>,
-) -> Result<(Tipset, String), anyhow::Error>
-where
-    BS: Blockstore + Clone + Send + Sync + 'static,
-{
-    let genesis_bytes = state_manager.chain_config().genesis_bytes();
-    let genesis =
-        read_genesis_header(genesis_fp, genesis_bytes, state_manager.blockstore()).await?;
-    let ts = Tipset::from(&genesis);
-    let network_name = get_network_name_from_genesis(&genesis, state_manager)?;
-    Ok((ts, network_name))
-}
-
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
@@ -141,7 +126,8 @@ where
     if !skip_load {
         let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
-        if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
+        if sm.chain_config().genesis_cid.is_some()
+            && !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {
             bail!(
                 "Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or \
@@ -154,26 +140,6 @@ where
     // Update head with snapshot header tipset
     info!("Accepting {:?} as new head.", ts.cids());
     sm.chain_store().set_heaviest_tipset(ts)?;
-
-    Ok(())
-}
-
-pub async fn validate_chain<DB>(
-    sm: &Arc<StateManager<DB>>,
-    validate_height: i64,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let tipset = sm.chain_store().heaviest_tipset();
-    let height = if validate_height > 0 {
-        validate_height
-    } else {
-        (tipset.epoch() + validate_height).max(0)
-    };
-
-    info!("Validating imported chain from height: {}", height);
-    sm.validate_chain(tipset.clone(), height).await?;
 
     Ok(())
 }

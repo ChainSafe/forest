@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use crate::message::ChainMessage;
-use crate::networks::ChainConfig;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
@@ -120,6 +120,9 @@ where
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
             config.chain_id(chain_config.eth_chain_id.into());
+            if let NetworkChain::Devnet(_) = chain_config.network {
+                config.enable_actor_debugging();
+            }
 
             let engine = multi_engine.v3.get(&config)?;
             let mut context = config.for_epoch(epoch, timestamp, root);

@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use crate::beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
+use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address,
@@ -456,9 +456,9 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use std::sync::Arc;
 
-    use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
     use crate::shim::{address::Address, version::NetworkVersion};
     use fvm_ipld_encoding::Cbor;
 
@@ -492,7 +492,7 @@ mod tests {
             .unwrap();
         let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
-            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+            beacon: Arc::new(MockBeacon::default()),
         }]));
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);

@@ -16,11 +16,8 @@ use crate::cli_shared::{
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
-    Store,
 };
-use crate::genesis::{
-    get_network_name_from_genesis, import_chain, read_genesis_header, validate_chain,
-};
+use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
@@ -28,7 +25,11 @@ use crate::libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManage
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
-use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
+use crate::shim::{
+    address::{CurrentNetwork, Network},
+    clock::ChainEpoch,
+    version::NetworkVersion,
+};
 use crate::state_manager::StateManager;
 use crate::utils::{
     io::write_to_file, monitoring::MemStatsTracker,
@@ -80,19 +81,7 @@ pub fn ipc_shmem_conf() -> ShmemConf {
         .flink(IPC_PATH.as_os_str())
 }
 
-// Initialize Consensus
-#[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
-compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "deleg_cns")] {
-        // Custom consensus.
-        use crate::deleg_cns::composition as cns;
-    } else {
-        // Default consensus
-        use crate::fil_cns::composition as cns;
-    }
-}
+use crate::fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = ipc_shmem_conf().open()?;
@@ -135,7 +124,7 @@ pub(super) async fn start(
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
-        crate::shim::address::set_current_network(crate::shim::address::Network::Testnet);
+        CurrentNetwork::set_global(Network::Testnet);
     }
 
     info!(
@@ -337,11 +326,7 @@ pub(super) async fn start(
 
     // For consensus types that do mining, create a component to submit their
     // proposals.
-    let submitter = SyncGossipSubmitter::new(
-        network_name.clone(),
-        network_send.clone(),
-        tipset_sink.clone(),
-    );
+    let submitter = SyncGossipSubmitter::new();
 
     // Initialize Consensus. Mining may or may not happen, depending on type.
     let consensus =
@@ -434,18 +419,17 @@ pub(super) async fn start(
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 
-    if config.client.snapshot {
-        if let Some(validate_height) = config.client.snapshot_height {
-            ensure_params_downloaded().await?;
-            validate_chain(&state_manager, validate_height).await?;
+    if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
+        // We've been provided a snapshot and asked to validate it
+        ensure_params_downloaded().await?;
+        let current_height = state_manager.chain_store().heaviest_tipset().epoch();
+        assert!(current_height.is_positive());
+        match validate_from.is_negative() {
+            // allow --height=-1000 to scroll back from the current head
+            true => state_manager.validate((current_height + validate_from)..=current_height)?,
+            false => state_manager.validate(validate_from..=current_height)?,
         }
     }
-
-    // For convenience, flush the database after we've potentially loaded a new
-    // snapshot. This ensures the snapshot won't have to be re-imported if
-    // Forest is interrupted. As of writing, flushing only affects RocksDB and
-    // is a no-op with ParityDB.
-    state_manager.blockstore().flush()?;
 
     // Halt
     if opts.halt_after_import {

@@ -13,12 +13,7 @@ use crate::metrics;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
-    address::Address,
-    crypto::{Signature, SignatureType},
-    econ::TokenAmount,
-    executor::Receipt,
-    message::Message,
-    state_tree::StateTree,
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
 };
 use crate::utils::{
     db::{
@@ -31,7 +26,6 @@ use crate::utils::{
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::{Context, Result};
 use async_compression::futures::write::ZstdEncoder;
-use bls_signatures::Serialize as SerializeBls;
 use cid::Cid;
 use digest::Digest;
 use futures::{io::BufWriter, AsyncWrite};
@@ -275,6 +269,7 @@ where
     }
 
     /// Returns Tipset from key-value store from provided CIDs
+    #[tracing::instrument(skip_all)]
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset());
@@ -331,9 +326,7 @@ where
     /// If the given height is a null round:
     /// - If `prev` is `true`, the tipset before the null round is returned.
     /// - If `prev` is `false`, the tipset following the null round is returned.
-    ///
-    /// Returns `None` if the tipset provided was the tipset at the given
-    /// height.
+    #[tracing::instrument(skip(self, ts))]
     pub fn tipset_by_height(
         &self,
         height: ChainEpoch,
@@ -875,8 +868,6 @@ pub mod headchange_json {
         Revert(TipsetJson),
     }
 
-    pub type SubscriptionHeadChange = (i64, Vec<HeadChangeJson>);
-
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
@@ -889,78 +880,6 @@ pub mod headchange_json {
             }
         }
     }
-}
-
-/// Result of persisting a vector of `SignedMessage`s that are to be included in
-/// a block.
-///
-/// The fields are public so they can be partially moved, but they should not be
-/// modified.
-pub struct PersistedBlockMessages {
-    /// Overall CID to be included in the `BlockHeader`.
-    pub msg_cid: Cid,
-    /// All CIDs of SECP messages, to be included in `BlockMsg`.
-    pub secp_cids: Vec<Cid>,
-    /// All CIDs of BLS messages, to be included in `BlockMsg`.
-    pub bls_cids: Vec<Cid>,
-    /// Aggregated signature of all BLS messages, to be included in the
-    /// `BlockHeader`.
-    pub bls_agg: Signature,
-}
-
-/// Partition the messages into SECP and BLS variants, store them individually
-/// in the IPLD store, and the corresponding `TxMeta` as well, returning its CID
-/// so that it can be put in a block header. Also return the aggregated BLS
-/// signature of all BLS messages.
-pub fn persist_block_messages<DB: Blockstore>(
-    db: &DB,
-    messages: Vec<&SignedMessage>,
-) -> anyhow::Result<PersistedBlockMessages> {
-    let mut bls_cids = Vec::new();
-    let mut secp_cids = Vec::new();
-
-    let mut bls_sigs = Vec::new();
-    for msg in messages {
-        if msg.signature().signature_type() == SignatureType::BLS {
-            let c = db.put_cbor_default(&msg.message)?;
-            bls_cids.push(c);
-            bls_sigs.push(&msg.signature);
-        } else {
-            let c = db.put_cbor_default(&msg)?;
-            secp_cids.push(c);
-        }
-    }
-
-    let bls_msg_root = Amt::new_from_iter(db, bls_cids.iter().copied())?;
-    let secp_msg_root = Amt::new_from_iter(db, secp_cids.iter().copied())?;
-
-    let mmcid = db.put_cbor_default(&TxMeta {
-        bls_message_root: bls_msg_root,
-        secp_message_root: secp_msg_root,
-    })?;
-
-    let bls_agg = if bls_sigs.is_empty() {
-        Signature::new_bls(vec![])
-    } else {
-        Signature::new_bls(
-            bls_signatures::aggregate(
-                &bls_sigs
-                    .iter()
-                    .map(|s| s.bytes())
-                    .map(bls_signatures::Signature::from_bytes)
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .unwrap()
-            .as_bytes(),
-        )
-    };
-
-    Ok(PersistedBlockMessages {
-        msg_cid: mmcid,
-        secp_cids,
-        bls_cids,
-        bls_agg,
-    })
 }
 
 #[cfg(test)]
