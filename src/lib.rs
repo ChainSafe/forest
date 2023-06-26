@@ -26,7 +26,6 @@ mod cli;
 mod cli_shared;
 mod daemon;
 mod db;
-mod deleg_cns;
 mod fil_cns;
 mod genesis;
 mod interpreter;
@@ -70,6 +69,12 @@ pub mod doctest_private {
         utils::{encoding::blake2b_256, io::read_toml},
     };
 }
+
+/// These items are semver-exempt, and exist for forest author use only
+// Allow benchmarks of forest internals
+#[cfg(feature = "benchmark-private")]
+#[doc(hidden)]
+pub mod benchmark_private {}
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};

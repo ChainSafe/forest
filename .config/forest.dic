@@ -40,6 +40,7 @@ Kademlia
 libp2p
 localhost
 mainnet
+testnet
 MDNS
 mempool
 Merkle
@@ -72,7 +73,7 @@ TTY
 URL
 validator/S
 verifier
-VM
+VM/SM
 VRF
 WebAssembly
 WebSocket

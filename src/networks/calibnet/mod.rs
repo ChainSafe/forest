@@ -24,6 +24,9 @@ const LIGHTNING_EPOCH: i64 = 489_094;
 // network.
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 
+// https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
+pub const ETH_CHAIN_ID: u64 = 314159;
+
 lazy_static! {
 /// Height epochs.
 pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [

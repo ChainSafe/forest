@@ -15,17 +15,13 @@ install-daemon:
 install:
 	cargo install --locked --path . --force
 
-# Installs Forest binaries with RocksDb backend
-install-with-rocksdb:
-	cargo install --locked --path . --force --no-default-features --features jemalloc,rocksdb,fil_cns
-
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
-	cargo install --locked --path . --force --no-default-features --features rustalloc,paritydb,fil_cns
+	cargo install --locked --path . --force --no-default-features --features rustalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
-	cargo install --locked --path . --force --no-default-features --features mimalloc,paritydb,fil_cns
+	cargo install --locked --path . --force --no-default-features --features mimalloc
 
 install-deps:
 	apt-get update -y
@@ -78,14 +74,6 @@ lint-clippy:
 	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings
 	cargo clippy --features=instrumented_kernel --quiet --no-deps -- --deny=warnings
 
-	# different consensus algos (repeated for clarity)
-	cargo clippy --features=paritydb,rustalloc,fil_cns   --no-default-features --quiet --no-deps -- --deny=warnings
-	cargo clippy --features=paritydb,rustalloc,deleg_cns --no-default-features --quiet --no-deps -- --deny=warnings
-
-	# different databases (repeated for clarity)
-	cargo clippy --features=paritydb,rustalloc,fil_cns --no-default-features --quiet --no-deps -- --deny=warnings
-	cargo clippy --features=rocksdb,rustalloc,fil_cns  --no-default-features --quiet --no-deps -- --deny=warnings
-
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
 	docker run --rm -i hadolint/hadolint < $<
@@ -108,20 +96,12 @@ docker-run:
 test:
 	cargo nextest run
 
-	# different databases (repeated for clarity)
-	cargo nextest run --features=paritydb,rustalloc,fil_cns --no-default-features db
-	cargo nextest run --features=rocksdb,rustalloc,fil_cns  --no-default-features db
-
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
 test-release:
 	cargo nextest run --release
-
-	# different databases (repeated for clarity)
-	cargo nextest run --release --features=paritydb,rustalloc,fil_cns --no-default-features db
-	cargo nextest run --release --features=rocksdb,rustalloc,fil_cns  --no-default-features db
 
 test-all: test test-release
 

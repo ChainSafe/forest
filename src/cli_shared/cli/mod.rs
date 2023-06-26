@@ -159,6 +159,10 @@ impl CliOpts {
         if let Some(chain) = &self.chain {
             // override the chain configuration
             cfg.chain = Arc::new(ChainConfig::from_chain(chain));
+        } else {
+            // override any custom changes to the chain configuration based on the used
+            // network.
+            cfg.chain = Arc::new(ChainConfig::from_chain(&cfg.chain.network));
         }
 
         if let Some(genesis_file) = &self.genesis {

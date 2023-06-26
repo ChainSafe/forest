@@ -17,7 +17,7 @@ use crate::libp2p::{
 };
 use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
-use crate::shim::{clock::EPOCHS_IN_DAY, message::Message};
+use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
 use crate::state_manager::StateManager;
 use cid::Cid;
 use futures::{
@@ -472,7 +472,9 @@ where
             }
         };
 
-        if tipset.epoch() + EPOCHS_IN_DAY < chain_store.heaviest_tipset().epoch() {
+        if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
+            < chain_store.heaviest_tipset().epoch()
+        {
             debug!(
                 "Skip processing tipset at epoch {} from {source} that is too old",
                 tipset.epoch()

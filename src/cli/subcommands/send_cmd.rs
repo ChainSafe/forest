@@ -5,9 +5,10 @@ use std::str::FromStr;
 
 use crate::json::message::json::MessageJson;
 use crate::rpc_client::{mpool_push_message, wallet_default_address};
+use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, message::Message, METHOD_SEND};
+use fvm_shared3::{message::Message, METHOD_SEND};
 use num::Zero as _;
 
 use super::{handle_rpc_err, Config};
@@ -18,8 +19,8 @@ pub struct SendCommand {
     /// optionally specify the account to send funds from (otherwise the default
     /// one will be used)
     #[arg(long)]
-    from: Option<Address>,
-    target_address: Address,
+    from: Option<String>,
+    target_address: String,
     #[arg(value_parser = humantoken::parse)]
     amount: TokenAmount,
     #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
@@ -33,8 +34,8 @@ pub struct SendCommand {
 
 impl SendCommand {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
-        let from: Address = if let Some(from) = self.from {
-            from
+        let from: Address = if let Some(from) = &self.from {
+            StrictAddress::from_str(from)?.into()
         } else {
             Address::from_str(
                 &wallet_default_address((), &config.client.rpc_token)
@@ -49,11 +50,11 @@ impl SendCommand {
         };
 
         let message = Message {
-            from,
-            to: self.target_address,
+            from: from.into(),
+            to: StrictAddress::from_str(&self.target_address)?.into(),
             value: self.amount.clone().into(),
             method_num: METHOD_SEND,
-            gas_limit: self.gas_limit,
+            gas_limit: self.gas_limit as u64,
             gas_fee_cap: self.gas_feecap.clone().into(),
             gas_premium: self.gas_premium.clone().into(),
             // JANK(aatifsyed): Why are we using a testing build of fvm_shared?

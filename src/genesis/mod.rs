@@ -141,7 +141,8 @@ where
     if !skip_load {
         let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
-        if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
+        if sm.chain_config().genesis_cid.is_some()
+            && !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {
             bail!(
                 "Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or \
@@ -154,26 +155,6 @@ where
     // Update head with snapshot header tipset
     info!("Accepting {:?} as new head.", ts.cids());
     sm.chain_store().set_heaviest_tipset(ts)?;
-
-    Ok(())
-}
-
-pub async fn validate_chain<DB>(
-    sm: &Arc<StateManager<DB>>,
-    validate_height: i64,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let tipset = sm.chain_store().heaviest_tipset();
-    let height = if validate_height > 0 {
-        validate_height
-    } else {
-        (tipset.epoch() + validate_height).max(0)
-    };
-
-    info!("Validating imported chain from height: {}", height);
-    sm.validate_chain(tipset.clone(), height).await?;
 
     Ok(())
 }
