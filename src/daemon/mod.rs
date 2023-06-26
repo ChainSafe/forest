@@ -83,19 +83,7 @@ pub fn ipc_shmem_conf() -> ShmemConf {
         .flink(IPC_PATH.as_os_str())
 }
 
-// Initialize Consensus
-#[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
-compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "deleg_cns")] {
-        // Custom consensus.
-        use crate::deleg_cns::composition as cns;
-    } else {
-        // Default consensus
-        use crate::fil_cns::composition as cns;
-    }
-}
+use crate::fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = ipc_shmem_conf().open()?;

@@ -17,11 +17,11 @@ install:
 
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
-	cargo install --locked --path . --force --no-default-features --features rustalloc,fil_cns
+	cargo install --locked --path . --force --no-default-features --features rustalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
-	cargo install --locked --path . --force --no-default-features --features mimalloc,fil_cns
+	cargo install --locked --path . --force --no-default-features --features mimalloc
 
 install-deps:
 	apt-get update -y
