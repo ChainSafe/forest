@@ -326,11 +326,7 @@ pub(super) async fn start(
 
     // For consensus types that do mining, create a component to submit their
     // proposals.
-    let submitter = SyncGossipSubmitter::new(
-        network_name.clone(),
-        network_send.clone(),
-        tipset_sink.clone(),
-    );
+    let submitter = SyncGossipSubmitter::new();
 
     // Initialize Consensus. Mining may or may not happen, depending on type.
     let consensus =
