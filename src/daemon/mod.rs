@@ -16,7 +16,6 @@ use crate::cli_shared::{
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
-    Store,
 };
 use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use crate::key_management::{
@@ -41,7 +40,6 @@ use anyhow::{bail, Context};
 use bundle::load_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
-use futures_util::future::try_join_all;
 use lazy_static::lazy_static;
 use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit as _, EventState};
@@ -426,7 +424,7 @@ pub(super) async fn start(
     }
 
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
-        /// We've been provided a snapshot and asked to validate it
+        // We've been provided a snapshot and asked to validate it
         ensure_params_downloaded().await?;
         let current_height = state_manager.chain_store().heaviest_tipset().epoch();
         assert!(current_height.is_positive());

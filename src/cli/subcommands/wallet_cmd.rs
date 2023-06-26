@@ -13,7 +13,7 @@ use crate::json::{
 use crate::key_management::json::KeyInfoJson;
 use crate::rpc_client::wallet_ops::*;
 use crate::shim::{
-    address::{Address, Protocol, StrictAddress},
+    address::{Protocol, StrictAddress},
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
 };

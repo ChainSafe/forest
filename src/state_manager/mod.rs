@@ -46,7 +46,6 @@ use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
