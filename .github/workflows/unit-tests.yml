@@ -33,8 +33,7 @@ env:
   CXX: "sccache clang++"
 
 jobs:
-  test:
-    name: All tests
+  tests:
     runs-on: buildjet-8vcpu-ubuntu-2204
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
@@ -64,4 +63,35 @@ jobs:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - run: make test-all
+      - run: make test
+  tests-release:
+    runs-on: buildjet-8vcpu-ubuntu-2204
+    # Run the job only if the PR is not a draft.
+    # This is done to limit the runner cost.
+    if: github.event.pull_request.draft == false
+    timeout-minutes: 30
+    steps:
+      # find the nearest S3 space for storing cache files
+      - name: Show IP
+        run: curl ifconfig.me
+        continue-on-error: true
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive" # checkout the serialization vectors
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Apt Dependencies
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: sudo make install-deps
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
+      - run: make test-release

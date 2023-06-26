@@ -97,7 +97,7 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use crate::message::{self, SignedMessage};
+    use crate::message::SignedMessage;
     use crate::shim::{
         address::Address,
         crypto::Signature,

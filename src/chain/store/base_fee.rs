@@ -17,7 +17,6 @@ pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT / 2;
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8;
 
 /// Genesis base fee.
-pub const INITIAL_BASE_FEE: i64 = 100000000;
 pub const PACKING_EFFICIENCY_DENOM: u64 = 5;
 pub const PACKING_EFFICIENCY_NUM: u64 = 4;
 pub const MINIMUM_BASE_FEE: i64 = 100;
