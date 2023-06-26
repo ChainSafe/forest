@@ -169,6 +169,7 @@ tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
 ticker = "0.1"
+tikv-jemalloc-sys = { version = "0.5", optional = true }
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
@@ -230,7 +231,7 @@ benchmark-private = []               # see lib.rs::benchmark_private
 
 # Allocator
 rustalloc = []
-jemalloc = ["dep:tikv-jemallocator"]
+jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-sys"]
 mimalloc = ["dep:mimalloc"]
 
 [[bench]]

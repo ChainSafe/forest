@@ -39,6 +39,7 @@ where
     let app = Router::new()
         .route("/metrics", get(collect_prometheus_metrics))
         .route("/stats/db", get(collect_db_metrics::<DB>))
+        .route("/stats/malloc", get(collect_malloc_metrics::<DB>))
         .with_state(db);
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
@@ -83,6 +84,49 @@ where
         metrics.push_str(&db_stats);
     } else {
         metrics.push_str("Not enabled. Set enable_statistics to true in config and restart daemon");
+    }
+    (
+        StatusCode::OK,
+        [("content-type", "text/plain; charset=utf-8")],
+        metrics,
+    )
+}
+
+#[allow(clippy::unused_async)]
+async fn collect_malloc_metrics<DB>(
+    axum::extract::State(_db): axum::extract::State<DB>,
+) -> impl IntoResponse
+where
+    DB: DBStatistics + Sync + Send + Clone + 'static,
+{
+    let mut metrics = String::default();
+
+    #[cfg(feature = "jemalloc")]
+    {
+        use crate::cli_shared::tikv_jemalloc_sys::malloc_stats_print;
+        use libc::{c_char, c_void};
+        use std::ptr::null;
+
+        extern "C" fn write_cb(ptr: *mut c_void, message: *const c_char) {
+            let string_ptr = ptr as *mut String;
+            unsafe {
+                let stats = String::from_utf8_lossy(
+                    std::ffi::CStr::from_ptr(message as *const i8).to_bytes(),
+                );
+                (*string_ptr).push_str(&stats);
+            }
+        }
+
+        metrics.push_str("# Jemalloc statistics:\n".into());
+
+        let string_ptr: *mut String = &mut metrics;
+        unsafe {
+            malloc_stats_print(Some(write_cb), string_ptr as *mut c_void, null());
+        }
+    }
+
+    if metrics.is_empty() {
+        metrics.push_str("Not supported.");
     }
     (
         StatusCode::OK,
