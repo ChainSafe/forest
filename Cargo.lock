@@ -2707,6 +2707,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-lock"
+version = "2.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f59be9010c5418713a48aac4c1b897d85dafd958055683dc31bdae553536647b"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "filecoin-hashers"
 version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2856,6 +2866,7 @@ dependencies = [
  "fil_actor_power_state",
  "fil_actor_system_state",
  "fil_actors_shared",
+ "file-lock",
  "filecoin-proofs-api",
  "flume",
  "fs_extra",
@@ -2879,6 +2890,7 @@ dependencies = [
  "humantime",
  "indexmap 1.9.3",
  "indicatif",
+ "integer-encoding",
  "itertools 0.10.5",
  "jsonrpc-v2",
  "jsonwebtoken",
