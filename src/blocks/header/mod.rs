@@ -492,7 +492,7 @@ mod tests {
             .unwrap();
         let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
-            beacon: Arc::new(MockBeacon::new()),
+            beacon: Arc::new(MockBeacon::default()),
         }]));
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);

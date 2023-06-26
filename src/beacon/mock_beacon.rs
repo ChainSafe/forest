@@ -8,13 +8,10 @@ use byteorder::{BigEndian, ByteOrder};
 
 use crate::beacon::{Beacon, BeaconEntry};
 
-/// Mock beacon used for testing. Deterministic based on an interval.
+#[derive(Default)]
 pub struct MockBeacon {}
 
 impl MockBeacon {
-    pub fn new() -> Self {
-        Self {}
-    }
     fn entry_for_index(index: u64) -> BeaconEntry {
         let mut buf = [0; 8];
         BigEndian::write_u64(&mut buf, index);
