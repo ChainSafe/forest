@@ -104,10 +104,10 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
 
         // `migrateMarket`
         let mut pending_deal_allocation_id_map =
-            fil_actors_shared::v9::make_empty_map::<_, u64>(store, HAMT_BIT_WIDTH);
+            fil_actors_shared::v9::make_empty_map::<_, i64>(store, HAMT_BIT_WIDTH);
         for (deal_id, allocation_id) in deal_allocation_tuples {
             pending_deal_allocation_id_map
-                .set(fil_actors_shared::v9::u64_key(deal_id), allocation_id)?;
+                .set(fil_actors_shared::v9::u64_key(deal_id), allocation_id as _)?;
         }
         let pending_deal_allocation_id_map_root = pending_deal_allocation_id_map.flush()?;
         let deal_states_v8 = fil_actors_shared::v8::Array::<
