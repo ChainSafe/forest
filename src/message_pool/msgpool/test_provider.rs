@@ -70,23 +70,12 @@ impl TestApi {
 
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
-        let epoch = ts.epoch();
-        self.publisher
-            .send(HeadChange::Apply {
-                tipset: ts,
-                last_head_epoch: epoch,
-            })
-            .unwrap();
+        self.publisher.send(HeadChange::Apply(tipset)).unwrap();
     }
 
     /// Set the tipset chain for `TestApi`
     pub fn set_tipset_chain(&self, ts: Arc<Tipset>, last_head_epoch: i64) {
-        self.publisher
-            .send(HeadChange::Apply {
-                tipset: ts,
-                last_head_epoch,
-            })
-            .unwrap();
+        self.publisher.send(HeadChange::Apply(tipset)).unwrap();
     }
 
     pub fn next_block(&self) -> BlockHeader {

@@ -912,7 +912,7 @@ mod test_selection {
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
         let last_known_head = mpool.last_known_head.clone();
-        
+
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -996,7 +996,7 @@ mod test_selection {
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
         let last_known_head = mpool.last_known_head.clone();
-        
+
         head_change(
             mpool.api.as_ref(),
             bls_sig_cache.as_ref(),

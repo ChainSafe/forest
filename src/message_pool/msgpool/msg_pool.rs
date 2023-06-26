@@ -228,14 +228,9 @@ where
                 match subscriber.recv().await {
                     Ok(ts) => {
                         let (cur, rev, app) = match ts {
-                            HeadChange::Current(_tipset) => continue,
-                            HeadChange::Revert(tipset) => {
-                                (cur_tipset.clone(), vec![tipset.as_ref().clone()], None)
+                            HeadChange::Apply(tipset) => {
+                                (cur_tipset.clone(), Vec::new(), Some(tipset))
                             }
-                            HeadChange::Apply {
-                                tipset,
-                                last_head_epoch,
-                            } => (cur_tipset.clone(), Vec::new(), Some(tipset)),
                         };
                         head_change(
                             api.as_ref(),

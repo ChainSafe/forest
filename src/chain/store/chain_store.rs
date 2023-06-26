@@ -60,12 +60,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 /// contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
-    Current(Arc<Tipset>),
-    Apply {
-        tipset: Arc<Tipset>,
-        last_head_epoch: i64,
-    },
-    Revert(Arc<Tipset>),
+    Apply(Arc<Tipset>),
 }
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each
@@ -188,20 +183,11 @@ where
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
     /// `{crate::chain_store}/HEAD`
     pub fn set_heaviest_tipset(&self, tipset: Arc<Tipset>) -> Result<(), Error> {
-        let last_head_epoch = self.heaviest_tipset().epoch();
-
         self.file_backed_heaviest_tipset_keys
             .lock()
             .set_inner(tipset.key().clone())?;
 
-        if self
-            .publisher
-            .send(HeadChange::Apply {
-                tipset,
-                last_head_epoch,
-            })
-            .is_err()
-        {
+        if self.publisher.send(HeadChange::Apply(tipset)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
@@ -871,12 +857,7 @@ pub mod headchange_json {
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
-                HeadChange::Apply {
-                    tipset,
-                    last_head_epoch: _,
-                } => HeadChangeJson::Apply(TipsetJson(tipset)),
-                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
             }
         }
     }
