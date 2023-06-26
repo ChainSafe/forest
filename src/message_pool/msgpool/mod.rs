@@ -4,7 +4,9 @@
 pub(in crate::message_pool) mod metrics;
 pub(in crate::message_pool) mod msg_pool;
 pub(in crate::message_pool) mod provider;
+#[cfg(test)]
 mod selection;
+#[cfg(test)]
 pub mod test_provider;
 pub(in crate::message_pool) mod utils;
 
@@ -21,7 +23,6 @@ use fvm_ipld_encoding::Cbor;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
@@ -464,7 +465,7 @@ pub mod tests {
         let tipset = Tipset::from(&a);
         let b = mock_block_with_parents(&tipset, 1, 1);
 
-        let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
+        let sender = wallet.generate_addr(SignatureType::Bls).unwrap();
         let target = Address::new_id(1001);
 
         let mut smsg_vec = Vec::new();

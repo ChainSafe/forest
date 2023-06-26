@@ -69,6 +69,7 @@ lint: license clean lint-clippy
 # --quiet: don't show build logs
 lint-clippy:
 	cargo clippy --quiet --no-deps -- --deny=warnings
+	cargo clippy --tests --quiet --no-deps -- --deny=warnings
 
 	# add-on features
 	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings

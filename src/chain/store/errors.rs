@@ -16,9 +16,6 @@ pub enum Error {
     /// Key was not found
     #[error("Invalid tipset: {0}")]
     UndefinedKey(String),
-    /// Tipset contains no blocks
-    #[error("No blocks for tipset")]
-    NoBlocks,
     /// Key not found in database
     #[error("{0} not found")]
     NotFound(String),

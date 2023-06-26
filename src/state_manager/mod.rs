@@ -46,7 +46,6 @@ use num_traits::identities::Zero;
 use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
@@ -1039,12 +1038,6 @@ where
             loop {
                 match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
-                        HeadChange::Revert(_tipset) => {
-                            if candidate_tipset.is_some() {
-                                candidate_tipset = None;
-                                candidate_receipt = None;
-                            }
-                        }
                         HeadChange::Apply(tipset) => {
                             if candidate_tipset
                                 .as_ref()
@@ -1072,7 +1065,6 @@ where
                                 candidate_receipt = Some(receipt)
                             }
                         }
-                        _ => (),
                     },
                     Err(RecvError::Lagged(i)) => {
                         warn!(
@@ -1143,20 +1135,6 @@ where
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
         }
-    }
-
-    /// Return the heaviest tipset's balance from self.db for a given address
-    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let cid = *self.cs.heaviest_tipset().parent_state();
-        self.get_balance(addr, cid)
-    }
-
-    /// Return the balance of a given address and `state_cid`
-    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
-        let act = self.get_actor(addr, cid)?;
-        let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
-        let balance = TokenAmount::from(&actor.balance);
-        Ok(balance)
     }
 
     /// Looks up ID [Address] from the state at the given [Tipset].
