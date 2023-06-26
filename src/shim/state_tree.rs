@@ -378,7 +378,9 @@ impl quickcheck::Arbitrary for ActorState {
 pub mod state_tree_v0 {
     use std::{cell::RefCell, collections::HashMap, error::Error};
 
+    use anyhow::Context;
     use cid::Cid;
+    use fvm::kernel::ClassifyResult;
     use fvm_ipld_blockstore::Blockstore;
     use fvm_ipld_encoding3::CborStore;
     use fvm_ipld_hamt::Hamt;
@@ -538,19 +540,8 @@ pub mod state_tree_v0 {
                 init_act.state,
             )?;
 
-            // FIXME: needs resolve_address method on fil-actor-states crate.
-            // let a: Address = match state
-            //     .resolve_address(self.hamt.store(), addr)
-            //     .map_err(|e| format!("Could not resolve address: {:?}", e))?
-            // {
-            //     Some(a) => a,
-            //     None => return Ok(None),
-            // };
-
-            // self.snaps.cache_resolve_address(*addr, a)?;
-
-            // Ok(Some(a))
-            todo!()
+            /// XXX: can be fixed by adding resolve_method in fil-actor-states
+            todo!("resolve_address method required on init state.")
         }
     }
 
@@ -610,6 +601,26 @@ pub mod state_tree_v0 {
                 .actors
                 .borrow_mut()
                 .insert(addr, Some(actor));
+            Ok(())
+        }
+
+        fn cache_resolve_address(
+            &self,
+            addr: Address,
+            resolve_addr: Address,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            self.layers
+                .last()
+                .ok_or_else(|| {
+                    format!(
+                        "caching address failed to index snapshot layer at index: {}",
+                        &self.layers.len() - 1
+                    )
+                })?
+                .resolve_cache
+                .borrow_mut()
+                .insert(addr, resolve_addr);
+
             Ok(())
         }
     }

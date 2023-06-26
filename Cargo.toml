@@ -202,6 +202,7 @@ libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-re
 multiaddr = "0.17.1"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck_macros = "1"
+serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 
 [build-dependencies]
 anyhow = "1"

@@ -1,3 +1,5 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 //! HAMT crate for use as rust IPLD data structure
 //!
 //! [Data structure reference](https://github.com/ipld/specs/blob/51fab05b4fe4930d3d851d50cc1e5f1a02092deb/data-structures/hashmap.md)
@@ -9,7 +11,6 @@
 mod bitfield;
 mod error;
 mod hamt;
-mod hash;
 mod hash_algorithm;
 mod hash_bits;
 mod node;
@@ -17,7 +18,6 @@ mod pointer;
 
 pub use self::error::Error;
 pub use self::hamt::Hamt;
-pub use self::hash::*;
 pub use self::hash_algorithm::*;
 
 pub use forest_hash_utils::{BytesKey, Hash};
