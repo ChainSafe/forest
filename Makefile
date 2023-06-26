@@ -17,11 +17,11 @@ install:
 
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
-	cargo install --locked --path . --force --no-default-features --features rustalloc,fil_cns
+	cargo install --locked --path . --force --no-default-features --features rustalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
-	cargo install --locked --path . --force --no-default-features --features mimalloc,fil_cns
+	cargo install --locked --path . --force --no-default-features --features mimalloc
 
 install-deps:
 	apt-get update -y
@@ -73,11 +73,6 @@ lint-clippy:
 	# add-on features
 	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings
 	cargo clippy --features=instrumented_kernel --quiet --no-deps -- --deny=warnings
-
-	# different consensus algos (repeated for clarity)
-	cargo clippy --features=rustalloc,fil_cns   --no-default-features --quiet --no-deps -- --deny=warnings
-	cargo clippy --features=rustalloc,deleg_cns --no-default-features --quiet --no-deps -- --deny=warnings
-
 
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
