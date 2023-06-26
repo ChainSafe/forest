@@ -262,6 +262,7 @@ where
     }
 
     /// Returns Tipset from key-value store from provided CIDs
+    #[tracing::instrument(skip_all)]
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset());
@@ -318,9 +319,7 @@ where
     /// If the given height is a null round:
     /// - If `prev` is `true`, the tipset before the null round is returned.
     /// - If `prev` is `false`, the tipset following the null round is returned.
-    ///
-    /// Returns `None` if the tipset provided was the tipset at the given
-    /// height.
+    #[tracing::instrument(skip(self, ts))]
     pub fn tipset_by_height(
         &self,
         height: ChainEpoch,
