@@ -1,6 +1,6 @@
 //! It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
 //!
-//! This module provides an implementor of [`Blockstore`] that simply wraps a [CAR file](https://ipld.io/specs/transport/car/carv1).
+//! This module provides an implementer of [`Blockstore`] that simply wraps a [CAR file](https://ipld.io/specs/transport/car/carv1).
 //! **Note that all operations on this store are blocking**.
 //!
 //! On creation, [`CarBackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
@@ -48,7 +48,7 @@
 //! ```
 //!
 //! # Future work
-//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to prefetch parts of the file, to improve random access performance.
+//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the file, to improve random access performance.
 //! - Use an inner [`Blockstore`] for writes.
 //! - Support compressed snapshots.
 //!   Note that [`zstd`](https://github.com/facebook/zstd/blob/e4aeaebc201ba49fec50b087aeb15343c63712e5/doc/zstd_compression_format.md#zstandard-frames) archives are also composed of frames.
@@ -71,14 +71,14 @@ use tracing::debug;
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
 /// you should get the concatenation of a [`Cid`] and its corresponding data.
 ///
-/// See [module documenation](mod@self) for more.
+/// See [module documentation](mod@self) for more.
 #[derive(Debug)]
 struct BlockLocation {
     offset: u64,
     length: usize,
 }
 
-/// See [module documenation](mod@self) for more.
+/// See [module documentation](mod@self) for more.
 // Theoretically, this should be clonable, with very low overhead
 pub struct CarBackedBlockstore<ReaderT> {
     // Blockstore methods take `&self`, so lock here
