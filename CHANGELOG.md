@@ -39,6 +39,9 @@
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`
 
+- [#2983](https://github.com/ChainSafe/forest/issues/2983): Added state
+  migration support for NV17.
+
 ### Changed
 
 ### Removed
