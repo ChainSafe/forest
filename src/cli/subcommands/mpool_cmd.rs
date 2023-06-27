@@ -157,7 +157,14 @@ impl MpoolCommands {
                     .await;
 
                     let actor_state = match get_actor_result {
-                        Ok(actor_json) => actor_json.unwrap().0,
+                        Ok(actor_json) => {
+                            if let Some(state) = actor_json {
+                                state.0
+                            } else {
+                                println!("{}, actor state not found", address);
+                                continue;
+                            }
+                        },
                         Err(err) => {
                             let error_message = match err {
                                 jsonrpc_v2::Error::Full { message, .. } => message,
