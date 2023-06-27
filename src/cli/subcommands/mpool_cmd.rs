@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::json::cid::vec::CidJsonVec;
 use crate::message::{Message, SignedMessage};
-use crate::rpc_client::{chain_ops::*, mpool_ops::*, state_ops::*, wallet_ops::*};
+use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
 use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
