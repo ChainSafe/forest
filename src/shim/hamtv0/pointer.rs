@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::node::Node;
-use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
+use super::KeyValuePair;
 use cid::Cid;
 use libipld::Ipld;
 use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::cmp::Ordering;
 
 #[test]
 fn pointer_round_trip() {
@@ -58,6 +57,7 @@ pub(crate) enum Pointer<K, V, H> {
         cid: Cid,
         cache: OnceCell<Box<Node<K, V, H>>>,
     },
+    #[allow(dead_code)]
     Dirty(Box<Node<K, V, H>>),
 }
 
@@ -125,79 +125,5 @@ where
 impl<K, V, H> Default for Pointer<K, V, H> {
     fn default() -> Self {
         Pointer::Values(Vec::new())
-    }
-}
-
-impl<K, V, H> Pointer<K, V, H>
-where
-    K: Serialize + DeserializeOwned + Hash + PartialOrd,
-    V: Serialize + DeserializeOwned,
-    H: HashAlgorithm,
-{
-    pub(crate) fn from_key_value(key: K, value: V) -> Self {
-        Pointer::Values(vec![KeyValuePair::new(key, value)])
-    }
-
-    /// Internal method to cleanup children, to ensure consistent tree representation
-    /// after deletes.
-    pub(crate) fn clean(&mut self) -> Result<(), Error> {
-        // todo!()
-        match self {
-            Pointer::Dirty(n) => match n.pointers.len() {
-                0 => Err(Error::ZeroPointers),
-                1 => {
-                    // Node has only one pointer, swap with parent node
-                    if let Pointer::Values(vals) = &mut n.pointers[0] {
-                        // Take child values, to ensure canonical ordering
-                        let values = std::mem::take(vals);
-
-                        // move parent node up
-                        *self = Pointer::Values(values)
-                    }
-                    Ok(())
-                }
-                2..=MAX_ARRAY_WIDTH => {
-                    // If more child values than max width, nothing to change.
-                    let mut children_len = 0;
-                    for c in n.pointers.iter() {
-                        if let Pointer::Values(vals) = c {
-                            children_len += vals.len();
-                        } else {
-                            return Ok(());
-                        }
-                    }
-                    if children_len > MAX_ARRAY_WIDTH {
-                        return Ok(());
-                    }
-
-                    // Collect values from child nodes to collapse.
-                    #[allow(unused_mut)]
-                    let mut child_vals: Vec<KeyValuePair<K, V>> = n
-                        .pointers
-                        .iter_mut()
-                        .filter_map(|p| {
-                            if let Pointer::Values(kvs) = p {
-                                Some(std::mem::take(kvs))
-                            } else {
-                                None
-                            }
-                        })
-                        .flatten()
-                        .collect();
-
-                    // Sorting by key, values are inserted based on the ordering of the key itself,
-                    // so when collapsed, it needs to be ensured that this order is equal.
-                    child_vals.sort_unstable_by(|a, b| {
-                        a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
-                    });
-
-                    // Replace link node with child values
-                    *self = Pointer::Values(child_vals);
-                    Ok(())
-                }
-                _ => Ok(()),
-            },
-            _ => unreachable!("clean is only called on dirty pointer"),
-        }
     }
 }

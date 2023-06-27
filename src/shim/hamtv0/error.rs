@@ -15,9 +15,6 @@ pub enum Error {
     /// Hash bits does not support greater than 8 bit width
     #[error("HashBits does not support retrieving more than 8 bits")]
     InvalidHashBitLen,
-    /// This should be treated as a fatal error, must have at least one pointer in node
-    #[error("Invalid HAMT format, node cannot have 0 pointers")]
-    ZeroPointers,
     /// Cid not found in store error
     #[error("Cid ({0}) did not match any in database")]
     CidNotFound(String),
