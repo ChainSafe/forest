@@ -40,7 +40,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DeferredMigrat
     fn migrate_state(
         &self,
         _store: BS,
-        input: ActorMigrationInput,
+        _input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         Ok(None)
     }

@@ -13,10 +13,3 @@ pub async fn auth_new(
 ) -> Result<AuthNewResult, JsonRpcError> {
     call(AUTH_NEW, perm, auth_token).await
 }
-
-pub async fn auth_verify(
-    token: AuthVerifyParams,
-    auth_token: &Option<String>,
-) -> Result<AuthVerifyResult, JsonRpcError> {
-    call(AUTH_VERIFY, (token,), auth_token).await
-}

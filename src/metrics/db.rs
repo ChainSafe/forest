@@ -19,10 +19,10 @@ impl DBCollector {
     pub fn new(db_directory: PathBuf) -> Self {
         let mut descs: Vec<Desc> = vec![];
         let db_size = Gauge::with_opts(Opts::new(
-            "crate::db_size",
+            "forest_db_size",
             "Size of Forest database in bytes",
         ))
-        .expect("Creating crate::db_size gauge must succeed");
+        .expect("Creating forest_db_size gauge must succeed");
         descs.extend(db_size.desc().into_iter().cloned());
         Self {
             db_directory,
