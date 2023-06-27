@@ -16,7 +16,7 @@ use url::Url;
 pub struct StreamedContentReader {}
 
 impl StreamedContentReader {
-    /// This method is parsing a filepath/URL passed to it and attempts to open a stream.
+    /// This method is parsing a file-path/URL passed to it and attempts to open a stream.
     /// Additionally, it detects whether or not the resulting stream is a zstd archive and treats
     /// it accordingly.
     pub async fn read(path: &str) -> anyhow::Result<Box<dyn futures::AsyncRead + Send + Unpin>> {
