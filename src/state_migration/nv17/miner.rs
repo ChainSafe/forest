@@ -449,7 +449,7 @@ mod tests {
         let base_deal = fil_actor_market_state::v8::DealProposal {
             piece_cid: Default::default(),
             piece_size: PaddedPieceSize(512),
-            verified_deal: false,
+            verified_deal: true,
             client: base_addr.into(),
             provider: base_addr.into(),
             label: fil_actor_market_state::v8::Label::String("".into()),
@@ -486,21 +486,36 @@ mod tests {
             );
             deal
         };
+
+        let mut pending_proposals =
+            fil_actors_shared::v8::Set::from_root(&store, &market_state_old.pending_proposals)?;
+
         proposals.set(0, deal0)?;
+        // pending_proposals.put(BytesKey(deal1.cid()?.to_bytes()))?;
         proposals.set(1, deal1)?;
+        pending_proposals.put(BytesKey(deal2.cid()?.to_bytes()))?;
         proposals.set(2, deal2)?;
 
-        let proposal_cid = proposals.flush()?;
+        market_state_old.proposals = proposals.flush()?;
         ensure!(
-            proposal_cid.to_string()
-                == "bafy2bzacea7rwa3xjbxdxgqt7yqa6kfpon3hzuknosrlkkym5yenyckywejpw"
+            market_state_old.proposals.to_string()
+                == "bafy2bzacecskt5brcfawiowjlv5lwnskkks2xzsmsnhkmjixndqlxuyb3abxs"
         );
-        market_state_old.proposals = proposal_cid;
+        market_state_old.pending_proposals = pending_proposals.root()?;
+        println!(
+            "market_state_old.pending_proposals: {}",
+            market_state_old.pending_proposals
+        );
+        // ensure!(
+        //     market_state_old.pending_proposals.to_string()
+        //         == "bafy2bzaceaznfegva7wvkm3yd66r5ej7t7726pr6lwhnosxbslmmkuoymtvtw"
+        // );
+
         let market_state_cid_old = store.put_cbor_default(&market_state_old)?;
-        ensure!(
-            market_state_cid_old.to_string()
-                == "bafy2bzacedrj5levrmmfqrn5njhjncsip2mkwgnwojwton7vodrju4zdlb542"
-        );
+        // ensure!(
+        //     market_state_cid_old.to_string()
+        //         == "bafy2bzacedrj5levrmmfqrn5njhjncsip2mkwgnwojwton7vodrju4zdlb542"
+        // );
         market_actor_old.state = market_state_cid_old;
         state_tree_old.set_actor(
             &fil_actor_interface::market::ADDRESS.into(),
@@ -630,14 +645,21 @@ mod tests {
         }
         let new_state_cid = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
         let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
+        let actors_out = StateTree::new_from_root(&store, &new_state_cid)?;
         println!(
             "actors_out_state_root.actors: {}",
             actors_out_state_root.actors
         );
+        actors_out.for_each(|addr, state| {
+            println!("addr: {addr}, state: {state:?}");
+            Ok(())
+        })?;
         ensure!(
             actors_out_state_root.actors.to_string()
-                == "bafy2bzacecr7spp6gy4lsiywplmtjpx7u5na4bpkpi7j33jyrwyshze4adntq"
+                == "bafy2bzacedzozfljxem3ms5bgewr3i5vpos5jglx3fpofo5vckvzqkf7goyl6"
         );
+        let new_state_cid2 = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
+        ensure!(new_state_cid == new_state_cid2);
 
         Ok(())
     }

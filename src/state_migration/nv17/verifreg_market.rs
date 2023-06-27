@@ -10,9 +10,12 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
 };
 use crate::utils::db::CborStoreExt;
+use ahash::HashMap;
 use anyhow::Context;
 use cid::Cid;
+use fil_actors_shared::v9::Keyer;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address as AddressV2;
 
 use super::super::common::PostMigrator;
@@ -46,12 +49,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
         >::load(&self.market_state_v8.proposals, &store)?;
 
         let mut next_allocation_id: fil_actor_verifreg_state::v9::AllocationID = 1;
-        let mut allocations_map_map = fil_actors_shared::v9::MapMap::<
-            BS,
-            fil_actor_verifreg_state::v9::Allocation,
-            AddressV2,
-            fil_actor_verifreg_state::v9::AllocationID,
-        >::new(store, HAMT_BIT_WIDTH, HAMT_BIT_WIDTH);
+        let mut allocations_map_map = HashMap::default();
         let mut deal_allocation_tuples = vec![];
 
         for &deal_id in &self.pending_verified_deals {
@@ -72,23 +70,41 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
                 expiration = proposal.start_epoch;
             }
 
-            allocations_map_map.put(
-                client_id_address,
-                next_allocation_id,
-                fil_actor_verifreg_state::v9::Allocation {
-                    client: client_id_address.id()?,
-                    provider: provider_id_address.id()?,
-                    data: proposal.piece_cid,
-                    size: proposal.piece_size,
-                    term_min: proposal.duration(),
-                    term_max: fil_actors_shared::v9::runtime::policy_constants::MAX_SECTOR_EXPIRATION_EXTENSION,
-                    expiration,
-                },
-            )?;
+            let allocation = fil_actor_verifreg_state::v9::Allocation {
+                client: client_id_address.id()?,
+                provider: provider_id_address.id()?,
+                data: proposal.piece_cid,
+                size: proposal.piece_size,
+                term_min: proposal.duration(),
+                term_max: fil_actors_shared::v9::runtime::policy_constants::MAX_SECTOR_EXPIRATION_EXTENSION,
+                expiration,
+            };
+            println!("allocation: {allocation:?}");
+            let entry = allocations_map_map
+                .entry(client_id_address)
+                .or_insert_with(|| {
+                    fil_actors_shared::v9::make_empty_map::<
+                        _,
+                        fil_actor_verifreg_state::v9::Allocation,
+                    >(store, HAMT_BIT_WIDTH)
+                });
+            entry.set(
+                fil_actors_shared::v8::u64_key(next_allocation_id),
+                allocation,
+            );
 
             deal_allocation_tuples.push((deal_id, next_allocation_id));
 
             next_allocation_id += 1;
+        }
+        let mut allocations_map = fil_actors_shared::v9::make_empty_map(store, HAMT_BIT_WIDTH);
+        for (client_id, mut client_allocations_map) in allocations_map_map {
+            let client_allocations_map_cid = client_allocations_map.flush()?;
+            allocations_map.set(
+                // Note: `client_id.payload_bytes()` produces different output than `client_id.payload().to_bytes()`
+                BytesKey(client_id.payload_bytes()),
+                client_allocations_map_cid,
+            )?;
         }
 
         let mut empty_map = fil_actors_shared::v9::make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH);
@@ -96,10 +112,11 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             root_key: self.verifreg_state_v8.root_key,
             verifiers: self.verifreg_state_v8.verifiers,
             remove_data_cap_proposal_ids: self.verifreg_state_v8.remove_data_cap_proposal_ids,
-            allocations: allocations_map_map.flush()?,
+            allocations: allocations_map.flush()?,
             next_allocation_id,
             claims: empty_map.flush()?,
         };
+        println!("verifreg_state_v9: {verifreg_state_v9:?}");
         let verifreg_head = store.put_cbor_default(&verifreg_state_v9)?;
 
         // `migrateMarket`
