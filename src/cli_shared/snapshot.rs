@@ -141,8 +141,6 @@ async fn download_aria2c(url: &Url, directory: &Path, filename: &str) -> Result<
 
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
 async fn download_http(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
-    
-    
     let dst_path = directory.join(filename);
 
     info!(%url, "downloading snapshot");

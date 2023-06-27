@@ -19,7 +19,6 @@ use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
-
 #[cfg(test)]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 
