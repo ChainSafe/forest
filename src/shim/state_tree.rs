@@ -358,7 +358,7 @@ impl From<state_tree_v0::ActorState> for ActorState {
             code: value.code,
             state: value.state,
             sequence: value.sequence,
-            balance: TokenAmount::from(value.balance).into(),
+            balance: value.balance.into(),
             delegated_address: None,
         })
     }
@@ -372,20 +372,16 @@ impl quickcheck::Arbitrary for ActorState {
 
 // ported from commit hash b622af
 pub mod state_tree_v0 {
-    use anyhow::Context;
     use cid::Cid;
     use fvm_ipld_blockstore::Blockstore;
     use fvm_ipld_encoding::repr::*;
     use fvm_ipld_encoding::tuple::*;
     use fvm_ipld_encoding3::CborStore;
-    use libipld::Ipld;
-    use std::{cell::RefCell, collections::HashMap};
 
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
-
-    /// Default bit width for the hamt in the filecoin protocol.
-    pub const HAMT_BIT_WIDTH: u32 = 5;
+    use crate::shim::hamtv0::Hamt;
+    use crate::shim::hamtv0::DEFAULT_BIT_WIDTH;
 
     /// State of all actor implementations.
     #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -403,10 +399,10 @@ pub mod state_tree_v0 {
     /// State tree implementation using hamt. This structure is not threadsafe and should only be used
     /// in sync contexts.
     pub struct StateTreeV0<S> {
-        hamt: crate::shim::hamtv0::Hamt<S, ActorState>,
+        hamt: Hamt<S, ActorState>,
 
-        version: StateTreeVersion,
-        info: Option<Cid>,
+        _version: StateTreeVersion,
+        _info: Option<Cid>,
         // /// State cache
         // snaps: StateSnapshots, // XXX: This is needed when reading writing state tree v0. As present we only implement the
         // v0 version of state tree usable enough to support the STATE_NETWORK_NAME RPC API.
@@ -455,7 +451,7 @@ pub mod state_tree_v0 {
                 actors,
             })) = store.get_cbor(c)
             {
-                (StateTreeVersion::from(version), Some(info), actors)
+                (version, Some(info), actors)
             } else {
                 // Fallback to v0 state tree if retrieval fails
                 (StateTreeVersion::V0, None, *c)
@@ -463,17 +459,13 @@ pub mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let hamt: crate::shim::hamtv0::Hamt<S, ActorState> =
-                        crate::shim::hamtv0::Hamt::load_with_bit_width(
-                            &actors,
-                            store,
-                            HAMT_BIT_WIDTH,
-                        )?;
+                    let hamt: Hamt<S, ActorState> =
+                        Hamt::load_with_bit_width(&actors, store, DEFAULT_BIT_WIDTH)?;
 
                     Ok(Self {
                         hamt,
-                        version,
-                        info,
+                        _version: version,
+                        _info: info,
                     })
                 }
                 _ => unreachable!("expecting state tree version 0"),

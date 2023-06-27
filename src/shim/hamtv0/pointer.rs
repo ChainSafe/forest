@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use sha2::Sha256;
-
 use super::node::Node;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
@@ -14,7 +12,7 @@ use std::cmp::Ordering;
 
 #[test]
 fn pointer_round_trip() {
-    type Test = Pointer<u8, u8, Sha256>;
+    type Test = Pointer<u8, u8, sha2::Sha256>;
 
     let empty_values: Test = Pointer::Values(vec![]);
     let values: Test = Pointer::Values(vec![KeyValuePair(1, 1)]);
@@ -33,7 +31,7 @@ fn pointer_round_trip() {
 
 #[test]
 fn link_round_trip() {
-    type Test = Pointer<u8, u8, Sha256>;
+    type Test = Pointer<u8, u8, sha2::Sha256>;
     let link: Test = Pointer::Link {
         cid: Cid::default(),
         cache: OnceCell::new(),
