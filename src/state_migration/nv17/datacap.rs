@@ -46,7 +46,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
     fn migrate_state(
         &self,
         store: BS,
-        input: ActorMigrationInput,
+        _input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 

@@ -77,7 +77,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
                 term_max: fil_actors_shared::v9::runtime::policy_constants::MAX_SECTOR_EXPIRATION_EXTENSION,
                 expiration,
             };
-            println!("allocation: {allocation:?}");
+
             let entry = allocations_map_map
                 .entry(client_id_address)
                 .or_insert_with(|| {
@@ -114,7 +114,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             next_allocation_id,
             claims: empty_map.flush()?,
         };
-        println!("verifreg_state_v9: {verifreg_state_v9:?}");
+
         let verifreg_head = store.put_cbor_default(&verifreg_state_v9)?;
 
         // `migrateMarket`

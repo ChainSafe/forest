@@ -90,7 +90,7 @@ impl From<SectorInfoV3> for SectorInfo {
 impl SectorInfo {
     pub fn new(
         proof: RegisteredSealProofV3,
-        sector_number: fvm_shared3::sector::SectorNumber,
+        sector_number: SectorNumber,
         sealed_cid: cid::Cid,
     ) -> Self {
         SectorInfo(SectorInfoV3 {

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use crate::networks::{ChainConfig, Height};
 use crate::shim::machine::*;
@@ -11,16 +11,10 @@ use crate::shim::{
     machine::Manifest,
     state_tree::{ActorState, StateTree, StateTreeVersion},
 };
-use ahash::HashSet;
 use anyhow::{anyhow, Context};
 use cid::Cid;
-use fil_actor_interface::{
-    market::is_v9_market_cid,
-    miner::{is_v8_miner_cid, is_v9_miner_cid},
-};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use fvm_shared::state::StateRoot;
 
 use super::super::common::{
     migrators::{nil_migrator, DeferredMigrator},
@@ -86,7 +80,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                 self.add_migrator(*code, nil_migrator(*new_code));
             }
         });
-        println!("verifreg_actor_v8.code: {}", verifreg_actor_v8.code);
 
         //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
         self.add_migrator(
@@ -114,7 +107,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         let miner_v8_actor_code = current_manifest.code_by_name(MINER_ACTOR_NAME)?;
         let miner_v9_actor_code = new_manifest.code_by_name(MINER_ACTOR_NAME)?;
-        println!("miner out code: {miner_v9_actor_code}");
+
         self.add_migrator(
             *miner_v8_actor_code,
             miner::miner_migrator(
@@ -189,13 +182,8 @@ where
         chain_config,
     )?;
 
-    let mut actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
-    let actors_out_cid = actors_out.flush()?;
-    let actors_out_state_root: StateRoot = blockstore.get_cbor(&actors_out_cid)?.unwrap();
-    println!(
-        "actors_out_cid: {actors_out_cid}, actors_out_state_root.actors: {}",
-        actors_out_state_root.actors
-    );
+    let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
+
     let new_state =
         migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
 

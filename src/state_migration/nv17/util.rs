@@ -5,12 +5,8 @@ use crate::{
     shim::{address::Address, deal::DealID},
     utils::cid::CidCborExt,
 };
-use cid::{
-    multihash::{Code::Blake2b256, MultihashDigest},
-    Cid,
-};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::DAG_CBOR;
 use fvm_ipld_hamt::BytesKey;
 
 /// Translated from <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/util.go#L72>
@@ -76,9 +72,8 @@ mod tests {
         bigint::Zero,
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
         piece::PaddedPieceSize,
-        state::StateRoot,
     };
-    use multihash::Multihash;
+    use multihash::{Multihash, MultihashDigest};
 
     // Go parity test
     //

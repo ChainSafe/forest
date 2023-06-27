@@ -43,12 +43,9 @@ pub(super) fn miner_migrator<BS>(
 where
     BS: Blockstore + Clone + Send + Sync,
 {
-    use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
-
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
         fil_actor_miner_state::v8::Deadline::new(store)?;
     let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
-    println!("empty_deadline_v8_cid: {empty_deadline_v8_cid}");
 
     let policy = match &chain_config.network {
         NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
@@ -58,11 +55,9 @@ where
     let empty_deadlines_v8 =
         fil_actor_miner_state::v8::Deadlines::new(&policy, empty_deadline_v8_cid);
     let empty_deadlines_v8_cid = store.put_cbor_default(&empty_deadlines_v8)?;
-    println!("empty_deadlines_v8_cid: {empty_deadlines_v8_cid}");
 
     let empty_deadline_v9 = fil_actor_miner_state::v9::Deadline::new(store)?;
     let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
-    println!("empty_deadline_v9_cid: {empty_deadline_v9_cid}");
 
     let policy = match &chain_config.network {
         NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
@@ -72,7 +67,6 @@ where
     let empty_deadlines_v9 =
         fil_actor_miner_state::v9::Deadlines::new(&policy, empty_deadline_v9_cid);
     let empty_deadlines_v9_cid = store.put_cbor_default(&empty_deadlines_v9)?;
-    println!("empty_deadlines_v9_cid: {empty_deadlines_v9_cid}");
 
     Ok(Arc::new(MinerMigrator {
         network: chain_config.network.clone(),
@@ -95,21 +89,15 @@ where
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let mut cache: HashMap<String, Cid> = Default::default();
-        println!("miner input.head: {}", input.head);
+
         let in_state: MinerStateOld = store
             .get_cbor(&input.head)?
             .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
         let new_pre_committed_sectors =
             self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
-        println!("miner new_pre_committed_sectors: {new_pre_committed_sectors}");
         let new_sectors =
             self.migrate_sectors_with_cache(&mut cache, &store, &input.address, &in_state.sectors)?;
-        println!("miner new_sectors: {new_sectors}");
         let new_deadlines = self.migrate_deadlines(&mut cache, &store, &in_state.deadlines)?;
-        println!(
-            "miner new_deadlines: {new_deadlines}, in_state.deadlines: {}",
-            in_state.deadlines
-        );
 
         let mut out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
         out_state.pre_committed_sectors = new_pre_committed_sectors;
@@ -117,7 +105,6 @@ where
         out_state.deadlines = new_deadlines;
 
         let new_head = store.put_cbor_default(&out_state)?;
-        println!("miner new_head: {new_head}");
 
         Ok(Some(ActorMigrationOutput {
             new_code_cid: self.out_code,
@@ -154,7 +141,7 @@ impl MinerMigrator {
             fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
         >(store, HAMT_BIT_WIDTH);
 
-        old_precommit_on_chain_infos.for_each(|key, value| {
+        old_precommit_on_chain_infos.for_each(|_key, value| {
             let mut pieces = vec![];
             for &deal_id in &value.info.deal_ids {
                 let deal = market_proposals.get(deal_id)?;
@@ -384,8 +371,8 @@ mod tests {
     use crate::networks::Height;
     use crate::shim::bigint::BigInt;
     use crate::shim::machine::{
-        ACCOUNT_ACTOR_NAME, CRON_ACTOR_NAME, DATACAP_ACTOR_NAME, MARKET_ACTOR_NAME,
-        MINER_ACTOR_NAME, POWER_ACTOR_NAME, REWARD_ACTOR_NAME, VERIFREG_ACTOR_NAME,
+        ACCOUNT_ACTOR_NAME, CRON_ACTOR_NAME, MARKET_ACTOR_NAME, MINER_ACTOR_NAME, POWER_ACTOR_NAME,
+        REWARD_ACTOR_NAME, VERIFREG_ACTOR_NAME,
     };
     use crate::shim::{
         econ::TokenAmount,
@@ -482,7 +469,7 @@ mod tests {
             fil_actors_shared::v8::Set::from_root(&store, &market_state_old.pending_proposals)?;
 
         proposals.set(0, deal0)?;
-        // pending_proposals.put(BytesKey(deal1.cid()?.to_bytes()))?;
+        pending_proposals.put(BytesKey(deal1.cid()?.to_bytes()))?;
         proposals.set(1, deal1)?;
         pending_proposals.put(BytesKey(deal2.cid()?.to_bytes()))?;
         proposals.set(2, deal2)?;
@@ -493,20 +480,8 @@ mod tests {
                 == "bafy2bzacecskt5brcfawiowjlv5lwnskkks2xzsmsnhkmjixndqlxuyb3abxs"
         );
         market_state_old.pending_proposals = pending_proposals.root()?;
-        println!(
-            "market_state_old.pending_proposals: {}",
-            market_state_old.pending_proposals
-        );
-        // ensure!(
-        //     market_state_old.pending_proposals.to_string()
-        //         == "bafy2bzaceaznfegva7wvkm3yd66r5ej7t7726pr6lwhnosxbslmmkuoymtvtw"
-        // );
 
         let market_state_cid_old = store.put_cbor_default(&market_state_old)?;
-        // ensure!(
-        //     market_state_cid_old.to_string()
-        //         == "bafy2bzacedrj5levrmmfqrn5njhjncsip2mkwgnwojwton7vodrju4zdlb542"
-        // );
         market_actor_old.state = market_state_cid_old;
         state_tree_old.set_actor(
             &fil_actor_interface::market::ADDRESS.into(),
@@ -617,37 +592,18 @@ mod tests {
         state_tree_old.set_actor(&addr3, miner3)?;
 
         let tree_root = state_tree_old.flush()?;
-        let state_root: StateRoot = store.get_cbor(&tree_root)?.unwrap();
-        // ensure!(
-        //     state_root.actors.to_string()
-        //         == "bafy2bzacebt6nrksprrhp6fzav6lhnt4ymz4h6iolaxdrfpit5b7j33xzjdky"
-        // );
 
-        let (new_manifest_cid, new_manifest) = make_test_manifest(&store, "fil/9/")?;
-        println!(
-            "new_manifest_cid: {new_manifest_cid}, new_manifest.actors_cid: {}",
-            new_manifest.actors_cid()
-        );
-        let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
-        println!("datacap_code from new manifest 1: {datacap_code}");
+        let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/9/")?;
+
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
             bundle.manifest = new_manifest_cid;
         }
         let new_state_cid = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
         let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
-        let actors_out = StateTree::new_from_root(&store, &new_state_cid)?;
-        println!(
-            "actors_out_state_root.actors: {}",
-            actors_out_state_root.actors
-        );
-        actors_out.for_each(|addr, state| {
-            println!("addr: {addr}, state: {state:?}");
-            Ok(())
-        })?;
         ensure!(
             actors_out_state_root.actors.to_string()
-                == "bafy2bzacedgjvpqdsinppyezrusv3c6andt2ozkyzvw72dynsm6m2yaykldhm"
+                == "bafy2bzacedgtk3lnnyfxnzc32etqaj3zvi7ar7nxq2jtxd2qr36ftbsjoycqu"
         );
         let new_state_cid2 = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
         ensure!(new_state_cid == new_state_cid2);
@@ -659,11 +615,6 @@ mod tests {
     fn test_fip0029_miner_migration() -> Result<()> {
         let store = crate::db::MemoryDB::default();
         let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
-        let system_actor_old = state_tree_old
-            .get_actor(&fil_actor_interface::system::ADDRESS.into())?
-            .unwrap();
-        let system_state_old: fil_actor_system_state::v9::State =
-            store.get_cbor(&system_actor_old.state)?.unwrap();
         let addr = Address::new_id(10000);
         let worker_addr = Address::new_id(20000);
         let miner_cid_old = manifest_old.code_by_name(MINER_ACTOR_NAME)?;
@@ -676,8 +627,7 @@ mod tests {
         let miner_actor = ActorState::new(*miner_cid_old, miner_state_cid, Zero::zero(), 0, None);
         state_tree_old.set_actor(&addr, miner_actor)?;
         let state_tree_old_root = state_tree_old.flush()?;
-        let state_root: StateRoot = store.get_cbor(&state_tree_old_root)?.unwrap();
-        let (new_manifest_cid, new_manifest) = make_test_manifest(&store, "fil/9/")?;
+        let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/9/")?;
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
             bundle.manifest = new_manifest_cid;
@@ -685,10 +635,6 @@ mod tests {
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &state_tree_old_root, 200)?;
         let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
-        println!(
-            "actors_out_state_root.actors: {}",
-            actors_out_state_root.actors
-        );
         ensure!(
             actors_out_state_root.actors.to_string()
                 == "bafy2bzacebdpnjjyspbyj7al7d6234kdhkmdygkfdkp6zyao5o3egsfmribty"
@@ -837,11 +783,6 @@ mod tests {
         ensure!(verifreg_cid.to_string() == "bafkqaftgnfwc6obpozsxe2lgnfswi4tfm5uxg5dspe");
         let mut verifreg_state =
             fil_actor_verifreg_state::v8::State::new(&store, verifreg_root.into())?;
-        // let verifreg_state_cid = store.put_cbor_default(&verifreg_state)?;
-        // ensure!(
-        //     verifreg_state_cid.to_string()
-        //         == "bafy2bzacea4jwfpd5vmqmq6y3qb5gnv4zv5nitpq5qkhvzzzqzd2hapcibwse"
-        // );
         let mut verified_clients = fil_actors_shared::v8::make_empty_map::<_, BigInt>(
             &store,
             fil_actors_shared::v8::builtin::HAMT_BIT_WIDTH,
@@ -897,13 +838,7 @@ mod tests {
             Zero::zero(),
         )?;
 
-        let tree_root = tree.flush()?;
-        let state_root: StateRoot = store.get_cbor(&tree_root)?.unwrap();
-        println!("state_root.actors: {}", state_root.actors);
-        // ensure!(
-        //     state_root.actors.to_string()
-        //         == "bafy2bzacecrfiicgwyogqfyovj5jld3oylod5ezp36tpyebwcuiz7wo3xxszy"
-        // );
+        tree.flush()?;
 
         Ok((tree, manifest))
     }
@@ -953,10 +888,6 @@ mod tests {
         base_addr: &Address,
         base_worker_addr: &Address,
     ) -> Result<fil_actor_miner_state::v8::State> {
-        let empty_precommit_map_cid = fil_actors_shared::v8::make_empty_map::<_, ()>(
-            store,
-            fil_actors_shared::v8::builtin::HAMT_BIT_WIDTH,
-        );
         let empty_miner_info = fil_actor_miner_state::v8::MinerInfo {
             owner: base_addr.into(),
             worker: base_worker_addr.into(),
