@@ -51,7 +51,7 @@ const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
-const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -59,12 +59,6 @@ const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 pub struct MsgSet {
     pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
-}
-
-#[derive(PartialEq)]
-enum MessageSource {
-    _Untrusted,
-    Trusted,
 }
 
 impl MsgSet {
@@ -79,16 +73,33 @@ impl MsgSet {
 
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
-    /// Use `Source::_Untrusted` when pushing a message coming from untrusted sources.
-    /// This will restrict the number of messages per actor to `MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES`.
-    /// `Source::Trusted` will let you add up to `api.max_actor_pending_messages()` per actor.
-    fn add<T>(&mut self, api: &T, m: SignedMessage, source: MessageSource) -> Result<(), Error>
+    /// Use this method when pushing a message coming from trusted sources.
+    pub fn add_trusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
     where
         T: Provider,
     {
-        let max_actor_pending_messages = match source {
-            MessageSource::_Untrusted => MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES,
-            MessageSource::Trusted => api.max_actor_pending_messages(),
+        self.add(api, m, true)
+    }
+
+    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
+    /// message has a sequence greater than any existing message sequence.
+    /// Use this method when pushing a message coming from untrusted sources.
+    #[allow(dead_code)]
+    pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
+    where
+        T: Provider,
+    {
+        self.add(api, m, false)
+    }
+
+    fn add<T>(&mut self, api: &T, m: SignedMessage, trusted: bool) -> Result<(), Error>
+    where
+        T: Provider,
+    {
+        let max_actor_pending_messages = if trusted {
+            api.max_actor_pending_messages()
+        } else {
+            api.max_untrusted_actor_pending_messages()
         };
 
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
@@ -112,7 +123,7 @@ impl MsgSet {
         if self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
                 m.message.from().to_string(),
-                source == MessageSource::Trusted,
+                trusted,
             ));
         }
         if self.msgs.insert(m.sequence(), m).is_none() {
@@ -602,11 +613,11 @@ where
     let mut pending = pending.write();
     let msett = pending.get_mut(&msg.from());
     match msett {
-        Some(mset) => mset.add(api, msg, MessageSource::Trusted)?,
+        Some(mset) => mset.add_trusted(api, msg)?,
         None => {
             let mut mset = MsgSet::new(sequence);
             let from = msg.from();
-            mset.add(api, msg, MessageSource::Trusted)?;
+            mset.add_trusted(api, msg)?;
             pending.insert(from, mset);
         }
     }
