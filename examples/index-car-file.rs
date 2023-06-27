@@ -12,6 +12,7 @@
 
 use clap::Parser;
 use integer_encoding::VarIntReader as _;
+use itertools::Itertools as _;
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Seek},
@@ -54,7 +55,12 @@ fn main() -> anyhow::Result<()> {
     // TODO(aatifsyed): lock the file
     let mut reader = BufReader::new(File::open(path)?);
 
-    let count = std::iter::from_fn(|| read_section(&mut reader)).collect::<Result<Vec<_>, _>>()?;
+    let count = std::iter::from_fn(|| read_section(&mut reader))
+        .map_ok(|section| {
+            println!("frame of length {}", section.body_length);
+            section
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     println!("{}", count.len());
     Ok(())
 }
