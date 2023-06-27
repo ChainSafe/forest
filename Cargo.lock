@@ -2863,7 +2863,6 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
- "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.4.0",
  "fvm_shared 3.3.1",
  "gethostname",
