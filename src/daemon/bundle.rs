@@ -39,7 +39,11 @@ where
             "expected one root when loading actors bundle"
         );
         info!("Loaded actors bundle with CID: {}", result[0]);
-        anyhow::ensure!(manifest_cid == result[0]);
+        anyhow::ensure!(
+            manifest_cid == result[0],
+            "manifest cid in config '{manifest_cid}' does not match manifest cid from bundle '{}'",
+            result[0]
+        );
     }
     Ok(())
 }
