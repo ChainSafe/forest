@@ -1,12 +1,15 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
-use futures_util::AsyncReadExt;
+
 use hyper::body::HttpBody;
 use indicatif::ProgressStyle;
 use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
-use tokio::io::{AsyncBufReadExt, AsyncRead};
+use tokio::io::AsyncBufReadExt;
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 use tokio_util::either::Either::{Left, Right};
 use url::Url;
@@ -22,7 +25,7 @@ impl StreamedContentReader {
         // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
         // malformed it'll end up trying to treat it as a local filepath. If that fails - an error
         // is thrown.
-        let (mut stream, content_length) = match Url::parse(path) {
+        let (stream, content_length) = match Url::parse(path) {
             Ok(url) => {
                 info!("downloading file: {}", url);
                 let resp = reqwest::get(url).await?.error_for_status()?;

@@ -141,12 +141,12 @@ async fn download_aria2c(url: &Url, directory: &Path, filename: &str) -> Result<
 
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
 async fn download_http(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
-    use futures::TryStreamExt as _;
-    use tap::Pipe as _;
+    
+    
     let dst_path = directory.join(filename);
 
     info!(%url, "downloading snapshot");
-    let mut reader = StreamedContentReader::read(url.as_str()).await?;
+    let reader = StreamedContentReader::read(url.as_str()).await?;
 
     let mut dst = tokio::fs::File::create(&dst_path)
         .await

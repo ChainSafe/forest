@@ -6,7 +6,7 @@ use std::{sync::Arc, time};
 use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
 use crate::utils::db::BlockstoreBufferedWriteExt;
-use crate::utils::misc::Either;
+
 use crate::utils::net::StreamedContentReader;
 use anyhow::bail;
 use cid::Cid;
@@ -14,11 +14,11 @@ use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use fvm_ipld_encoding::CborStore;
-use libc::read;
+
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
-use url::Url;
+
 
 #[cfg(test)]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
