@@ -6,7 +6,6 @@ use std::{
     task::{Context, Poll},
 };
 
-
 use futures::{AsyncRead, AsyncWrite};
 
 pub enum Either<L, R> {
