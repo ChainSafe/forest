@@ -249,8 +249,6 @@ pub mod mpool_api {
         message::json::MessageJson,
         signed_message::json::SignedMessageJson,
     };
-    use crate::message::SignedMessage;
-
     use crate::rpc_api::data_types::MessageSendSpec;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
