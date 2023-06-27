@@ -9,9 +9,9 @@ use std::path::PathBuf;
 #[cfg(feature = "mimalloc")]
 pub use mimalloc;
 #[cfg(feature = "jemalloc")]
-pub use tikv_jemallocator;
-#[cfg(feature = "jemalloc")]
 pub use tikv_jemalloc_sys;
+#[cfg(feature = "jemalloc")]
+pub use tikv_jemallocator;
 
 /// Gets chain data directory
 pub fn chain_path(config: &crate::cli_shared::cli::Config) -> PathBuf {

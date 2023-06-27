@@ -117,7 +117,7 @@ where
             }
         }
 
-        metrics.push_str("# Jemalloc statistics:\n".into());
+        metrics.push_str("# Jemalloc statistics:\n");
 
         let string_ptr: *mut String = &mut metrics;
         unsafe {
