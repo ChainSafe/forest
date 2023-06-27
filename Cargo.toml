@@ -12,7 +12,7 @@ ahash = "0.8"
 anes = "0.1.6"
 anyhow = "1.0"
 argon2 = "0.5"
-async-compression = { version = "0.4", features = ["futures-io", "zstd"] }
+async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"] }
 async-fs = "1"
 async-recursion = "1.0"
 async-trait = "0.1"
@@ -184,6 +184,7 @@ url = { version = "2.3", features = ["serde"] }
 uuid = { version = "1.3", features = ['v4'] }
 walkdir = "2"
 xsalsa20poly1305 = "0.9"
+zstd-safe = "6.0.5"
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"

@@ -23,7 +23,7 @@ use tempfile::TempDir;
 use super::*;
 
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
-use crate::utils::net::FileReader;
+use crate::utils::net::StreamedContentReader;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -198,7 +198,8 @@ async fn validate(
 
         let (cids, _n_records) = {
             let reader =
-                FileReader::read(snapshot.as_path().display().to_string().as_str()).await?;
+                StreamedContentReader::read(snapshot.as_path().display().to_string().as_str())
+                    .await?;
             forest_load_car(chain_store.blockstore().clone(), reader).await?
         };
 

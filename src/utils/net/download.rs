@@ -1,177 +1,92 @@
-// Copyright 2019-2023 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
-
-use std::{
-    io::SeekFrom,
-    path::Path,
-    pin::Pin,
-    task::{Context, Poll},
-    time::Duration,
-};
-
-use crate::auth::Error;
-use async_compression::futures::bufread::ZstdDecoder;
-use futures::{
-    io::BufReader,
-    stream::{IntoAsyncRead, MapErr},
-    AsyncBufRead, AsyncRead, AsyncReadExt, AsyncSeekExt, TryStreamExt,
-};
+use async_compression::tokio::bufread::ZstdDecoder;
+use futures::TryStreamExt;
+use futures_util::AsyncReadExt;
+use hyper::body::HttpBody;
+use indicatif::ProgressStyle;
 use log::info;
-use pin_project_lite::pin_project;
-use thiserror::Error;
+use std::io::ErrorKind;
+use tap::Pipe;
+use tokio::io::{AsyncBufReadExt, AsyncRead};
+use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use tokio_util::either::Either::{Left, Right};
 use url::Url;
 
-use super::https_client;
-use crate::utils::{io::ProgressBar, misc::Either};
+pub struct StreamedContentReader {}
 
-#[derive(Debug, Error)]
-enum DownloadError {
-    #[error("Cannot read a file header")]
-    HeaderError,
-}
+impl StreamedContentReader {
+    /// This method is parsing a filepath/URL passed to it and attempts to open a stream.
+    /// Additionally, it detects whether or not the resulting stream is a zstd archive and treats
+    /// it accordingly.
+    pub async fn read(path: &str) -> anyhow::Result<Box<dyn futures::AsyncRead + Send + Unpin>> {
+        let read_progress = indicatif::ProgressBar::new_spinner().with_style(Self::spinner_style());
+        // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
+        // malformed it'll end up trying to treat it as a local filepath. If that fails - an error
+        // is thrown.
+        let (mut stream, content_length) = match Url::parse(path) {
+            Ok(url) => {
+                info!("downloading file: {}", url);
+                let resp = reqwest::get(url).await?.error_for_status()?;
+                let content_length = resp.content_length().unwrap_or_default();
+                let stream = resp
+                    .bytes_stream()
+                    .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
+                    .pipe(tokio_util::io::StreamReader::new);
 
-pin_project! {
-    /// Holds a Reader, tracks read progress and draws a progress bar.
-    pub struct FetchProgress {
-        #[pin]
-        pub inner: Either<DownloadStream, BufReader<async_fs::File>>,
-        pub progress_bar: ProgressBar,
-    }
-}
-
-impl AsyncRead for FetchProgress {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
-        let r = Pin::new(&mut self.inner).poll_read(cx, buf);
-        if let Poll::Ready(Ok(size)) = r {
-            self.progress_bar.add(size as u64);
-        }
-        r
-    }
-}
-
-impl AsyncBufRead for FetchProgress {
-    fn poll_fill_buf(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<std::io::Result<&[u8]>> {
-        Pin::new(&mut Pin::get_mut(self).inner).poll_fill_buf(cx)
-    }
-
-    fn consume(mut self: Pin<&mut Self>, amt: usize) {
-        Pin::new(&mut self.inner).consume(amt);
-        self.progress_bar.add(amt as u64);
-    }
-}
-
-/// FileReader facilitates file streaming, whether local or remote.
-pub struct FileReader {}
-
-impl FileReader {
-    /// Returns [`FetchProgress`]
-    ///
-    /// Auto-detects whether or not the file has to be streamed from a remote location, and
-    /// whether or not it's zstd compressed.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - Snapshot location, could be either remote or local
-    pub async fn read(
-        path: &str,
-    ) -> anyhow::Result<Either<ZstdDecoder<FetchProgress>, FetchProgress>> {
-        let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
-        let (stream, progress_bar) = match is_remote_file {
-            true => {
-                info!("Downloading file...");
-                let url = Url::parse(path)?;
-                let (reader, pb) = Self::fetch_stream_from_url(&url).await?;
-                (Either::Left(reader), pb)
+                (Left(stream), content_length)
             }
             _ => {
-                info!("Reading file...");
-                let mut file = async_fs::File::open(path).await?;
-                let (reader, pb) = Self::fetch_from_file(file).await?;
-
-                (Either::Right(reader), pb)
+                info!("reading file: {}", path);
+                let stream = tokio::fs::File::open(path).await?;
+                let content_length = stream.metadata().await?.len();
+                (Right(stream), content_length)
             }
         };
 
-        let reader = FetchProgress {
-            inner: stream,
-            progress_bar,
-        };
+        if content_length > 0 {
+            read_progress.set_length(content_length);
+            read_progress.set_style(Self::progress_style())
+        }
 
-        let reader = if Self::is_zstd(path) {
-            Either::Left(ZstdDecoder::new(reader))
-        } else {
-            Either::Right(reader)
-        };
+        let mut reader = tokio::io::BufReader::new(read_progress.wrap_async_read(stream));
 
-        Ok(reader)
-    }
-
-    // Checks whether or not a file is a zstd archive by it's extension.
-    fn is_zstd(path: &str) -> bool {
-        path.ends_with(".zst")
-    }
-
-    async fn fetch_from_file(
-        file: async_fs::File,
-    ) -> anyhow::Result<(BufReader<async_fs::File>, ProgressBar)> {
-        let total_size = file.metadata().await?.len();
-
-        let pb = ProgressBar::new(total_size);
-        pb.message("Importing snapshot ");
-        pb.set_units(crate::utils::io::progress_bar::Units::Bytes);
-        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
-
-        Ok((BufReader::new(file), pb))
-    }
-
-    async fn fetch_stream_from_url(url: &Url) -> anyhow::Result<(DownloadStream, ProgressBar)> {
-        let client = https_client();
-        let url = {
-            let head_response = client
-                .request(hyper::Request::head(url.as_str()).body("".into())?)
-                .await?;
-
-            // Use the redirect if available.
-            match head_response.headers().get("location") {
-                Some(url) => url.to_str()?.try_into()?,
-                None => url.clone(),
+        Ok(Box::new(
+            match Self::is_zstd(reader.fill_buf().await?).await? {
+                true => Left(ZstdDecoder::new(reader)),
+                false => Right(reader),
             }
-        };
-        let total_size = {
-            let resp = client
-                .request(hyper::Request::head(url.as_str()).body("".into())?)
-                .await?;
-            if resp.status().is_success() {
-                resp.headers()
-                    .get("content-length")
-                    .and_then(|ct_len| ct_len.to_str().ok())
-                    .and_then(|ct_len| ct_len.parse().ok())
-                    .unwrap_or(0)
-            } else {
-                return Err(anyhow::anyhow!(DownloadError::HeaderError));
-            }
-        };
+            .compat(),
+        ))
+    }
 
-        let response = client.get(url.as_str().try_into()?).await?;
+    // This method checks the header in order to see whether or not we are operating on a zstd
+    // archive. The zstd header has a maximum size of 18 bytes:
+    // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
+    async fn is_zstd(buf: &[u8]) -> anyhow::Result<bool> {
+        Ok(match zstd_safe::get_frame_content_size(buf) {
+            Ok(_) => true,
+            _ => false,
+        })
+    }
 
-        let pb = ProgressBar::new(total_size);
-        pb.message("Downloading/Importing snapshot ");
-        pb.set_units(crate::utils::io::progress_bar::Units::Bytes);
-        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
+    fn progress_style() -> ProgressStyle {
+        indicatif::ProgressStyle::with_template(
+            "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
+        )
+        .expect("invalid progress template")
+        .progress_chars("=>-")
+    }
 
-        let map_err: fn(hyper::Error) -> futures::io::Error =
-            |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
-        let stream = response.into_body().map_err(map_err).into_async_read();
-
-        Ok((stream, pb))
+    fn spinner_style() -> ProgressStyle {
+        ProgressStyle::with_template("{spinner:.blue} {msg}")
+            .unwrap()
+            .tick_strings(&[
+                "▹▹▹▹▹",
+                "▸▹▹▹▹",
+                "▹▸▹▹▹",
+                "▹▹▸▹▹",
+                "▹▹▹▸▹",
+                "▹▹▹▹▸",
+                "▪▪▪▪▪",
+            ])
     }
 }
-
-type DownloadStream = IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futures::io::Error>>;

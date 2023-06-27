@@ -7,10 +7,8 @@ use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::state_manager::StateManager;
 use crate::utils::db::BlockstoreBufferedWriteExt;
 use crate::utils::misc::Either;
-use crate::utils::net::{FetchProgress, FileReader};
+use crate::utils::net::StreamedContentReader;
 use anyhow::bail;
-use async_compression::futures::bufread::ZstdDecoder;
-use async_compression::futures::write::ZstdEncoder;
 use cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
@@ -114,7 +112,7 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let reader = FileReader::read(path).await?;
+    let reader = StreamedContentReader::read(path).await?;
 
     let (cids, n_records) =
         load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?;
