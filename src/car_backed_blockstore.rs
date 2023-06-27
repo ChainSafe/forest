@@ -59,16 +59,12 @@ use ahash::AHashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use integer_encoding::VarIntReader as _;
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::{
-    io::{
-        self, BufRead,
-        ErrorKind::{InvalidData, UnexpectedEof, Unsupported},
-        Read, Seek, SeekFrom,
-    },
-    sync::Arc,
+use std::io::{
+    self, BufRead,
+    ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
+    Read, Seek, SeekFrom,
 };
 use tracing::debug;
 
@@ -89,7 +85,7 @@ pub struct CarBackedBlockstore<ReaderT> {
     reader: Mutex<ReaderT>,
     write_cache: Mutex<AHashMap<Cid, Vec<u8>>>,
     index: AHashMap<Cid, BlockLocation>,
-    roots: Vec<Cid>,
+    pub roots: Vec<Cid>,
 }
 
 impl<ReaderT> CarBackedBlockstore<ReaderT>
@@ -187,7 +183,7 @@ where
 }
 
 fn read_header(reader: &mut impl BufRead) -> io::Result<CarHeader> {
-    let header_len = reader.read_varint::<usize>()?;
+    let header_len = read_usize(reader)?;
     match reader.fill_buf()? {
         buf if buf.is_empty() => Err(io::Error::from(UnexpectedEof)),
         nonempty if nonempty.len() < header_len => Err(io::Error::new(
@@ -210,7 +206,7 @@ fn read_block(reader: &mut (impl BufRead + Seek)) -> Option<cid::Result<(Cid, Bl
     match reader.fill_buf() {
         Ok(buf) if buf.is_empty() => None, // EOF
         Ok(_nonempty) => match (
-            reader.read_varint::<usize>(),
+            read_usize(reader),
             reader.stream_position(),
             Cid::read_bytes(&mut *reader),
         ) {
@@ -225,6 +221,16 @@ fn read_block(reader: &mut (impl BufRead + Seek)) -> Option<cid::Result<(Cid, Bl
             (_, _, Err(e)) => Some(Err(e)),
         },
         Err(e) => Some(Err(cid::Error::Io(e))),
+    }
+}
+
+fn read_usize(reader: &mut impl Read) -> io::Result<usize> {
+    use unsigned_varint::io::ReadError::{Decode, Io};
+    match unsigned_varint::io::read_usize(reader) {
+        Ok(u) => Ok(u),
+        Err(Io(e)) => Err(e),
+        Err(Decode(e)) => Err(io::Error::new(InvalidData, e)),
+        Err(other) => Err(io::Error::new(Other, other)),
     }
 }
 

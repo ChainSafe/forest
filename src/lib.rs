@@ -19,6 +19,7 @@ cfg_if::cfg_if! {
 mod auth;
 mod beacon;
 mod blocks;
+#[allow(unused)] // TODO(lemmih): actually use this
 mod car_backed_blockstore;
 mod chain;
 mod chain_sync;
