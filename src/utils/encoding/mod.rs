@@ -166,13 +166,13 @@ mod tests {
 
     #[test]
     fn parity_tests() -> anyhow::Result<()> {
-        use cs_serde_bytes;
+        use serde_bytes;
 
         #[derive(Deserialize, Serialize)]
         struct A(#[serde(with = "fvm_ipld_encoding3::strict_bytes")] Vec<u8>);
 
         #[derive(Deserialize, Serialize)]
-        struct B(#[serde(with = "cs_serde_bytes")] Vec<u8>);
+        struct B(#[serde(with = "serde_bytes")] Vec<u8>);
 
         let mut array = [0; 1024];
         rand::rngs::OsRng.fill(&mut array);
