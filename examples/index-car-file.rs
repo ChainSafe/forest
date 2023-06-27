@@ -10,10 +10,15 @@
 //!   - ...
 //! - ...
 
+use anyhow::{bail, ensure};
 use cid::Cid;
 use clap::Parser;
 use fvm_ipld_car::CarHeader;
 use integer_encoding::VarIntReader as _;
+use itertools::{
+    Itertools as _,
+    MinMaxResult::{MinMax, NoElements, OneElement},
+};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Seek, SeekFrom},
@@ -113,16 +118,24 @@ fn main() -> anyhow::Result<()> {
     let file_len = reader.get_ref().metadata()?.len();
 
     let CarHeader { roots, version } = read_header(&mut reader)?;
+    ensure!(version == 1, "only CARv1 is supported");
     info!(version, num_roots = roots.len(), "header");
 
     let blocks = info_span!("create index").in_scope(|| {
         std::iter::from_fn(|| read_block(&mut reader)).collect::<Result<Vec<_>, _>>()
     })?;
     let index_len = std::mem::size_of_val(blocks.as_slice());
+    let (min, max) = match blocks.iter().map(|it| it.length).minmax() {
+        NoElements => bail!("CAR must have at least one block"),
+        OneElement(l) => (l, l),
+        MinMax(min, max) => (min, max),
+    };
     info!(
         num_blocks = blocks.len(),
         index = human_bytes(index_len),
         file = human_bytes(file_len),
+        block_length.min = human_bytes(min),
+        block_length.max = human_bytes(max),
         "indexed"
     );
 
@@ -131,13 +144,15 @@ fn main() -> anyhow::Result<()> {
             cid: expected,
             length: _,
             offset,
-        } in blocks.iter().rev()
+        } in blocks.iter()
+        // MUCH faster to read from start
+        // we WILL get slow to a crawl if we do random access
         {
             reader.seek(SeekFrom::Start(*offset))?;
             let actual = Cid::read_bytes(&mut reader)?;
-            assert_eq!(expected, &actual);
+            ensure!(expected == &actual, "CIDs for blocks don't match");
         }
-        cid::Result::Ok(())
+        anyhow::Ok(())
     })?;
 
     Ok(())

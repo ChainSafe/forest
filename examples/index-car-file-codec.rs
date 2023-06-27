@@ -1,23 +1,14 @@
-//! A car file looks like this
-//! - header section
-//!   - section length (varint)
-//!   - header contents (cbor)
-//! - body section
-//!   - section length (varint)
-//!   - cid
-//!   - contents
-//! - body section
-//!   - ...
-//! - ...
+//! Don't use this - it will read each block into memory, which
+//! - we don't need
+//! - costs a lot of perf
 
 use anyhow::Context as _;
 use bytes::Bytes;
 use clap::Parser;
-use futures_util::{FutureExt, Stream, StreamExt, TryStreamExt};
+use futures_util::{Stream, StreamExt, TryStreamExt};
 use fvm_ipld_car::CarHeader;
 use pin_project_lite::pin_project;
 use std::{
-    io::SeekFrom,
     path::PathBuf,
     pin::Pin,
     task::{Context, Poll},
