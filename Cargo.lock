@@ -3244,6 +3244,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28a482a7a27dc5da0824d2eb61ccc044cae3ce5a05a743237b9a8a53793163d4"
 dependencies = [
  "anyhow",
+ "arbitrary",
  "byteorder",
  "cid",
  "derive_more",
@@ -3261,6 +3262,7 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "once_cell",
+ "quickcheck",
  "rand 0.8.5",
  "rayon",
  "replace_with",
