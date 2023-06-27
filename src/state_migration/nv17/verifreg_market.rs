@@ -37,10 +37,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
 
         // `migrateVerifreg`
 
-        // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
-        // it does not effect `load` API here. (Go API takes bit_width=5 for loading while Rust API does not)
-        //
-        // P.S. Because of lifetime limitation, this is not stored as a field of `MinerMigrator` like in Go code
+        // Because of lifetime limitation, this is not stored as a field of `MinerMigrator` like in Go code
         let market_proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
@@ -100,6 +97,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             let client_allocations_map_cid = client_allocations_map.flush()?;
             allocations_map.set(
                 // Note: `client_id.payload_bytes()` produces different output than `client_id.payload().to_bytes()`
+                // see <https://github.com/ChainSafe/fil-actor-states/issues/150>
                 BytesKey(client_id.payload_bytes()),
                 client_allocations_map_cid,
             )?;
@@ -129,7 +127,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             fil_actor_market_state::v8::DealState,
             _,
         >::load(&self.market_state_v8.states, store)?;
-        // TODO: Make sure bitwidth is correct with this API
+
         let mut deal_states_v9 = fil_actors_shared::v9::Array::<
             fil_actor_market_state::v9::DealState,
             _,

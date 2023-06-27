@@ -124,6 +124,7 @@ multihash = { version = "0.16", features = [
   'blake2b',
   'derive',
   'serde-codec',
+  'identity',
   "multihash-impl",
   "sha2",
 ], default_features = false }
@@ -225,8 +226,7 @@ lto = "off"
 
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
-# strip = true
-debug = 1
+strip = true
 panic = "abort"
 overflow-checks = true
 

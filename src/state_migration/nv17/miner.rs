@@ -121,10 +121,7 @@ impl MinerMigrator {
     ) -> anyhow::Result<Cid> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
-        // FIXME: `DEFAULT_BIT_WIDTH` on rust side is 3 while it's 5 on go side. Revisit to make sure
-        // it does not effect `load` API here. (Go API takes bit_width=5 for loading while Rust API does not)
-        //
-        // P.S. Because of lifetime limitation, this is not stored as a field of `MinerMigrator` like in Go code
+        // Because of lifetime limitation, this is not stored as a field of `MinerMigrator` like in Go code
         let market_proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
@@ -217,7 +214,6 @@ impl MinerMigrator {
                             ChangeType::Remove => {
                                 prev_out_sectors.delete(change.key)?;
                             }
-                            // TODO: Double confirm `fallthrough` in `Go` is translated properly here
                             ChangeType::Modify | ChangeType::Add => {
                                 let info_v8 = in_sectors
                                     .get(change.key)?
