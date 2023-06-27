@@ -12,7 +12,6 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_ipld_encoding::CborStore;
-use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::error::Error as StdError;

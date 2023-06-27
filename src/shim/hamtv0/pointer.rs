@@ -9,10 +9,8 @@ use cid::Cid;
 use libipld::Ipld;
 use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
-use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
-use std::convert::{TryFrom, TryInto};
 
 #[test]
 fn pointer_round_trip() {
@@ -68,9 +66,9 @@ pub(crate) enum Pointer<K, V, H> {
 impl<K: PartialEq, V: PartialEq, H> PartialEq for Pointer<K, V, H> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (&Pointer::Values(ref a), &Pointer::Values(ref b)) => a == b,
-            (&Pointer::Link { cid: ref a, .. }, &Pointer::Link { cid: ref b, .. }) => a == b,
-            (&Pointer::Dirty(ref a), &Pointer::Dirty(ref b)) => a == b,
+            (Pointer::Values(ref a), Pointer::Values(ref b)) => a == b,
+            (Pointer::Link { cid: ref a, .. }, Pointer::Link { cid: ref b, .. }) => a == b,
+            (Pointer::Dirty(ref a), Pointer::Dirty(ref b)) => a == b,
             _ => false,
         }
     }
@@ -81,7 +79,7 @@ where
     K: Serialize,
     V: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -103,7 +101,7 @@ where
             Ipld::Map(map) => map
                 .into_iter()
                 .next()
-                .ok_or(format!("Expected at least one element")),
+                .ok_or("Expected at least one element".to_string()),
             other => Err(format!("Expected `Ipld::Map`, got {:#?}", other)),
         }
         .map_err(de::Error::custom)?;

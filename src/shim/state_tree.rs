@@ -376,25 +376,20 @@ impl quickcheck::Arbitrary for ActorState {
 
 // ported from commit hash b622af
 pub mod state_tree_v0 {
-    use std::{cell::RefCell, collections::HashMap, error::Error};
-
     use anyhow::Context;
     use cid::Cid;
-    use fvm::kernel::ClassifyResult;
     use fvm_ipld_blockstore::Blockstore;
-    use fvm_ipld_encoding3::CborStore;
-    use fvm_ipld_hamt::Hamt;
-    // use fvm_shared::state::StateRoot;
-
-    // use cid::Cid;
     use fvm_ipld_encoding::repr::*;
     use fvm_ipld_encoding::tuple::*;
-    use fvm_ipld_encoding::Cbor;
+    use fvm_ipld_encoding3::CborStore;
     use libipld::Ipld;
-    use serde::{Deserialize, Serialize};
+    use std::{cell::RefCell, collections::HashMap};
 
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
+
+    /// Default bit width for the hamt in the filecoin protocol.
+    pub const HAMT_BIT_WIDTH: u32 = 5;
 
     /// State of all actor implementations.
     #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -456,7 +451,7 @@ pub mod state_tree_v0 {
         S: Blockstore,
     {
         /// Constructor for a hamt state tree given an IPLD store
-        pub fn new_from_root(store: S, c: &Cid) -> Result<Self, Box<dyn std::error::Error>> {
+        pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
             // Try to load state root, if versioned
             let (version, info, actors) = if let Ok(Some(StateRoot {
                 version,
@@ -472,10 +467,12 @@ pub mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let a: Ipld = store.get_cbor(&actors).unwrap().unwrap();
-                    // dbg!(&a);
                     let hamt: crate::shim::hamtv0::Hamt<S, ActorState> =
-                        crate::shim::hamtv0::Hamt::load_with_bit_width(&actors, store, 5).unwrap();
+                        crate::shim::hamtv0::Hamt::load_with_bit_width(
+                            &actors,
+                            store,
+                            HAMT_BIT_WIDTH,
+                        )?;
 
                     Ok(Self {
                         hamt,
@@ -484,7 +481,7 @@ pub mod state_tree_v0 {
                         snaps: StateSnapshots::new(),
                     })
                 }
-                _ => unimplemented!(),
+                _ => unreachable!("expecting state tree version 0"),
             }
         }
 
@@ -492,10 +489,6 @@ pub mod state_tree_v0 {
         pub fn store(&self) -> &S {
             self.hamt.store()
         }
-
-        // pub(crate) fn lookup_id<S>(&self, addr: Address) -> _ where S: Blockstore + Clone {
-        //     todo!()
-        // }
 
         /// Get actor state from an address. Will be resolved to ID address.
         pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
@@ -514,7 +507,7 @@ pub mod state_tree_v0 {
 
             // Update cache if state was found
             if let Some(act_s) = &act {
-                self.snaps.set_actor(addr, act_s.clone()).unwrap(); // FIXME: restore ?
+                self.snaps.set_actor(addr, act_s.clone())?; // FIXME: restore ?
             }
 
             Ok(act)
@@ -534,13 +527,13 @@ pub mod state_tree_v0 {
                 .get_actor(&Address::INIT_ACTOR)?
                 .ok_or(anyhow::anyhow!("Init actor address could not be resolved"))?;
 
-            let state = fil_actor_interface::init::State::load(
+            let _state = fil_actor_interface::init::State::load(
                 self.hamt.store(),
                 init_act.code,
                 init_act.state,
             )?;
 
-            /// XXX: can be fixed by adding resolve_method in fil-actor-states
+            // XXX: can be fixed by adding resolve_method in fil-actor-states
             todo!("resolve_address method required on init state.")
         }
     }
@@ -585,14 +578,10 @@ pub mod state_tree_v0 {
             None
         }
 
-        fn set_actor(
-            &self,
-            addr: Address,
-            actor: ActorState,
-        ) -> Result<(), Box<dyn std::error::Error>> {
+        fn set_actor(&self, addr: Address, actor: ActorState) -> anyhow::Result<()> {
             self.layers
                 .last()
-                .ok_or_else(|| {
+                .with_context(|| {
                     format!(
                         "set actor failed to index snapshot layer at index: {}",
                         &self.layers.len() - 1
@@ -608,10 +597,10 @@ pub mod state_tree_v0 {
             &self,
             addr: Address,
             resolve_addr: Address,
-        ) -> Result<(), Box<dyn std::error::Error>> {
+        ) -> anyhow::Result<()> {
             self.layers
                 .last()
-                .ok_or_else(|| {
+                .with_context(|| {
                     format!(
                         "caching address failed to index snapshot layer at index: {}",
                         &self.layers.len() - 1
