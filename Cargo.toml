@@ -59,7 +59,7 @@ fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = { version = "~2.4", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.4" }
+fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
 fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
