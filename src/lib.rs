@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
-#![allow(unused, clippy::upper_case_acronyms, clippy::enum_variant_names)] // # 2991
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
@@ -45,6 +44,7 @@ mod shim;
 mod state_manager;
 mod state_migration;
 mod statediff;
+#[cfg(test)]
 mod test_utils;
 mod utils;
 

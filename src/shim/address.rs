@@ -14,9 +14,9 @@ use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use lazy_static::lazy_static;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 // XXX: Copied from ref-fvm due to a bug in their definition.
 lazy_static! {
@@ -58,6 +58,7 @@ impl CurrentNetwork {
         CurrentNetwork::set(network);
     }
 
+    #[cfg(test)]
     pub fn with<X>(network: Network, cb: impl FnOnce() -> X) -> X {
         let guard = NetworkGuard::new(network);
         let result = cb();
@@ -65,6 +66,7 @@ impl CurrentNetwork {
         result
     }
 
+    #[cfg(test)]
     fn get_global() -> Network {
         FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Relaxed)).unwrap_or(Network::Mainnet)
     }
@@ -72,6 +74,7 @@ impl CurrentNetwork {
 
 struct NetworkGuard(Network);
 impl NetworkGuard {
+    #[cfg(test)]
     fn new(new_network: Network) -> Self {
         let previous_network = CurrentNetwork::get();
         CurrentNetwork::set(new_network);

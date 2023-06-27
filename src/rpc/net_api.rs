@@ -22,7 +22,7 @@ pub(in crate::rpc) async fn net_addrs_listen<
 ) -> Result<NetAddrsListenResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::NetAddrsListen(tx),
+        method: NetRPCMethods::AddrsListen(tx),
     };
 
     data.network_send.send_async(req).await?;
@@ -39,7 +39,7 @@ pub(in crate::rpc) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'st
 ) -> Result<NetPeersResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::NetPeers(tx),
+        method: NetRPCMethods::Peers(tx),
     };
 
     data.network_send.send_async(req).await?;
@@ -69,7 +69,7 @@ pub(in crate::rpc) async fn net_connect<
 
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::NetConnect(tx, peer_id, addrs),
+        method: NetRPCMethods::Connect(tx, peer_id, addrs),
     };
 
     data.network_send.send_async(req).await?;
@@ -95,7 +95,7 @@ pub(in crate::rpc) async fn net_disconnect<
 
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::NetDisconnect(tx, peer_id),
+        method: NetRPCMethods::Disconnect(tx, peer_id),
     };
 
     data.network_send.send_async(req).await?;

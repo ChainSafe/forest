@@ -13,7 +13,7 @@ use crate::json::{
 use crate::key_management::json::KeyInfoJson;
 use crate::rpc_client::wallet_ops::*;
 use crate::shim::{
-    address::{Address, Protocol, StrictAddress},
+    address::{Protocol, StrictAddress},
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
 };
@@ -104,7 +104,7 @@ impl WalletCommands {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
                     "secp256k1" => SignatureType::Secp256k1,
-                    _ => SignatureType::BLS,
+                    _ => SignatureType::Bls,
                 };
 
                 let signature_type_json = SignatureTypeJson(signature_type);
