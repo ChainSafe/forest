@@ -75,31 +75,6 @@ pub mod json {
         }
         .into())
     }
-    pub mod vec {
-        use crate::utils::json::GoVecVisitor;
-        use serde::ser::SerializeSeq;
-
-        use super::*;
-
-        pub fn serialize<S>(m: &[Receipt], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let mut seq = serializer.serialize_seq(Some(m.len()))?;
-            for e in m {
-                seq.serialize_element(&ReceiptJsonRef(e))?;
-            }
-            seq.end()
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Receipt>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_any(GoVecVisitor::<Receipt, ReceiptJson>::new())
-        }
-    }
-
     pub mod opt {
         use super::*;
 

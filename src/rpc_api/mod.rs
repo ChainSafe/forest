@@ -119,10 +119,6 @@ pub fn check_access(access: &Access, claims: &[String]) -> bool {
     }
 }
 
-/// JSON-RPC API defaults
-pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
-pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
-
 /// JSON-RPC API definitions
 
 /// Authorization API
@@ -205,10 +201,12 @@ pub mod chain_api {
     pub type ChainGetTipsetByHeightResult = TipsetJson;
 
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainGetGenesisParams = ();
     pub type ChainGetGenesisResult = Option<TipsetJson>;
 
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainHeadParams = ();
     pub type ChainHeadResult = TipsetJson;
 
@@ -347,6 +345,7 @@ pub mod state_api {
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type StateNetworkNameParams = ();
     pub type StateNetworkNameResult = String;
 
@@ -414,6 +413,7 @@ pub mod common_api {
     pub type ShutdownResult = ();
 
     pub const START_TIME: &str = "Filecoin.StartTime";
+    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type StartTimeParams = ();
     pub type StartTimeResult = chrono::DateTime<Utc>;
 }

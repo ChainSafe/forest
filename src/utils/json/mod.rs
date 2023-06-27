@@ -63,41 +63,12 @@ where
     }
 }
 
-pub mod go_vec_visitor {
-    use serde::{
-        de::{Deserialize, Deserializer},
-        ser::{Serialize, SerializeSeq, Serializer},
-    };
-
-    use super::*;
-
-    pub fn serialize<S, T>(m: &[T], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-        T: Serialize,
-    {
-        let mut seq = serializer.serialize_seq(Some(m.len()))?;
-        for e in m {
-            seq.serialize_element(&e)?;
-        }
-        seq.end()
-    }
-
-    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
-    where
-        D: Deserializer<'de>,
-        T: Deserialize<'de>,
-    {
-        deserializer.deserialize_any(GoVecVisitor::<T>::new())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Deserializer};
     use serde_json::from_str;
 
-    use super::{go_vec_visitor, *};
+    use super::*;
 
     #[test]
     fn test_json_basic() {
@@ -168,6 +139,20 @@ mod tests {
 
     #[test]
     fn standard_vec() {
+        mod go_vec_visitor {
+            use serde::de::{Deserialize, Deserializer};
+
+            use super::*;
+
+            pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+            where
+                D: Deserializer<'de>,
+                T: Deserialize<'de>,
+            {
+                deserializer.deserialize_any(GoVecVisitor::<T>::new())
+            }
+        }
+
         #[derive(Deserialize)]
         #[serde(transparent)]
         struct BasicJson {

@@ -59,7 +59,7 @@ fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = { version = "~2.4", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.4" }
+fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
 fvm_ipld_amt = "0.5"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
@@ -82,6 +82,7 @@ hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23" # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
+itertools = "0.10.5"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 jsonwebtoken = "8.1"
 lazy_static = "1.4"
@@ -175,6 +176,7 @@ tokio-util = { version = "0.7.0", features = ["compat"] }
 toml = "0.7"
 tracing = "0.1"
 tracing-appender = "0.2"
+tracing-chrome = "0.7.1"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", default-features = false }
@@ -224,7 +226,7 @@ overflow-checks = true
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "fil_cns"]
+default = ["jemalloc"]
 instrumented_kernel = ["dep:stdext"]
 insecure_post = []
 doctest-private = []                 # see lib.rs::doctest_private
@@ -234,10 +236,6 @@ benchmark-private = []               # see lib.rs::benchmark_private
 rustalloc = []
 jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
-
-# Consensus
-fil_cns = []
-deleg_cns = []
 
 [[bench]]
 name = "example-benchmark"

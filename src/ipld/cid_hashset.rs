@@ -3,9 +3,7 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::HashSet;
-use cid::{Cid, Version};
-use fvm_ipld_encoding::DAG_CBOR;
-use std::collections::BTreeSet;
+use cid::Cid;
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -34,10 +32,6 @@ impl CidHashSet {
 
     pub fn len(&self) -> usize {
         self.v1_dagcbor_blake2b.len() + self.fallback.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.v1_dagcbor_blake2b.is_empty() && self.fallback.is_empty()
     }
 }
 

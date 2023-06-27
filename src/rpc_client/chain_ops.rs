@@ -51,13 +51,6 @@ pub async fn chain_read_obj(
     call(CHAIN_READ_OBJ, cid, auth_token).await
 }
 
-pub async fn chain_get_tipset(
-    keys: ChainGetTipSetParams,
-    auth_token: &Option<String>,
-) -> Result<ChainGetTipSetResult, Error> {
-    call(CHAIN_GET_TIPSET, keys, auth_token).await
-}
-
 pub async fn chain_get_tipset_hash(
     keys: ChainGetTipSetHashParams,
     auth_token: &Option<String>,

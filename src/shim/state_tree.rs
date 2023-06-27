@@ -366,11 +366,7 @@ impl From<state_tree_v0::ActorState> for ActorState {
 
 impl quickcheck::Arbitrary for ActorState {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let cid = Cid::new_v1(
-            u64::arbitrary(g),
-            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-        );
-        ActorState::new(cid, cid, TokenAmount::arbitrary(g), u64::arbitrary(g), None)
+        ActorState(ActorStateV3::arbitrary(g))
     }
 }
 
