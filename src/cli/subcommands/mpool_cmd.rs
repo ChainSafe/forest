@@ -164,7 +164,7 @@ impl MpoolCommands {
                                 println!("{}, actor state not found", address);
                                 continue;
                             }
-                        },
+                        }
                         Err(err) => {
                             let error_message = match err {
                                 jsonrpc_v2::Error::Full { message, .. } => message,
