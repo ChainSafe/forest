@@ -1,7 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::{address::Address, deal::DealID};
+use crate::{
+    shim::{address::Address, deal::DealID},
+    utils::cid::CidCborExt,
+};
 use cid::{
     multihash::{Code::Blake2b256, MultihashDigest},
     Cid,
@@ -36,12 +39,7 @@ pub(super) fn get_pending_verified_deals_and_total_size(
             return Ok(());
         }
 
-        // TODO: Switch to `proposal.cid()` once it's released.
-        // See <https://github.com/ChainSafe/fil-actor-states/pull/120>
-        let pcid = {
-            let bytes = fvm_ipld_encoding::to_vec(proposal)?;
-            Ok::<_, anyhow::Error>(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&bytes)))
-        }?;
+        let pcid = Cid::from_cbor_blake2b256(proposal)?;
 
         // Nothing to do for not-pending deals
         if !pending_proposals.has(&pcid.to_bytes())? {
@@ -68,4 +66,154 @@ pub(super) fn get_pending_verified_deals_and_total_size(
 pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesKey> {
     let addr = Address::from_bytes(addr_key)?;
     Ok(addr.payload_bytes().into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::*;
+    use fvm_shared::{
+        bigint::Zero,
+        commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
+        piece::PaddedPieceSize,
+        state::StateRoot,
+    };
+    use multihash::Multihash;
+
+    // Go parity test
+    //
+    // ```go
+    // func TestGetPendingVerifiedDealsAndTotalSize(t *testing.T) {
+    // 	ctx := context.Background()
+    // 	bs := cbor.NewCborStore(NewSyncBlockStoreInMemory())
+    // 	store := adt.WrapStore(ctx, bs)
+    // 	marketState8, err := market8.ConstructState(store)
+    // 	require.NoError(t, err)
+
+    // 	baseAddrId, err := address.NewIDAddress(10000)
+    // 	require.NoError(t, err)
+    // 	baseDeal := market8.DealProposal{
+    // 		PieceCID:             cid.Undef,
+    // 		PieceSize:            512,
+    // 		VerifiedDeal:         true,
+    // 		Client:               baseAddrId,
+    // 		Provider:             baseAddrId,
+    // 		Label:                market8.EmptyDealLabel,
+    // 		StartEpoch:           0,
+    // 		EndEpoch:             0,
+    // 		StoragePricePerEpoch: big.Zero(),
+    // 		ProviderCollateral:   big.Zero(),
+    // 		ClientCollateral:     big.Zero(),
+    // 	}
+
+    // 	deal0 := baseDeal
+    // 	deal0.PieceCID = MakeCID("0", &market8.PieceCIDPrefix)
+    // 	require.NoError(t, err)
+
+    // 	deal1 := baseDeal
+    // 	deal1.PieceCID = MakeCID("1", &market8.PieceCIDPrefix)
+    // 	require.NoError(t, err)
+
+    // 	deal2 := baseDeal
+    // 	deal2.PieceCID = MakeCID("2", &market8.PieceCIDPrefix)
+    // 	require.NoError(t, err)
+
+    // 	proposals, err := market8.AsDealProposalArray(store, marketState8.Proposals)
+    // 	proposals.Set(abi.DealID(100), &deal0)
+    // 	proposals.Set(abi.DealID(101), &deal1)
+    // 	proposals.Set(abi.DealID(102), &deal2)
+
+    // 	proposalsCID, _ := proposals.Root()
+    // 	fmt.Printf("pendingVerifiedDealSize proposalsCID: %s\n", proposalsCID)
+    // 	marketState8.Proposals = proposalsCID
+
+    // 	pendingProposals, _ := adt.AsSet(store, marketState8.PendingProposals, 5)
+    // 	deal1CID, _ := deal1.Cid()
+    // 	pendingProposals.Put(abi.CidKey(deal1CID))
+    // 	deal2CID, _ := deal2.Cid()
+    // 	pendingProposals.Put(abi.CidKey(deal2CID))
+    // 	pendingProposalsCID, _ := pendingProposals.Root()
+    // 	fmt.Printf("pendingVerifiedDealSize pendingProposalsCID: %s\n", pendingProposalsCID)
+    // 	marketState8.PendingProposals = pendingProposalsCID
+
+    // 	pendingVerifiedDeals, pendingVerifiedDealSize, err := migration.GetPendingVerifiedDealsAndTotalSize(ctx, store, *marketState8)
+    // 	require.NoError(t, err)
+    // 	fmt.Printf("pendingVerifiedDealSize: %d\n", pendingVerifiedDealSize)
+    // 	for _, dealId := range pendingVerifiedDeals {
+    // 		fmt.Printf("pendingVerifiedDeals dealId: %d\n", dealId)
+    // 	}
+    // }
+    // ```
+    #[test]
+    fn test_get_pending_verified_deals_and_total_size() -> Result<()> {
+        let store = crate::db::MemoryDB::default();
+        let mut market_state = fil_actor_market_state::v8::State::new(&store)?;
+
+        let mut pending_proposals = fil_actors_shared::v8::Set::new(&store);
+        market_state.proposals = {
+            let mut proposals = fil_actors_shared::v8::Array::<
+                fil_actor_market_state::v8::DealProposal,
+                _,
+            >::new_with_bit_width(&store, 5);
+            let base_deal = fil_actor_market_state::v8::DealProposal {
+                piece_cid: Default::default(),
+                piece_size: PaddedPieceSize(512),
+                verified_deal: true,
+                client: Address::new_id(10000).into(),
+                provider: Address::new_id(10000).into(),
+                label: fil_actor_market_state::v8::Label::String("".into()),
+                start_epoch: 0,
+                end_epoch: 0,
+                storage_price_per_epoch: Zero::zero(),
+                provider_collateral: Zero::zero(),
+                client_collateral: Zero::zero(),
+            };
+            let deal0 = {
+                let mut deal = base_deal.clone();
+                deal.piece_cid = make_piece_cid("0".as_bytes())?;
+                deal
+            };
+            let deal1 = {
+                let mut deal = base_deal.clone();
+                deal.piece_cid = make_piece_cid("1".as_bytes())?;
+                deal
+            };
+            let deal2 = {
+                let mut deal = base_deal;
+                deal.piece_cid = make_piece_cid("2".as_bytes())?;
+                deal
+            };
+
+            proposals.set(100, deal0)?;
+            pending_proposals.put(BytesKey(deal1.cid()?.to_bytes()))?;
+            proposals.set(101, deal1)?;
+            pending_proposals.put(BytesKey(deal2.cid()?.to_bytes()))?;
+            proposals.set(102, deal2)?;
+
+            proposals.flush()?
+        };
+        market_state.pending_proposals = pending_proposals.root()?;
+        ensure!(
+            market_state.pending_proposals.to_string()
+                == "bafy2bzaceaznfegva7wvkm3yd66r5ej7t7726pr6lwhnosxbslmmkuoymtvtw"
+        );
+        ensure!(
+            market_state.proposals.to_string()
+                == "bafy2bzaceck7at6aj7iy4s4gkndk5njvcba4yoveucxcdpfuwdeczaw3fcly2"
+        );
+
+        let (pending_verified_deals, pending_verified_deal_size) =
+            get_pending_verified_deals_and_total_size(&store, &market_state)?;
+
+        ensure!(pending_verified_deal_size == 1024);
+        ensure!(pending_verified_deals == vec![101, 102]);
+
+        Ok(())
+    }
+
+    fn make_piece_cid(data: &[u8]) -> Result<Cid> {
+        let hash = cid::multihash::Code::Sha2_256.digest(data);
+        let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest())?;
+        Ok(Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash))
+    }
 }
