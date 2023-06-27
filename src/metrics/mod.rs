@@ -111,7 +111,7 @@ where
             let string_ptr = ptr as *mut String;
             unsafe {
                 let stats = String::from_utf8_lossy(
-                    std::ffi::CStr::from_ptr(message as *const i8).to_bytes(),
+                    std::ffi::CStr::from_ptr(message as *const c_char).to_bytes(),
                 );
                 (*string_ptr).push_str(&stats);
             }
