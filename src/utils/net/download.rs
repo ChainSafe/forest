@@ -4,13 +4,12 @@
 use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
 
-use hyper::body::HttpBody;
 use indicatif::ProgressStyle;
 use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
 use tokio::io::AsyncBufReadExt;
-use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 use tokio_util::either::Either::{Left, Right};
 use url::Url;
 

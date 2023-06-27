@@ -11,7 +11,6 @@ use std::{
 use crate::networks::NetworkChain;
 use anyhow::{anyhow, bail, Context as _};
 use chrono::NaiveDate;
-use futures_util::AsyncReadExt;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{info, warn};
 use url::Url;
