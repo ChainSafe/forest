@@ -9,7 +9,7 @@ version: "3.8"
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
-  # `docker-compose up`.
+  # `docker compose up`.
   lotus_init:
     image: ghcr.io/chainsafe/lotus-devnet:1.23.0
     volumes:
