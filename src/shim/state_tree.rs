@@ -411,9 +411,9 @@ pub mod state_tree_v0 {
 
         version: StateTreeVersion,
         info: Option<Cid>,
-
-        /// State cache
-        snaps: StateSnapshots,
+        // /// State cache
+        // snaps: StateSnapshots, // XXX: This is needed when reading writing state tree v0. As present we only implement the
+        // v0 version of state tree usable enough to support the STATE_NETWORK_NAME RPC API.
     }
 
     /// Specifies the version of the state tree
@@ -478,7 +478,6 @@ pub mod state_tree_v0 {
                         hamt,
                         version,
                         info,
-                        snaps: StateSnapshots::new(),
                     })
                 }
                 _ => unreachable!("expecting state tree version 0"),
@@ -497,18 +496,8 @@ pub mod state_tree_v0 {
                 None => return Ok(None),
             };
 
-            // Check cache for actor state
-            if let Some(actor_state) = self.snaps.get_actor(&addr) {
-                return Ok(Some(actor_state));
-            }
-
             // if state doesn't exist, find using hamt
             let act = self.hamt.get(&addr.to_bytes())?.cloned();
-
-            // Update cache if state was found
-            if let Some(act_s) = &act {
-                self.snaps.set_actor(addr, act_s.clone())?; // FIXME: restore ?
-            }
 
             Ok(act)
         }
@@ -517,10 +506,6 @@ pub mod state_tree_v0 {
         pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<Address>> {
             if addr.protocol() == fvm_shared3::address::Protocol::ID {
                 return Ok(Some(*addr));
-            }
-
-            if let Some(res_address) = self.snaps.resolve_address(addr) {
-                return Ok(Some(res_address));
             }
 
             let init_act = self
@@ -535,82 +520,6 @@ pub mod state_tree_v0 {
 
             // XXX: can be fixed by adding resolve_method in fil-actor-states
             todo!("resolve_address method required on init state.")
-        }
-    }
-
-    /// Collection of state snapshots
-    struct StateSnapshots {
-        layers: Vec<StateSnapLayer>,
-    }
-
-    /// State snap shot layer
-    #[derive(Debug, Default)]
-    struct StateSnapLayer {
-        actors: RefCell<HashMap<Address, Option<ActorState>>>,
-        resolve_cache: RefCell<HashMap<Address, Address>>,
-    }
-
-    impl StateSnapshots {
-        /// State snapshot constructor
-        fn new() -> Self {
-            Self {
-                layers: vec![StateSnapLayer::default()],
-            }
-        }
-
-        fn resolve_address(&self, addr: &Address) -> Option<Address> {
-            for layer in self.layers.iter().rev() {
-                if let Some(res_addr) = layer.resolve_cache.borrow().get(addr).cloned() {
-                    return Some(res_addr);
-                }
-            }
-
-            None
-        }
-
-        fn get_actor(&self, addr: &Address) -> Option<ActorState> {
-            for layer in self.layers.iter().rev() {
-                if let Some(state) = layer.actors.borrow().get(addr) {
-                    return state.clone();
-                }
-            }
-
-            None
-        }
-
-        fn set_actor(&self, addr: Address, actor: ActorState) -> anyhow::Result<()> {
-            self.layers
-                .last()
-                .with_context(|| {
-                    format!(
-                        "set actor failed to index snapshot layer at index: {}",
-                        &self.layers.len() - 1
-                    )
-                })?
-                .actors
-                .borrow_mut()
-                .insert(addr, Some(actor));
-            Ok(())
-        }
-
-        fn cache_resolve_address(
-            &self,
-            addr: Address,
-            resolve_addr: Address,
-        ) -> anyhow::Result<()> {
-            self.layers
-                .last()
-                .with_context(|| {
-                    format!(
-                        "caching address failed to index snapshot layer at index: {}",
-                        &self.layers.len() - 1
-                    )
-                })?
-                .resolve_cache
-                .borrow_mut()
-                .insert(addr, resolve_addr);
-
-            Ok(())
         }
     }
 }

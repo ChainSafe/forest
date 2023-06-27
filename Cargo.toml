@@ -185,11 +185,7 @@ walkdir = "2"
 xsalsa20poly1305 = "0.9"
 
 # hamtv0 specific deps
-cs_serde_cbor = "0.12"
-db = { package = "forest_db", version = "0.1" }
-forest_encoding = "0.2.1"
 forest_hash_utils = "0.1"
-serde-value = "0.7.0"
 serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 
 [target.'cfg(unix)'.dependencies]
