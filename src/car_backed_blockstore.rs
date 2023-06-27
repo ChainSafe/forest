@@ -1,3 +1,60 @@
+//! It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
+//!
+//! This module provides an implementor of [`Blockstore`] that simply wraps a [CAR file](https://ipld.io/specs/transport/car/carv1).
+//! **Note that all operations on this store are blocking**.
+//!
+//! On creation, [`CarBackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
+//! and their offsets into that file.
+//!
+//! When a block is requested [`CarBackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
+//!
+//! Writes are currently cached in-memory.
+//!
+//! Performance is pathological with random access.
+//!
+//! # CAR Layout and seeking
+//!
+//! CARs consist of _frames_.
+//! Each frame is a concatenation of the body length as an [`unsigned_varint`], and the _frame body_ itself.
+//! [`unsigned_varint::codec`] can be used to read frames piecewise into memory.
+//!
+//! The first frame's body is a [`CarHeader`] encoded using [`ipld_dagcbor`](serde_ipld_dagcbor).
+//!
+//! Subsequent frame bodies are _blocks_, a concatenation of a [`Cid`] and binary `data`.
+//!
+//! The `offset` in [`BlockLocation`] is the offset of the frame body from the start of the file, illustrated below
+//!
+//! ```text
+//! ┌──────────────┬──────────┐
+//! │  frame       │          │
+//! ├┬────────────┬┤          │
+//! ││ length     ││          │
+//! │┼────────────┼│          │
+//! ││ body       ││          │
+//! │┼┬──────────┬┼┼─┐        │
+//! │││car header│││ │        │
+//! ├┴┴──────────┴┴┤ ▼ length │
+//! │  frame       │          │
+//! ├┬────────────┬┤          │
+//! ││ length     ││          │
+//! │┼────────────┼│          │
+//! ││ body       ││          │
+//! │┼┬──────────┬┼┼─┐        ▼ offset
+//! │││cid       │││ │
+//! ││├──────────┤││ |
+//! │││data      │││ |
+//! ├┴┴──────────┴┴┤ ▼ length
+//! │  frame...    │
+//! ```
+//!
+//! # Future work
+//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to prefetch parts of the file, to improve random access performance.
+//! - Use an inner [`Blockstore`] for writes.
+//! - Support compressed snapshots.
+//!   Note that [`zstd`](https://github.com/facebook/zstd/blob/e4aeaebc201ba49fec50b087aeb15343c63712e5/doc/zstd_compression_format.md#zstandard-frames) archives are also composed of frames.
+//!   Snapshots typically comprise of a single frame, but that would require decompressing all preceding data, precluding random access.
+//!   So compressed snapshot support would require per-frame compression.
+
 use ahash::AHashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -16,41 +73,33 @@ use std::{
 use tracing::debug;
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
-/// you should get `cid` and its corresponding data.
+/// you should get the concatenation of a [`Cid`] and its corresponding data.
 ///
-/// ```text
-///          ├────────┤
-///          │ length │
-///        │ ├────────┤◄─block offset
-///        │ │ CID    │
-///        │ ├────────┤
-///  block │ │ data.. │
-/// length │ │        │
-///        ▼ ├────────┤
-/// ```
+/// See [module documenation](mod@self) for more.
 #[derive(Debug)]
 struct BlockLocation {
     offset: u64,
     length: usize,
 }
 
+/// See [module documenation](mod@self) for more.
 // Theoretically, this should be clonable, with very low overhead
 pub struct CarBackedBlockstore<ReaderT> {
-    // go is a gc language, you say?
+    // Blockstore methods take `&self`, so lock here
     reader: Mutex<ReaderT>,
+    write_cache: Mutex<AHashMap<Cid, Vec<u8>>>,
     index: AHashMap<Cid, BlockLocation>,
     roots: Vec<Cid>,
-    // go is a gc language, you say?
-    write_cache: Mutex<AHashMap<Cid, Vec<u8>>>,
 }
 
 impl<ReaderT> CarBackedBlockstore<ReaderT>
 where
     ReaderT: BufRead + Seek,
 {
-    // Reader should read immutable data (should be flocked)
-    // Buffer should have room for a car header
-    // Makes blocking calls
+    /// To be correct:
+    /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
+    ///   [`Blockstore`] API calls may panic if this is not upheld.
+    /// - `reader`'s buffer should have enough room for the [`CarHeader`] and any [`Cid`]s.
     #[tracing::instrument(skip_all)]
     pub fn new(mut reader: ReaderT) -> cid::Result<Self> {
         let CarHeader { roots, version } = read_header(&mut reader)?;
@@ -64,11 +113,14 @@ where
         // now create the index
         let index = std::iter::from_fn(|| read_block(&mut reader))
             .collect::<Result<AHashMap<_, _>, _>>()?;
-        if index.is_empty() {
-            return Err(cid::Error::Io(io::Error::new(
-                InvalidData,
-                "CARv1 files must not be empty",
-            )));
+        match index.len() {
+            0 => {
+                return Err(cid::Error::Io(io::Error::new(
+                    InvalidData,
+                    "CARv1 files must not be empty",
+                )))
+            }
+            num_blocks => debug!(num_blocks, "indexed CAR"),
         }
 
         Ok(Self {
@@ -84,7 +136,7 @@ impl<ReaderT> Blockstore for CarBackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
 {
-    // This function should return a Cow<[u8]> at the very least
+    // This function should probably return a Cow<[u8]> to save unneccessary memcpys
     #[tracing::instrument(skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         match (self.index.get(k), self.write_cache.lock().entry(*k)) {
@@ -115,6 +167,8 @@ where
         }
     }
 
+    /// # Panics
+    /// See [`Self::new`].
     #[tracing::instrument(skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         match self.write_cache.lock().entry(*k) {
@@ -124,7 +178,7 @@ where
             }
             Occupied(_) => panic!("mismatched data for cid {}", k),
             Vacant(vacant) => {
-                debug!("insert into cache");
+                debug!(bytes = block.len(), "insert into cache");
                 vacant.insert(block.to_owned());
                 Ok(())
             }
@@ -150,7 +204,8 @@ fn read_header(reader: &mut impl BufRead) -> io::Result<CarHeader> {
     }
 }
 
-// importantly, we seek _past_ the data
+// Importantly, we seek _past_ the data, rather than read any in.
+// This allows us to keep indexing fast.
 fn read_block(reader: &mut (impl BufRead + Seek)) -> Option<cid::Result<(Cid, BlockLocation)>> {
     match reader.fill_buf() {
         Ok(buf) if buf.is_empty() => None, // EOF
