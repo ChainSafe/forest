@@ -52,7 +52,7 @@ impl StreamedContentReader {
         let mut reader = tokio::io::BufReader::new(read_progress.wrap_async_read(stream));
 
         Ok(Box::new(
-            match Self::is_zstd(reader.fill_buf().await?).await? {
+            match Self::is_zstd(reader.fill_buf().await?) {
                 true => Left(ZstdDecoder::new(reader)),
                 false => Right(reader),
             }
@@ -63,7 +63,7 @@ impl StreamedContentReader {
     // This method checks the header in order to see whether or not we are operating on a zstd
     // archive. The zstd header has a maximum size of 18 bytes:
     // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
-    async fn is_zstd(buf: &[u8]) -> anyhow::Result<bool> {
+    fn is_zstd(buf: &[u8]) -> bool {
         zstd_safe::get_frame_content_size(buf).is_ok()
     }
 
