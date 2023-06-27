@@ -6,7 +6,7 @@ use fil_actor_market_state::{v8::State as MarketStateV8, v9::State as MarketStat
 use fvm_ipld_blockstore::Blockstore;
 
 impl TypeMigration<MarketStateV8, MarketStateV9> for TypeMigrator {
-    fn migrate_type(from: MarketStateV8, store: &impl Blockstore) -> anyhow::Result<MarketStateV9> {
+    fn migrate_type(from: MarketStateV8, _: &impl Blockstore) -> anyhow::Result<MarketStateV9> {
         // https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/market.go#L69
         let out_state = MarketStateV9 {
             proposals: from.proposals,

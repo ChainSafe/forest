@@ -13,10 +13,8 @@ use crate::utils::db::CborStoreExt;
 use ahash::HashMap;
 use anyhow::Context;
 use cid::Cid;
-use fil_actors_shared::v9::Keyer;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
-use fvm_shared::address::Address as AddressV2;
 
 use super::super::common::PostMigrator;
 use super::super::ChainEpoch;
@@ -91,7 +89,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             entry.set(
                 fil_actors_shared::v8::u64_key(next_allocation_id),
                 allocation,
-            );
+            )?;
 
             deal_allocation_tuples.push((deal_id, next_allocation_id));
 

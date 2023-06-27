@@ -9,7 +9,6 @@ pub use fvm_shared3::{
     bigint::bigint_ser::{BigIntDe, BigIntSer},
     sector::StoragePower as StoragePowerV3,
 };
-use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

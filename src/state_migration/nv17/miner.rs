@@ -28,7 +28,6 @@ pub struct MinerMigrator {
     network: NetworkChain,
     out_code: Cid,
     market_proposals: Cid,
-    empty_precommit_map_cid_v9: Cid,
     empty_deadline_v8_cid: Cid,
     empty_deadlines_v8_cid: Cid,
     empty_deadline_v9_cid: Cid,
@@ -45,10 +44,6 @@ where
     BS: Blockstore + Clone + Send + Sync,
 {
     use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
-
-    let mut empty_precommit_map =
-        fil_actors_shared::v9::make_empty_map::<_, Cid>(store, HAMT_BIT_WIDTH);
-    let empty_precommit_map_cid_v9 = empty_precommit_map.flush()?;
 
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
         fil_actor_miner_state::v8::Deadline::new(store)?;
@@ -83,7 +78,6 @@ where
         network: chain_config.network.clone(),
         out_code,
         market_proposals,
-        empty_precommit_map_cid_v9,
         empty_deadline_v8_cid,
         empty_deadlines_v8_cid,
         empty_deadline_v9_cid,
@@ -390,8 +384,8 @@ mod tests {
     use crate::networks::Height;
     use crate::shim::bigint::BigInt;
     use crate::shim::machine::{
-        DATACAP_ACTOR_NAME, MARKET_ACTOR_NAME, MINER_ACTOR_NAME, POWER_ACTOR_NAME,
-        REWARD_ACTOR_NAME, VERIFREG_ACTOR_NAME,
+        ACCOUNT_ACTOR_NAME, CRON_ACTOR_NAME, DATACAP_ACTOR_NAME, MARKET_ACTOR_NAME,
+        MINER_ACTOR_NAME, POWER_ACTOR_NAME, REWARD_ACTOR_NAME, VERIFREG_ACTOR_NAME,
     };
     use crate::shim::{
         econ::TokenAmount,
@@ -401,8 +395,6 @@ mod tests {
     use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
-    use fvm_ipld_bitfield::BitField;
-    use fvm_ipld_blockstore::MemoryBlockstore;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_ipld_hamt::BytesKey;
     use fvm_shared::{
@@ -414,7 +406,6 @@ mod tests {
         piece::PaddedPieceSize,
         state::StateRoot,
     };
-    use std::str::FromStr;
 
     #[test]
     fn test_nv17_miner_migration() -> Result<()> {
@@ -656,7 +647,7 @@ mod tests {
         })?;
         ensure!(
             actors_out_state_root.actors.to_string()
-                == "bafy2bzacedzozfljxem3ms5bgewr3i5vpos5jglx3fpofo5vckvzqkf7goyl6"
+                == "bafy2bzacedgjvpqdsinppyezrusv3c6andt2ozkyzvw72dynsm6m2yaykldhm"
         );
         let new_state_cid2 = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
         ensure!(new_state_cid == new_state_cid2);
@@ -673,7 +664,6 @@ mod tests {
             .unwrap();
         let system_state_old: fil_actor_system_state::v9::State =
             store.get_cbor(&system_actor_old.state)?.unwrap();
-        let manifest_data_cid_old = system_state_old.builtin_actors;
         let addr = Address::new_id(10000);
         let worker_addr = Address::new_id(20000);
         let miner_cid_old = manifest_old.code_by_name(MINER_ACTOR_NAME)?;
@@ -683,16 +673,10 @@ mod tests {
             miner_state_cid.to_string()
                 == "bafy2bzaceacitm72b4zks7ivplygpmyqa6aas2pxkv4rkiknluxiko5mn4ng6"
         );
-        let miner_info_old: fil_actor_miner_state::v8::MinerInfo =
-            store.get_cbor(&miner_state.info)?.unwrap();
         let miner_actor = ActorState::new(*miner_cid_old, miner_state_cid, Zero::zero(), 0, None);
         state_tree_old.set_actor(&addr, miner_actor)?;
         let state_tree_old_root = state_tree_old.flush()?;
         let state_root: StateRoot = store.get_cbor(&state_tree_old_root)?.unwrap();
-        // ensure!(
-        //     state_root.actors.to_string()
-        //         == "bafy2bzacebdhxpk5z6qencxxmsnn6ra4rtfdjkkdr7b4gxokoynqasonera2u"
-        // );
         let (new_manifest_cid, new_manifest) = make_test_manifest(&store, "fil/9/")?;
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
@@ -716,8 +700,8 @@ mod tests {
     fn make_input_tree<BS: Blockstore + Clone>(store: BS) -> Result<(StateTree<BS>, Manifest)> {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
 
-        let (manifest_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
-        let account_cid = manifest.account_code();
+        let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
+        let account_cid = manifest.code_by_name(ACCOUNT_ACTOR_NAME)?;
         // fmt.Printf("accountCid: %s\n", accountCid)
         ensure!(account_cid.to_string() == "bafkqadlgnfwc6obpmfrwg33vnz2a");
         let system_cid = manifest.system_code();
@@ -772,7 +756,7 @@ mod tests {
             TokenAmount::from_whole(1_100_000_000),
         )?;
 
-        let cron_cid = manifest.cron_code();
+        let cron_cid = manifest.code_by_name(CRON_ACTOR_NAME)?;
         ensure!(cron_cid.to_string() == "bafkqactgnfwc6obpmnzg63q");
         let cron_state = fil_actor_cron_state::v8::State {
             entries: vec![
@@ -880,11 +864,11 @@ mod tests {
             verified_clients.set(
                 BytesKey(Address::new_id(1001).to_bytes()),
                 num_bigint::BigInt::from(1).into(),
-            );
+            )?;
             verified_clients.set(
                 BytesKey(Address::new_id(1002).to_bytes()),
                 num_bigint::BigInt::from(2).into(),
-            );
+            )?;
             verifreg_state.verified_clients = verified_clients.flush()?;
         }
         let verifreg_state_cid = store.put_cbor_default(&verifreg_state)?;
