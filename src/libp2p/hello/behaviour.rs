@@ -32,10 +32,6 @@ impl HelloBehaviour {
         request_id
     }
 
-    pub fn complete_request(&mut self, request_id: RequestId) {
-        self.response_channels.remove(&request_id);
-    }
-
     pub fn send_response(
         &mut self,
         channel: ResponseChannel<HelloResponse>,

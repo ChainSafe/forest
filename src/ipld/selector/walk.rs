@@ -1,15 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use cid::Cid;
 
+use super::super::{Ipld, Path};
+
+#[cfg(test)]
 use super::{
-    super::{lookup_segment, Error, Ipld, Path},
+    super::{error::Error, lookup_segment},
     Selector,
 };
 
+#[cfg(test)]
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback
     /// with progress and IPLD node. An optional link loader/resolver is
@@ -58,6 +63,7 @@ impl Selector {
 
 /// Provides reason for callback in traversal for `walk_all`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(unused)] // https://github.com/ChainSafe/forest/issues/3031
 pub enum VisitReason {
     /// IPLD node visited was a specific match.
     SelectionMatch,
@@ -81,6 +87,7 @@ impl LinkResolver for () {
 /// Contains progress of traversal and last block information from link
 /// traversals.
 #[derive(Debug, Default)]
+#[cfg(test)]
 pub struct Progress<L = ()> {
     resolver: Option<L>,
     path: Path,
@@ -95,6 +102,7 @@ pub struct LastBlockInfo {
     pub link: Cid,
 }
 
+#[cfg(test)]
 impl<L> Progress<L>
 where
     L: LinkResolver + Sync + Send,

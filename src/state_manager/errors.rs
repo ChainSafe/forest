@@ -13,15 +13,6 @@ pub enum Error {
     /// Error originating from state
     #[error("{0}")]
     State(String),
-    /// Error from VM execution
-    #[error("{0}")]
-    VM(String),
-    /// Actor for given address not found
-    #[error("Actor for address: {0} does not exist")]
-    ActorNotFound(String),
-    /// Actor state not found at given CID
-    #[error("Actor state with cid {0} not found")]
-    ActorStateNotFound(String),
     /// Error originating from key-value store
     #[error(transparent)]
     DB(#[from] DbErr),

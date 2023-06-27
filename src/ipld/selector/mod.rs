@@ -8,9 +8,11 @@ use std::ops::SubAssign;
 use fvm_ipld_encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use Selector::*;
 
 pub use self::walk::*;
+#[cfg(test)]
 use super::Ipld;
 
 /// Selectors are expressions that identify and select a subset of data from an
@@ -205,6 +207,7 @@ pub enum Condition {
     Or,
 }
 
+#[cfg(test)]
 impl Selector {
     /// Returns a vector of all sectors of interest, `None` variant is
     /// synonymous with all.
@@ -387,6 +390,7 @@ impl Selector {
     }
 }
 
+#[cfg(test)]
 fn replace_recursive_edge(next_sel: Selector, replace: Option<Selector>) -> Option<Selector> {
     match next_sel {
         ExploreRecursiveEdge => replace,
@@ -402,7 +406,7 @@ fn replace_recursive_edge(next_sel: Selector, replace: Option<Selector>) -> Opti
         _ => Some(next_sel),
     }
 }
-
+#[cfg(test)]
 fn has_recursive_edge(next_sel: &Selector) -> bool {
     match next_sel {
         ExploreRecursiveEdge { .. } => true,

@@ -172,10 +172,10 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    NetAddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
-    NetPeers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
-    NetConnect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
-    NetDisconnect(OneShotSender<()>, PeerId),
+    AddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
+    Peers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
+    Disconnect(OneShotSender<()>, PeerId),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -428,7 +428,7 @@ async fn handle_network_message(
             bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, Some(response_channel));
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
-            NetRPCMethods::NetAddrsListen(response_channel) => {
+            NetRPCMethods::AddrsListen(response_channel) => {
                 let listeners = Swarm::listeners(swarm).cloned().collect();
                 let peer_id = Swarm::local_peer_id(swarm);
 
@@ -436,13 +436,13 @@ async fn handle_network_message(
                     warn!("Failed to get Libp2p listeners");
                 }
             }
-            NetRPCMethods::NetPeers(response_channel) => {
+            NetRPCMethods::Peers(response_channel) => {
                 let peer_addresses = swarm.behaviour_mut().peer_addresses();
                 if response_channel.send(peer_addresses.clone()).is_err() {
                     warn!("Failed to get Libp2p peers");
                 }
             }
-            NetRPCMethods::NetConnect(response_channel, peer_id, addresses) => {
+            NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
                 let mut success = false;
 
                 for mut multiaddr in addresses {
@@ -458,7 +458,7 @@ async fn handle_network_message(
                     warn!("Failed to connect to a peer");
                 }
             }
-            NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
+            NetRPCMethods::Disconnect(response_channel, peer_id) => {
                 let _ = Swarm::disconnect_peer_id(swarm, peer_id);
                 if response_channel.send(()).is_err() {
                     warn!("Failed to disconnect from a peer");

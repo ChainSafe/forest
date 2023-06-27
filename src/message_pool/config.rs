@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::db::Store;
 use crate::shim::address::Address;
-use fvm_ipld_encoding::{from_slice, to_vec};
+use fvm_ipld_encoding::from_slice;
 use serde::{Deserialize, Serialize};
 
 const MPOOL_CONFIG_KEY: &[u8] = b"/mpool/config";
@@ -40,50 +40,11 @@ impl Default for MpoolConfig {
         }
     }
 }
-
+#[cfg(test)]
 impl MpoolConfig {
-    pub fn new(
-        priority_addrs: Vec<Address>,
-        size_limit_high: i64,
-        size_limit_low: i64,
-        replace_by_fee_ratio: f64,
-        prune_cooldown: Duration,
-        gas_limit_overestimation: f64,
-    ) -> Result<Self, String> {
-        // Validate if parameters are valid
-        if replace_by_fee_ratio < REPLACE_BY_FEE_RATIO {
-            return Err(format!(
-                "replace_by_fee_ratio:{replace_by_fee_ratio} is less than required: {REPLACE_BY_FEE_RATIO}"
-            ));
-        }
-        if gas_limit_overestimation < 1.0 {
-            return Err(format!(
-                "gas_limit_overestimation of: {} is less than required: {}",
-                gas_limit_overestimation, 1
-            ));
-        }
-        Ok(Self {
-            priority_addrs,
-            size_limit_high,
-            size_limit_low,
-            replace_by_fee_ratio,
-            prune_cooldown,
-            gas_limit_overestimation,
-        })
-    }
-
     /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), anyhow::Error> {
-        Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
-    }
-
-    /// Load `config` from store, if exists. If there is no `config`, uses
-    /// default.
-    pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
-        match store.read(MPOOL_CONFIG_KEY)? {
-            Some(v) => Ok(from_slice(&v)?),
-            None => Ok(Default::default()),
-        }
+        Ok(store.write(MPOOL_CONFIG_KEY, fvm_ipld_encoding::to_vec(&self)?)?)
     }
 
     /// Returns the low limit capacity of messages to allocate.
@@ -94,5 +55,16 @@ impl MpoolConfig {
     /// Returns slice of [Address]es to prioritize when selecting messages.
     pub fn priority_addrs(&self) -> &[Address] {
         &self.priority_addrs
+    }
+}
+
+impl MpoolConfig {
+    /// Load `config` from store, if exists. If there is no `config`, uses
+    /// default.
+    pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
+        match store.read(MPOOL_CONFIG_KEY)? {
+            Some(v) => Ok(from_slice(&v)?),
+            None => Ok(Default::default()),
+        }
     }
 }
