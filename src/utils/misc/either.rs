@@ -1,15 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::io::IoSlice;
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
 
-use futures::{AsyncBufRead, AsyncRead, AsyncWrite};
-use futures_util::io::{Close, Flush, IntoSink, Write, WriteAll, WriteVectored};
-use futures_util::AsyncWriteExt;
+
+use futures::{AsyncRead, AsyncWrite};
 
 pub enum Either<L, R> {
     Left(L),

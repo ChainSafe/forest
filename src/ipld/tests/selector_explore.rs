@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fs::File, io::BufReader};
-
 use crate::ipld::{json, selector::Selector, Ipld};
 use serde::Deserialize;
 

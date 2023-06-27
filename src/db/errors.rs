@@ -10,7 +10,6 @@ pub enum Error {
     InvalidBulkLen,
     #[error("Cannot use unopened database")]
     Unopened,
-    #[cfg(any(feature = "rocksdb", feature = "paritydb"))]
     #[error(transparent)]
     Database(#[from] crate::db::db_engine::DbError),
     #[error("{0}")]
@@ -24,7 +23,6 @@ impl PartialEq for Error {
         match (self, other) {
             (&InvalidBulkLen, &InvalidBulkLen) => true,
             (&Unopened, &Unopened) => true,
-            #[cfg(any(feature = "rocksdb", feature = "paritydb"))]
             (&Database(_), &Database(_)) => true,
             (Other(a), Other(b)) => a == b,
             _ => false,

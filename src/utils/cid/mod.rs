@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{
-    multihash::{Code::Blake2b256, MultihashDigest},
+    multihash::{Code, MultihashDigest},
     Cid, Version,
 };
 use fvm_ipld_encoding::DAG_CBOR;
@@ -19,14 +19,13 @@ pub trait CidCborExt {
         let bytes = fvm_ipld_encoding3::to_vec(obj)?;
         Ok(Cid::new_v1(
             fvm_ipld_encoding3::DAG_CBOR,
-            Blake2b256.digest(&bytes),
+            Code::Blake2b256.digest(&bytes),
         ))
     }
 }
 
 impl CidCborExt for Cid {}
 
-const BLAKE2B256: u64 = 0xb220;
 pub const BLAKE2B256_SIZE: usize = 32;
 
 // `CidVariant` is an enumeration of known CID types that are used in the Filecoin blockchain. CIDs
@@ -47,7 +46,7 @@ impl TryFrom<Cid> for CidVariant {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
             if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
-                if code == BLAKE2B256 && size as usize == BLAKE2B256_SIZE {
+                if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
                     return Ok(CidVariant::V1DagCborBlake2b(bytes));
                 }
             }
@@ -87,12 +86,6 @@ mod tests {
     #[test]
     fn cid_size_assumption() {
         assert_eq!(size_of::<Cid>(), 96);
-    }
-
-    // If this stops being true, please update the BLAKE2B256 constant.
-    #[test]
-    fn blake_code_assumption() {
-        assert_eq!(Code::Blake2b256.digest(&[]).code(), super::BLAKE2B256);
     }
 
     // If this stops being true, please update the BLAKE2B256_SIZE constant.
