@@ -2707,16 +2707,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "file-lock"
-version = "2.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f59be9010c5418713a48aac4c1b897d85dafd958055683dc31bdae553536647b"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "filecoin-hashers"
 version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2866,7 +2856,6 @@ dependencies = [
  "fil_actor_power_state",
  "fil_actor_system_state",
  "fil_actors_shared",
- "file-lock",
  "filecoin-proofs-api",
  "flume",
  "fs_extra",
@@ -2890,7 +2879,6 @@ dependencies = [
  "humantime",
  "indexmap 1.9.3",
  "indicatif",
- "integer-encoding",
  "itertools 0.10.5",
  "jsonrpc-v2",
  "jsonwebtoken",
@@ -2960,8 +2948,7 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tokio-stream",
- "tokio-util 0.6.10",
- "tokio-util 0.7.8",
+ "tokio-util",
  "toml 0.7.5",
  "tracing",
  "tracing-appender",
@@ -3714,7 +3701,7 @@ dependencies = [
  "indexmap 1.9.3",
  "slab",
  "tokio",
- "tokio-util 0.7.8",
+ "tokio-util",
  "tracing",
 ]
 
@@ -4770,7 +4757,7 @@ dependencies = [
  "thiserror",
  "tinytemplate",
  "tokio",
- "tokio-util 0.7.8",
+ "tokio-util",
  "webrtc",
 ]
 
@@ -6655,7 +6642,7 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-rustls",
- "tokio-util 0.7.8",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -7985,22 +7972,6 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.6.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36943ee01a6d67977dd3f84a5a1d2efeb4ada3a1ae771cadfaa535d9d9fc6507"
-dependencies = [
- "bytes 1.4.0",
- "futures-core",
- "futures-io",
- "futures-sink",
- "log",
- "pin-project-lite 0.2.9",
- "slab",
- "tokio",
-]
-
-[[package]]
-name = "tokio-util"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "806fe8c2c87eccc8b3267cbae29ed3ab2d0bd37fca70ab622e46aaa9375ddb7d"
@@ -8099,7 +8070,7 @@ dependencies = [
  "rand 0.8.5",
  "slab",
  "tokio",
- "tokio-util 0.7.8",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -8432,8 +8403,6 @@ checksum = "d86a8dc7f45e4c1b0d30e43038c38f274e77af056aa5f74b93c2cf9eb3c1c836"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.4.0",
- "nom",
- "tokio-util 0.6.10",
 ]
 
 [[package]]
