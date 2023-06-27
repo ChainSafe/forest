@@ -65,7 +65,7 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
 
     // Otherwise, download it.
     info!("Downloading actors bundle...");
-    let reader = StreamedContentReader::read(&bundle_info.url.as_str()).await?;
+    let reader = StreamedContentReader::read(bundle_info.url.as_str()).await?;
 
     let file = File::create(&bundle_path).await?;
     let mut writer = BufWriter::new(file);

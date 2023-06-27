@@ -64,10 +64,7 @@ impl StreamedContentReader {
     // archive. The zstd header has a maximum size of 18 bytes:
     // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
     async fn is_zstd(buf: &[u8]) -> anyhow::Result<bool> {
-        Ok(match zstd_safe::get_frame_content_size(buf) {
-            Ok(_) => true,
-            _ => false,
-        })
+        Ok(matches!(zstd_safe::get_frame_content_size(buf), Ok(_)))
     }
 
     fn progress_style() -> ProgressStyle {
