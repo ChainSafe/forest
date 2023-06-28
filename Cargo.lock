@@ -395,6 +395,7 @@ dependencies = [
  "futures-io",
  "memchr",
  "pin-project-lite 0.2.9",
+ "tokio",
  "zstd",
  "zstd-safe",
 ]
@@ -2960,6 +2961,7 @@ dependencies = [
  "uuid",
  "walkdir",
  "xsalsa20poly1305",
+ "zstd-safe",
 ]
 
 [[package]]

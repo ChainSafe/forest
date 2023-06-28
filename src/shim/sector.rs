@@ -207,6 +207,7 @@ impl From<SectorSize> for SectorSizeV2 {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct PoStProof(PoStProofV3);
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for PoStProof {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         PoStProof(PoStProofV3::arbitrary(g))

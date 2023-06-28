@@ -149,6 +149,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature)
     verify_messages(&bls_sig, data, &pks[..])
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for Signature {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         Self {
@@ -169,6 +170,7 @@ pub enum SignatureType {
     Delegated = 3,
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for SignatureType {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         *g.choose(&[
