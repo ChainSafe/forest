@@ -28,7 +28,7 @@ impl Hasher for Sha2HasherWrapper {
     }
 }
 
-/// Sha256 hashing algorithm used for hashing keys in the HAMT.
+/// SHA256 hashing algorithm used for hashing keys in the HAMT.
 #[derive(Debug)]
 pub enum Sha256 {}
 

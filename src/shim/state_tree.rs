@@ -412,15 +412,15 @@ pub mod state_tree_v0 {
     #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr)]
     #[repr(u64)]
     pub enum StateTreeVersion {
-        /// Corresponds to actors < version 2
+        /// Corresponds to actors less than version 2
         V0,
-        /// Corresponds to actors = version 2
+        /// Corresponds to actors equal to version 2
         V1,
-        /// Corresponds to actors = version 3
+        /// Corresponds to actors equal to version 3
         V2,
-        /// Corresponds to actors = version 4
+        /// Corresponds to actors equal to version 4
         V3,
-        /// Corresponds to actors >= version 5
+        /// Corresponds to actors greater than or equal to version 5
         V4,
     }
 

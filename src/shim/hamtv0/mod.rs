@@ -4,9 +4,17 @@
 //!
 //! [Data structure reference](https://github.com/ipld/specs/blob/51fab05b4fe4930d3d851d50cc1e5f1a02092deb/data-structures/hashmap.md)
 //!
-//! Implementation based off the work started [here](https://github.com/dignifiedquire/rust-hamt-ipld). This implementation matched the rust HashMap interface very closely, but came at the cost of saving excess values to the database and requiring unsafe code to update the cache from the underlying store as well as discarding any errors that came in any operations. The function signatures that exist are based on this, but re factored to match the spec more closely and match the necessary implementation.
+//! Implementation based off the work started [here](https://github.com/dignifiedquire/rust-hamt-ipld).
+//! This implementation matched the rust Hash Map interface very closely,
+//! but came at the cost of saving excess values to the database and requiring unsafe code to update the
+//! cache from the underlying store as well as discarding any errors that came in any operations.
+//! The function signatures that exist are based on this, but re factored to match the spec more
+//! closely and match the necessary implementation.
 //!
-//! The HAMT is a data structure that mimics a Hash Map which has the features of being sharded, persisted, and index-able by a Cid. The Hamt supports a variable bit width to adjust the amount of possible pointers that can exist at each height of the tree. Hamt can be modified at any point, but the underlying values are only persisted to the store when the [flush](struct.Hamt.html#method.flush) is called.
+//! The HAMT is a data structure that mimics a Hash Map which has the features of being shard-ed, persisted,
+//! and index-able by a Cid. The HAMT supports a variable bit width to adjust the amount of possible pointers
+//! that can exist at each height of the tree. Hamt can be modified at any point, but the underlying values
+//! are only persisted to the store when the [flush](struct.Hamt.html#method.flush) is called.
 
 mod bitfield;
 mod error;
