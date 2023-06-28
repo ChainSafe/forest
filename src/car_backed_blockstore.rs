@@ -19,37 +19,38 @@
 //!
 //! # CAR Layout and seeking
 //!
-//! CARs consist of _frames_.
-//! Each frame is a concatenation of the body length as an [`unsigned_varint`], and the _frame body_ itself.
+//! CARs consist of _varint frames_, are a concatenation of the _body length_ as an [`unsigned_varint`], and the _frame body_ itself.
 //! [`unsigned_varint::codec`] can be used to read frames piecewise into memory.
 //!
-//! The first frame's body is a [`CarHeader`] encoded using [`ipld_dagcbor`](serde_ipld_dagcbor).
+//! ```text
+//!        varint frame
+//! │◄───────────────────────►│
+//! │                         │
+//! ├───────────┬─────────────┤
+//! │varint:    │             │
+//! │body length│frame body   │
+//! └───────────┼─────────────┤
+//!             │             │
+//! frame body ►│◄───────────►│
+//!     offset     =body length
+//! ```
 //!
-//! Subsequent frame bodies are _blocks_, a concatenation of a [`Cid`] and binary `data`.
+//! The first varint frame is a _header frame_, where the frame body is a [`CarHeader`] encoded using [`ipld_dagcbor`](serde_ipld_dagcbor).
 //!
-//! The `offset` in [`BlockLocation`] is the offset of the frame body from the start of the file, illustrated below
+//! Subsequent varint frames are _block frames_, where the frame body is a concatenation of a [`Cid`] and the _block data_ addressed by that CID.
 //!
 //! ```text
-//! ┌──────────────┬──────────┐
-//! │  frame       │          │
-//! ├┬────────────┬┤          │
-//! ││ length     ││          │
-//! │┼────────────┼│          │
-//! ││ body       ││          │
-//! │┼┬──────────┬┼┼─┐        │
-//! │││car header│││ │        │
-//! ├┴┴──────────┴┴┤ ▼ length │
-//! │  frame       │          │
-//! ├┬────────────┬┤          │
-//! ││ length     ││          │
-//! │┼────────────┼│          │
-//! ││ body       ││          │
-//! │┼┬──────────┬┼┼─┐        ▼ offset
-//! │││cid       │││ │
-//! ││├──────────┤││ |
-//! │││data      │││ |
-//! ├┴┴──────────┴┴┤ ▼ length
-//! │  frame...    │
+//! block frame ►│
+//! body offset  │
+//!              │  =body length
+//!              │◄────────────►│
+//!  ┌───────────┼───┬──────────┤
+//!  │body length│cid│block data│
+//!  └───────────┴───┼──────────┤
+//!                  │◄────────►│
+//!                  │  =block data length
+//!      block data  │
+//!          offset ►│
 //! ```
 //!
 //! ## Block ordering
@@ -66,6 +67,7 @@
 //!   So compressed snapshot support would compression per-frame, or maybe per block of frames.
 //! - Support multiple files by concatenating them.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
+//! - Theoretically, [`CarBackedBlockstore`] should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
 
 use ahash::AHashMap;
 use cid::Cid;
@@ -81,22 +83,20 @@ use std::io::{
 use tracing::{debug, trace};
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
-/// you should get the concatenation of a [`Cid`] and its corresponding data.
-///
-/// See [module documentation](mod@self) for more.
+/// you should get data that corresponds to a [`Cid`] (but NOT the [`Cid`] itself).
 #[derive(Debug)]
-struct BlockLocation {
+struct BlockDataLocation {
     offset: u64,
-    length: usize,
+    length: u32,
 }
 
 /// See [module documentation](mod@self) for more.
-// Theoretically, this should be clonable, with very low overhead
 pub struct CarBackedBlockstore<ReaderT> {
-    // Blockstore methods take `&self`, so lock here
+    /// [`Blockstore`] methods take `&self`, so wrap in a [`Mutex`]
     reader: Mutex<ReaderT>,
     write_cache: Mutex<AHashMap<Cid, Vec<u8>>>,
-    index: AHashMap<Cid, BlockLocation>,
+
+    index: AHashMap<Cid, BlockDataLocation>,
     pub roots: Vec<Cid>,
 }
 
@@ -119,7 +119,7 @@ where
         }
 
         // now create the index
-        let index = std::iter::from_fn(|| read_block_location(&mut reader))
+        let index = std::iter::from_fn(|| read_block_location_or_eof(&mut reader))
             .collect::<Result<AHashMap<_, _>, _>>()?;
         match index.len() {
             0 => {
@@ -152,21 +152,12 @@ where
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
-            (Some(BlockLocation { offset, length }), Vacant(_)) => {
+            (Some(BlockDataLocation { offset, length }), Vacant(_)) => {
                 trace!("fetching from disk");
                 let mut reader = self.reader.lock();
-
-                // Go to the start of the frame body, which is a concatenated CID and its data
                 reader.seek(SeekFrom::Start(*offset))?;
-
-                // Read the CID
-                let cid = Cid::read_bytes(&mut *reader)?;
-                assert_eq!(cid, *k);
-
-                let cid_len = reader.stream_position()? - *offset;
-                let data_len = *length - usize::try_from(cid_len).unwrap();
-                let mut data = vec![0; data_len];
-                reader.read_exact(&mut data)?;
+                let mut data = vec![0; usize::try_from(*length).unwrap()];
+                reader.read_exact(&mut data);
                 Ok(Some(data))
             }
             (None, Occupied(cached)) => {
@@ -186,9 +177,6 @@ where
     // #[tracing::instrument(skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         match (self.index.get(k), self.write_cache.lock().entry(*k)) {
-            (Some(_), Occupied(_)) => {
-                unreachable!("we never put a CID in the write cache if it exists on disk")
-            }
             (None, Occupied(already)) => match already.get() == block {
                 true => {
                     trace!("already in cache");
@@ -205,67 +193,82 @@ where
                 trace!("already on disk");
                 Ok(())
             }
+            (Some(_), Occupied(_)) => {
+                unreachable!("we don't a CID in the write cache if it exists on disk")
+            }
         }
     }
 }
 
 #[tracing::instrument(skip_all, ret, err)]
 fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
-    let header_len = read_usize(&mut reader)?;
-    let mut buffer = vec![0; header_len];
+    let header_len = read_u32_or_eof(&mut reader).unwrap_or(Err(io::Error::from(UnexpectedEof)))?;
+    let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
     fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
 }
 
-// Importantly, we seek _past_ the data, rather than read any in.
-// This allows us to keep indexing fast.
-//
-// Returns `Option<Result<..>>` so this function is suitable as a factory for a fused `TryStream`
-#[tracing::instrument(skip_all, ret)]
-fn read_block_location(
-    mut reader: (impl Read + Seek),
-) -> Option<cid::Result<(Cid, BlockLocation)>> {
-    // for our function signature
-    macro_rules! ok {
-        ($expr:expr) => {
-            match $expr {
-                Ok(inner) => inner,
-                Err(err) => return Some(Err(err.into())),
-            }
-        };
-    }
-    let block_len = match read_usize(&mut reader) {
-        Ok(block_len) => block_len,
-        // if the length itself is torn at an EOF, then we'll erroneously return None instead of Some(Err(_)).
-        // but to detect this we either need
-        // - a buffered reader, which is undesirable because block reads would then have a buffer
-        //   indirection (or we'd have to juggle read buffers, which is error prone)
-        // - a custom varint encoder API: `read_varint_or_eof(..) -> io::Result<Option<..>>`
-        //
-        // live with prematurely ending the block stream in this case.
-        Err(e) if e.kind() == UnexpectedEof => return None,
-        Err(other) => return Some(Err(cid::Error::Io(other))),
+/// The following functions may hit EOF, or return data.
+/// We represent EOF as [`None`].
+///
+/// This macro helps us compose these functions
+macro_rules! ok {
+    ($expr:expr) => {
+        match $expr {
+            Ok(inner) => inner,
+            Err(err) => return Some(Err(err.into())),
+        }
     };
-    let block_offset = ok!(reader.stream_position());
+}
+
+/// Importantly, we seek _past_ the data, rather than read any in.
+/// This allows us to keep indexing fast.
+///
+/// Returns [`Option<Result<T>>`] so this function is suitable as a factory for a (fused) `TryStream`
+#[tracing::instrument(skip_all, ret)]
+fn read_block_location_or_eof(
+    mut reader: (impl Read + Seek),
+) -> Option<cid::Result<(Cid, BlockDataLocation)>> {
+    let (frame_body_offset, body_length) = ok!(next_varint_frame(&mut reader)?);
     let cid = ok!(Cid::read_bytes(&mut reader));
-    let next_frame_offset = block_offset + u64::try_from(block_len).unwrap();
+    // tradeoff: we perform a second syscall here instead of in Blockstore::get,
+    // and keep BlockDataLocation purely for the blockdata
+    let block_data_offset = ok!(reader.stream_position());
+    let next_frame_offset = frame_body_offset + u64::from(body_length);
+    let block_data_length = u32::try_from(next_frame_offset - block_data_offset).unwrap();
     ok!(reader.seek(SeekFrom::Start(next_frame_offset)));
     Some(Ok((
         cid,
-        BlockLocation {
-            offset: block_offset,
-            length: block_len,
+        BlockDataLocation {
+            offset: block_data_offset,
+            length: block_data_length,
         },
     )))
 }
 
-fn read_usize(mut reader: impl Read) -> io::Result<usize> {
-    use unsigned_varint::io::ReadError::{Decode, Io};
-    match unsigned_varint::io::read_usize(reader) {
-        Ok(u) => Ok(u),
-        Err(Io(e)) => Err(e),
-        Err(Decode(e)) => Err(io::Error::new(InvalidData, e)),
-        Err(other) => Err(io::Error::new(Other, other)),
+fn next_varint_frame(mut reader: (impl Read + Seek)) -> Option<io::Result<(u64, u32)>> {
+    let body_length = ok!(read_u32_or_eof(&mut reader)?);
+    let frame_body_offset = ok!(reader.stream_position());
+    Some(Ok((frame_body_offset, body_length)))
+}
+
+fn read_u32_or_eof(mut reader: impl Read) -> Option<io::Result<u32>> {
+    use unsigned_varint::io::{
+        read_u32,
+        ReadError::{Decode, Io},
+    };
+
+    let mut byte = [0u8; 1];
+    match reader.read(&mut byte) {
+        Ok(0) => None,
+        Ok(1) => match read_u32(byte.chain(reader)) {
+            Ok(u) => (Some(Ok(u))),
+            Err(Decode(e)) => Some(Err(io::Error::new(InvalidData, e))),
+            Err(Io(e)) => Some(Err(e)),
+            Err(other) => Some(Err(io::Error::new(Other, other))),
+        },
+        Ok(_) => unreachable!(),
+        Err(e) => Some(Err(e)),
     }
 }
 
