@@ -151,6 +151,7 @@ impl PartialEq for BlockHeader {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for BlockHeader {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // XXX: More fields can be randomly generated.
