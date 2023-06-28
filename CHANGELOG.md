@@ -45,6 +45,9 @@
 
 ### Fixed
 
+- [#3005](https://github.com/ChainSafe/forest/issues/3005): Fix incorrect
+  progress reported when importing compressed snapshots.
+
 ## Forest v0.10.0 "Premature"
 
 ### Breaking

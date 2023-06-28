@@ -8,4 +8,4 @@ mod http;
 pub use hyper;
 pub use hyper_rustls;
 
-pub use self::{download::*, http::*};
+pub use self::{download::StreamedContentReader, http::*};
