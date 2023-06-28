@@ -53,9 +53,13 @@ pub trait Provider {
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
     // Get max number of messages per actor in the pool
-    fn max_actor_pending_messages(&self) -> u64 { MAX_ACTOR_PENDING_MESSAGES }
+    fn max_actor_pending_messages(&self) -> u64 {
+        MAX_ACTOR_PENDING_MESSAGES
+    }
     // Get max number of messages per actor in the pool for untrusted sources
-    fn max_untrusted_actor_pending_messages(&self) -> u64 { MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES }
+    fn max_untrusted_actor_pending_messages(&self) -> u64 {
+        MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES
+    }
 }
 
 /// This is the default Provider implementation that will be used for the
