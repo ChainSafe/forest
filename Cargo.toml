@@ -195,6 +195,7 @@ multiaddr = "0.17.1"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck = "1"
 quickcheck_macros = "1"
+static_assertions = "1.1.0"
 
 [build-dependencies]
 anyhow = "1"

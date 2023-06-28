@@ -5,15 +5,11 @@ use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 
 use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
+pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-
-/// Total gas limit allowed per block. This is shared across networks.
-pub const BLOCK_GAS_LIMIT: u64 = 10_000_000_000;
-/// Total Filecoin supply.
-pub const TOTAL_FILECOIN_BASE: i64 = 2_000_000_000;
 
 lazy_static! {
     /// Total Filecoin available to the network.
@@ -262,23 +258,15 @@ impl Sub<TokenAmount> for &TokenAmount {
 
 #[cfg(test)]
 mod tests {
+    use static_assertions::{const_assert_eq};
+
     #[test]
-    fn fvm_shim_of_const_block_gas_limit() {
-        assert_eq!(super::BLOCK_GAS_LIMIT, fvm_shared::BLOCK_GAS_LIMIT as u64)
+    fn shim_of_const_block_gas_limit() {
+        const_assert_eq!(super::BLOCK_GAS_LIMIT, fvm_shared::BLOCK_GAS_LIMIT as u64);
     }
 
     #[test]
-    fn fvm3_shim_of_const_block_gas_limit() {
-        assert_eq!(super::BLOCK_GAS_LIMIT, fvm_shared3::BLOCK_GAS_LIMIT)
-    }
-
-    #[test]
-    fn fvm_shim_of_const_total_filecoin_base() {
-        assert_eq!(super::TOTAL_FILECOIN_BASE, fvm_shared::TOTAL_FILECOIN_BASE)
-    }
-
-    #[test]
-    fn fvm3_shim_of_const_total_filecoin_base() {
-        assert_eq!(super::TOTAL_FILECOIN_BASE, fvm_shared3::TOTAL_FILECOIN_BASE)
+    fn shim_of_const_total_filecoin_base() {
+        const_assert_eq!(super::TOTAL_FILECOIN_BASE, fvm_shared::TOTAL_FILECOIN_BASE);
     }
 }
