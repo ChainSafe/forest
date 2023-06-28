@@ -19,6 +19,13 @@ pub fn global_http_client() -> reqwest::Client {
     CLIENT.clone()
 }
 
+/// `location` may be:
+/// - a path to a local file
+/// - a url to a web resource
+/// - compressed
+/// - uncompressed
+///
+/// This function returns a reader of uncompressed data.
 pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
     let read_progress = indicatif::ProgressBar::new_spinner().with_style(spinner_style());
     // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
