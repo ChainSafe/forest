@@ -13,7 +13,7 @@ pub trait HashAlgorithm {
         X: Hash;
 }
 
-/// Type is needed because the SHA256 hasher does not implement `std::hash::Hasher`
+/// Type is needed because the Sha256 hasher does not implement `std::hash::Hasher`
 #[derive(Default)]
 struct Sha2HasherWrapper(Sha256Hasher);
 
@@ -28,7 +28,7 @@ impl Hasher for Sha2HasherWrapper {
     }
 }
 
-/// SHA256 hashing algorithm used for hashing keys in the HAMT.
+/// Sha256 hashing algorithm used for hashing keys in the HAMT.
 #[derive(Debug)]
 pub enum Sha256 {}
 
