@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::db::MemoryDB;
 use crate::ipld::{
     json::{self, IpldJson},
-    selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
+    selector::{LastBlockInfo, LinkResolver, Selector},
 };
 use crate::utils::db::CborStoreExt;
 use async_trait::async_trait;
@@ -113,13 +113,6 @@ fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
     }
 }
 
-fn check_matched(reason: VisitReason, matched: bool) -> bool {
-    matches!(
-        (reason, matched),
-        (VisitReason::SelectionMatch, true) | (VisitReason::SelectionCandidate, false)
-    )
-}
-
 #[derive(Clone)]
 struct TestLinkResolver(MemoryDB);
 
@@ -149,48 +142,38 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
         .unwrap_or_else(|| "unnamed test case".to_owned());
 
     tv.selector
-        .walk_all(
-            &tv.ipld,
-            resolver,
-            |prog, ipld, reason| -> Result<(), String> {
-                let idx = index.load(Ordering::Relaxed);
-                let exp = &expect[idx];
-                // Current path
-                if prog.path() != &exp.path {
-                    return Err(format!(
-                        "{:?} at (idx: {}) does not match {:?}",
-                        prog.path(),
-                        idx,
-                        exp.path
-                    ));
-                }
-                // Current Ipld node
-                if !check_ipld(ipld, &exp.node) {
-                    return Err(format!(
-                        "{:?} at (idx: {}) does not match {:?}",
-                        ipld, idx, exp.node
-                    ));
-                }
-                // Match boolean against visit reason
-                if !check_matched(reason, exp.matched) {
-                    return Err(format!(
-                        "{:?} at (idx: {}) does not match {:?}",
-                        reason, idx, exp.matched
-                    ));
-                }
-                // Check last block information
-                if prog.last_block() != exp.last_block.as_ref() {
-                    return Err(format!(
-                        "{:?} at (idx: {}) does not match {:?}",
-                        prog.last_block(),
-                        idx,
-                        exp.last_block
-                    ));
-                }
-                index.fetch_add(1, Ordering::Relaxed);
-                Ok(())
-            },
-        )
+        .walk_all(&tv.ipld, resolver, |prog, ipld| -> Result<(), String> {
+            let idx = index.load(Ordering::Relaxed);
+            let exp = &expect[idx];
+            // Current path
+            if prog.path() != &exp.path {
+                return Err(format!(
+                    "{:?} at (idx: {}) does not match {:?}",
+                    prog.path(),
+                    idx,
+                    exp.path
+                ));
+            }
+            // Current Ipld node
+            if !check_ipld(ipld, &exp.node) {
+                return Err(format!(
+                    "{:?} at (idx: {}) does not match {:?}",
+                    ipld, idx, exp.node
+                ));
+            }
+
+            // Check last block information
+            if prog.last_block() != exp.last_block.as_ref() {
+                return Err(format!(
+                    "{:?} at (idx: {}) does not match {:?}",
+                    prog.last_block(),
+                    idx,
+                    exp.last_block
+                ));
+            }
+            index.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        })
         .await
         .map_err(|e| format!("({description}) failed, reason: {e}"))?;
 
