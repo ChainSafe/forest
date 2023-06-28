@@ -2,12 +2,12 @@
 
 ## Hardware requirements
 
-To export a mainnet snapshot, you need a setup with at least 8GB of RAM. On a
-machine with rapid NVMe SSD (around 7000MB/s), the export should take around one
-hour.
+To export a mainnet snapshot, you need a setup with at least 10 GB of RAM. On a
+machine with rapid NVMe SSD (around 7000MB/s), the export should take around 30
+minutes.
 
 The requirements for calibnet snapshots are lower, but it is still recommended
-to have at least 4GB of RAM. The export should take less than a minute.
+to have at least 4 GB of RAM. The export should take less than a minute.
 
 ## Running the node
 
