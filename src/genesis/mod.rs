@@ -5,20 +5,19 @@ use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
-use crate::utils::{
-    db::BlockstoreBufferedWriteExt,
-    net::{get_fetch_progress_from_file, get_fetch_progress_from_url},
-};
+use crate::utils::db::BlockstoreBufferedWriteExt;
+
+use crate::utils::net::StreamedContentReader;
 use anyhow::bail;
 use cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use fvm_ipld_encoding::CborStore;
+
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
-use url::Url;
 
 #[cfg(test)]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
@@ -94,21 +93,13 @@ pub async fn import_chain<DB>(
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
-    let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
-
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let (cids, n_records) = if is_remote_file {
-        info!("Downloading file...");
-        let url = Url::parse(path)?;
-        let reader = get_fetch_progress_from_url(&url).await?;
-        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
-    } else {
-        info!("Reading file...");
-        let reader = get_fetch_progress_from_file(&path).await?;
-        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?
-    };
+    let reader = StreamedContentReader::read(path).await?;
+
+    let (cids, n_records) =
+        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?;
 
     info!(
         "Loaded {} records from .car file in {}s",
