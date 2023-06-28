@@ -185,7 +185,8 @@ where
         async {
             tokio::task::spawn_blocking(move || {
                 db.put_many_keyed(block.into_iter().map(|block| (block.cid, block.data)))
-            }).await?
+            })
+            .await?
         }
     };
 
