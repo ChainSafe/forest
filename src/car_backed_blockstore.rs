@@ -65,6 +65,7 @@
 //!   Snapshots typically comprise of a single frame, but that would require decompressing all preceding data, precluding random access.
 //!   So compressed snapshot support would compression per-frame, or maybe per block of frames.
 //! - Support multiple files by concatenating them.
+//! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
 
 use ahash::AHashMap;
 use cid::Cid;
@@ -73,7 +74,7 @@ use fvm_ipld_car::CarHeader;
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::io::{
-    self, BufRead,
+    self,
     ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
     Read, Seek, SeekFrom,
 };
@@ -101,7 +102,7 @@ pub struct CarBackedBlockstore<ReaderT> {
 
 impl<ReaderT> CarBackedBlockstore<ReaderT>
 where
-    ReaderT: BufRead + Seek,
+    ReaderT: Read + Seek,
 {
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
@@ -118,7 +119,7 @@ where
         }
 
         // now create the index
-        let index = std::iter::from_fn(|| read_block(&mut reader))
+        let index = std::iter::from_fn(|| read_block_location(&mut reader))
             .collect::<Result<AHashMap<_, _>, _>>()?;
         match index.len() {
             0 => {
@@ -154,9 +155,14 @@ where
             (Some(BlockLocation { offset, length }), Vacant(_)) => {
                 trace!("fetching from disk");
                 let mut reader = self.reader.lock();
+
+                // Go to the start of the frame body, which is a concatenated CID and its data
                 reader.seek(SeekFrom::Start(*offset))?;
+
+                // Read the CID
                 let cid = Cid::read_bytes(&mut *reader)?;
                 assert_eq!(cid, *k);
+
                 let cid_len = reader.stream_position()? - *offset;
                 let data_len = *length - usize::try_from(cid_len).unwrap();
                 let mut data = vec![0; data_len];
@@ -203,47 +209,54 @@ where
     }
 }
 
-fn read_header(reader: &mut impl BufRead) -> io::Result<CarHeader> {
+#[tracing::instrument(skip_all, ret, err)]
+fn read_header(reader: &mut impl Read) -> io::Result<CarHeader> {
     let header_len = read_usize(reader)?;
-    match reader.fill_buf()? {
-        buf if buf.is_empty() => Err(io::Error::from(UnexpectedEof)),
-        nonempty if nonempty.len() < header_len => Err(io::Error::new(
-            UnexpectedEof,
-            "header is too short, or BufReader doesn't have enough capacity for a header",
-        )),
-        header_etc => match fvm_ipld_encoding::from_slice(&header_etc[..header_len]) {
-            Ok(header) => {
-                reader.consume(header_len);
-                Ok(header)
-            }
-            Err(e) => Err(io::Error::new(InvalidData, e)),
-        },
-    }
+    let mut buffer = vec![0; header_len];
+    reader.read_exact(&mut buffer)?;
+    fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
 }
 
 // Importantly, we seek _past_ the data, rather than read any in.
 // This allows us to keep indexing fast.
-fn read_block(reader: &mut (impl BufRead + Seek)) -> Option<cid::Result<(Cid, BlockLocation)>> {
-    match reader.fill_buf() {
-        Ok(buf) if buf.is_empty() => None, // EOF
-        Ok(_nonempty) => match (
-            read_usize(reader),            // read the block length
-            reader.stream_position(),      // get the stream position at the start of the block body
-            Cid::read_bytes(&mut *reader), // read a CID
-        ) {
-            (Ok(length), Ok(offset), Ok(cid)) => {
-                let next_block_offset = offset + u64::try_from(length).unwrap();
-                if let Err(e) = reader.seek(SeekFrom::Start(next_block_offset)) {
-                    return Some(Err(cid::Error::Io(e)));
-                }
-                Some(Ok((cid, BlockLocation { offset, length })))
+//
+// Returns `Option<Result<..>>` so this function is suitable as a factory for a fused `TryStream`
+#[tracing::instrument(skip_all, ret)]
+fn read_block_location(
+    reader: &mut (impl Read + Seek),
+) -> Option<cid::Result<(Cid, BlockLocation)>> {
+    // for our function signature
+    macro_rules! ok {
+        ($expr:expr) => {
+            match $expr {
+                Ok(inner) => inner,
+                Err(err) => return Some(Err(err.into())),
             }
-            // bubble any errors up
-            (Err(e), _, _) | (_, Err(e), _) => Some(Err(cid::Error::Io(e))),
-            (_, _, Err(e)) => Some(Err(e)),
-        },
-        Err(e) => Some(Err(cid::Error::Io(e))),
+        };
     }
+    let block_len = match read_usize(reader) {
+        Ok(block_len) => block_len,
+        // if the length itself is torn at an EOF, then we'll erroneously return None instead of Some(Err(_)).
+        // but to detect this we either need
+        // - a buffered reader, which is undesirable because block reads would then have a buffer
+        //   indirection (or we'd have to juggle read buffers, which is error prone)
+        // - a custom varint encoder API: `read_varint_or_eof(..) -> io::Result<Option<..>>`
+        //
+        // live with prematurely ending the block stream in this case.
+        Err(e) if e.kind() == UnexpectedEof => return None,
+        Err(other) => return Some(Err(cid::Error::Io(other))),
+    };
+    let block_offset = ok!(reader.stream_position());
+    let cid = ok!(Cid::read_bytes(&mut *reader));
+    let next_frame_offset = block_offset + u64::try_from(block_len).unwrap();
+    ok!(reader.seek(SeekFrom::Start(next_frame_offset)));
+    Some(Ok((
+        cid,
+        BlockLocation {
+            offset: block_offset,
+            length: block_len,
+        },
+    )))
 }
 
 fn read_usize(reader: &mut impl Read) -> io::Result<usize> {
