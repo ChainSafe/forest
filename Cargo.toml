@@ -67,11 +67,7 @@ fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
 fvm_shared = { version = "~2.4", default-features = false, features = ["testing"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = [
-  "testing",
-  "proofs",
-  "arb",
-] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
@@ -139,7 +135,6 @@ pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.19"
 protobuf = "3.2"
-quickcheck = "1"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync = "0.1"
@@ -193,9 +188,12 @@ termios = "0.3"
 assert_cmd = "2"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
+fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["arb"] }
 libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 multiaddr = "0.17.1"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
+quickcheck = "1"
 quickcheck_macros = "1"
 
 [build-dependencies]
