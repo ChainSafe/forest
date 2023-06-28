@@ -14,6 +14,7 @@ use crate::shim::{address::Address, econ::TokenAmount};
 #[serde(transparent)]
 pub struct Message(Message_v3);
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for Message {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         Self(Message_v3 {
