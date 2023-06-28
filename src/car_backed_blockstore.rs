@@ -210,8 +210,8 @@ where
 }
 
 #[tracing::instrument(skip_all, ret, err)]
-fn read_header(reader: &mut impl Read) -> io::Result<CarHeader> {
-    let header_len = read_usize(reader)?;
+fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
+    let header_len = read_usize(&mut reader)?;
     let mut buffer = vec![0; header_len];
     reader.read_exact(&mut buffer)?;
     fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
@@ -223,7 +223,7 @@ fn read_header(reader: &mut impl Read) -> io::Result<CarHeader> {
 // Returns `Option<Result<..>>` so this function is suitable as a factory for a fused `TryStream`
 #[tracing::instrument(skip_all, ret)]
 fn read_block_location(
-    reader: &mut (impl Read + Seek),
+    mut reader: (impl Read + Seek),
 ) -> Option<cid::Result<(Cid, BlockLocation)>> {
     // for our function signature
     macro_rules! ok {
@@ -234,7 +234,7 @@ fn read_block_location(
             }
         };
     }
-    let block_len = match read_usize(reader) {
+    let block_len = match read_usize(&mut reader) {
         Ok(block_len) => block_len,
         // if the length itself is torn at an EOF, then we'll erroneously return None instead of Some(Err(_)).
         // but to detect this we either need
@@ -247,7 +247,7 @@ fn read_block_location(
         Err(other) => return Some(Err(cid::Error::Io(other))),
     };
     let block_offset = ok!(reader.stream_position());
-    let cid = ok!(Cid::read_bytes(&mut *reader));
+    let cid = ok!(Cid::read_bytes(&mut reader));
     let next_frame_offset = block_offset + u64::try_from(block_len).unwrap();
     ok!(reader.seek(SeekFrom::Start(next_frame_offset)));
     Some(Ok((
@@ -259,7 +259,7 @@ fn read_block_location(
     )))
 }
 
-fn read_usize(reader: &mut impl Read) -> io::Result<usize> {
+fn read_usize(mut reader: impl Read) -> io::Result<usize> {
     use unsigned_varint::io::ReadError::{Decode, Io};
     match unsigned_varint::io::read_usize(reader) {
         Ok(u) => Ok(u),
