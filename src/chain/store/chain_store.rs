@@ -21,7 +21,6 @@ use crate::utils::{
         BlockstoreExt, CborStoreExt,
     },
     io::{AsyncWriterWithChecksum, Checksum},
-    misc::Either,
 };
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::{Context, Result};
@@ -29,6 +28,7 @@ use async_compression::futures::write::ZstdEncoder;
 use cid::Cid;
 use digest::Digest;
 use futures::{io::BufWriter, AsyncWrite};
+use futures_util::future::Either;
 use futures_util::AsyncWriteExt;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
