@@ -190,6 +190,11 @@ where
         }
     };
 
+    // Stream key-value pairs from the CAR file and commit them in chunks of
+    // 1000 elements. Try to maintain a buffer of 3 x 1000 elements to avoid
+    // read-stalling.
+    // Using a larger chunk size (40k+) can improve performance on some SSDs at
+    // the cost of increased memory usage.
     car_stream(car_reader)
         .inspect(|_| n_records += 1)
         .chunks(1_000)
