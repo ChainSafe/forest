@@ -9,13 +9,14 @@ use std::{
 };
 
 use crate::networks::NetworkChain;
-use crate::utils::io::progress_bar::downloading_style;
 use anyhow::{anyhow, bail, Context as _};
 use chrono::NaiveDate;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{info, warn};
 use url::Url;
 
 use crate::cli_shared::snapshot::parse::ParsedFilename;
+use crate::utils::net::StreamedContentReader;
 
 /// Who hosts the snapshot on the web?
 /// See [`stable_url`].
@@ -139,28 +140,16 @@ async fn download_aria2c(url: &Url, directory: &Path, filename: &str) -> Result<
 
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
 async fn download_http(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
-    use futures::TryStreamExt as _;
-    use tap::Pipe as _;
     let dst_path = directory.join(filename);
-    let response = reqwest::get(url)
-        .await?
-        .error_for_status()
-        .context("server returned an error response")?;
-    let url = response.url().clone();
+
     info!(%url, "downloading snapshot");
-    let progress_bar = indicatif::ProgressBar::new(0).with_style(downloading_style());
-    if let Some(len) = response.content_length() {
-        progress_bar.set_length(len)
-    }
-    let mut src = response
-        .bytes_stream()
-        .map_err(|reqwest_error| std::io::Error::new(std::io::ErrorKind::Other, reqwest_error))
-        .pipe(tokio_util::io::StreamReader::new)
-        .pipe(|reader| progress_bar.wrap_async_read(reader));
+    let reader = StreamedContentReader::read(url.as_str()).await?;
+
     let mut dst = tokio::fs::File::create(&dst_path)
         .await
         .context("couldn't create destination file")?;
-    tokio::io::copy(&mut src, &mut dst)
+
+    tokio::io::copy(&mut reader.compat(), &mut dst)
         .await
         .map(|_| dst_path)
         .context("couldn't download file")

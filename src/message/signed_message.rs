@@ -54,7 +54,7 @@ impl SignedMessage {
 
     /// Checks if the signed message is a BLS message.
     pub fn is_bls(&self) -> bool {
-        self.signature.signature_type() == SignatureType::BLS
+        self.signature.signature_type() == SignatureType::Bls
     }
 
     /// Checks if the signed message is a SECP message.
@@ -74,6 +74,7 @@ impl SignedMessage {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for SignedMessage {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         SignedMessage {

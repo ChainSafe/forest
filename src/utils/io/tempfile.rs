@@ -11,18 +11,6 @@ pub struct TempFile {
     path: PathBuf,
 }
 
-impl TempFile {
-    /// Creates a temporary file wrapper
-    pub fn new(path: PathBuf) -> Self {
-        Self { path }
-    }
-
-    /// Gets path of the temporary file
-    pub fn path(&self) -> &PathBuf {
-        &self.path
-    }
-}
-
 impl Drop for TempFile {
     fn drop(&mut self) {
         if self.path.exists() {

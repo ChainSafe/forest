@@ -7,16 +7,14 @@ use std::{
     sync::Arc,
 };
 
-use crate::blocks::{Block, GossipBlock, Tipset};
+use crate::blocks::{Block, Tipset};
 use crate::chain::Scale;
-use crate::libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use crate::message::SignedMessage;
 use crate::message_pool::MessagePool;
 use crate::state_manager::StateManager;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
 use nonempty::NonEmpty;
 use tokio::task::JoinSet;
 
@@ -167,34 +165,10 @@ where
 ///
 /// Similar to `sync_api::sync_submit_block` but assumes that the block is
 /// correct and already persisted.
-pub struct SyncGossipSubmitter {
-    network_name: String,
-    network_tx: flume::Sender<NetworkMessage>,
-    tipset_tx: flume::Sender<Arc<Tipset>>,
-}
+pub struct SyncGossipSubmitter {}
 
 impl SyncGossipSubmitter {
-    pub fn new(
-        network_name: String,
-        network_tx: flume::Sender<NetworkMessage>,
-        tipset_tx: flume::Sender<Arc<Tipset>>,
-    ) -> Self {
-        Self {
-            network_name,
-            network_tx,
-            tipset_tx,
-        }
-    }
-
-    pub async fn submit_block(&self, block: GossipBlock) -> anyhow::Result<()> {
-        let data = block.marshal_cbor()?;
-        let ts = Arc::new(Tipset::from(&block.header));
-        let msg = NetworkMessage::PubsubMessage {
-            topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name)),
-            message: data,
-        };
-        self.tipset_tx.send_async(ts).await?;
-        self.network_tx.send_async(msg).await?;
-        Ok(())
+    pub fn new() -> Self {
+        Self {}
     }
 }

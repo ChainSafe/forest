@@ -28,6 +28,7 @@ pub struct Message {
     pub gas_premium: TokenAmount,
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for Message {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         Self {

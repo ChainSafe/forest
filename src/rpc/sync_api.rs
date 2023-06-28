@@ -59,9 +59,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use std::sync::Arc;
 
-    use crate::beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
+    use crate::beacon::{mock_beacon::MockBeacon, BeaconPoint, BeaconSchedule};
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::SyncStage;
@@ -87,7 +87,7 @@ mod tests {
     ) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
-            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+            beacon: Arc::new(MockBeacon::default()),
         }]));
 
         let (network_send, network_rx) = flume::bounded(5);

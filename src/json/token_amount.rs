@@ -26,34 +26,6 @@ pub mod json {
             BigInt::from_str(&s).map_err(serde::de::Error::custom)?,
         ))
     }
-
-    pub mod option {
-        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-        use super::*;
-
-        pub fn serialize<S>(v: &Option<TokenAmount>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            v.as_ref()
-                .map(|s| s.atto().to_string())
-                .serialize(serializer)
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<TokenAmount>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let s: Option<String> = Deserialize::deserialize(deserializer)?;
-            if let Some(v) = s {
-                return Ok(Some(TokenAmount::from_atto(
-                    BigInt::from_str(&v).map_err(serde::de::Error::custom)?,
-                )));
-            }
-            Ok(None)
-        }
-    }
 }
 
 #[cfg(test)]

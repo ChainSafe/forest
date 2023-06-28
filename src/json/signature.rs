@@ -89,7 +89,7 @@ pub mod json {
             S: Serializer,
         {
             let json = match *m {
-                SignatureType::BLS => JsonHelperEnum::Bls,
+                SignatureType::Bls => JsonHelperEnum::Bls,
                 SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
                 SignatureType::Delegated => JsonHelperEnum::Delegated,
             };
@@ -103,7 +103,7 @@ pub mod json {
             let json_enum: JsonHelperEnum = Deserialize::deserialize(deserializer)?;
 
             let signature_type = match json_enum {
-                JsonHelperEnum::Bls => SignatureType::BLS,
+                JsonHelperEnum::Bls => SignatureType::Bls,
                 JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
                 JsonHelperEnum::Delegated => SignatureType::Delegated,
             };

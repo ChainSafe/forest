@@ -20,19 +20,20 @@
 
 # Cross-compilation helpers
 # https://github.com/tonistiigi/xx
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.2.1 AS xx
+FROM --platform=$BUILDPLATFORM ghcr.io/lesnyrumcajs/xx:1.2.1 AS xx
 
-FROM --platform=$BUILDPLATFORM buildpack-deps:bullseye AS build-env
+FROM --platform=$BUILDPLATFORM ubuntu:22.04 AS build-env
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# install dependencies
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y build-essential clang cmake curl ca-certificates
+
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Copy the cross-compilation scripts 
 COPY --from=xx / /
-
-# install dependencies
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang cmake
 
 # export TARGETPLATFORM
 ARG TARGETPLATFORM

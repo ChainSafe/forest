@@ -26,6 +26,7 @@ lazy_static! {
 #[serde(transparent)]
 pub struct TokenAmount(TokenAmount_v3);
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for TokenAmount {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         use fvm_shared3::bigint::MAX_BIGINT_SIZE;

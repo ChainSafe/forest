@@ -44,6 +44,63 @@ pub(in crate::message_pool) struct Chains {
     pub key_vec: Vec<NodeKey>,
 }
 
+#[cfg(test)]
+impl Chains {
+    // Sort by effective perf with cmp_effective
+    pub(in crate::message_pool) fn sort_effective(&mut self) {
+        let mut chains = mem::take(&mut self.key_vec);
+        chains.sort_by(|a, b| {
+            let a = self.map.get(*a).unwrap();
+            let b = self.map.get(*b).unwrap();
+            a.cmp_effective(b)
+        });
+        let _ = mem::replace(&mut self.key_vec, chains);
+    }
+
+    // Sort by effective `perf` on a range
+    pub(in crate::message_pool) fn sort_range_effective(
+        &mut self,
+        range: std::ops::RangeFrom<usize>,
+    ) {
+        let mut chains = mem::take(&mut self.key_vec);
+        chains[range].sort_by(|a, b| {
+            self.map
+                .get(*a)
+                .unwrap()
+                .cmp_effective(self.map.get(*b).unwrap())
+        });
+        let _ = mem::replace(&mut self.key_vec, chains);
+    }
+
+    /// Retrieves the `msg` chain node by the given `NodeKey` along with the
+    /// data required from previous chain (if exists) to set effective
+    /// performance of this node.
+    pub(in crate::message_pool) fn get_mut_with_prev_eff(
+        &mut self,
+        k: NodeKey,
+    ) -> (Option<&mut MsgChainNode>, Option<(f64, u64)>) {
+        let node = self.map.get(k);
+        let prev = if let Some(node) = node {
+            if let Some(prev_key) = node.prev {
+                let prev_node = self.map.get(prev_key).unwrap();
+                Some((prev_node.eff_perf, prev_node.gas_limit))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let node = self.map.get_mut(k);
+        (node, prev)
+    }
+
+    /// Retrieves the `msg` chain node by the given `NodeKey`
+    pub(in crate::message_pool) fn get(&self, k: NodeKey) -> Option<&MsgChainNode> {
+        self.map.get(k)
+    }
+}
+
 impl Chains {
     pub(in crate::message_pool) fn new() -> Self {
         Self {
@@ -80,63 +137,9 @@ impl Chains {
         let _ = mem::replace(&mut self.key_vec, chains);
     }
 
-    // Sort by effective perf with cmp_effective
-    pub(in crate::message_pool) fn sort_effective(&mut self) {
-        let mut chains = mem::take(&mut self.key_vec);
-        chains.sort_by(|a, b| {
-            let a = self.map.get(*a).unwrap();
-            let b = self.map.get(*b).unwrap();
-            a.cmp_effective(b)
-        });
-        let _ = mem::replace(&mut self.key_vec, chains);
-    }
-
-    // Sort by effective `perf` on a range
-    pub(in crate::message_pool) fn sort_range_effective(
-        &mut self,
-        range: std::ops::RangeFrom<usize>,
-    ) {
-        let mut chains = mem::take(&mut self.key_vec);
-        chains[range].sort_by(|a, b| {
-            self.map
-                .get(*a)
-                .unwrap()
-                .cmp_effective(self.map.get(*b).unwrap())
-        });
-        let _ = mem::replace(&mut self.key_vec, chains);
-    }
-
     /// Retrieves the `msg` chain node by the given `NodeKey`
     pub(in crate::message_pool) fn get_mut(&mut self, k: NodeKey) -> Option<&mut MsgChainNode> {
         self.map.get_mut(k)
-    }
-
-    /// Retrieves the `msg` chain node by the given `NodeKey` along with the
-    /// data required from previous chain (if exists) to set effective
-    /// performance of this node.
-    pub(in crate::message_pool) fn get_mut_with_prev_eff(
-        &mut self,
-        k: NodeKey,
-    ) -> (Option<&mut MsgChainNode>, Option<(f64, u64)>) {
-        let node = self.map.get(k);
-        let prev = if let Some(node) = node {
-            if let Some(prev_key) = node.prev {
-                let prev_node = self.map.get(prev_key).unwrap();
-                Some((prev_node.eff_perf, prev_node.gas_limit))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let node = self.map.get_mut(k);
-        (node, prev)
-    }
-
-    /// Retrieves the `msg` chain node by the given `NodeKey`
-    pub(in crate::message_pool) fn get(&self, k: NodeKey) -> Option<&MsgChainNode> {
-        self.map.get(k)
     }
 
     /// Retrieves the `msg` chain node at the given index
@@ -299,6 +302,25 @@ impl MsgChainNode {
         Ordering::Less
     }
 
+    pub fn set_eff_perf(&mut self, prev: Option<(f64, u64)>) {
+        let mut eff_perf = self.gas_perf * self.bp;
+        if let Some(prev) = prev {
+            if eff_perf > 0.0 {
+                let prev_eff_perf = prev.0;
+                let prev_gas_limit = prev.1;
+                let eff_perf_with_parent = (eff_perf * self.gas_limit as f64
+                    + prev_eff_perf * prev_gas_limit as f64)
+                    / (self.gas_limit + prev_gas_limit) as f64;
+                self.parent_offset = eff_perf - eff_perf_with_parent;
+                eff_perf = eff_perf_with_parent;
+            }
+        }
+        self.eff_perf = eff_perf;
+    }
+}
+
+#[cfg(test)]
+impl MsgChainNode {
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
         if self.merged && !other.merged
             || self.gas_perf >= 0.0 && other.gas_perf < 0.0
@@ -321,22 +343,6 @@ impl MsgChainNode {
         } else {
             self.eff_perf = 0.0;
         }
-    }
-
-    pub fn set_eff_perf(&mut self, prev: Option<(f64, u64)>) {
-        let mut eff_perf = self.gas_perf * self.bp;
-        if let Some(prev) = prev {
-            if eff_perf > 0.0 {
-                let prev_eff_perf = prev.0;
-                let prev_gas_limit = prev.1;
-                let eff_perf_with_parent = (eff_perf * self.gas_limit as f64
-                    + prev_eff_perf * prev_gas_limit as f64)
-                    / (self.gas_limit + prev_gas_limit) as f64;
-                self.parent_offset = eff_perf - eff_perf_with_parent;
-                eff_perf = eff_perf_with_parent;
-            }
-        }
-        self.eff_perf = eff_perf;
     }
 }
 

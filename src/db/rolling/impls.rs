@@ -109,10 +109,6 @@ impl Store for RollingDB {
     ) -> Result<(), crate::db::Error> {
         Store::bulk_write(&self.current(), values)
     }
-
-    fn flush(&self) -> Result<(), crate::db::Error> {
-        Store::flush(&self.current())
-    }
 }
 
 impl BitswapStoreRead for RollingDB {
@@ -158,17 +154,6 @@ impl FileBackedObject for DbIndex {
 
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
         Ok(serde_yaml::from_slice(bytes)?)
-    }
-}
-
-impl Drop for RollingDB {
-    fn drop(&mut self) {
-        if let Err(err) = self.flush() {
-            warn!(
-                "Error flushing rolling db under {}: {err}",
-                self.db_root.display()
-            );
-        }
     }
 }
 

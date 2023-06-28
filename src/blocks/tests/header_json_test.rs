@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::header::json::{BlockHeaderJson, BlockHeaderJsonRef};
-use crate::shim::address::{set_current_network, Network};
+use crate::shim::address::{CurrentNetwork, Network};
 use serde_json::{from_str, to_string};
 
 #[test]
 fn iden() {
-    set_current_network(Network::Testnet);
-
     let header_json = r#"{"Miner":"t01234","Ticket":{"VRFProof":"Ynl0ZSBhcnJheQ=="},"ElectionProof":{"VRFProof":"Ynl0ZSBhcnJheQ==","WinCount":1},"BeaconEntries":null,"WinPoStProof":null,"Parents":null,"ParentWeight":"0","Height":10101,"ParentStateRoot":{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"},"ParentMessageReceipts":{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"},"Messages":{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"},"BLSAggregate":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="},"Timestamp":42,"BlockSig":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="},"ForkSignaling":42,"ParentBaseFee":"1"}"#;
 
     // The reason this isn't symmetric is because go implementation serializes
@@ -21,7 +19,9 @@ fn iden() {
     let BlockHeaderJson(cid_d) = from_str(header_json).unwrap();
 
     // Serialize
-    let ser_cid = to_string(&BlockHeaderJsonRef(&cid_d)).unwrap();
+    let ser_cid = CurrentNetwork::with(Network::Testnet, || {
+        to_string(&BlockHeaderJsonRef(&cid_d)).unwrap()
+    });
 
     assert_eq!(ser_cid, expected);
 }
