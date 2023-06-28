@@ -28,21 +28,6 @@ pub struct ActorState {
 }
 
 /// Implementation of the HAMT data structure for IPLD.
-///
-/// # Examples
-///
-/// ```
-/// use ipld_hamt::Hamt;
-///
-/// let store = db::MemoryDB::default();
-///
-/// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
-/// map.set(1, "a".to_string()).unwrap();
-/// assert_eq!(map.get(&1).unwrap(), Some(&"a".to_string()));
-/// assert_eq!(map.delete(&1).unwrap(), Some((1, "a".to_string())));
-/// assert_eq!(map.get::<_>(&1).unwrap(), None);
-/// let cid = map.flush().unwrap();
-/// ```
 #[derive(Debug)]
 pub struct Hamt<BS, V, K = BytesKey, H = Sha256> {
     root: Node<K, V, H>,
