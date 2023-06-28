@@ -61,9 +61,9 @@ where
             let elapsed = start_time.elapsed().as_secs_f32();
             if new_state != *parent_state {
                 reveal_five_trees();
-                log::info!("State migration at height {height} was successful, took: {elapsed}s");
+                log::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}. Took: {elapsed}s.");
             } else {
-                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s.");
             }
 
             return Ok(Some(new_state));
