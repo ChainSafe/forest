@@ -13,7 +13,7 @@
 //!
 //! The HAMT is a data structure that mimics a Hash Map which has the features of being shard-ed, persisted,
 //! and index-able by a Cid. The HAMT supports a variable bit width to adjust the amount of possible pointers
-//! that can exist at each height of the tree. Hamt can be modified at any point, but the underlying values
+//! that can exist at each height of the tree. HAMT can be modified at any point, but the underlying values
 //! are only persisted to the store when the [flush](struct.Hamt.html#method.flush) is called.
 
 mod bitfield;
