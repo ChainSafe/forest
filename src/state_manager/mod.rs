@@ -1298,7 +1298,7 @@ where
                             ?actual_receipt,
                             "state mismatch"
                         );
-                        // TODO: Download expected state from network when not available in local DB
+
                         if let Err(err) = print_state_diff(
                             self.blockstore(),
                             &actual_state,
@@ -1307,6 +1307,7 @@ where
                         ) {
                             warn!("Failed to print state diff: {err}");
                         }
+
                         bail!("state mismatch");
                     }
                 }
