@@ -24,7 +24,7 @@ sudo apt install build-essential clang cmake
 
 ### Optional runtime dependencies
 
-[aria2](https://aria2.github.io/) is an alternate backed for downloading the
+[aria2](https://aria2.github.io/) is an alternate backend for downloading the
 snapshots. It is significantly faster than the in-built Forest downloader.
 
 ```shell
