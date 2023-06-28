@@ -92,23 +92,23 @@ struct BlockDataLocation {
 
 /// See [module documentation](mod@self) for more.
 pub struct CarBackedBlockstore<ReaderT> {
-    /// [`Blockstore`] methods take `&self`, so wrap in a [`Mutex`]
-    reader: Mutex<ReaderT>,
-    write_cache: Mutex<AHashMap<Cid, Vec<u8>>>,
-
-    index: AHashMap<Cid, BlockDataLocation>,
-    pub roots: Vec<Cid>,
+    // https://github.com/ChainSafe/forest/issues/3096
+    inner: Mutex<CarBackedBlockstoreInner<ReaderT>>,
 }
 
 impl<ReaderT> CarBackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
 {
+    pub fn roots(&self) -> Vec<Cid> {
+        self.inner.lock().roots.clone()
+    }
+
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
     /// - `reader`'s buffer should have enough room for the [`CarHeader`] and any [`Cid`]s.
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(mut reader: ReaderT) -> cid::Result<Self> {
         let CarHeader { roots, version } = read_header(&mut reader)?;
         if version != 1 {
@@ -132,29 +132,42 @@ where
         }
 
         Ok(Self {
-            reader: Mutex::new(reader),
-            index,
-            roots,
-            write_cache: Mutex::new(AHashMap::new()),
+            inner: Mutex::new(CarBackedBlockstoreInner {
+                reader,
+                index,
+                roots,
+                write_cache: AHashMap::new(),
+            }),
         })
     }
+}
+
+struct CarBackedBlockstoreInner<ReaderT> {
+    reader: ReaderT,
+    write_cache: AHashMap<Cid, Vec<u8>>,
+    index: AHashMap<Cid, BlockDataLocation>,
+    roots: Vec<Cid>,
 }
 
 impl<ReaderT> Blockstore for CarBackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
 {
-    // This function should probably return a Cow<[u8]> to save unneccessary memcpys
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match (self.index.get(k), self.write_cache.lock().entry(*k)) {
+        let CarBackedBlockstoreInner {
+            reader,
+            write_cache,
+            index,
+            ..
+        } = &mut *self.inner.lock();
+        match (index.get(k), write_cache.entry(*k)) {
             (Some(_location), Occupied(cached)) => {
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
             (Some(BlockDataLocation { offset, length }), Vacant(_)) => {
                 trace!("fetching from disk");
-                let mut reader = self.reader.lock();
                 reader.seek(SeekFrom::Start(*offset))?;
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
                 reader.read_exact(&mut data);
@@ -174,9 +187,15 @@ where
     /// # Panics
     /// - If the write cache contains different data with this CID
     /// - See also [`Self::new`].
-    // #[tracing::instrument(skip(self, block))]
+    #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        match (self.index.get(k), self.write_cache.lock().entry(*k)) {
+        let CarBackedBlockstoreInner {
+            reader,
+            write_cache,
+            index,
+            ..
+        } = &mut *self.inner.lock();
+        match (index.get(k), write_cache.entry(*k)) {
             (None, Occupied(already)) => match already.get() == block {
                 true => {
                     trace!("already in cache");
@@ -200,7 +219,7 @@ where
     }
 }
 
-#[tracing::instrument(skip_all, ret, err)]
+#[tracing::instrument(level = "trace", skip_all, ret, err)]
 fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
     let header_len = read_u32_or_eof(&mut reader).unwrap_or(Err(io::Error::from(UnexpectedEof)))?;
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
@@ -225,7 +244,7 @@ macro_rules! ok {
 /// This allows us to keep indexing fast.
 ///
 /// Returns [`Option<Result<T>>`] so this function is suitable as a factory for a (fused) `TryStream`
-#[tracing::instrument(skip_all, ret)]
+#[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_location_or_eof(
     mut reader: (impl Read + Seek),
 ) -> Option<cid::Result<(Cid, BlockDataLocation)>> {
@@ -275,6 +294,7 @@ fn read_u32_or_eof(mut reader: impl Read) -> Option<io::Result<u32>> {
 #[cfg(test)]
 mod tests {
     use super::CarBackedBlockstore;
+
     use futures_util::AsyncRead;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
@@ -285,12 +305,17 @@ mod tests {
         let reference = reference(futures::io::Cursor::new(car));
         let car_backed = CarBackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
 
-        assert_eq!(car_backed.index.len(), 1222);
-        assert_eq!(car_backed.roots.len(), 1);
+        assert_eq!(car_backed.inner.lock().index.len(), 1222);
+        assert_eq!(car_backed.inner.lock().roots.len(), 1);
 
-        for cid in car_backed.index.keys() {
-            let expected = reference.get(cid).unwrap().unwrap();
-            let actual = car_backed.get(cid).unwrap().unwrap();
+        let cids = {
+            let holding_lock = car_backed.inner.lock();
+            holding_lock.index.keys().cloned().collect::<Vec<_>>()
+        };
+
+        for cid in cids {
+            let expected = reference.get(&cid).unwrap().unwrap();
+            let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
         }
     }
