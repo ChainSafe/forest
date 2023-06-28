@@ -1,68 +1,87 @@
 # Basic Usage
 
-## Build
+## Installation with pre-built binaries
+
+To install Forest from pre-compiled binaries, please refer to the
+[releases page](https://github.com/ChainSafe/forest/releases) or consider using
+Forest Docker image (explained in detail [here](docker.md)).
+
+## Installation from source
 
 ### Dependencies
 
-- Rust `rustc >= 1.58.1`
-- Rust WASM target `wasm32-unknown-unknown`
-
-```shell
-rustup install stable
-rustup target add wasm32-unknown-unknown
-```
-
+- Rust - install via [rustup](https://rustup.rs/)
 - OS Base-Devel/Build-Essential
+- CMake
 - Clang compiler
 - OpenCL bindings
 
+For Ubuntu, you can install the dependencies (excluding Rust) with:
+
 ```shell
-# Ubuntu
-sudo apt install build-essential clang
-
-# Archlinux
-sudo pacman -S base-devel clang
+sudo apt install build-essential clang cmake
 ```
 
-### Commands
+### Optional runtime dependencies
 
-```bash
-make release
+[aria2](https://aria2.github.io/) is an alternate backend for downloading the
+snapshots. It is significantly faster than the in-built Forest downloader.
+
+```shell
+sudo apt install aria2
 ```
 
-## Forest Import Snapshot Mode
+### Compilation & installation
 
-Before running `forest` in the normal mode you must seed the database with the
-Filecoin state tree from the latest snapshot. To do that, we will download the
-latest snapshot provided by Protocol Labs and start `forest` using the
-`--import-snapshot` flag. After the snapshot has been successfully imported, you
-can start `forest` without the `--import-snapshot` flag.
+#### From crates.io (latest release)
 
-### Commands
-
-Download the latest snapshot provided by Protocol Labs:
-
-```bash
-curl -sI https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car | perl -ne '/x-amz-website-redirect-location:\s(.+)\.car/ && print "$1.sha256sum\n$1.car"' | xargs wget
+```shell
+cargo install forest-filecoin
 ```
 
-If desired, you can check the checksum using the instructions
-[here](https://lotus.filecoin.io/docs/set-up/chain-management/#lightweight-snapshot).
+#### From repository (latest development branch)
 
-Import the snapshot using `forest`:
-
-```bash
-forest --target-peer-count 50 --encrypt-keystore false --import-snapshot /path/to/snapshot/file
+```shell
+# Clone the Forest repository
+git clone --depth 1 https://github.com/ChainSafe/forest.git && cd forest
+make install
 ```
 
-## Forest Synchronization Mode
+Both approaches will compile and install `forest` and `forest-cli` to
+`~/.cargo/bin`. Make sure you have it in your `PATH`.
 
-### Commands
+## Verifying the installation
+
+Ensure that Forest was correctly installed.
+
+```shell
+forest --version
+# forest-filecoin 0.10.0+git.2eaeb9fee
+```
+
+## Synchronize to the Filecoin network
+
+Start the `forest` node. It will automatically connect to the bootstrap peers
+and start syncing the chain after the snapshot is downloaded. If it is your
+first time running the node, it will take a while to download the snapshot. Note
+that you will need at least 8GB of RAM to sync the mainnet chain, and over 100
+GB of free disk space.
 
 #### Mainnet
 
-Start the `forest` node:
+```shell
+forest
+```
 
-```bash
-forest --target-peer-count 50 --encrypt-keystore false
+#### Calibnet
+
+```shell
+forest --chain calibnet
+```
+
+In another shell, you can invoke commands on the running node using
+`forest-cli`. For example, to check the synchronization status:
+
+```shell
+forest-cli sync status
 ```
