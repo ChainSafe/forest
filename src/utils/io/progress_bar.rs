@@ -8,15 +8,6 @@ use parking_lot::{Mutex, RwLock};
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
 
-/// A simple progress bar style for downloading files
-pub fn downloading_style() -> indicatif::ProgressStyle {
-    indicatif::ProgressStyle::with_template(
-        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
-    )
-    .expect("invalid progress template")
-    .progress_chars("=>-")
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
@@ -86,14 +77,6 @@ impl ProgressBar {
     pub fn set_total(&self, i: u64) {
         if self.display {
             self.inner.lock().total = i;
-        }
-    }
-
-    pub fn add(&self, i: u64) -> u64 {
-        if self.display {
-            self.inner.lock().add(i)
-        } else {
-            0
         }
     }
 
