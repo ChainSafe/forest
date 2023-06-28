@@ -258,7 +258,7 @@ impl Sub<TokenAmount> for &TokenAmount {
 
 #[cfg(test)]
 mod tests {
-    use static_assertions::{const_assert_eq};
+    use static_assertions::const_assert_eq;
 
     #[test]
     fn shim_of_const_block_gas_limit() {
