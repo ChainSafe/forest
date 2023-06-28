@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 //! It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
 //!
 //! This module provides an implementer of [`Blockstore`] that simply wraps a [CAR file](https://ipld.io/specs/transport/car/carv1).
@@ -10,9 +11,11 @@
 //!
 //! When a block is requested [`CarBackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
 //!
-//! Writes are currently cached in-memory.
+//! Writes for new data (which doesn't exist in the CAR already) are currently cached in-memory.
 //!
-//! Performance is pathological with random access.
+//! Random-access performance is expected to be poor, as the OS will have to load separate parts of the file from disk, and flush it for each read.
+//! However, (near) linear access should be pretty good, as file chunks will be pre-fetched.
+//! See also the remarks below about block ordering.
 //!
 //! # CAR Layout and seeking
 //!
@@ -49,13 +52,19 @@
 //! │  frame...    │
 //! ```
 //!
+//! ## Block ordering
+//! > _... a filecoin-deterministic car-file is currently implementation-defined as containing all DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting from a single root._
+//!
+//! - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
+//!
 //! # Future work
 //! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the file, to improve random access performance.
 //! - Use an inner [`Blockstore`] for writes.
 //! - Support compressed snapshots.
 //!   Note that [`zstd`](https://github.com/facebook/zstd/blob/e4aeaebc201ba49fec50b087aeb15343c63712e5/doc/zstd_compression_format.md#zstandard-frames) archives are also composed of frames.
 //!   Snapshots typically comprise of a single frame, but that would require decompressing all preceding data, precluding random access.
-//!   So compressed snapshot support would require per-frame compression.
+//!   So compressed snapshot support would compression per-frame, or maybe per block of frames.
+//! - Support multiple files by concatenating them.
 
 use ahash::AHashMap;
 use cid::Cid;
@@ -68,7 +77,7 @@ use std::io::{
     ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
     Read, Seek, SeekFrom,
 };
-use tracing::debug;
+use tracing::{debug, trace};
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
 /// you should get the concatenation of a [`Cid`] and its corresponding data.
@@ -139,11 +148,11 @@ where
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         match (self.index.get(k), self.write_cache.lock().entry(*k)) {
             (Some(_location), Occupied(cached)) => {
-                debug!("evicting from write cache");
+                trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
             (Some(BlockLocation { offset, length }), Vacant(_)) => {
-                debug!("fetching from disk");
+                trace!("fetching from disk");
                 let mut reader = self.reader.lock();
                 reader.seek(SeekFrom::Start(*offset))?;
                 let cid = Cid::read_bytes(&mut *reader)?;
@@ -155,29 +164,39 @@ where
                 Ok(Some(data))
             }
             (None, Occupied(cached)) => {
-                debug!("getting from write cache");
+                trace!("getting from write cache");
                 Ok(Some(cached.get().clone()))
             }
             (None, Vacant(_)) => {
-                debug!("not found");
+                trace!("not found");
                 Ok(None)
             }
         }
     }
 
     /// # Panics
-    /// See [`Self::new`].
-    #[tracing::instrument(skip(self, block))]
+    /// - If the write cache contains different data with this CID
+    /// - See also [`Self::new`].
+    // #[tracing::instrument(skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        match self.write_cache.lock().entry(*k) {
-            Occupied(already) if already.get() == block => {
-                debug!("already in cache");
+        match (self.index.get(k), self.write_cache.lock().entry(*k)) {
+            (Some(_), Occupied(_)) => {
+                unreachable!("we never put a CID in the write cache if it exists on disk")
+            }
+            (None, Occupied(already)) => match already.get() == block {
+                true => {
+                    trace!("already in cache");
+                    Ok(())
+                }
+                false => panic!("mismatched content on second write for CID {k}"),
+            },
+            (None, Vacant(vacant)) => {
+                trace!(bytes = block.len(), "insert into cache");
+                vacant.insert(block.to_owned());
                 Ok(())
             }
-            Occupied(_) => panic!("mismatched data for cid {}", k),
-            Vacant(vacant) => {
-                debug!(bytes = block.len(), "insert into cache");
-                vacant.insert(block.to_owned());
+            (Some(_), Vacant(_)) => {
+                trace!("already on disk");
                 Ok(())
             }
         }
@@ -208,9 +227,9 @@ fn read_block(reader: &mut (impl BufRead + Seek)) -> Option<cid::Result<(Cid, Bl
     match reader.fill_buf() {
         Ok(buf) if buf.is_empty() => None, // EOF
         Ok(_nonempty) => match (
-            read_usize(reader),
-            reader.stream_position(),
-            Cid::read_bytes(&mut *reader),
+            read_usize(reader),            // read the block length
+            reader.stream_position(),      // get the stream position at the start of the block body
+            Cid::read_bytes(&mut *reader), // read a CID
         ) {
             (Ok(length), Ok(offset), Ok(cid)) => {
                 let next_block_offset = offset + u64::try_from(length).unwrap();
@@ -219,6 +238,7 @@ fn read_block(reader: &mut (impl BufRead + Seek)) -> Option<cid::Result<(Cid, Bl
                 }
                 Some(Ok((cid, BlockLocation { offset, length })))
             }
+            // bubble any errors up
             (Err(e), _, _) | (_, Err(e), _) => Some(Err(cid::Error::Io(e))),
             (_, _, Err(e)) => Some(Err(e)),
         },
