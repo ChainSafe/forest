@@ -87,19 +87,6 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// `Hash` and `Eq` on the borrowed form *must* match those for
     /// the key type.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use ipld_hamt::Hamt;
-    ///
-    /// let store = db::MemoryDB::default();
-    ///
-    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
-    /// map.set(1, "a".to_string()).unwrap();
-    /// assert_eq!(map.get(&1).unwrap(), Some(&"a".to_string()));
-    /// assert_eq!(map.get(&2).unwrap(), None);
-    /// ```
     #[inline]
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Error>
     where
