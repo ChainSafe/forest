@@ -26,7 +26,7 @@ impl Selector {
         callback: F,
     ) -> Result<(), Error>
     where
-        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
+        F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
         L: LinkResolver + Sync + Send,
     {
         Progress {
@@ -51,24 +51,9 @@ impl Selector {
         F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
         L: LinkResolver + Sync + Send,
     {
-        self.walk_all(ipld, resolver, |prog, ipld, reason| -> Result<(), String> {
-            match reason {
-                VisitReason::SelectionMatch => callback(prog, ipld),
-                VisitReason::SelectionCandidate => Ok(()),
-            }
-        })
-        .await
+        self.walk_all(ipld, resolver, |prog, ipld| callback(prog, ipld))
+            .await
     }
-}
-
-/// Provides reason for callback in traversal for `walk_all`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(unused)] // https://github.com/ChainSafe/forest/issues/3031
-pub enum VisitReason {
-    /// IPLD node visited was a specific match.
-    SelectionMatch,
-    /// IPLD node was visited while searching for matches.
-    SelectionCandidate,
 }
 
 #[async_trait]
@@ -125,7 +110,7 @@ where
         callback: &F,
     ) -> Result<(), Error>
     where
-        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
+        F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
     {
         // Resolve any links transparently before traversing
         if let Ipld::Link(cid) = ipld {
@@ -148,12 +133,7 @@ where
             return Ok(());
         }
 
-        let reason = if selector.decide() {
-            VisitReason::SelectionMatch
-        } else {
-            VisitReason::SelectionCandidate
-        };
-        callback(self, ipld, reason).map_err(Error::Custom)?;
+        callback(self, ipld).map_err(Error::Custom)?;
 
         // If Ipld is list or map, continue traversal, otherwise return
         match ipld {
@@ -207,7 +187,7 @@ where
         v: &Ipld,
     ) -> Result<(), Error>
     where
-        F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
+        F: Fn(&Progress<L>, &Ipld) -> Result<(), String> + Sync,
     {
         if let Some(next_selector) = selector.explore(ipld, ps) {
             let prev = self.path.clone();
