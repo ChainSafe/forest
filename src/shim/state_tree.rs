@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use cid::Cid;
 use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
@@ -127,14 +127,14 @@ where
         match self {
             StateTree::V2(st) => Ok(st
                 .get_actor(&addr.into())
-                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .map_err(|e| anyhow!("{e}"))?
                 .map(Into::into)),
             StateTree::V3(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
                     Ok(st
                         .get_actor(id)
-                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .map_err(|e| anyhow!("{e}"))?
                         .map(Into::into))
                 } else {
                     Ok(None)
@@ -145,7 +145,7 @@ where
                 if let Some(id) = id {
                     Ok(st
                         .get_actor(&id)
-                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .map_err(|e| anyhow!("{e}"))?
                         .map(Into::into))
                 } else {
                     Ok(None)
@@ -166,9 +166,7 @@ where
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<ActorID>> {
         match self {
-            StateTree::V2(st) => st
-                .lookup_id(&addr.into())
-                .map_err(|e| anyhow::anyhow!("{e}")),
+            StateTree::V2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
             StateTree::V3(st) => Ok(st.lookup_id(&addr.into())?),
             _ => todo!(),
         }
@@ -198,7 +196,7 @@ where
     /// Flush state tree and return Cid root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         match self {
-            StateTree::V2(st) => st.flush().map_err(|e| anyhow::anyhow!("{e}")),
+            StateTree::V2(st) => st.flush().map_err(|e| anyhow!("{e}")),
             StateTree::V3(st) => Ok(st.flush()?),
             _ => todo!(),
         }
@@ -209,7 +207,7 @@ where
         match self {
             StateTree::V2(st) => st
                 .set_actor(&addr.into(), actor.into())
-                .map_err(|e| anyhow::anyhow!("{e}")),
+                .map_err(|e| anyhow!("{e}")),
             StateTree::V3(st) => {
                 let id = st
                     .lookup_id(&addr.into())?

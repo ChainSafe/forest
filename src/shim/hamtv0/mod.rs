@@ -31,8 +31,6 @@ pub use self::hash_algorithm::*;
 pub use forest_hash_utils::{BytesKey, Hash};
 use serde::{Deserialize, Serialize};
 
-// const MAX_ARRAY_WIDTH: usize = 3;
-
 /// Default bit width for indexing a hash at each depth level
 pub const DEFAULT_BIT_WIDTH: u32 = 5;
 

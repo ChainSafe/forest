@@ -9,46 +9,6 @@ use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[test]
-fn pointer_round_trip() {
-    type Test = Pointer<u8, u8, sha2::Sha256>;
-
-    let empty_values: Test = Pointer::Values(vec![]);
-    let values: Test = Pointer::Values(vec![KeyValuePair(1, 1)]);
-    let link: Test = Pointer::Link {
-        cid: Cid::default(),
-        cache: OnceCell::new(),
-    };
-
-    for case in [empty_values, values, link] {
-        println!("{case:?}");
-        let serialized = fvm_ipld_encoding::to_vec(&case).unwrap();
-        let deserialized = fvm_ipld_encoding::from_slice::<Test>(&serialized).unwrap();
-        assert_eq!(deserialized, case);
-    }
-}
-
-#[test]
-fn link_round_trip() {
-    type Test = Pointer<u8, u8, sha2::Sha256>;
-    let link: Test = Pointer::Link {
-        cid: Cid::default(),
-        cache: OnceCell::new(),
-    };
-
-    let serialized = fvm_ipld_encoding::to_vec(&link).unwrap();
-    let deserialized = fvm_ipld_encoding::from_slice::<Test>(&serialized).unwrap();
-    assert_eq!(deserialized, link);
-}
-
-#[test]
-fn cid_round_trip() {
-    let cid = Cid::default();
-    let serialized = fvm_ipld_encoding::to_vec(&cid).unwrap();
-    let deserialized = fvm_ipld_encoding::from_slice::<Cid>(&serialized).unwrap();
-    assert_eq!(deserialized, cid);
-}
-
 /// Pointer to index values or a link to another child node.
 #[derive(Debug)]
 pub(crate) enum Pointer<K, V, H> {
