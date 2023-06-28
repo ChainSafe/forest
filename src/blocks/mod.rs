@@ -11,7 +11,6 @@ pub mod ticket;
 pub mod tipset;
 
 pub use block::*;
-use cid::Cid;
 pub use election_proof::ElectionProof;
 pub use errors::*;
 pub use gossip_block::GossipBlock;
@@ -19,12 +18,14 @@ pub use header::BlockHeader;
 pub use ticket::Ticket;
 pub use tipset::*;
 
+#[cfg(test)]
 #[derive(Clone)]
-struct ArbitraryCid(Cid);
+struct ArbitraryCid(cid::Cid);
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for ArbitraryCid {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        ArbitraryCid(Cid::new_v1(
+        ArbitraryCid(cid::Cid::new_v1(
             u64::arbitrary(g),
             cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
         ))

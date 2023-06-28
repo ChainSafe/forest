@@ -333,6 +333,7 @@ impl From<&ActorState> for ActorStateV2 {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for ActorState {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         ActorState(ActorStateV3::arbitrary(g))
