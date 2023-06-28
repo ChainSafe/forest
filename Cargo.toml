@@ -15,6 +15,7 @@ argon2 = "0.5"
 async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"] }
 async-fs = "1"
 async-recursion = "1.0"
+async-stream = "0.3"
 async-trait = "0.1"
 atty = "0.2"
 axum = { version = "0.6", features = ['ws'] }

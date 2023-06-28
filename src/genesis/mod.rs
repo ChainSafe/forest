@@ -5,18 +5,21 @@ use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
-use crate::utils::db::BlockstoreBufferedWriteExt;
-
 use crate::utils::net::StreamedContentReader;
 use anyhow::bail;
+use async_stream::try_stream;
 use cid::Cid;
-use futures::AsyncRead;
+use futures::{
+    sink::{drain, SinkExt},
+    AsyncRead, StreamExt,
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use fvm_ipld_encoding::CborStore;
 
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
+use tokio_stream::Stream;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 #[cfg(test)]
@@ -139,7 +142,7 @@ where
 /// header.
 async fn load_and_retrieve_header<DB, R>(
     store: DB,
-    mut reader: R,
+    reader: R,
     skip_load: bool,
 ) -> anyhow::Result<(Vec<Cid>, Option<usize>)>
 where
@@ -147,13 +150,23 @@ where
     R: AsyncRead + Send + Unpin,
 {
     let result = if skip_load {
-        (CarReader::new(&mut reader).await?.header.roots, None)
+        (CarReader::new(reader).await?.header.roots, None)
     } else {
-        let (roots, n_records) = forest_load_car(store, &mut reader).await?;
+        let (roots, n_records) = forest_load_car(store, reader).await?;
         (roots, Some(n_records))
     };
 
     Ok(result)
+}
+
+fn car_stream<R: futures::AsyncRead + Send + Unpin>(
+    mut reader: CarReader<R>,
+) -> impl Stream<Item = anyhow::Result<fvm_ipld_car::Block>> {
+    try_stream! {
+        while let Some(block) = reader.next_block().await? {
+            yield block;
+        }
+    }
 }
 
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<(Vec<Cid>, usize)>
@@ -161,20 +174,27 @@ where
     R: futures::AsyncRead + Send + Unpin,
     DB: Blockstore + Send + Sync + 'static,
 {
-    // 1GB
-    const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
+    let db = Arc::new(store);
 
-    let (tx, rx) = flume::bounded(100);
-    let write_task =
-        tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
-    let mut car_reader = CarReader::new(reader).await?;
+    let car_reader = CarReader::new(reader).await?;
+    let roots = car_reader.header.roots.clone();
     let mut n_records = 0;
-    while let Some(block) = car_reader.next_block().await? {
-        debug!("Importing block: {}", block.cid);
-        n_records += 1;
-        tx.send_async((block.cid, block.data)).await?;
-    }
-    drop(tx);
-    write_task.await??;
-    Ok((car_reader.header.roots, n_records))
+
+    let sink = |block: Vec<fvm_ipld_car::Block>| {
+        let db = Arc::clone(&db);
+        async {
+            tokio::task::spawn_blocking(move || {
+                db.put_many_keyed(block.into_iter().map(|block| (block.cid, block.data)))
+            }).await?
+        }
+    };
+
+    car_stream(car_reader)
+        .inspect(|_| n_records += 1)
+        .chunks(1_000)
+        .map(|vec| vec.into_iter().collect::<anyhow::Result<Vec<_>>>())
+        .forward(drain().with(sink).buffer(3))
+        .await?;
+
+    Ok((roots, n_records))
 }
