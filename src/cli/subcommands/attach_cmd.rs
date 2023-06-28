@@ -22,7 +22,6 @@ use boa_engine::{
 };
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
-use fvm_shared::METHOD_SEND;
 
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;

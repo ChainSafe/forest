@@ -98,7 +98,7 @@ pub fn valid_for_block_inclusion(
     version: NetworkVersion,
 ) -> Result<(), anyhow::Error> {
     use crate::shim::address::ZERO_ADDRESS;
-    use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
+    use crate::shim::econ::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }

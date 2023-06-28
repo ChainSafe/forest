@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
-use std::ops::{Deref, DerefMut};
 
 use fvm_ipld_encoding::de::Deserializer;
 use fvm_ipld_encoding::ser::Serializer;
