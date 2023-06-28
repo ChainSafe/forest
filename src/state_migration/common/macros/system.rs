@@ -44,16 +44,16 @@ macro_rules! impl_system {
                     &self,
                     store: BS,
                     _input: ActorMigrationInput,
-                ) -> anyhow::Result<ActorMigrationOutput> {
+                ) -> anyhow::Result<Option<ActorMigrationOutput>> {
                     let state = super::SystemStateNew {
                         builtin_actors: self.new_builtin_actors_cid,
                     };
                     let new_head = store.put_cbor_default(&state)?;
 
-                    Ok(ActorMigrationOutput {
+                    Ok(Some(ActorMigrationOutput {
                         new_code_cid: self.new_code_cid,
                         new_head,
-                    })
+                    }))
                 }
             }
         }

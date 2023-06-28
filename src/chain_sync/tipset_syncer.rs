@@ -16,7 +16,7 @@ use crate::blocks::{
 };
 use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use crate::libp2p::chain_exchange::TipsetBundle;
-use crate::message::{message::valid_for_block_inclusion, Message as MessageTrait};
+use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
 use crate::shim::{
     address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate,
@@ -1197,12 +1197,6 @@ async fn validate_tipset<DB: Blockstore + Clone + Send + Sync + 'static, C: Cons
             }
         }
     }
-    // Doing flush here creates small sst files at ~20KB
-    // Then we need to manually compact them by calling CompactFiles
-    // which however is not exposed by rocksdb or librocksdb-sys crate::chain_syncs
-    // if let Err(e) = chainstore.db.flush() {
-    //     warn!("Failed to flush db: {e}");
-    // }
     Ok(())
 }
 

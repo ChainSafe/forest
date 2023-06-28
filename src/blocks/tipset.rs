@@ -92,6 +92,7 @@ impl PartialEq for Tipset {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // XXX: Support random generation of tipsets with multiple blocks.

@@ -15,7 +15,7 @@ use super::errors::Error;
 /// Return the public key for a given private key and `SignatureType`
 pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>, Error> {
     match sig_type {
-        SignatureType::BLS => Ok(BlsPrivate::from_bytes(private_key)
+        SignatureType::Bls => Ok(BlsPrivate::from_bytes(private_key)
             .map_err(|err| Error::Other(err.to_string()))?
             .public_key()
             .as_bytes()),
@@ -35,7 +35,7 @@ pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>,
 /// supplied public key
 pub fn new_address(sig_type: SignatureType, public_key: &[u8]) -> Result<Address, Error> {
     match sig_type {
-        SignatureType::BLS => {
+        SignatureType::Bls => {
             let addr = Address::new_bls(public_key).map_err(|err| Error::Other(err.to_string()))?;
             Ok(addr)
         }
@@ -54,7 +54,7 @@ pub fn new_address(sig_type: SignatureType, public_key: &[u8]) -> Result<Address
 /// for that message
 pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<Signature, Error> {
     match sig_type {
-        SignatureType::BLS => {
+        SignatureType::Bls => {
             let priv_key =
                 BlsPrivate::from_bytes(private_key).map_err(|err| Error::Other(err.to_string()))?;
             // this returns a signature from bls-signatures, so we need to convert this to a
@@ -85,7 +85,7 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
 pub fn generate(sig_type: SignatureType) -> Result<Vec<u8>, Error> {
     let rng = &mut OsRng::default();
     match sig_type {
-        SignatureType::BLS => {
+        SignatureType::Bls => {
             let key = BlsPrivate::generate(rng);
             Ok(key.as_bytes())
         }

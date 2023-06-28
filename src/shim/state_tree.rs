@@ -207,6 +207,7 @@ where
 ///
 /// # Examples
 /// ```
+/// # use forest_filecoin::doctest_private::ActorState;
 /// use cid::Cid;
 ///
 /// // Create FVM2 ActorState normally
@@ -218,7 +219,7 @@ where
 /// fvm_shared3::econ::TokenAmount::from_atto(42), 0, None);
 ///
 /// // Create a shim out of fvm2 state, ensure conversions are correct
-/// let state_shim = forest_filecoin::shim::state_tree::ActorState::from(fvm2_actor_state.clone());
+/// let state_shim = ActorState::from(fvm2_actor_state.clone());
 /// assert_eq!(fvm3_actor_state, *state_shim);
 /// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```
@@ -332,12 +333,9 @@ impl From<&ActorState> for ActorStateV2 {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for ActorState {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let cid = Cid::new_v1(
-            u64::arbitrary(g),
-            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-        );
-        ActorState::new(cid, cid, TokenAmount::arbitrary(g), u64::arbitrary(g), None)
+        ActorState(ActorStateV3::arbitrary(g))
     }
 }

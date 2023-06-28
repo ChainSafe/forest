@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod parser;
 pub mod progress_bar;
 mod tempfile;
 mod writer_checksum;
@@ -71,7 +70,7 @@ pub fn read_file_to_string(path: &Path) -> Result<String> {
 /// # Example
 /// ```
 /// use serde::Deserialize;
-/// use forest_filecoin::utils::io::read_toml;
+/// use forest_filecoin::doctest_private::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {

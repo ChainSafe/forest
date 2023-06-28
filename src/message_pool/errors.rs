@@ -21,14 +21,13 @@ pub enum Error {
     SequenceTooLow,
     #[error("Not enough funds to execute transaction")]
     NotEnoughFunds,
+    #[cfg(test)]
     #[error("Invalid to address for message")]
     InvalidToAddr,
     #[error("Invalid from address")]
     InvalidFromAddr,
     #[error("Message with sequence already in mempool")]
     DuplicateSequence,
-    #[error("State inconsistency with message. Try again")]
-    TryAgain,
     #[error("Validation Error: {0}")]
     SoftValidationFailure(String),
     #[error("{0}")]

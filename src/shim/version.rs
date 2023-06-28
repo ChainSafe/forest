@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Examples
 /// ```
-/// let v0 = forest_filecoin::shim::version::NetworkVersion::V0;
+/// # use forest_filecoin::doctest_private::NetworkVersion;
+/// let v0 = NetworkVersion::V0;
 ///
 /// // dereference to convert to FVM3
 /// assert_eq!(fvm_shared3::version::NetworkVersion::V0, *v0);

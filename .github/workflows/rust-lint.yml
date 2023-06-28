@@ -68,6 +68,5 @@ jobs:
       - name: Run dependencies checks
         run: |
           gem install toml-rb --no-document
-          ruby scripts/linters/find_duplicate_deps.rb
           ruby scripts/linters/find_unused_deps.rb
           ruby scripts/linters/find_banned_deps.rb

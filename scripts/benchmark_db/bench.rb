@@ -179,9 +179,9 @@ end
 # Helper function to create assignments for `download_and_move` function.
 def download_and_move_assignments(url)
   filename = url.match(/(\d+_.+)/)[1]
-  checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
+  checksum_url = url.sub('.car.zst', '.sha256sum')
   checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
-  decompressed_filename = filename.sub(/\.car\.zst/, '.car')
+  decompressed_filename = filename.sub('.car.zst', '.car')
   [filename, checksum_url, checksum_filename, decompressed_filename]
 end
 

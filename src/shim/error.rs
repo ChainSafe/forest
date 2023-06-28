@@ -12,11 +12,12 @@ use crate::shim::Inner;
 ///
 /// # Examples
 /// ```
+/// # use forest_filecoin::doctest_private::ExitCode;
 /// let fvm2_success = fvm_shared::error::ExitCode::new(0);
 /// let fvm3_success = fvm_shared3::error::ExitCode::new(0);
 ///
-/// let shim_from_v2 = forest_filecoin::shim::error::ExitCode::from(fvm2_success);
-/// let shim_from_v3 = forest_filecoin::shim::error::ExitCode::from(fvm3_success);
+/// let shim_from_v2 = ExitCode::from(fvm2_success);
+/// let shim_from_v3 = ExitCode::from(fvm3_success);
 ///
 /// assert_eq!(shim_from_v2, shim_from_v3);
 /// assert_eq!(shim_from_v2, fvm2_success.into());
