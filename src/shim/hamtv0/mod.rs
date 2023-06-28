@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 // const MAX_ARRAY_WIDTH: usize = 3;
 
 /// Default bit width for indexing a hash at each depth level
-pub const DEFAULT_BIT_WIDTH: u32 = 8;
+pub const DEFAULT_BIT_WIDTH: u32 = 5;
 
 type HashedKey = [u8; 32];
 
