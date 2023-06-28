@@ -19,11 +19,11 @@ use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use tempfile::TempDir;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use super::*;
 
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
-use crate::utils::net::StreamedContentReader;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -198,9 +198,9 @@ async fn validate(
 
         let (cids, _n_records) = {
             let reader =
-                StreamedContentReader::read(snapshot.as_path().display().to_string().as_str())
+                crate::utils::net::reader(snapshot.as_path().display().to_string().as_str())
                     .await?;
-            forest_load_car(chain_store.blockstore().clone(), reader).await?
+            forest_load_car(chain_store.blockstore().clone(), reader.compat()).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
