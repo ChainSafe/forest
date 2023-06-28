@@ -142,6 +142,7 @@ rayon = "1.5"
 reqwest = { version = "0.11.18", default-features = false, features = [
   "stream",
   "rustls-tls",
+  "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rustyline = "10.1.1"
 semver = "1.0"
