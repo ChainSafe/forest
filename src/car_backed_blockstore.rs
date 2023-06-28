@@ -170,7 +170,7 @@ where
                 trace!("fetching from disk");
                 reader.seek(SeekFrom::Start(*offset))?;
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
-                reader.read_exact(&mut data);
+                reader.read_exact(&mut data)?;
                 Ok(Some(data))
             }
             (None, Occupied(cached)) => {
@@ -190,10 +190,7 @@ where
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         let CarBackedBlockstoreInner {
-            reader,
-            write_cache,
-            index,
-            ..
+            write_cache, index, ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
             (None, Occupied(already)) => match already.get() == block {
@@ -281,7 +278,7 @@ fn read_u32_or_eof(mut reader: impl Read) -> Option<io::Result<u32>> {
     match reader.read(&mut byte) {
         Ok(0) => None,
         Ok(1) => match read_u32(byte.chain(reader)) {
-            Ok(u) => (Some(Ok(u))),
+            Ok(u) => Some(Ok(u)),
             Err(Decode(e)) => Some(Err(io::Error::new(InvalidData, e))),
             Err(Io(e)) => Some(Err(e)),
             Err(other) => Some(Err(io::Error::new(Other, other))),
