@@ -396,7 +396,7 @@ pub mod state_tree_v0 {
         pub balance: TokenAmount,
     }
 
-    /// State tree implementation using hamt. This structure is not threadsafe and should only be used
+    /// State tree implementation using HAMT. This structure is not thread safe and should only be used
     /// in sync contexts.
     pub struct StateTreeV0<S> {
         hamt: Hamt<S, ActorState>,
@@ -412,15 +412,15 @@ pub mod state_tree_v0 {
     #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr)]
     #[repr(u64)]
     pub enum StateTreeVersion {
-        /// Corresponds to actors < v2
+        /// Corresponds to actors < version 2
         V0,
-        /// Corresponds to actors = v2
+        /// Corresponds to actors = version 2
         V1,
-        /// Corresponds to actors = v3
+        /// Corresponds to actors = version 3
         V2,
-        /// Corresponds to actors = v4
+        /// Corresponds to actors = version 4
         V3,
-        /// Corresponds to actors >= v5
+        /// Corresponds to actors >= version 5
         V4,
     }
 
@@ -442,7 +442,7 @@ pub mod state_tree_v0 {
     where
         S: Blockstore,
     {
-        /// Constructor for a hamt state tree given an IPLD store
+        /// Constructor for a HAMT state tree given an IPLD store
         pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
             // Try to load state root, if versioned
             let (version, info, actors) = if let Ok(Some(StateRoot {

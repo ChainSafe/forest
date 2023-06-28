@@ -6,14 +6,14 @@ use forest_hash_utils::Hash;
 use sha2::{Digest, Sha256 as Sha256Hasher};
 use std::hash::Hasher;
 
-/// Algorithm used as the hasher for the Hamt.
+/// Algorithm used as the hasher for the HAMT.
 pub trait HashAlgorithm {
     fn hash<X: ?Sized>(key: &X) -> HashedKey
     where
         X: Hash;
 }
 
-/// Type is needed because the Sha256 hasher does not implement `std::hash::Hasher`
+/// Type is needed because the SHA256 hasher does not implement `std::hash::Hasher`
 #[derive(Default)]
 struct Sha2HasherWrapper(Sha256Hasher);
 
@@ -28,7 +28,7 @@ impl Hasher for Sha2HasherWrapper {
     }
 }
 
-/// Sha256 hashing algorithm used for hashing keys in the Hamt.
+/// Sha256 hashing algorithm used for hashing keys in the HAMT.
 #[derive(Debug)]
 pub enum Sha256 {}
 
@@ -62,7 +62,7 @@ impl Hasher for IdentityHasher {
     }
 }
 
-/// Identity hashing algorithm used for hashing keys in the Hamt. This should only be used
+/// Identity hashing algorithm used for hashing keys in the HAMT. This should only be used
 /// for testing. The hash is just the first 32 bytes of the serialized key.
 #[cfg(feature = "identity")]
 #[derive(Debug)]

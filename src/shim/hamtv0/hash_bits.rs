@@ -6,7 +6,7 @@ use super::error::Error;
 use crate::shim::hamtv0::HashedKey;
 use std::cmp::Ordering;
 
-/// Helper struct which indexes and allows returning bits from a hashed key
+/// Helper which indexes and allows returning bits from a hashed key
 #[derive(Debug, Clone, Copy)]
 pub struct HashBits<'a> {
     b: &'a HashedKey,

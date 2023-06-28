@@ -79,7 +79,7 @@ where
     BS: Blockstore,
     H: HashAlgorithm,
 {
-    /// Lazily instantiate a hamt from this root Cid with a specified bit width.
+    /// Lazily instantiate a HAMT from this root Cid with a specified bit width.
     pub fn load_with_bit_width(cid: &cid::Cid, store: BS, bit_width: u32) -> Result<Self, Error> {
         match store.get_cbor(cid)? {
             Some(root) => Ok(Self {
