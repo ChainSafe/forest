@@ -19,7 +19,7 @@ use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
 use crate::shim::{
-    address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate,
+    address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
@@ -30,7 +30,6 @@ use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
-use fvm_shared3::BLOCK_GAS_LIMIT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -1418,7 +1417,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
     for m in block.bls_msgs() {
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
-            &m.from.into(),
+            &m.from,
             *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
@@ -1469,7 +1468,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
         let sequence: u64 = match account_sequences.get(&msg.from()) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(&msg.from.into())?.ok_or_else(|| {
+                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
                     anyhow::anyhow!(
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )

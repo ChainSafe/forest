@@ -2935,6 +2935,7 @@ dependencies = [
  "similar",
  "slotmap",
  "smart-default",
+ "static_assertions",
  "statrs",
  "stdext",
  "strum",

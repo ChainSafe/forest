@@ -23,7 +23,7 @@ lazy_static! {
     /// Zero address used to avoid allowing it to be used for verification.
     /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
     /// signature verification.
-    pub static ref ZERO_ADDRESS: Address_v3 = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
+    pub static ref ZERO_ADDRESS: Address = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap().into();
 }
 
 static GLOBAL_NETWORK: AtomicU8 = AtomicU8::new(Network::Mainnet as u8);
@@ -98,7 +98,9 @@ impl Drop for NetworkGuard {
 /// parse both versions and discard the prefix. See also [`StrictAddress`].
 ///
 /// For more information, see: <https://spec.filecoin.io/appendix/address/>
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
 #[serde(transparent)]
 pub struct Address(Address_v3);
 
