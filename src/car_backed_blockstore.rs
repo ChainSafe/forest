@@ -76,7 +76,7 @@ use fvm_ipld_car::CarHeader;
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::io::{
-    self,
+    self, BufReader,
     ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
     Read, Seek, SeekFrom,
 };
@@ -118,8 +118,12 @@ where
             )));
         }
 
+        // When indexing, we perform small reads of the length and CID before seeking
+        // A small buffer helps ~5% (n=1)
+        let mut buf_reader = BufReader::with_capacity(128, reader);
+
         // now create the index
-        let index = std::iter::from_fn(|| read_block_location_or_eof(&mut reader).transpose())
+        let index = std::iter::from_fn(|| read_block_location_or_eof(&mut buf_reader).transpose())
             .collect::<Result<AHashMap<_, _>, _>>()?;
         match index.len() {
             0 => {
@@ -133,7 +137,8 @@ where
 
         Ok(Self {
             inner: Mutex::new(CarBackedBlockstoreInner {
-                reader,
+                // discarding the buffer is ok - we only seek within this now
+                reader: buf_reader.into_inner(),
                 index,
                 roots,
                 write_cache: AHashMap::new(),
