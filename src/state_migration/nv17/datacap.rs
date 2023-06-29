@@ -31,18 +31,6 @@ pub(super) struct DataCapPostMigrator {
     pub(super) pending_verified_deal_size: u64,
 }
 
-// pub(super) fn datacap_post_migrator<BS: Blockstore + Clone + Send + Sync>(
-//     new_code_cid: Cid,
-//     verifreg_state: fil_actor_verifreg_state::v8::State,
-//     pending_verified_deal_size: u64,
-// ) -> anyhow::Result<PostMi<BS> + Send + Sync>> {
-//     Ok(Arc::new(DataCapPostMigrator {
-//         new_code_cid,
-//         verifreg_state,
-//         pending_verified_deal_size,
-//     }))
-// }
-
 impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
