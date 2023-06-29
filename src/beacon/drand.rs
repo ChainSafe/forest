@@ -5,7 +5,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
-use crate::utils::net::{https_client, HyperBodyExt};
+use crate::utils::net::global_http_client;
 use ahash::HashMap;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -211,11 +211,12 @@ impl DrandBeacon {
             let remote_chain_info = std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new()?;
                 rt.block_on(async {
-                    let client = https_client();
+                    let client = global_http_client();
                     let remote_chain_info: ChainInfo = client
-                        .get(format!("{server}/info").try_into()?)
+                        .get(format!("{server}/info"))
+                        .send()
                         .await?
-                        .into_body()
+                        .error_for_status()?
                         .json()
                         .await
                         .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -272,15 +273,14 @@ impl Beacon for DrandBeacon {
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
-                let url = format!("{}/public/{}", self.url, round);
-                let client = https_client();
+                let client = global_http_client();
                 let resp: BeaconEntryJson = client
-                    .get(url.try_into()?)
+                    .get(format!("{}/public/{}", self.url, round))
+                    .send()
                     .await?
-                    .into_body()
+                    .error_for_status()?
                     .json()
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                    .await?;
                 Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
         }
