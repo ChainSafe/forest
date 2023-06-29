@@ -4,6 +4,7 @@
 use std::str::FromStr;
 
 use crate::json::cid::vec::CidJsonVec;
+use crate::json::signed_message::json::SignedMessageJson;
 use crate::message::{Message, SignedMessage};
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -47,6 +48,30 @@ fn to_addr(value: &Option<String>) -> anyhow::Result<Option<Address>> {
     Ok(value.as_ref().map(|s| Address::from_str(s)).transpose()?)
 }
 
+fn filter_messages(
+    messages: Vec<SignedMessageJson>,
+    local_addrs: Option<HashSet<Address>>,
+    to: &Option<String>,
+    from: &Option<String>,
+) -> anyhow::Result<Vec<SignedMessageJson>> {
+    let to = to_addr(&to)?;
+    let from = to_addr(&from)?;
+
+    let filtered = messages
+        .into_iter()
+        .filter(|msg| {
+            local_addrs
+                .as_ref()
+                .map(|addrs| addrs.contains(&msg.0.from()))
+                .unwrap_or(true)
+                && to.map(|addr| msg.0.to() == addr).unwrap_or(true)
+                && from.map(|addr| msg.0.from() == addr).unwrap_or(true)
+        })
+        .collect();
+
+    Ok(filtered)
+}
+
 impl MpoolCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
@@ -56,9 +81,6 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let to = to_addr(to)?;
-                let from = to_addr(from)?;
-
                 let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -72,14 +94,8 @@ impl MpoolCommands {
                     None
                 };
 
-                let filtered_messages = messages.iter().filter(|msg| {
-                    local_addrs
-                        .as_ref()
-                        .map(|addrs| addrs.contains(&msg.0.from()))
-                        .unwrap_or(true)
-                        && to.map(|addr| msg.0.to() == addr).unwrap_or(true)
-                        && from.map(|addr| msg.0.from() == addr).unwrap_or(true)
-                });
+                let filtered_messages = filter_messages(messages, local_addrs, to, from)?;
+
                 for msg in filtered_messages {
                     if *cids {
                         println!("{}", msg.0.cid().unwrap());
@@ -119,6 +135,10 @@ impl MpoolCommands {
                     gas_limit: BigInt,
                 }
 
+                let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+
                 let local_addrs = if *local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
@@ -128,16 +148,7 @@ impl MpoolCommands {
                     None
                 };
 
-                let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
-
-                let filtered_messages = messages.iter().filter(|msg| {
-                    local_addrs
-                        .as_ref()
-                        .map(|addrs| addrs.contains(&msg.0.from()))
-                        .unwrap_or(true)
-                });
+                let filtered_messages = filter_messages(messages, local_addrs, &None, &None)?;
 
                 let mut buckets = HashMap::<Address, StatBucket>::default();
                 for msg in filtered_messages {
@@ -228,6 +239,170 @@ impl MpoolCommands {
 
                 Ok(())
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
+    use crate::message::Message;
+    use crate::message_pool::tests::create_smsg;
+    use crate::shim::crypto::SignatureType;
+    use std::borrow::BorrowMut;
+
+    #[test]
+    fn message_filtering_none() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i as u64, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+            .clone()
+            .into_iter()
+            .map(SignedMessageJson::from)
+            .collect();
+
+        // No filtering is set up
+        let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, &None, &None)
+            .unwrap()
+            .into_iter()
+            .map(|m| m.0)
+            .collect();
+
+        assert_eq!(smsg_vec, smsg_filtered);
+    }
+
+    #[test]
+    fn message_filtering_local() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i as u64, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        // Create a message with adresses from an external wallet
+        let ext_keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut ext_wallet = Wallet::new(ext_keystore);
+        let ext_sender = ext_wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let ext_target = ext_wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let msg = create_smsg(
+            &ext_target,
+            &ext_sender,
+            ext_wallet.borrow_mut(),
+            4,
+            1000000,
+            1,
+        );
+        smsg_vec.push(msg);
+
+        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+            .clone()
+            .into_iter()
+            .map(SignedMessageJson::from)
+            .collect();
+        let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap().into_iter());
+
+        // Filter local addresses
+        let smsg_filtered: Vec<SignedMessage> =
+            filter_messages(smsg_json_vec, Some(local_addrs), &None, &None)
+                .unwrap()
+                .into_iter()
+                .map(|m| m.0)
+                .collect();
+
+        for smsg in smsg_filtered.iter() {
+            assert_eq!(smsg.from(), sender);
+        }
+    }
+
+    #[test]
+    fn message_filtering_from() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i as u64, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        // Create a message from a second sender
+        let sender2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let msg = create_smsg(&target, &sender2, wallet.borrow_mut(), 4, 1000000, 1);
+        smsg_vec.push(msg);
+
+        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+            .clone()
+            .into_iter()
+            .map(SignedMessageJson::from)
+            .collect();
+
+        // Filtering messages from sender2
+        let smsg_filtered: Vec<SignedMessage> =
+            filter_messages(smsg_json_vec, None, &None, &Some(sender2.to_string()))
+                .unwrap()
+                .into_iter()
+                .map(|m| m.0)
+                .collect();
+
+        for smsg in smsg_filtered.iter() {
+            assert_eq!(smsg.from(), sender2);
+        }
+    }
+
+    #[test]
+    fn message_filtering_to() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..4 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i as u64, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        // Create a message to a second target
+        let target2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let msg = create_smsg(&target2, &sender, wallet.borrow_mut(), 4, 1000000, 1);
+        smsg_vec.push(msg);
+
+        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+            .clone()
+            .into_iter()
+            .map(SignedMessageJson::from)
+            .collect();
+
+        // Filtering messages to target2
+        let smsg_filtered: Vec<SignedMessage> =
+            filter_messages(smsg_json_vec, None, &Some(target2.to_string()), &None)
+                .unwrap()
+                .into_iter()
+                .map(|m| m.0)
+                .collect();
+
+        for smsg in smsg_filtered.iter() {
+            assert_eq!(smsg.to(), target2);
         }
     }
 }
