@@ -19,10 +19,9 @@ use num_traits::Zero;
 
 use super::util::hamt_addr_key_to_key;
 
-const TOKEN_PRECISION: u64 = 1_000_000_000_000_000_000;
-const DATA_CAP_GRANULARITY: u64 = TOKEN_PRECISION;
+const DATA_CAP_GRANULARITY: u64 = TokenAmount::PRECISION;
 lazy_static::lazy_static! {
-    static ref INFINITE_ALLOWANCE: StoragePowerV2 = StoragePowerV2::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TOKEN_PRECISION;
+    static ref INFINITE_ALLOWANCE: StoragePowerV2 = StoragePowerV2::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TokenAmount::PRECISION;
 }
 
 pub(super) struct DataCapPostMigrator {
