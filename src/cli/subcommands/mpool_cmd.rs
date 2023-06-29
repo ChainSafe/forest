@@ -54,8 +54,8 @@ fn filter_messages(
     to: &Option<String>,
     from: &Option<String>,
 ) -> anyhow::Result<Vec<SignedMessageJson>> {
-    let to = to_addr(&to)?;
-    let from = to_addr(&from)?;
+    let to = to_addr(to)?;
+    let from = to_addr(from)?;
 
     let filtered = messages
         .into_iter()
