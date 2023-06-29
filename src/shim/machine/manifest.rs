@@ -104,7 +104,6 @@ impl Manifest {
         })
     }
 
-    /// Returns actors CID
     pub fn actors_cid(&self) -> Cid {
         self.actors_cid
     }

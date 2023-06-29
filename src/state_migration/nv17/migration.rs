@@ -9,7 +9,7 @@ use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     machine::Manifest,
-    state_tree::{ActorState, StateTree, StateTreeVersion},
+    state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::{anyhow, Context};
 use cid::Cid;
@@ -49,10 +49,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
             .context("Failed to load verifreg actor v8")?;
 
-        let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
-            .get_cbor(&verifreg_actor_v8.state)?
-            .context("Failed to load verifreg state v8")?;
-
         let market_actor_v8 = actors_in
             .get_actor(&fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.into())?
             .context("Failed to load market actor v8")?;
@@ -81,28 +77,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             }
         });
 
-        //https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/top.go#LL176C2-L176C38
+        // https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/builtin/v9/migration/top.go#L178
         self.add_migrator(
             *current_manifest.system_code(),
             system::system_migrator(new_manifest),
-        );
-
-        // Sets empty datacap actor to migrate from
-        let datacap_code = new_manifest.code_by_name(DATACAP_ACTOR_NAME)?;
-        actors_in.set_actor(
-            &fil_actors_shared::v9::builtin::DATACAP_TOKEN_ACTOR_ADDR.into(),
-            ActorState::new_empty(*datacap_code, None),
-        )?;
-        actors_in.flush()?;
-        self.add_migrator(
-            // Use the new code as prior code here, have set an empty actor in `run_migrations` to
-            // migrate from
-            *datacap_code,
-            datacap::datacap_migrator(
-                *datacap_code,
-                verifreg_state_v8,
-                pending_verified_deal_size,
-            )?,
         );
 
         let miner_v8_actor_code = current_manifest.code_by_name(MINER_ACTOR_NAME)?;
@@ -118,8 +96,9 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             )?,
         );
 
+        let verifreg_state_v8_cid = verifreg_actor_v8.state;
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
-            .get_cbor(&verifreg_actor_v8.state)?
+            .get_cbor(&verifreg_state_v8_cid)?
             .context("Failed to load verifreg state v8")?;
         let verifreg_code = *new_manifest.code_by_name(VERIFREG_ACTOR_NAME)?;
         let market_code = *new_manifest.code_by_name(MARKET_ACTOR_NAME)?;
@@ -134,6 +113,17 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             market_actor_v8,
             verifreg_code,
             market_code,
+        }));
+
+        // Note: The `datacap` actor is handled specially in Go code,
+        // by setting up an empty actor to migrate from with a migrator,
+        // while forest uses a post migrator to simplify the logic.
+        self.add_post_migrator(Arc::new(datacap::DataCapPostMigrator {
+            new_code_cid: *new_manifest.code_by_name(DATACAP_ACTOR_NAME)?,
+            verifreg_state: store
+                .get_cbor(&verifreg_state_v8_cid)?
+                .context("Failed to load verifreg state v8")?,
+            pending_verified_deal_size,
         }));
 
         Ok(())

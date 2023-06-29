@@ -347,16 +347,16 @@ fn migrate_from_scratch<'bs, BS: Blockstore>(
 }
 
 fn miner_prev_sectors_in_key(addr: &Address) -> String {
-    format!("prevSectorsIn-{addr}")
+    format!("prev_sectors_in_{addr}")
 }
 
 fn miner_prev_sectors_out_key(addr: &Address) -> String {
-    format!("prevSectorsOut-{addr}")
+    format!("prev_sectors_out_{addr}")
 }
 
 fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
     Ok(format!(
-        "sectorsAmt-{}",
+        "sectors_amt_{}",
         cid.to_string_of_base(Base::Base32Lower)?,
     ))
 }

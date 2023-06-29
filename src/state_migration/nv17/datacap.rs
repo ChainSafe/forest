@@ -4,17 +4,18 @@
 //! This module contains the migration logic for the `NV17` upgrade for the `datacap`
 //! actor.
 
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
+use crate::shim::address::Address;
 use crate::shim::bigint::BigInt;
+use crate::shim::state_tree::{ActorState, StateTree};
 use crate::shim::{bigint::StoragePowerV2, econ::TokenAmount_v2};
+use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use num_traits::Zero;
-
-use super::super::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 
 use super::util::hamt_addr_key_to_key;
 
@@ -24,30 +25,26 @@ lazy_static::lazy_static! {
     static ref INFINITE_ALLOWANCE: StoragePowerV2 = StoragePowerV2::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TOKEN_PRECISION;
 }
 
-pub struct DataCapMigrator {
-    new_code_cid: Cid,
-    verifreg_state: fil_actor_verifreg_state::v8::State,
-    pending_verified_deal_size: u64,
+pub(super) struct DataCapPostMigrator {
+    pub(super) new_code_cid: Cid,
+    pub(super) verifreg_state: fil_actor_verifreg_state::v8::State,
+    pub(super) pending_verified_deal_size: u64,
 }
 
-pub(super) fn datacap_migrator<BS: Blockstore + Clone + Send + Sync>(
-    new_code_cid: Cid,
-    verifreg_state: fil_actor_verifreg_state::v8::State,
-    pending_verified_deal_size: u64,
-) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>> {
-    Ok(Arc::new(DataCapMigrator {
-        new_code_cid,
-        verifreg_state,
-        pending_verified_deal_size,
-    }))
-}
+// pub(super) fn datacap_post_migrator<BS: Blockstore + Clone + Send + Sync>(
+//     new_code_cid: Cid,
+//     verifreg_state: fil_actor_verifreg_state::v8::State,
+//     pending_verified_deal_size: u64,
+// ) -> anyhow::Result<PostMi<BS> + Send + Sync>> {
+//     Ok(Arc::new(DataCapPostMigrator {
+//         new_code_cid,
+//         verifreg_state,
+//         pending_verified_deal_size,
+//     }))
+// }
 
-impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrator {
-    fn migrate_state(
-        &self,
-        store: BS,
-        _input: ActorMigrationInput,
-    ) -> anyhow::Result<Option<ActorMigrationOutput>> {
+impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
+    fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
         let verified_clients = fil_actors_shared::v8::make_map_with_root::<_, BigInt>(
@@ -99,9 +96,19 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DataCapMigrato
 
         let new_head = store.put_cbor_default(&datacap_state)?;
 
-        Ok(Some(ActorMigrationOutput {
-            new_code_cid: self.new_code_cid,
-            new_head,
-        }))
+        actors_out.set_actor(
+            &Address::DATACAP_TOKEN_ACTOR,
+            ActorState::new(
+                self.new_code_cid,
+                new_head,
+                Zero::zero(),
+                0,
+                None, // ActorV4 contains no delegated address
+            ),
+        )
+        // Ok(Some(ActorMigrationOutput {
+        //     new_code_cid: self.new_code_cid,
+        //     new_head,
+        // }))
     }
 }
