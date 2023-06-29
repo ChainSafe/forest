@@ -21,7 +21,7 @@ pub fn global_http_client() -> reqwest::Client {
 
 /// `location` may be:
 /// - a path to a local file
-/// - a url to a web resource
+/// - a URL to a web resource
 /// - compressed
 /// - uncompressed
 ///
