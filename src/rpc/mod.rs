@@ -50,7 +50,7 @@ pub async fn start_rpc<DB, B, S>(
     shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + crate::db::Dump + Clone + Send + Sync + 'static,
     B: Beacon,
     S: Scale + 'static,
 {
@@ -137,6 +137,7 @@ where
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB, B>)
             // DB API
             .with_method(DB_GC, db_api::db_gc::<DB, B>)
+            .with_method(DB_DUMP, db_api::db_dump::<DB, B>)
             // Progress API
             .with_method(GET_PROGRESS, progress_api::get_progress)
             // Node API

@@ -101,6 +101,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // DB API
     access.insert(db_api::DB_GC, Access::Write);
+    access.insert(db_api::DB_DUMP, Access::Read);
 
     // Progress API
     access.insert(progress_api::GET_PROGRESS, Access::Read);
@@ -446,9 +447,30 @@ pub mod net_api {
 
 /// DB API
 pub mod db_api {
+    use serde::{Deserialize, Serialize};
+    use std::path::PathBuf;
+
+    use crate::blocks::tipset_keys_json::TipsetKeysJson;
+    use crate::shim::clock::ChainEpoch;
+
     pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
     pub type DBGCParams = ();
     pub type DBGCResult = ();
+
+    pub const DB_DUMP: &str = "Filecoin.DatabaseDump";
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct DBDumpParams {
+        /// Current HEAD which will be written to the CAR file
+        pub epoch: ChainEpoch,
+        /// HEAD tipset keys to be written to the CAR file
+        /// This is required for the CAR file header.
+        pub tipset_keys: TipsetKeysJson,
+        /// Path to the CAR file to be written
+        pub output_path: PathBuf,
+        /// Whether or not the output CAR file should be ZSTD-compressed
+        pub compression: bool,
+    }
+    pub type DBDumpResult = ();
 }
 
 /// Progress API
@@ -463,6 +485,7 @@ pub mod progress_api {
     pub enum GetProgressType {
         SnapshotExport,
         DatabaseGarbageCollection,
+        DatabaseDump,
     }
 }
 

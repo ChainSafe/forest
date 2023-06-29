@@ -7,8 +7,9 @@ use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {
-    db: ParityDb,
-    _dir: tempfile::TempDir, // kept for cleaning up during Drop
+    db: Option<ParityDb>,
+    config: ParityDbConfig,
+    dir: tempfile::TempDir, // kept for cleaning up during Drop
 }
 
 impl TempParityDB {
@@ -22,9 +23,17 @@ impl TempParityDB {
         let config = ParityDbConfig::default();
 
         TempParityDB {
-            db: ParityDb::open(path, &config).unwrap(),
-            _dir: dir,
+            db: Some(ParityDb::open(path, &config).unwrap()),
+            config,
+            dir,
         }
+    }
+
+    /// This is a hacky way to flush the database to the disk.
+    /// Use with care as it may crash tasks that are using the DB.
+    pub fn force_flush(&mut self) {
+        self.db = None;
+        self.db = Some(ParityDb::open(self.dir.path().join("paritydb"), &self.config).unwrap());
     }
 }
 
@@ -32,6 +41,6 @@ impl Deref for TempParityDB {
     type Target = ParityDb;
 
     fn deref(&self) -> &Self::Target {
-        &self.db
+        self.db.as_ref().unwrap()
     }
 }

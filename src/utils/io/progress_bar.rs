@@ -2,12 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 // JANK(aatifsyed): I don't really understand why this module exists, a lot of
 // the code looks wrong
-use std::{io::Stdout, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    io::Stdout,
+    str::FromStr,
+    sync::{atomic::AtomicU64, Arc},
+    time::Duration,
+};
 
 use is_terminal::IsTerminal;
+
 use parking_lot::{Mutex, RwLock};
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
+
+pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

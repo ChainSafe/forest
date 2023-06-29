@@ -4,14 +4,14 @@
 use std::{
     collections::VecDeque,
     future::Future,
-    sync::{
-        atomic::{self, AtomicU64},
-        Arc,
-    },
+    sync::atomic::{self},
 };
 
-use crate::blocks::{BlockHeader, Tipset};
 use crate::utils::io::progress_log::WithProgressRaw;
+use crate::{
+    blocks::{BlockHeader, Tipset},
+    utils::io::progress_bar::ProgressBarCurrentTotalPair,
+};
 use cid::Cid;
 use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
@@ -93,8 +93,6 @@ where
 
     Ok(())
 }
-
-pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
 lazy_static! {
     pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: ProgressBarCurrentTotalPair = Default::default();

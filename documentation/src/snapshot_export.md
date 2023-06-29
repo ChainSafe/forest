@@ -48,3 +48,13 @@ compressed.
 
 For mainnet, you should expect a file of over 50 GB. For calibnet, you should
 expect a file of around 1-2 GB.
+
+## Dumping the database
+
+Another possible approach of exporting a snapshot is to dump all the IPLD
+entries from the database into a CAR file. Such file is importable by the
+Filecoin nodes but may contain dangling blocks.
+
+```shell
+forest-cli db dump
+```

@@ -48,6 +48,27 @@ pub trait DBStatistics {
     }
 }
 
+#[async_trait::async_trait]
+pub trait Dump {
+    /// Returns the total number of entries from the database that can be exported.
+    /// This is a costly operation and should be used sparingly.
+    fn total_exportable_entries(&self) -> anyhow::Result<u64>;
+
+    /// Returns the current progress of the database dump,
+    /// if it is in progress. Otherwise, returns None.
+    /// The tuple is in form (current, total).
+    //fn get_progress(&self) -> Option<(u64, u64)>;
+
+    /// Writes the exportable entries from the database to the provided writer.
+    async fn write_exportable<W>(
+        &self,
+        writer: W,
+        tipset: &crate::blocks::Tipset,
+    ) -> anyhow::Result<()>
+    where
+        W: futures::AsyncWrite + Send + Unpin + 'static;
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 

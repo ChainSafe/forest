@@ -9,3 +9,10 @@ use crate::rpc_client::call;
 pub async fn db_gc(params: DBGCParams, auth_token: &Option<String>) -> Result<DBGCResult, Error> {
     call(DB_GC, params, auth_token).await
 }
+
+pub async fn db_dump(
+    params: DBDumpParams,
+    auth_token: &Option<String>,
+) -> Result<DBGCResult, Error> {
+    call(DB_DUMP, params, auth_token).await
+}

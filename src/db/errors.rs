@@ -35,3 +35,9 @@ impl From<Error> for String {
         e.to_string()
     }
 }
+
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        Error::Other(e.to_string())
+    }
+}

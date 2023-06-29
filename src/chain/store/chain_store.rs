@@ -123,6 +123,57 @@ where
     }
 }
 
+#[async_trait::async_trait]
+pub trait DBDump {
+    /// Writes the entire database to the given writer as a CAR file. The CAR header
+    /// is initialized with the given tipset as the root.
+    async fn dump_db_as_car<W>(
+        &self,
+        writer: W,
+        tipset: &Tipset,
+        compression: bool,
+    ) -> anyhow::Result<()>
+    where
+        W: futures::AsyncWrite + Send + Unpin + 'static;
+}
+
+#[async_trait::async_trait]
+impl<DB> DBDump for Arc<ChainStore<DB>>
+where
+    DB: crate::db::Dump + Send + Sync,
+{
+    async fn dump_db_as_car<W>(
+        &self,
+        writer: W,
+        tipset: &Tipset,
+        compression: bool,
+    ) -> anyhow::Result<()>
+    where
+        W: futures::AsyncWrite + Send + Unpin + 'static,
+    {
+        let global_pre_time = SystemTime::now();
+        info!("DB dump started");
+
+        let writer = if compression {
+            Either::Left(ZstdEncoder::new(BufWriter::new(writer)))
+        } else {
+            Either::Right(BufWriter::new(writer))
+        };
+
+        self.db.write_exportable(writer, tipset).await?;
+
+        info!(
+            "DB dump finished, took {} seconds",
+            global_pre_time
+                .elapsed()
+                .expect("time cannot go backwards")
+                .as_secs()
+        );
+
+        Ok(())
+    }
+}
+
 impl<DB> ChainStore<DB>
 where
     DB: Blockstore + Send + Sync,

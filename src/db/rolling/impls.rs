@@ -157,6 +157,24 @@ impl FileBackedObject for DbIndex {
     }
 }
 
+#[async_trait::async_trait]
+impl Dump for RollingDB {
+    fn total_exportable_entries(&self) -> anyhow::Result<u64> {
+        Dump::total_exportable_entries(&self.current())
+    }
+
+    async fn write_exportable<W>(
+        &self,
+        writer: W,
+        tipset: &crate::blocks::Tipset,
+    ) -> anyhow::Result<()>
+    where
+        W: futures::AsyncWrite + Send + Unpin + 'static,
+    {
+        Dump::write_exportable(&self.current(), writer, tipset).await
+    }
+}
+
 impl RollingDB {
     pub fn load_or_create(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<Self> {
         if !db_root.exists() {

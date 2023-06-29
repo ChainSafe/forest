@@ -1,18 +1,24 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::blocks::tipset_keys_json::TipsetKeysJson;
+use crate::cli_shared::snapshot;
 use crate::cli_shared::{chain_path, cli::Config};
 use crate::db::db_engine::db_root;
+use crate::rpc_api::db_api::DBDumpParams;
 use crate::rpc_api::progress_api::GetProgressType;
-use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
+use crate::rpc_client::chain_get_name;
+use crate::rpc_client::db_ops::db_dump;
+use crate::rpc_client::{chain_head, db_ops::db_gc, progress_ops::get_progress};
 use crate::utils::io::ProgressBar;
 use chrono::Utc;
 use clap::Subcommand;
 use tracing::error;
 
-use crate::cli::subcommands::{handle_rpc_err, prompt_confirm};
+use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err, prompt_confirm};
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {
@@ -25,6 +31,16 @@ pub enum DBCommands {
         /// Answer yes to all forest-cli yes/no questions without prompting
         #[arg(long)]
         force: bool,
+    },
+    /// Dump the DB into a CAR file.
+    Dump {
+        /// Snapshot output filename or directory. Defaults to
+        /// `./forest_dump_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
+        #[arg(short, default_value = ".", verbatim_doc_comment)]
+        output_path: PathBuf,
+        /// Disable compression for the output CAR file.
+        #[arg(long)]
+        no_compression: bool,
     },
 }
 
@@ -105,6 +121,67 @@ impl DBCommands {
                         Ok(())
                     }
                 }
+            }
+            DBCommands::Dump {
+                output_path,
+                no_compression,
+            } => {
+                println!("Dumping database to CAR file");
+                let chain_head = match chain_head(&config.client.rpc_token).await {
+                    Ok(head) => head.0,
+                    Err(_) => cli_error_and_die("Could not get network head", 1),
+                };
+                let chain_name = chain_get_name((), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                let output_path = if output_path.is_dir() {
+                    output_path.join(snapshot::filename(
+                        "forest_dump",
+                        chain_name,
+                        Utc::now().date_naive(),
+                        chain_head.epoch(),
+                    ))
+                } else {
+                    output_path.to_owned()
+                };
+
+                let bar = ProgressBar::new(0);
+                bar.message("Dumping DB | blocks ");
+                tokio::spawn({
+                    let bar = bar.clone();
+                    async move {
+                        let mut interval =
+                            tokio::time::interval(tokio::time::Duration::from_secs(1));
+                        loop {
+                            interval.tick().await;
+                            if let Ok((progress, total)) =
+                                get_progress((GetProgressType::DatabaseDump,), &None).await
+                            {
+                                if bar.is_finish() {
+                                    break;
+                                }
+                                bar.set_total(total);
+                                bar.set(progress);
+                            }
+                        }
+                    }
+                });
+
+                let params = DBDumpParams {
+                    epoch: chain_head.epoch(),
+                    output_path: output_path.clone(),
+                    tipset_keys: TipsetKeysJson(chain_head.key().clone()),
+                    compression: !no_compression,
+                };
+                db_dump(params, &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+
+                bar.finish_println(&format!(
+                    "DB dump completed. CAR file located at {}",
+                    output_path.display()
+                ));
+                Ok(())
             }
         }
     }

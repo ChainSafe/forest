@@ -27,6 +27,10 @@
 
 ### Breaking
 
+- [#3093](https://github.com/ChainSafe/forest/issues/3093): Implement
+  `forest-cli db dump` which changed the database organisation to use multiple
+  columns. The database will need to be recreated.
+
 ### Added
 
 - [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
