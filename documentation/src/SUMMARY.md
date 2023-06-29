@@ -7,6 +7,7 @@
   - [Command-line interface](./cli.md)
   - [Configuration](./configuration.md)
   - [Docker](./docker.md)
+  - [Snapshot exporting](./snapshot_export.md)
   - [JavaScript Console](./js_console.md)
   - [Troubleshooting](./trouble_shooting.md)
   - [Glossary](./glossary.md)
