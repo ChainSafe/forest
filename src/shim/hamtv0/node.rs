@@ -4,7 +4,8 @@
 use super::bitfield::Bitfield;
 use super::hash_bits::HashBits;
 use super::pointer::Pointer;
-use super::{Error, Hash, HashAlgorithm, KeyValuePair};
+use super::{Error, HashAlgorithm, KeyValuePair};
+use forest_hash_utils::Hash;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use serde::de::DeserializeOwned;

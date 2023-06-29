@@ -28,7 +28,6 @@ pub use self::error::Error;
 pub use self::hamt::Hamt;
 pub use self::hash_algorithm::*;
 
-pub use forest_hash_utils::{BytesKey, Hash};
 use serde::{Deserialize, Serialize};
 
 /// Default bit width for indexing a hash at each depth level
