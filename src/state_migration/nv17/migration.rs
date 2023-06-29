@@ -68,14 +68,14 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let (pending_verified_deals, pending_verified_deal_size) =
             get_pending_verified_deals_and_total_size(&store, &market_state_v8)?;
 
-        current_manifest.builtin_actors().for_each(|(name, code)| {
+        for (name, code) in current_manifest.builtin_actors() {
             if name == MARKET_ACTOR_NAME || name == VERIFREG_ACTOR_NAME {
                 self.add_migrator(*code, Arc::new(DeferredMigrator))
             } else {
-                let new_code = new_manifest.code_by_name(name).unwrap();
+                let new_code = new_manifest.code_by_name(name)?;
                 self.add_migrator(*code, nil_migrator(*new_code));
             }
-        });
+        }
 
         // https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/builtin/v9/migration/top.go#L178
         self.add_migrator(
