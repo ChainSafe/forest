@@ -41,7 +41,7 @@
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`
 - [#3086](https://github.com/ChainSafe/forest/pull/3085):
-  `forest-cli snapshot validate` is faster and uses less disk space, operating 
+  `forest-cli snapshot validate` is faster and uses less disk space, operating
   directly on the snapshot rather than loading through a database.
 
 ### Changed
