@@ -4,28 +4,12 @@
 use super::error::Error;
 use super::hash_algorithm::{HashAlgorithm, Sha256};
 use super::node::Node;
-use cid::Cid;
 use forest_hash_utils::{BytesKey, Hash};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::tuple::*;
-use fvm_ipld_encoding::tuple::{Deserialize_tuple, Serialize_tuple};
 use fvm_ipld_encoding::CborStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::marker::PhantomData;
-
-/// State of all actor implementations.
-#[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct ActorState {
-    /// Link to code for the actor.
-    pub code: Cid,
-    /// Link to the state of the actor.
-    pub state: Cid,
-    /// Sequence of the actor.
-    pub sequence: u64,
-    /// Tokens available to the actor.
-    pub balance: fvm_shared3::econ::TokenAmount,
-}
 
 /// Implementation of the HAMT data structure for IPLD.
 #[derive(Debug)]
