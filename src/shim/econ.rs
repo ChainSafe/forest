@@ -10,6 +10,10 @@ use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+use static_assertions::const_assert_eq;
+
+const_assert_eq!(BLOCK_GAS_LIMIT, fvm_shared::BLOCK_GAS_LIMIT as u64);
+const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared::TOTAL_FILECOIN_BASE);
 
 lazy_static! {
     /// Total Filecoin available to the network.
@@ -253,20 +257,5 @@ impl Sub<TokenAmount> for &TokenAmount {
     type Output = TokenAmount;
     fn sub(self, rhs: TokenAmount) -> Self::Output {
         (&self.0).sub(&rhs.0).into()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use static_assertions::const_assert_eq;
-
-    #[test]
-    fn shim_of_const_block_gas_limit() {
-        const_assert_eq!(super::BLOCK_GAS_LIMIT, fvm_shared::BLOCK_GAS_LIMIT as u64);
-    }
-
-    #[test]
-    fn shim_of_const_total_filecoin_base() {
-        const_assert_eq!(super::TOTAL_FILECOIN_BASE, fvm_shared::TOTAL_FILECOIN_BASE);
     }
 }
