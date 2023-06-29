@@ -119,7 +119,7 @@ where
         }
 
         // now create the index
-        let index = std::iter::from_fn(|| read_block_location_or_eof(&mut reader))
+        let index = std::iter::from_fn(|| read_block_location_or_eof(&mut reader).transpose())
             .collect::<Result<AHashMap<_, _>, _>>()?;
         match index.len() {
             0 => {
@@ -218,42 +218,31 @@ where
 
 #[tracing::instrument(level = "trace", skip_all, ret, err)]
 fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
-    let header_len = read_u32_or_eof(&mut reader).unwrap_or(Err(io::Error::from(UnexpectedEof)))?;
+    let header_len = read_u32_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
     fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
 }
 
-/// The following functions may hit EOF, or return data.
-/// We represent EOF as [`None`].
-///
-/// This macro helps us compose these functions
-macro_rules! ok {
-    ($expr:expr) => {
-        match $expr {
-            Ok(inner) => inner,
-            Err(err) => return Some(Err(err.into())),
-        }
-    };
-}
-
 /// Importantly, we seek _past_ the data, rather than read any in.
 /// This allows us to keep indexing fast.
 ///
-/// Returns [`Option<Result<T>>`] so this function is suitable as a factory for a (fused) `TryStream`
+/// [`Ok(None)`] on EOF
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_location_or_eof(
     mut reader: (impl Read + Seek),
-) -> Option<cid::Result<(Cid, BlockDataLocation)>> {
-    let (frame_body_offset, body_length) = ok!(next_varint_frame(&mut reader)?);
-    let cid = ok!(Cid::read_bytes(&mut reader));
+) -> cid::Result<Option<(Cid, BlockDataLocation)>> {
+    let Some((frame_body_offset, body_length)) = next_varint_frame(&mut reader)? else {
+        return Ok(None)
+    };
+    let cid = Cid::read_bytes(&mut reader)?;
     // tradeoff: we perform a second syscall here instead of in Blockstore::get,
     // and keep BlockDataLocation purely for the blockdata
-    let block_data_offset = ok!(reader.stream_position());
+    let block_data_offset = reader.stream_position()?;
     let next_frame_offset = frame_body_offset + u64::from(body_length);
     let block_data_length = u32::try_from(next_frame_offset - block_data_offset).unwrap();
-    ok!(reader.seek(SeekFrom::Start(next_frame_offset)));
-    Some(Ok((
+    reader.seek(SeekFrom::Start(next_frame_offset))?;
+    Ok(Some((
         cid,
         BlockDataLocation {
             offset: block_data_offset,
@@ -262,29 +251,33 @@ fn read_block_location_or_eof(
     )))
 }
 
-fn next_varint_frame(mut reader: (impl Read + Seek)) -> Option<io::Result<(u64, u32)>> {
-    let body_length = ok!(read_u32_or_eof(&mut reader)?);
-    let frame_body_offset = ok!(reader.stream_position());
-    Some(Ok((frame_body_offset, body_length)))
+fn next_varint_frame(mut reader: (impl Read + Seek)) -> io::Result<Option<(u64, u32)>> {
+    Ok(match read_u32_or_eof(&mut reader)? {
+        Some(body_length) => {
+            let frame_body_offset = reader.stream_position()?;
+            Some((frame_body_offset, body_length))
+        }
+        None => None,
+    })
 }
 
-fn read_u32_or_eof(mut reader: impl Read) -> Option<io::Result<u32>> {
+fn read_u32_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
     use unsigned_varint::io::{
         read_u32,
         ReadError::{Decode, Io},
     };
 
-    let mut byte = [0u8; 1];
-    match reader.read(&mut byte) {
-        Ok(0) => None,
-        Ok(1) => match read_u32(byte.chain(reader)) {
-            Ok(u) => Some(Ok(u)),
-            Err(Decode(e)) => Some(Err(io::Error::new(InvalidData, e))),
-            Err(Io(e)) => Some(Err(e)),
-            Err(other) => Some(Err(io::Error::new(Other, other))),
-        },
-        Ok(_) => unreachable!(),
-        Err(e) => Some(Err(e)),
+    let mut byte = [0u8; 1]; // detect EOF
+    match reader.read(&mut byte)? {
+        0 => Ok(None),
+        1 => read_u32(byte.chain(reader))
+            .map_err(|varint_error| match varint_error {
+                Io(e) => e,
+                Decode(e) => io::Error::new(InvalidData, e),
+                other => io::Error::new(Other, other),
+            })
+            .map(Some),
+        _ => unreachable!(),
     }
 }
 
