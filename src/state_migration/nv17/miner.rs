@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::shim::{address::Address, piece::piece_v2};
+use crate::shim::{address::Address, piece::PieceInfo};
 use crate::utils::db::CborStoreExt;
 use ahash::HashMap;
 use anyhow::Context;
@@ -147,10 +147,7 @@ impl MinerMigrator {
                 // Possible for the proposal to be missing if it's expired (but the deal is still in a precommit that's yet to be cleaned up)
                 // Just continue in this case, the sector is unProveCommitable anyway, will just fail later
                 if let Some(deal) = deal {
-                    pieces.push(piece_v2::PieceInfo {
-                        cid: deal.piece_cid,
-                        size: deal.piece_size,
-                    });
+                    pieces.push(PieceInfo::new(deal.piece_cid,deal.piece_size.into()).into());
                 }
             }
 
