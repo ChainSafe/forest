@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::error::Error as StdError;
-
 use fvm_ipld_encoding::Error as EncodingError;
 use thiserror::Error;
 
@@ -45,12 +43,6 @@ impl From<anyhow::Error> for Error {
 
 impl From<EncodingError> for Error {
     fn from(e: EncodingError) -> Self {
-        Self::Dynamic(anyhow::anyhow!(e))
-    }
-}
-
-impl From<Box<dyn StdError + Send + Sync>> for Error {
-    fn from(e: Box<dyn StdError + Send + Sync>) -> Self {
         Self::Dynamic(anyhow::anyhow!(e))
     }
 }
