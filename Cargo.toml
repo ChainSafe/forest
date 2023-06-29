@@ -183,7 +183,6 @@ zstd-safe = "6.0.5"
 
 # hamtv0 specific deps
 forest_hash_utils = "0.1"
-serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"
@@ -191,6 +190,7 @@ termios = "0.3"
 [dev-dependencies]
 assert_cmd = "2"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
+cs_serde_bytes = "0.12"
 fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["arb"] }
 libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
@@ -198,7 +198,6 @@ multiaddr = "0.17.1"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck = "1"
 quickcheck_macros = "1"
-serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 
 [build-dependencies]
 anyhow = "1"
