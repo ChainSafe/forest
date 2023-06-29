@@ -490,7 +490,7 @@ where
         }
 
         let actor = self
-            .get_actor(&msg.from.into(), *bstate)?
+            .get_actor(&msg.from, *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
         let apply_ret = vm.apply_implicit_message(msg)?;

@@ -155,6 +155,7 @@ shared_memory = "0.12"
 similar = "2.2.1"
 slotmap = "1.0"
 smart-default = "0.7.1"
+static_assertions = "1.1.0"
 statrs = "0.16"
 stdext = { version = "0.3", optional = true }
 strum = { version = "0.24", features = ["derive"] }

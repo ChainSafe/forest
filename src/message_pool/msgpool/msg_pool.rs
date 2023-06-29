@@ -76,11 +76,11 @@ impl MsgSet {
         }
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
-                let premium = TokenAmount::from(&exms.message().gas_premium);
+                let premium = &exms.message().gas_premium;
                 let min_price = premium.clone()
                     + ((premium * RBF_NUM).div_floor(RBF_DENOM))
                     + TokenAmount::from_atto(1u8);
-                if m.message().gas_premium <= min_price.into() {
+                if m.message().gas_premium <= min_price {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
