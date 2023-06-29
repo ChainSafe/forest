@@ -94,9 +94,5 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
                 None, // ActorV4 contains no delegated address
             ),
         )
-        // Ok(Some(ActorMigrationOutput {
-        //     new_code_cid: self.new_code_cid,
-        //     new_head,
-        // }))
     }
 }
