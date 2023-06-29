@@ -37,7 +37,7 @@ popd
 
 
 
-: validate calibnet snapshot
+: validate latest calibnet snapshot
 pushd "$(mktemp --directory)"
     : : fetch a calibnet snapshot
     "$FOREST_CLI_PATH" --chain calibnet snapshot fetch
@@ -45,10 +45,10 @@ pushd "$(mktemp --directory)"
 
     validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed
-    "$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me" --force
+    "$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me"
 
     : : validating under mainnet chain should fail
-    if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me" --force; then
+    if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me"; then
         exit 1
     fi
 rm -- *
