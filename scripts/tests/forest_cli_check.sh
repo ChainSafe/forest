@@ -39,9 +39,13 @@ popd
 
 : validate latest calibnet snapshot
 pushd "$(mktemp --directory)"
-    : : fetch a calibnet snapshot
+    : : fetch a compressed calibnet snapshot
     "$FOREST_CLI_PATH" --chain calibnet snapshot fetch
     test "$(num-files-here)" -eq 1
+    uncompress_me=$(find . -type f | head -1)
+
+    : : decompress it, as validate does not support compressed snapshots
+    zstd --decompress --rm "$uncompress_me"
 
     validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed

@@ -14,7 +14,7 @@ use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::ProgressBar;
-use anyhow::bail;
+use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
 use std::path::PathBuf;
@@ -51,7 +51,7 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Path to snapshot file
+        /// Path to an uncompressed snapshot (CAR)
         snapshot: PathBuf,
     },
 }
@@ -152,7 +152,10 @@ async fn validate(
     recent_stateroots: &i64,
     snapshot: &PathBuf,
 ) -> anyhow::Result<()> {
-    let store = Arc::new(CarBackedBlockstore::new(std::fs::File::open(snapshot)?)?);
+    let store = Arc::new(
+        CarBackedBlockstore::new(std::fs::File::open(snapshot)?)
+            .context("couldn't read input CAR file - is it compressed?")?,
+    );
     let genesis = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
