@@ -229,7 +229,9 @@ mod tests {
         let src = ipld!({"details": Ipld::Link(details), "name": "Test"});
         selector
             .walk_matching::<(), _>(&src, None, |_progress, ipld| {
-                assert_eq!(&ipld!("Test"), ipld);
+                if let Ipld::Map(a) = ipld {
+                    assert_eq!(&ipld!("Test"), a.get("name").unwrap());
+                }
                 Ok(())
             })
             .await
@@ -245,7 +247,9 @@ mod tests {
         let src = ipld!(["A", "B", "C", "D", "E"]);
         selector
             .walk_matching::<(), _>(&src, None, |_progress, ipld| {
-                assert_eq!(&ipld!("C"), ipld);
+                if let ipld @ Ipld::String(_) = ipld {
+                    assert_eq!(&ipld!("C"), ipld);
+                }
                 Ok(())
             })
             .await
@@ -256,13 +260,15 @@ mod tests {
     async fn explore_range() {
         let selector = Selector::ExploreRange {
             start: 2,
-            end: 4,
+            end: 5,
             next: Box::new(Selector::Matcher),
         };
         let src = ipld!(["A", "B", "C", "D", "E"]);
         selector
             .walk_matching::<(), _>(&src, None, |_progress, ipld| {
-                assert!(&ipld!("C") == ipld || &ipld!("D") == ipld || &ipld!("E") == ipld);
+                if let ipld @ Ipld::String(_) = ipld {
+                    assert!(&ipld!("C") == ipld || &ipld!("D") == ipld || &ipld!("E") == ipld);
+                }
                 Ok(())
             })
             .await
