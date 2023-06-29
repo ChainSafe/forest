@@ -46,7 +46,6 @@ struct ExpectVisit {
     node: IpldValue,
     #[serde(with = "last_block_json", default)]
     last_block: Option<LastBlockInfo>,
-    matched: bool,
 }
 
 mod path_json {

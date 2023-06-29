@@ -357,31 +357,6 @@ impl Selector {
         }
     }
 
-    /// Returns true if `matcher`, false otherwise
-    pub fn decide(&self) -> bool {
-        match self {
-            Matcher => true,
-            ExploreUnion(selectors) => {
-                for s in selectors {
-                    if s.decide() {
-                        return true;
-                    }
-                }
-                false
-            }
-            ExploreRecursive {
-                current, sequence, ..
-            } => {
-                if let Some(curr) = current {
-                    curr.decide()
-                } else {
-                    sequence.decide()
-                }
-            }
-            _ => false,
-        }
-    }
-
     fn from_selectors(mut vec: Vec<Self>) -> Option<Self> {
         match vec.len() {
             0 | 1 => vec.pop(),
