@@ -74,8 +74,6 @@ hex = "0.4"
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"
-hyper = { version = "0.14", features = ["client", "stream", "http1"] }
-hyper-rustls = "0.23" # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
 itertools = "0.10.5"
@@ -142,6 +140,7 @@ rayon = "1.5"
 reqwest = { version = "0.11.18", default-features = false, features = [
   "stream",
   "rustls-tls",
+  "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rustyline = "10.1.1"
 semver = "1.0"
