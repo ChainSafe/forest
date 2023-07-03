@@ -6,7 +6,6 @@ use std::{sync::Arc, time};
 use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
 use anyhow::bail;
-use async_stream::try_stream;
 use cid::Cid;
 use futures::{
     sink::{drain, SinkExt},
@@ -159,13 +158,16 @@ where
 }
 
 fn car_stream<R: futures::AsyncRead + Send + Unpin>(
-    mut reader: CarReader<R>,
+    reader: CarReader<R>,
 ) -> impl Stream<Item = anyhow::Result<fvm_ipld_car::Block>> {
-    try_stream! {
-        while let Some(block) = reader.next_block().await? {
-            yield block;
-        }
-    }
+    futures::stream::unfold(reader, |mut reader| async move {
+        reader.next_block().await.transpose().map(|result| {
+            (
+                result.map_err(anyhow::Error::from),
+                reader,
+            )
+        })
+    })
 }
 
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<(Vec<Cid>, usize)>
