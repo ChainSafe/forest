@@ -7,6 +7,7 @@ use crate::json::cid::vec::CidJsonVec;
 use crate::json::signed_message::json::SignedMessageJson;
 use crate::message::{Message, SignedMessage};
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
+use crate::shim::address::StrictAddress;
 use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
@@ -44,8 +45,11 @@ pub enum MpoolCommands {
     },
 }
 
-fn to_addr(value: &Option<String>) -> anyhow::Result<Option<Address>> {
-    Ok(value.as_ref().map(|s| StrictAddress::from_str(s)).transpose()?)
+fn to_addr(value: &Option<String>) -> anyhow::Result<Option<StrictAddress>> {
+    Ok(value
+        .as_ref()
+        .map(|s| StrictAddress::from_str(s))
+        .transpose()?)
 }
 
 fn filter_messages(
@@ -64,8 +68,8 @@ fn filter_messages(
                 .as_ref()
                 .map(|addrs| addrs.contains(&msg.0.from()))
                 .unwrap_or(true)
-                && to.map(|addr| msg.0.to() == addr).unwrap_or(true)
-                && from.map(|addr| msg.0.from() == addr).unwrap_or(true)
+                && to.map(|addr| msg.0.to() == addr.into()).unwrap_or(true)
+                && from.map(|addr| msg.0.from() == addr.into()).unwrap_or(true)
         })
         .collect();
 
@@ -73,7 +77,7 @@ fn filter_messages(
 }
 
 impl MpoolCommands {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Pending {
                 local,
@@ -85,7 +89,7 @@ impl MpoolCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let local_addrs = if *local {
+                let local_addrs = if local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
@@ -94,10 +98,10 @@ impl MpoolCommands {
                     None
                 };
 
-                let filtered_messages = filter_messages(messages, local_addrs, to, from)?;
+                let filtered_messages = filter_messages(messages, local_addrs, &to, &from)?;
 
                 for msg in filtered_messages {
-                    if *cids {
+                    if cids {
                         println!("{}", msg.0.cid().unwrap());
                     } else {
                         println!("{}", serde_json::to_string_pretty(&msg)?);
@@ -117,7 +121,7 @@ impl MpoolCommands {
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
 
                 let atto_str =
-                    chain_get_min_base_fee((*basefee_lookback,), &config.client.rpc_token)
+                    chain_get_min_base_fee((basefee_lookback,), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
@@ -139,7 +143,7 @@ impl MpoolCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let local_addrs = if *local {
+                let local_addrs = if local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
