@@ -103,7 +103,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
             )?;
         }
 
-        let mut empty_map = fil_actors_shared::v9::make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH);
+        let mut empty_map = fil_actors_shared::v9::make_empty_map::<BS, ()>(store, HAMT_BIT_WIDTH);
         let verifreg_state_v9 = fil_actor_verifreg_state::v9::State {
             root_key: self.verifreg_state_v8.root_key,
             verifiers: self.verifreg_state_v8.verifiers,
@@ -117,7 +117,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
 
         // `migrateMarket`
         let mut pending_deal_allocation_id_map =
-            fil_actors_shared::v9::make_empty_map::<_, i64>(store, HAMT_BIT_WIDTH);
+            fil_actors_shared::v9::make_empty_map::<BS, i64>(store, HAMT_BIT_WIDTH);
         for (deal_id, allocation_id) in deal_allocation_tuples {
             pending_deal_allocation_id_map
                 .set(fil_actors_shared::v9::u64_key(deal_id), allocation_id as _)?;
