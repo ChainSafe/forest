@@ -149,7 +149,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
+    let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
@@ -256,12 +256,7 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(
-                    &msg.from.into(),
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }

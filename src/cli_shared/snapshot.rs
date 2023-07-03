@@ -11,12 +11,10 @@ use std::{
 use crate::networks::NetworkChain;
 use anyhow::{anyhow, bail, Context as _};
 use chrono::NaiveDate;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{info, warn};
 use url::Url;
 
 use crate::cli_shared::snapshot::parse::ParsedFilename;
-use crate::utils::net::StreamedContentReader;
 
 /// Who hosts the snapshot on the web?
 /// See [`stable_url`].
@@ -143,13 +141,13 @@ async fn download_http(url: Url, directory: &Path, filename: &str) -> anyhow::Re
     let dst_path = directory.join(filename);
 
     info!(%url, "downloading snapshot");
-    let reader = StreamedContentReader::read(url.as_str()).await?;
+    let mut reader = crate::utils::net::reader(url.as_str()).await?;
 
     let mut dst = tokio::fs::File::create(&dst_path)
         .await
         .context("couldn't create destination file")?;
 
-    tokio::io::copy(&mut reader.compat(), &mut dst)
+    tokio::io::copy(&mut reader, &mut dst)
         .await
         .map(|_| dst_path)
         .context("couldn't download file")

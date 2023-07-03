@@ -11,9 +11,9 @@ use crate::rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
+use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared3::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
@@ -190,7 +190,7 @@ where
     let curr_ts = data.state_manager.chain_store().heaviest_tipset();
     let from_a = data
         .state_manager
-        .resolve_to_key_addr(&msg.from.into(), &curr_ts)
+        .resolve_to_key_addr(&msg.from, &curr_ts)
         .await?;
 
     let pending = data.mpool.pending_for(&from_a);

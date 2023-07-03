@@ -63,8 +63,8 @@ pub mod json {
     {
         JsonHelper {
             version: m.version,
-            to: Address::from(m.to).into(),
-            from: Address::from(m.from).into(),
+            to: m.to.into(),
+            from: m.from.into(),
             sequence: m.sequence,
             value: m.value(),
             gas_limit: m.gas_limit(),

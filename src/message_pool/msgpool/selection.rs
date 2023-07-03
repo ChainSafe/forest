@@ -157,7 +157,7 @@ where
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
+            let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
@@ -495,7 +495,7 @@ where
         ts: &Tipset,
     ) -> Result<(Vec<SignedMessage>, u64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
+        let gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains
@@ -677,12 +677,7 @@ where
                 )?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(
-                    &msg.from.into(),
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
             }
         }
     }

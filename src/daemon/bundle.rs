@@ -5,14 +5,13 @@ use crate::cli_shared::cli::Config;
 use crate::genesis::forest_load_car;
 use crate::networks::Height;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::net::StreamedContentReader;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use tokio::{
     fs::File,
     io::{BufReader, BufWriter},
 };
-use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub async fn load_bundles<DB>(epoch: ChainEpoch, config: &Config, db: DB) -> anyhow::Result<()>
 where
@@ -65,11 +64,11 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
 
     // Otherwise, download it.
     info!("Downloading actors bundle...");
-    let reader = StreamedContentReader::read(bundle_info.url.as_str()).await?;
+    let mut reader = crate::utils::net::reader(bundle_info.url.as_str()).await?;
 
     let file = File::create(&bundle_path).await?;
     let mut writer = BufWriter::new(file);
-    tokio::io::copy(&mut reader.compat(), &mut writer).await?;
+    tokio::io::copy(&mut reader, &mut writer).await?;
 
     let file = tokio::fs::File::open(bundle_path).await?;
     Ok(BufReader::new(file))

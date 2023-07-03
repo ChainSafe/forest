@@ -9,19 +9,15 @@ use std::{
 };
 
 use crate::shim::sector::SectorSize;
+use crate::utils::net::global_http_client;
 use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use futures::TryStreamExt;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
-use tokio::{
-    fs::{self, File},
-    io::BufWriter,
-};
-use tokio_util::compat::FuturesAsyncReadCompatExt;
-
-use crate::utils::net::{https_client, hyper};
+use tap::Pipe as _;
+use tokio::fs::{self, File};
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
@@ -194,28 +190,18 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::E
 }
 
 async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
-    let client = https_client();
-    let req = client.get(url.as_ref().try_into()?);
-    let response = req.await.map_err(|e| anyhow::anyhow!(e))?;
-    anyhow::ensure!(response.status().is_success());
-    let content_len = response
-        .headers()
-        .get("content-length")
-        .and_then(|ct_len| ct_len.to_str().ok())
-        .and_then(|ct_len| ct_len.parse::<u64>().ok())
-        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
-    let map_err: fn(hyper::Error) -> futures::io::Error =
-        |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
-    let mut source = response
-        .into_body()
-        .map_err(map_err)
-        .into_async_read()
-        .compat();
-    let file = File::create(path).await?;
-    let mut writer = BufWriter::new(file);
-    tokio::io::copy(&mut source, &mut writer).await?;
-    let file_metadata = std::fs::metadata(path)?;
-    anyhow::ensure!(file_metadata.len() == content_len);
+    let mut dst = File::create(path).await?;
+
+    let mut src = global_http_client()
+        .get(url.as_ref())
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes_stream()
+        .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
+        .pipe(tokio_util::io::StreamReader::new);
+
+    tokio::io::copy(&mut src, &mut dst).await?;
     Ok(())
 }
 
