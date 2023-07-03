@@ -7,10 +7,7 @@ use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
 use anyhow::bail;
 use cid::Cid;
-use futures::{
-    sink::{drain, SinkExt},
-    stream, AsyncRead, Stream, StreamExt,
-};
+use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use fvm_ipld_encoding::CborStore;
@@ -172,23 +169,22 @@ fn car_stream<R: futures::AsyncRead + Send + Unpin>(
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<(Vec<Cid>, usize)>
 where
     R: futures::AsyncRead + Send + Unpin,
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + Send + 'static,
 {
-    let db = Arc::new(store);
-
     let car_reader = CarReader::new(reader).await?;
     let roots = car_reader.header.roots.clone();
     let mut n_records = 0;
 
-    let sink = |block: Vec<fvm_ipld_car::Block>| {
-        let db = Arc::clone(&db);
-        async {
+    let sink = futures::sink::unfold(
+        store,
+        |store, blocks: Vec<fvm_ipld_car::Block>| async move {
             tokio::task::spawn_blocking(move || {
-                db.put_many_keyed(block.into_iter().map(|block| (block.cid, block.data)))
+                store.put_many_keyed(blocks.into_iter().map(|block| (block.cid, block.data)))?;
+                Ok(store)
             })
             .await?
-        }
-    };
+        },
+    );
 
     // Stream key-value pairs from the CAR file and commit them in chunks of
     // 1000 elements. Try to maintain a buffer of 3 x 1000 elements to avoid
@@ -199,7 +195,7 @@ where
         .inspect(|_| n_records += 1)
         .chunks(1_000)
         .map(|vec| vec.into_iter().collect::<anyhow::Result<Vec<_>>>())
-        .forward(drain().with(sink).buffer(3))
+        .forward(sink.buffer(3))
         .await?;
 
     Ok((roots, n_records))
