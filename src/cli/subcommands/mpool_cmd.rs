@@ -235,11 +235,30 @@ impl MpoolCommands {
                     total.below_past += stat.below_past;
                     total.gas_limit += &stat.gas_limit;
 
-                    println!("{}: Nonce past: {}, cur: {}, future: {}; FeeCap cur: {}, min-{}: {}, gasLimit: {}", stat.address, stat.past, stat.current, stat.future, stat.below_current, basefee_lookback, stat.below_past, stat.gas_limit);
+                    println!(
+                        "{}: Nonce past: {}, cur: {}, future: {}; FeeCap cur: {}, min-{}: {}, gasLimit: {}",
+                        stat.address,
+                        stat.past,
+                        stat.current,
+                        stat.future,
+                        stat.below_current,
+                        basefee_lookback,
+                        stat.below_past,
+                        stat.gas_limit
+                    );
                 }
 
                 println!("-----");
-                println!("total: Nonce past: {}, cur: {}, future: {}; FeeCap cur: {}, min-{}: {}, gasLimit: {}", total.past, total.current, total.future, total.below_current, basefee_lookback, total.below_past, total.gas_limit);
+                println!(
+                    "total: Nonce past: {}, cur: {}, future: {}; FeeCap cur: {}, min-{}: {}, gasLimit: {}",
+                    total.past,
+                    total.current,
+                    total.future,
+                    total.below_current,
+                    basefee_lookback,
+                    total.below_past,
+                    total.gas_limit
+                );
 
                 Ok(())
             }
