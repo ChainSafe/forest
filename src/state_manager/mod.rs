@@ -6,6 +6,7 @@ mod errors;
 mod metrics;
 mod utils;
 use crate::state_migration::run_state_migrations;
+use crate::statediff::print_state_diff;
 use anyhow::{bail, Context as _};
 use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
@@ -1297,6 +1298,16 @@ where
                             ?actual_receipt,
                             "state mismatch"
                         );
+
+                        if let Err(err) = print_state_diff(
+                            self.blockstore(),
+                            &actual_state,
+                            expected_state,
+                            Some(1), // To not make the log too verbose
+                        ) {
+                            warn!("Failed to print state diff: {err}");
+                        }
+
                         bail!("state mismatch");
                     }
                 }
