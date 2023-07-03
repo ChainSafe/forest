@@ -9,7 +9,7 @@ use std::str::FromStr;
 use crate::shim::address::Address;
 use crate::shim::bigint::BigInt;
 use crate::shim::state_tree::{ActorState, StateTree};
-use crate::shim::{sector::StoragePower, econ::TokenAmount};
+use crate::shim::{econ::TokenAmount, sector::StoragePower};
 use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
@@ -21,7 +21,7 @@ use super::util::hamt_addr_key_to_key;
 
 const DATA_CAP_GRANULARITY: u64 = TokenAmount::PRECISION;
 lazy_static::lazy_static! {
-    static ref INFINITE_ALLOWANCE: StoragePowerV2 = StoragePowerV2::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TokenAmount::PRECISION;
+    static ref INFINITE_ALLOWANCE: StoragePower = StoragePower::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TokenAmount::PRECISION;
 }
 
 pub(super) struct DataCapPostMigrator {
@@ -63,7 +63,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
         })?;
 
         let verifreg_balance =
-            StoragePowerV2::from(self.pending_verified_deal_size) * DATA_CAP_GRANULARITY;
+            StoragePower::from(self.pending_verified_deal_size) * DATA_CAP_GRANULARITY;
         token_supply = &token_supply + &verifreg_balance;
         balances_map.set(
             BytesKey(fil_actors_shared::v9::builtin::VERIFIED_REGISTRY_ACTOR_ADDR.payload_bytes()),

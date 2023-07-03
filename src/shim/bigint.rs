@@ -3,12 +3,8 @@
 
 use std::ops::{Deref, DerefMut};
 
-pub use fvm_shared::sector::StoragePower as StoragePowerV2;
+pub use fvm_shared3::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use fvm_shared3::bigint::{bigint_ser, BigInt as BigInt_v3};
-pub use fvm_shared3::{
-    bigint::bigint_ser::{BigIntDe, BigIntSer},
-    sector::StoragePower as StoragePowerV3,
-};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

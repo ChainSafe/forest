@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ops::Deref;
-
+use crate::shim::{version::NetworkVersion, Inner};
 use fvm_shared::sector::{
     RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
     SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
@@ -12,8 +11,9 @@ use fvm_shared3::sector::{
     RegisteredSealProof as RegisteredSealProofV3, SectorInfo as SectorInfoV3,
     SectorSize as SectorSizeV3,
 };
+use std::ops::Deref;
 
-use crate::shim::{version::NetworkVersion, Inner};
+pub use fvm_shared3::sector::StoragePower;
 
 pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 
