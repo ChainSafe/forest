@@ -7,7 +7,7 @@ set -e
 # migration logic without connecting to the real Filecoin network.
 
 FOREST_PATH="forest"
-MIGRATION_TEST="$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot"
+MIGRATION_TEST="$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --no-gc --import-snapshot"
 
 # NV17 - Shark, uncomment when we support the nv17 migration
 echo NV17 - Shark
