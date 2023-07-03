@@ -5,7 +5,6 @@ use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
-use crate::utils::net::StreamedContentReader;
 use anyhow::bail;
 use async_stream::try_stream;
 use cid::Cid;
@@ -99,10 +98,10 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let reader = StreamedContentReader::read(path).await?;
+    let reader = crate::utils::net::reader(path).await?;
 
     let (cids, n_records) =
-        load_and_retrieve_header(sm.blockstore().clone(), reader, skip_load).await?;
+        load_and_retrieve_header(sm.blockstore().clone(), reader.compat(), skip_load).await?;
 
     info!(
         "Loaded {} records from .car file in {}s",

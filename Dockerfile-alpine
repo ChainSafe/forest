@@ -21,7 +21,7 @@ FROM alpine:3 AS build-env
 
 # Install dependencies
 RUN apk update && \
-    apk add --no-cache git curl make cmake gcc clang clang-dev musl-dev
+    apk add --no-cache git curl make gcc clang clang-dev musl-dev
 
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

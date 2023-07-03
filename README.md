@@ -70,7 +70,7 @@ sudo make install-deps
 or
 
 ```
-sudo apt install build-essential clang cmake
+sudo apt install build-essential clang
 ```
 
 ### Archlinux
@@ -82,13 +82,13 @@ sudo pacman -S base-devel clang
 ### Fedora (36)
 
 ```
-sudo dnf install -y clang-devel cmake
+sudo dnf install -y clang-devel
 ```
 
 ### Alpine
 
 ```
-apk add git curl make cmake gcc clang clang-dev musl-dev
+apk add git curl make gcc clang clang-dev musl-dev
 ```
 
 ## Installation

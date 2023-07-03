@@ -46,16 +46,16 @@ pub trait Message {
 
 impl Message for ShimMessage {
     fn from(&self) -> Address {
-        Address::from(self.from)
+        self.from
     }
     fn to(&self) -> Address {
-        Address::from(self.to)
+        self.to
     }
     fn sequence(&self) -> u64 {
         self.sequence
     }
     fn value(&self) -> TokenAmount {
-        TokenAmount::from(&self.value)
+        self.value.clone()
     }
     fn method_num(&self) -> MethodNum {
         self.method_num
@@ -73,21 +73,21 @@ impl Message for ShimMessage {
         self.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        TokenAmount::from(&self.gas_fee_cap * self.gas_limit + &self.value)
+        &self.gas_fee_cap * self.gas_limit + &self.value
     }
     fn gas_fee_cap(&self) -> TokenAmount {
-        TokenAmount::from(&self.gas_fee_cap)
+        self.gas_fee_cap.clone()
     }
     fn gas_premium(&self) -> TokenAmount {
-        TokenAmount::from(&self.gas_premium)
+        self.gas_premium.clone()
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.gas_fee_cap = cap.into();
+        self.gas_fee_cap = cap;
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.gas_premium = prem.into();
+        self.gas_premium = prem;
     }
 }
 
@@ -98,7 +98,7 @@ pub fn valid_for_block_inclusion(
     version: NetworkVersion,
 ) -> Result<(), anyhow::Error> {
     use crate::shim::address::ZERO_ADDRESS;
-    use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
+    use crate::shim::econ::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }
