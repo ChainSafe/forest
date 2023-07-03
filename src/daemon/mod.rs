@@ -422,7 +422,11 @@ pub(super) async fn start(
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
         // We've been provided a snapshot and asked to validate it
         ensure_params_downloaded().await?;
-        let current_height = state_manager.chain_store().heaviest_tipset().epoch();
+        // Use the specified HEAD, otherwise take the current HEAD.
+        let current_height = config
+            .client
+            .snapshot_head
+            .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
