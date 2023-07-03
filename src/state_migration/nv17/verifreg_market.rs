@@ -41,7 +41,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for VerifregMarketPostMigrator {
         let market_proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
-        >::load(&self.market_state_v8.proposals, &store)?;
+        >::load(&self.market_state_v8.proposals, store)?;
 
         let mut next_allocation_id: fil_actor_verifreg_state::v9::AllocationID = 1;
         let mut allocations_map_map = HashMap::default();
