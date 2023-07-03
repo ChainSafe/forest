@@ -119,8 +119,8 @@ where
         }
 
         // When indexing, we perform small reads of the length and CID before seeking
-        // A small buffer helps ~5% (n=1)
-        let mut buf_reader = BufReader::with_capacity(128, reader);
+        // Buffering these gives us a ~50% speedup (n=10): https://github.com/ChainSafe/forest/pull/3085#discussion_r1246897333
+        let mut buf_reader = BufReader::with_capacity(1024, reader);
 
         // now create the index
         let index = std::iter::from_fn(|| read_block_location_or_eof(&mut buf_reader).transpose())
