@@ -117,6 +117,35 @@ messages that have reached the node for inclusion in the chain.
 
 Usage: `forest-cli mpool pending`
 
+Example:
+
+```
+{
+  "Message": {
+    "Version": 0,
+    "To": "t01491",
+    "From": "t3sg27lp6xgz3fb7db7t4x4lhmsf3dgu73mj5sodkshh64ftr6dzkrfxrowroon2cr2f3vkumsi4schkpfyvea",
+    "Nonce": 14704,
+    "Value": "0",
+    "GasLimit": 31073678,
+    "GasFeeCap": "100507",
+    "GasPremium": "99453",
+    "Method": 6,
+    "Params": "iggZG3DYKlgpAAGC4gOB6AIgRRHJtEnHDx51h/M46ebVUjTD1kowbg+8uWOSrQnQYWwaAAaPXIAaAB45DvQAAAA=",
+    "CID": {
+      "/": "bafy2bzaceacz2f5k5pcjhzvodhpgin2phycgk2magezaxxp7wcqrjvobbtj5w"
+    }
+  },
+  "Signature": {
+    "Type": 2,
+    "Data": "hcBY3OATkjMBRly96aViP2CR0R68dqnmlB1k6g2C2EXfe7+AsCN7bF4+M5bA6SecCsP2Fx+NwYkpGBi1CFGon5U9bqilMIiXxuK0mIrNO0d6UocCBGi/IVZwW2K4hT9N"
+  },
+  "CID": {
+    "/": "bafy2bzaceacz2f5k5pcjhzvodhpgin2phycgk2magezaxxp7wcqrjvobbtj5w"
+  }
+}
+```
+
 ### Display the CIDs of pending messages
 
 Usage: `forest-cli mpool pending --cids`
