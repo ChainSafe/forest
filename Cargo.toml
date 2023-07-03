@@ -47,14 +47,20 @@ dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "4.0.1"
 fil_actor_account_state = "5"
+fil_actor_cron_state = "5"
+fil_actor_datacap_state = "5"
 fil_actor_init_state = "5"
 fil_actor_interface = "5"
+fil_actor_market_state = "5"
 fil_actor_miner_state = "5"
 fil_actor_power_state = "5"
+fil_actor_reward_state = "5"
 fil_actor_system_state = "5"
+fil_actor_verifreg_state = "5"
 fil_actors_shared = "5"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
+frc46_token = "3"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
@@ -66,6 +72,7 @@ fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
 fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
+fvm_ipld_hamt = "0.6"
 fvm_shared = { version = "~2.4", default-features = false, features = ["testing"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["testing", "proofs"] }
 gethostname = "0.4"
@@ -200,6 +207,10 @@ quickcheck_macros = "1"
 anyhow = "1"
 protobuf-codegen = "3.2"
 walkdir = "2.3"
+
+[patch.crates-io]
+# Tracking issue: https://github.com/ChainSafe/fil-actor-states/issues/143
+fvm_ipld_amt = { git = "https://github.com/hanabi1224/ref-fvm", branch = "hm/amt-diff-for-patching" }
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can

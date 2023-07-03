@@ -2850,14 +2850,20 @@ dependencies = [
  "digest 0.10.7",
  "directories",
  "fil_actor_account_state",
+ "fil_actor_cron_state",
+ "fil_actor_datacap_state",
  "fil_actor_init_state",
  "fil_actor_interface",
+ "fil_actor_market_state",
  "fil_actor_miner_state",
  "fil_actor_power_state",
+ "fil_actor_reward_state",
  "fil_actor_system_state",
+ "fil_actor_verifreg_state",
  "fil_actors_shared",
  "filecoin-proofs-api",
  "flume",
+ "frc46_token",
  "fs_extra",
  "futures",
  "futures-util",
@@ -2869,6 +2875,7 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_ipld_encoding 0.3.3",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.4.0",
  "fvm_shared 3.3.1",
  "gethostname",
@@ -3336,8 +3343,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_amt"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e84f16d6927ce342ef86bd20fcc2d5bd498ed33ae6d7a22fea7a1b453488ec88"
+source = "git+https://github.com/hanabi1224/ref-fvm?branch=hm/amt-diff-for-patching#02b5637032383fbc3c88c8798fac21b1efe32782"
 dependencies = [
  "anyhow",
  "cid",

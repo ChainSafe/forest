@@ -41,9 +41,8 @@ macro_rules! impl_verifier {
                         log::debug!("Migration spec is correct.");
                     } else {
                         log::warn!(
-                            "Incomplete migration spec. Count: {}, expected: {}",
-                            migrations.len(),
-                            manifest_actors_count
+                            "Incomplete migration spec. Count: {}, expected: {manifest_actors_count}",
+                            migrations.len()
                         );
                     }
 
