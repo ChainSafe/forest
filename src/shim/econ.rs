@@ -76,6 +76,12 @@ impl std::fmt::Display for TokenAmount {
 }
 
 impl TokenAmount {
+    /// The logical number of decimal places of a token unit.
+    pub const DECIMALS: usize = TokenAmount_v3::DECIMALS;
+
+    /// The logical precision of a token unit.
+    pub const PRECISION: u64 = TokenAmount_v3::PRECISION;
+
     /// Returns the quantity of indivisible units.
     pub fn atto(&self) -> &BigInt {
         self.0.atto()

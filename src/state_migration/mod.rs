@@ -13,6 +13,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
 pub(in crate::state_migration) mod common;
+mod nv17;
 mod nv18;
 mod nv19;
 mod type_migrations;
@@ -29,7 +30,8 @@ pub fn run_state_migrations<DB>(
 where
     DB: 'static + Blockstore + Clone + Send + Sync,
 {
-    let mappings: [(_, RunMigration<DB>); 2] = [
+    let mappings: [(_, RunMigration<DB>); 3] = [
+        (Height::Shark, nv17::run_migration::<DB>),
         (Height::Hygge, nv18::run_migration::<DB>),
         (Height::Lightning, nv19::run_migration::<DB>),
     ];
@@ -41,7 +43,7 @@ where
         for info in &chain_config.height_infos {
             for (height, _) in &mappings {
                 if height == &info.height {
-                    anyhow::ensure!(
+                    assert!(
                         info.bundle.is_some(),
                         "Actor bundle info for height {height} needs to be defined in `networks/src/lib.rs` to run state migration"
                     );
@@ -59,9 +61,9 @@ where
             let elapsed = start_time.elapsed().as_secs_f32();
             if new_state != *parent_state {
                 reveal_five_trees();
-                log::info!("State migration at height {height} was successful, took: {elapsed}s");
+                log::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}. Took: {elapsed}s.");
             } else {
-                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s");
+                anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s.");
             }
 
             return Ok(Some(new_state));

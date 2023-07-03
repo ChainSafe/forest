@@ -118,7 +118,10 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Shark,
         epoch: 16_800,
-        bundle: None,
+        bundle: Some(ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap()
+        })
     },
     HeightInfo {
         height: Height::Hygge,
@@ -126,7 +129,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
         bundle: Some(ActorBundleInfo {
             manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap()
-    })
+        })
     },
     HeightInfo {
         height: Height::Lightning,
@@ -134,7 +137,7 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
         bundle: Some(ActorBundleInfo {
             manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap()
-    }),
+        }),
     },
     HeightInfo {
         height: Height::Thunder,

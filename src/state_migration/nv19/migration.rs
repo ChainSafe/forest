@@ -39,10 +39,10 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         let new_manifest = Manifest::load(&store, new_manifest)?;
 
-        current_manifest.builtin_actors().for_each(|(name, code)| {
-            let new_code = new_manifest.code_by_name(name).unwrap();
+        for (name, code) in current_manifest.builtin_actors() {
+            let new_code = new_manifest.code_by_name(name)?;
             self.add_migrator(*code, nil_migrator(*new_code));
-        });
+        }
 
         self.add_migrator(
             *current_manifest.code_by_name(MINER_ACTOR_NAME)?,

@@ -310,18 +310,16 @@ impl From<Address_v3> for Address {
 
 impl From<Address_v2> for Address {
     fn from(other: Address_v2) -> Self {
-        Address::from(
-            Address_v3::from_bytes(&other.to_bytes())
-                .expect("Couldn't convert between FVM2 and FVM3 addresses."),
-        )
+        (&other).into()
     }
 }
 
 impl From<&Address_v2> for Address {
     fn from(other: &Address_v2) -> Self {
         Address::from(
-            Address_v3::from_bytes(&other.to_bytes())
-                .expect("Couldn't convert between FVM2 and FVM3 addresses."),
+            Address_v3::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+                panic!("Couldn't convert from FVM2 address to FVM3 address: {other}, {e}")
+            }),
         )
     }
 }
@@ -332,23 +330,23 @@ impl From<&Address_v3> for Address {
     }
 }
 
-impl From<Address> for Address_v3 {
-    fn from(other: Address) -> Self {
-        other.0
-    }
-}
-
 impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
-        Address_v2::from_bytes(&other.to_bytes())
-            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+        (&other).into()
     }
 }
 
 impl From<&Address> for Address_v2 {
     fn from(other: &Address) -> Self {
-        Address_v2::from_bytes(&other.to_bytes())
-            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+        Address_v2::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+            panic!("Couldn't convert from FVM3 address to FVM2 address: {other}, {e}")
+        })
+    }
+}
+
+impl From<Address> for Address_v3 {
+    fn from(other: Address) -> Self {
+        (&other).into()
     }
 }
 
