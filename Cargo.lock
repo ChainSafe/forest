@@ -2860,6 +2860,7 @@ dependencies = [
  "flume",
  "fs_extra",
  "futures",
+ "futures-core",
  "futures-util",
  "fvm 2.4.0",
  "fvm 3.4.0",
