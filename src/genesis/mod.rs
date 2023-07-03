@@ -140,7 +140,7 @@ async fn load_and_retrieve_header<DB, R>(
     skip_load: bool,
 ) -> anyhow::Result<(Vec<Cid>, Option<usize>)>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + Send + 'static,
     R: AsyncRead + Send + Unpin,
 {
     let result = if skip_load {
@@ -171,8 +171,8 @@ where
     R: futures::AsyncRead + Send + Unpin,
     DB: Blockstore + Send + 'static,
 {
-    let car_reader = CarReader::new(reader).await?;
-    let roots = car_reader.header.roots.clone();
+    let mut car_reader = CarReader::new(reader).await?;
+    let header = std::mem::take(&mut car_reader.header);
     let mut n_records = 0;
 
     let sink = futures::sink::unfold(
@@ -186,17 +186,20 @@ where
         },
     );
 
+    let chunk_size = std::env::var("CHUNK_SIZE")?.parse::<usize>()?;
+    let buffer_capacity = std::env::var("BUFFER_CAPACITY")?.parse::<usize>()?;
+
     // Stream key-value pairs from the CAR file and commit them in chunks of
-    // 1000 elements. Try to maintain a buffer of 3 x 1000 elements to avoid
+    // 20000 elements. Try to maintain a buffer of 2 x 20000 elements to avoid
     // read-stalling.
     // Using a larger chunk size (40k+) can improve performance on some SSDs at
     // the cost of increased memory usage.
     car_stream(car_reader)
         .inspect(|_| n_records += 1)
-        .chunks(1_000)
+        .chunks(chunk_size)
         .map(|vec| vec.into_iter().collect::<anyhow::Result<Vec<_>>>())
-        .forward(sink.buffer(3))
+        .forward(sink.buffer(buffer_capacity))
         .await?;
 
-    Ok((roots, n_records))
+    Ok((header.roots, n_records))
 }
