@@ -9,7 +9,7 @@ use anyhow::bail;
 use cid::Cid;
 use futures::{
     sink::{drain, SinkExt},
-    AsyncRead, StreamExt,
+    stream, AsyncRead, Stream, StreamExt,
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
@@ -17,7 +17,6 @@ use fvm_ipld_encoding::CborStore;
 
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};
-use tokio_stream::Stream;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 #[cfg(test)]
@@ -160,13 +159,13 @@ where
 fn car_stream<R: futures::AsyncRead + Send + Unpin>(
     reader: CarReader<R>,
 ) -> impl Stream<Item = anyhow::Result<fvm_ipld_car::Block>> {
-    futures::stream::unfold(reader, |mut reader| async move {
-        reader.next_block().await.transpose().map(|result| {
-            (
-                result.map_err(anyhow::Error::from),
-                reader,
-            )
-        })
+    stream::unfold(reader, |mut reader| async move {
+        reader
+            .next_block()
+            .await
+            .map_err(anyhow::Error::from)
+            .transpose()
+            .map(|result| (result, reader))
     })
 }
 
