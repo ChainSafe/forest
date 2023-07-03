@@ -45,7 +45,7 @@ pub enum MpoolCommands {
 }
 
 fn to_addr(value: &Option<String>) -> anyhow::Result<Option<Address>> {
-    Ok(value.as_ref().map(|s| Address::from_str(s)).transpose()?)
+    Ok(value.as_ref().map(|s| StrictAddress::from_str(s)).transpose()?)
 }
 
 fn filter_messages(
