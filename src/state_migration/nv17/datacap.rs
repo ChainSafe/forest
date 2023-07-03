@@ -9,7 +9,7 @@ use std::str::FromStr;
 use crate::shim::address::Address;
 use crate::shim::bigint::BigInt;
 use crate::shim::state_tree::{ActorState, StateTree};
-use crate::shim::{bigint::StoragePowerV2, econ::TokenAmount};
+use crate::shim::{sector::StoragePower, econ::TokenAmount};
 use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
