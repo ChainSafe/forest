@@ -8,7 +8,7 @@ use crate::rpc_client::{mpool_push_message, wallet_default_address};
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared3::{message::Message, METHOD_SEND};
+use crate::shim::message::{Message, METHOD_SEND};
 use num::Zero as _;
 
 use super::{handle_rpc_err, Config};

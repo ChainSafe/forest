@@ -8,7 +8,6 @@ pub mod json {
     use cid::Cid;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding3::RawBytes;
-    use fvm_shared3::message::Message as Message_v3;
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::json::address::json::AddressJson;
@@ -82,7 +81,7 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(Message_v3 {
+        Ok(Message {
             version: m.version,
             to: Address::from(m.to).into(),
             from: Address::from(m.from).into(),
