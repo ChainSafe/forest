@@ -34,17 +34,17 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
-        let verified_clients = fil_actors_shared::v8::make_map_with_root::<_, BigInt>(
+        let verified_clients = fil_actors_shared::v8::make_map_with_root::<BS, BigInt>(
             &self.verifreg_state.verified_clients,
-            &store,
+            store,
         )?;
 
         let mut token_supply: num_bigint::BigInt = Zero::zero();
 
         let mut balances_map =
-            fil_actors_shared::v9::make_empty_map::<_, BigInt>(&store, HAMT_BIT_WIDTH);
+            fil_actors_shared::v9::make_empty_map::<BS, BigInt>(store, HAMT_BIT_WIDTH);
 
-        let mut allowances_map = fil_actors_shared::v9::make_empty_map(&store, HAMT_BIT_WIDTH);
+        let mut allowances_map = fil_actors_shared::v9::make_empty_map(store, HAMT_BIT_WIDTH);
 
         verified_clients.for_each(|addr_key, value| {
             let key = hamt_addr_key_to_key(addr_key)?;
@@ -53,7 +53,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
             balances_map.set(key.clone(), token_amount.into())?;
 
             let mut allowances_map_entry =
-                fil_actors_shared::v9::make_empty_map::<_, BigInt>(&store, HAMT_BIT_WIDTH);
+                fil_actors_shared::v9::make_empty_map::<BS, BigInt>(store, HAMT_BIT_WIDTH);
             allowances_map_entry.set(
                 BytesKey(fil_actors_shared::v9::builtin::STORAGE_MARKET_ACTOR_ADDR.payload_bytes()),
                 INFINITE_ALLOWANCE.clone().into(),
