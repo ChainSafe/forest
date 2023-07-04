@@ -6,7 +6,7 @@ The devnet consists of a:
 - Lotus node,
 - Forest node.
 
-It's packed in a docker-compose setup for convenience and ease of usage. By
+It's packed in a docker compose setup for convenience and ease of usage. By
 default, running it will expose relevant RPC and P2P ports to the host:
 
 - 1234 - Lotus RPC,
@@ -19,7 +19,7 @@ default, running it will expose relevant RPC and P2P ports to the host:
 Run it with:
 
 ```shell
-docker-compose up --build
+docker compose up --build
 ```
 
 This will build the local Forest (using the Dockerfile in the project's root)
@@ -29,13 +29,13 @@ fetching params and setting everyting up. Consecutive starts will be quick.
 Stop the devnet with:
 
 ```shell
-docker-compose down
+docker compose down
 ```
 
 Remove the devnet:
 
 ```shell
-docker-compose rm
+docker compose rm
 ```
 
 ## Interacting with the devnet via CLI

@@ -1,0 +1,56 @@
+name: Lotus devnet image
+
+# Only build and publish this image on demand.
+# The compilation adds significant overhead to the CI and it is not supposed
+# to change very often (roughly once per per network upgrade; ~3-4 months).
+# This image is used in the local devnet for both the lotus-node and the lotus-miner.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push-docker-image:
+    name: Build image and push to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: List cached docker images
+        run: docker image ls
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Github Packages
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # This step yields the following labels
+      # - latest,
+      # - date+sha, e.g. 2023-01-19-da4692d,
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/chainsafe/lotus-devnet
+          tags: |
+            type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build image and push to GitHub Container Registry
+        uses: docker/build-push-action@v4
+        with:
+          file: ./scripts/devnet/lotus.dockerfile
+          context: ./scripts/devnet
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{ github.ref == 'refs/heads/main' }}
+      - name: List docker images
+        run: docker image ls
+
