@@ -166,6 +166,7 @@ mod test {
                     snapshot: bool::arbitrary(g),
                     snapshot_height: Option::arbitrary(g),
                     snapshot_path: Option::arbitrary(g),
+                    snapshot_head: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),

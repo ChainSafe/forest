@@ -43,9 +43,10 @@
 - [#3086](https://github.com/ChainSafe/forest/pull/3085):
   `forest-cli snapshot validate` is faster and uses less disk space, operating
   directly on the snapshot rather than loading through a database.
-
 - [#2983](https://github.com/ChainSafe/forest/issues/2983): Added state
   migration support for NV17.
+- [#3107](https://github.com/ChainSafe/forest/pull/3107): Introduced 'head'
+  parameter for snapshot validation.
 
 ### Changed
 
