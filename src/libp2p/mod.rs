@@ -13,11 +13,11 @@ pub mod rpc;
 mod service;
 
 // Re-export some libp2p types
+pub use cid::multihash::Multihash;
 pub use libp2p::{
     identity::{ed25519, Keypair, PeerId},
     multiaddr::{Multiaddr, Protocol},
 };
-pub use multihash::Multihash;
 
 pub(in crate::libp2p) use self::behaviour::*;
 pub use self::{config::*, peer_manager::*, service::*};
