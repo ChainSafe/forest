@@ -41,37 +41,6 @@ pub trait Store {
     }
 }
 
-impl<BS: Store> Store for &BS {
-    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).read(key)
-    }
-
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        (*self).write(key, value)
-    }
-
-    fn exists<K>(&self, key: K) -> Result<bool, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).exists(key)
-    }
-
-    fn bulk_write(
-        &self,
-        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
-    ) -> Result<(), Error> {
-        (*self).bulk_write(values)
-    }
-}
-
 /// Traits for collecting DB stats
 pub trait DBStatistics {
     fn get_statistics(&self) -> Option<String> {
