@@ -2896,7 +2896,7 @@ dependencies = [
  "mimalloc",
  "multiaddr",
  "multibase",
- "multihash 0.16.3",
+ "multihash 0.17.0",
  "nom",
  "nonempty",
  "nonzero_ext",
@@ -5210,9 +5210,12 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
 dependencies = [
+ "blake2b_simd",
  "core2",
  "digest 0.10.7",
  "multihash-derive",
+ "serde",
+ "serde-big-array",
  "sha2 0.10.7",
  "unsigned-varint",
 ]
