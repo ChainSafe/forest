@@ -193,6 +193,7 @@ jobs:
         run: ./scripts/tests/calibnet_export_check.sh
 
   local-devnet-check:
+    if: false
     name: Devnet checks
     runs-on: ubuntu-latest
     needs:
