@@ -209,55 +209,6 @@ pub enum Condition {
 
 #[cfg(test)]
 impl Selector {
-    /// Returns a vector of all sectors of interest, `None` variant is
-    /// synonymous with all.
-    pub fn interests(&self) -> Option<Vec<String>> {
-        match self {
-            ExploreAll { .. } => None,
-            ExploreFields { fields } => Some(fields.keys().cloned().collect()),
-            ExploreIndex { index, .. } => Some(vec![index.to_string()]),
-            ExploreRange { start, end, .. } => {
-                if end < start {
-                    return None;
-                }
-                let mut inter = Vec::with_capacity(end - start);
-                for i in *start..*end {
-                    inter.push(i.to_string());
-                }
-                Some(inter)
-            }
-            ExploreRecursive {
-                current, sequence, ..
-            } => {
-                if let Some(selector) = current {
-                    selector.interests()
-                } else {
-                    sequence.interests()
-                }
-            }
-            ExploreRecursiveEdge => {
-                // Should never be called on this variant
-                Some(vec![])
-            }
-            ExploreUnion(selectors) => {
-                let mut segs = Vec::new();
-                for m in selectors {
-                    if let Some(i) = m.interests() {
-                        segs.extend_from_slice(&i);
-                    } else {
-                        // if any member has all interests, union will as well
-                        return None;
-                    }
-                }
-                Some(segs)
-            }
-            Matcher => {
-                // Intentionally an empty vector
-                Some(vec![])
-            }
-        }
-    }
-
     /// Processes and returns resultant selector node
     pub fn explore(self, ipld: &Ipld, p: &str) -> Option<Selector> {
         match self {
