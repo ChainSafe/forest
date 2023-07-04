@@ -2590,8 +2590,6 @@ dependencies = [
  "lru",
  "memory-stats",
  "mimalloc",
- "multibase",
- "multihash 0.16.3",
  "nom",
  "nonempty",
  "nonzero_ext",

@@ -11,7 +11,6 @@ updates:
     # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuring-dependabot-version-updates#example-disabling-version-updates-for-some-dependencies
     ignore:
       - dependency-name: "cid"
-      - dependency-name: "multihash"
       - dependency-name: "*ipld*"
       - dependency-name: "bls-signatures"
       - dependency-name: "fvm*"
