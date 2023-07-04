@@ -1,29 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::PathBuf, sync::Arc};
-
+use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
+use crate::car_backed_blockstore::CarBackedBlockstore;
 use crate::chain::ChainStore;
+use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::db::db_engine::{db_root, open_proxy_db};
-use crate::genesis::{forest_load_car, read_genesis_header};
+use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::ProgressBar;
-use anyhow::bail;
+use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use std::path::PathBuf;
+use std::sync::Arc;
 use tempfile::TempDir;
-use tokio_util::compat::TokioAsyncReadCompatExt;
-
-use super::*;
-
-use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -55,11 +51,8 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Path to snapshot file
+        /// Path to an uncompressed snapshot (CAR)
         snapshot: PathBuf,
-        /// Force validation and answers yes to all prompts.
-        #[arg(long)]
-        force: bool,
     },
 }
 
@@ -149,8 +142,7 @@ impl SnapshotCommands {
             Self::Validate {
                 recent_stateroots,
                 snapshot,
-                force,
-            } => validate(&config, recent_stateroots, snapshot, *force).await,
+            } => validate(&config, recent_stateroots, snapshot).await,
         }
     }
 }
@@ -159,62 +151,36 @@ async fn validate(
     config: &Config,
     recent_stateroots: &i64,
     snapshot: &PathBuf,
-    force: bool,
 ) -> anyhow::Result<()> {
-    let confirm = force
-        || atty::is(atty::Stream::Stdin)
-            && Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt(format!(
-                    "This will result in using approximately {} MB of data. Proceed?",
-                    std::fs::metadata(snapshot)?.len() / (1024 * 1024)
-                ))
-                .default(false)
-                .interact()
-                .unwrap_or_default();
+    let store = Arc::new(
+        CarBackedBlockstore::new(std::fs::File::open(snapshot)?)
+            .context("couldn't read input CAR file - is it compressed?")?,
+    );
+    let genesis = read_genesis_header(
+        config.client.genesis_file.as_ref(),
+        config.chain.genesis_bytes(),
+        &store,
+    )
+    .await?;
 
-    if confirm {
-        let tmp_chain_data_path = TempDir::new()?;
-        let db_path = db_root(
-            tmp_chain_data_path
-                .path()
-                .join(config.chain.network.to_string())
-                .as_path(),
-        );
-        let db = open_proxy_db(db_path, config.db_config().clone())?;
+    let chain_store = Arc::new(ChainStore::new(
+        store,
+        config.chain.clone(),
+        &genesis,
+        TempDir::new()?.path(),
+    )?);
 
-        let genesis = read_genesis_header(
-            config.client.genesis_file.as_ref(),
-            config.chain.genesis_bytes(),
-            &db,
-        )
-        .await?;
+    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
 
-        let chain_store = Arc::new(ChainStore::new(
-            db,
-            config.chain.clone(),
-            &genesis,
-            tmp_chain_data_path.path(),
-        )?);
-
-        let (cids, _n_records) = {
-            let reader =
-                crate::utils::net::reader(snapshot.as_path().display().to_string().as_str())
-                    .await?;
-            forest_load_car(chain_store.blockstore().clone(), reader.compat()).await?
-        };
-
-        let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
-
-        validate_links_and_genesis_traversal(
-            &chain_store,
-            ts,
-            chain_store.blockstore(),
-            *recent_stateroots,
-            &Tipset::from(genesis),
-            &config.chain.network,
-        )
-        .await?;
-    }
+    validate_links_and_genesis_traversal(
+        &chain_store,
+        ts,
+        chain_store.blockstore(),
+        *recent_stateroots,
+        &Tipset::from(genesis),
+        &config.chain.network,
+    )
+    .await?;
 
     Ok(())
 }

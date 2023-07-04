@@ -9,7 +9,7 @@ use libp2p::{
     PeerId,
 };
 
-use crate::libp2p_bitswap::{codec::*, protocol::*, request_manager::*, *};
+use crate::libp2p_bitswap::{codec::*, request_manager::*, *};
 
 /// `libp2p` swarm network behavior event of `bitswap`
 pub type BitswapBehaviourEvent = request_response::Event<Vec<BitswapMessage>, ()>;
@@ -23,15 +23,15 @@ pub struct BitswapBehaviour {
 
 impl BitswapBehaviour {
     /// Creates a [`BitswapBehaviour`] instance
-    pub fn new(protocols: &[&'static [u8]], cfg: request_response::Config) -> Self {
+    pub fn new(protocols: &[&'static str], cfg: request_response::Config) -> Self {
         assert!(!protocols.is_empty(), "protocols cannot be empty");
 
         let protocols: Vec<_> = protocols
             .iter()
-            .map(|&n| (BitswapProtocol(n), ProtocolSupport::Full))
+            .map(|&n| (n, ProtocolSupport::Full))
             .collect();
         BitswapBehaviour {
-            inner: request_response::Behaviour::new(BitswapRequestResponseCodec, protocols, cfg),
+            inner: request_response::Behaviour::new(protocols, cfg),
             request_manager: Default::default(),
         }
     }
@@ -91,10 +91,10 @@ impl Default for BitswapBehaviour {
         // This matches default values in `go-bitswap`
         BitswapBehaviour::new(
             &[
-                b"/ipfs/bitswap/1.2.0",
-                b"/ipfs/bitswap/1.1.0",
-                b"/ipfs/bitswap/1.0.0",
-                b"/ipfs/bitswap",
+                "/ipfs/bitswap/1.2.0",
+                "/ipfs/bitswap/1.1.0",
+                "/ipfs/bitswap/1.0.0",
+                "/ipfs/bitswap",
             ],
             Default::default(),
         )
@@ -105,8 +105,8 @@ impl NetworkBehaviour for BitswapBehaviour {
     type ConnectionHandler =
         <request_response::Behaviour<BitswapRequestResponseCodec> as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent =
-        <request_response::Behaviour<BitswapRequestResponseCodec> as NetworkBehaviour>::OutEvent;
+    type ToSwarm =
+        <request_response::Behaviour<BitswapRequestResponseCodec> as NetworkBehaviour>::ToSwarm;
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -191,7 +191,7 @@ impl NetworkBehaviour for BitswapBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl PollParameters,
-    ) -> std::task::Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+    ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
         self.inner_mut().poll(cx, params)
     }
 }

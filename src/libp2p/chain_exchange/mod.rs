@@ -5,24 +5,13 @@ mod behaviour;
 mod message;
 mod provider;
 pub use behaviour::*;
-use libp2p::core::ProtocolName;
 
 pub use self::{message::*, provider::*};
 use super::rpc::CborRequestResponse;
 
-/// Libp2p protocol ID for `ChainExchange`.
-pub const CHAIN_XCHG_PROTOCOL_ID: &[u8] = b"/fil/chain/xchg/0.0.1";
-
-/// Type to satisfy `ProtocolName` interface for `ChainExchange` RPC.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct ChainExchangeProtocolName;
-
-impl ProtocolName for ChainExchangeProtocolName {
-    fn protocol_name(&self) -> &[u8] {
-        CHAIN_XCHG_PROTOCOL_ID
-    }
-}
+/// Libp2p protocol name for `ChainExchange`.
+pub const CHAIN_EXCHANGE_PROTOCOL_NAME: &str = "/fil/chain/xchg/0.0.1";
 
 /// `ChainExchange` protocol codec to be used within the RPC service.
 pub type ChainExchangeCodec =
-    CborRequestResponse<ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse>;
+    CborRequestResponse<&'static str, ChainExchangeRequest, ChainExchangeResponse>;

@@ -23,7 +23,7 @@ use boa_engine::{
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
 
-use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
+use rustyline::{config::Config as RustyLineConfig, history::FileHistory, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::time;
@@ -369,7 +369,7 @@ impl AttachCommand {
             .edit_mode(EditMode::Emacs)
             .build();
 
-        let mut editor: Editor<()> = Editor::with_config(config)?;
+        let mut editor: Editor<(), FileHistory> = Editor::with_config(config)?;
 
         let history_path = if let Some(dirs) = BaseDirs::new() {
             let path = dirs.home_dir().join(".forest_history");
@@ -399,7 +399,7 @@ impl AttachCommand {
                             break 'main;
                         }
                         if input == ":clear" {
-                            editor.clear_history();
+                            editor.clear_history()?;
                             break;
                         }
                         if buffer.is_empty() && input.is_empty() {
@@ -412,7 +412,7 @@ impl AttachCommand {
                 }
                 match context.parse(buffer.trim_end()) {
                     Ok(_v) => {
-                        editor.add_history_entry(&buffer);
+                        editor.add_history_entry(&buffer)?;
                         eval(buffer.trim_end(), &mut context);
                         break;
                     }

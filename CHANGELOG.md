@@ -31,13 +31,22 @@
   rocksdb
 - [#3047](https://github.com/ChainSafe/forest/pull/3047): Remove support for
   compiling with delegated consensus
+- [#3086](https://github.com/ChainSafe/forest/pull/3085):
+  `forest-cli snapshot validate` no longer supports URLs. Download the snapshot
+  and then run the command.
 
 ### Added
 
 - [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
-
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`
+- [#3086](https://github.com/ChainSafe/forest/pull/3085):
+  `forest-cli snapshot validate` is faster and uses less disk space, operating
+  directly on the snapshot rather than loading through a database.
+- [#2983](https://github.com/ChainSafe/forest/issues/2983): Added state
+  migration support for NV17.
+- [#3107](https://github.com/ChainSafe/forest/pull/3107): Introduced 'head'
+  parameter for snapshot validation.
 
 ### Changed
 

@@ -20,19 +20,29 @@ where
     // collect bundles to load into the database.
     let mut bundles = Vec::new();
     for info in &config.chain.height_infos {
-        if info.bundle.is_some() && epoch < config.chain.epoch(info.height) {
-            bundles.push(get_actors_bundle(config, info.height).await?);
+        if epoch < config.chain.epoch(info.height) {
+            if let Some(bundle) = &info.bundle {
+                bundles.push((
+                    bundle.manifest,
+                    get_actors_bundle(config, info.height).await?,
+                ));
+            }
         }
     }
 
-    for bundle in bundles {
-        let (result, _) = forest_load_car(db.clone(), bundle.compat()).await?;
+    for (manifest_cid, reader) in bundles {
+        let (result, _) = forest_load_car(db.clone(), reader.compat()).await?;
         assert_eq!(
             result.len(),
             1,
             "expected one root when loading actors bundle"
         );
         info!("Loaded actors bundle with CID: {}", result[0]);
+        anyhow::ensure!(
+            manifest_cid == result[0],
+            "manifest cid in config '{manifest_cid}' does not match manifest cid from bundle '{}'",
+            result[0]
+        );
     }
     Ok(())
 }
