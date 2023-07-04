@@ -9,11 +9,9 @@ version: "3.8"
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
-  # `docker-compose up`.
+  # `docker compose up`.
   lotus_init:
-    build:
-      context: .
-      dockerfile: lotus.dockerfile
+    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
@@ -22,6 +20,7 @@ services:
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
+        set -euxo pipefail
         if [ ! -f ${LOTUS_DATA_DIR}/NODE_INITIALISED ]; then
           lotus fetch-params 2048
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
@@ -34,12 +33,10 @@ services:
   # The RPC and P2P listening ports are exposed so Forest does not necessarily need to be running inside Docker.
   # For development purposes it might be practical to comment out Forest part altogether and use a local build.
   lotus_node:
+    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
     depends_on:
       lotus_init:
         condition: service_completed_successfully
-    build:
-      context: .
-      dockerfile: lotus.dockerfile
     healthcheck:
       test: >-
         curl -s -x post -h "content-type: application/json"
@@ -62,16 +59,15 @@ services:
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
+        set -euxo pipefail
         lotus daemon --lotus-make-genesis=${LOTUS_DATA_DIR}/devgen.car --genesis-template=${LOTUS_DATA_DIR}/localnet.json --bootstrap=false
 
   # Lotus miner container. It communicates only with Lotus and not with Forest.
   lotus_miner:
+    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
     depends_on:
       lotus_node:
         condition: service_healthy
-    build:
-      context: .
-      dockerfile: lotus.dockerfile
     container_name: lotus-miner
     healthcheck:
       test: >-
@@ -93,6 +89,7 @@ services:
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
+        set -euxo pipefail
         if [ ! -f ${LOTUS_DATA_DIR}/MINER_INITIALISED ]; then
           lotus wallet import --as-default ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.key
           lotus-miner init --genesis-miner --actor=t01000 --sector-size=2KiB --pre-sealed-sectors=${LOTUS_DATA_DIR}/genesis-sectors --pre-sealed-metadata=${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.json --nosync
@@ -102,12 +99,11 @@ services:
 
   # This container dumps relevant (for Forest) Lotus configuration to the shared volume.
   lotus_config:
+    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
+    restart: on-failure # lotus node might not be ready. Even when healthy, it may be generating a genesis block.
     depends_on:
       lotus_node:
         condition: service_healthy
-    build:
-      context: .
-      dockerfile: lotus.dockerfile
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
     entrypoint: ["/bin/bash", "-c" ]
@@ -125,7 +121,7 @@ services:
         condition: service_completed_successfully
     build:
       context: ../../.
-      dockerfile: Dockerfile
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     container_name: forest
     healthcheck:
       test: |
@@ -150,7 +146,7 @@ services:
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
-        set -eu
+        set -euxo pipefail
         if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
           export NETWORK_NAME=$$(grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json)
           cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
@@ -167,7 +163,7 @@ services:
         condition: service_healthy
     build:
       context: ../../.
-      dockerfile: Dockerfile
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
       - forest-data:${FOREST_DATA_DIR}
@@ -176,7 +172,7 @@ services:
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
-        set -eu
+        set -euxo pipefail
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
         export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
         forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
