@@ -2590,7 +2590,6 @@ dependencies = [
  "lru",
  "memory-stats",
  "mimalloc",
- "multiaddr 0.17.1",
  "multibase",
  "multihash 0.16.3",
  "nom",
@@ -4070,7 +4069,7 @@ dependencies = [
  "libp2p-tcp",
  "libp2p-websocket",
  "libp2p-yamux",
- "multiaddr 0.18.0",
+ "multiaddr",
  "pin-project",
 ]
 
@@ -4111,7 +4110,7 @@ dependencies = [
  "instant",
  "libp2p-identity",
  "log",
- "multiaddr 0.18.0",
+ "multiaddr",
  "multihash 0.19.0",
  "multistream-select",
  "once_cell",
@@ -4291,7 +4290,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "log",
- "multiaddr 0.18.0",
+ "multiaddr",
  "multihash 0.19.0",
  "once_cell",
  "quick-protobuf",
@@ -4752,25 +4751,6 @@ dependencies = [
 
 [[package]]
 name = "multiaddr"
-version = "0.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b36f567c7099511fa8612bbbb52dda2419ce0bdbacf31714e3a5ffdb766d3bd"
-dependencies = [
- "arrayref",
- "byteorder",
- "data-encoding",
- "log",
- "multibase",
- "multihash 0.17.0",
- "percent-encoding",
- "serde",
- "static_assertions",
- "unsigned-varint",
- "url",
-]
-
-[[package]]
-name = "multiaddr"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92a651988b3ed3ad1bc8c87d016bb92f6f395b84ed1db9b926b32b1fc5a2c8b5"
@@ -4816,17 +4796,6 @@ dependencies = [
  "serde-big-array",
  "sha2 0.10.7",
  "sha3",
- "unsigned-varint",
-]
-
-[[package]]
-name = "multihash"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "835d6ff01d610179fbce3de1694d007e500bf33a7f29689838941d6bf783ae40"
-dependencies = [
- "core2",
- "multihash-derive",
  "unsigned-varint",
 ]
 

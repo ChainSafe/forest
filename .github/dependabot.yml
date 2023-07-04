@@ -15,7 +15,6 @@ updates:
       - dependency-name: "*ipld*"
       - dependency-name: "bls-signatures"
       - dependency-name: "fvm*"
-      - dependency-name: "multiaddr"
       - dependency-name: "filecoin*"
   # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot#enabling-dependabot-version-updates-for-actions
   - package-ecosystem: "github-actions"
