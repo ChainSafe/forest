@@ -640,7 +640,13 @@ async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManag
             warn!("Ping timeout: {}", ping_event.peer);
         }
         Err(ping::Failure::Other { error }) => {
-            warn!("PingFailure::Other {}: {error}", ping_event.peer);
+            peer_manager
+                .ban_peer(
+                    ping_event.peer,
+                    format!("PingFailure::Other {}: {error}", ping_event.peer),
+                    Some(BAN_PEER_DURATION),
+                )
+                .await;
         }
     }
 }
