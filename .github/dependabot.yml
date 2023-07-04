@@ -8,6 +8,15 @@ updates:
     open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuring-dependabot-version-updates#example-disabling-version-updates-for-some-dependencies
+    ignore:
+      - dependency-name: "cid"
+      - dependency-name: "multihash"
+      - dependency-name: "*ipld*"
+      - dependency-name: "bls-signatures"
+      - dependency-name: "fvm*"
+      - dependency-name: "multiaddr"
+      - dependency-name: "filecoin*"
   # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot#enabling-dependabot-version-updates-for-actions
   - package-ecosystem: "github-actions"
     directory: "/"

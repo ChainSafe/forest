@@ -4,6 +4,7 @@
 // the code looks wrong
 use std::{io::Stdout, str::FromStr, sync::Arc, time::Duration};
 
+use is_terminal::IsTerminal;
 use parking_lot::{Mutex, RwLock};
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
@@ -24,7 +25,7 @@ impl ProgressBarVisibility {
         matches!(
             self,
             ProgressBarVisibility::Always
-            | ProgressBarVisibility::Auto if atty::is(atty::Stream::Stdout)
+            | ProgressBarVisibility::Auto if std::io::stdout().is_terminal()
         )
     }
 }
@@ -119,7 +120,7 @@ impl ProgressBar {
     fn should_display() -> bool {
         match *PROGRESS_BAR_VISIBILITY.read() {
             ProgressBarVisibility::Always => true,
-            ProgressBarVisibility::Auto => atty::is(atty::Stream::Stdout),
+            ProgressBarVisibility::Auto => std::io::stdout().is_terminal(),
             ProgressBarVisibility::Never => false,
         }
     }
