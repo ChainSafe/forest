@@ -12,7 +12,10 @@ enum Args {
     CompressEachFrame {
         source: PathBuf,
         destination: PathBuf,
+        #[arg(short, long)]
         metrics: Option<PathBuf>,
+        #[arg(short, long, default_value_t = 0)]
+        compression_level: u16,
     },
 }
 
@@ -31,6 +34,7 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             source,
             destination,
             metrics,
+            compression_level,
         } => {
             let progress = MultiProgress::new();
             let metrics = OptionFuture::from(metrics.map(|path| async {
@@ -83,8 +87,9 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             source
                 .and_then(|uncompressed| async move {
                     let uncompressed_len = uncompressed.len();
-                    let compressed = zstd::encode_all(uncompressed.reader(), 0)
-                        .expect("BytesMut cannot emit io errors");
+                    let compressed =
+                        zstd::encode_all(uncompressed.reader(), i32::from(compression_level))
+                            .expect("BytesMut cannot emit io errors");
                     let compressed_len = compressed.len();
                     if let Some(metrics) = metrics {
                         metrics
