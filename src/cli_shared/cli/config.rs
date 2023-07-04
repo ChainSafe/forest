@@ -32,13 +32,14 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             filters: vec![
-                LogValue::new("libp2p_gossipsub", LevelFilter::Error),
-                LogValue::new("filecoin_proofs", LevelFilter::Warn),
-                LogValue::new("storage_proofs_core", LevelFilter::Warn),
-                LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
                 LogValue::new("axum", LevelFilter::Warn),
+                LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
+                LogValue::new("filecoin_proofs", LevelFilter::Warn),
                 LogValue::new("libp2p_bitswap", LevelFilter::Off),
+                LogValue::new("libp2p_gossipsub", LevelFilter::Error),
+                LogValue::new("libp2p_kad", LevelFilter::Error),
                 LogValue::new("rpc", LevelFilter::Error),
+                LogValue::new("storage_proofs_core", LevelFilter::Warn),
                 LogValue::new("tracing_loki", LevelFilter::Off),
             ],
         }
@@ -166,6 +167,7 @@ mod test {
                     snapshot: bool::arbitrary(g),
                     snapshot_height: Option::arbitrary(g),
                     snapshot_path: Option::arbitrary(g),
+                    snapshot_head: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),

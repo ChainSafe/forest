@@ -66,9 +66,14 @@ pub struct CliOpts {
     #[arg(long)]
     pub mdns: Option<bool>,
     /// Validate snapshot at given EPOCH, use a negative value -N to validate
-    /// the last N EPOCH(s)
+    /// the last N EPOCH(s) starting at HEAD.
     #[arg(long)]
     pub height: Option<i64>,
+    /// Sets the current HEAD epoch to validate to. Useful to specify a
+    /// smaller range in conjunction with `height`, ignored if `height`
+    /// is unspecified.
+    #[arg(long)]
+    pub head: Option<u64>,
     /// Import a snapshot from a local CAR file or URL
     #[arg(long)]
     pub import_snapshot: Option<String>,
@@ -194,6 +199,7 @@ impl CliOpts {
             cfg.client.snapshot = false;
         }
         cfg.client.snapshot_height = self.height;
+        cfg.client.snapshot_head = self.head.map(|head| head as i64);
         if let Some(skip_load) = self.skip_load {
             cfg.client.skip_load = skip_load;
         }

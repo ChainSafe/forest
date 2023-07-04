@@ -26,6 +26,7 @@ pub struct Client {
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
     pub snapshot_height: Option<i64>,
+    pub snapshot_head: Option<i64>,
     pub snapshot_path: Option<PathBuf>,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
@@ -53,6 +54,7 @@ impl Default for Client {
             snapshot_path: None,
             snapshot: false,
             snapshot_height: None,
+            snapshot_head: None,
             skip_load: false,
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),

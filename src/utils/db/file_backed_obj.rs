@@ -171,7 +171,7 @@ impl FileBackedObject for ChainMeta {
 #[cfg(test)]
 mod tests {
     use anyhow::*;
-    use cid::multihash::MultihashDigest;
+    use cid::multihash::{self, MultihashDigest};
     use rand::Rng;
     use tempfile::TempDir;
 

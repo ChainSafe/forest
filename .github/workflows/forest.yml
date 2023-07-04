@@ -191,3 +191,22 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
+
+  local-devnet-check:
+    name: Devnet checks
+    runs-on: ubuntu-latest
+    needs:
+      - build-ubuntu
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+      - name: Devnet setup
+        run: ./scripts/devnet/ci_setup.sh
+      - name: Devnet check
+        run: ./scripts/devnet/ci_check.sh
+      - name: Dump docker logs on failure
+        if: failure()
+        uses: jwalton/gh-docker-logs@v2

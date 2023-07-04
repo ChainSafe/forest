@@ -7,10 +7,11 @@ set -e
 # migration logic without connecting to the real Filecoin network.
 
 FOREST_PATH="forest"
-MIGRATION_TEST="$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot"
+MIGRATION_TEST="$FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --no-gc --import-snapshot"
 
 # NV17 - Shark, uncomment when we support the nv17 migration
-# $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_16900.car.zst"
+echo NV17 - Shark
+$MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_16900.car.zst"
 
 echo NV18 - Hygge
 $MIGRATION_TEST "https://forest-snapshots.fra1.digitaloceanspaces.com/debug/filecoin_calibnet_height_322454.car.zst"

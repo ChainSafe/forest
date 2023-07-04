@@ -81,8 +81,7 @@ impl Default for ChainExchangeBehaviour {
     fn default() -> Self {
         Self {
             inner: InnerBehaviour::new(
-                ChainExchangeCodec::default(),
-                [(ChainExchangeProtocolName, ProtocolSupport::Full)],
+                [(CHAIN_EXCHANGE_PROTOCOL_NAME, ProtocolSupport::Full)],
                 Default::default(),
             ),
             response_channels: Default::default(),
@@ -93,7 +92,7 @@ impl Default for ChainExchangeBehaviour {
 impl NetworkBehaviour for ChainExchangeBehaviour {
     type ConnectionHandler = <InnerBehaviour as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent = <InnerBehaviour as NetworkBehaviour>::OutEvent;
+    type ToSwarm = <InnerBehaviour as NetworkBehaviour>::ToSwarm;
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -164,7 +163,7 @@ impl NetworkBehaviour for ChainExchangeBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl PollParameters,
-    ) -> std::task::Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+    ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
         self.inner.poll(cx, params)
     }
 }
