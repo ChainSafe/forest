@@ -2510,6 +2510,7 @@ dependencies = [
  "async-compression",
  "async-fs",
  "async-recursion",
+ "async-stream",
  "async-trait",
  "axum",
  "backoff",
