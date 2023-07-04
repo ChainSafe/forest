@@ -6,17 +6,17 @@ use libp2p::{core::upgrade, request_response};
 use pb::bitswap_pb;
 use protobuf::Message;
 
-use crate::libp2p_bitswap::{prefix::Prefix, protocol::*, *};
+use crate::libp2p_bitswap::{prefix::Prefix, *};
 
 // 2MB Block Size according to the specs at https://github.com/ipfs/specs/blob/main/BITSWAP.md
 const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct BitswapRequestResponseCodec;
 
 #[async_trait]
 impl request_response::Codec for BitswapRequestResponseCodec {
-    type Protocol = BitswapProtocol;
+    type Protocol = &'static str;
     type Request = Vec<BitswapMessage>;
     type Response = ();
 
