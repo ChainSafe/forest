@@ -33,6 +33,7 @@ impl Default for LogConfig {
         Self {
             filters: vec![
                 LogValue::new("libp2p_gossipsub", LevelFilter::Error),
+                LogValue::new("libp2p_kad", LevelFilter::Error),
                 LogValue::new("filecoin_proofs", LevelFilter::Warn),
                 LogValue::new("storage_proofs_core", LevelFilter::Warn),
                 LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
