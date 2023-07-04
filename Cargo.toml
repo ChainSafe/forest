@@ -16,7 +16,6 @@ async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"
 async-fs = "1"
 async-recursion = "1.0"
 async-trait = "0.1"
-atty = "0.2"
 axum = { version = "0.6", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
@@ -83,6 +82,7 @@ human-repr = "1.0"
 humantime = "2.1.0"
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
+is-terminal = "0.4"
 itertools = "0.11.0"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 jsonwebtoken = "8.1"
