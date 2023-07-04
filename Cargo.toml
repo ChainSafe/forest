@@ -45,7 +45,7 @@ data-encoding-macro = "0.1"
 derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
-directories = "4.0.1"
+directories = "5"
 fil_actor_account_state = "5"
 fil_actor_cron_state = "5"
 fil_actor_datacap_state = "5"
@@ -109,7 +109,7 @@ libp2p = { version = "=0.51.1", default-features = false, features = [
 ] }
 libsecp256k1 = "0.7"
 log = { version = "0.4", features = ["serde"] }
-lru = "0.9"
+lru = "0.10"
 memory-stats = "1.1"
 mimalloc = { version = "0.1.34", optional = true, default_features = false }
 multibase = "0.9"
@@ -127,7 +127,7 @@ nonempty = "0.8.0"
 nonzero_ext = "0.3.0"
 num = "0.4.0"
 num-bigint = "0.4"
-num-derive = "0.3"
+num-derive = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
@@ -149,7 +149,7 @@ reqwest = { version = "0.11.18", default-features = false, features = [
   "rustls-tls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rustyline = "10.1.1"
+rustyline = "12"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.2"
@@ -165,8 +165,8 @@ smart-default = "0.7.1"
 static_assertions = "1.1.0"
 statrs = "0.16"
 stdext = { version = "0.3", optional = true }
-strum = { version = "0.24", features = ["derive"] }
-strum_macros = "0.24"
+strum = { version = "0.25", features = ["derive"] }
+strum_macros = "0.25"
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
