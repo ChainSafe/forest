@@ -426,7 +426,7 @@ where
             break;
         }
         gas_limit += m.gas_limit();
-        if gas_limit > fvm_shared3::BLOCK_GAS_LIMIT {
+        if gas_limit > crate::shim::econ::BLOCK_GAS_LIMIT {
             break;
         }
 

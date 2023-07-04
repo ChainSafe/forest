@@ -5,9 +5,20 @@ use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 
 use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
+pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
+use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+use static_assertions::const_assert_eq;
+
+const_assert_eq!(BLOCK_GAS_LIMIT, fvm_shared::BLOCK_GAS_LIMIT as u64);
+const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared::TOTAL_FILECOIN_BASE);
+
+lazy_static! {
+    /// Total Filecoin available to the network.
+    pub static ref TOTAL_FILECOIN: TokenAmount = TokenAmount::from_whole(TOTAL_FILECOIN_BASE);
+}
 
 // FIXME: Transparent Debug trait impl
 // FIXME: Consider 'type TokenAmount = TokenAmount_v3'
@@ -15,6 +26,7 @@ use serde::{Deserialize, Serialize};
 #[serde(transparent)]
 pub struct TokenAmount(TokenAmount_v3);
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for TokenAmount {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         use fvm_shared3::bigint::MAX_BIGINT_SIZE;
@@ -64,6 +76,12 @@ impl std::fmt::Display for TokenAmount {
 }
 
 impl TokenAmount {
+    /// The logical number of decimal places of a token unit.
+    pub const DECIMALS: usize = TokenAmount_v3::DECIMALS;
+
+    /// The logical precision of a token unit.
+    pub const PRECISION: u64 = TokenAmount_v3::PRECISION;
+
     /// Returns the quantity of indivisible units.
     pub fn atto(&self) -> &BigInt {
         self.0.atto()

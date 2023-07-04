@@ -4,18 +4,10 @@
 // the code looks wrong
 use std::{io::Stdout, str::FromStr, sync::Arc, time::Duration};
 
+use is_terminal::IsTerminal;
 use parking_lot::{Mutex, RwLock};
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
-
-/// A simple progress bar style for downloading files
-pub fn downloading_style() -> indicatif::ProgressStyle {
-    indicatif::ProgressStyle::with_template(
-        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
-    )
-    .expect("invalid progress template")
-    .progress_chars("=>-")
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -33,7 +25,7 @@ impl ProgressBarVisibility {
         matches!(
             self,
             ProgressBarVisibility::Always
-            | ProgressBarVisibility::Auto if atty::is(atty::Stream::Stdout)
+            | ProgressBarVisibility::Auto if std::io::stdout().is_terminal()
         )
     }
 }
@@ -89,14 +81,6 @@ impl ProgressBar {
         }
     }
 
-    pub fn add(&self, i: u64) -> u64 {
-        if self.display {
-            self.inner.lock().add(i)
-        } else {
-            0
-        }
-    }
-
     pub fn set_units(&self, u: Units) {
         if self.display {
             self.inner.lock().set_units(u)
@@ -136,7 +120,7 @@ impl ProgressBar {
     fn should_display() -> bool {
         match *PROGRESS_BAR_VISIBILITY.read() {
             ProgressBarVisibility::Always => true,
-            ProgressBarVisibility::Auto => atty::is(atty::Stream::Stdout),
+            ProgressBarVisibility::Auto => std::io::stdout().is_terminal(),
             ProgressBarVisibility::Never => false,
         }
     }
@@ -148,6 +132,7 @@ impl Drop for ProgressBar {
     }
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for ProgressBarVisibility {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         *g.choose(&[

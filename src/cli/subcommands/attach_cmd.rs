@@ -12,7 +12,7 @@ use crate::json::message::json::MessageJson;
 use crate::rpc_api::mpool_api::MpoolPushMessageResult;
 use crate::rpc_client::node_ops::node_status;
 use crate::rpc_client::*;
-use crate::shim::{address::Address, clock::ChainEpoch, message::Message_v3};
+use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
 use boa_engine::{
     object::{FunctionBuilder, JsArray},
     prelude::JsObject,
@@ -22,9 +22,8 @@ use boa_engine::{
 };
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
-use fvm_shared::METHOD_SEND;
 
-use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
+use rustyline::{config::Config as RustyLineConfig, history::FileHistory, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::time;
@@ -225,18 +224,13 @@ async fn send_message(
 ) -> Result<MpoolPushMessageResult, jsonrpc_v2::Error> {
     let (from, to, value) = params;
 
-    let value = humantoken::parse(&value)?;
+    let message = Message::transfer(
+        Address::from_str(&from)?,
+        Address::from_str(&to)?,
+        humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
+    );
 
-    let message = Message_v3 {
-        from: Address::from_str(&from)?.into(),
-        to: Address::from_str(&to)?.into(),
-        value: value.into(), // Convert crate::shim::TokenAmount to TokenAmount3
-        method_num: METHOD_SEND,
-        gas_limit: 0,
-        ..Default::default()
-    };
-
-    let json_message = MessageJson(message.into());
+    let json_message = MessageJson(message);
     mpool_push_message((json_message, None), auth_token).await
 }
 
@@ -375,7 +369,7 @@ impl AttachCommand {
             .edit_mode(EditMode::Emacs)
             .build();
 
-        let mut editor: Editor<()> = Editor::with_config(config)?;
+        let mut editor: Editor<(), FileHistory> = Editor::with_config(config)?;
 
         let history_path = if let Some(dirs) = BaseDirs::new() {
             let path = dirs.home_dir().join(".forest_history");
@@ -405,7 +399,7 @@ impl AttachCommand {
                             break 'main;
                         }
                         if input == ":clear" {
-                            editor.clear_history();
+                            editor.clear_history()?;
                             break;
                         }
                         if buffer.is_empty() && input.is_empty() {
@@ -418,7 +412,7 @@ impl AttachCommand {
                 }
                 match context.parse(buffer.trim_end()) {
                     Ok(_v) => {
-                        editor.add_history_entry(&buffer);
+                        editor.add_history_entry(&buffer)?;
                         eval(buffer.trim_end(), &mut context);
                         break;
                     }

@@ -5,7 +5,7 @@ use cid::Cid;
 use fvm_ipld_encoding::Cbor;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-use crate::blocks::{ArbitraryCid, BlockHeader};
+use crate::blocks::BlockHeader;
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -15,8 +15,10 @@ pub struct GossipBlock {
     pub secpk_messages: Vec<Cid>,
 }
 
+#[cfg(test)]
 impl quickcheck::Arbitrary for GossipBlock {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        use crate::blocks::ArbitraryCid;
         let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
         let bls_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
 
