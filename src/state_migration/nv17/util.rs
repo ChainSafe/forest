@@ -68,12 +68,12 @@ pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesK
 mod tests {
     use super::*;
     use anyhow::*;
+    use cid::multihash::{Multihash, MultihashDigest};
     use fvm_shared::{
         bigint::Zero,
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
         piece::PaddedPieceSize,
     };
-    use multihash::{Multihash, MultihashDigest};
 
     // Go parity test
     //

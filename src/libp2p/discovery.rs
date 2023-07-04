@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    borrow::Cow,
     cmp,
     collections::VecDeque,
     task::{Context, Poll},
@@ -19,6 +18,7 @@ use libp2p::{
     swarm::{
         behaviour::toggle::Toggle, derive_prelude::*, NetworkBehaviour, PollParameters, ToSwarm,
     },
+    StreamProtocol,
 };
 use log::{debug, error, trace, warn};
 use tokio::time::Interval;
@@ -75,10 +75,8 @@ impl<'a> DiscoveryConfig<'a> {
         self.user_defined
             .extend(user_defined.into_iter().filter_map(|multiaddr| {
                 let mut addr = multiaddr.clone();
-                if let Some(Protocol::P2p(mh)) = addr.pop() {
-                    if let Ok(peer_id) = PeerId::from_multihash(mh) {
-                        return Some((peer_id, addr));
-                    }
+                if let Some(Protocol::P2p(peer_id)) = addr.pop() {
+                    return Some((peer_id, addr));
                 }
                 warn!("Could not parse bootstrap addr {}", multiaddr);
                 None
@@ -99,7 +97,7 @@ impl<'a> DiscoveryConfig<'a> {
     }
 
     /// Create a `DiscoveryBehaviour` from this configuration.
-    pub fn finish(self) -> DiscoveryBehaviour {
+    pub fn finish(self) -> anyhow::Result<DiscoveryBehaviour> {
         let DiscoveryConfig {
             local_peer_id,
             user_defined,
@@ -116,11 +114,9 @@ impl<'a> DiscoveryConfig<'a> {
         let store = MemoryStore::new(local_peer_id);
         let kad_config = {
             let mut cfg = KademliaConfig::default();
-            cfg.set_protocol_names(vec![Cow::Owned(
-                format!("/fil/kad/{network_name}/kad/1.0.0")
-                    .as_bytes()
-                    .to_vec(),
-            )]);
+            cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
+                "/fil/kad/{network_name}/kad/1.0.0"
+            ))?]);
             cfg
         };
 
@@ -144,7 +140,7 @@ impl<'a> DiscoveryConfig<'a> {
             None
         };
 
-        DiscoveryBehaviour {
+        Ok(DiscoveryBehaviour {
             kademlia: kademlia_opt.into(),
             next_kad_random_query: tokio::time::interval(Duration::from_secs(1)),
             duration_to_next_kad: Duration::from_secs(1),
@@ -154,7 +150,7 @@ impl<'a> DiscoveryConfig<'a> {
             peers,
             peer_addresses,
             target_peer_count,
-        }
+        })
     }
 }
 
@@ -208,7 +204,7 @@ impl DiscoveryBehaviour {
 
 impl NetworkBehaviour for DiscoveryBehaviour {
     type ConnectionHandler = <KademliaBehaviour as NetworkBehaviour>::ConnectionHandler;
-    type OutEvent = DiscoveryEvent;
+    type ToSwarm = DiscoveryEvent;
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -314,7 +310,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         &mut self,
         cx: &mut Context,
         params: &mut impl PollParameters,
-    ) -> Poll<ToSwarm<Self::OutEvent, libp2p::swarm::THandlerInEvent<Self>>> {
+    ) -> Poll<ToSwarm<Self::ToSwarm, libp2p::swarm::THandlerInEvent<Self>>> {
         // Immediately process the content of `discovered`.
         if let Some(ev) = self.pending_events.pop_front() {
             return Poll::Ready(ToSwarm::GenerateEvent(ev));
@@ -373,9 +369,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         event,
                     })
                 }
-                ToSwarm::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score })
-                }
                 ToSwarm::CloseConnection {
                     peer_id,
                     connection,
@@ -384,6 +377,19 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         peer_id,
                         connection,
                     })
+                }
+                ToSwarm::ListenOn { opts } => return Poll::Ready(ToSwarm::ListenOn { opts }),
+                ToSwarm::RemoveListener { id } => {
+                    return Poll::Ready(ToSwarm::RemoveListener { id })
+                }
+                ToSwarm::NewExternalAddrCandidate(addr) => {
+                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(addr))
+                }
+                ToSwarm::ExternalAddrConfirmed(addr) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr))
+                }
+                ToSwarm::ExternalAddrExpired(addr) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrExpired(addr))
                 }
             }
         }
@@ -412,9 +418,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 ToSwarm::Dial { .. } => {}
                 // Nothing to notify handler
                 ToSwarm::NotifyHandler { event, .. } => match event {},
-                ToSwarm::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score })
-                }
                 ToSwarm::CloseConnection {
                     peer_id,
                     connection,
@@ -423,6 +426,19 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         peer_id,
                         connection,
                     })
+                }
+                ToSwarm::ListenOn { opts } => return Poll::Ready(ToSwarm::ListenOn { opts }),
+                ToSwarm::RemoveListener { id } => {
+                    return Poll::Ready(ToSwarm::RemoveListener { id })
+                }
+                ToSwarm::NewExternalAddrCandidate(addr) => {
+                    return Poll::Ready(ToSwarm::NewExternalAddrCandidate(addr))
+                }
+                ToSwarm::ExternalAddrConfirmed(addr) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr))
+                }
+                ToSwarm::ExternalAddrExpired(addr) => {
+                    return Poll::Ready(ToSwarm::ExternalAddrExpired(addr))
                 }
             }
         }

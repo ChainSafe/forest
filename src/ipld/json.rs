@@ -20,8 +20,8 @@
 //! to reconsider whether we want to stay compatible with Lotus in the future.
 use std::{collections::BTreeMap, fmt};
 
+use cid::multibase;
 use libipld_macro::ipld;
-use multibase::Base;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use super::Ipld;
@@ -57,7 +57,7 @@ where
         ),
         Ipld::String(string) => serializer.serialize_str(string),
         Ipld::Bytes(bytes) => serialize(
-            &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(Base::Base64, bytes) } }),
+            &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(multibase::Base::Base64, bytes) } }),
             serializer,
         ),
         Ipld::List(list) => {

@@ -9,6 +9,7 @@ use crate::rpc_api::{
     data_types::{AddrInfo, RPCState},
     net_api::*,
 };
+use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};

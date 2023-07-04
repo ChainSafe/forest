@@ -125,7 +125,7 @@ impl MinerMigrator {
         let market_proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
-        >::load(&self.market_proposals, &store)?;
+        >::load(&self.market_proposals, store)?;
 
         let old_precommit_on_chain_infos =
             fil_actors_shared::v8::make_map_with_root_and_bitwidth::<
@@ -776,7 +776,7 @@ mod tests {
         ensure!(verifreg_cid.to_string() == "bafkqaftgnfwc6obpozsxe2lgnfswi4tfm5uxg5dspe");
         let mut verifreg_state =
             fil_actor_verifreg_state::v8::State::new(&store, verifreg_root.into())?;
-        let mut verified_clients = fil_actors_shared::v8::make_empty_map::<_, BigInt>(
+        let mut verified_clients = fil_actors_shared::v8::make_empty_map::<BS, BigInt>(
             &store,
             fil_actors_shared::v8::builtin::HAMT_BIT_WIDTH,
         );
