@@ -48,7 +48,7 @@ impl<T: Display> AdaptiveValueProvider<T> {
         &self.values[self.current_index.load(ORDERING)]
     }
 
-    /// Tracks success, a value upgrade might be triggered
+    /// Tracks success, a value upgrade will be triggered when consecutive successes is greater than `config.upgrade_threshold`
     pub fn track_success(&self) {
         let old = self.consective_success_counter.fetch_add(1, ORDERING);
         self.consective_failure_counter.store(0, ORDERING);
@@ -63,6 +63,7 @@ impl<T: Display> AdaptiveValueProvider<T> {
                                 self.values[i - 1]
                             );
                         }
+                        // Reset the counter for the next upgrade
                         self.consective_success_counter.store(0, ORDERING);
                         Some(i - 1)
                     } else {
@@ -73,7 +74,7 @@ impl<T: Display> AdaptiveValueProvider<T> {
         }
     }
 
-    /// Tracks success, a value downgrade might be triggered
+    /// Tracks failure, a value downgrade will be triggered when consecutive failures is greater than `config.downgrade_threshold`
     pub fn track_failure(&self) {
         let old = self.consective_failure_counter.fetch_add(1, ORDERING);
         self.consective_success_counter.store(0, ORDERING);
@@ -89,6 +90,7 @@ impl<T: Display> AdaptiveValueProvider<T> {
                                 self.values[i + 1]
                             );
                         }
+                        // Reset the counter for the next downgrade
                         self.consective_failure_counter.store(0, ORDERING);
                         Some(i + 1)
                     } else {
