@@ -8,7 +8,10 @@ use log::info;
 
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(1000);
 
-pub fn wrap_iter<Inner>(message: &str, into_iter: impl IntoIterator<IntoIter = Inner>) -> WithProgressIter<Inner> {
+pub fn wrap_iter<Inner>(
+    message: &str,
+    into_iter: impl IntoIterator<IntoIter = Inner>,
+) -> WithProgressIter<Inner> {
     let inner = into_iter.into_iter();
     WithProgressIter {
         inner,
@@ -16,8 +19,7 @@ pub fn wrap_iter<Inner>(message: &str, into_iter: impl IntoIterator<IntoIter = I
     }
 }
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WithProgressIter<Inner> {
     inner: Inner,
     progress: WithProgress,
@@ -72,7 +74,7 @@ impl<S: futures_core::Stream + Unpin> futures_core::Stream for WithProgressStrea
             std::task::Poll::Ready(Some(_)) => {
                 this.progress.emit_log_if_required(this.stream.size_hint());
                 this.progress.inc();
-            },
+            }
             std::task::Poll::Ready(None) => this.progress.finish(),
             std::task::Poll::Pending => {}
         }
@@ -114,7 +116,8 @@ impl WithProgress {
             let throughput = self.completed_items as f64 / elapsed_secs;
 
             let (lower_bound, upper_bound) = size_hint;
-            let total_items = upper_bound.unwrap_or_else(|| lower_bound) as u64 + self.completed_items;
+            let total_items =
+                upper_bound.unwrap_or_else(|| lower_bound) as u64 + self.completed_items;
             let eta_secs = (total_items - self.completed_items) as f64 / throughput;
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
 
