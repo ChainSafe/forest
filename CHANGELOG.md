@@ -35,7 +35,7 @@
 
 ### Fixed
 
-## Forest v0.11.0 "Mismatch"
+## Forest v0.11.0 "Hypersonic"
 
 ### Breaking
 
