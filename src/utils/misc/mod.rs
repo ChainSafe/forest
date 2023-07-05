@@ -5,6 +5,8 @@ use is_terminal::IsTerminal;
 
 mod logo;
 pub use logo::*;
+mod value_provider;
+pub use value_provider::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
 #[strum(serialize_all = "kebab-case")]

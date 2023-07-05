@@ -11,9 +11,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::blocks::{
-    Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
-};
 use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
@@ -24,6 +21,10 @@ use crate::shim::{
 };
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use crate::utils::io::ProgressBar;
+use crate::{
+    blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys},
+    utils::misc::{AdaptiveValueProvider, AdaptiveValueProviderConfig},
+};
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
@@ -33,6 +34,7 @@ use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
+use once_cell::sync::OnceCell;
 use thiserror::Error;
 
 use crate::chain_sync::{
@@ -1073,8 +1075,25 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
     genesis: &Tipset,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
+    static REQUEST_WINDOW: OnceCell<AdaptiveValueProvider<usize>> = OnceCell::new();
+    let adaptive_request_window = REQUEST_WINDOW.get_or_init(|| {
+        let config = AdaptiveValueProviderConfig {
+            name: "Tipset sync request window size".into(),
+            tracing: true,
+            upgrade_threshold: 2,
+            downgrade_threshod: 2,
+        };
+        let mut size = crate::networks::MAX_REQUEST_WINDOW_SIZE;
+        let mut values = vec![size];
+        while size > 1 {
+            size /= 2;
+            values.push(size);
+        }
+        AdaptiveValueProvider::new(values, config)
+    });
+
     let task_chainstore = chainstore.clone();
-    let request_window = state_manager.chain_config().request_window;
+    let request_window = *adaptive_request_window.value();
     // Spawn a background task for the chain_exchange message requests
 
     let (s, r) = flume::bounded(request_window * 4);
@@ -1101,7 +1120,13 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
             }
         }
         // Fetch last batch
-        fetch_batch(&batch, &network, &task_chainstore, &s).await?;
+        fetch_batch(&batch, &network, &task_chainstore, &s)
+            .await
+            .map_err(|e| {
+                adaptive_request_window.track_failure();
+                e
+            })?;
+        adaptive_request_window.track_success();
 
         Ok(())
     });
