@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 CHAIN=calibnet
+
+# https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/debug/filecoin_full_calibnet_2023-04-07_450000.car
 SNAPSHOT=filecoin_full_calibnet_2023-04-07_450000.car
 
 hyperfine \
@@ -9,4 +11,8 @@ hyperfine \
   --parameter-list BUFFER_CAPACITY 0,1,2,3 \
   --export-markdown db_tune_params.md \
   --command-name 'forest-import-{CHUNK_SIZE}-{BUFFER_CAPACITY}' \
-  "CHUNK_SIZE={CHUNK_SIZE} BUFFER_CAPACITY={BUFFER_CAPACITY} ./target/release/forest --chain ${CHAIN} --rpc false --no-gc --encrypt-keystore false --track-peak-rss --halt-after-import --import-snapshot ${SNAPSHOT}; ./target/release/forest-cli --chain ${CHAIN} db clean --force"
+    "echo \"[client]\nchunk_size = {CHUNK_SIZE}\nbuffer_size = {BUFFER_CAPACITY}\" > /tmp/forest.conf; \
+    ./target/release/forest \
+      --chain ${CHAIN} --config /tmp/forest.conf --rpc false --no-gc --encrypt-keystore false --halt-after-import \
+      --import-snapshot ${SNAPSHOT}; \
+    ./target/release/forest-cli --chain ${CHAIN} db clean --force"
