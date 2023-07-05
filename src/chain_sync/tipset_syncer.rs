@@ -23,7 +23,7 @@ use crate::shim::{
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
-use crate::utils::io::ProgressLog;
+use crate::utils::io::wrap_iter;
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
@@ -862,17 +862,14 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
     tracker.write().set_epoch(current_head.epoch());
 
     let total_size = proposed_head.epoch() - current_head.epoch();
-    let mut pl = ProgressLog::builder()
-        .with_frequency(std::time::Duration::from_secs(1))
-        .with_message("Downloading headers ")
-        .start(total_size as u64);
+    let mut wi = wrap_iter("Downloading headers", 0..total_size);
 
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
-        let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
-        pl.set((work_to_be_done - total_size).unsigned_abs());
+        //let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
+        wi.next();
         validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)?;
 
         // Check if we are at the end of the range
@@ -907,7 +904,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
             parent_tipsets.push(tipset);
         }
     }
-    drop(pl);
+    drop(wi);
 
     // Unwrapping is safe here because we assume that the tipset
     // vector was initialized with a tipset that will not be removed
