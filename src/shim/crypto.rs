@@ -154,7 +154,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature)
     verify_messages(&bls_sig, data, &pks[..])
 }
 
-/// Returns `String` error if a bls signature is invalid.
+/// Returns `String` error if a BLS signature is invalid.
 pub fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
     use bls_signatures::Serialize;
 
@@ -184,7 +184,7 @@ pub fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(
     }
 }
 
-/// cid_to_replica_commitment_v1 extracts the raw replica commitment from a CID
+/// Extracts the raw replica commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
 pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
