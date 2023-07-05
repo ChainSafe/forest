@@ -667,7 +667,7 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
-    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may be null.
+    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may **not** be null.
     pub fn get_epoch_tsk(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
@@ -675,12 +675,8 @@ where
     ) -> Result<TipsetKeys, Error> {
         let ts = self
             .cs
-            .tipset_by_height(round, tipset, false)
+            .tipset_by_height(round, tipset, true)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        if ts.epoch() != round {
-            // Null tipset
-            return Ok(TipsetKeys::default());
-        }
         Ok(ts.key().clone())
     }
 
