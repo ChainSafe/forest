@@ -18,7 +18,7 @@ rs_list = {
   # `fvm` & `fvm3` are allowed).
   'fvm' => ['src/interpreter', 'src/shim'],
   'fvm3' => ['src/interpreter', 'src/shim'],
-  'fvm_shared' => ['src/interpreter', 'src/shim', 'src/json/tests/'],
+  'fvm_shared' => ['src/interpreter', 'src/shim', 'src/json/tests/', 'src/state_migration/nv17/tests/'],
   'fvm_shared3' => ['src/interpreter', 'src/shim']
 }
 
