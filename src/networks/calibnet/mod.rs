@@ -160,7 +160,7 @@ mod tests {
     fn default_boostrap_list_not_empty() {
         assert!(!DEFAULT_BOOTSTRAP.is_empty());
         DEFAULT_BOOTSTRAP.iter().for_each(|addr| {
-            assert!(addr.parse::<multiaddr::Multiaddr>().is_ok());
+            assert!(addr.parse::<libp2p::multiaddr::Multiaddr>().is_ok());
         });
     }
 }

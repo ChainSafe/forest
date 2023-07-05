@@ -125,7 +125,7 @@ impl MinerMigrator {
         let market_proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
-        >::load(&self.market_proposals, &store)?;
+        >::load(&self.market_proposals, store)?;
 
         let old_precommit_on_chain_infos =
             fil_actors_shared::v8::make_map_with_root_and_bitwidth::<
