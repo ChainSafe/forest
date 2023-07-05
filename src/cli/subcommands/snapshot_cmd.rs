@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::car::UncompressedCarV1BackedBlockstore;
+use crate::car::{CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore};
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -14,9 +14,11 @@ use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::ProgressBar;
-use anyhow::{bail, Context as _};
+use anyhow::bail;
 use chrono::Utc;
 use clap::Subcommand;
+use fvm_ipld_blockstore::Blockstore;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -53,6 +55,8 @@ pub enum SnapshotCommands {
         recent_stateroots: i64,
         /// Path to an uncompressed snapshot (CAR)
         snapshot: PathBuf,
+        #[arg(short, long)]
+        compressed: bool,
     },
 }
 
@@ -142,7 +146,8 @@ impl SnapshotCommands {
             Self::Validate {
                 recent_stateroots,
                 snapshot,
-            } => validate(&config, recent_stateroots, snapshot).await,
+                compressed,
+            } => validate(&config, recent_stateroots, snapshot, *compressed).await,
         }
     }
 }
@@ -151,11 +156,33 @@ async fn validate(
     config: &Config,
     recent_stateroots: &i64,
     snapshot: &PathBuf,
+    compressed: bool,
 ) -> anyhow::Result<()> {
-    let store = Arc::new(
-        UncompressedCarV1BackedBlockstore::new(std::fs::File::open(snapshot)?)
-            .context("couldn't read input CAR file - is it compressed?")?,
-    );
+    match compressed {
+        true => {
+            let store = CompressedCarV1BackedBlockstore::new(BufReader::new(std::fs::File::open(
+                snapshot,
+            )?))?;
+            validate_with_blockstore(config, store.roots(), Arc::new(store), recent_stateroots)
+                .await
+        }
+        false => {
+            let store = UncompressedCarV1BackedBlockstore::new(std::fs::File::open(snapshot)?)?;
+            validate_with_blockstore(config, store.roots(), Arc::new(store), recent_stateroots)
+                .await
+        }
+    }
+}
+
+async fn validate_with_blockstore<BlockstoreT>(
+    config: &Config,
+    roots: Vec<Cid>,
+    store: Arc<BlockstoreT>,
+    recent_stateroots: &i64,
+) -> Result<(), anyhow::Error>
+where
+    BlockstoreT: Blockstore + Send + Sync,
+{
     let genesis = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -170,7 +197,7 @@ async fn validate(
         TempDir::new()?.path(),
     )?);
 
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(roots))?;
 
     validate_links_and_genesis_traversal(
         &chain_store,
@@ -194,7 +221,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     network: &NetworkChain,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let mut seen = CidHashSet::default();
     let upto = ts.epoch() - recent_stateroots;

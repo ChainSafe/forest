@@ -57,6 +57,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::io::BufRead;
 use std::io::{
     self, BufReader,
     ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
@@ -109,16 +110,9 @@ where
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
-    /// - `reader`'s buffer should have enough room for the [`CarHeader`] and any [`Cid`]s.
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(mut reader: ReaderT) -> cid::Result<Self> {
-        let CarHeader { roots, version } = read_header(&mut reader)?;
-        if version != 1 {
-            return Err(cid::Error::Io(io::Error::new(
-                Unsupported,
-                "file must be CARv1",
-            )));
-        }
+        let roots = get_roots_from_v1_header(&mut reader)?;
 
         // When indexing, we perform small reads of the length and CID before seeking
         // Buffering these gives us a ~50% speedup (n=10): https://github.com/ChainSafe/forest/pull/3085#discussion_r1246897333
@@ -199,27 +193,187 @@ where
         let UncompressedCarV1BackedBlockstoreInner {
             write_cache, index, ..
         } = &mut *self.inner.lock();
+        handle_write_cache(write_cache, index, k, block)
+    }
+}
+
+fn handle_write_cache<LocationT>(
+    write_cache: &mut AHashMap<Cid, Vec<u8>>,
+    index: &mut AHashMap<Cid, LocationT>,
+    k: &Cid,
+    block: &[u8],
+) -> anyhow::Result<()> {
+    match (index.get(k), write_cache.entry(*k)) {
+        (None, Occupied(already)) => match already.get() == block {
+            true => {
+                trace!("already in cache");
+                Ok(())
+            }
+            false => panic!("mismatched content on second write for CID {k}"),
+        },
+        (None, Vacant(vacant)) => {
+            trace!(bytes = block.len(), "insert into cache");
+            vacant.insert(block.to_owned());
+            Ok(())
+        }
+        (Some(_), Vacant(_)) => {
+            trace!("already on disk");
+            Ok(())
+        }
+        (Some(_), Occupied(_)) => {
+            unreachable!("we don't a CID in the write cache if it exists on disk")
+        }
+    }
+}
+struct CompressedBlockDataLocation {
+    zstd_frame_offset: u64,
+    block_index_in_zstd_frame: usize,
+}
+
+pub struct CompressedCarV1BackedBlockstore<ReaderT> {
+    // https://github.com/ChainSafe/forest/issues/3096
+    inner: Mutex<CompressedCarV1BackedBlockstoreInner<ReaderT>>,
+}
+
+struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
+    reader: ReaderT,
+    write_cache: AHashMap<Cid, Vec<u8>>,
+    index: AHashMap<Cid, CompressedBlockDataLocation>,
+    roots: Vec<Cid>,
+}
+
+impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
+    pub fn roots(&self) -> Vec<Cid> {
+        self.inner.lock().roots.clone()
+    }
+
+    /// To be correct:
+    /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
+    ///   [`Blockstore`] API calls may panic if this is not upheld.
+    // This code is ugly because we have to recreate the decoder after every zstd frame.
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub fn new(mut reader: ReaderT) -> cid::Result<Self>
+    where
+        ReaderT: BufRead + Seek,
+    {
+        let mut block_buffer = vec![];
+        let mut index = AHashMap::new();
+
+        // read the first zstd frame, it should contain a header
+        let zstd_frame_offset = reader.stream_position()?;
+        let mut decoder = zstd::Decoder::with_buffer(&mut reader)?.single_frame();
+        let roots = get_roots_from_v1_header(&mut decoder)?;
+        index.extend(
+            read_cids(&mut decoder, &mut block_buffer)?
+                .into_iter()
+                .enumerate()
+                .map(|(block_index_in_zstd_frame, cid)| {
+                    (
+                        cid,
+                        CompressedBlockDataLocation {
+                            zstd_frame_offset,
+                            block_index_in_zstd_frame,
+                        },
+                    )
+                }),
+        );
+
+        loop {
+            if reader.fill_buf()?.is_empty() {
+                // EOF
+                break Ok(Self {
+                    inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
+                        reader,
+                        write_cache: AHashMap::new(),
+                        index,
+                        roots,
+                    }),
+                });
+            }
+            let zstd_frame_offset = reader.stream_position()?;
+            let mut decoder = zstd::Decoder::with_buffer(&mut reader)?.single_frame();
+            index.extend(
+                read_cids(&mut decoder, &mut block_buffer)?
+                    .into_iter()
+                    .enumerate()
+                    .map(|(block_index_in_zstd_frame, cid)| {
+                        (
+                            cid,
+                            CompressedBlockDataLocation {
+                                zstd_frame_offset,
+                                block_index_in_zstd_frame,
+                            },
+                        )
+                    }),
+            );
+        }
+    }
+}
+
+impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
+where
+    ReaderT: Read + Seek,
+{
+    /// This reads an entire zstd frame into memory
+    #[tracing::instrument(level = "trace", skip(self))]
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let CompressedCarV1BackedBlockstoreInner {
+            reader,
+            write_cache,
+            index,
+            ..
+        } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
-            (None, Occupied(already)) => match already.get() == block {
-                true => {
-                    trace!("already in cache");
-                    Ok(())
-                }
-                false => panic!("mismatched content on second write for CID {k}"),
-            },
-            (None, Vacant(vacant)) => {
-                trace!(bytes = block.len(), "insert into cache");
-                vacant.insert(block.to_owned());
-                Ok(())
+            (Some(_location), Occupied(cached)) => {
+                trace!("evicting from write cache");
+                Ok(Some(cached.remove()))
             }
-            (Some(_), Vacant(_)) => {
-                trace!("already on disk");
-                Ok(())
+            (
+                Some(CompressedBlockDataLocation {
+                    zstd_frame_offset,
+                    block_index_in_zstd_frame,
+                }),
+                Vacant(_),
+            ) => {
+                trace!("fetching from disk");
+                reader.seek(SeekFrom::Start(*zstd_frame_offset))?;
+                let mut uncompressed = zstd::Decoder::new(reader)?.single_frame();
+                let mut block_data = vec![];
+                let actual_cid = std::iter::from_fn(|| {
+                    read_varint_framed_block(&mut uncompressed, &mut block_data).unwrap()
+                })
+                .nth(*block_index_in_zstd_frame)
+                .expect("invalid index: zstd frame doesn't contain block");
+                assert_eq!(actual_cid, *k, "invalid index: cid mismatch");
+                Ok(Some(block_data))
             }
-            (Some(_), Occupied(_)) => {
-                unreachable!("we don't a CID in the write cache if it exists on disk")
+            (None, Occupied(cached)) => {
+                trace!("getting from write cache");
+                Ok(Some(cached.get().clone()))
+            }
+            (None, Vacant(_)) => {
+                trace!("not found");
+                Ok(None)
             }
         }
+    }
+
+    /// # Panics
+    /// - If the write cache contains different data with this CID
+    /// - See also [`Self::new`].
+    #[tracing::instrument(level = "trace", skip(self, block))]
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        let CompressedCarV1BackedBlockstoreInner {
+            write_cache, index, ..
+        } = &mut *self.inner.lock();
+        handle_write_cache(write_cache, index, k, block)
+    }
+}
+
+fn get_roots_from_v1_header(reader: impl Read) -> io::Result<Vec<Cid>> {
+    match read_header(reader)? {
+        CarHeader { roots, version: 1 } => Ok(roots),
+        _other_version => Err(io::Error::new(Unsupported, "file must be CARv1")),
     }
 }
 
@@ -229,6 +383,18 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
     fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
+}
+
+#[tracing::instrument(level = "trace", skip_all, err)]
+fn read_cids(mut reader: impl Read, buffer: &mut Vec<u8>) -> cid::Result<Vec<Cid>> {
+    let mut cids = vec![];
+    while let Some(body_length) = read_u32_or_eof(&mut reader)? {
+        buffer.resize(usize::try_from(body_length).unwrap(), 0);
+        reader.read_exact(buffer)?;
+        let cid = Cid::read_bytes(buffer.as_slice())?;
+        cids.push(cid)
+    }
+    Ok(cids)
 }
 
 /// Importantly, we seek _past_ the data, rather than read any in.
@@ -267,6 +433,21 @@ fn next_varint_frame(mut reader: (impl Read + Seek)) -> io::Result<Option<(u64, 
         None => None,
     })
 }
+#[tracing::instrument(level = "trace", skip_all, ret, err)]
+fn read_varint_framed_block(
+    mut reader: impl Read,
+    block_data: &mut Vec<u8>,
+) -> cid::Result<Option<Cid>> {
+    let Some(body_length) = read_u32_or_eof(&mut reader)? else {
+        return Ok(None)
+    };
+    let mut reader = CountRead::new(reader);
+    let cid = Cid::read_bytes(&mut reader)?;
+    let block_data_length = usize::try_from(body_length).unwrap() - reader.bytes_read();
+    block_data.resize(block_data_length, 0);
+    reader.read_exact(block_data)?;
+    Ok(Some(cid))
+}
 
 fn read_u32_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
     use unsigned_varint::io::{
@@ -285,6 +466,34 @@ fn read_u32_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
             })
             .map(Some),
         _ => unreachable!(),
+    }
+}
+
+/// A reader that keeps track of how many bytes it has read.
+///
+/// This is useful for calculating the _block data length_ when the (_varint frame_) _body length_ is known.
+struct CountRead<ReadT> {
+    inner: ReadT,
+    count: usize,
+}
+
+impl<ReadT> CountRead<ReadT> {
+    pub fn new(inner: ReadT) -> Self {
+        Self { inner, count: 0 }
+    }
+    pub fn bytes_read(&self) -> usize {
+        self.count
+    }
+}
+
+impl<ReadT> Read for CountRead<ReadT>
+where
+    ReadT: Read,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.count += n;
+        Ok(n)
     }
 }
 
