@@ -12,15 +12,13 @@ Tipsets are identified by the set of blocks it contain. This means a null tipset
 
 ![Alt text](Filecoin-Graph.drawio.svg)
 
-## Blocks and block headers
+## Blocks
 
-```mermaid
-    classDiagram
-        Animal <|-- Duck
-```
-
+A block header primarily contains a timestamp, an epoch, a link to the parent tipset, a link to the state-tree of the parent, and a link to a set of messages (i.e. transactions). Blocks are block headers combined with the messages.
 
 ## State trees
+
+
 
 ## Messages
 
