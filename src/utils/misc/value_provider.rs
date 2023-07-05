@@ -11,9 +11,9 @@ const ORDERING: Ordering = Ordering::Relaxed;
 pub struct AdaptiveValueProviderConfig {
     /// Value name for tracing
     pub name: String,
-    /// Value downgrading threshold after provided consective failure(s) (Exclusive)
+    /// Value downgrading threshold after provided consecutive failure(s) (Exclusive)
     pub downgrade_threshod: usize,
-    /// Value upgrading threshold after provided consective success(es) (Exclusive)
+    /// Value upgrading threshold after provided consecutive success(es) (Exclusive)
     pub upgrade_threshold: usize,
     /// Whether to enable tracing on value upgrade and downgrade, tracing level is `INFO`
     pub tracing: bool,
@@ -134,7 +134,7 @@ mod tests {
         value_provider.track_failure();
         assert_eq!(value_provider.value(), &4);
 
-        // Downgrade on 3 consective failures
+        // Downgrade on 3 consecutive failures
         value_provider.track_failure();
         assert_eq!(value_provider.value(), &2);
 
@@ -151,7 +151,7 @@ mod tests {
         value_provider.track_failure();
         assert_eq!(value_provider.value(), &2);
 
-        // Downgrade again on 3 consective failures
+        // Downgrade again on 3 consecutive failures
         value_provider.track_failure();
         assert_eq!(value_provider.value(), &1);
 
@@ -166,7 +166,7 @@ mod tests {
         value_provider.track_success();
         assert_eq!(value_provider.value(), &1);
 
-        // Upgrade on 3 consective successes
+        // Upgrade on 3 consecutive successes
         value_provider.track_success();
         assert_eq!(value_provider.value(), &2);
 
@@ -183,7 +183,7 @@ mod tests {
         value_provider.track_success();
         assert_eq!(value_provider.value(), &2);
 
-        // Upgrade again on 3 consective successes
+        // Upgrade again on 3 consecutive successes
         value_provider.track_success();
         assert_eq!(value_provider.value(), &4);
 
