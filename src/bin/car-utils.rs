@@ -1,30 +1,35 @@
-use bytes::{Buf as _, BufMut, BytesMut};
+use bytes::{buf::Writer, BufMut as _, BytesMut};
 use futures_util::{Stream, StreamExt as _, TryStream, TryStreamExt as _};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use pin_project_lite::pin_project;
 use std::{
+    io::Write as _,
+    marker::PhantomData,
     ops::ControlFlow,
     path::PathBuf,
     pin::Pin,
     task::{ready, Context, Poll},
 };
 use tokio::fs::File;
-use tokio_util_06::codec::{FramedRead, FramedWrite};
+use tokio_util::codec::{BytesCodec, FramedWrite};
+use tokio_util_06::codec::FramedRead;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
+use zstd::Encoder;
 
 type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
 
 #[derive(Debug, clap::Parser)]
 enum Args {
+    /// Each zstd frame will contain a whole number of varint frames
     AggregateVarintFramesInZstdFrames {
         source: PathBuf,
         destination: PathBuf,
         #[arg(short, long, default_value_t = 3)]
         compression_level: u16,
-        /// Uncompressed, not including varint frame header
+        /// End zstd frames after they exceed this length
         #[arg(short, long, default_value_t = 8000usize.next_power_of_two())]
-        uncompressed_data_per_zstd_frame: usize,
+        zstd_frame_length_tripwire: usize,
     },
 }
 
@@ -43,7 +48,7 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             source,
             destination,
             compression_level,
-            uncompressed_data_per_zstd_frame,
+            zstd_frame_length_tripwire,
         } => {
             let progress = MultiProgress::new();
 
@@ -79,21 +84,13 @@ async fn _main(args: Args) -> anyhow::Result<()> {
                             .with_finish(ProgressFinish::AndLeave),
                     )
                     .wrap_async_write(File::create(destination).await?),
-                VarintFramesToZstdFrame {
-                    compression_level,
-                    varint_frame_codec: VarintFrameCodec::default(),
-                },
+                BytesCodec::new(),
             );
+
             try_collate(
                 source.inspect_ok(|_| varint_frame_count.inc(1)),
-                |varint_frames, next_varint_frame| {
-                    let collated_len = varint_frames.iter().map(BytesMut::len).sum::<usize>();
-                    match collated_len + next_varint_frame.len() > uncompressed_data_per_zstd_frame
-                    {
-                        true => ControlFlow::Break(()),
-                        false => ControlFlow::Continue(()),
-                    }
-                },
+                fold_varint_bodies_into_zstd_frames(zstd_frame_length_tripwire, compression_level),
+                finish_zstd_frame,
             )
             .inspect_ok(|_| zstd_frame_count.inc(1))
             .forward(destination)
@@ -103,65 +100,148 @@ async fn _main(args: Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn try_collate<TryStreamT, OkT, ErrT, ShouldCollateFn>(
-    inner: TryStreamT,
-    should_collate_fn: ShouldCollateFn,
-) -> TryCollate<TryStreamT, OkT, ShouldCollateFn>
+fn fold_varint_bodies_into_zstd_frames(
+    tripwire: usize,
+    compression_level: u16,
+) -> impl Fn(
+    Collate<Encoder<'_, Writer<BytesMut>>, BytesMut>,
+) -> ControlFlow<BytesMut, Encoder<'_, Writer<BytesMut>>> {
+    move |collate| {
+        let encoder = match collate {
+            Collate::Started(body) => write_varint_frame(
+                Encoder::new(BytesMut::new().writer(), i32::from(compression_level)).unwrap(),
+                body,
+            ),
+            Collate::Continued(encoder, body) => write_varint_frame(encoder, body),
+        };
+        let compressed_len = encoder.get_ref().get_ref().len();
+
+        match compressed_len >= tripwire {
+            // finish this zstd frame
+            true => ControlFlow::Break(finish_zstd_frame(encoder)),
+            // fold the next varint frame body in
+            false => ControlFlow::Continue(encoder),
+        }
+    }
+}
+
+fn finish_zstd_frame(encoder: Encoder<Writer<BytesMut>>) -> BytesMut {
+    encoder
+        .finish()
+        .expect("BytesMut has infallible IO")
+        .into_inner()
+}
+
+fn write_varint_frame(
+    mut encoder: Encoder<Writer<BytesMut>>,
+    body: BytesMut,
+) -> Encoder<Writer<BytesMut>> {
+    let mut header = unsigned_varint::encode::usize_buffer();
+    encoder
+        .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
+        .expect("BytesMut has infallible IO");
+    encoder
+        .write_all(&body)
+        .expect("BytesMut has infallible IO");
+    encoder
+}
+
+fn try_collate<Inner, Collator, CollateFn, FinishFn, Collated>(
+    inner: Inner,
+    collate_fn: CollateFn,
+    finish_fn: FinishFn,
+) -> TryCollate<Inner, Collator, CollateFn, FinishFn, Collated>
 where
-    ShouldCollateFn: FnMut(&[OkT], &OkT) -> ControlFlow<(), ()>,
-    TryStreamT: TryStream<Ok = OkT, Error = ErrT>,
+    Inner: TryStream,
+    CollateFn: FnMut(Collate<Collator, Inner::Ok>) -> ControlFlow<Collated, Collator>,
+    FinishFn: FnMut(Collator) -> Collated,
 {
     TryCollate {
         inner,
-        current_collation: vec![],
-        should_collate_fn,
+        collator: None,
+        collate_fn,
+        finish_fn,
+        collated: PhantomData,
     }
 }
 
 pin_project! {
-    struct TryCollate<Inner, InnerOk, ShouldCollateFn> {
+    struct TryCollate<Inner, Collator, CollateFn, FinishFn, Collated> {
         #[pin]
         inner: Inner,
-        current_collation: Vec<InnerOk>,
-        should_collate_fn: ShouldCollateFn
+        collator: Option<Collator>,
+        collate_fn: CollateFn,
+        finish_fn: FinishFn,
+        collated: PhantomData<Collated>
     }
 }
 
-impl<Inner, InnerOk, ShouldCollateFn> Stream for TryCollate<Inner, InnerOk, ShouldCollateFn>
+enum Collate<Collator, Item> {
+    /// Handle the first item since the last collation
+    Started(Item),
+    /// Fold into the existing collator
+    Continued(Collator, Item),
+}
+
+impl<Inner, Collator, CollateFn, FinishFn, Collated> Stream
+    for TryCollate<Inner, Collator, CollateFn, FinishFn, Collated>
 where
-    Inner: TryStream<Ok = InnerOk>,
-    ShouldCollateFn: FnMut(&[InnerOk], &InnerOk) -> ControlFlow<(), ()>,
+    Inner: TryStream,
+    CollateFn: FnMut(Collate<Collator, Inner::Ok>) -> ControlFlow<Collated, Collator>,
+    FinishFn: FnMut(Collator) -> Collated,
 {
-    type Item = Result<Vec<InnerOk>, Inner::Error>;
+    type Item = Result<Collated, Inner::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.as_mut().project();
         loop {
             match ready!(this.inner.as_mut().try_poll_next(cx)) {
-                Some(Ok(ok)) => match (this.should_collate_fn)(this.current_collation, &ok) {
-                    // collate it
-                    ControlFlow::Continue(_) => {
-                        this.current_collation.push(ok);
-                    }
-                    // return what we've got, and start a new collation
-                    ControlFlow::Break(_) => {
-                        let collation = std::mem::take(this.current_collation);
-                        this.current_collation.push(ok);
-                        return Poll::Ready(Some(Ok(collation)));
-                    }
-                },
-                // ordering between errors and collated types is broken here
-                Some(Err(e)) => return Poll::Ready(Some(Err(e))),
-                None => {
-                    let last = match this.current_collation.is_empty() {
-                        true => None,
-                        false => Some(Ok(std::mem::take(this.current_collation))),
+                Some(Ok(ok)) => {
+                    let action = match this.collator.take() {
+                        Some(collator) => (this.collate_fn)(Collate::Continued(collator, ok)),
+                        None => (this.collate_fn)(Collate::Started(ok)),
                     };
-                    return Poll::Ready(last);
+                    match action {
+                        ControlFlow::Continue(collator) => *this.collator = Some(collator),
+                        ControlFlow::Break(collated) => break Poll::Ready(Some(Ok(collated))),
+                    }
                 }
+                Some(Err(error)) => break Poll::Ready(Some(Err(error))),
+                None => match this.collator.take() {
+                    Some(collator) => break Poll::Ready(Some(Ok((this.finish_fn)(collator)))),
+                    None => break Poll::Ready(None),
+                },
             }
         }
     }
+}
+
+#[tokio::test]
+async fn test_try_collate() {
+    let source = futures::stream::iter(["the", "cuttlefish", "is", "not", "a", "fish"])
+        .map(Ok)
+        .chain(futures::stream::iter([Err(())]));
+
+    let mut collated = try_collate(
+        source,
+        |request| {
+            let buffer = match request {
+                Collate::Started(el) => String::from(el),
+                Collate::Continued(already, el) => already + el,
+            };
+            match buffer.len() >= 5 {
+                true => ControlFlow::Break(buffer),
+                false => ControlFlow::Continue(buffer),
+            }
+        },
+        std::convert::identity,
+    );
+
+    assert_eq!(collated.next().await.unwrap().unwrap(), "thecuttlefish");
+    assert_eq!(collated.next().await.unwrap().unwrap(), "isnot");
+    assert_eq!(collated.next().await.unwrap().unwrap(), "afish");
+    collated.next().await.unwrap().unwrap_err();
+    assert!(collated.next().await.is_none());
 }
 
 #[test]
@@ -172,71 +252,17 @@ fn test_roundtrip() {
     futures::executor::block_on(
         try_collate(
             FramedRead::new(uncompressed.as_slice(), VarintFrameCodec::default()),
-            |varint_frames, next_varint_frame| {
-                let collated_len = varint_frames.iter().map(BytesMut::len).sum::<usize>();
-                match collated_len + next_varint_frame.len() > 4096 {
-                    true => ControlFlow::Break(()),
-                    false => ControlFlow::Continue(()),
-                }
-            },
+            fold_varint_bodies_into_zstd_frames(4096, 3),
+            finish_zstd_frame,
         )
-        .forward(FramedWrite::new(
-            &mut compressed,
-            VarintFramesToZstdFrame {
-                compression_level: 3,
-                varint_frame_codec: VarintFrameCodec::default(),
-            },
-        )),
+        .forward(FramedWrite::new(&mut compressed, BytesCodec::new())),
     )
     .unwrap();
 
+    assert!(compressed.len() < uncompressed.len());
+
     let round_tripped = zstd::decode_all(compressed.as_slice()).unwrap();
     assert!(round_tripped == uncompressed);
-}
-
-#[tokio::test]
-async fn test_collate() {
-    let source = futures::stream::iter(["hello", "my", "name", "is", "aaaaaaaaaatif"])
-        .map(Ok)
-        .chain(futures::stream::iter([Err(())]));
-    let mut collated = try_collate(source, |collated, next| {
-        let collated_len = collated.iter().map(|it| it.len()).sum::<usize>();
-        match collated_len + next.len() > 10 {
-            true => ControlFlow::Break(()),
-            false => ControlFlow::Continue(()),
-        }
-    });
-    assert_eq!(collated.next().await, Some(Ok(vec!["hello", "my"])));
-    assert_eq!(collated.next().await, Some(Ok(vec!["name", "is"])));
-    assert_eq!(collated.next().await, Some(Err(())));
-    assert_eq!(collated.next().await, Some(Ok(vec!["aaaaaaaaaatif"]))); // odd, but fine
-    assert_eq!(collated.next().await, None);
-}
-
-struct VarintFramesToZstdFrame {
-    compression_level: u16,
-    varint_frame_codec: VarintFrameCodec,
-}
-
-impl tokio_util_06::codec::Encoder<Vec<BytesMut>> for VarintFramesToZstdFrame {
-    type Error = std::io::Error;
-
-    fn encode(
-        &mut self,
-        buffers: Vec<BytesMut>,
-        dst: &mut bytes::BytesMut,
-    ) -> Result<(), Self::Error> {
-        let mut uncompressed = BytesMut::with_capacity(buffers.iter().map(BytesMut::len).sum());
-        for buffer in buffers {
-            self.varint_frame_codec.encode(buffer, &mut uncompressed)?;
-        }
-
-        zstd::stream::copy_encode(
-            uncompressed.reader(),
-            dst.writer(),
-            i32::from(self.compression_level),
-        )
-    }
 }
 
 fn read() -> ProgressStyle {
