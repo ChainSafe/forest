@@ -4,8 +4,8 @@
 use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
-use crate::state_manager::StateManager;
 use crate::cli_shared::cli::{BufferSize, ChunkSize};
+use crate::state_manager::StateManager;
 use anyhow::bail;
 use cid::Cid;
 use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};

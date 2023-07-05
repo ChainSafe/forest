@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli_shared::cli::{BufferSize, ChunkSize,Config};
+use crate::cli_shared::cli::{BufferSize, ChunkSize, Config};
 use crate::genesis::forest_load_car;
 use crate::networks::Height;
 use crate::shim::clock::ChainEpoch;

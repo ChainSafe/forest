@@ -93,8 +93,8 @@ impl Default for Client {
 
 #[cfg(test)]
 mod test {
+    use super::{BufferSize, ChunkSize};
     use quickcheck::Arbitrary;
-    use super::{ChunkSize, BufferSize};
 
     #[cfg(test)]
     impl Arbitrary for ChunkSize {

@@ -122,8 +122,8 @@ mod test {
         path::PathBuf,
     };
 
-    use crate::utils::io::ProgressBarVisibility;
     use crate::cli_shared::cli::client::{BufferSize, ChunkSize};
+    use crate::utils::io::ProgressBarVisibility;
     use chrono::Duration;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
