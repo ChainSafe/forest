@@ -1,9 +1,15 @@
 use bytes::{buf::Writer, BufMut as _, BytesMut};
+use cid::Cid;
 use futures_util::{Stream, StreamExt as _, TryStream, TryStreamExt as _};
+use fvm_ipld_car::CarHeader;
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use pin_project_lite::pin_project;
 use std::{
-    io::{BufRead, BufReader, Read, Write as _},
+    io::{
+        self, BufRead, BufReader,
+        ErrorKind::{InvalidData, Other, UnexpectedEof},
+        Read, Write as _,
+    },
     marker::PhantomData,
     ops::ControlFlow,
     path::PathBuf,
@@ -31,7 +37,7 @@ enum Args {
         #[arg(short, long, default_value_t = 8000usize.next_power_of_two())]
         zstd_frame_length_tripwire: usize,
     },
-    CountZstdFrames {
+    CountZstdFramesAndCids {
         source: PathBuf,
     },
 }
@@ -99,24 +105,74 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             .forward(destination)
             .await?;
         }
-        Args::CountZstdFrames { source } => {
+        Args::CountZstdFramesAndCids { source } => {
             // this is all blocking...
-            let mut num_frames = 0;
-            let mut reader = BufReader::new(std::fs::File::open(source)?);
-            let mut _buffer = [0; 8000usize.next_power_of_two()];
+            let mut num_zstd_frames = 0;
+            let mut num_cids = 0;
+            let reader = BufReader::new(std::fs::File::open(source)?);
+            let mut buffer = vec![];
+
+            // read the first zstd frame, it should contain a header
+            let mut decoder = Decoder::with_buffer(reader)?.single_frame();
+            read_header(&mut decoder)?;
+            while let Some(body_length) = read_u32_or_eof(&mut decoder)? {
+                buffer.resize(usize::try_from(body_length).unwrap(), 0);
+                decoder.read_exact(&mut buffer)?;
+                Cid::read_bytes(buffer.as_slice())?;
+                num_cids += 1;
+            }
+            num_zstd_frames += 1;
+            let mut reader = decoder.finish();
+
             loop {
-                let mut decoder = Decoder::with_buffer(reader)?.single_frame();
-                while decoder.read(&mut _buffer)? != 0 {}
-                reader = decoder.finish();
-                num_frames += 1;
                 if reader.fill_buf()?.is_empty() {
                     break;
                 }
+
+                let mut decoder = Decoder::with_buffer(reader)?.single_frame();
+
+                while let Some(body_length) = read_u32_or_eof(&mut decoder)? {
+                    buffer.resize(usize::try_from(body_length).unwrap(), 0);
+                    decoder.read_exact(&mut buffer)?;
+                    Cid::read_bytes(buffer.as_slice())?;
+                    num_cids += 1;
+                }
+                num_zstd_frames += 1;
+                reader = decoder.finish();
             }
-            println!("{}", num_frames);
+
+            println!("{}", num_zstd_frames);
+            println!("{}", num_cids);
         }
     }
     Ok(())
+}
+
+fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
+    let header_len = read_u32_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
+    let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
+    reader.read_exact(&mut buffer)?;
+    fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
+}
+
+fn read_u32_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
+    use unsigned_varint::io::{
+        read_u32,
+        ReadError::{Decode, Io},
+    };
+
+    let mut byte = [0u8; 1]; // detect EOF
+    match reader.read(&mut byte)? {
+        0 => Ok(None),
+        1 => read_u32(byte.chain(reader))
+            .map_err(|varint_error| match varint_error {
+                Io(e) => e,
+                Decode(e) => io::Error::new(InvalidData, e),
+                other => io::Error::new(Other, other),
+            })
+            .map(Some),
+        _ => unreachable!(),
+    }
 }
 
 fn fold_varint_bodies_into_zstd_frames(
