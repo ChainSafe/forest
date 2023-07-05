@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::car_backed_blockstore::CarBackedBlockstore;
+use crate::car::UncompressedCarV1BackedBlockstore;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -153,7 +153,7 @@ async fn validate(
     snapshot: &PathBuf,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
-        CarBackedBlockstore::new(std::fs::File::open(snapshot)?)
+        UncompressedCarV1BackedBlockstore::new(std::fs::File::open(snapshot)?)
             .context("couldn't read input CAR file - is it compressed?")?,
     );
     let genesis = read_genesis_header(

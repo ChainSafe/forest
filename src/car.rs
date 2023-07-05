@@ -1,25 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
+//! # Varint frames
 //!
-//! This module provides an implementer of [`Blockstore`] that simply wraps a [CAR file](https://ipld.io/specs/transport/car/carv1).
-//! **Note that all operations on this store are blocking**.
-//!
-//! On creation, [`CarBackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
-//! and their offsets into that file.
-//!
-//! When a block is requested [`CarBackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
-//!
-//! Writes for new data (which doesn't exist in the CAR already) are currently cached in-memory.
-//!
-//! Random-access performance is expected to be poor, as the OS will have to load separate parts of the file from disk, and flush it for each read.
-//! However, (near) linear access should be pretty good, as file chunks will be pre-fetched.
-//! See also the remarks below about block ordering.
-//!
-//! # CAR Layout and seeking
-//!
-//! CARs consist of _varint frames_, are a concatenation of the _body length_ as an [`unsigned_varint`], and the _frame body_ itself.
+//! CARs are made of concatenations of _varint frames_.
+//! Each varint frame is a concatenation of the _body length_ as an [`unsigned_varint`], and the _frame body_ itself.
 //! [`unsigned_varint::codec`] can be used to read frames piecewise into memory.
 //!
 //! ```text
@@ -34,6 +19,8 @@
 //! frame body ►│◄───────────►│
 //!     offset     =body length
 //! ```
+//!
+//! # CARv1 layout and seeking
 //!
 //! The first varint frame is a _header frame_, where the frame body is a [`CarHeader`] encoded using [`ipld_dagcbor`](serde_ipld_dagcbor).
 //!
@@ -53,11 +40,6 @@
 //!          offset ►│
 //! ```
 //!
-//! ## Block ordering
-//! > _... a filecoin-deterministic car-file is currently implementation-defined as containing all DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting from a single root._
-//!
-//! - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
-//!
 //! # Future work
 //! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the file, to improve random access performance.
 //! - Use an inner [`Blockstore`] for writes.
@@ -67,7 +49,7 @@
 //!   So compressed snapshot support would compression per-frame, or maybe per block of frames.
 //! - Support multiple files by concatenating them.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
-//! - Theoretically, [`CarBackedBlockstore`] should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
+//! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
 
 use ahash::AHashMap;
 use cid::Cid;
@@ -85,18 +67,38 @@ use tracing::{debug, trace};
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
 /// you should get data that corresponds to a [`Cid`] (but NOT the [`Cid`] itself).
 #[derive(Debug)]
-struct BlockDataLocation {
+struct UncompressedBlockDataLocation {
     offset: u64,
     length: u32,
 }
 
+/// It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
+///
+/// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [CARv1 file](https://ipld.io/specs/transport/car/carv1).
+/// **Note that all operations on this store are blocking**.
+///
+/// On creation, [`UncompressedCarV1BackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
+/// and their offsets into that file.
+///
+/// When a block is requested [`UncompressedCarV1BackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
+///
+/// Writes for new data (which doesn't exist in the CAR already) are currently cached in-memory.
+///
+/// Random-access performance is expected to be poor, as the OS will have to load separate parts of the file from disk, and flush it for each read.
+/// However, (near) linear access should be pretty good, as file chunks will be pre-fetched.
+///
 /// See [module documentation](mod@self) for more.
-pub struct CarBackedBlockstore<ReaderT> {
+///
+/// ## Block ordering
+/// > _... a filecoin-deterministic car-file is currently implementation-defined as containing all DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting from a single root._
+///
+/// - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
+pub struct UncompressedCarV1BackedBlockstore<ReaderT> {
     // https://github.com/ChainSafe/forest/issues/3096
-    inner: Mutex<CarBackedBlockstoreInner<ReaderT>>,
+    inner: Mutex<UncompressedCarV1BackedBlockstoreInner<ReaderT>>,
 }
 
-impl<ReaderT> CarBackedBlockstore<ReaderT>
+impl<ReaderT> UncompressedCarV1BackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
 {
@@ -136,7 +138,7 @@ where
         }
 
         Ok(Self {
-            inner: Mutex::new(CarBackedBlockstoreInner {
+            inner: Mutex::new(UncompressedCarV1BackedBlockstoreInner {
                 // discarding the buffer is ok - we only seek within this now
                 reader: buf_reader.into_inner(),
                 index,
@@ -147,20 +149,20 @@ where
     }
 }
 
-struct CarBackedBlockstoreInner<ReaderT> {
+struct UncompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
-    index: AHashMap<Cid, BlockDataLocation>,
+    index: AHashMap<Cid, UncompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
 
-impl<ReaderT> Blockstore for CarBackedBlockstore<ReaderT>
+impl<ReaderT> Blockstore for UncompressedCarV1BackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let CarBackedBlockstoreInner {
+        let UncompressedCarV1BackedBlockstoreInner {
             reader,
             write_cache,
             index,
@@ -171,7 +173,7 @@ where
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
-            (Some(BlockDataLocation { offset, length }), Vacant(_)) => {
+            (Some(UncompressedBlockDataLocation { offset, length }), Vacant(_)) => {
                 trace!("fetching from disk");
                 reader.seek(SeekFrom::Start(*offset))?;
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
@@ -194,7 +196,7 @@ where
     /// - See also [`Self::new`].
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let CarBackedBlockstoreInner {
+        let UncompressedCarV1BackedBlockstoreInner {
             write_cache, index, ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
@@ -236,7 +238,7 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_location_or_eof(
     mut reader: (impl Read + Seek),
-) -> cid::Result<Option<(Cid, BlockDataLocation)>> {
+) -> cid::Result<Option<(Cid, UncompressedBlockDataLocation)>> {
     let Some((frame_body_offset, body_length)) = next_varint_frame(&mut reader)? else {
         return Ok(None)
     };
@@ -249,7 +251,7 @@ fn read_block_location_or_eof(
     reader.seek(SeekFrom::Start(next_frame_offset))?;
     Ok(Some((
         cid,
-        BlockDataLocation {
+        UncompressedBlockDataLocation {
             offset: block_data_offset,
             length: block_data_length,
         },
@@ -288,7 +290,7 @@ fn read_u32_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
 
 #[cfg(test)]
 mod tests {
-    use super::CarBackedBlockstore;
+    use super::UncompressedCarV1BackedBlockstore;
 
     use futures_util::AsyncRead;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
@@ -298,7 +300,7 @@ mod tests {
     fn test() {
         let car = include_bytes!("../test-snapshots/chain4.car");
         let reference = reference(futures::io::Cursor::new(car));
-        let car_backed = CarBackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
+        let car_backed = UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
 
         assert_eq!(car_backed.inner.lock().index.len(), 1222);
         assert_eq!(car_backed.inner.lock().roots.len(), 1);
