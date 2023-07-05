@@ -4,9 +4,8 @@ CHAIN=calibnet
 SNAPSHOT=filecoin_full_calibnet_2023-04-07_450000.car
 
 hyperfine \
-  --runs 2 \
-  --cleanup "./target/release/forest-cli --chain ${CHAIN} db clean --force" \
-  --parameter-list CHUNK_SIZE 1000,5000,10000,20000,40000,200000 \
+  --runs 5 \
+  --parameter-list CHUNK_SIZE 1000,5000,10000,20000,40000,200000,500000 \
   --parameter-list BUFFER_CAPACITY 0,1,2,3 \
   --export-markdown db_tune_params.md \
   --command-name 'forest-import-{CHUNK_SIZE}-{BUFFER_CAPACITY}' \
