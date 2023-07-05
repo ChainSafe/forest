@@ -4,6 +4,12 @@ CHAIN=calibnet
 
 # https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/debug/filecoin_full_calibnet_2023-04-07_450000.car
 SNAPSHOT=filecoin_full_calibnet_2023-04-07_450000.car
+if [ ! -f $SNAPSHOT ]
+then
+    aria2c -x 4 "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/debug/filecoin_full_calibnet_2023-04-07_450000.car"
+fi
+
+cargo build --release
 
 # For some reason, cleaning the database with --cleanup gives me wildly inconsistent results.
 hyperfine \
