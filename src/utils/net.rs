@@ -59,7 +59,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
     let mut reader = tokio::io::BufReader::new(wrap_async_read(
         "Reading ... ",
         stream,
-        (content_length as usize, Some(content_length as usize)),
+        content_length as u64,
     ));
 
     Ok(match is_zstd(reader.fill_buf().await?) {

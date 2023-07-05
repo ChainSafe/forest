@@ -25,10 +25,11 @@ where
     Inner: Iterator,
 {
     let inner = into_iter.into_iter();
-    let size_hint = inner.size_hint();
+    let (lower_bound, upper_bound) = inner.size_hint();
+    let total_items = upper_bound.unwrap_or(lower_bound) as u64;
     WithProgressIter {
         inner,
-        progress: WithProgress::new(message, size_hint),
+        progress: WithProgress::new(message, total_items),
     }
 }
 
@@ -60,21 +61,22 @@ where
 }
 
 pub fn wrap_stream<S: futures_core::Stream>(message: &str, stream: S) -> WithProgressStream<S> {
-    let size_hint = stream.size_hint();
+    let (lower_bound, upper_bound) = stream.size_hint();
+    let total_items = upper_bound.unwrap_or(lower_bound) as u64;
     WithProgressStream {
         stream,
-        progress: WithProgress::new(message, size_hint),
+        progress: WithProgress::new(message, total_items),
     }
 }
 
 pub fn wrap_async_read<R: tokio::io::AsyncRead + Unpin>(
     message: &str,
     read: R,
-    size_hint: (usize, Option<usize>),
+    total_items: u64,
 ) -> WithProgressStream<R> {
     WithProgressStream {
         stream: read,
-        progress: WithProgress::new(message, size_hint),
+        progress: WithProgress::new(message, total_items),
     }
 }
 
@@ -145,11 +147,11 @@ struct WithProgress {
     start: Instant,
     last_logged: Instant,
     message: String,
-    size_hint: (usize, Option<usize>),
+    total_items: u64,
 }
 
 impl WithProgress {
-    fn new(message: &str, size_hint: (usize, Option<usize>)) -> Self {
+    fn new(message: &str, total_items: u64) -> Self {
         let now = Instant::now();
         Self {
             completed_items: 0,
@@ -157,7 +159,7 @@ impl WithProgress {
             start: now,
             last_logged: now,
             message: message.into(),
-            size_hint,
+            total_items,
         }
     }
 
@@ -175,10 +177,8 @@ impl WithProgress {
 
             let throughput = self.completed_items as f64 / elapsed_secs;
 
-            let (lower_bound, upper_bound) = self.size_hint;
-            // TODO: fix eta if we don't use size hints
-            let total_items = upper_bound.unwrap_or(lower_bound) as u64; // + self.completed_items;
-            let eta_secs = (total_items.saturating_sub(self.completed_items)) as f64 / throughput;
+            let eta_secs =
+                (self.total_items.saturating_sub(self.completed_items)) as f64 / throughput;
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
 
             info!(
