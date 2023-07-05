@@ -2,25 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::borrow::Cow;
 
+use crate::shim::address::{Address, Protocol};
 use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
+use cid::Cid;
 use fvm_ipld_encoding3::{
     de,
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
+use fvm_shared::commcid::Commitment;
 use fvm_shared::commcid::{cid_to_commitment, FIL_COMMITMENT_SEALED};
 pub use fvm_shared::crypto::signature::{
     Signature as Signature_v2, SignatureType as SignatureType_v2,
 };
+pub use fvm_shared::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
 pub use fvm_shared3::crypto::signature::{
     Signature as Signature_v3, SignatureType as SignatureType_v3,
 };
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
-use cid::Cid;
-use crate::shim::address::{Address, Protocol};
-pub use fvm_shared::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
-use fvm_shared::commcid::Commitment;
 
 /// A cryptographic signature, represented in bytes, of any key protocol.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

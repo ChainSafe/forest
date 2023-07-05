@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use cid::Cid;
 use fvm_ipld_encoding::{Cbor, Error};
 use fvm_ipld_encoding3::RawBytes;
-use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;

@@ -212,9 +212,9 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use crate::blocks::{BlockHeader, Tipset};
+    use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use crate::shim::{address::Address, econ::TokenAmount};
     use chrono::DateTime;
-    use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};
 
