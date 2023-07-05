@@ -5,6 +5,7 @@ use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::state_manager::StateManager;
+use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use anyhow::bail;
 use cid::Cid;
 use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};
@@ -86,6 +87,8 @@ pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
     skip_load: bool,
+    chunk_size: ChunkSize,
+    buffer_size: BufferSize,
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
@@ -95,8 +98,14 @@ where
     let stopwatch = time::Instant::now();
     let reader = crate::utils::net::reader(path).await?;
 
-    let (cids, n_records) =
-        load_and_retrieve_header(sm.blockstore().clone(), reader.compat(), skip_load).await?;
+    let (cids, n_records) = load_and_retrieve_header(
+        sm.blockstore().clone(),
+        reader.compat(),
+        skip_load,
+        chunk_size,
+        buffer_size,
+    )
+    .await?;
 
     info!(
         "Loaded {} records from .car file in {}s",
@@ -138,6 +147,8 @@ async fn load_and_retrieve_header<DB, R>(
     store: DB,
     reader: R,
     skip_load: bool,
+    chunk_size: ChunkSize,
+    buffer_size: BufferSize,
 ) -> anyhow::Result<(Vec<Cid>, Option<usize>)>
 where
     DB: Blockstore + Send + 'static,
@@ -146,7 +157,7 @@ where
     let result = if skip_load {
         (CarReader::new(reader).await?.header.roots, None)
     } else {
-        let (roots, n_records) = forest_load_car(store, reader).await?;
+        let (roots, n_records) = forest_load_car(store, reader, chunk_size, buffer_size).await?;
         (roots, Some(n_records))
     };
 
@@ -166,7 +177,12 @@ fn car_stream<R: futures::AsyncRead + Send + Unpin>(
     })
 }
 
-pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<(Vec<Cid>, usize)>
+pub async fn forest_load_car<DB, R>(
+    store: DB,
+    reader: R,
+    ChunkSize(chunk_size): ChunkSize,
+    BufferSize(buffer_size): BufferSize,
+) -> anyhow::Result<(Vec<Cid>, usize)>
 where
     R: futures::AsyncRead + Send + Unpin,
     DB: Blockstore + Send + 'static,
@@ -186,9 +202,6 @@ where
         },
     );
 
-    let chunk_size = std::env::var("CHUNK_SIZE")?.parse::<usize>()?;
-    let buffer_capacity = std::env::var("BUFFER_CAPACITY")?.parse::<usize>()?;
-
     // Stream key-value pairs from the CAR file and commit them in chunks of
     // 20000 elements. Try to maintain a buffer of 2 x 20000 elements to avoid
     // read-stalling.
@@ -198,7 +211,7 @@ where
         .inspect(|_| n_records += 1)
         .chunks(chunk_size)
         .map(|vec| vec.into_iter().collect::<anyhow::Result<Vec<_>>>())
-        .forward(sink.buffer(buffer_capacity))
+        .forward(sink.buffer(buffer_size))
         .await?;
 
     Ok((header.roots, n_records))
