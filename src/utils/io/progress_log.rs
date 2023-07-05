@@ -22,7 +22,7 @@ pub fn wrap_iter<Inner>(
     into_iter: impl IntoIterator<IntoIter = Inner>,
 ) -> WithProgressIter<Inner>
 where
-    Inner: Iterator
+    Inner: Iterator,
 {
     let inner = into_iter.into_iter();
     let size_hint = inner.size_hint();
@@ -67,7 +67,7 @@ pub fn wrap_stream<S: futures_core::Stream>(message: &str, stream: S) -> WithPro
     }
 }
 
-pub fn wrap_async_read<R: tokio::io::AsyncBufRead + Unpin + tokio::io::AsyncRead>(
+pub fn wrap_async_read<R: tokio::io::AsyncRead + Unpin>(
     message: &str,
     read: R,
     size_hint: (usize, Option<usize>),
@@ -176,8 +176,9 @@ impl WithProgress {
             let throughput = self.completed_items as f64 / elapsed_secs;
 
             let (lower_bound, upper_bound) = self.size_hint;
-            let total_items = upper_bound.unwrap_or(lower_bound) as u64 + self.completed_items;
-            let eta_secs = (total_items - self.completed_items) as f64 / throughput;
+            // TODO: fix eta if we don't use size hints
+            let total_items = upper_bound.unwrap_or(lower_bound) as u64; // + self.completed_items;
+            let eta_secs = (total_items.saturating_sub(self.completed_items)) as f64 / throughput;
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
 
             info!(
