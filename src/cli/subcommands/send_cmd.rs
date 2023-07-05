@@ -50,7 +50,7 @@ impl SendCommand {
         };
 
         let message = Message {
-            from: from,
+            from,
             to: StrictAddress::from_str(&self.target_address)?.into(),
             value: self.amount.clone(),
             method_num: METHOD_SEND,
