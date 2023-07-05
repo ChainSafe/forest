@@ -6,12 +6,12 @@ use std::{num::NonZeroUsize, sync::Arc};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
+use crate::utils::io::wrap_iter;
 
 use crate::chain::{tipset_from_keys, Error, TipsetCache};
 
@@ -143,16 +143,15 @@ impl<BS: Blockstore> ChainIndex<BS> {
             return self.walk_back(from, to);
         }
         let total_size = from.epoch() - to;
-        let pb = ProgressBar::new(total_size as u64);
-        pb.message("Scanning blockchain ");
-        pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+        // let pb = ProgressBar::new(total_size as u64);
+        // pb.message("Scanning blockchain ");
+        // pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+        let mut wi = wrap_iter("Scanning blockchain", 0..total_size);
 
         let rounded = self.round_down(from)?;
 
         let mut cur = rounded.key().clone();
 
-        const MAX_COUNT: usize = 100;
-        let mut counter = 0;
         loop {
             let entry = self.skip_cache.lock().get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
@@ -172,7 +171,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
                     checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
                 {
                     let tipset = tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys)?;
-                    pb.set(total_size as u64);
+                    //pb.set(total_size as u64);
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
@@ -188,17 +187,12 @@ impl<BS: Blockstore> ChainIndex<BS> {
             }
             let to_be_done = lbe.tipset.epoch() - to;
             // Don't show the progress bar if we're doing less than 10_000 units of work.
-            if total_size > 10_000 {
-                pb.set((total_size - to_be_done) as u64);
-            }
+            // if total_size > 10_000 {
+            //     pb.set((total_size - to_be_done) as u64);
+            // }
 
             cur = lbe.target.clone();
-
-            if counter == MAX_COUNT {
-                counter = 0;
-            } else {
-                counter += 1;
-            }
+            wi.next();
         }
     }
 
