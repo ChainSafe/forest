@@ -1,3 +1,4 @@
+use ahash::AHashMap;
 use bytes::{buf::Writer, BufMut as _, BytesMut};
 use cid::Cid;
 use futures_util::{Stream, StreamExt as _, TryStream, TryStreamExt as _};
@@ -6,9 +7,9 @@ use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use pin_project_lite::pin_project;
 use std::{
     io::{
-        self, BufRead, BufReader,
+        self, BufRead as _, BufReader,
         ErrorKind::{InvalidData, Other, UnexpectedEof},
-        Read, Write as _,
+        Read, Seek, Write as _,
     },
     marker::PhantomData,
     ops::ControlFlow,
@@ -37,7 +38,7 @@ enum Args {
         #[arg(short, long, default_value_t = 8000usize.next_power_of_two())]
         zstd_frame_length_tripwire: usize,
     },
-    CountZstdFramesAndCids {
+    IndexCompressed {
         source: PathBuf,
     },
 }
@@ -105,47 +106,55 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             .forward(destination)
             .await?;
         }
-        Args::CountZstdFramesAndCids { source } => {
+        Args::IndexCompressed { source } => {
             // this is all blocking...
-            let mut num_zstd_frames = 0;
-            let mut num_cids = 0;
             let reader = BufReader::new(std::fs::File::open(source)?);
             let mut buffer = vec![];
+            // Cid -> Zstd frame offset (in file), block index in frame
+            let mut index = AHashMap::new();
 
             // read the first zstd frame, it should contain a header
             let mut decoder = Decoder::with_buffer(reader)?.single_frame();
-            read_header(&mut decoder)?;
-            while let Some(body_length) = read_u32_or_eof(&mut decoder)? {
-                buffer.resize(usize::try_from(body_length).unwrap(), 0);
-                decoder.read_exact(&mut buffer)?;
-                Cid::read_bytes(buffer.as_slice())?;
-                num_cids += 1;
-            }
-            num_zstd_frames += 1;
+            let header = read_header(&mut decoder)?;
+            index.extend(
+                read_cids(&mut decoder, &mut buffer)?
+                    .into_iter()
+                    .enumerate()
+                    .map(|(block_index_in_frame, cid)| (cid, (0, block_index_in_frame))),
+            );
             let mut reader = decoder.finish();
 
-            loop {
+            for zstd_frame_number in 2.. {
                 if reader.fill_buf()?.is_empty() {
+                    println!("{} cids in {} zstd frames", index.len(), zstd_frame_number);
                     break;
                 }
-
+                let zstd_frame_offset_in_file = reader.stream_position()?;
                 let mut decoder = Decoder::with_buffer(reader)?.single_frame();
-
-                while let Some(body_length) = read_u32_or_eof(&mut decoder)? {
-                    buffer.resize(usize::try_from(body_length).unwrap(), 0);
-                    decoder.read_exact(&mut buffer)?;
-                    Cid::read_bytes(buffer.as_slice())?;
-                    num_cids += 1;
-                }
-                num_zstd_frames += 1;
+                index.extend(
+                    read_cids(&mut decoder, &mut buffer)?
+                        .into_iter()
+                        .enumerate()
+                        .map(|(block_index_in_frame, cid)| {
+                            (cid, (zstd_frame_offset_in_file, block_index_in_frame))
+                        }),
+                );
                 reader = decoder.finish();
             }
-
-            println!("{}", num_zstd_frames);
-            println!("{}", num_cids);
         }
     }
     Ok(())
+}
+
+fn read_cids(mut reader: impl Read, buffer: &mut Vec<u8>) -> cid::Result<Vec<Cid>> {
+    let mut cids = vec![];
+    while let Some(body_length) = read_u32_or_eof(&mut reader)? {
+        buffer.resize(usize::try_from(body_length).unwrap(), 0);
+        reader.read_exact(buffer)?;
+        let cid = Cid::read_bytes(buffer.as_slice())?;
+        cids.push(cid)
+    }
+    Ok(cids)
 }
 
 fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
