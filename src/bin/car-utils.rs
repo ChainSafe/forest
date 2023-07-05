@@ -3,7 +3,7 @@ use futures_util::{Stream, StreamExt as _, TryStream, TryStreamExt as _};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use pin_project_lite::pin_project;
 use std::{
-    io::Write as _,
+    io::{BufRead, BufReader, Read, Write as _},
     marker::PhantomData,
     ops::ControlFlow,
     path::PathBuf,
@@ -15,7 +15,7 @@ use tokio_util::codec::{BytesCodec, FramedWrite};
 use tokio_util_06::codec::FramedRead;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
-use zstd::Encoder;
+use zstd::{Decoder, Encoder};
 
 type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
 
@@ -30,6 +30,9 @@ enum Args {
         /// End zstd frames after they exceed this length
         #[arg(short, long, default_value_t = 8000usize.next_power_of_two())]
         zstd_frame_length_tripwire: usize,
+    },
+    CountZstdFrames {
+        source: PathBuf,
     },
 }
 
@@ -95,6 +98,22 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             .inspect_ok(|_| zstd_frame_count.inc(1))
             .forward(destination)
             .await?;
+        }
+        Args::CountZstdFrames { source } => {
+            // this is all blocking...
+            let mut num_frames = 0;
+            let mut reader = BufReader::new(std::fs::File::open(source)?);
+            let mut _buffer = [0; 8000usize.next_power_of_two()];
+            loop {
+                let mut decoder = Decoder::with_buffer(reader)?.single_frame();
+                while decoder.read(&mut _buffer)? != 0 {}
+                reader = decoder.finish();
+                num_frames += 1;
+                if reader.fill_buf()?.is_empty() {
+                    break;
+                }
+            }
+            println!("{}", num_frames);
         }
     }
     Ok(())
