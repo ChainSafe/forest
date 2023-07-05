@@ -24,7 +24,6 @@ mod chain;
 mod chain_sync;
 mod cli;
 mod cli_shared;
-mod compressed_random_access_car;
 mod daemon;
 mod db;
 mod fil_cns;
