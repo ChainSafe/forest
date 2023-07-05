@@ -117,7 +117,7 @@ impl WithProgress {
 
             let (lower_bound, upper_bound) = size_hint;
             let total_items =
-                upper_bound.unwrap_or_else(|| lower_bound) as u64 + self.completed_items;
+                upper_bound.unwrap_or(lower_bound) as u64 + self.completed_items;
             let eta_secs = (total_items - self.completed_items) as f64 / throughput;
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
 
