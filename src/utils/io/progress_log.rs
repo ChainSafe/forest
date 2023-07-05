@@ -15,16 +15,20 @@ use tokio::io::{ReadBuf, SeekFrom};
 
 use log::info;
 
-const UPDATE_FREQUENCY: Duration = Duration::from_millis(100);
+const UPDATE_FREQUENCY: Duration = Duration::from_millis(500);
 
 pub fn wrap_iter<Inner>(
     message: &str,
     into_iter: impl IntoIterator<IntoIter = Inner>,
-) -> WithProgressIter<Inner> {
+) -> WithProgressIter<Inner>
+where
+    Inner: Iterator
+{
     let inner = into_iter.into_iter();
+    let size_hint = inner.size_hint();
     WithProgressIter {
         inner,
-        progress: WithProgress::new(message),
+        progress: WithProgress::new(message, size_hint),
     }
 }
 
@@ -43,7 +47,6 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
             Some(item) => {
-                self.progress.emit_log_if_required(self.inner.size_hint());
                 self.progress.inc(1);
                 Some(item)
             }
@@ -57,19 +60,21 @@ where
 }
 
 pub fn wrap_stream<S: futures_core::Stream>(message: &str, stream: S) -> WithProgressStream<S> {
+    let size_hint = stream.size_hint();
     WithProgressStream {
         stream,
-        progress: WithProgress::new(message),
+        progress: WithProgress::new(message, size_hint),
     }
 }
 
 pub fn wrap_async_read<R: tokio::io::AsyncBufRead + Unpin + tokio::io::AsyncRead>(
     message: &str,
     read: R,
+    size_hint: (usize, Option<usize>),
 ) -> WithProgressStream<R> {
     WithProgressStream {
         stream: read,
-        progress: WithProgress::new(message),
+        progress: WithProgress::new(message, size_hint),
     }
 }
 
@@ -124,7 +129,6 @@ impl<S: futures_core::Stream + Unpin> futures_core::Stream for WithProgressStrea
         let item = std::pin::Pin::new(&mut this.stream).poll_next(cx);
         match &item {
             std::task::Poll::Ready(Some(_)) => {
-                this.progress.emit_log_if_required(this.stream.size_hint());
                 this.progress.inc(1);
             }
             std::task::Poll::Ready(None) => this.progress.finish(),
@@ -141,10 +145,11 @@ struct WithProgress {
     start: Instant,
     last_logged: Instant,
     message: String,
+    size_hint: (usize, Option<usize>),
 }
 
 impl WithProgress {
-    fn new(message: &str) -> Self {
+    fn new(message: &str, size_hint: (usize, Option<usize>)) -> Self {
         let now = Instant::now();
         Self {
             completed_items: 0,
@@ -152,14 +157,17 @@ impl WithProgress {
             start: now,
             last_logged: now,
             message: message.into(),
+            size_hint,
         }
     }
 
     fn inc(&mut self, value: u64) {
         self.completed_items += value;
+
+        self.emit_log_if_required();
     }
 
-    fn emit_log_if_required(&mut self, size_hint: (usize, Option<usize>)) {
+    fn emit_log_if_required(&mut self) {
         let now = Instant::now();
         if (now - self.last_logged) > self.frequency {
             let elapsed_secs = (now - self.start).as_secs_f64();
@@ -167,7 +175,7 @@ impl WithProgress {
 
             let throughput = self.completed_items as f64 / elapsed_secs;
 
-            let (lower_bound, upper_bound) = size_hint;
+            let (lower_bound, upper_bound) = self.size_hint;
             let total_items = upper_bound.unwrap_or(lower_bound) as u64 + self.completed_items;
             let eta_secs = (total_items - self.completed_items) as f64 / throughput;
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));

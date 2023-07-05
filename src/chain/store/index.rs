@@ -6,12 +6,12 @@ use std::{num::NonZeroUsize, sync::Arc};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::io::wrap_iter;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-use crate::utils::io::wrap_iter;
 
 use crate::chain::{tipset_from_keys, Error, TipsetCache};
 
