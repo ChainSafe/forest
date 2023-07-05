@@ -889,7 +889,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
             continue;
         }
 
-        // TODO: Tweak request window when socket frame is tested
+        // TODO: Tweak request window when socket frame is tested or consider using adaptive window size
         let epoch_diff = oldest_parent.epoch() - current_head.epoch();
         let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
         let network_tipsets = network
@@ -919,6 +919,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
     if oldest_tipset.parents() != current_head.parents() {
         info!("Fork detected, searching for a common ancestor between the local chain and the network chain");
         const FORK_LENGTH_THRESHOLD: u64 = 500;
+        // TODO: Consider using adaptive window size
         let fork_tipsets = network
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
