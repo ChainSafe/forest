@@ -6,6 +6,7 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_migration::nv17::util::get_pending_verified_deals_and_total_size;
     use anyhow::*;
+    use cid::multihash::{Multihash, MultihashDigest};
     use cid::Cid;
     use fvm_ipld_hamt::BytesKey;
     use fvm_shared::{
@@ -13,7 +14,6 @@ mod tests {
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
         piece::PaddedPieceSize,
     };
-    use cid::multihash::{Multihash, MultihashDigest};
 
     // Go parity test
     //

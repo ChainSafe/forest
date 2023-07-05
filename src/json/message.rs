@@ -83,21 +83,20 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(Message {
             version: m.version,
-            to: Address::from(m.to).into(),
-            from: Address::from(m.from).into(),
+            to: Address::from(m.to),
+            from: Address::from(m.from),
             sequence: m.sequence,
-            value: m.value.into(),
+            value: m.value,
             gas_limit: m.gas_limit,
-            gas_fee_cap: m.gas_fee_cap.into(),
-            gas_premium: m.gas_premium.into(),
+            gas_fee_cap: m.gas_fee_cap,
+            gas_premium: m.gas_premium,
             method_num: m.method_num,
             params: RawBytes::new(
                 BASE64_STANDARD
                     .decode(m.params.unwrap_or_default())
                     .map_err(de::Error::custom)?,
             ),
-        }
-        .into())
+        })
     }
 
     pub mod vec {

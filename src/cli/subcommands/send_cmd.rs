@@ -50,23 +50,21 @@ impl SendCommand {
         };
 
         let message = Message {
-            from: from.into(),
+            from: from,
             to: StrictAddress::from_str(&self.target_address)?.into(),
-            value: self.amount.clone().into(),
+            value: self.amount.clone(),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit as u64,
-            gas_fee_cap: self.gas_feecap.clone().into(),
-            gas_premium: self.gas_premium.clone().into(),
+            gas_fee_cap: self.gas_feecap.clone(),
+            gas_premium: self.gas_premium.clone(),
             // JANK(aatifsyed): Why are we using a testing build of fvm_shared?
             ..Default::default()
         };
 
-        let signed_msg_json = mpool_push_message(
-            (MessageJson(message.into()), None),
-            &config.client.rpc_token,
-        )
-        .await
-        .map_err(handle_rpc_err)?;
+        let signed_msg_json =
+            mpool_push_message((MessageJson(message), None), &config.client.rpc_token)
+                .await
+                .map_err(handle_rpc_err)?;
 
         println!("{}", signed_msg_json.0.cid().unwrap());
 
