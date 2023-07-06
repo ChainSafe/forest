@@ -16,60 +16,6 @@ use log::info;
 
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
-#[allow(dead_code)]
-pub fn wrap_iter<Inner>(
-    message: &str,
-    into_iter: impl IntoIterator<IntoIter = Inner>,
-) -> WithProgressIter<Inner>
-where
-    Inner: Iterator,
-{
-    let inner = into_iter.into_iter();
-    let (lower_bound, upper_bound) = inner.size_hint();
-    let total_items = upper_bound.unwrap_or(lower_bound) as u64;
-    WithProgressIter {
-        inner,
-        progress: WithProgress::new(message, total_items),
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct WithProgressIter<Inner> {
-    inner: Inner,
-    progress: WithProgress,
-}
-
-impl<Inner> Iterator for WithProgressIter<Inner>
-where
-    Inner: Iterator,
-{
-    type Item = Inner::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.inner.next() {
-            Some(item) => {
-                self.progress.inc(1);
-                Some(item)
-            }
-            None => {
-                // TODO handle fusing
-                println!("finished {} items", self.progress.completed_items);
-                None
-            }
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub fn wrap_stream<S: futures_core::Stream>(message: &str, stream: S) -> WithProgressStream<S> {
-    let (lower_bound, upper_bound) = stream.size_hint();
-    let total_items = upper_bound.unwrap_or(lower_bound) as u64;
-    WithProgressStream {
-        stream,
-        progress: WithProgress::new(message, total_items),
-    }
-}
-
 pub fn wrap_async_read<R: tokio::io::AsyncRead + Unpin>(
     message: &str,
     read: R,
@@ -103,43 +49,6 @@ impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for WithProgressStrea
         } else {
             Poll::Pending
         }
-    }
-}
-
-impl<W: tokio::io::AsyncBufRead + Unpin + tokio::io::AsyncRead> tokio::io::AsyncBufRead
-    for WithProgressStream<W>
-{
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
-        let this = self.get_mut();
-        let result = Pin::new(&mut this.stream).poll_fill_buf(cx);
-        if let Poll::Ready(Ok(buf)) = &result {
-            this.progress.inc(buf.len() as u64);
-        }
-        result
-    }
-
-    fn consume(mut self: Pin<&mut Self>, amt: usize) {
-        Pin::new(&mut self.stream).consume(amt);
-    }
-}
-
-impl<S: futures_core::Stream> futures_core::Stream for WithProgressStream<S> {
-    type Item = S::Item;
-
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        let this = self.project();
-        let item = this.stream.poll_next(cx);
-        match &item {
-            std::task::Poll::Ready(Some(_)) => {
-                this.progress.inc(1);
-            }
-            std::task::Poll::Ready(None) => this.progress.finish(),
-            std::task::Poll::Pending => {}
-        }
-        item
     }
 }
 
