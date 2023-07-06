@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -euo pipefail
 CHAIN=calibnet
 
 # https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/debug/filecoin_full_calibnet_2023-04-07_450000.car
