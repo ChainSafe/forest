@@ -194,7 +194,7 @@ impl WithProgress {
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
 
             info!(
-                "-> {} {} (elapsed: {}, eta: {})",
+                "{} {} (elapsed: {}, eta: {})",
                 self.message, self.completed_items, elapsed_duration, eta_duration
             );
             self.last_logged = now;
