@@ -105,7 +105,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         Ok(gas_used)
     }
 
-    /// Signifies where or not we have to bail due to database lookup problems.
+    /// Signifies whether or not we have to bail due to database lookup problems.
     ///
     /// NOTE: Unfortunately there isn't a better a way of dealing with this, because FVM swallows
     /// both errors and panics alike, so we have to deal with this in the client code.
