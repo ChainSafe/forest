@@ -62,7 +62,6 @@ flume = "0.10"
 frc46_token = "3"
 fs_extra = "1.2"
 futures = "0.3"
-futures-core = "0.3"
 futures-util = "0.3"
 fvm = { version = "~2.4", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
