@@ -15,6 +15,7 @@ use log::info;
 
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(500);
 
+#[allow(dead_code)]
 pub fn wrap_iter<Inner>(
     message: &str,
     into_iter: impl IntoIterator<IntoIter = Inner>,
