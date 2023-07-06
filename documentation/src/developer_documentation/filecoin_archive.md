@@ -26,7 +26,7 @@ epoch `N`, `N-1`, `N-2` and `N-3`. The `N-2` tipset is a null tipset and cannot
 be referenced. As such, blocks in tipset `N-1` refer directly to the `N-3`
 grand-parent:
 
-![Alt text](Filecoin-Graph.drawio.svg)
+![Filecoin Graph with four tipsets](Filecoin-Graph.drawio.svg)
 
 ## Blocks
 
