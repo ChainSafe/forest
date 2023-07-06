@@ -27,6 +27,18 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.11.0 "Hypersonic"
+
+### Breaking
+
 - [#3048](https://github.com/ChainSafe/forest/pull/3048): Remove support for
   rocksdb
 - [#3047](https://github.com/ChainSafe/forest/pull/3047): Remove support for
@@ -56,6 +68,9 @@
 
 - [#3005](https://github.com/ChainSafe/forest/issues/3005): Fix incorrect
   progress reported when importing compressed snapshots.
+
+- [#3122](https://github.com/ChainSafe/forest/pull/3122): Fix state-root
+  mismatch around null tipsets.
 
 ## Forest v0.10.0 "Premature"
 
