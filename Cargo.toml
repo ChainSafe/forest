@@ -197,10 +197,6 @@ anyhow = "1"
 protobuf-codegen = "3.2"
 walkdir = "2.3"
 
-[patch.crates-io]
-# Tracking issue: https://github.com/ChainSafe/fil-actor-states/issues/143
-fvm_ipld_amt = { git = "https://github.com/hanabi1224/ref-fvm", branch = "hm/amt-diff-for-patching" }
-
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
 # temporarily comment it out.

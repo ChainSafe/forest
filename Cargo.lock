@@ -3041,7 +3041,8 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_amt"
 version = "0.5.1"
-source = "git+https://github.com/hanabi1224/ref-fvm?branch=hm/amt-diff-for-patching#02b5637032383fbc3c88c8798fac21b1efe32782"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e84f16d6927ce342ef86bd20fcc2d5bd498ed33ae6d7a22fea7a1b453488ec88"
 dependencies = [
  "anyhow",
  "cid",
