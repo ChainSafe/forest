@@ -245,7 +245,7 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                         // When a lookup error occurs we should just bail terminating all the
                         // computations.
                         Error::Lookup(_) => {
-                            error!("database lookup error: {}", err);
+                            error!("database lookup error: {err}");
                             Err(err)
                         }
                         // invalid consensus fault: cannot verify block header signature
