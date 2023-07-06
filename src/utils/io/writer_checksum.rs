@@ -26,16 +26,15 @@ pub trait Checksum<D: Digest> {
     async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>>;
 }
 
-impl<D: Digest, W: AsyncWriteExt> AsyncWrite for AsyncWriterWithChecksum<D, W> {
+impl<D: Digest, W: AsyncWriteExt + Unpin> AsyncWrite for AsyncWriterWithChecksum<D, W> {
     fn poll_write(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &[u8],
     ) -> std::task::Poll<std::io::Result<usize>> {
-        let mut this = self.project();
-        let w = this.inner.poll_write(cx, buf);
+        let w = Pin::new(&mut self.inner).poll_write(cx, buf);
 
-        if let Some(hasher) = &mut this.hasher {
+        if let Some(hasher) = &mut self.hasher {
             if let Poll::Ready(Ok(size)) = w {
                 if size > 0 {
                     hasher.update(&buf[..size]);
@@ -46,24 +45,24 @@ impl<D: Digest, W: AsyncWriteExt> AsyncWrite for AsyncWriterWithChecksum<D, W> {
     }
 
     fn poll_flush(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<std::io::Result<()>> {
-        let this = self.project();
-        this.inner.poll_flush(cx)
+        Pin::new(&mut self.inner).poll_flush(cx)
     }
 
     fn poll_close(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
-        let this = self.project();
-        this.inner.poll_close(cx)
+        Pin::new(&mut self.inner).poll_close(cx)
     }
 }
 
 #[async_trait]
-impl<D: Digest + Send, W: AsyncWriteExt + Send> Checksum<D> for AsyncWriterWithChecksum<D, W> {
+impl<D: Digest + Send, W: AsyncWriteExt + Send + Unpin> Checksum<D>
+    for AsyncWriterWithChecksum<D, W>
+{
     async fn finalize(&mut self) -> std::io::Result<Option<Output<D>>> {
         if let Some(hasher) = &mut self.hasher {
             let hasher = std::mem::replace(hasher, D::new());
