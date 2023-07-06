@@ -192,22 +192,22 @@ impl MinerMigrator {
             let mut out_array = if let Some(prev_in_root) = prev_in_root {
                 if let Some(prev_out_root) = prev_out_root {
                     // we have previous work, but the AMT has changed -- diff them
-                    let prev_in_sectors = fil_actors_shared::v8::Array::<
+                    let prev_in_sectors = crate::ipld_amt::Amt::<
                         fil_actor_miner_state::v8::SectorOnChainInfo,
                         _,
                     >::load(prev_in_root, store)?;
-                    let in_sectors = fil_actors_shared::v8::Array::<
+                    let in_sectors = crate::ipld_amt::Amt::<
                         fil_actor_miner_state::v8::SectorOnChainInfo,
                         _,
                     >::load(in_root, store)?;
-                    let changes = fvm_ipld_amt::diff(&prev_in_sectors, &in_sectors)?;
+                    let changes = crate::ipld_amt::diff(&prev_in_sectors, &in_sectors)?;
                     let mut prev_out_sectors = fil_actors_shared::v9::Array::<
                         fil_actor_miner_state::v9::SectorOnChainInfo,
                         _,
                     >::load(prev_out_root, store)?;
                     for change in changes {
-                        use fvm_ipld_amt::ChangeType;
-                        match &change.change_type {
+                        use crate::ipld_amt::ChangeType;
+                        match &change.change_type() {
                             ChangeType::Remove => {
                                 prev_out_sectors.delete(change.key)?;
                             }

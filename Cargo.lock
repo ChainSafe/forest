@@ -2498,7 +2498,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "ahash 0.8.3",
  "anes",
@@ -2590,8 +2590,6 @@ dependencies = [
  "lru",
  "memory-stats",
  "mimalloc",
- "multibase",
- "multihash 0.16.3",
  "nom",
  "nonempty",
  "nonzero_ext",
@@ -3043,7 +3041,8 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_amt"
 version = "0.5.1"
-source = "git+https://github.com/hanabi1224/ref-fvm?branch=hm/amt-diff-for-patching#02b5637032383fbc3c88c8798fac21b1efe32782"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e84f16d6927ce342ef86bd20fcc2d5bd498ed33ae6d7a22fea7a1b453488ec88"
 dependencies = [
  "anyhow",
  "cid",
