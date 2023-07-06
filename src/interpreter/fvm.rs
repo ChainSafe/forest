@@ -25,7 +25,7 @@ use fvm_shared::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
-use tracing::{error, info};
+use tracing::error;
 
 use crate::interpreter::resolve_to_key_addr;
 
@@ -247,7 +247,6 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                     Ok(gas_used) => {
                         total_gas += gas_used;
                         let res = self.verify_block_signature(&bh_2);
-                        info!("res2: {:#?}", res);
 
                         match res {
                             Err(error) => match_error(error, total_gas),

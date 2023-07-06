@@ -23,7 +23,7 @@ use fvm_ipld_blockstore::{
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 use fvm_shared3::consensus::{ConsensusFault, ConsensusFaultType};
-use tracing::{error, info};
+use tracing::error;
 
 use crate::interpreter::resolve_to_key_addr;
 
@@ -254,7 +254,6 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                     Ok(gas_used) => {
                         total_gas += gas_used;
                         let res = self.verify_block_signature(&bh_2);
-                        info!("res2: {:#?}", res);
 
                         match res {
                             Err(error) => match_error(error, total_gas),
