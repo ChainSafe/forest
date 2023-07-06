@@ -349,7 +349,7 @@ where
         let ret: ApplyRet = match self {
             VM::VM2 { fvm_executor, .. } => {
                 if fvm_executor.externs().bail() {
-                    bail!("encountered database lookup error");
+                    bail!("encountered a database lookup error");
                 }
                 fvm_executor
                     .execute_message(
@@ -361,7 +361,7 @@ where
             }
             VM::VM3 { fvm_executor, .. } => {
                 if fvm_executor.externs().bail() {
-                    bail!("encountered database lookup error");
+                    bail!("encountered a database lookup error");
                 }
                 fvm_executor
                     .execute_message(
