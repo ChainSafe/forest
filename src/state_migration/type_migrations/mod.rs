@@ -2,4 +2,5 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod init;
+mod market;
 mod miner;

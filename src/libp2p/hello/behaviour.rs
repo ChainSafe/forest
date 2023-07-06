@@ -66,8 +66,7 @@ impl Default for HelloBehaviour {
     fn default() -> Self {
         Self {
             inner: InnerBehaviour::new(
-                HelloCodec::default(),
-                [(HelloProtocolName, ProtocolSupport::Full)],
+                [(HELLO_PROTOCOL_NAME, ProtocolSupport::Full)],
                 Default::default(),
             ),
             response_channels: Default::default(),
@@ -78,7 +77,7 @@ impl Default for HelloBehaviour {
 impl NetworkBehaviour for HelloBehaviour {
     type ConnectionHandler = <InnerBehaviour as NetworkBehaviour>::ConnectionHandler;
 
-    type OutEvent = <InnerBehaviour as NetworkBehaviour>::OutEvent;
+    type ToSwarm = <InnerBehaviour as NetworkBehaviour>::ToSwarm;
 
     fn handle_established_inbound_connection(
         &mut self,
@@ -149,7 +148,7 @@ impl NetworkBehaviour for HelloBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl PollParameters,
-    ) -> std::task::Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+    ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
         self.inner.poll(cx, params)
     }
 }

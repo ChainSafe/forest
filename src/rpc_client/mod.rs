@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-/// Filecoin RPC client interface methods
 pub mod auth_ops;
 pub mod chain_ops;
 pub mod common_ops;
@@ -17,10 +16,9 @@ pub mod wallet_ops;
 use std::env;
 
 use crate::libp2p::{Multiaddr, Protocol};
-use crate::utils::net::{https_client, hyper, hyper::http::HeaderValue, HyperBodyExt};
-/// Filecoin HTTP JSON-RPC client methods
+use crate::utils::net::global_http_client;
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
-use log::{debug, error};
+use log::debug;
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -155,44 +153,13 @@ where
 
     debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
-    let client = https_client();
-    // Split the JWT off if present, format multiaddress as URL, then post RPC
-    // request to URL
-    let mut request =
-        hyper::Request::post(&api_url).body(serde_json::to_string(&rpc_req)?.into())?;
-    let headers_mut = request.headers_mut();
-    headers_mut.insert("content-type", HeaderValue::from_static("application/json"));
-    match API_INFO.token.to_owned() {
-        Some(jwt) => {
-            headers_mut.insert("Authorization", HeaderValue::from_str(&jwt)?);
-        }
-        None => {
-            if let Some(jwt) = token {
-                headers_mut.insert("Authorization", HeaderValue::from_str(jwt)?);
-            }
-        }
-    }
-    let response = client.request(request).await?;
-    let code = response.status();
-    if !code.is_success() {
-        return Err(Error::Full {
-            message: format!("Error code from HTTP Response: {code}"),
-            code: code.as_u16().into(),
-            data: None,
-        });
-    }
-
-    // Return the parsed RPC result
-    let rpc_res: JsonRpcResponse<R> = match response.into_body().json().await {
-        Ok(r) => r,
-        Err(e) => {
-            let err = format!(
-                "Parse Error: Response from RPC endpoint could not be parsed. Error was: {e}"
-            );
-            error!("{}", &err);
-            return Err(err.into());
-        }
+    let request = global_http_client().post(api_url).json(&rpc_req);
+    let request = match (API_INFO.token.as_ref(), token) {
+        (Some(token), _) | (_, Some(token)) => request.header(http::header::AUTHORIZATION, token),
+        _ => request,
     };
+
+    let rpc_res = request.send().await?.error_for_status()?.json().await?;
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),

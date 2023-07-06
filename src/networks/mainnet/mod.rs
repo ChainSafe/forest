@@ -122,7 +122,10 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Shark,
         epoch: 2_383_680,
-        bundle: None,
+        bundle: Some(ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-mainnet.car").unwrap()
+        })
     },
     HeightInfo {
         height: Height::Hygge,
@@ -167,7 +170,7 @@ mod tests {
     fn default_boostrap_list_not_empty() {
         assert!(!DEFAULT_BOOTSTRAP.is_empty());
         DEFAULT_BOOTSTRAP.iter().for_each(|addr| {
-            assert!(addr.parse::<multiaddr::Multiaddr>().is_ok());
+            assert!(addr.parse::<libp2p::multiaddr::Multiaddr>().is_ok());
         });
     }
 }

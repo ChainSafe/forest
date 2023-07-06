@@ -5,14 +5,13 @@ use crate::cli_shared::cli::Config;
 use crate::genesis::forest_load_car;
 use crate::networks::Height;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::net::StreamedContentReader;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
 use tokio::{
     fs::File,
     io::{BufReader, BufWriter},
 };
-use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub async fn load_bundles<DB>(epoch: ChainEpoch, config: &Config, db: DB) -> anyhow::Result<()>
 where
@@ -21,19 +20,29 @@ where
     // collect bundles to load into the database.
     let mut bundles = Vec::new();
     for info in &config.chain.height_infos {
-        if info.bundle.is_some() && epoch < config.chain.epoch(info.height) {
-            bundles.push(get_actors_bundle(config, info.height).await?);
+        if epoch < config.chain.epoch(info.height) {
+            if let Some(bundle) = &info.bundle {
+                bundles.push((
+                    bundle.manifest,
+                    get_actors_bundle(config, info.height).await?,
+                ));
+            }
         }
     }
 
-    for bundle in bundles {
-        let (result, _) = forest_load_car(db.clone(), bundle.compat()).await?;
+    for (manifest_cid, reader) in bundles {
+        let (result, _) = forest_load_car(db.clone(), reader.compat()).await?;
         assert_eq!(
             result.len(),
             1,
             "expected one root when loading actors bundle"
         );
         info!("Loaded actors bundle with CID: {}", result[0]);
+        anyhow::ensure!(
+            manifest_cid == result[0],
+            "manifest cid in config '{manifest_cid}' does not match manifest cid from bundle '{}'",
+            result[0]
+        );
     }
     Ok(())
 }
@@ -65,11 +74,11 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
 
     // Otherwise, download it.
     info!("Downloading actors bundle...");
-    let reader = StreamedContentReader::read(bundle_info.url.as_str()).await?;
+    let mut reader = crate::utils::net::reader(bundle_info.url.as_str()).await?;
 
     let file = File::create(&bundle_path).await?;
     let mut writer = BufWriter::new(file);
-    tokio::io::copy(&mut reader.compat(), &mut writer).await?;
+    tokio::io::copy(&mut reader, &mut writer).await?;
 
     let file = tokio::fs::File::open(bundle_path).await?;
     Ok(BufReader::new(file))

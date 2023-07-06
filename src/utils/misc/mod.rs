@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use is_terminal::IsTerminal;
+
 mod logo;
 pub use logo::*;
 
@@ -15,7 +17,7 @@ pub enum LoggingColor {
 impl LoggingColor {
     pub fn coloring_enabled(&self) -> bool {
         match self {
-            LoggingColor::Auto => atty::is(atty::Stream::Stdout),
+            LoggingColor::Auto => std::io::stdout().is_terminal(),
             LoggingColor::Always => true,
             LoggingColor::Never => false,
         }

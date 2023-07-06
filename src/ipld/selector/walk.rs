@@ -221,9 +221,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use cid::multihash::{Code::Blake2b256, MultihashDigest};
     use indexmap::IndexMap;
     use libipld_macro::ipld;
-    use multihash::{Code::Blake2b256, MultihashDigest};
 
     use super::*;
 

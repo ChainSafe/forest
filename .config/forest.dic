@@ -10,10 +10,12 @@ BLAKE2b
 blockchain/M
 BLS
 callee
+CAR/SM
 CBOR
-CID/M
+CID/SM
 CIDs
 CLI
+clonable
 codec
 cron
 crypto
@@ -22,6 +24,7 @@ daemonize
 DB/S
 DNS
 Enum
+EOF
 Ethereum
 exa
 FIL
@@ -40,7 +43,6 @@ Kademlia
 libp2p
 localhost
 mainnet
-testnet
 MDNS
 mempool
 Merkle
@@ -65,6 +67,7 @@ stdout
 synchronizer
 syscall/S
 TCP
+testnet
 tipset/SM
 tipsetkey/S
 TOML
@@ -72,6 +75,7 @@ trie
 TTY
 URL
 validator/S
+varint
 verifier
 VM/SM
 VRF

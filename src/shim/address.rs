@@ -23,7 +23,7 @@ lazy_static! {
     /// Zero address used to avoid allowing it to be used for verification.
     /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
     /// signature verification.
-    pub static ref ZERO_ADDRESS: Address_v3 = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap();
+    pub static ref ZERO_ADDRESS: Address = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap().into();
 }
 
 static GLOBAL_NETWORK: AtomicU8 = AtomicU8::new(Network::Mainnet as u8);
@@ -98,7 +98,9 @@ impl Drop for NetworkGuard {
 /// parse both versions and discard the prefix. See also [`StrictAddress`].
 ///
 /// For more information, see: <https://spec.filecoin.io/appendix/address/>
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
 #[serde(transparent)]
 pub struct Address(Address_v3);
 
@@ -308,18 +310,16 @@ impl From<Address_v3> for Address {
 
 impl From<Address_v2> for Address {
     fn from(other: Address_v2) -> Self {
-        Address::from(
-            Address_v3::from_bytes(&other.to_bytes())
-                .expect("Couldn't convert between FVM2 and FVM3 addresses."),
-        )
+        (&other).into()
     }
 }
 
 impl From<&Address_v2> for Address {
     fn from(other: &Address_v2) -> Self {
         Address::from(
-            Address_v3::from_bytes(&other.to_bytes())
-                .expect("Couldn't convert between FVM2 and FVM3 addresses."),
+            Address_v3::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+                panic!("Couldn't convert from FVM2 address to FVM3 address: {other}, {e}")
+            }),
         )
     }
 }
@@ -330,23 +330,23 @@ impl From<&Address_v3> for Address {
     }
 }
 
-impl From<Address> for Address_v3 {
-    fn from(other: Address) -> Self {
-        other.0
-    }
-}
-
 impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
-        Address_v2::from_bytes(&other.to_bytes())
-            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+        (&other).into()
     }
 }
 
 impl From<&Address> for Address_v2 {
     fn from(other: &Address) -> Self {
-        Address_v2::from_bytes(&other.to_bytes())
-            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+        Address_v2::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+            panic!("Couldn't convert from FVM3 address to FVM2 address: {other}, {e}")
+        })
+    }
+}
+
+impl From<Address> for Address_v3 {
+    fn from(other: Address) -> Self {
+        (&other).into()
     }
 }
 

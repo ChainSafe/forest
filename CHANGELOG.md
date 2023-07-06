@@ -27,17 +27,7 @@
 
 ### Breaking
 
-- [#3048](https://github.com/ChainSafe/forest/pull/3048): Remove support for
-  rocksdb
-- [#3047](https://github.com/ChainSafe/forest/pull/3047): Remove support for
-  compiling with delegated consensus
-
 ### Added
-
-- [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
-
-- [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
-  `forest-cli state diff ...`
 
 ### Changed
 
@@ -45,8 +35,40 @@
 
 ### Fixed
 
+## Forest v0.11.1 "Dagny Taggert"
+
+## Forest v0.11.0 "Hypersonic"
+
+### Breaking
+
+- [#3048](https://github.com/ChainSafe/forest/pull/3048): Remove support for
+  rocksdb
+- [#3047](https://github.com/ChainSafe/forest/pull/3047): Remove support for
+  compiling with delegated consensus
+- [#3086](https://github.com/ChainSafe/forest/pull/3085):
+  `forest-cli snapshot validate` no longer supports URLs. Download the snapshot
+  and then run the command.
+
+### Added
+
+- [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
+- [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
+  `forest-cli state diff ...`
+- [#3086](https://github.com/ChainSafe/forest/pull/3085):
+  `forest-cli snapshot validate` is faster and uses less disk space, operating
+  directly on the snapshot rather than loading through a database.
+- [#2983](https://github.com/ChainSafe/forest/issues/2983): Added state
+  migration support for NV17.
+- [#3107](https://github.com/ChainSafe/forest/pull/3107): Introduced 'head'
+  parameter for snapshot validation.
+
+### Fixed
+
 - [#3005](https://github.com/ChainSafe/forest/issues/3005): Fix incorrect
   progress reported when importing compressed snapshots.
+
+- [#3122](https://github.com/ChainSafe/forest/pull/3122): Fix state-root
+  mismatch around null tipsets.
 
 ## Forest v0.10.0 "Premature"
 
