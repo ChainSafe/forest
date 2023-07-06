@@ -21,9 +21,9 @@ use std::{
 };
 
 use crate::utils::db::file_backed_obj::FileBacked;
-use log::{info, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
 use crate::db::db_engine::{open_db, Db, DbConfig};
 

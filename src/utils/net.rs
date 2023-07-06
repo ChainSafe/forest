@@ -5,11 +5,11 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
 
 use indicatif::ProgressStyle;
-use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
 use tokio::io::{AsyncBufReadExt, AsyncRead};
 use tokio_util::either::Either::{Left, Right};
+use tracing::info;
 use url::Url;
 
 use once_cell::sync::Lazy;

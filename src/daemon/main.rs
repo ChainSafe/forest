@@ -12,7 +12,6 @@ use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
-use log::info;
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
@@ -20,6 +19,7 @@ use raw_sync::{
 use std::ffi::OsString;
 use std::{cmp::max, fs::File, process, time::Duration};
 use tokio::runtime::Builder as RuntimeBuilder;
+use tracing::info;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 

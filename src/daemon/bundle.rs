@@ -6,12 +6,12 @@ use crate::genesis::forest_load_car;
 use crate::networks::Height;
 use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
-use log::info;
 use tokio::{
     fs::File,
     io::{BufReader, BufWriter},
 };
 use tokio_util::compat::TokioAsyncReadCompatExt;
+use tracing::info;
 
 pub async fn load_bundles<DB>(epoch: ChainEpoch, config: &Config, db: DB) -> anyhow::Result<()>
 where

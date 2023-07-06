@@ -8,8 +8,8 @@ use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
-use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use tracing::Level;
 
 use super::client::Client;
 
@@ -32,15 +32,15 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             filters: vec![
-                LogValue::new("axum", LevelFilter::Warn),
-                LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
-                LogValue::new("filecoin_proofs", LevelFilter::Warn),
-                LogValue::new("libp2p_bitswap", LevelFilter::Off),
-                LogValue::new("libp2p_gossipsub", LevelFilter::Error),
-                LogValue::new("libp2p_kad", LevelFilter::Error),
-                LogValue::new("rpc", LevelFilter::Error),
-                LogValue::new("storage_proofs_core", LevelFilter::Warn),
-                LogValue::new("tracing_loki", LevelFilter::Off),
+                LogValue::new("axum", Level::Warn),
+                LogValue::new("bellperson::groth16::aggregate::verify", Level::Warn),
+                LogValue::new("filecoin_proofs", Level::Warn),
+                LogValue::new("libp2p_bitswap", Level::Off),
+                LogValue::new("libp2p_gossipsub", Level::Error),
+                LogValue::new("libp2p_kad", Level::Error),
+                LogValue::new("rpc", Level::Error),
+                LogValue::new("storage_proofs_core", Level::Warn),
+                LogValue::new("tracing_loki", Level::Off),
             ],
         }
     }
@@ -49,11 +49,11 @@ impl Default for LogConfig {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct LogValue {
     pub module: String,
-    pub level: LevelFilter,
+    pub level: Level,
 }
 
 impl LogValue {
-    pub fn new(module: &str, level: LevelFilter) -> Self {
+    pub fn new(module: &str, level: Level) -> Self {
         Self {
             module: module.to_string(),
             level,

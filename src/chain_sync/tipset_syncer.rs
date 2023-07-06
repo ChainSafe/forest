@@ -30,10 +30,10 @@ use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
-use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
 use thiserror::Error;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
     bad_block_cache::BadBlockCache,

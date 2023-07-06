@@ -158,7 +158,7 @@ where
         Ok(r) => r,
         Err(_) => {
             let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
-            log::warn!("{err}");
+            tracing::warn!("{err}");
             Err(err)
         }
     }
