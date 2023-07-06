@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::borrow::Cow;
 
-use fvm_shared::address::Address;
 use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding3::{
@@ -10,6 +9,7 @@ use fvm_ipld_encoding3::{
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
+use fvm_shared::address::Address;
 use fvm_shared::commcid::Commitment;
 pub use fvm_shared::crypto::signature::{
     Signature as Signature_v2, SignatureType as SignatureType_v2,
