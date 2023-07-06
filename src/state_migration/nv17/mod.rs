@@ -24,9 +24,3 @@ define_system_states!(
 
 impl_system!();
 impl_verifier!();
-
-#[cfg(test)]
-mod tests {
-    mod miner_tests;
-    mod util_tests;
-}
