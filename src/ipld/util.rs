@@ -8,14 +8,14 @@ use std::{
         atomic::{self, AtomicU64},
         Arc,
     },
-    time::Duration,
 };
 
 use crate::blocks::{BlockHeader, Tipset};
-use crate::utils::io::{progress_bar, ProgressBar};
+use crate::utils::io::progress_log::ProgressLog;
 use cid::Cid;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 
 use crate::ipld::{CidHashSet, Ipld};
 
@@ -117,10 +117,11 @@ where
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
 {
     let estimated_total_records = estimated_total_records.unwrap_or_default();
-    let bar = ProgressBar::new(estimated_total_records);
-    bar.message(progress_bar_message.unwrap_or("Walking snapshot "));
-    bar.set_units(progress_bar::Units::Default);
-    bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
+    let message = progress_bar_message.unwrap_or("Walking snapshot");
+    let bar = Arc::new(Mutex::new(ProgressLog::new(
+        message,
+        estimated_total_records,
+    )));
 
     let mut seen = CidHashSet::default();
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -133,8 +134,11 @@ where
         move |len: usize| {
             let progress = len as u64;
             let total = progress.max(estimated_total_records);
-            bar.set(progress);
-            bar.set_total(total);
+            {
+                let mut guard = bar.lock();
+                guard.set(progress);
+                guard.set_total(total);
+            }
             if let Some(progress_tracker) = &progress_tracker {
                 progress_tracker
                     .0
@@ -180,7 +184,7 @@ where
         }
     }
 
-    bar.finish();
+    bar.lock().finish();
     Ok(seen.len())
 }
 

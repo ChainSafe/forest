@@ -13,9 +13,7 @@ use std::{
 };
 
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
-pub use progress_log::wrap_async_read;
-pub use progress_log::wrap_iter;
-pub use progress_log::wrap_stream;
+pub use progress_log::*;
 pub use writer_checksum::*;
 
 pub use self::tempfile::*;

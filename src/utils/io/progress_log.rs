@@ -169,6 +169,18 @@ impl WithProgress {
         self.emit_log_if_required();
     }
 
+    fn set(&mut self, value: u64) {
+        self.completed_items = value;
+
+        self.emit_log_if_required();
+    }
+
+    fn set_total(&mut self, value: u64) {
+        self.total_items = value;
+
+        self.emit_log_if_required();
+    }
+
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
         if (now - self.last_logged) > self.frequency {
@@ -190,4 +202,33 @@ impl WithProgress {
     }
 
     fn finish(&mut self) {}
+}
+
+#[derive(Debug, Clone)]
+pub struct ProgressLog {
+    progress: WithProgress,
+}
+
+impl ProgressLog {
+    pub fn new(message: &str, total_items: u64) -> Self {
+        ProgressLog {
+            progress: WithProgress::new(message, total_items),
+        }
+    }
+
+    pub fn inc(&mut self, value: u64) {
+        self.progress.inc(value);
+    }
+
+    pub fn set(&mut self, value: u64) {
+        self.progress.set(value);
+    }
+
+    pub fn set_total(&mut self, value: u64) {
+        self.progress.set_total(value);
+    }
+
+    pub fn finish(&mut self) {
+        self.progress.finish()
+    }
 }
