@@ -56,11 +56,11 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgressStream<R> {
 #[derive(Debug, Clone)]
 struct WithProgress {
     completed_items: u64,
+    total_items: u64,
     frequency: Duration,
     start: Instant,
     last_logged: Instant,
     message: String,
-    total_items: u64,
 }
 
 impl WithProgress {
@@ -68,11 +68,11 @@ impl WithProgress {
         let now = Instant::now();
         Self {
             completed_items: 0,
+            total_items,
             frequency: UPDATE_FREQUENCY,
             start: now,
             last_logged: now,
             message: message.into(),
-            total_items,
         }
     }
 
