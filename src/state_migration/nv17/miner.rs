@@ -191,19 +191,10 @@ impl MinerMigrator {
 
             let mut out_array = if let Some(prev_in_root) = prev_in_root {
                 if let Some(prev_out_root) = prev_out_root {
-                    // we have previous work, but the AMT has changed -- diff them
-                    // let prev_in_sectors = fil_actors_shared::v8::Array::<
-                    //     fil_actor_miner_state::v8::SectorOnChainInfo,
-                    //     _,
-                    // >::load(prev_in_root, store)?;
                     let prev_in_sectors = crate::ipld_amt::Amt::<
                         fil_actor_miner_state::v8::SectorOnChainInfo,
                         _,
                     >::load(prev_in_root, store)?;
-                    // let in_sectors = fil_actors_shared::v8::Array::<
-                    //     fil_actor_miner_state::v8::SectorOnChainInfo,
-                    //     _,
-                    // >::load(in_root, store)?;
                     let in_sectors = crate::ipld_amt::Amt::<
                         fil_actor_miner_state::v8::SectorOnChainInfo,
                         _,
