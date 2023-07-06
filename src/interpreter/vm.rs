@@ -348,28 +348,30 @@ where
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let ret: ApplyRet = match self {
             VM::VM2 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
+                    unsigned.into(),
+                    fvm::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?;
+
                 if fvm_executor.externs().bail() {
                     bail!("encountered a database lookup error");
                 }
-                fvm_executor
-                    .execute_message(
-                        unsigned.into(),
-                        fvm::executor::ApplyKind::Explicit,
-                        raw_length,
-                    )?
-                    .into()
+
+                ret.into()
             }
             VM::VM3 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
+                    unsigned.into(),
+                    fvm3::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?;
+
                 if fvm_executor.externs().bail() {
                     bail!("encountered a database lookup error");
                 }
-                fvm_executor
-                    .execute_message(
-                        unsigned.into(),
-                        fvm3::executor::ApplyKind::Explicit,
-                        raw_length,
-                    )?
-                    .into()
+
+                ret.into()
             }
         };
 
