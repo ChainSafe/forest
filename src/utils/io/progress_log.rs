@@ -128,11 +128,6 @@ impl ProgressLog {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn inc(&self, value: u64) {
-        self.progress.lock().inc(value);
-    }
-
     pub fn set(&self, value: u64) {
         self.progress.lock().set(value);
     }
