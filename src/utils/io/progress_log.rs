@@ -13,7 +13,7 @@ use tokio::io::ReadBuf;
 
 use log::info;
 
-const UPDATE_FREQUENCY: Duration = Duration::from_millis(500);
+const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
 #[allow(dead_code)]
 pub fn wrap_iter<Inner>(
