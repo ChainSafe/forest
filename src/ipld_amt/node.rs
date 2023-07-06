@@ -475,9 +475,9 @@ where
         Ok(true)
     }
 
-    /// Returns a `(keep_going, did_mutate)` pair. `keep_going` will be `false` iff
+    /// Returns a `(keep_going, did_mutate)` pair. `keep_going` will be `false` if
     /// a closure call returned `Ok(false)`, indicating that a `break` has happened.
-    /// `did_mutate` will be `true` iff any of the values in the node was actually
+    /// `did_mutate` will be `true` if any of the values in the node was actually
     /// mutated inside the closure, requiring the node to be cached.
     pub(super) fn for_each_while_mut<S, F>(
         &mut self,
@@ -553,10 +553,10 @@ where
         Ok((true, did_mutate))
     }
 
-    /// Iterates through the current node in the tree and all subtrees. `start_at` refers to the
+    /// Iterates through the current node in the tree and all sub-trees. `start_at` refers to the
     /// global AMT index, before which no values should be traversed and `limit` is the maximum
-    /// number of leaf nodes that should be traversed in this subtree. `offset` refers the offset
-    /// in the global AMT address space that this subtree is rooted at.
+    /// number of leaf nodes that should be traversed in this sub-tree. `offset` refers the offset
+    /// in the global AMT address space that this sub-tree is rooted at.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn for_each_while_ranged<S, F>(
         &self,

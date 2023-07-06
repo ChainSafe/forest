@@ -116,7 +116,7 @@ mod tests {
 
     /// Root of an AMT vector, can be serialized and keeps track of height and count
     type Root<V> = RootImpl<V, self::version::V3>;
-    /// Legacy AMT v0, used to read block headers.
+    /// Legacy `AMT v0`, used to read block headers.
     type Rootv0<V> = RootImpl<V, self::version::V0>;
 
     impl<V> RootImpl<V, self::version::V0> {

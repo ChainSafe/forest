@@ -31,7 +31,7 @@ pub struct AmtImpl<V, BS, Ver> {
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
 ///
-/// Amt is not threadsafe and can't be shared between threads.
+/// Amt is not thread-safe and can't be shared between threads.
 ///
 /// Usage:
 /// ```
@@ -51,7 +51,7 @@ pub struct AmtImpl<V, BS, Ver> {
 /// let cid = amt.flush().unwrap();
 /// ```
 pub type Amt<V, BS> = AmtImpl<V, BS, V3>;
-/// Legacy amt V0
+/// Legacy `amt V0`
 pub type Amtv0<V, BS> = AmtImpl<V, BS, V0>;
 
 impl<V: PartialEq, BS: Blockstore, Ver: PartialEq> PartialEq for AmtImpl<V, BS, Ver> {
@@ -106,7 +106,7 @@ where
         Self::new_from_iter_with_bit_width(block_store, DEFAULT_BIT_WIDTH, vals)
     }
 
-    /// Generates an AMT with the requested bitwidth from an array of serializable objects.
+    /// Generates an AMT with the requested bit width from an array of serializable objects.
     ///
     /// This can be called with an iterator of _references_ to values to avoid copying.
     pub fn new_from_iter_with_bit_width(
@@ -144,7 +144,7 @@ where
     BS: Blockstore,
     Ver: AmtVersion,
 {
-    /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
+    /// Constructs an AMT with a block store and a Cid of the root of the AMT
     pub fn load(cid: &Cid, block_store: BS) -> Result<Self, Error> {
         // Load root bytes from database
         let root: RootImpl<V, Ver> = block_store
@@ -386,7 +386,7 @@ where
     /// Iterates over values in the Amt and runs a function on the values.
     ///
     /// The index in the amt is a `u64` and the value is the generic parameter `V` as defined
-    /// in the Amt. If `start_at` is provided traversal begins at the first index >= `start_at`,
+    /// in the Amt. If `start_at` is provided traversal begins at the first index `>= start_at`,
     /// otherwise it begins from the first element. If `max` is provided, traversal will stop after
     /// `max` elements have been traversed. Returns a tuple describing the number of elements
     /// iterated over and optionally the index of the next element in the AMT if more elements
@@ -443,7 +443,7 @@ where
     /// function keeps returning true.
     ///
     /// The index in the amt is a `u64` and the value is the generic parameter `V` as defined
-    /// in the Amt. If `start_at` is provided traversal begins at the first index >= `start_at`,
+    /// in the Amt. If `start_at` is provided traversal begins at the first index `>= start_at`,
     /// otherwise it begins from the first element. If `max` is provided, traversal will stop after
     /// `max` elements have been traversed. Returns a tuple describing the number of elements
     /// iterated over and optionally the index of the next element in the AMT if more elements

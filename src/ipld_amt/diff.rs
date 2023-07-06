@@ -60,7 +60,7 @@ impl<'bs, V, BS> From<&'bs Amt<V, BS>> for NodeContext<'bs, BS> {
     }
 }
 
-/// Returns a set of changes that transform node 'a' into node 'b'.
+/// Returns a set of changes that transform node `a` into node `b`.
 /// Ported from <https://github.com/filecoin-project/go-amt-ipld/blob/master/diff.go#L41>
 pub fn diff<Old, New, OldBS, NewBS>(
     prev_amt: &Amt<Old, OldBS>,
