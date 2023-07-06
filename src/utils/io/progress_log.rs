@@ -16,7 +16,7 @@ use log::info;
 
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
-pub fn wrap_async_read<R: tokio::io::AsyncRead + Unpin>(
+pub fn wrap_async_read<R: tokio::io::AsyncRead>(
     message: &str,
     read: R,
     total_items: u64,
@@ -36,15 +36,16 @@ pin_project! {
     }
 }
 
-impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for WithProgressStream<R> {
+impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgressStream<R> {
     fn poll_read(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         let prev_len = buf.filled().len() as u64;
-        if let Poll::Ready(e) = Pin::new(&mut self.stream).poll_read(cx, buf) {
-            self.progress.inc(buf.filled().len() as u64 - prev_len);
+        let this = self.project();
+        if let Poll::Ready(e) = this.stream.poll_read(cx, buf) {
+            this.progress.inc(buf.filled().len() as u64 - prev_len);
             Poll::Ready(e)
         } else {
             Poll::Pending
