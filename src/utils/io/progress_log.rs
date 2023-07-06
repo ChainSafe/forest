@@ -4,14 +4,10 @@
 use humantime::format_duration;
 use std::time::{Duration, Instant};
 
-//use std::borrow::Cow;
-//use std::convert::TryFrom;
-use std::io::{self};
-//use std::io::IoSliceMut;
-//use std::iter::FusedIterator;
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{ReadBuf, SeekFrom};
+use tokio::io::ReadBuf;
 
 use log::info;
 
@@ -60,6 +56,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 pub fn wrap_stream<S: futures_core::Stream>(message: &str, stream: S) -> WithProgressStream<S> {
     let (lower_bound, upper_bound) = stream.size_hint();
     let total_items = upper_bound.unwrap_or(lower_bound) as u64;
@@ -216,6 +213,7 @@ impl ProgressLog {
         }
     }
 
+    #[allow(dead_code)]
     pub fn inc(&mut self, value: u64) {
         self.progress.inc(value);
     }

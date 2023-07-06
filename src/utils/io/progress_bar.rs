@@ -81,6 +81,7 @@ impl ProgressBar {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_units(&self, u: Units) {
         if self.display {
             self.inner.lock().set_units(u)
