@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::borrow::Cow;
 
-use crate::shim::address::{Address, Protocol};
+use fvm_shared::address::Address;
 use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding3::{
@@ -11,7 +11,6 @@ use fvm_ipld_encoding3::{
     ser, strict_bytes,
 };
 use fvm_shared::commcid::Commitment;
-use fvm_shared::commcid::{cid_to_commitment, FIL_COMMITMENT_SEALED};
 pub use fvm_shared::crypto::signature::{
     Signature as Signature_v2, SignatureType as SignatureType_v2,
 };
@@ -125,6 +124,8 @@ impl TryFrom<&Signature> for BlsSignature {
     }
 }
 
+// Forest's version of the `verify_bls_aggregate` function is semantically different
+// from the version in FVM.
 /// Aggregates and verifies BLS signatures collectively.
 pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature) -> bool {
     use bls_signatures::Serialize;
@@ -156,45 +157,14 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature)
 
 /// Returns `String` error if a BLS signature is invalid.
 pub fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
-    use bls_signatures::Serialize;
-
-    if addr.protocol() != Protocol::BLS {
-        return Err(format!(
-            "cannot validate a BLS signature against a {} address",
-            addr.protocol()
-        ));
-    }
-
-    let pub_k = addr.payload_bytes();
-
-    // generate public key object from bytes
-    let pk = BlsPubKey::from_bytes(&pub_k).map_err(|e| e.to_string())?;
-
-    // generate signature struct from bytes
-    let sig = BlsSignature::from_bytes(signature).map_err(|e| e.to_string())?;
-
-    // BLS verify hash against key
-    if verify_messages(&sig, &[data], &[pk]) {
-        Ok(())
-    } else {
-        Err(format!(
-            "bls signature verification failed for addr: {}",
-            addr
-        ))
-    }
+    fvm_shared::crypto::signature::ops::verify_bls_sig(signature, data, addr)
 }
 
 /// Extracts the raw replica commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
 pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
-    let (codec, _, comm_r) = cid_to_commitment(c)?;
-
-    if codec != FIL_COMMITMENT_SEALED {
-        return Err("data commitment codec must be Sealed");
-    }
-
-    Ok(comm_r)
+    fvm_shared::commcid::cid_to_replica_commitment_v1(c)
 }
 
 #[cfg(test)]
