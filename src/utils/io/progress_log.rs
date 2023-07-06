@@ -16,17 +16,6 @@ use log::info;
 
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
-pub fn wrap_async_read<R: tokio::io::AsyncRead>(
-    message: &str,
-    read: R,
-    total_items: u64,
-) -> WithProgressStream<R> {
-    WithProgressStream {
-        stream: read,
-        progress: WithProgress::new(message, total_items),
-    }
-}
-
 pin_project! {
     /// Wraps an iterator to display its progress.
     pub struct WithProgressStream<S> {
@@ -134,5 +123,16 @@ impl ProgressLog {
 
     pub fn set_total(&self, value: u64) {
         self.progress.lock().set_total(value);
+    }
+
+    pub fn wrap_async_read<R: tokio::io::AsyncRead>(
+        message: &str,
+        read: R,
+        total_items: u64,
+    ) -> WithProgressStream<R> {
+        WithProgressStream {
+            stream: read,
+            progress: WithProgress::new(message, total_items),
+        }
     }
 }

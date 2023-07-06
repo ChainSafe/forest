@@ -4,7 +4,7 @@
 use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
 
-use crate::utils::io::wrap_async_read;
+use crate::utils::io::ProgressLog;
 use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
@@ -50,7 +50,11 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
         }
     };
 
-    let mut reader = tokio::io::BufReader::new(wrap_async_read("Loading", stream, content_length));
+    let mut reader = tokio::io::BufReader::new(ProgressLog::wrap_async_read(
+        "Loading",
+        stream,
+        content_length,
+    ));
 
     Ok(match is_zstd(reader.fill_buf().await?) {
         true => Left(ZstdDecoder::new(reader)),
