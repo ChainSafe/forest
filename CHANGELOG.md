@@ -35,6 +35,8 @@
 
 ### Fixed
 
+## Forest v0.11.1 "Dagny Taggert"
+
 ## Forest v0.11.0 "Hypersonic"
 
 ### Breaking
@@ -59,10 +61,6 @@
   migration support for NV17.
 - [#3107](https://github.com/ChainSafe/forest/pull/3107): Introduced 'head'
   parameter for snapshot validation.
-
-### Changed
-
-### Removed
 
 ### Fixed
 
