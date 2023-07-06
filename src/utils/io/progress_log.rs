@@ -4,8 +4,10 @@
 use humantime::format_duration;
 use std::time::{Duration, Instant};
 
+use parking_lot::Mutex;
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 
@@ -203,30 +205,30 @@ impl WithProgress {
 
 #[derive(Debug, Clone)]
 pub struct ProgressLog {
-    progress: WithProgress,
+    progress: Arc<Mutex<WithProgress>>,
 }
 
 impl ProgressLog {
     pub fn new(message: &str, total_items: u64) -> Self {
         ProgressLog {
-            progress: WithProgress::new(message, total_items),
+            progress: Arc::new(Mutex::new(WithProgress::new(message, total_items))),
         }
     }
 
     #[allow(dead_code)]
-    pub fn inc(&mut self, value: u64) {
-        self.progress.inc(value);
+    pub fn inc(&self, value: u64) {
+        self.progress.lock().inc(value);
     }
 
-    pub fn set(&mut self, value: u64) {
-        self.progress.set(value);
+    pub fn set(&self, value: u64) {
+        self.progress.lock().set(value);
     }
 
-    pub fn set_total(&mut self, value: u64) {
-        self.progress.set_total(value);
+    pub fn set_total(&self, value: u64) {
+        self.progress.lock().set_total(value);
     }
 
-    pub fn finish(&mut self) {
-        self.progress.finish()
+    pub fn finish(&self) {
+        self.progress.lock().finish()
     }
 }

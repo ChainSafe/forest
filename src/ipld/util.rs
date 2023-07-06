@@ -15,7 +15,6 @@ use crate::utils::io::progress_log::ProgressLog;
 use cid::Cid;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use lazy_static::lazy_static;
-use parking_lot::Mutex;
 
 use crate::ipld::{CidHashSet, Ipld};
 
@@ -118,10 +117,7 @@ where
 {
     let estimated_total_records = estimated_total_records.unwrap_or_default();
     let message = progress_bar_message.unwrap_or("Walking snapshot");
-    let bar = Arc::new(Mutex::new(ProgressLog::new(
-        message,
-        estimated_total_records,
-    )));
+    let bar = ProgressLog::new(message, estimated_total_records);
 
     let mut seen = CidHashSet::default();
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -134,11 +130,8 @@ where
         move |len: usize| {
             let progress = len as u64;
             let total = progress.max(estimated_total_records);
-            {
-                let mut guard = bar.lock();
-                guard.set(progress);
-                guard.set_total(total);
-            }
+            bar.set(progress);
+            bar.set_total(total);
             if let Some(progress_tracker) = &progress_tracker {
                 progress_tracker
                     .0
@@ -184,7 +177,7 @@ where
         }
     }
 
-    bar.lock().finish();
+    bar.finish();
     Ok(seen.len())
 }
 
