@@ -124,15 +124,15 @@ impl<W: tokio::io::AsyncBufRead + Unpin + tokio::io::AsyncRead> tokio::io::Async
     }
 }
 
-impl<S: futures_core::Stream + Unpin> futures_core::Stream for WithProgressStream<S> {
+impl<S: futures_core::Stream> futures_core::Stream for WithProgressStream<S> {
     type Item = S::Item;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        let this = self.get_mut();
-        let item = std::pin::Pin::new(&mut this.stream).poll_next(cx);
+        let this = self.project();
+        let item = this.stream.poll_next(cx);
         match &item {
             std::task::Poll::Ready(Some(_)) => {
                 this.progress.inc(1);
