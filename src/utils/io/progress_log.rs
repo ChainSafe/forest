@@ -31,7 +31,7 @@ pin_project! {
     /// Wraps an iterator to display its progress.
     pub struct WithProgressStream<S> {
         #[pin]
-        pub(crate) stream: S,
+        stream: S,
         progress: WithProgress,
     }
 }
