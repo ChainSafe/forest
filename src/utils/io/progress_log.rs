@@ -112,8 +112,6 @@ impl WithProgress {
             self.last_logged = now;
         }
     }
-
-    fn finish(&mut self) {}
 }
 
 #[derive(Debug, Clone)]
@@ -139,9 +137,5 @@ impl ProgressLog {
 
     pub fn set_total(&self, value: u64) {
         self.progress.lock().set_total(value);
-    }
-
-    pub fn finish(&self) {
-        self.progress.lock().finish()
     }
 }

@@ -177,7 +177,6 @@ where
         }
     }
 
-    bar.finish();
     Ok(seen.len())
 }
 

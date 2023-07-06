@@ -50,8 +50,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
         }
     };
 
-    let mut reader =
-        tokio::io::BufReader::new(wrap_async_read("Reading ...", stream, content_length));
+    let mut reader = tokio::io::BufReader::new(wrap_async_read("Loading", stream, content_length));
 
     Ok(match is_zstd(reader.fill_buf().await?) {
         true => Left(ZstdDecoder::new(reader)),
