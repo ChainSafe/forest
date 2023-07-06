@@ -82,9 +82,13 @@ pub fn wrap_async_read<R: tokio::io::AsyncRead + Unpin>(
 
 /// Wraps an iterator to display its progress.
 #[derive(Debug)]
+use pin_project_lite::pin_project;
+pin_project! {
 pub struct WithProgressStream<S> {
+   #[pin]
     pub(crate) stream: S,
     progress: WithProgress,
+}
 }
 
 impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for WithProgressStream<R> {
