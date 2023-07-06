@@ -1,9 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::BlockHeader;
+use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
 use crate::shim::{
     gas::{price_list_by_network_version, Gas, GasTracker},
@@ -23,6 +25,7 @@ use fvm_shared::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
+use tracing::{error, info};
 
 use crate::interpreter::resolve_to_key_addr;
 
@@ -33,6 +36,7 @@ pub struct ForestExternsV2<DB> {
     lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
+    bail: AtomicBool,
 }
 
 impl<DB: Blockstore> ForestExternsV2<DB> {
@@ -51,6 +55,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
             lookback,
             db,
             chain_config,
+            bail: AtomicBool::new(false),
         }
     }
 
@@ -90,13 +95,17 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
         Ok((addr.into(), gas_used.round_up() as i64))
     }
 
-    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
+    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64, Error> {
         let (worker_addr, gas_used) =
             self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch())?;
 
         bh.check_block_signature(&worker_addr.into())?;
 
         Ok(gas_used)
+    }
+
+    pub fn bail(&self) -> bool {
+        self.bail.load(Ordering::Relaxed)
     }
 }
 
@@ -218,24 +227,48 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                 // check blocks are properly signed by their respective miner
                 // note we do not need to check extra's: it is a parent to block b
                 // which itself is signed, so it was willingly included by the miner
-                if let Ok(gas_used) = self.verify_block_signature(&bh_1) {
-                    total_gas += gas_used;
-                    if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
-                        total_gas += gas_used;
-                        let ret = Some(ConsensusFault {
-                            target: bh_1.miner_address().into(),
-                            epoch: bh_2.epoch(),
-                            fault_type,
-                        });
-                        Ok((ret, total_gas))
-                    } else {
-                        // invalid consensus fault: cannot verify second block header signature
-                        Ok((None, total_gas))
+                let res = self.verify_block_signature(&bh_1);
+
+                let match_error = |err: Error, total_gas: i64| {
+                    match err {
+                        // When a lookup error occurs we should just bail terminating all the
+                        // computations.
+                        Error::Lookup(_) => {
+                            error!("database lookup error: {}", err);
+                            Err(err)
+                        }
+                        // invalid consensus fault: cannot verify block header signature
+                        Error::Signature(_) => Ok((None, total_gas)),
                     }
-                } else {
-                    // invalid consensus fault: cannot verify first block header signature
-                    Ok((None, total_gas))
+                };
+
+                let res = match res {
+                    Err(error) => match_error(error, total_gas),
+                    Ok(gas_used) => {
+                        total_gas += gas_used;
+                        let res = self.verify_block_signature(&bh_2);
+                        info!("res2: {:#?}", res);
+
+                        match res {
+                            Err(error) => match_error(error, total_gas),
+                            Ok(gas_used) => {
+                                total_gas += gas_used;
+                                let ret = Some(ConsensusFault {
+                                    target: bh_1.miner_address().into(),
+                                    epoch: bh_2.epoch(),
+                                    fault_type,
+                                });
+                                Ok((ret, total_gas))
+                            }
+                        }
+                    }
+                };
+
+                if let Err(Error::Lookup(_)) = res {
+                    self.bail.store(true, Ordering::Relaxed);
                 }
+
+                res.map_err(|err| err.into())
             }
         }
     }
