@@ -235,6 +235,7 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                         // computations.
                         Error::Lookup(_) => {
                             error!("database lookup error: {err}");
+                            self.bail.store(true, Ordering::Relaxed);
                             Err(err)
                         }
                         // invalid consensus fault: cannot verify block header signature
@@ -242,32 +243,29 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                     }
                 };
 
-                let res = match res {
+                if let Err(error) = res {
+                    return Ok(match_error(error, total_gas)?);
+                }
+
+                if let Ok(gas_used) = res {
+                    total_gas += gas_used;
+                }
+
+                let res = self.verify_block_signature(&bh_2);
+
+                match res {
                     Err(error) => match_error(error, total_gas),
                     Ok(gas_used) => {
                         total_gas += gas_used;
-                        let res = self.verify_block_signature(&bh_2);
-
-                        match res {
-                            Err(error) => match_error(error, total_gas),
-                            Ok(gas_used) => {
-                                total_gas += gas_used;
-                                let ret = Some(ConsensusFault {
-                                    target: bh_1.miner_address().into(),
-                                    epoch: bh_2.epoch(),
-                                    fault_type,
-                                });
-                                Ok((ret, total_gas))
-                            }
-                        }
+                        let ret = Some(ConsensusFault {
+                            target: bh_1.miner_address().into(),
+                            epoch: bh_2.epoch(),
+                            fault_type,
+                        });
+                        Ok((ret, total_gas))
                     }
-                };
-
-                if let Err(Error::Lookup(_)) = res {
-                    self.bail.store(true, Ordering::Relaxed);
                 }
-
-                res.map_err(|err| err.into())
+                .map_err(|e| e.into())
             }
         }
     }
