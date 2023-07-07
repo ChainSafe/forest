@@ -15,6 +15,7 @@ use crate::rpc_api::{
 use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
 use ahash::{HashMap, HashMapExt};
+use anyhow::Context;
 use cid::Cid;
 use fil_actor_interface::market;
 use fvm_ipld_blockstore::Blockstore;
@@ -280,6 +281,9 @@ pub(in crate::rpc) async fn state_fetch_root<
     // more than 1000 elements (even when walking tens of millions of nodes).
     let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
     let mut to_be_fetched = vec![];
+    if !db.has(&root_cid)? {
+        to_be_fetched.push(root_cid);
+    }
     // Loop until: No more items in `dfs` AND no running worker tasks.
     loop {
         while let Some(ipld) = lock_pop(&dfs) {
@@ -300,7 +304,12 @@ pub(in crate::rpc) async fn state_fetch_root<
                     if let Some(next_ipld) = db.get_cbor(&new_cid)? {
                         dfs_guard.push(next_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send((new_cid, db.get(&new_cid)?.unwrap()))?;
+                            car_tx.send((
+                                new_cid,
+                                db.get(&new_cid)?.with_context(|| {
+                                    format!("Failed to get cid {new_cid} from block store")
+                                })?,
+                            ))?;
                         }
                     } else {
                         to_be_fetched.push(new_cid);
@@ -346,6 +355,17 @@ pub(in crate::rpc) async fn state_fetch_root<
             // We are out of work items (dfs) and all worker threads have finished, this means
             // the entire graph has been walked and fetched.
             break;
+        }
+    }
+
+    // Push root block if missing
+    if let Some(car_tx) = &car_tx {
+        if !seen.insert(root_cid) {
+            car_tx.send((
+                root_cid,
+                db.get(&root_cid)?
+                    .with_context(|| format!("Failed to get cid {root_cid} from block store"))?,
+            ))?;
         }
     }
 
