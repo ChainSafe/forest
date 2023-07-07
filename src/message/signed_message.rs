@@ -72,9 +72,14 @@ impl SignedMessage {
             .verify(&self.message.cid().unwrap().to_bytes(), &self.from())
     }
 
+    // Lemmih: This is unfortunate. `msg.cid()` is different from `Cid::from_cbor_blake2b256(msg)`.
     pub fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
-        use crate::utils::cid::CidCborExt;
-        cid::Cid::from_cbor_blake2b256(self)
+        if self.is_bls() {
+            self.message.cid()
+        } else {
+            use crate::utils::cid::CidCborExt;
+            cid::Cid::from_cbor_blake2b256(self)
+        }
     }
 }
 
