@@ -96,14 +96,12 @@ mod test {
     use super::{BufferSize, ChunkSize};
     use quickcheck::Arbitrary;
 
-    #[cfg(test)]
     impl Arbitrary for ChunkSize {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             ChunkSize(usize::arbitrary(g))
         }
     }
 
-    #[cfg(test)]
     impl Arbitrary for BufferSize {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             BufferSize(usize::arbitrary(g))
