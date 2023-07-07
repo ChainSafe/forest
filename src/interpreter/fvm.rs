@@ -224,48 +224,34 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
             Some(fault_type) => {
                 // (4) expensive final checks
 
+                let bail = |err| {
+                    // When a lookup error occurs we should just bail terminating all the
+                    // computations.
+                    error!("database lookup error: {err}");
+                    self.bail.store(true, Ordering::Relaxed);
+                    Err(err)
+                };
+
                 // check blocks are properly signed by their respective miner
                 // note we do not need to check extra's: it is a parent to block b
                 // which itself is signed, so it was willingly included by the miner
-                let res = self.verify_block_signature(&bh_1);
-
-                let match_error = |err: Error, total_gas: i64| {
-                    match err {
-                        // When a lookup error occurs we should just bail terminating all the
-                        // computations.
-                        Error::Lookup(_) => {
-                            error!("database lookup error: {err}");
-                            self.bail.store(true, Ordering::Relaxed);
-                            Err(err)
-                        }
+                for block_header in [&bh_1, &bh_2] {
+                    let res = self.verify_block_signature(block_header);
+                    match res {
                         // invalid consensus fault: cannot verify block header signature
-                        Error::Signature(_) => Ok((None, total_gas)),
-                    }
-                };
-
-                if let Err(error) = res {
-                    return Ok(match_error(error, total_gas)?);
-                }
-
-                if let Ok(gas_used) = res {
-                    total_gas += gas_used;
-                }
-
-                let res = self.verify_block_signature(&bh_2);
-
-                match res {
-                    Err(error) => match_error(error, total_gas),
-                    Ok(gas_used) => {
-                        total_gas += gas_used;
-                        let ret = Some(ConsensusFault {
-                            target: bh_1.miner_address().into(),
-                            epoch: bh_2.epoch(),
-                            fault_type,
-                        });
-                        Ok((ret, total_gas))
+                        Err(Error::Signature(_)) => return Ok((None, total_gas)),
+                        Err(Error::Lookup(err)) => return bail(err),
+                        Ok(gas_used) => total_gas += gas_used,
                     }
                 }
-                .map_err(|e| e.into())
+
+                let ret = Some(ConsensusFault {
+                    target: bh_1.miner_address().into(),
+                    epoch: bh_2.epoch(),
+                    fault_type,
+                });
+
+                Ok((ret, total_gas))
             }
         }
     }
