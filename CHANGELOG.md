@@ -31,6 +31,9 @@
 
 ### Changed
 
+- [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
+  lookup errors instead of silently ignoring them.
+
 ### Removed
 
 ### Fixed

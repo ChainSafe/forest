@@ -18,6 +18,7 @@ use crate::shim::{
     Inner,
 };
 use ahash::HashSet;
+use anyhow::bail;
 use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use fvm::{
@@ -346,20 +347,32 @@ where
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let ret: ApplyRet = match self {
-            VM::VM2 { fvm_executor, .. } => fvm_executor
-                .execute_message(
+            VM::VM2 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
                     unsigned.into(),
                     fvm::executor::ApplyKind::Explicit,
                     raw_length,
-                )?
-                .into(),
-            VM::VM3 { fvm_executor, .. } => fvm_executor
-                .execute_message(
+                )?;
+
+                if fvm_executor.externs().bail() {
+                    bail!("encountered a database lookup error");
+                }
+
+                ret.into()
+            }
+            VM::VM3 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
                     unsigned.into(),
                     fvm3::executor::ApplyKind::Explicit,
                     raw_length,
-                )?
-                .into(),
+                )?;
+
+                if fvm_executor.externs().bail() {
+                    bail!("encountered a database lookup error");
+                }
+
+                ret.into()
+            }
         };
 
         let exit_code = ret.msg_receipt().exit_code();
