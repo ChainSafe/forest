@@ -47,7 +47,10 @@ Next, send Filecoin tokens to a wallet address:
 
 `forest-cli --token <admin_token> send <wallet-address> <amount>`
 
-where `<amount>` is any amount specified in any SI units; this field is case-sensitive and can be specified in either short or long form (e.g., `mFIL` or `milliFIL`) in the range from `quetta` to `quecto`. Note that the default unit (if no unit is specified) is `FIL`.
+where `<amount>` is an amount specified in any SI units; this field is
+case-sensitive and can be specified in either short or long form (e.g., `mFIL`
+or `milliFIL`) in the range from `quetta` to `quecto`. Note that the default
+unit (if no unit is specified) is `FIL`.
 
 ## Wallet
 
@@ -58,43 +61,60 @@ All wallet commands require write permissions and an admin token (`--token`) to
 interact with the keystore. The admin token can be retrieved from forest startup
 logs or by including the flag `--save-token <PATH>` during `forest` invocation.
 
-### Balance: 
+### Balance:
+
 Retrieve the FIL balance of a given address. Usage:
 `forest-cli --token <admin_token> wallet balance <address>`
 
-### Default: 
+### Default:
+
 Get the default, persisted address from the keystore. Usage:
 `forest-cli --token <admin_token> wallet default`
 
-### Has: 
-Check if an address exists in the keystore. Outputs `true` if address exists and `false` if address does not exist. Usage: `forest-cli --token <admin_token> wallet has <address>`
+### Has:
 
-### List: 
-Display the keys in the keystore. Usage: `forest-cli --token <admin_token> wallet list`
+Check if an address exists in the keystore. Outputs `true` if address exists and
+`false` if address does not exist. Usage:
+`forest-cli --token <admin_token> wallet has <address>`
 
-### New: 
-Create a new wallet. The signature type can either be secp256k1 or bls.
-Defaults to use secp256k1. Usage: `forest-cli --token <admin_token> wallet new <bls/secp256k1>`
+### List:
 
-### Set-default: 
+Display the keys in the keystore. Usage:
+`forest-cli --token <admin_token> wallet list`
+
+### New:
+
+Create a new wallet. The signature type can either be secp256k1 or bls. Defaults
+to use secp256k1. Usage:
+`forest-cli --token <admin_token> wallet new <bls/secp256k1>`
+
+### Set-default:
+
 Set an address to be the default address of the keystore. Usage:
 `forest-cli --token <admin_token> wallet set-default <address>`
 
-### Export: 
+### Export:
+
 Export a key by address. Use a wallet address to export a key. Returns a
 formatted key to be used to import on another node, or into a new keystore.
 Usage: `forest-cli --token <admin_token> wallet export <address>`
 
-### Import: 
-Import a file containing a private key to the keystore and create a new address. The default format for importing keys is hex encoded JSON. Use the `export` command to get formatted keys for importing. Usage:
+### Import:
+
+Import a file containing a private key to the keystore and create a new address.
+The default format for importing keys is hex encoded JSON. Use the `export`
+command to get formatted keys for importing. Usage:
 `forest-cli --token <admin_token> wallet import <PATH>`
 
-### Sign: 
+### Sign:
+
 Use an address to sign a vector of bytes. Usage:
 `forest-cli --token <admin_token> wallet sign -m <hex message> -a <address>`
 
-### Verify: 
-Verify the message's integrity with an address and signature. Outputs `true` if signature verifies message integrity, otherwise `false`. Usage:
+### Verify:
+
+Verify the message's integrity with an address and signature. Outputs `true` if
+signature verifies message integrity, otherwise `false`. Usage:
 `forest-cli wallet verify -m <hex message> -a <address> -s <signature>`
 
 ## Chain-Sync
