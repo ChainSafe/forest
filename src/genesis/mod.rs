@@ -206,9 +206,9 @@ where
     // to maintain a buffer of a few chunks to avoid read-stalling.
     car_stream(car_reader)
         .inspect(|_| n_records += 1)
-        .chunks(chunk_size)
+        .chunks(chunk_size as usize)
         .map(|vec| vec.into_iter().collect::<anyhow::Result<Vec<_>>>())
-        .forward(sink.buffer(buffer_size))
+        .forward(sink.buffer(buffer_size as usize))
         .await?;
 
     Ok((header.roots, n_records))

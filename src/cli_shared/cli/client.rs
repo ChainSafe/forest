@@ -16,7 +16,7 @@ use serde_with::{serde_as, DurationSeconds};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
-pub struct ChunkSize(pub usize);
+pub struct ChunkSize(pub u32);
 impl Default for ChunkSize {
     fn default() -> Self {
         ChunkSize(500_000)
@@ -25,7 +25,7 @@ impl Default for ChunkSize {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
-pub struct BufferSize(pub usize);
+pub struct BufferSize(pub u32);
 impl Default for BufferSize {
     fn default() -> Self {
         BufferSize(1)
@@ -98,13 +98,13 @@ mod test {
 
     impl Arbitrary for ChunkSize {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ChunkSize(usize::arbitrary(g))
+            ChunkSize(u32::arbitrary(g))
         }
     }
 
     impl Arbitrary for BufferSize {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            BufferSize(usize::arbitrary(g))
+            BufferSize(u32::arbitrary(g))
         }
     }
 }
