@@ -4,8 +4,8 @@
 pub mod json {
     use std::str::FromStr;
 
-    use crate::{shim::econ::TokenAmount, json::address::json::AddressJson};
     use crate::shim::state_tree::ActorState;
+    use crate::{json::address::json::AddressJson, shim::econ::TokenAmount};
     use cid::Cid;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -40,14 +40,14 @@ pub mod json {
             #[serde(rename = "Nonce")]
             pub sequence: u64,
             pub balance: String,
-            pub delegated_address: Option<AddressJson>
+            pub delegated_address: Option<AddressJson>,
         }
         ActorStateSer {
             code: &m.code,
             state: &m.state,
             sequence: m.sequence,
             balance: m.balance.atto().to_str_radix(10),
-            delegated_address: (&m.delegated_address).as_ref().map(|addr| AddressJson(addr.into())),
+            delegated_address: m.delegated_address.map(|addr| AddressJson(addr.into())),
         }
         .serialize(serializer)
     }
