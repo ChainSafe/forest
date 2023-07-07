@@ -14,7 +14,7 @@ use crate::utils::{cid::CidCborExt, db::CborStoreExt};
 use cid::Cid;
 use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::{Cbor, Error as EncodingError};
+use fvm_ipld_encoding3::Error as EncodingError;
 use thiserror::Error;
 
 use crate::chain_sync::bad_block_cache::BadBlockCache;

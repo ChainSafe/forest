@@ -32,8 +32,7 @@ use fvm3::{
     },
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::Cbor;
-use fvm_ipld_encoding3::RawBytes;
+use fvm_ipld_encoding3::{to_vec, RawBytes};
 use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
 
@@ -314,7 +313,7 @@ where
     /// Applies single message through VM and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
         // raw_length is not used for Implicit messages.
-        let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        let raw_length = to_vec(msg).expect("encoding error").len();
 
         match self {
             VM::VM2 { fvm_executor, .. } => {
@@ -344,7 +343,7 @@ where
         msg.message().check()?;
 
         let unsigned = msg.message().clone();
-        let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        let raw_length = to_vec(msg).expect("encoding error").len();
         let ret: ApplyRet = match self {
             VM::VM2 { fvm_executor, .. } => fvm_executor
                 .execute_message(

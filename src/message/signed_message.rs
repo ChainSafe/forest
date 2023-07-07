@@ -7,7 +7,6 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use fvm_ipld_encoding3::{to_vec, Cbor, Error as CborError};
 use fvm_ipld_encoding3::RawBytes;
 use fvm_shared::MethodNum;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
@@ -133,15 +132,5 @@ impl MessageTrait for SignedMessage {
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.set_gas_premium(prem)
-    }
-}
-
-impl Cbor for SignedMessage {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, CborError> {
-        if self.is_bls() {
-            self.message.marshal_cbor()
-        } else {
-            Ok(to_vec(&self)?)
-        }
     }
 }

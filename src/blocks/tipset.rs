@@ -8,7 +8,6 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding3::Cbor;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -58,8 +57,6 @@ impl fmt::Display for TipsetKeys {
         write!(f, "[{}]", s)
     }
 }
-
-impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.

@@ -178,18 +178,18 @@ xsalsa20poly1305 = "0.9"
 zstd-safe = "6.0.5"
 
 [patch.crates-io]
-fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies"}
+fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
+fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "lemmih/bump-dependencies" }
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"

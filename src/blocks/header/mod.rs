@@ -19,7 +19,7 @@ use cid::{
     Cid,
 };
 use derive_builder::Builder;
-use fvm_ipld_encoding3::{Error as EncodingError, DAG_CBOR};
+use fvm_ipld_encoding3::DAG_CBOR;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
