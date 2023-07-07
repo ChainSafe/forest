@@ -78,49 +78,44 @@ fn filter_messages(
     Ok(filtered)
 }
 
-async fn get_actor_sequences(
-    messages: &[SignedMessageJson],
-    tipset: Arc<Tipset>,
+async fn get_actor_sequence(
+    message: &SignedMessage,
+    tipset: &Arc<Tipset>,
     config: &Config,
-) -> HashMap<Address, u64> {
-    let mut actor_sequences = HashMap::<Address, u64>::default();
+) -> Option<u64> {
+    let address = message.from();
+    let get_actor_result = state_get_actor(
+        (address.to_owned().into(), tipset.key().to_owned().into()),
+        &config.client.rpc_token,
+    )
+    .await;
 
-    for msg in messages.iter() {
-        let address = msg.0.from();
-        let get_actor_result = state_get_actor(
-            (address.to_owned().into(), tipset.key().to_owned().into()),
-            &config.client.rpc_token,
-        )
-        .await;
-
-        let actor_state = match get_actor_result {
-            Ok(actor_json) => {
-                if let Some(state) = actor_json {
-                    state.0
-                } else {
-                    println!("{}, actor state not found", address);
-                    continue;
-                }
+    let actor_state = match get_actor_result {
+        Ok(actor_json) => {
+            if let Some(state) = actor_json {
+                state.0
+            } else {
+                println!("{}, actor state not found", address);
+                return None;
             }
-            Err(err) => {
-                let error_message = match err {
-                    jsonrpc_v2::Error::Full { message, .. } => message,
-                    jsonrpc_v2::Error::Provided { message, .. } => message.to_string(),
-                };
+        }
+        Err(err) => {
+            let error_message = match err {
+                jsonrpc_v2::Error::Full { message, .. } => message,
+                jsonrpc_v2::Error::Provided { message, .. } => message.to_string(),
+            };
 
-                println!("{}, err: {}", address, error_message);
-                continue;
-            }
-        };
-        actor_sequences.insert(address, actor_state.sequence);
-    }
+            println!("{}, err: {}", address, error_message);
+            return None;
+        }
+    };
 
-    actor_sequences
+    Some(actor_state.sequence)
 }
 
 type StatBucket = HashMap<u64, SignedMessage>;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct MpStat {
     address: String,
     past: u64,
@@ -132,17 +127,24 @@ struct MpStat {
 }
 
 fn compute_stats(
-    messages: &[SignedMessageJson],
+    messages: &[SignedMessage],
     actor_sequences: HashMap<Address, u64>,
     curr_base_fee: TokenAmount,
     min_base_fee: TokenAmount,
 ) -> Vec<MpStat> {
+    // for m in messages {
+    //     println!("messages:\n{:?}", m);
+    // }
+    // println!("actor_sequences:\n{:?}", actor_sequences);
+    // println!("curr_base_fee:\n{:?}", curr_base_fee);
+    // println!("min_base_fee:\n{:?}", min_base_fee);
+
     let mut buckets = HashMap::<Address, StatBucket>::default();
     for msg in messages {
         buckets
-            .entry(msg.0.from())
+            .entry(msg.from())
             .or_insert(StatBucket::default())
-            .insert(msg.0.sequence(), msg.0.to_owned());
+            .insert(msg.sequence(), msg.to_owned());
     }
 
     let mut stats: Vec<MpStat> = Vec::new();
@@ -181,6 +183,8 @@ fn compute_stats(
 
         stats.push(stat);
     }
+
+    //println!("{:?}", stats);
 
     stats
 }
@@ -253,6 +257,7 @@ impl MpoolCommands {
                         println!("{}", serde_json::to_string_pretty(&msg)?);
                     }
                 }
+
                 Ok(())
             }
             Self::Stat {
@@ -285,19 +290,28 @@ impl MpoolCommands {
                     None
                 };
 
-                let filtered_messages = filter_messages(messages, local_addrs, &None, &None)?;
+                let signed_messages: Vec<SignedMessage> =
+                    filter_messages(messages, local_addrs, &None, &None)?
+                        .into_iter()
+                        .map(|m| m.0)
+                        .collect();
 
-                let actor_sequences =
-                    get_actor_sequences(&filtered_messages, tipset, &config).await;
+                let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
+                for msg in signed_messages.iter() {
+                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &config).await {
+                        actor_sequences.insert(msg.from(), sequence);
+                    }
+                }
 
                 let stats = compute_stats(
-                    &filtered_messages,
+                    &signed_messages,
                     actor_sequences,
                     curr_base_fee,
                     min_base_fee,
                 );
 
                 print_stats(&stats, basefee_lookback);
+
                 Ok(())
             }
         }
