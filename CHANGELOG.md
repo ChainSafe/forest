@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
+  option to `forest-cli state fetch` command.
+
 ### Changed
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
