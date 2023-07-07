@@ -134,13 +134,6 @@ fn compute_stats(
     curr_base_fee: TokenAmount,
     min_base_fee: TokenAmount,
 ) -> Vec<MpStat> {
-    // for m in messages {
-    //     println!("messages:\n{:?}", m);
-    // }
-    // println!("actor_sequences:\n{:?}", actor_sequences);
-    // println!("curr_base_fee:\n{:?}", curr_base_fee);
-    // println!("min_base_fee:\n{:?}", min_base_fee);
-
     let mut buckets = HashMap::<Address, StatBucket>::default();
     for msg in messages {
         buckets
@@ -152,7 +145,7 @@ fn compute_stats(
     let mut stats: Vec<MpStat> = Vec::new();
 
     for (address, bucket) in buckets {
-        let actor_sequence = actor_sequences[&address];
+        let actor_sequence = *actor_sequences.get(&address).expect("get must succeed");
 
         let mut curr_sequence = actor_sequence;
         while bucket.get(&curr_sequence).is_some() {
@@ -186,8 +179,7 @@ fn compute_stats(
         stats.push(stat);
     }
 
-    //println!("{:?}", stats);
-
+    stats.sort_by(|m1, m2| m1.address.cmp(&m2.address));
     stats
 }
 
@@ -482,51 +474,73 @@ mod tests {
         use crate::shim::message::Message;
         use fvm_ipld_encoding3::RawBytes;
 
-        let messages = [Message {
-            version: 0,
-            from: Address::default(),
-            to: Address::default(),
-            sequence: 1210,
-            value: TokenAmount::default(),
-            method_num: 5,
-            params: RawBytes::new(vec![]),
-            gas_limit: 25201703,
-            gas_fee_cap: TokenAmount::from_atto(101774),
-            gas_premium: TokenAmount::from_atto(100720),
-        }];
-        let actor_sequences = HashMap::from_iter([(
-            Address::from_str("t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i").unwrap(),
-            1210,
-        )]);
+        let addr0 = Address::from_str("t3urxivigpzih5f6ih3oq3lr2jlunw3m5oehbe5efts4ub5wy2oi4fbo5cw7333a4rrffo5535tjdq24wkc2aa").unwrap();
+        let addr1 = Address::from_str("t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i").unwrap();
+        let messages = [
+            Message {
+                version: 0,
+                from: addr0,
+                to: Address::default(),
+                sequence: 1210,
+                value: TokenAmount::default(),
+                method_num: 5,
+                params: RawBytes::new(vec![]),
+                gas_limit: 25201703,
+                gas_fee_cap: TokenAmount::from_atto(101774),
+                gas_premium: TokenAmount::from_atto(100720),
+            },
+            Message {
+                version: 0,
+                from: addr1,
+                to: Address::default(),
+                sequence: 190,
+                value: TokenAmount::default(),
+                method_num: 5,
+                params: RawBytes::new(vec![]),
+                gas_limit: 21148671,
+                gas_fee_cap: TokenAmount::from_atto(101774),
+                gas_premium: TokenAmount::from_atto(100720),
+            },
+            Message {
+                version: 0,
+                from: addr1,
+                to: Address::default(),
+                sequence: 191,
+                value: TokenAmount::default(),
+                method_num: 5,
+                params: RawBytes::new(vec![]),
+                gas_limit: 112795625,
+                gas_fee_cap: TokenAmount::from_atto(101774),
+                gas_premium: TokenAmount::from_atto(100720),
+            },
+        ];
+        let actor_sequences = HashMap::from_iter([(addr0, 1210), (addr1, 195)]);
         let curr_base_fee = TokenAmount::from_atto(100);
         let min_base_fee = TokenAmount::from_atto(100);
 
         let stats = compute_stats(&messages, actor_sequences, curr_base_fee, min_base_fee);
 
-        let expected_stats = vec![
+        let expected = vec![
             MpStat {
-                address: "t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i".into(),
+                address: addr0.to_string(),
                 past: 0,
                 current: 1,
                 future: 0,
                 below_current: 0,
                 below_past: 0,
-                gas_limit: 29881427.into(),
+                gas_limit: 25201703.into(),
             },
-            // MpStat {
-            //     address: "t3v3aptkgwsrp2tvpdivsow4eua2weit7xt7wyunxtb44zxzrxw2svtcuhsw4u2mh6gvhcogqvxrwfndfajeka".into(),
-            //     past: 0, current: 0, future: 2, below_current: 0, below_past: 0, gas_limit: 112795625.into()
-            // },
-            // MpStat {
-            //     address: "t3urxivigpzih5f6ih3oq3lr2jlunw3m5oehbe5efts4ub5wy2oi4fbo5cw7333a4rrffo5535tjdq24wkc2aa".into(),
-            //     past: 0, current: 0, future: 1, below_current: 0, below_past: 0, gas_limit: 21148671.into()
-            // },
-            // MpStat {
-            //     address: "t3uci2cegyddnsqq6jcqitopetbgbyoxxxtxym6dibwwezpj3ebtoq4bebsy6k4dupxlwsvz3ifhaguh5x5ava".into(),
-            //     past: 0, current: 1, future: 0, below_current: 0, below_past: 0, gas_limit: 25201703.into()
-            // }
+            MpStat {
+                address: addr1.to_string(),
+                past: 2,
+                current: 0,
+                future: 0,
+                below_current: 0,
+                below_past: 0,
+                gas_limit: 133944296.into(),
+            },
         ];
 
-        assert_eq!(stats, expected_stats);
+        assert_eq!(stats, expected);
     }
 }
