@@ -1,17 +1,124 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use core::time::Duration;
-use std::{path::PathBuf, sync::Arc};
-
 use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
-use serde::{Deserialize, Serialize};
-use tracing::Level;
+use core::time::Duration;
+use serde::{
+    de::{DeserializeSeed, EnumAccess, Error, Unexpected, VariantAccess, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+use std::{fmt, path::PathBuf, str::FromStr, sync::Arc};
+use tracing::log::LevelFilter;
 
 use super::client::Client;
+
+static LOG_LEVEL_NAMES: [&str; 6] = ["OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE"];
+
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
+pub struct LogLevelFilter(LevelFilter);
+
+// ported from log crate
+impl Serialize for LogLevelFilter {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0 {
+            LevelFilter::Off => serializer.serialize_unit_variant("LevelFilter", 0, "OFF"),
+            LevelFilter::Error => serializer.serialize_unit_variant("LevelFilter", 1, "ERROR"),
+            LevelFilter::Warn => serializer.serialize_unit_variant("LevelFilter", 2, "WARN"),
+            LevelFilter::Info => serializer.serialize_unit_variant("LevelFilter", 3, "INFO"),
+            LevelFilter::Debug => serializer.serialize_unit_variant("LevelFilter", 4, "DEBUG"),
+            LevelFilter::Trace => serializer.serialize_unit_variant("LevelFilter", 5, "TRACE"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for LogLevelFilter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct LevelFilterIdentifier;
+
+        impl<'de> Visitor<'de> for LevelFilterIdentifier {
+            type Value = LevelFilter;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("log level filter")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                // Case insensitive.
+                FromStr::from_str(s).map_err(|_| Error::unknown_variant(s, &LOG_LEVEL_NAMES))
+            }
+
+            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let variant = std::str::from_utf8(value)
+                    .map_err(|_| Error::invalid_value(Unexpected::Bytes(value), &self))?;
+
+                self.visit_str(variant)
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let variant = LOG_LEVEL_NAMES
+                    .get(v as usize)
+                    .ok_or_else(|| Error::invalid_value(Unexpected::Unsigned(v), &self))?;
+
+                self.visit_str(variant)
+            }
+        }
+
+        impl<'de> DeserializeSeed<'de> for LevelFilterIdentifier {
+            type Value = LevelFilter;
+
+            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_identifier(LevelFilterIdentifier)
+            }
+        }
+
+        struct LevelFilterEnum;
+
+        impl<'de> Visitor<'de> for LevelFilterEnum {
+            type Value = LevelFilter;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("log level filter")
+            }
+
+            fn visit_enum<A>(self, value: A) -> Result<Self::Value, A::Error>
+            where
+                A: EnumAccess<'de>,
+            {
+                let (level_filter, variant) = value.variant_seed(LevelFilterIdentifier)?;
+                // Every variant is a unit variant.
+                variant.unit_variant()?;
+                Ok(level_filter)
+            }
+        }
+
+        let a = deserializer
+            .deserialize_enum("LevelFilter", &LOG_LEVEL_NAMES, LevelFilterEnum)
+            .map(LogLevelFilter);
+
+        a
+    }
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct LogConfig {
@@ -22,7 +129,7 @@ impl LogConfig {
     pub(in crate::cli_shared) fn to_filter_string(&self) -> String {
         self.filters
             .iter()
-            .map(|f| format!("{}={}", f.module, f.level))
+            .map(|f| format!("{}={}", f.module, f.level.0))
             .collect::<Vec<_>>()
             .join(",")
     }
@@ -32,15 +139,18 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             filters: vec![
-                LogValue::new("axum", Level::Warn),
-                LogValue::new("bellperson::groth16::aggregate::verify", Level::Warn),
-                LogValue::new("filecoin_proofs", Level::Warn),
-                LogValue::new("libp2p_bitswap", Level::Off),
-                LogValue::new("libp2p_gossipsub", Level::Error),
-                LogValue::new("libp2p_kad", Level::Error),
-                LogValue::new("rpc", Level::Error),
-                LogValue::new("storage_proofs_core", Level::Warn),
-                LogValue::new("tracing_loki", Level::Off),
+                LogValue::new("axum", LogLevelFilter(LevelFilter::Warn)),
+                LogValue::new(
+                    "bellperson::groth16::aggregate::verify",
+                    LogLevelFilter(LevelFilter::Warn),
+                ),
+                LogValue::new("filecoin_proofs", LogLevelFilter(LevelFilter::Warn)),
+                LogValue::new("libp2p_bitswap", LogLevelFilter(LevelFilter::Off)),
+                LogValue::new("libp2p_gossipsub", LogLevelFilter(LevelFilter::Error)),
+                LogValue::new("libp2p_kad", LogLevelFilter(LevelFilter::Error)),
+                LogValue::new("rpc", LogLevelFilter(LevelFilter::Error)),
+                LogValue::new("storage_proofs_core", LogLevelFilter(LevelFilter::Warn)),
+                LogValue::new("tracing_loki", LogLevelFilter(LevelFilter::Off)),
             ],
         }
     }
@@ -49,11 +159,11 @@ impl Default for LogConfig {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct LogValue {
     pub module: String,
-    pub level: Level,
+    pub level: LogLevelFilter,
 }
 
 impl LogValue {
-    pub fn new(module: &str, level: Level) -> Self {
+    pub fn new(module: &str, level: LogLevelFilter) -> Self {
         Self {
             module: module.to_string(),
             level,
