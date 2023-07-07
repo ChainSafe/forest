@@ -8,7 +8,7 @@ use fil_actor_miner_state::{
     v11::{MinerInfo as MinerInfoV11, State as MinerStateV11},
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 
 use crate::state_migration::common::{TypeMigration, TypeMigrator};
 

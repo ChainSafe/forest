@@ -8,7 +8,7 @@ use crate::shim::{
 };
 use anyhow::anyhow;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 
 use crate::state_migration::common::PostMigrator;
 

@@ -13,7 +13,7 @@ use crate::shim::{
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 
 use super::{miner, power, system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};

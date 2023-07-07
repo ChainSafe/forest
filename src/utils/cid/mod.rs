@@ -5,7 +5,7 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid, Version,
 };
-use fvm_ipld_encoding::DAG_CBOR;
+use fvm_ipld_encoding3::{Error, DAG_CBOR};
 
 /// Extension methods for constructing `dag-cbor` [Cid]
 pub trait CidCborExt {
@@ -15,7 +15,7 @@ pub trait CidCborExt {
     /// - The default hash function is 256 bit BLAKE2b
     ///
     /// This matches [`abi.CidBuilder`](https://github.com/filecoin-project/go-state-types/blob/master/abi/cid.go#L49) in go
-    fn from_cbor_blake2b256<S: serde::ser::Serialize>(obj: &S) -> anyhow::Result<Cid> {
+    fn from_cbor_blake2b256<S: serde::ser::Serialize>(obj: &S) -> Result<Cid, Error> {
         let bytes = fvm_ipld_encoding3::to_vec(obj)?;
         Ok(Cid::new_v1(
             fvm_ipld_encoding3::DAG_CBOR,
@@ -66,7 +66,7 @@ mod tests {
         multihash::{Code, MultihashDigest},
         Cid,
     };
-    use fvm_ipld_encoding::DAG_CBOR;
+    use fvm_ipld_encoding3::DAG_CBOR;
     use quickcheck_macros::quickcheck;
     use std::mem::size_of;
 

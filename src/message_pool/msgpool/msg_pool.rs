@@ -26,7 +26,7 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context;
 use cid::Cid;
 use futures::StreamExt;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding3::Cbor;
 use log::warn;
 use lru::LruCache;
 use nonzero_ext::nonzero;

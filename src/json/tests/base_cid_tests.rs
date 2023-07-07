@@ -7,7 +7,7 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid, Error, Version,
 };
-use fvm_ipld_encoding::DAG_CBOR;
+use fvm_ipld_encoding3::DAG_CBOR;
 
 #[test]
 fn basic_marshalling() {

@@ -4,8 +4,8 @@
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-use fvm_ipld_encoding::DAG_CBOR;
+use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding3::DAG_CBOR;
 use libipld_core::ipld::Ipld;
 
 /// Resolves link to recursively resolved [`Ipld`] with no hash links.

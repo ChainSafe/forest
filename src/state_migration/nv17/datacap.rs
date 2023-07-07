@@ -71,7 +71,7 @@ impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
         )?;
 
         let mut token =
-            frc46_token::token::state::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
+            fil_actors_shared::frc46_token::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
         token.supply = TokenAmount::from_atto(token_supply).into();
         token.balances = balances_map.flush()?;
         token.allowances = allowances_map.flush()?;

@@ -16,7 +16,7 @@ use crate::shim::{
     gas::{price_list_by_network_version, Gas},
 };
 use ahash::HashMap;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding3::Cbor;
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};

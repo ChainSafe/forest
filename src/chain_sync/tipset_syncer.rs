@@ -28,7 +28,7 @@ use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding3::Cbor;
 use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;

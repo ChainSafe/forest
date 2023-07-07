@@ -5,9 +5,10 @@ use std::fmt;
 
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding3::Cbor;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -37,12 +38,12 @@ impl TipsetKeys {
 
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
-        use fvm_ipld_encoding::RawBytes;
+        use fvm_ipld_encoding3::RawBytes;
         let mut bytes = Vec::new();
         for cid in self.cids() {
             bytes.append(&mut cid.to_bytes())
         }
-        Ok(RawBytes::new(bytes).cid()?)
+        Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
 }
 
@@ -473,7 +474,7 @@ mod test {
         multihash::{Code::Identity, MultihashDigest},
         Cid,
     };
-    use fvm_ipld_encoding::DAG_CBOR;
+    use fvm_ipld_encoding3::DAG_CBOR;
     use num_bigint::BigInt;
 
     use crate::blocks::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};

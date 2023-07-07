@@ -648,7 +648,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use fvm_ipld_encoding::{from_slice, to_vec};
+    use fvm_ipld_encoding3::{from_slice, to_vec};
 
     use super::*;
 

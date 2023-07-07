@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 
-use fvm_ipld_encoding::de::Deserializer;
-use fvm_ipld_encoding::ser::Serializer;
-use fvm_ipld_encoding::{Cbor, RawBytes as RawBytes_v2};
+use fvm_ipld_encoding3::de::Deserializer;
+use fvm_ipld_encoding3::ser::Serializer;
+use fvm_ipld_encoding3::{Cbor, RawBytes as RawBytes_v2, Error as EncError};
 use fvm_ipld_encoding3::RawBytes as RawBytes_v3;
 use fvm_shared::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
@@ -172,6 +172,11 @@ impl Message {
             method_num: METHOD_SEND,
             ..Default::default()
         }
+    }
+
+    pub fn cid(&self) -> Result<cid::Cid, EncError> {
+        use crate::utils::cid::CidCborExt;
+        cid::Cid::from_cbor_blake2b256(self)
     }
 }
 

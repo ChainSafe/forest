@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use crate::blocks::BlockHeader;
@@ -32,8 +31,6 @@ impl quickcheck::Arbitrary for GossipBlock {
         }
     }
 }
-
-impl Cbor for GossipBlock {}
 
 pub mod json {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};

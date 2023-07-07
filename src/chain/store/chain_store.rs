@@ -33,7 +33,7 @@ use futures_util::AsyncWriteExt;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -872,7 +872,7 @@ mod tests {
         },
         Cid,
     };
-    use fvm_ipld_encoding::DAG_CBOR;
+    use fvm_ipld_encoding3::DAG_CBOR;
     use tempfile::TempDir;
 
     use super::*;

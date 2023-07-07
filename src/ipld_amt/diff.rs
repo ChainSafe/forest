@@ -8,7 +8,7 @@ use std::borrow::Borrow;
 
 use anyhow::Context;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::node::{CollapsedNode, Link};
@@ -189,7 +189,7 @@ where
                 after: curr_val.clone(),
             }),
             (Some(prev_val), Some(curr_val)) => {
-                if fvm_ipld_encoding::to_vec(&prev_val)? != fvm_ipld_encoding::to_vec(&curr_val)? {
+                if fvm_ipld_encoding3::to_vec(&prev_val)? != fvm_ipld_encoding3::to_vec(&curr_val)? {
                     changes.push(Change {
                         key: index,
                         before: Some(prev_val.clone()),

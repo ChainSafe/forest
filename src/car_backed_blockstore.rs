@@ -226,7 +226,7 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
     let header_len = read_u32_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
-    fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
+    fvm_ipld_encoding3::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
 }
 
 /// Importantly, we seek _past_ the data, rather than read any in.

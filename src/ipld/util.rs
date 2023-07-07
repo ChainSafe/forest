@@ -14,7 +14,7 @@ use std::{
 use crate::blocks::{BlockHeader, Tipset};
 use crate::utils::io::{progress_bar, ProgressBar};
 use cid::Cid;
-use fvm_ipld_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding3::{from_slice, Cbor};
 use lazy_static::lazy_static;
 
 use crate::ipld::{CidHashSet, Ipld};
@@ -52,7 +52,7 @@ where
                 on_inserted(walked.len());
                 let _ = load_block(cid).await?;
             }
-            if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+            if cid.codec() == fvm_ipld_encoding3::DAG_CBOR {
                 if !walked.insert(cid) {
                     return Ok(());
                 }
@@ -83,7 +83,7 @@ where
         return Ok(());
     }
     on_inserted(walked.len());
-    if root.codec() != fvm_ipld_encoding::DAG_CBOR {
+    if root.codec() != fvm_ipld_encoding3::DAG_CBOR {
         return Ok(());
     }
 
@@ -155,7 +155,7 @@ where
         }
 
         let data = load_block(next).await?;
-        let h = BlockHeader::unmarshal_cbor(&data)?;
+        let h = from_slice::<BlockHeader>(&data)?;
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
@@ -193,7 +193,7 @@ fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     } else {
         matches!(
             cid.codec(),
-            fvm_shared::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
+            fvm_shared::IPLD_RAW | fvm_ipld_encoding3::DAG_CBOR
         )
     }
 }

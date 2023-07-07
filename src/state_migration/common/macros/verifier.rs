@@ -11,7 +11,7 @@ macro_rules! impl_verifier {
             use ahash::HashMap;
             use cid::Cid;
             use fvm_ipld_blockstore::Blockstore;
-            use fvm_ipld_encoding::CborStore;
+            use fvm_ipld_encoding3::CborStore;
             use $crate::shim::{address::Address, machine::Manifest, state_tree::StateTree};
             use $crate::state_migration::common::{verifier::ActorMigrationVerifier, Migrator};
 

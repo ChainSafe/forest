@@ -13,7 +13,7 @@ use crate::shim::{
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 
 use super::{
     eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system, verifier::Verifier,

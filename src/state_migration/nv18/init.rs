@@ -10,7 +10,7 @@ use crate::utils::db::CborStoreExt;
 use cid::Cid;
 use fil_actor_init_state::{v10::State as InitStateNew, v9::State as InitStateOld};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,

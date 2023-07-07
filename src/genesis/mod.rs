@@ -12,7 +12,7 @@ use cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 
 use log::{debug, info};
 use tokio::{fs::File, io::BufReader};

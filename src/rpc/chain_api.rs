@@ -21,7 +21,7 @@ use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context, Result};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding3::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};

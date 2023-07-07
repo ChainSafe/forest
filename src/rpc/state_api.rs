@@ -18,7 +18,7 @@ use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fil_actor_interface::market;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{CborStore, DAG_CBOR};
+use fvm_ipld_encoding3::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 use parking_lot::Mutex;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::db::file_backed_obj::FileBackedObject;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding3::Cbor;
 
 use crate::blocks::*;
 
@@ -12,7 +12,7 @@ impl FileBackedObject for TipsetKeys {
     }
 
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
-        Ok(fvm_ipld_encoding::from_slice(bytes)?)
+        Ok(fvm_ipld_encoding3::from_slice(bytes)?)
     }
 }
 

@@ -14,7 +14,7 @@ use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder
 use filecoin_proofs_api::post;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::bytes_32;
+use fvm_ipld_encoding3::bytes_32;
 
 use crate::state_manager::{errors::*, StateManager};
 

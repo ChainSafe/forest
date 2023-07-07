@@ -8,7 +8,7 @@ use std::error::Error as StdError;
 
 use anyhow::anyhow;
 use cid::Error as CidError;
-use fvm_ipld_encoding::Error as EncodingError;
+use fvm_ipld_encoding3::Error as EncodingError;
 use thiserror::Error;
 
 /// AMT Error

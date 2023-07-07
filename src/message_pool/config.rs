@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::db::Store;
 use crate::shim::address::Address;
-use fvm_ipld_encoding::from_slice;
+use fvm_ipld_encoding3::from_slice;
 use serde::{Deserialize, Serialize};
 
 const MPOOL_CONFIG_KEY: &[u8] = b"/mpool/config";
@@ -44,7 +44,7 @@ impl Default for MpoolConfig {
 impl MpoolConfig {
     /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), anyhow::Error> {
-        Ok(store.write(MPOOL_CONFIG_KEY, fvm_ipld_encoding::to_vec(&self)?)?)
+        Ok(store.write(MPOOL_CONFIG_KEY, fvm_ipld_encoding3::to_vec(&self)?)?)
     }
 
     /// Returns the low limit capacity of messages to allocate.
