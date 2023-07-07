@@ -14,7 +14,7 @@ use crate::utils::{cid::CidCborExt, db::CborStoreExt};
 use cid::Cid;
 use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::Error as EncodingError;
+use fvm_ipld_encoding::Error as EncodingError;
 use thiserror::Error;
 
 use crate::chain_sync::bad_block_cache::BadBlockCache;
@@ -128,11 +128,11 @@ impl<'a> TipsetValidator<'a> {
         let bls_cids = bls_msgs
             .iter()
             .map(Cid::from_cbor_blake2b256)
-            .collect::<Result<Vec<Cid>, fvm_ipld_encoding3::Error>>()?;
+            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
         let secp_cids = secp_msgs
             .iter()
             .map(Cid::from_cbor_blake2b256)
-            .collect::<Result<Vec<Cid>, fvm_ipld_encoding3::Error>>()?;
+            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
 
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;

@@ -32,7 +32,7 @@ use fvm3::{
     },
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::{to_vec, RawBytes};
+use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
 

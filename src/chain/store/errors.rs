@@ -7,7 +7,7 @@ use crate::blocks::Error as BlkErr;
 use crate::db::Error as DbErr;
 use cid::Error as CidErr;
 use fvm_ipld_amt::Error as AmtErr;
-use fvm_ipld_encoding3::Error as EncErr;
+use fvm_ipld_encoding::Error as EncErr;
 use thiserror::Error;
 
 /// Chain error

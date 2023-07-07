@@ -8,10 +8,10 @@ use anyhow::anyhow;
 use cid::multihash::Code;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::de::DeserializeOwned;
-use fvm_ipld_encoding3::ser::Serialize;
-use fvm_ipld_encoding3::serde::Deserialize;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::de::DeserializeOwned;
+use fvm_ipld_encoding::ser::Serialize;
+use fvm_ipld_encoding::serde::Deserialize;
+use fvm_ipld_encoding::CborStore;
 use itertools::sorted;
 
 use super::node::{CollapsedNode, Link};
@@ -105,7 +105,7 @@ where
         impl<'de, V> Deserialize<'de> for FakeDeserialize<V> {
             fn deserialize<D>(_: D) -> Result<Self, D::Error>
             where
-                D: fvm_ipld_encoding3::serde_bytes::Deserializer<'de>,
+                D: fvm_ipld_encoding::serde_bytes::Deserializer<'de>,
             {
                 use serde::de::Error;
                 Err(D::Error::custom(

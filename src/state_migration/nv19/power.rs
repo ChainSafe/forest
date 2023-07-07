@@ -17,7 +17,7 @@ use fil_actors_shared::v11::{
     builtin::HAMT_BIT_WIDTH, make_empty_map, make_map_with_root_and_bitwidth,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 

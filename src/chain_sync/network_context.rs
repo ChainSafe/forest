@@ -24,7 +24,7 @@ use crate::shim::clock::ChainEpoch;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
 use std::future::Future;

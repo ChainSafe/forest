@@ -37,7 +37,7 @@ impl TipsetKeys {
 
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
-        use fvm_ipld_encoding3::RawBytes;
+        use fvm_ipld_encoding::RawBytes;
         let mut bytes = Vec::new();
         for cid in self.cids() {
             bytes.append(&mut cid.to_bytes())
@@ -471,7 +471,7 @@ mod test {
         multihash::{Code::Identity, MultihashDigest},
         Cid,
     };
-    use fvm_ipld_encoding3::DAG_CBOR;
+    use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
 
     use crate::blocks::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};

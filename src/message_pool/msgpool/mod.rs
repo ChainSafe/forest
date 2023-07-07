@@ -19,7 +19,7 @@ use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding3::to_vec;
+use fvm_ipld_encoding::to_vec;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};

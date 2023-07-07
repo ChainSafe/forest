@@ -18,7 +18,7 @@ use fil_actor_miner_state::{
 };
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 
 use super::super::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -375,7 +375,7 @@ mod tests {
     use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
-    use fvm_ipld_encoding3::IPLD_RAW;
+    use fvm_ipld_encoding::IPLD_RAW;
     use fvm_ipld_hamt::BytesKey;
     use fvm_shared::{
         bigint::Zero,

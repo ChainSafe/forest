@@ -9,7 +9,7 @@ use cid::{
     },
     Cid,
 };
-use fvm_ipld_encoding3::{from_slice, to_vec, DAG_CBOR};
+use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};
 

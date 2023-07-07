@@ -19,7 +19,7 @@ use cid::{
     Cid,
 };
 use derive_builder::Builder;
-use fvm_ipld_encoding3::DAG_CBOR;
+use fvm_ipld_encoding::DAG_CBOR;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -36,7 +36,7 @@ pub mod json;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
 /// use num::BigInt;
-/// use fvm_ipld_encoding3::DAG_CBOR;
+/// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
@@ -324,7 +324,7 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn cached_bytes(&self) -> &Vec<u8> {
         self.cached_bytes.get_or_init(|| {
-            fvm_ipld_encoding3::to_vec(self).expect("header serialization cannot fail")
+            fvm_ipld_encoding::to_vec(self).expect("header serialization cannot fail")
         })
     }
     /// Check to ensure block signature is valid
@@ -436,7 +436,7 @@ impl BlockHeader {
 
         // * Intentionally not using cache here, to avoid using cached bytes with
         //   signature encoded.
-        fvm_ipld_encoding3::to_vec(&blk).expect("block serialization cannot fail")
+        fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
 }
 
@@ -453,7 +453,7 @@ mod tests {
 
     use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
     use crate::shim::{address::Address, version::NetworkVersion};
-    use fvm_ipld_encoding3::{from_slice, to_vec};
+    use fvm_ipld_encoding::{from_slice, to_vec};
 
     use crate::blocks::{errors::Error, BlockHeader};
 

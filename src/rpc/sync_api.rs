@@ -72,7 +72,7 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
-    use fvm_ipld_encoding3::from_slice;
+    use fvm_ipld_encoding::from_slice;
     use serde_json::from_str;
     use tempfile::TempDir;
     use tokio::{sync::RwLock, task::JoinSet};

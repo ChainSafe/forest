@@ -17,7 +17,7 @@ use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
-use fvm_ipld_encoding3::from_slice;
+use fvm_ipld_encoding::from_slice;
 use fvm_shared::{
     address::Address,
     clock::ChainEpoch,

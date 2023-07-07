@@ -10,7 +10,7 @@ use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::Error as ForestEncodingError;
+use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
 use thiserror::Error;
 

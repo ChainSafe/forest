@@ -3,7 +3,7 @@
 
 use crate::blocks::*;
 use crate::test_utils::construct_ticket;
-use fvm_ipld_encoding3::{from_slice, to_vec};
+use fvm_ipld_encoding::{from_slice, to_vec};
 
 // From Lotus
 const TICKET: [u8; 99] = [

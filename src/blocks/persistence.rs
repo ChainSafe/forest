@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::db::file_backed_obj::FileBackedObject;
-use fvm_ipld_encoding3::{from_slice, to_vec};
+use fvm_ipld_encoding::{from_slice, to_vec};
 
 use crate::blocks::*;
 

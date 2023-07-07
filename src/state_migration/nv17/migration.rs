@@ -14,7 +14,7 @@ use crate::shim::{
 use anyhow::{anyhow, Context};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 
 use super::super::common::{
     migrators::{nil_migrator, DeferredMigrator},

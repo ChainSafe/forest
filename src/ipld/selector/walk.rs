@@ -245,7 +245,7 @@ mod tests {
         let selector = Selector::ExploreFields {
             fields: IndexMap::from([("name".to_owned(), Selector::Matcher)]),
         };
-        let details = Cid::new_v1(fvm_ipld_encoding3::DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+        let details = Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         let src = ipld!({"details": Ipld::Link(details), "name": "Test"});
         selector
             .walk_matching::<(), _>(&src, None, |_progress, ipld| {

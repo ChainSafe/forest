@@ -169,7 +169,7 @@ where
     IO: AsyncWrite + Unpin,
     T: serde::Serialize,
 {
-    let bytes = fvm_ipld_encoding3::to_vec(&data)
+    let bytes = fvm_ipld_encoding::to_vec(&data)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
     io.write_all(&bytes).await?;
     io.close().await?;

@@ -11,7 +11,7 @@ use crate::ipld::{
 use crate::utils::db::CborStoreExt;
 use async_trait::async_trait;
 use cid::Cid;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
 use serde::Deserialize;

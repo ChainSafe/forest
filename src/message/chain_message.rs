@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
-use fvm_ipld_encoding3::{Error, RawBytes};
+use fvm_ipld_encoding::{Error, RawBytes};
 use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 

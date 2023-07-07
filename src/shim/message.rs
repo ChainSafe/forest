@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 
-use fvm_ipld_encoding3::de::Deserializer;
-use fvm_ipld_encoding3::ser::Serializer;
-use fvm_ipld_encoding3::{Error as EncError, RawBytes};
+use fvm_ipld_encoding::de::Deserializer;
+use fvm_ipld_encoding::ser::Serializer;
+use fvm_ipld_encoding::{Error as EncError, RawBytes};
 use fvm_shared::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
 use fvm_shared3::{MethodNum, METHOD_SEND};
@@ -36,7 +36,7 @@ impl quickcheck::Arbitrary for Message {
             sequence: u64::arbitrary(g),
             value: TokenAmount::arbitrary(g),
             method_num: u64::arbitrary(g),
-            params: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
+            params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
             gas_limit: u64::arbitrary(g),
             gas_fee_cap: TokenAmount::arbitrary(g),
             gas_premium: TokenAmount::arbitrary(g),

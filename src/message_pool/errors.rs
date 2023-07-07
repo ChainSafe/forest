@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain::Error as ChainError;
-use fvm_ipld_encoding3::Error as EncodeError;
+use fvm_ipld_encoding::Error as EncodeError;
 use thiserror::Error;
 
 /// `MessagePool` error.

@@ -7,7 +7,7 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use fvm_ipld_encoding3::RawBytes;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::MethodNum;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
@@ -72,7 +72,7 @@ impl SignedMessage {
             .verify(&self.message.cid().unwrap().to_bytes(), &self.from())
     }
 
-    pub fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding3::Error> {
+    pub fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
         use crate::utils::cid::CidCborExt;
         cid::Cid::from_cbor_blake2b256(self)
     }

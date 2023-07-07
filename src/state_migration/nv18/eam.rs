@@ -7,7 +7,7 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 
 use crate::state_migration::common::PostMigrator;
 

@@ -27,7 +27,7 @@ pub struct HelloResponse {
 #[cfg(test)]
 mod tests {
     use cid::multihash::{Code::Identity, MultihashDigest};
-    use fvm_ipld_encoding3::{from_slice, to_vec, DAG_CBOR};
+    use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 
     use super::*;
 
