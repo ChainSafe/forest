@@ -119,27 +119,28 @@ where
         let mut buf_reader = BufReader::with_capacity(1024, reader);
 
         // now create the index
-        let index = std::iter::from_fn(|| read_block_location_or_eof(&mut buf_reader).transpose())
-            .collect::<Result<AHashMap<_, _>, _>>()?;
-        match index.len() {
-            0 => {
-                return Err(cid::Error::Io(io::Error::new(
-                    InvalidData,
-                    "CARv1 files must not be empty",
-                )))
-            }
-            num_blocks => debug!(num_blocks, "indexed CAR"),
-        }
+        let index =
+            std::iter::from_fn(|| read_block_location_and_skip(&mut buf_reader).transpose())
+                .collect::<Result<AHashMap<_, _>, _>>()?;
 
-        Ok(Self {
-            inner: Mutex::new(UncompressedCarV1BackedBlockstoreInner {
-                // discarding the buffer is ok - we only seek within this now
-                reader: buf_reader.into_inner(),
-                index,
-                roots,
-                write_cache: AHashMap::new(),
-            }),
-        })
+        match index.len() {
+            0 => Err(cid::Error::Io(io::Error::new(
+                InvalidData,
+                "CARv1 files must not be empty",
+            ))),
+            num_blocks => {
+                debug!(num_blocks, "indexed CAR");
+                Ok(Self {
+                    inner: Mutex::new(UncompressedCarV1BackedBlockstoreInner {
+                        // discarding the buffer is ok - we only seek within this now
+                        reader: buf_reader.into_inner(),
+                        index,
+                        roots,
+                        write_cache: AHashMap::new(),
+                    }),
+                })
+            }
+        }
     }
 }
 
@@ -293,6 +294,28 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     }
 }
 
+/// `f` is a callback that takes `zstd_frame_offset_position` and an `impl Read`.
+/// It is run for each zstd frame.
+// It's surprisingly hard to keep track of zstd frames and recreate the decoder for the shared reader...
+// So take a callback instead
+fn for_each_zstd_frame<ReaderT, F>(mut reader: ReaderT, mut f: F) -> io::Result<usize>
+where
+    ReaderT: BufRead + Seek,
+    F: FnMut(u64, &'_ mut zstd::Decoder<'_, &'_ mut ReaderT>) -> io::Result<()>,
+{
+    let mut num_frames = 0;
+    loop {
+        if reader.fill_buf()?.is_empty() {
+            break Ok(num_frames);
+        }
+        num_frames += 1;
+        let stream_position = reader.stream_position()?;
+        let mut uncompressed = zstd::Decoder::with_buffer(&mut reader)?.single_frame();
+        f(stream_position, &mut uncompressed)?;
+        let _leftover_bytes_in_frame = std::io::copy(&mut uncompressed, &mut std::io::sink())?;
+    }
+}
+
 impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
@@ -320,7 +343,7 @@ where
                     read_header(&mut uncompressed)?;
                 }
                 std::iter::from_fn(|| {
-                    read_varint_framed_block(&mut uncompressed, &mut block_data)
+                    copy_varint_framed_block(&mut uncompressed, &mut block_data)
                         .expect("invalid index: zstd frame doesn't contain valid blocks")
                 })
                 .find(|it| it == k)
@@ -352,8 +375,11 @@ where
 
 fn get_roots_from_v1_header(reader: impl Read) -> io::Result<Vec<Cid>> {
     match read_header(reader)? {
-        CarHeader { roots, version: 1 } => Ok(roots),
-        _other_version => Err(io::Error::new(Unsupported, "file must be CARv1")),
+        CarHeader { roots, version: 1 } if !roots.is_empty() => Ok(roots),
+        _other_version => Err(io::Error::new(
+            Unsupported,
+            "file must be CARv1 with non-empty roots",
+        )),
     }
 }
 
@@ -377,21 +403,37 @@ fn read_cids(mut reader: impl Read, buffer: &mut Vec<u8>) -> cid::Result<Vec<Cid
     Ok(cids)
 }
 
-/// Importantly, we seek _past_ the data, rather than read any in.
+/// Returns ([`Cid`], the `block data offset` and `block data length`)
+/// ```text
+/// start ►│                     end ►│
+///        ├───────────┬───┬──────────┤
+///        │body length│cid│block data│
+///        └───────────┴───┼──────────┤
+///                        │◄────────►│
+///                        │  =block data length
+///            block data  │
+///                offset ►│
+/// ```
+/// Importantly, we seek `block data length`, rather than read any in.
 /// This allows us to keep indexing fast.
 ///
 /// [`Ok(None)`] on EOF
+///
+/// TODO(aatifsyed): is the speed claim even true? could we use [`copy_varint_framed_block`] instead?
 #[tracing::instrument(level = "trace", skip_all, ret)]
-fn read_block_location_or_eof(
+fn read_block_location_and_skip(
     mut reader: (impl Read + Seek),
 ) -> cid::Result<Option<(Cid, UncompressedBlockDataLocation)>> {
-    let Some((frame_body_offset, body_length)) = next_varint_frame(&mut reader)? else {
-        return Ok(None)
+    let Some(body_length) = read_u32_or_eof(&mut reader)? else {
+        return Ok(None);
     };
-    let cid = Cid::read_bytes(&mut reader)?;
-    // tradeoff: we perform a second syscall here instead of in Blockstore::get,
-    // and keep BlockDataLocation purely for the blockdata
-    let block_data_offset = reader.stream_position()?;
+    let frame_body_offset = reader.stream_position()?;
+    let mut counted_reader = CountRead::new(&mut reader);
+    let cid = Cid::read_bytes(&mut counted_reader)?;
+
+    // counting the read bytes saves us a syscall
+    let cid_length = counted_reader.count;
+    let block_data_offset = frame_body_offset + u64::try_from(cid_length).unwrap();
     let next_frame_offset = frame_body_offset + u64::from(body_length);
     let block_data_length = u32::try_from(next_frame_offset - block_data_offset).unwrap();
     reader.seek(SeekFrom::Start(next_frame_offset))?;
@@ -404,17 +446,17 @@ fn read_block_location_or_eof(
     )))
 }
 
-fn next_varint_frame(mut reader: (impl Read + Seek)) -> io::Result<Option<(u64, u32)>> {
-    Ok(match read_u32_or_eof(&mut reader)? {
-        Some(body_length) => {
-            let frame_body_offset = reader.stream_position()?;
-            Some((frame_body_offset, body_length))
-        }
-        None => None,
-    })
-}
+/// Returns `cid` and copies `block data` into the buffer provided,
+/// leaving the reader at the marked position or returns [`Ok(None)`] at EOF
+/// ```text
+/// start ►│
+///        ├───────────┬───┬──────────┐
+///        │body length│cid│block data│
+///        └───────────┴───┴──────────┤
+///                              end ►│
+/// ```
 #[tracing::instrument(level = "trace", skip_all, ret, err)]
-fn read_varint_framed_block(
+fn copy_varint_framed_block(
     mut reader: impl Read,
     block_data: &mut Vec<u8>,
 ) -> cid::Result<Option<Cid>> {
@@ -429,6 +471,16 @@ fn read_varint_framed_block(
     Ok(Some(cid))
 }
 
+/// Reads `body length`, leaving the reader at the marked position,
+/// or returns [`Ok(None)`] if we've reached EOF
+/// ```text
+/// start ►│
+///        ├───────────┬─────────────┐
+///        │varint:    │             │
+///        │body length│frame body   │
+///        └───────────┼─────────────┘
+///               end ►│
+/// ```
 fn read_u32_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
     use unsigned_varint::io::{
         read_u32,
