@@ -57,8 +57,7 @@ impl<D: Digest, W: AsyncWriteExt> AsyncWrite for AsyncWriterWithChecksum<D, W> {
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
-        let this = self.project();
-        this.inner.poll_close(cx)
+        self.project().inner.poll_close(cx)
     }
 }
 
