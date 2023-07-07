@@ -46,7 +46,6 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgressStream<R> {
 struct WithProgress {
     completed_items: u64,
     total_items: u64,
-    frequency: Duration,
     start: Instant,
     last_logged: Instant,
     message: String,
@@ -58,7 +57,6 @@ impl WithProgress {
         Self {
             completed_items: 0,
             total_items,
-            frequency: UPDATE_FREQUENCY,
             start: now,
             last_logged: now,
             message: message.into(),
@@ -85,7 +83,7 @@ impl WithProgress {
 
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
-        if (now - self.last_logged) > self.frequency {
+        if (now - self.last_logged) > UPDATE_FREQUENCY {
             let elapsed_secs = (now - self.start).as_secs_f64();
             let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
 
