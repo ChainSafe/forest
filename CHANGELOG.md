@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3150](https://github.com/ChainSafe/forest/pull/3150):
+  `forest-cli car concat` subcommand for concatenating 2 `.car` files.
+
 ### Changed
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
