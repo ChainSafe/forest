@@ -15,10 +15,6 @@ pub type FullConsensus = FilecoinConsensus<DrandBeacon>;
 
 pub const FETCH_PARAMS: bool = true;
 
-pub fn reward_calc() -> Arc<dyn crate::interpreter::RewardCalc> {
-    Arc::new(crate::interpreter::RewardActorMessageCalc)
-}
-
 #[allow(clippy::unused_async)]
 pub async fn consensus<DB, MP>(
     state_manager: &Arc<StateManager<DB>>,
