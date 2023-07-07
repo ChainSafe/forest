@@ -318,7 +318,7 @@ impl MpoolCommands {
 mod tests {
     use super::*;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message::SignedMessage;
+    use crate::message::{Message, SignedMessage};
     use crate::message_pool::tests::create_smsg;
     use crate::shim::crypto::SignatureType;
     use std::borrow::BorrowMut;
