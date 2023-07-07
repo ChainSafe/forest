@@ -6,6 +6,7 @@ use fvm_ipld_car::CarHeader;
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use pin_project_lite::pin_project;
 use std::{
+    fmt::Display,
     io::{
         self, BufRead as _, BufReader,
         ErrorKind::{InvalidData, Other, UnexpectedEof},
@@ -17,6 +18,7 @@ use std::{
     pin::Pin,
     task::{ready, Context, Poll},
 };
+use tap::Pipe;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedWrite};
 use tokio_util_06::codec::FramedRead;
@@ -38,7 +40,7 @@ enum Args {
         #[arg(short, long, default_value_t = 8000usize.next_power_of_two())]
         zstd_frame_length_tripwire: usize,
     },
-    IndexCompressed {
+    Cat {
         source: PathBuf,
     },
 }
@@ -62,37 +64,18 @@ async fn _main(args: Args) -> anyhow::Result<()> {
         } => {
             let progress = MultiProgress::new();
 
-            let varint_frame_count = progress.add(
-                ProgressBar::new_spinner()
-                    .with_style(count())
-                    .with_message("varint frames")
-                    .with_finish(ProgressFinish::AndLeave),
-            );
-            let zstd_frame_count = progress.add(
-                ProgressBar::new_spinner()
-                    .with_style(count())
-                    .with_message("zstd frames")
-                    .with_finish(ProgressFinish::AndLeave),
-            );
+            let varint_frame_count = progress.add(counter_of("varint frames"));
+            let zstd_frame_count = progress.add(counter_of("zstd frames"));
 
             let source = File::open(source).await?;
             let source = progress
-                .add(
-                    ProgressBar::new(source.metadata().await?.len())
-                        .with_style(read())
-                        .with_message("reading"),
-                )
+                .add(reader_of("reading CAR", source.metadata().await?.len()))
                 .wrap_async_read(source);
 
             let source = FramedRead::new(source, VarintFrameCodec::default());
             let destination = FramedWrite::new(
                 progress
-                    .add(
-                        ProgressBar::new_spinner()
-                            .with_style(write())
-                            .with_message("written")
-                            .with_finish(ProgressFinish::AndLeave),
-                    )
+                    .add(writer_of("writing reframed CAR"))
                     .wrap_async_write(File::create(destination).await?),
                 BytesCodec::new(),
             );
@@ -106,44 +89,43 @@ async fn _main(args: Args) -> anyhow::Result<()> {
             .forward(destination)
             .await?;
         }
-        Args::IndexCompressed { source } => {
-            // this is all blocking...
-            let reader = BufReader::new(std::fs::File::open(source)?);
+        Args::Cat { source } => {
+            let progress = MultiProgress::new();
+
+            let source = std::fs::File::open(source)?;
+            let mut source = progress
+                .add(reader_of("reading CAR", source.metadata()?.len()))
+                .wrap_read(source)
+                .pipe(BufReader::new);
+
             let mut buffer = vec![];
-            // Cid -> Zstd frame offset (in file), block index in frame
-            let mut index = AHashMap::new();
 
-            // read the first zstd frame, it should contain a header
-            let mut decoder = Decoder::with_buffer(reader)?.single_frame();
-            let header = read_header(&mut decoder)?;
-            index.extend(
-                read_cids(&mut decoder, &mut buffer)?
-                    .into_iter()
-                    .enumerate()
-                    .map(|(block_index_in_frame, cid)| (cid, (0, block_index_in_frame))),
-            );
-            let mut reader = decoder.finish();
+            let mut decoder = Decoder::with_buffer(&mut source)?.single_frame();
+            let _header = read_header(&mut decoder)?;
+            for (ix, cid) in read_cids(&mut decoder, &mut buffer)?.iter().enumerate() {
+                println(&progress, format!("0,{ix}: {cid}"));
+            }
 
-            for zstd_frame_number in 2.. {
-                if reader.fill_buf()?.is_empty() {
-                    println!("{} cids in {} zstd frames", index.len(), zstd_frame_number);
+            for zstd_frame_number in 1.. {
+                if source.fill_buf()?.is_empty() {
                     break;
                 }
-                let zstd_frame_offset_in_file = reader.stream_position()?;
-                let mut decoder = Decoder::with_buffer(reader)?.single_frame();
-                index.extend(
-                    read_cids(&mut decoder, &mut buffer)?
-                        .into_iter()
-                        .enumerate()
-                        .map(|(block_index_in_frame, cid)| {
-                            (cid, (zstd_frame_offset_in_file, block_index_in_frame))
-                        }),
-                );
-                reader = decoder.finish();
+                let mut decoder = Decoder::with_buffer(&mut source)?.single_frame();
+                for (ix, cid) in read_cids(&mut decoder, &mut buffer)?.iter().enumerate() {
+                    println(&progress, format!("{zstd_frame_number},{ix}: {cid}"));
+                }
             }
         }
     }
     Ok(())
+}
+
+fn println(progress: &MultiProgress, message: impl Display) {
+    let message = message.to_string();
+    match progress.is_hidden() {
+        true => println!("{}", message),
+        false => progress.println(message).unwrap(),
+    }
 }
 
 fn read_cids(mut reader: impl Read, buffer: &mut Vec<u8>) -> cid::Result<Vec<Cid>> {
@@ -349,14 +331,6 @@ fn test_roundtrip() {
     assert!(round_tripped == uncompressed);
 }
 
-fn read() -> ProgressStyle {
-    ProgressStyle::with_template(
-        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
-    )
-    .expect("invalid progress template")
-    .progress_chars("=>-")
-}
-
 const TICK_STRINGS: &[&str] = &[
     "▹▹▹▹▹",
     "▸▹▹▹▹",
@@ -367,13 +341,44 @@ const TICK_STRINGS: &[&str] = &[
     "▪▪▪▪▪",
 ];
 
-fn write() -> ProgressStyle {
+fn writer_of(message: impl Display) -> ProgressBar {
+    ProgressBar::new_spinner()
+        .with_style(write_style())
+        .with_message(message.to_string())
+        .with_finish(ProgressFinish::AndLeave)
+}
+
+fn reader_of(message: impl Display, length: impl Into<Option<u64>>) -> ProgressBar {
+    let pb = match length.into() {
+        Some(len) => ProgressBar::new(len),
+        None => ProgressBar::new_spinner(),
+    };
+    pb.with_message(message.to_string())
+        .with_style(read_style())
+}
+
+fn counter_of(message: impl Display) -> ProgressBar {
+    ProgressBar::new_spinner()
+        .with_style(count_style())
+        .with_message(message.to_string())
+        .with_finish(ProgressFinish::AndLeave)
+}
+
+fn read_style() -> ProgressStyle {
+    ProgressStyle::with_template(
+        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
+    )
+    .expect("invalid progress template")
+    .progress_chars("=>-")
+}
+
+fn write_style() -> ProgressStyle {
     ProgressStyle::with_template("{spinner:.blue} {bytes} {msg}")
         .unwrap()
         .tick_strings(TICK_STRINGS)
 }
 
-fn count() -> ProgressStyle {
+fn count_style() -> ProgressStyle {
     ProgressStyle::with_template("{spinner:.blue} {pos} {msg}")
         .unwrap()
         .tick_strings(TICK_STRINGS)

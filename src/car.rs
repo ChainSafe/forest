@@ -225,10 +225,6 @@ fn handle_write_cache<LocationT>(
         }
     }
 }
-struct CompressedBlockDataLocation {
-    zstd_frame_offset: u64,
-    block_index_in_zstd_frame: usize,
-}
 
 pub struct CompressedCarV1BackedBlockstore<ReaderT> {
     // https://github.com/ChainSafe/forest/issues/3096
@@ -238,8 +234,11 @@ pub struct CompressedCarV1BackedBlockstore<ReaderT> {
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
-    index: AHashMap<Cid, CompressedBlockDataLocation>,
+    // Cid -> zstd frame offset
+    index: AHashMap<Cid, u64>,
     roots: Vec<Cid>,
+    // skip the header where appropriate
+    first_frame_offset: u64,
 }
 
 impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
@@ -260,33 +259,26 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
         let mut index = AHashMap::new();
 
         // read the first zstd frame, it should contain a header
-        let zstd_frame_offset = reader.stream_position()?;
+        let first_frame_offset = reader.stream_position()?;
         let mut decoder = zstd::Decoder::with_buffer(&mut reader)?.single_frame();
         let roots = get_roots_from_v1_header(&mut decoder)?;
         index.extend(
             read_cids(&mut decoder, &mut block_buffer)?
                 .into_iter()
-                .enumerate()
-                .map(|(block_index_in_zstd_frame, cid)| {
-                    (
-                        cid,
-                        CompressedBlockDataLocation {
-                            zstd_frame_offset,
-                            block_index_in_zstd_frame,
-                        },
-                    )
-                }),
+                .map(|cid| (cid, first_frame_offset)),
         );
 
         loop {
             if reader.fill_buf()?.is_empty() {
-                // EOF
+                let num_blocks = index.len();
+                debug!(num_blocks, "indexed CAR");
                 break Ok(Self {
                     inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
                         reader,
                         write_cache: AHashMap::new(),
                         index,
                         roots,
+                        first_frame_offset,
                     }),
                 });
             }
@@ -295,16 +287,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
             index.extend(
                 read_cids(&mut decoder, &mut block_buffer)?
                     .into_iter()
-                    .enumerate()
-                    .map(|(block_index_in_zstd_frame, cid)| {
-                        (
-                            cid,
-                            CompressedBlockDataLocation {
-                                zstd_frame_offset,
-                                block_index_in_zstd_frame,
-                            },
-                        )
-                    }),
+                    .map(|cid| (cid, zstd_frame_offset)),
             );
         }
     }
@@ -314,13 +297,13 @@ impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
 where
     ReaderT: Read + Seek,
 {
-    /// This reads an entire zstd frame into memory
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let CompressedCarV1BackedBlockstoreInner {
             reader,
             write_cache,
             index,
+            first_frame_offset,
             ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
@@ -328,23 +311,20 @@ where
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
-            (
-                Some(CompressedBlockDataLocation {
-                    zstd_frame_offset,
-                    block_index_in_zstd_frame,
-                }),
-                Vacant(_),
-            ) => {
-                trace!("fetching from disk");
+            (Some(zstd_frame_offset), Vacant(_)) => {
+                trace!(zstd_frame_offset, "fetching from disk");
                 reader.seek(SeekFrom::Start(*zstd_frame_offset))?;
                 let mut uncompressed = zstd::Decoder::new(reader)?.single_frame();
                 let mut block_data = vec![];
-                let actual_cid = std::iter::from_fn(|| {
-                    read_varint_framed_block(&mut uncompressed, &mut block_data).unwrap()
+                if zstd_frame_offset == first_frame_offset {
+                    read_header(&mut uncompressed)?;
+                }
+                std::iter::from_fn(|| {
+                    read_varint_framed_block(&mut uncompressed, &mut block_data)
+                        .expect("invalid index: zstd frame doesn't contain valid blocks")
                 })
-                .nth(*block_index_in_zstd_frame)
+                .find(|it| it == k)
                 .expect("invalid index: zstd frame doesn't contain block");
-                assert_eq!(actual_cid, *k, "invalid index: cid mismatch");
                 Ok(Some(block_data))
             }
             (None, Occupied(cached)) => {
@@ -499,17 +479,42 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::UncompressedCarV1BackedBlockstore;
+    use super::{CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore};
 
     use futures_util::AsyncRead;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
+    use tap::Tap;
 
     #[test]
-    fn test() {
+    fn test_uncompressed() {
         let car = include_bytes!("../test-snapshots/chain4.car");
         let reference = reference(futures::io::Cursor::new(car));
         let car_backed = UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
+
+        assert_eq!(car_backed.inner.lock().index.len(), 1222);
+        assert_eq!(car_backed.inner.lock().roots.len(), 1);
+
+        let cids = {
+            let holding_lock = car_backed.inner.lock();
+            holding_lock.index.keys().cloned().collect::<Vec<_>>()
+        };
+
+        for cid in cids {
+            let expected = reference.get(&cid).unwrap().unwrap();
+            let actual = car_backed.get(&cid).unwrap().unwrap();
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_compressed_manyframe() {
+        let car = include_bytes!("../test-snapshots/chain4.car.zst-manyframe");
+        let reference = reference(
+            async_compression::futures::bufread::ZstdDecoder::new(futures::io::Cursor::new(car))
+                .tap_mut(|it| it.multiple_members(true)),
+        );
+        let car_backed = CompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
 
         assert_eq!(car_backed.inner.lock().index.len(), 1222);
         assert_eq!(car_backed.inner.lock().roots.len(), 1);
