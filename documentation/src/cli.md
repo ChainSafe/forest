@@ -56,7 +56,7 @@ Filecoin wallets are stored under the Forest data directory (e.g.,
 
 All wallet commands require write permissions and an admin token (`--token`) to
 interact with the keystore. The admin token can be retrieved from forest startup
-logs or by running `forest --save-token <PATH>`.
+logs or by including the flag `--save-token <PATH>` during `forest` invocation.
 
 ### Balance: 
 Retrieve the FIL balance of a given address. Usage:
