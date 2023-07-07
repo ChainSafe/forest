@@ -6,9 +6,9 @@ use std::str::FromStr;
 use crate::blocks::Tipset;
 use crate::json::cid::vec::CidJsonVec;
 use crate::json::signed_message::json::SignedMessageJson;
-use crate::message::{Message, SignedMessage};
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
 use crate::shim::address::StrictAddress;
+use crate::shim::message::Message;
 use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
@@ -60,6 +60,8 @@ fn filter_messages(
     to: &Option<String>,
     from: &Option<String>,
 ) -> anyhow::Result<Vec<SignedMessageJson>> {
+    use crate::message::Message;
+
     let to = to_addr(to)?;
     let from = to_addr(from)?;
 
@@ -79,11 +81,11 @@ fn filter_messages(
 }
 
 async fn get_actor_sequence(
-    message: &SignedMessage,
+    message: &Message,
     tipset: &Arc<Tipset>,
     config: &Config,
 ) -> Option<u64> {
-    let address = message.from();
+    let address = message.from;
     let get_actor_result = state_get_actor(
         (address.to_owned().into(), tipset.key().to_owned().into()),
         &config.client.rpc_token,
@@ -113,9 +115,9 @@ async fn get_actor_sequence(
     Some(actor_state.sequence)
 }
 
-type StatBucket = HashMap<u64, SignedMessage>;
+type StatBucket = HashMap<u64, Message>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq)]
 struct MpStat {
     address: String,
     past: u64,
@@ -127,7 +129,7 @@ struct MpStat {
 }
 
 fn compute_stats(
-    messages: &[SignedMessage],
+    messages: &[Message],
     actor_sequences: HashMap<Address, u64>,
     curr_base_fee: TokenAmount,
     min_base_fee: TokenAmount,
@@ -142,9 +144,9 @@ fn compute_stats(
     let mut buckets = HashMap::<Address, StatBucket>::default();
     for msg in messages {
         buckets
-            .entry(msg.from())
+            .entry(msg.from)
             .or_insert(StatBucket::default())
-            .insert(msg.sequence(), msg.to_owned());
+            .insert(msg.sequence, msg.to_owned());
     }
 
     let mut stats: Vec<MpStat> = Vec::new();
@@ -163,22 +165,22 @@ fn compute_stats(
         };
 
         for (_, msg) in bucket {
-            if msg.sequence() < actor_sequence {
+            if msg.sequence < actor_sequence {
                 stat.past += 1;
-            } else if msg.sequence() > curr_sequence {
+            } else if msg.sequence > curr_sequence {
                 stat.future += 1;
             } else {
                 stat.current += 1;
             }
 
-            if msg.gas_fee_cap() < curr_base_fee {
+            if msg.gas_fee_cap < curr_base_fee {
                 stat.below_current += 1;
             }
-            if msg.gas_fee_cap() < min_base_fee {
+            if msg.gas_fee_cap < min_base_fee {
                 stat.below_past += 1;
             }
 
-            stat.gas_limit += msg.message().gas_limit;
+            stat.gas_limit += msg.gas_limit;
         }
 
         stats.push(stat);
@@ -290,25 +292,19 @@ impl MpoolCommands {
                     None
                 };
 
-                let signed_messages: Vec<SignedMessage> =
-                    filter_messages(messages, local_addrs, &None, &None)?
-                        .into_iter()
-                        .map(|m| m.0)
-                        .collect();
+                let messages: Vec<Message> = filter_messages(messages, local_addrs, &None, &None)?
+                    .into_iter()
+                    .map(|m| m.0.message)
+                    .collect();
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
-                for msg in signed_messages.iter() {
+                for msg in messages.iter() {
                     if let Some(sequence) = get_actor_sequence(msg, &tipset, &config).await {
-                        actor_sequences.insert(msg.from(), sequence);
+                        actor_sequences.insert(msg.from, sequence);
                     }
                 }
 
-                let stats = compute_stats(
-                    &signed_messages,
-                    actor_sequences,
-                    curr_base_fee,
-                    min_base_fee,
-                );
+                let stats = compute_stats(&messages, actor_sequences, curr_base_fee, min_base_fee);
 
                 print_stats(&stats, basefee_lookback);
 
@@ -322,7 +318,7 @@ impl MpoolCommands {
 mod tests {
     use super::*;
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use crate::message::Message;
+    use crate::message::SignedMessage;
     use crate::message_pool::tests::create_smsg;
     use crate::shim::crypto::SignatureType;
     use std::borrow::BorrowMut;
@@ -479,5 +475,58 @@ mod tests {
         for smsg in smsg_filtered.iter() {
             assert_eq!(smsg.to(), target2);
         }
+    }
+
+    #[test]
+    fn compute_statistics() {
+        use crate::shim::message::Message;
+        use fvm_ipld_encoding3::RawBytes;
+
+        let messages = [Message {
+            version: 0,
+            from: Address::default(),
+            to: Address::default(),
+            sequence: 1210,
+            value: TokenAmount::default(),
+            method_num: 5,
+            params: RawBytes::new(vec![]),
+            gas_limit: 25201703,
+            gas_fee_cap: TokenAmount::from_atto(101774),
+            gas_premium: TokenAmount::from_atto(100720),
+        }];
+        let actor_sequences = HashMap::from_iter([(
+            Address::from_str("t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i").unwrap(),
+            1210,
+        )]);
+        let curr_base_fee = TokenAmount::from_atto(100);
+        let min_base_fee = TokenAmount::from_atto(100);
+
+        let stats = compute_stats(&messages, actor_sequences, curr_base_fee, min_base_fee);
+
+        let expected_stats = vec![
+            MpStat {
+                address: "t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i".into(),
+                past: 0,
+                current: 1,
+                future: 0,
+                below_current: 0,
+                below_past: 0,
+                gas_limit: 29881427.into(),
+            },
+            // MpStat {
+            //     address: "t3v3aptkgwsrp2tvpdivsow4eua2weit7xt7wyunxtb44zxzrxw2svtcuhsw4u2mh6gvhcogqvxrwfndfajeka".into(),
+            //     past: 0, current: 0, future: 2, below_current: 0, below_past: 0, gas_limit: 112795625.into()
+            // },
+            // MpStat {
+            //     address: "t3urxivigpzih5f6ih3oq3lr2jlunw3m5oehbe5efts4ub5wy2oi4fbo5cw7333a4rrffo5535tjdq24wkc2aa".into(),
+            //     past: 0, current: 0, future: 1, below_current: 0, below_past: 0, gas_limit: 21148671.into()
+            // },
+            // MpStat {
+            //     address: "t3uci2cegyddnsqq6jcqitopetbgbyoxxxtxym6dibwwezpj3ebtoq4bebsy6k4dupxlwsvz3ifhaguh5x5ava".into(),
+            //     past: 0, current: 1, future: 0, below_current: 0, below_past: 0, gas_limit: 25201703.into()
+            // }
+        ];
+
+        assert_eq!(stats, expected_stats);
     }
 }
