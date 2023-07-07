@@ -189,8 +189,7 @@ where
                 after: curr_val.clone(),
             }),
             (Some(prev_val), Some(curr_val)) => {
-                if fvm_ipld_encoding::to_vec(&prev_val)? != fvm_ipld_encoding::to_vec(&curr_val)?
-                {
+                if fvm_ipld_encoding::to_vec(&prev_val)? != fvm_ipld_encoding::to_vec(&curr_val)? {
                     changes.push(Change {
                         key: index,
                         before: Some(prev_val.clone()),
