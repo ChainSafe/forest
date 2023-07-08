@@ -8,7 +8,7 @@ use crate::shim::{address::Address, econ::TokenAmount, message::Message as ShimM
 use crate::shim::{gas::Gas, version::NetworkVersion};
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::MethodNum;
+use fvm_shared2::MethodNum;
 pub use signed_message::SignedMessage;
 
 /// Message interface to interact with Signed and unsigned messages in a generic

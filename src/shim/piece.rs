@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fvm_shared::piece as piece_v2;
+use fvm_shared2::piece as piece_v2;
 use fvm_shared3::piece as piece_v3;
 use serde::{Deserialize, Serialize};
 

@@ -8,7 +8,7 @@ use crate::shim::{
     message::Message,
 };
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::MethodNum;
+use fvm_shared2::MethodNum;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::Message as MessageTrait;

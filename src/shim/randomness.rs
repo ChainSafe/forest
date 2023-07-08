@@ -3,7 +3,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use fvm_shared::randomness::Randomness as Randomness_v2;
+use fvm_shared2::randomness::Randomness as Randomness_v2;
 use fvm_shared3::randomness::Randomness as Randomness_v3;
 use serde::{Deserialize, Serialize};
 

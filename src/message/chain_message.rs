@@ -3,7 +3,7 @@
 
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::{Error, RawBytes};
-use fvm_shared::MethodNum;
+use fvm_shared2::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;

@@ -9,7 +9,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::statediff::print_state_diff;
 use cid::Cid;
 use clap::Subcommand;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared2::econ::TokenAmount;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::handle_rpc_err;

@@ -8,7 +8,7 @@ use fvm_ipld_encoding::{
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
-pub use fvm_shared::crypto::signature::{
+pub use fvm_shared2::crypto::signature::{
     Signature as Signature_v2, SignatureType as SignatureType_v2,
 };
 pub use fvm_shared3::crypto::signature::{

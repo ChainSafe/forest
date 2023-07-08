@@ -5,7 +5,7 @@ pub mod json {
     use crate::shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_shared::sector::SectorNumber;
+    use fvm_shared2::sector::SectorNumber;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing a `PoStProof` to JSON.

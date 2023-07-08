@@ -14,13 +14,13 @@ use crate::shim::{
 };
 use anyhow::bail;
 use cid::Cid;
-use fvm::externs::{Consensus, Externs, Rand};
+use fvm2::externs::{Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
 use fvm_ipld_encoding::from_slice;
-use fvm_shared::{
+use fvm_shared2::{
     address::Address,
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},

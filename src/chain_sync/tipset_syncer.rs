@@ -29,7 +29,7 @@ use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
+use fvm_shared2::ALLOWABLE_CLOCK_DRIFT;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;

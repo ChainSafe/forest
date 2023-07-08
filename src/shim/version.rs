@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
-pub use fvm_shared::version::NetworkVersion as NetworkVersion_v2;
+pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 pub use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
 use serde::{Deserialize, Serialize};
 

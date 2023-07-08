@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{version::NetworkVersion, Inner};
-use fvm_shared::sector::{
+use fvm_shared2::sector::{
     RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
     SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
 };

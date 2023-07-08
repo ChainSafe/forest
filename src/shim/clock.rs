@@ -13,7 +13,7 @@ mod tests {
     fn fvm_shim_of_const_epoch_duration_seconds() {
         assert_eq!(
             super::EPOCH_DURATION_SECONDS,
-            fvm_shared::clock::EPOCH_DURATION_SECONDS
+            fvm_shared2::clock::EPOCH_DURATION_SECONDS
         )
     }
 

@@ -11,8 +11,8 @@ use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
 
-use fvm_shared::clock::EPOCH_DURATION_SECONDS;
-use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
+use fvm_shared2::clock::EPOCH_DURATION_SECONDS;
+use fvm_shared2::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
 use humantime::format_duration;
 use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -215,7 +215,7 @@ mod tests {
     use crate::blocks::{BlockHeader, Tipset};
     use crate::shim::{address::Address, econ::TokenAmount};
     use chrono::DateTime;
-    use fvm_shared::clock::EPOCH_DURATION_SECONDS;
+    use fvm_shared2::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};
 
