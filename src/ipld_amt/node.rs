@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use cid::multihash::Code;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::{strict_bytes, BytesSer, CborStore};
+use fvm_ipld_encoding::{strict_bytes, BytesSer, CborStore};
 use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
 use serde::{ser, Deserialize, Serialize};

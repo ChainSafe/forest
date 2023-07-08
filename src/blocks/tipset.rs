@@ -5,9 +5,9 @@ use std::fmt;
 
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -42,7 +42,7 @@ impl TipsetKeys {
         for cid in self.cids() {
             bytes.append(&mut cid.to_bytes())
         }
-        Ok(RawBytes::new(bytes).cid()?)
+        Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
 }
 
@@ -57,8 +57,6 @@ impl fmt::Display for TipsetKeys {
         write!(f, "[{}]", s)
     }
 }
-
-impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.

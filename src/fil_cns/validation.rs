@@ -21,7 +21,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{bytes_32, Cbor};
+use fvm_ipld_encoding::{bytes_32, to_vec};
 use fvm_shared::{
     commcid::cid_to_replica_commitment_v1, crypto::signature::ops::verify_bls_sig,
     TICKET_RANDOMNESS_LOOKBACK,
@@ -258,7 +258,7 @@ fn validate_winner_election<DB: Blockstore + Clone + Sync + Send + 'static>(
 
     let beacon = header.beacon_entries().last().unwrap_or(prev_beacon);
     let miner_address = header.miner_address();
-    let miner_address_buf = miner_address.marshal_cbor()?;
+    let miner_address_buf = to_vec(miner_address)?;
 
     let vrf_base = crate::state_manager::chain_rand::draw_randomness(
         beacon.data(),
@@ -301,7 +301,7 @@ fn validate_ticket_election(
         .with_label_values(&[metrics::values::VALIDATE_TICKET_ELECTION])
         .start_timer();
 
-    let mut miner_address_buf = header.miner_address().marshal_cbor()?;
+    let mut miner_address_buf = to_vec(header.miner_address())?;
     let smoke_height = chain_config.epoch(Height::Smoke);
 
     if header.epoch() > smoke_height {
@@ -368,7 +368,7 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
         ));
     }
 
-    let miner_addr_buf = header.miner_address().marshal_cbor()?;
+    let miner_addr_buf = to_vec(header.miner_address())?;
     let rand_base = header
         .beacon_entries()
         .iter()

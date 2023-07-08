@@ -4,8 +4,7 @@ use anyhow::anyhow;
 
 use fvm_ipld_encoding::de::Deserializer;
 use fvm_ipld_encoding::ser::Serializer;
-use fvm_ipld_encoding::{Cbor, RawBytes as RawBytes_v2};
-use fvm_ipld_encoding3::RawBytes as RawBytes_v3;
+use fvm_ipld_encoding::{Error as EncError, RawBytes};
 use fvm_shared::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
 use fvm_shared3::{MethodNum, METHOD_SEND};
@@ -21,7 +20,7 @@ pub struct Message {
     pub sequence: u64,
     pub value: TokenAmount,
     pub method_num: MethodNum,
-    pub params: RawBytes_v3,
+    pub params: RawBytes,
     pub gas_limit: u64,
     pub gas_fee_cap: TokenAmount,
     pub gas_premium: TokenAmount,
@@ -37,7 +36,7 @@ impl quickcheck::Arbitrary for Message {
             sequence: u64::arbitrary(g),
             value: TokenAmount::arbitrary(g),
             method_num: u64::arbitrary(g),
-            params: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
+            params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
             gas_limit: u64::arbitrary(g),
             gas_fee_cap: TokenAmount::arbitrary(g),
             gas_premium: TokenAmount::arbitrary(g),
@@ -54,7 +53,7 @@ impl From<Message_v3> for Message {
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
-            params: RawBytes_v3::from(other.params.to_vec()),
+            params: other.params,
             gas_limit: other.gas_limit,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
@@ -71,7 +70,7 @@ impl From<Message> for Message_v3 {
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
-            params: RawBytes_v3::from(other.params.to_vec()),
+            params: other.params,
             gas_limit: other.gas_limit,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
@@ -89,7 +88,7 @@ impl From<&Message> for Message_v3 {
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
-            params: RawBytes_v3::from(other.params.to_vec()),
+            params: other.params,
             gas_limit: other.gas_limit,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
@@ -106,7 +105,7 @@ impl From<Message_v2> for Message {
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
-            params: RawBytes_v3::from(other.params.to_vec()),
+            params: other.params,
             gas_limit: other.gas_limit as u64,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
@@ -123,7 +122,7 @@ impl From<Message> for Message_v2 {
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
-            params: RawBytes_v2::from(other.params.to_vec()),
+            params: other.params,
             gas_limit: other.gas_limit as i64,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
@@ -141,15 +140,13 @@ impl From<&Message> for Message_v2 {
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
-            params: RawBytes_v2::from(other.params.to_vec()),
+            params: other.params,
             gas_limit: other.gas_limit as i64,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
         }
     }
 }
-
-impl Cbor for Message {}
 
 impl Message {
     /// Does some basic checks on the Message to see if the fields are valid.
@@ -172,6 +169,11 @@ impl Message {
             method_num: METHOD_SEND,
             ..Default::default()
         }
+    }
+
+    pub fn cid(&self) -> Result<cid::Cid, EncError> {
+        use crate::utils::cid::CidCborExt;
+        cid::Cid::from_cbor_blake2b256(self)
     }
 }
 
