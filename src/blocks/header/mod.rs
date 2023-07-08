@@ -13,13 +13,9 @@ use crate::shim::{
     sector::PoStProof,
     version::NetworkVersion,
 };
-use crate::utils::encoding::blake2b_256;
-use cid::{
-    multihash::{Code::Blake2b256, MultihashDigest},
-    Cid,
-};
+use crate::utils::{cid::CidCborExt, encoding::blake2b_256};
+use cid::Cid;
 use derive_builder::Builder;
-use fvm_ipld_encoding::DAG_CBOR;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -135,12 +131,6 @@ pub struct BlockHeader {
     #[builder(default, setter(skip))]
     cached_cid: OnceCell<Cid>,
 
-    // XXX: cached_bytes is no longer used when serializing.
-    /// stores the hashed bytes of the block after the first call to
-    /// `cached_bytes()`
-    #[builder(default, setter(skip))]
-    cached_bytes: OnceCell<Vec<u8>>,
-
     /// Cached signature validation
     #[builder(setter(skip), default)]
     is_validated: OnceCell<bool>,
@@ -233,7 +223,6 @@ impl<'de> Deserialize<'de> for BlockHeader {
             ticket,
             bls_aggregate,
             parent_base_fee,
-            cached_bytes: Default::default(),
             cached_cid: Default::default(),
             is_validated: Default::default(),
         };
@@ -297,8 +286,10 @@ impl BlockHeader {
     }
     /// Get `BlockHeader.cid`
     pub fn cid(&self) -> &Cid {
-        self.cached_cid
-            .get_or_init(|| Cid::new_v1(DAG_CBOR, Blake2b256.digest(self.cached_bytes())))
+        self.cached_cid.get_or_init(|| {
+            Cid::from_cbor_blake2b256(self)
+                .expect("internal error - block serialization may not fail")
+        })
     }
     /// Get `BlockHeader.parent_base_fee`
     pub fn parent_base_fee(&self) -> &TokenAmount {
@@ -320,12 +311,6 @@ impl BlockHeader {
     pub fn to_sort_key(&self) -> Option<([u8; 32], Vec<u8>)> {
         let ticket_hash = blake2b_256(self.ticket().as_ref()?.vrfproof.as_bytes());
         Some((ticket_hash, self.cid().to_bytes()))
-    }
-    /// Updates cache and returns mutable reference of header back
-    fn cached_bytes(&self) -> &Vec<u8> {
-        self.cached_bytes.get_or_init(|| {
-            fvm_ipld_encoding::to_vec(self).expect("header serialization cannot fail")
-        })
     }
     /// Check to ensure block signature is valid
     pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
@@ -431,7 +416,6 @@ impl BlockHeader {
 
         // This isn't required now, but future proofs for if the encoding ever uses a
         // cache.
-        blk.cached_bytes = Default::default();
         blk.cached_cid = Default::default();
 
         // * Intentionally not using cache here, to avoid using cached bytes with
