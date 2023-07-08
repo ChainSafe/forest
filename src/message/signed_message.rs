@@ -72,7 +72,9 @@ impl SignedMessage {
             .verify(&self.message.cid().unwrap().to_bytes(), &self.from())
     }
 
-    // Lemmih: This is unfortunate. `msg.cid()` is different from `Cid::from_cbor_blake2b256(msg)`.
+    // Important note: `msg.cid()` is different from
+    // `Cid::from_cbor_blake2b256(msg)`. The behavior comes from Lotus, and
+    // Lotus, by, definition, is correct.
     pub fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
         if self.is_bls() {
             self.message.cid()
