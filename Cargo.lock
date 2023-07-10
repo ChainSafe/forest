@@ -3924,6 +3924,7 @@ dependencies = [
  "core2",
  "multibase",
  "multihash 0.18.1",
+ "quickcheck",
  "serde",
  "thiserror",
 ]
