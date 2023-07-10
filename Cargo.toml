@@ -19,7 +19,7 @@ async-trait = "0.1"
 axum = { version = "0.6", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
-bigdecimal = "0.3.1"
+bigdecimal = "0.4.0"
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.13", default-features = false, features = [
   "blst-portable",
