@@ -7,10 +7,13 @@ use fvm_ipld_encoding::ser::Serializer;
 use fvm_ipld_encoding::{Error as EncError, RawBytes};
 use fvm_shared::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
-use fvm_shared3::{MethodNum, METHOD_SEND};
+pub use fvm_shared3::METHOD_SEND;
 use serde::{Deserialize, Serialize};
 
 use crate::shim::{address::Address, econ::TokenAmount};
+
+/// Method number indicator for calling actor methods.
+pub type MethodNum = u64;
 
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 pub struct Message {

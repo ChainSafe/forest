@@ -7,6 +7,9 @@ use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, Tipset};
 use crate::chain_sync::collect_errs;
 use crate::networks::{ChainConfig, Height};
+use crate::shim::crypto::{
+    cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
+};
 use crate::shim::{
     address::Address,
     randomness::Randomness,
@@ -22,10 +25,6 @@ use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
-use fvm_shared::{
-    commcid::cid_to_replica_commitment_v1, crypto::signature::ops::verify_bls_sig,
-    TICKET_RANDOMNESS_LOOKBACK,
-};
 use nonempty::NonEmpty;
 
 use crate::fil_cns::{metrics, FilecoinConsensusError};
