@@ -211,7 +211,8 @@ lto = "off"
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
-panic = "abort"
+# The FVM relies on catching panics. See: https://github.com/ChainSafe/forest/issues/3153
+panic = "unwind"
 overflow-checks = true
 
 # These should be refactored (probably removed) in #2984
