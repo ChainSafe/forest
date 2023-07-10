@@ -211,8 +211,8 @@ where
 /// use cid::Cid;
 ///
 /// // Create FVM2 ActorState normally
-/// let fvm2_actor_state = fvm::state_tree::ActorState::new(Cid::default(), Cid::default(),
-/// fvm_shared::econ::TokenAmount::from_atto(42), 0);
+/// let fvm2_actor_state = fvm2::state_tree::ActorState::new(Cid::default(), Cid::default(),
+/// fvm_shared2::econ::TokenAmount::from_atto(42), 0);
 ///
 /// // Create a correspndoning FVM3 ActorState
 /// let fvm3_actor_state = fvm3::state_tree::ActorState::new(Cid::default(), Cid::default(),

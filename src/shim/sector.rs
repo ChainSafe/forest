@@ -24,7 +24,7 @@ pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 /// ```
 /// # use forest_filecoin::doctest_private::RegisteredSealProof;
 /// // Create FVM2 RegisteredSealProof normally
-/// let fvm2_proof = fvm_shared::sector::RegisteredSealProof::StackedDRG2KiBV1;
+/// let fvm2_proof = fvm_shared2::sector::RegisteredSealProof::StackedDRG2KiBV1;
 ///
 /// // Create a correspndoning FVM3 RegisteredSealProof
 /// let fvm3_proof = fvm_shared3::sector::RegisteredSealProof::StackedDRG2KiBV1;

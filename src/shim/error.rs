@@ -13,7 +13,7 @@ use crate::shim::Inner;
 /// # Examples
 /// ```
 /// # use forest_filecoin::doctest_private::ExitCode;
-/// let fvm2_success = fvm_shared::error::ExitCode::new(0);
+/// let fvm2_success = fvm_shared2::error::ExitCode::new(0);
 /// let fvm3_success = fvm_shared3::error::ExitCode::new(0);
 ///
 /// let shim_from_v2 = ExitCode::from(fvm2_success);
