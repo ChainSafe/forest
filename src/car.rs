@@ -144,7 +144,6 @@ where
     }
 
     /// In the order seen in the file
-    #[cfg(any(test, feature = "benchmark-private"))]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
     }
@@ -276,7 +275,6 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     }
 
     /// In the order seen in the file
-    #[cfg(any(test, feature = "benchmark-private"))]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
     }
