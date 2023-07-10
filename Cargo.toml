@@ -30,7 +30,7 @@ byteorder = "1.4.3"
 bytes = "1.2"
 cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-cid = { version = "0.8", default-features = false, features = ["std"] }
+cid = { version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
@@ -45,35 +45,34 @@ derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "5"
-fil_actor_account_state = "5"
-fil_actor_cron_state = "5"
-fil_actor_datacap_state = "5"
-fil_actor_init_state = "5"
-fil_actor_interface = "5"
-fil_actor_market_state = "5"
-fil_actor_miner_state = "5"
-fil_actor_power_state = "5"
-fil_actor_reward_state = "5"
-fil_actor_system_state = "5"
-fil_actor_verifreg_state = "5"
-fil_actors_shared = "5"
+fil_actor_account_state = "6"
+fil_actor_cron_state = "6"
+fil_actor_datacap_state = "6"
+fil_actor_init_state = "6"
+fil_actor_interface = "6"
+fil_actor_market_state = "6"
+fil_actor_miner_state = "6"
+fil_actor_power_state = "6"
+fil_actor_reward_state = "6"
+fil_actor_system_state = "6"
+fil_actor_verifreg_state = "6"
+fil_actors_shared = "6"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
-frc46_token = "3"
+frc46_token = "7"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
-fvm = { version = "~2.4", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
-fvm_ipld_amt = "0.5"
+fvm = { version = "~2.5", default-features = false }
+fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
+fvm_ipld_amt = "0.6"
 fvm_ipld_bitfield = "0.5"
-fvm_ipld_blockstore = "0.1"
-fvm_ipld_car = "0.6"
-fvm_ipld_encoding = "0.2"
-fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_ipld_hamt = "0.6"
-fvm_shared = { version = "~2.4", default-features = false, features = ["testing"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["testing", "proofs"] }
+fvm_ipld_blockstore = "0.2"
+fvm_ipld_car = "0.7"
+fvm_ipld_encoding = "0.4"
+fvm_ipld_hamt = "0.7"
+fvm_shared = { version = "~2.5", default-features = false, features = ["testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
@@ -88,9 +87,9 @@ jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-err
 jsonwebtoken = "8.1"
 lazy_static = "1.4"
 libc = "0.2"
-libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
-libipld-core = { version = "0.14", features = ['serde-codec'] }
-libipld-macro = "0.14"
+libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
+libipld-core = { version = "0.16", features = ['serde-codec'] }
+libipld-macro = "0.16"
 libp2p = { version = "0.52.1", default-features = false, features = [
   'gossipsub',
   'kad',
@@ -185,8 +184,8 @@ termios = "0.3"
 assert_cmd = "2"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
-fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["arb"] }
+fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["arb"] }
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck = "1"

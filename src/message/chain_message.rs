@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
-use cid::Cid;
-use fvm_ipld_encoding::{Cbor, Error};
-use fvm_ipld_encoding3::RawBytes;
+use fvm_ipld_encoding::{Error, RawBytes};
 use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +23,13 @@ impl ChainMessage {
         match self {
             Self::Unsigned(m) => m,
             Self::Signed(sm) => sm.message(),
+        }
+    }
+
+    pub fn cid(&self) -> Result<cid::Cid, Error> {
+        match self {
+            ChainMessage::Unsigned(msg) => msg.cid(),
+            ChainMessage::Signed(msg) => msg.cid(),
         }
     }
 }
@@ -114,17 +119,6 @@ impl MessageTrait for ChainMessage {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
             Self::Unsigned(t) => t.set_gas_premium(prem),
-        }
-    }
-}
-
-impl Cbor for ChainMessage {
-    /// Returns the content identifier of the raw block of data
-    /// Default is `Blake2b256` hash
-    fn cid(&self) -> Result<Cid, Error> {
-        match self {
-            Self::Signed(t) => t.cid(),
-            Self::Unsigned(t) => t.cid(),
         }
     }
 }
