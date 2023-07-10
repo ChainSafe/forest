@@ -9,7 +9,6 @@ use std::{
 
 use data_encoding::Encoding;
 use data_encoding_macro::new_encoding;
-use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
@@ -168,8 +167,6 @@ impl FromStr for Address {
             .map(Address::from)
     }
 }
-
-impl Cbor for Address {}
 
 /// defines the encoder for `base32` encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {

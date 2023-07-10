@@ -7,8 +7,7 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
-use fvm_ipld_encoding3::RawBytes;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::MethodNum;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
@@ -72,6 +71,18 @@ impl SignedMessage {
         self.signature
             .verify(&self.message.cid().unwrap().to_bytes(), &self.from())
     }
+
+    // Important note: `msg.cid()` is different from
+    // `Cid::from_cbor_blake2b256(msg)`. The behavior comes from Lotus, and
+    // Lotus, by, definition, is correct.
+    pub fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
+        if self.is_bls() {
+            self.message.cid()
+        } else {
+            use crate::utils::cid::CidCborExt;
+            cid::Cid::from_cbor_blake2b256(self)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -128,15 +139,5 @@ impl MessageTrait for SignedMessage {
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.set_gas_premium(prem)
-    }
-}
-
-impl Cbor for SignedMessage {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, CborError> {
-        if self.is_bls() {
-            self.message.marshal_cbor()
-        } else {
-            Ok(to_vec(&self)?)
-        }
     }
 }

@@ -413,6 +413,8 @@ pub(super) async fn start(
             &state_manager,
             &path.display().to_string(),
             config.client.skip_load,
+            config.client.chunk_size,
+            config.client.buffer_size,
         )
         .await
         .context("Failed miserably while importing chain from snapshot")?;
@@ -715,6 +717,7 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
 #[cfg(test)]
 mod test {
     use crate::blocks::BlockHeader;
+    use crate::cli_shared::cli::{BufferSize, ChunkSize};
     use crate::db::MemoryDB;
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
@@ -774,7 +777,14 @@ mod test {
             chain_config,
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, file_path, false).await?;
+        import_chain::<_>(
+            &sm,
+            file_path,
+            false,
+            ChunkSize::default(),
+            BufferSize::default(),
+        )
+        .await?;
         Ok(())
     }
 
@@ -799,9 +809,15 @@ mod test {
             chain_config,
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
-        import_chain::<_>(&sm, "test-snapshots/chain4.car", false)
-            .await
-            .context("Failed to import chain")?;
+        import_chain::<_>(
+            &sm,
+            "test-snapshots/chain4.car",
+            false,
+            ChunkSize::default(),
+            BufferSize::default(),
+        )
+        .await
+        .context("Failed to import chain")?;
 
         Ok(())
     }
