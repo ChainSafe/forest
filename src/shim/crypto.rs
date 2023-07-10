@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
-use fvm_ipld_encoding3::{
+use fvm_ipld_encoding::{
     de,
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,

@@ -16,7 +16,7 @@ use crate::shim::{
     gas::{price_list_by_network_version, Gas},
 };
 use ahash::HashMap;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::to_vec;
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
@@ -419,7 +419,7 @@ where
         let network_version = chain_config.network_version(ts.epoch());
 
         let min_gas = price_list_by_network_version(network_version)
-            .on_chain_message(m.marshal_cbor()?.len())
+            .on_chain_message(to_vec(m)?.len())
             .total();
 
         if Gas::new(m.gas_limit()) < min_gas {

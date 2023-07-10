@@ -10,8 +10,8 @@ use cid::{
     Cid,
 };
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use fvm_ipld_encoding3::CborStore;
 use human_repr::HumanCount;
 use log::info;
 use serde::ser::Serialize;
