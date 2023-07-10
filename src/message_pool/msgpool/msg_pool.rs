@@ -26,7 +26,7 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context;
 use cid::Cid;
 use futures::StreamExt;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::to_vec;
 use log::warn;
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -303,7 +303,7 @@ where
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
-        let msg_ser = msg.marshal_cbor()?;
+        let msg_ser = to_vec(&msg)?;
         self.add_local(msg)?;
         if publish {
             self.network_sender
@@ -318,7 +318,7 @@ where
     }
 
     fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
-        if msg.marshal_cbor()?.len() > 32 * 1024 {
+        if to_vec(msg)?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
@@ -597,7 +597,7 @@ fn verify_msg_before_add(
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
-        .on_chain_message(m.marshal_cbor()?.len());
+        .on_chain_message(to_vec(m)?.len());
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
