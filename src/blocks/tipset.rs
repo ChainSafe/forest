@@ -109,12 +109,10 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
-    use crate::blocks::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-            let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
+            let cids: Vec<Cid> = Vec::arbitrary(g);
             Self { cids }
         }
     }
