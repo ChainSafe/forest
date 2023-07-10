@@ -233,3 +233,8 @@ mimalloc = ["dep:mimalloc"]
 name = "example-benchmark"
 harness = false
 required-features = ["benchmark-private"]
+
+[[bench]]
+name = "car-backed-blockstore"
+harness = false
+required-features = ["benchmark-private"]

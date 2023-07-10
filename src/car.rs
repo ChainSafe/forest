@@ -47,7 +47,6 @@
 //! # Future work
 //! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the file, to improve random access performance.
 //! - Use an inner [`Blockstore`] for writes.
-//! - Support multiple files by concatenating them.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
 //! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
 
@@ -57,11 +56,13 @@ use cid::Cid;
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
+use indexmap::IndexMap;
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
     any::Any,
     collections::hash_map::Entry::{Occupied, Vacant},
+    hash::BuildHasher,
     io::{
         self, BufRead, BufReader,
         ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
@@ -116,7 +117,7 @@ where
         // now create the index
         let index =
             std::iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
-                .collect::<Result<AHashMap<_, _>, _>>()?;
+                .collect::<Result<IndexMap<_, _, _>, _>>()?;
 
         match index.len() {
             0 => Err(cid::Error::Io(io::Error::new(
@@ -141,12 +142,18 @@ where
     pub fn roots(&self) -> Vec<Cid> {
         self.inner.lock().roots.clone()
     }
+
+    /// In the order seen in the file
+    #[cfg(any(test, feature = "benchmark-private"))]
+    pub fn cids(&self) -> Vec<Cid> {
+        self.inner.lock().index.keys().cloned().collect()
+    }
 }
 
 struct UncompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
-    index: AHashMap<Cid, UncompressedBlockDataLocation>,
+    index: IndexMap<Cid, UncompressedBlockDataLocation, ahash::RandomState>,
     roots: Vec<Cid>,
 }
 
@@ -220,11 +227,10 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
         ReaderT: BufRead + Seek,
     {
         let mut block_buffer = vec![];
-        let mut index = AHashMap::new();
+        let mut index = IndexMap::with_hasher(ahash::RandomState::new());
 
         let mut roots_and_first_frame_offset = None;
 
-        // TODO(aatifsyed): does this handle skipframes?
         for_each_zstd_frame(&mut reader, |offset, mut uncompressed| {
             if roots_and_first_frame_offset.is_none() {
                 roots_and_first_frame_offset =
@@ -268,13 +274,19 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     pub fn roots(&self) -> Vec<Cid> {
         self.inner.lock().roots.clone()
     }
+
+    /// In the order seen in the file
+    #[cfg(any(test, feature = "benchmark-private"))]
+    pub fn cids(&self) -> Vec<Cid> {
+        self.inner.lock().index.keys().cloned().collect()
+    }
 }
 
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
     // Cid -> zstd frame offset
-    index: AHashMap<Cid, u64>,
+    index: IndexMap<Cid, u64, ahash::RandomState>,
     roots: Vec<Cid>,
     // skip the header where appropriate
     first_frame_offset: u64,
@@ -342,7 +354,7 @@ where
 /// - If the write cache already contains different data with this CID
 fn handle_write_cache(
     write_cache: &mut AHashMap<Cid, Vec<u8>>,
-    index: &mut AHashMap<Cid, impl Any>,
+    index: &mut IndexMap<Cid, impl Any, impl BuildHasher>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
@@ -644,15 +656,10 @@ mod tests {
         let reference = reference(futures::io::Cursor::new(car));
         let car_backed = UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
 
-        assert_eq!(car_backed.inner.lock().index.len(), 1222);
-        assert_eq!(car_backed.inner.lock().roots.len(), 1);
+        assert_eq!(car_backed.cids().len(), 1222);
+        assert_eq!(car_backed.roots().len(), 1);
 
-        let cids = {
-            let holding_lock = car_backed.inner.lock();
-            holding_lock.index.keys().cloned().collect::<Vec<_>>()
-        };
-
-        for cid in cids {
+        for cid in car_backed.cids() {
             let expected = reference.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);
@@ -669,15 +676,10 @@ mod tests {
         let car_backed =
             CompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car_manyframe)).unwrap();
 
-        assert_eq!(car_backed.inner.lock().index.len(), 1222);
-        assert_eq!(car_backed.inner.lock().roots.len(), 1);
+        assert_eq!(car_backed.cids().len(), 1222);
+        assert_eq!(car_backed.roots().len(), 1);
 
-        let cids = {
-            let holding_lock = car_backed.inner.lock();
-            holding_lock.index.keys().cloned().collect::<Vec<_>>()
-        };
-
-        for cid in cids {
+        for cid in car_backed.cids() {
             let expected = reference.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);

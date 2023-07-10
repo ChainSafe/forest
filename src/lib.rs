@@ -75,11 +75,19 @@ pub mod doctest_private {
     };
 }
 
+// TODO(aatifsyed): remove
+pub use car::zstd_compress_varint_manyframe;
+
 /// These items are semver-exempt, and exist for forest author use only
 // Allow benchmarks of forest internals
 #[cfg(feature = "benchmark-private")]
 #[doc(hidden)]
-pub mod benchmark_private {}
+pub mod benchmark_private {
+    pub use car::{
+        zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
+        UncompressedCarV1BackedBlockstore,
+    };
+}
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};
