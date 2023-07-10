@@ -52,29 +52,40 @@
 //! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
 
 use ahash::AHashMap;
+use bytes::{buf::Writer, BufMut as _, BytesMut};
 use cid::Cid;
+use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use itertools::Itertools as _;
 use parking_lot::Mutex;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::io::BufRead;
-use std::io::{
-    self, BufReader,
-    ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
-    Read, Seek, SeekFrom,
+use std::{
+    any::Any,
+    collections::hash_map::Entry::{Occupied, Vacant},
+    io::{
+        self, BufRead, BufReader,
+        ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
+        Read, Seek, SeekFrom, Write as _,
+    },
+    ops::ControlFlow,
 };
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio_util::codec::{BytesCodec, FramedWrite};
+use tokio_util_06::codec::FramedRead;
 use tracing::{debug, trace};
 
+use crate::utils::{try_collate, Collate};
+
+/// **Note that all operations on this store are blocking**.
+///
 /// It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
 ///
 /// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [CARv1 file](https://ipld.io/specs/transport/car/carv1).
-/// **Note that all operations on this store are blocking**.
 ///
 /// On creation, [`UncompressedCarV1BackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
 /// and their offsets into that file.
 ///
-/// When a block is requested [`UncompressedCarV1BackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
+/// When a block is requested, [`UncompressedCarV1BackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
 ///
 /// Writes for new blocks (which don't exist in the CAR already) are currently cached in-memory.
 ///
@@ -203,7 +214,6 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
-    // This code is ugly because we have to recreate the decoder after every zstd frame.
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(mut reader: ReaderT) -> cid::Result<Self>
     where
@@ -214,6 +224,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
 
         let mut roots_and_first_frame_offset = None;
 
+        // TODO(aatifsyed): does this handle skipframes?
         for_each_zstd_frame(&mut reader, |offset, mut uncompressed| {
             if roots_and_first_frame_offset.is_none() {
                 roots_and_first_frame_offset =
@@ -288,10 +299,11 @@ where
                 Ok(Some(cached.remove()))
             }
             (Some(zstd_frame_offset), Vacant(_)) => {
-                trace!(zstd_frame_offset, "fetching from disk");
+                trace!("fetching from disk");
                 reader.seek(SeekFrom::Start(*zstd_frame_offset))?;
                 let mut uncompressed = zstd::Decoder::new(reader)?.single_frame();
                 let mut block_data = vec![];
+                // TODO(aatifsyed): ugly
                 if zstd_frame_offset == first_frame_offset {
                     read_header(&mut uncompressed)?;
                 }
@@ -330,7 +342,7 @@ where
 /// - If the write cache already contains different data with this CID
 fn handle_write_cache(
     write_cache: &mut AHashMap<Cid, Vec<u8>>,
-    index: &mut AHashMap<Cid, impl std::any::Any>,
+    index: &mut AHashMap<Cid, impl Any>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
@@ -359,8 +371,11 @@ fn handle_write_cache(
 
 /// `f` is a callback that takes `zstd_frame_offset_position` and an `impl Read`.
 /// It is run for each zstd frame.
+///
+/// Returns the number of zstd frames read.
 // It's surprisingly hard to keep track of zstd frames and recreate the decoder for the shared reader...
 // So take a callback instead
+// TODO(aatifsyed): this isn't good enough - fixup
 fn for_each_zstd_frame<ReaderT, F>(mut reader: ReaderT, mut f: F) -> cid::Result<usize>
 where
     ReaderT: BufRead + Seek,
@@ -375,7 +390,7 @@ where
         let stream_position = reader.stream_position()?;
         let mut uncompressed = zstd::Decoder::with_buffer(&mut reader)?.single_frame();
         f(stream_position, &mut uncompressed)?;
-        let _leftover_bytes_in_frame = std::io::copy(&mut uncompressed, &mut std::io::sink())?;
+        let _leftover_bytes_in_frame = io::copy(&mut uncompressed, &mut io::sink())?;
     }
 }
 
@@ -390,7 +405,7 @@ fn get_roots_from_v1_header(reader: impl Read) -> io::Result<Vec<Cid>> {
 }
 
 /// ```text
-/// start ►│                 end ►│
+/// start ►│          reader end ►│
 ///        ├───────────┬──────────┤
 ///        │body length│car header│
 ///        └───────────┴──────────┘
@@ -406,7 +421,7 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
 
 /// Returns ([`Cid`], the `block data offset` and `block data length`)
 /// ```text
-/// start ►│                     end ►│
+/// start ►│              reader end ►│
 ///        ├───────────┬───┬──────────┤
 ///        │body length│cid│block data│
 ///        └───────────┴───┼──────────┤
@@ -429,15 +444,17 @@ fn read_block_data_location_and_skip(
         return Ok(None);
     };
     let frame_body_offset = reader.stream_position()?;
-    let mut counted_reader = CountRead::new(&mut reader);
-    let cid = Cid::read_bytes(&mut counted_reader)?;
+    let mut reader = CountRead::new(&mut reader);
+    let cid = Cid::read_bytes(&mut reader)?;
 
-    // counting the read bytes saves us a syscall
-    let cid_length = counted_reader.count;
+    // counting the read bytes saves us a syscall for finding block data offset
+    let cid_length = reader.bytes_read();
     let block_data_offset = frame_body_offset + u64::try_from(cid_length).unwrap();
     let next_frame_offset = frame_body_offset + u64::from(body_length);
     let block_data_length = u32::try_from(next_frame_offset - block_data_offset).unwrap();
-    reader.seek(SeekFrom::Start(next_frame_offset))?;
+    reader
+        .into_inner()
+        .seek(SeekFrom::Start(next_frame_offset))?;
     Ok(Some((
         cid,
         UncompressedBlockDataLocation {
@@ -450,11 +467,10 @@ fn read_block_data_location_and_skip(
 /// Returns `cid` and copies `block data` into the buffer provided,
 /// leaving the reader at the marked position or returns [`Ok(None)`] at EOF
 /// ```text
-/// start ►│
-///        ├───────────┬───┬──────────┐
+/// start ►│              reader end ►│
+///        ├───────────┬───┬──────────┤
 ///        │body length│cid│block data│
-///        └───────────┴───┴──────────┤
-///                              end ►│
+///        └───────────┴───┴──────────┘
 /// ```
 #[tracing::instrument(level = "trace", skip_all, ret, err)]
 fn copy_varint_framed_block(
@@ -480,7 +496,7 @@ fn copy_varint_framed_block(
 ///        │varint:    │             │
 ///        │body length│frame body   │
 ///        └───────────┼─────────────┘
-///               end ►│
+///        reader end ►│
 /// ```
 fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
     use unsigned_varint::io::{
@@ -517,6 +533,9 @@ impl<ReadT> CountRead<ReadT> {
     pub fn bytes_read(&self) -> usize {
         self.count
     }
+    pub fn into_inner(self) -> ReadT {
+        self.inner
+    }
 }
 
 impl<ReadT> Read for CountRead<ReadT>
@@ -530,18 +549,98 @@ where
     }
 }
 
+/// `reader` reads uncompressed [varint frames](index.html#varint-frames).
+///
+/// This function repeatedly takes a group of successive varint frames from `reader`,
+/// and compresses them into one zstd frame, which is written to `writer`.
+///
+/// Each group will be bigger than `zstd_frame_size_tripwire` by at most one frame (compressed).
+///
+/// returns the number of frames written.
+pub async fn zstd_compress_varint_manyframe(
+    reader: impl AsyncRead,
+    writer: impl AsyncWrite,
+    zstd_frame_size_tripwire: usize,
+    zstd_compression_level: u16,
+) -> io::Result<usize> {
+    type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
+    let mut count = 0;
+    try_collate(
+        FramedRead::new(reader, VarintFrameCodec::default()),
+        varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
+        zstd_compress_finish,
+    )
+    .inspect_ok(|_| count += 1)
+    .forward(FramedWrite::new(writer, BytesCodec::new()))
+    .await?;
+    Ok(count)
+}
+
+/// Create a paramaterized collator function
+fn varint_to_zstd_frame_collator(
+    zstd_frame_size_tripwire: usize,
+    zstd_compression_level: u16,
+) -> impl Fn(
+    Collate<zstd::Encoder<'_, Writer<BytesMut>>, BytesMut>,
+) -> ControlFlow<BytesMut, zstd::Encoder<'_, Writer<BytesMut>>> {
+    move |collate| {
+        let encoder = match collate {
+            Collate::Started(body) => zstd_compress_fold_varint_frame(
+                zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
+                    .expect("BytesMut has infallible IO"),
+                body,
+            ),
+            Collate::Continued(encoder, body) => zstd_compress_fold_varint_frame(encoder, body),
+        };
+        let compressed_len = encoder.get_ref().get_ref().len();
+
+        match compressed_len >= zstd_frame_size_tripwire {
+            // finish this zstd frame
+            true => ControlFlow::Break(zstd_compress_finish(encoder)),
+            // fold the next varint frame body in
+            false => ControlFlow::Continue(encoder),
+        }
+    }
+}
+
+/// Encode `body` as a varint frame into `encoder` (writing the length and then the body itself)
+fn zstd_compress_fold_varint_frame(
+    mut encoder: zstd::Encoder<Writer<BytesMut>>,
+    body: BytesMut,
+) -> zstd::Encoder<Writer<BytesMut>> {
+    let mut header = unsigned_varint::encode::usize_buffer();
+    encoder
+        .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
+        .expect("BytesMut has infallible IO");
+    encoder
+        .write_all(&body)
+        .expect("BytesMut has infallible IO");
+    encoder
+}
+
+fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
+    encoder
+        .finish()
+        .expect("BytesMut has infallible IO")
+        .into_inner()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore};
 
-    use futures_util::AsyncRead;
+    use super::{
+        for_each_zstd_frame, zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
+        UncompressedCarV1BackedBlockstore,
+    };
+
+    use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
-    use tap::Tap;
+    use tap::Tap as _;
 
     #[test]
     fn test_uncompressed() {
-        let car = include_bytes!("../test-snapshots/chain4.car");
+        let car = chain4_car();
         let reference = reference(futures::io::Cursor::new(car));
         let car_backed = UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
 
@@ -562,12 +661,13 @@ mod tests {
 
     #[test]
     fn test_compressed_manyframe() {
-        let car = include_bytes!("../test-snapshots/chain4.car.zst-manyframe");
+        let car_manyframe = chain4_car_zstd_manyframe();
         let reference = reference(
-            async_compression::futures::bufread::ZstdDecoder::new(futures::io::Cursor::new(car))
+            async_compression::futures::bufread::ZstdDecoder::new(car_manyframe.as_slice())
                 .tap_mut(|it| it.multiple_members(true)),
         );
-        let car_backed = CompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
+        let car_backed =
+            CompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car_manyframe)).unwrap();
 
         assert_eq!(car_backed.inner.lock().index.len(), 1222);
         assert_eq!(car_backed.inner.lock().roots.len(), 1);
@@ -584,8 +684,8 @@ mod tests {
         }
     }
 
-    fn reference(reader: impl AsyncRead + Send + Unpin) -> MemoryBlockstore {
-        futures::executor::block_on(async {
+    fn reference(reader: impl futures::AsyncRead + Send + Unpin) -> MemoryBlockstore {
+        block_on(async {
             let blockstore = MemoryBlockstore::new();
             let mut blocks = CarReader::new(reader).await.unwrap();
             while let Some(Block { cid, data }) = blocks.next_block().await.unwrap() {
@@ -593,5 +693,38 @@ mod tests {
             }
             blockstore
         })
+    }
+
+    fn chain4_car() -> &'static [u8] {
+        include_bytes!("../test-snapshots/chain4.car")
+    }
+
+    fn chain4_car_zstd_manyframe() -> Vec<u8> {
+        let mut zstd_multiframe = vec![];
+
+        let num_zstd_frames = block_on(zstd_compress_varint_manyframe(
+            chain4_car(),
+            &mut zstd_multiframe,
+            8000usize.next_power_of_two(),
+            3,
+        ))
+        .unwrap();
+        assert_eq!(9, num_zstd_frames);
+
+        let mut num_zstd_frames = 0;
+        for_each_zstd_frame(std::io::Cursor::new(&zstd_multiframe), |_, _| {
+            num_zstd_frames += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(9, num_zstd_frames);
+
+        zstd_multiframe
+    }
+
+    #[test]
+    fn test_manyframe_round_trip() {
+        let round_tripped = zstd::decode_all(chain4_car_zstd_manyframe().as_slice()).unwrap();
+        assert_eq!(round_tripped, chain4_car());
     }
 }
