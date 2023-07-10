@@ -112,8 +112,7 @@ mod property_tests {
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let cids: Vec<Cid> = Vec::arbitrary(g);
-            Self { cids }
+            Self { cids: Vec::arbitrary(g) }
         }
     }
 
