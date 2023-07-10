@@ -18,14 +18,14 @@ const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
 pin_project! {
     /// Wraps an iterator to display its progress.
-    pub struct WithProgressStream<S> {
+    pub struct WithProgress<S> {
         #[pin]
         stream: S,
-        progress: WithProgress,
+        progress: WithProgressInner,
     }
 }
 
-impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgressStream<R> {
+impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgress<R> {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -42,8 +42,17 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgressStream<R> {
     }
 }
 
+impl<S> WithProgress<S> {
+    pub fn wrap_async_read(message: &str, read: S, total_items: u64) -> WithProgress<S> {
+        WithProgress {
+            stream: read,
+            progress: WithProgressInner::new(message, total_items),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-struct WithProgress {
+struct WithProgressInner {
     completed_items: u64,
     total_items: u64,
     start: Instant,
@@ -51,7 +60,7 @@ struct WithProgress {
     message: String,
 }
 
-impl WithProgress {
+impl WithProgressInner {
     fn new(message: &str, total_items: u64) -> Self {
         let now = Instant::now();
         Self {
@@ -104,14 +113,14 @@ impl WithProgress {
 }
 
 #[derive(Debug, Clone)]
-pub struct ProgressLog {
-    progress: Arc<Mutex<WithProgress>>,
+pub struct WithProgressRaw {
+    progress: Arc<Mutex<WithProgressInner>>,
 }
 
-impl ProgressLog {
+impl WithProgressRaw {
     pub fn new(message: &str, total_items: u64) -> Self {
-        ProgressLog {
-            progress: Arc::new(Mutex::new(WithProgress::new(message, total_items))),
+        WithProgressRaw {
+            progress: Arc::new(Mutex::new(WithProgressInner::new(message, total_items))),
         }
     }
 
@@ -121,16 +130,5 @@ impl ProgressLog {
 
     pub fn set_total(&self, value: u64) {
         self.progress.lock().set_total(value);
-    }
-
-    pub fn wrap_async_read<R: tokio::io::AsyncRead>(
-        message: &str,
-        read: R,
-        total_items: u64,
-    ) -> WithProgressStream<R> {
-        WithProgressStream {
-            stream: read,
-            progress: WithProgress::new(message, total_items),
-        }
     }
 }

@@ -13,7 +13,7 @@ use std::{
 };
 
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
-pub use progress_log::ProgressLog;
+pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;
 
 pub use self::tempfile::*;

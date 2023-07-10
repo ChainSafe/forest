@@ -4,7 +4,7 @@
 use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
 
-use crate::utils::io::ProgressLog;
+use crate::utils::io::WithProgress;
 use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
@@ -50,7 +50,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
         }
     };
 
-    let mut reader = tokio::io::BufReader::new(ProgressLog::wrap_async_read(
+    let mut reader = tokio::io::BufReader::new(WithProgress::wrap_async_read(
         "Loading",
         stream,
         content_length,
