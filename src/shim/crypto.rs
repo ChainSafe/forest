@@ -155,7 +155,11 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature)
 }
 
 /// Returns `String` error if a BLS signature is invalid.
-pub fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &crate::shim::address::Address) -> Result<(), String> {
+pub fn verify_bls_sig(
+    signature: &[u8],
+    data: &[u8],
+    addr: &crate::shim::address::Address,
+) -> Result<(), String> {
     fvm_shared3::crypto::signature::ops::verify_bls_sig(signature, data, &addr.into())
 }
 
