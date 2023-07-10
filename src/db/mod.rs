@@ -4,6 +4,7 @@
 mod errors;
 mod memory;
 mod metrics;
+pub mod utils;
 pub mod parity_db;
 pub mod parity_db_config;
 pub use errors::Error;
@@ -72,7 +73,6 @@ pub mod db_engine {
 }
 #[cfg(test)]
 mod tests {
-    pub mod db_utils;
     mod mem_test;
     mod parity_test;
     pub mod subtests;

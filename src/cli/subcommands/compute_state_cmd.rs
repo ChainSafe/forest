@@ -7,9 +7,8 @@ use crate::state_manager::StateManager;
 use anyhow::Context;
 use cid::Cid;
 use std::{path::PathBuf, sync::Arc};
-use crate::db::MemoryDB;
 use crate::genesis::{import_chain, read_genesis_header};
-use tempfile::TempDir;
+use crate::db::utils::parity::TempParityDB;
 
 //use super::handle_rpc_err;
 
@@ -38,8 +37,7 @@ impl ComputeStateCommand {
             _ => {
                 println!("Computing state @{}", self.vm_height);
 
-                // TODO: remove
-                let db = MemoryDB::default();
+                let temp = TempParityDB::new();
 
                 println!("Network: {}", config.chain.network);
 
@@ -47,19 +45,18 @@ impl ComputeStateCommand {
                 let genesis_header = read_genesis_header(
                     config.client.genesis_file.as_ref(),
                     config.chain.genesis_bytes(),
-                    &db,
+                    &temp.db,
                 )
                 .await?;
 
-                let chain_data_root = TempDir::new()?;
-                println!("Using temp path: {:?}", chain_data_root.path());
+                println!("Using temp path: {:?}", temp.dir.path());
 
                 // Initialize ChainStore
                 let cs = Arc::new(ChainStore::new(
-                    db,
+                    temp.db,
                     config.chain.clone(),
                     &genesis_header,
-                    chain_data_root.path(),
+                    temp.dir.path(),
                 )?);
 
                 // Initialize StateManager

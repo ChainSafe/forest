@@ -7,8 +7,8 @@ use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {
-    db: ParityDb,
-    _dir: tempfile::TempDir, // kept for cleaning up during Drop
+    pub db: ParityDb,
+    pub dir: tempfile::TempDir, // kept for cleaning up during Drop
 }
 
 impl TempParityDB {
@@ -23,7 +23,7 @@ impl TempParityDB {
 
         TempParityDB {
             db: ParityDb::open(path, &config).unwrap(),
-            _dir: dir,
+            dir,
         }
     }
 }
