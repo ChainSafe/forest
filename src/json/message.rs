@@ -6,8 +6,7 @@ pub mod json {
     use crate::shim::{address::Address, econ::TokenAmount, message::Message};
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_ipld_encoding::Cbor;
-    use fvm_ipld_encoding3::RawBytes;
+    use fvm_ipld_encoding::RawBytes;
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::json::address::json::AddressJson;

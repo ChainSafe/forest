@@ -4,12 +4,11 @@
 use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
+use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::state_manager::StateManager;
-use crate::utils::db::BlockstoreBufferedWriteExt;
-
 use anyhow::bail;
 use cid::Cid;
-use futures::AsyncRead;
+use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use fvm_ipld_encoding::CborStore;
@@ -88,6 +87,8 @@ pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
     skip_load: bool,
+    chunk_size: ChunkSize,
+    buffer_size: BufferSize,
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
@@ -97,8 +98,14 @@ where
     let stopwatch = time::Instant::now();
     let reader = crate::utils::net::reader(path).await?;
 
-    let (cids, n_records) =
-        load_and_retrieve_header(sm.blockstore().clone(), reader.compat(), skip_load).await?;
+    let (cids, n_records) = load_and_retrieve_header(
+        sm.blockstore().clone(),
+        reader.compat(),
+        skip_load,
+        chunk_size,
+        buffer_size,
+    )
+    .await?;
 
     info!(
         "Loaded {} records from .car file in {}s",
@@ -138,42 +145,71 @@ where
 /// header.
 async fn load_and_retrieve_header<DB, R>(
     store: DB,
-    mut reader: R,
+    reader: R,
     skip_load: bool,
+    chunk_size: ChunkSize,
+    buffer_size: BufferSize,
 ) -> anyhow::Result<(Vec<Cid>, Option<usize>)>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + Send + 'static,
     R: AsyncRead + Send + Unpin,
 {
     let result = if skip_load {
-        (CarReader::new(&mut reader).await?.header.roots, None)
+        (CarReader::new(reader).await?.header.roots, None)
     } else {
-        let (roots, n_records) = forest_load_car(store, &mut reader).await?;
+        let (roots, n_records) = forest_load_car(store, reader, chunk_size, buffer_size).await?;
         (roots, Some(n_records))
     };
 
     Ok(result)
 }
 
-pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<(Vec<Cid>, usize)>
+fn car_stream<R: futures::AsyncRead + Send + Unpin>(
+    reader: CarReader<R>,
+) -> impl Stream<Item = anyhow::Result<fvm_ipld_car::Block>> {
+    stream::unfold(reader, |mut reader| async move {
+        reader
+            .next_block()
+            .await
+            .map_err(anyhow::Error::from)
+            .transpose()
+            .map(|result| (result, reader))
+    })
+}
+
+pub async fn forest_load_car<DB, R>(
+    store: DB,
+    reader: R,
+    ChunkSize(chunk_size): ChunkSize,
+    BufferSize(buffer_size): BufferSize,
+) -> anyhow::Result<(Vec<Cid>, usize)>
 where
     R: futures::AsyncRead + Send + Unpin,
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + Send + 'static,
 {
-    // 1GB
-    const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
-
-    let (tx, rx) = flume::bounded(100);
-    let write_task =
-        tokio::spawn(async move { store.buffered_write(rx, BUFFER_CAPCITY_BYTES).await });
     let mut car_reader = CarReader::new(reader).await?;
+    let header = std::mem::take(&mut car_reader.header);
     let mut n_records = 0;
-    while let Some(block) = car_reader.next_block().await? {
-        debug!("Importing block: {}", block.cid);
-        n_records += 1;
-        tx.send_async((block.cid, block.data)).await?;
-    }
-    drop(tx);
-    write_task.await??;
-    Ok((car_reader.header.roots, n_records))
+
+    let sink = futures::sink::unfold(
+        store,
+        |store, blocks: Vec<fvm_ipld_car::Block>| async move {
+            tokio::task::spawn_blocking(move || {
+                store.put_many_keyed(blocks.into_iter().map(|block| (block.cid, block.data)))?;
+                Ok(store)
+            })
+            .await?
+        },
+    );
+
+    // Stream key-value pairs from the CAR file and commit them in chunks. Try
+    // to maintain a buffer of a few chunks to avoid read-stalling.
+    car_stream(car_reader)
+        .inspect(|_| n_records += 1)
+        .chunks(chunk_size as usize)
+        .map(|vec| vec.into_iter().collect::<anyhow::Result<Vec<_>>>())
+        .forward(sink.buffer(buffer_size as usize))
+        .await?;
+
+    Ok((header.roots, n_records))
 }

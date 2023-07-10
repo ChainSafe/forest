@@ -14,7 +14,7 @@ use std::{
 use crate::blocks::{BlockHeader, Tipset};
 use crate::utils::io::{progress_bar, ProgressBar};
 use cid::Cid;
-use fvm_ipld_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
 
 use crate::ipld::{CidHashSet, Ipld};
@@ -155,7 +155,7 @@ where
         }
 
         let data = load_block(next).await?;
-        let h = BlockHeader::unmarshal_cbor(&data)?;
+        let h = from_slice::<BlockHeader>(&data)?;
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
