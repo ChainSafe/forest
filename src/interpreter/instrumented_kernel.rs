@@ -117,7 +117,12 @@ impl<DB: Blockstore> fvm2::kernel::IpldBlockOps for ForestInstrumentedKernel<DB>
         forward_instrumented!(|| self.0.block_link(id, hash_fun, hash_len))
     }
 
-    fn block_read(&mut self, id: BlockId, offset: u32, buf: &mut [u8]) -> fvm2::kernel::Result<i32> {
+    fn block_read(
+        &mut self,
+        id: BlockId,
+        offset: u32,
+        buf: &mut [u8],
+    ) -> fvm2::kernel::Result<i32> {
         forward_instrumented!(|| self.0.block_read(id, offset, buf))
     }
 

@@ -8,7 +8,8 @@ use crate::blocks::BlockHeader;
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
 use crate::shim::{
-    gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion, address::Address,
+    address::Address, gas::price_list_by_network_version, state_tree::StateTree,
+    version::NetworkVersion,
 };
 use anyhow::bail;
 use cid::Cid;
