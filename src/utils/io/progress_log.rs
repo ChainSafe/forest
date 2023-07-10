@@ -17,11 +17,11 @@ use log::info;
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
 pin_project! {
-    /// Wraps an iterator to display its progress.
-    pub struct WithProgress<S> {
+    #[derive(Debug, Clone)]
+    pub struct WithProgress<Inner> {
         #[pin]
-        stream: S,
-        progress: WithProgressInner,
+        inner: Inner,
+        progress: Progress,
     }
 }
 
@@ -33,7 +33,7 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgress<R> {
     ) -> Poll<io::Result<()>> {
         let prev_len = buf.filled().len() as u64;
         let this = self.project();
-        if let Poll::Ready(e) = this.stream.poll_read(cx, buf) {
+        if let Poll::Ready(e) = this.inner.poll_read(cx, buf) {
             this.progress.inc(buf.filled().len() as u64 - prev_len);
             Poll::Ready(e)
         } else {
@@ -45,14 +45,14 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgress<R> {
 impl<S> WithProgress<S> {
     pub fn wrap_async_read(message: &str, read: S, total_items: u64) -> WithProgress<S> {
         WithProgress {
-            stream: read,
-            progress: WithProgressInner::new(message, total_items),
+            inner: read,
+            progress: Progress::new(message, total_items),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-struct WithProgressInner {
+struct Progress {
     completed_items: u64,
     total_items: u64,
     start: Instant,
@@ -60,7 +60,7 @@ struct WithProgressInner {
     message: String,
 }
 
-impl WithProgressInner {
+impl Progress {
     fn new(message: &str, total_items: u64) -> Self {
         let now = Instant::now();
         Self {
@@ -114,21 +114,24 @@ impl WithProgressInner {
 
 #[derive(Debug, Clone)]
 pub struct WithProgressRaw {
-    progress: Arc<Mutex<WithProgressInner>>,
+    sync: Arc<Mutex<WithProgress<()>>>,
 }
 
 impl WithProgressRaw {
     pub fn new(message: &str, total_items: u64) -> Self {
         WithProgressRaw {
-            progress: Arc::new(Mutex::new(WithProgressInner::new(message, total_items))),
+            sync: Arc::new(Mutex::new(WithProgress {
+                inner: (),
+                progress: Progress::new(message, total_items),
+            })),
         }
     }
 
     pub fn set(&self, value: u64) {
-        self.progress.lock().set(value);
+        self.sync.lock().progress.set(value);
     }
 
     pub fn set_total(&self, value: u64) {
-        self.progress.lock().set_total(value);
+        self.sync.lock().progress.set_total(value);
     }
 }
