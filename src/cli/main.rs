@@ -65,6 +65,7 @@ where
                         Subcommand::Snapshot(cmd) => cmd.run(config).await,
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
+                        Subcommand::ComputeState(cmd) => cmd.run(config).await,
                     }
                 }
                 Err(e) => {
