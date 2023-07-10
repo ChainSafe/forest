@@ -117,6 +117,7 @@ where
 {
     let estimated_total_records = estimated_total_records.unwrap_or_default();
     let message = progress_bar_message.unwrap_or("Walking snapshot");
+    #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new(message, estimated_total_records);
 
     let mut seen = CidHashSet::default();

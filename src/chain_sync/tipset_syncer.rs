@@ -862,6 +862,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
     tracker.write().set_epoch(current_head.epoch());
 
     let total_size = proposed_head.epoch() - current_head.epoch();
+    #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
 
     'sync: loop {

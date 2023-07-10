@@ -118,6 +118,7 @@ pub struct WithProgressRaw {
 }
 
 impl WithProgressRaw {
+    #[deprecated]
     pub fn new(message: &str, total_items: u64) -> Self {
         WithProgressRaw {
             sync: Arc::new(Mutex::new(WithProgress {
