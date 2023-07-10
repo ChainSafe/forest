@@ -4,9 +4,9 @@
 mod errors;
 mod memory;
 mod metrics;
-pub mod utils;
 pub mod parity_db;
 pub mod parity_db_config;
+pub mod utils;
 pub use errors::Error;
 pub use memory::MemoryDB;
 
