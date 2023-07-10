@@ -6,8 +6,7 @@ pub mod json {
     use crate::shim::{address::Address, econ::TokenAmount, message::Message};
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_ipld_encoding::Cbor;
-    use fvm_ipld_encoding3::RawBytes;
+    use fvm_ipld_encoding::RawBytes;
     use fvm_shared3::message::Message as Message_v3;
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -63,8 +62,8 @@ pub mod json {
     {
         JsonHelper {
             version: m.version,
-            to: Address::from(m.to).into(),
-            from: Address::from(m.from).into(),
+            to: m.to.into(),
+            from: m.from.into(),
             sequence: m.sequence,
             value: m.value(),
             gas_limit: m.gas_limit(),

@@ -7,7 +7,7 @@ use ahash::HashMap;
 use anyhow::{anyhow, Context};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding3::CborStore;
+use fvm_ipld_encoding::CborStore;
 
 // For details on actor name and version, see <https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/manifest/manifest.go#L36>
 
@@ -104,7 +104,6 @@ impl Manifest {
         })
     }
 
-    /// Returns optional actors CID
     pub fn actors_cid(&self) -> Cid {
         self.actors_cid
     }

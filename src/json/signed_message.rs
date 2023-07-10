@@ -4,7 +4,6 @@ pub mod json {
     use crate::message::SignedMessage;
     use crate::shim::{crypto::Signature, message::Message};
     use cid::Cid;
-    use fvm_ipld_encoding::Cbor;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::json::{message, signature};

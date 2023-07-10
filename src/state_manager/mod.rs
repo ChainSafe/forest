@@ -6,6 +6,7 @@ mod errors;
 mod metrics;
 mod utils;
 use crate::state_migration::run_state_migrations;
+use crate::statediff::print_state_diff;
 use anyhow::{bail, Context as _};
 use fil_actor_interface::init::{self, State};
 use rayon::prelude::ParallelBridge;
@@ -37,7 +38,6 @@ use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 use lru::LruCache;
@@ -485,7 +485,7 @@ where
         }
 
         let actor = self
-            .get_actor(&msg.from.into(), *bstate)?
+            .get_actor(&msg.from, *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
         let apply_ret = vm.apply_implicit_message(msg)?;
@@ -661,7 +661,7 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
-    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may be null.
+    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may **not** be null.
     pub fn get_epoch_tsk(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
@@ -669,12 +669,8 @@ where
     ) -> Result<TipsetKeys, Error> {
         let ts = self
             .cs
-            .tipset_by_height(round, tipset, false)
+            .tipset_by_height(round, tipset, true)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        if ts.epoch() != round {
-            // Null tipset
-            return Ok(TipsetKeys::default());
-        }
         Ok(ts.key().clone())
     }
 
@@ -1292,6 +1288,16 @@ where
                             ?actual_receipt,
                             "state mismatch"
                         );
+
+                        if let Err(err) = print_state_diff(
+                            self.blockstore(),
+                            &actual_state,
+                            expected_state,
+                            Some(1), // To not make the log too verbose
+                        ) {
+                            warn!("Failed to print state diff: {err}");
+                        }
+
                         bail!("state mismatch");
                     }
                 }

@@ -1,12 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Borrow;
-
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
-use cid::Cid;
-use fvm_ipld_encoding::{Cbor, Error};
-use fvm_ipld_encoding3::RawBytes;
+use fvm_ipld_encoding::{Error, RawBytes};
 use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
@@ -29,19 +25,26 @@ impl ChainMessage {
             Self::Signed(sm) => sm.message(),
         }
     }
+
+    pub fn cid(&self) -> Result<cid::Cid, Error> {
+        match self {
+            ChainMessage::Unsigned(msg) => msg.cid(),
+            ChainMessage::Signed(msg) => msg.cid(),
+        }
+    }
 }
 
 impl MessageTrait for ChainMessage {
     fn from(&self) -> Address {
         match self {
             Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => Address::from(t.from),
+            Self::Unsigned(t) => t.from,
         }
     }
     fn to(&self) -> Address {
         match self {
             Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => Address::from(t.to),
+            Self::Unsigned(t) => t.to,
         }
     }
     fn sequence(&self) -> u64 {
@@ -53,7 +56,7 @@ impl MessageTrait for ChainMessage {
     fn value(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.value(),
-            Self::Unsigned(t) => t.value.borrow().into(),
+            Self::Unsigned(t) => t.value.clone(),
         }
     }
     fn method_num(&self) -> MethodNum {
@@ -89,19 +92,19 @@ impl MessageTrait for ChainMessage {
     fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => (&t.gas_fee_cap * t.gas_limit + &t.value).into(),
+            Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
         }
     }
     fn gas_fee_cap(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.gas_fee_cap(),
-            Self::Unsigned(t) => (&t.gas_fee_cap).into(),
+            Self::Unsigned(t) => t.gas_fee_cap.clone(),
         }
     }
     fn gas_premium(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.gas_premium(),
-            Self::Unsigned(t) => (&t.gas_premium).into(),
+            Self::Unsigned(t) => t.gas_premium.clone(),
         }
     }
 
@@ -116,17 +119,6 @@ impl MessageTrait for ChainMessage {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
             Self::Unsigned(t) => t.set_gas_premium(prem),
-        }
-    }
-}
-
-impl Cbor for ChainMessage {
-    /// Returns the content identifier of the raw block of data
-    /// Default is `Blake2b256` hash
-    fn cid(&self) -> Result<Cid, Error> {
-        match self {
-            Self::Signed(t) => t.cid(),
-            Self::Unsigned(t) => t.cid(),
         }
     }
 }

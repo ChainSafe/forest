@@ -10,11 +10,11 @@ use crate::blocks::{Block, FullTipset, Tipset, TxMeta};
 use crate::chain::ChainStore;
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
-use crate::utils::db::CborStoreExt;
+use crate::utils::{cid::CidCborExt, db::CborStoreExt};
 use cid::Cid;
 use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{Cbor, Error as EncodingError};
+use fvm_ipld_encoding::Error as EncodingError;
 use thiserror::Error;
 
 use crate::chain_sync::bad_block_cache::BadBlockCache;
@@ -127,11 +127,11 @@ impl<'a> TipsetValidator<'a> {
         // Generate message CIDs
         let bls_cids = bls_msgs
             .iter()
-            .map(Cbor::cid)
+            .map(Cid::from_cbor_blake2b256)
             .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
         let secp_cids = secp_msgs
             .iter()
-            .map(Cbor::cid)
+            .map(Cid::from_cbor_blake2b256)
             .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
 
         // Generate Amt and batch set message values

@@ -11,6 +11,12 @@ use serde::{Deserialize, Serialize};
 #[serde(transparent)]
 pub struct BigInt(#[serde(with = "bigint_ser")] BigInt_v3);
 
+impl BigInt {
+    pub fn inner(&self) -> &BigInt_v3 {
+        &self.0
+    }
+}
+
 impl Deref for BigInt {
     type Target = BigInt_v3;
     fn deref(&self) -> &Self::Target {

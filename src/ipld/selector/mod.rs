@@ -5,7 +5,6 @@ mod empty_map;
 mod walk;
 use std::ops::SubAssign;
 
-use fvm_ipld_encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
@@ -159,8 +158,6 @@ pub enum Selector {
     //     next: Box<Selector>,
     // },
 }
-
-impl Cbor for Selector {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum RecursionLimit {

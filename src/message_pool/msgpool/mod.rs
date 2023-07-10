@@ -19,7 +19,7 @@ use crate::networks::ChainConfig;
 use crate::shim::{address::Address, crypto::Signature};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::to_vec;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
@@ -89,7 +89,7 @@ where
     let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map)?;
 
     for m in msgs.iter() {
-        let mb = m.marshal_cbor()?;
+        let mb = to_vec(m)?;
         network_sender
             .send_async(NetworkMessage::PubsubMessage {
                 topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
@@ -149,7 +149,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fvm_shared3::BLOCK_GAS_LIMIT;
+    let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
@@ -256,12 +256,7 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(
-                    &msg.from.into(),
-                    pending,
-                    msg.sequence,
-                    rmsgs.borrow_mut(),
-                )?;
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }

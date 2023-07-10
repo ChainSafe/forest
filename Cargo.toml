@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.10.0"
+version = "0.11.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -16,7 +16,6 @@ async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"
 async-fs = "1"
 async-recursion = "1.0"
 async-trait = "0.1"
-atty = "0.2"
 axum = { version = "0.6", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
@@ -31,11 +30,11 @@ byteorder = "1.4.3"
 bytes = "1.2"
 cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-cid = { version = "0.8", default-features = false, features = ["std"] }
+cid = { version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
-const-str = "0.5.4"
+const-str = "0.5.6"
 convert_case = "0.6.0"
 crossbeam = "0.8"
 crossbeam-channel = "0.5"
@@ -45,48 +44,53 @@ data-encoding-macro = "0.1"
 derive_builder = "0.12"
 dialoguer = "0.10.2"
 digest = "0.10.5"
-directories = "4.0.1"
-fil_actor_account_state = "5"
-fil_actor_init_state = "5"
-fil_actor_interface = "5"
-fil_actor_miner_state = "5"
-fil_actor_power_state = "5"
-fil_actor_system_state = "5"
-fil_actors_shared = "5"
+directories = "5"
+fil_actor_account_state = "6"
+fil_actor_cron_state = "6"
+fil_actor_datacap_state = "6"
+fil_actor_init_state = "6"
+fil_actor_interface = "6"
+fil_actor_market_state = "6"
+fil_actor_miner_state = "6"
+fil_actor_power_state = "6"
+fil_actor_reward_state = "6"
+fil_actor_system_state = "6"
+fil_actor_verifreg_state = "6"
+fil_actors_shared = "6"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
+frc46_token = "7"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
-fvm = { version = "~2.4", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
-fvm_ipld_amt = "0.5"
+fvm = { version = "~2.5", default-features = false }
+fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
+fvm_ipld_amt = "0.6"
 fvm_ipld_bitfield = "0.5"
-fvm_ipld_blockstore = "0.1"
-fvm_ipld_car = "0.6"
-fvm_ipld_encoding = "0.2"
-fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
-fvm_shared = { version = "~2.4", default-features = false, features = ["testing"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["testing", "proofs"] }
+fvm_ipld_blockstore = "0.2"
+fvm_ipld_car = "0.7"
+fvm_ipld_encoding = "0.4"
+fvm_ipld_hamt = "0.7"
+fvm_shared = { version = "~2.5", default-features = false, features = ["testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"
-hyper = { version = "0.14", features = ["client", "stream", "http1"] }
-hyper-rustls = "0.23" # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
-itertools = "0.10.5"
+is-terminal = "0.4"
+itertools = "0.11.0"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 jsonwebtoken = "8.1"
 lazy_static = "1.4"
 libc = "0.2"
-libipld = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
-libipld-core = { version = "0.14", features = ['serde-codec'] }
-libipld-macro = "0.14"
-libp2p = { version = "=0.51.1", default-features = false, features = [
+libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
+libipld-core = { version = "0.16", features = ['serde-codec'] }
+libipld-macro = "0.16"
+libp2p = { version = "0.52.1", default-features = false, features = [
   'gossipsub',
   'kad',
   'identify',
@@ -104,36 +108,26 @@ libp2p = { version = "=0.51.1", default-features = false, features = [
 ] }
 libsecp256k1 = "0.7"
 log = { version = "0.4", features = ["serde"] }
-lru = "0.9"
+lru = "0.10"
 memory-stats = "1.1"
-mimalloc = { version = "0.1.34", optional = true, default_features = false }
-multibase = "0.9"
-multihash = { version = "0.16", features = [
-  'std',
-  'blake2b',
-  'derive',
-  'serde-codec',
-  'identity',
-  "multihash-impl",
-  "sha2",
-], default_features = false }
+mimalloc = { version = "0.1.34", optional = true, default-features = false }
 nom = "7.1.3"
 nonempty = "0.8.0"
 nonzero_ext = "0.3.0"
 num = "0.4.0"
 num-bigint = "0.4"
-num-derive = "0.3"
+num-derive = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
-parity-db = { version = "0.4.6", default_features = false }
+parity-db = { version = "0.4.6", default-features = false }
 parking_lot = "0.12"
 pbr = "1.1"
 pin-project-lite = "0.2"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
-prometheus-client = "0.19"
+prometheus-client = "0.21"
 protobuf = "3.2"
 rand = "0.8"
 rand_distr = "0.4"
@@ -142,8 +136,9 @@ rayon = "1.5"
 reqwest = { version = "0.11.18", default-features = false, features = [
   "stream",
   "rustls-tls",
+  "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rustyline = "10.1.1"
+rustyline = "12"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.2"
@@ -156,10 +151,11 @@ shared_memory = "0.12"
 similar = "2.2.1"
 slotmap = "1.0"
 smart-default = "0.7.1"
+static_assertions = "1.1.0"
 statrs = "0.16"
 stdext = { version = "0.3", optional = true }
-strum = { version = "0.24", features = ["derive"] }
-strum_macros = "0.24"
+strum = { version = "0.25", features = ["derive"] }
+strum_macros = "0.25"
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
@@ -190,11 +186,10 @@ termios = "0.3"
 [dev-dependencies]
 assert_cmd = "2"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
-cs_serde_bytes = "0.12"
-fvm3 = { package = "fvm", default-features = false, version = "~3.4", features = ["arb"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.3", default-features = false, features = ["arb"] }
-libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
-multiaddr = "0.17.1"
+cs_serde_bytes = "0.12.2"
+fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["arb"] }
+libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck = "1"
 quickcheck_macros = "1"

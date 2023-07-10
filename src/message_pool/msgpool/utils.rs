@@ -5,7 +5,6 @@ use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{Message as MessageTrait, SignedMessage};
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message};
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
 use lru::LruCache;
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
