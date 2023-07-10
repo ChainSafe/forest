@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
-pub use fvm_shared::version::NetworkVersion as NetworkVersion_v2;
+pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 pub use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(fvm_shared3::version::NetworkVersion::V0, *v0);
 ///
 /// // use `.into()` when FVM2 has to be specified.
-/// assert_eq!(fvm_shared::version::NetworkVersion::V0, v0.into());
+/// assert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());
 /// ```
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]

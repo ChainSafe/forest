@@ -9,12 +9,11 @@ use fvm_ipld_encoding::{
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
-use fvm_shared::address::Address;
-use fvm_shared::commcid::Commitment;
-pub use fvm_shared::crypto::signature::{
+use fvm_shared2::commcid::Commitment;
+pub use fvm_shared2::crypto::signature::{
     Signature as Signature_v2, SignatureType as SignatureType_v2,
 };
-pub use fvm_shared::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
+pub use fvm_shared2::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
 pub use fvm_shared3::crypto::signature::{
     Signature as Signature_v3, SignatureType as SignatureType_v3,
 };
@@ -156,15 +155,19 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature)
 }
 
 /// Returns `String` error if a BLS signature is invalid.
-pub fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
-    fvm_shared::crypto::signature::ops::verify_bls_sig(signature, data, addr)
+pub fn verify_bls_sig(
+    signature: &[u8],
+    data: &[u8],
+    addr: &crate::shim::address::Address,
+) -> Result<(), String> {
+    fvm_shared3::crypto::signature::ops::verify_bls_sig(signature, data, &addr.into())
 }
 
 /// Extracts the raw replica commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
 pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
-    fvm_shared::commcid::cid_to_replica_commitment_v1(c)
+    fvm_shared2::commcid::cid_to_replica_commitment_v1(c)
 }
 
 #[cfg(test)]

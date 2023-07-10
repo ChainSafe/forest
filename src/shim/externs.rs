@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm::externs::Rand as Rand_v2;
+use fvm2::externs::Rand as Rand_v2;
 use fvm3::externs::Rand as Rand_v3;
-use fvm_shared::clock::ChainEpoch as ChainEpoch_v2;
+use fvm_shared2::clock::ChainEpoch as ChainEpoch_v2;
 use fvm_shared3::clock::ChainEpoch as ChainEpoch_v3;
 
 #[derive(Clone, Debug)]
