@@ -100,7 +100,6 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
