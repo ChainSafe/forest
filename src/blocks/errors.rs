@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::SystemTimeError as TimeErr;
-
 use thiserror::Error;
 
 /// Blockchain blocks error
@@ -20,10 +18,4 @@ pub enum Error {
     /// Error in validating arbitrary data
     #[error("Error validating data: {0}")]
     Validation(String),
-}
-
-impl From<TimeErr> for Error {
-    fn from(e: TimeErr) -> Error {
-        Error::Validation(e.to_string())
-    }
 }

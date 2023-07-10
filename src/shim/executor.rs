@@ -4,7 +4,7 @@ use std::borrow::Borrow;
 
 use fvm::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
-use fvm_ipld_encoding3::RawBytes;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;

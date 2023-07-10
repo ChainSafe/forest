@@ -19,7 +19,7 @@ use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::from_slice;
 use fvm_shared::{
     address::Address,
     clock::ChainEpoch,
@@ -158,8 +158,8 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                 h2
             );
         };
-        let bh_1 = BlockHeader::unmarshal_cbor(h1)?;
-        let bh_2 = BlockHeader::unmarshal_cbor(h2)?;
+        let bh_1 = from_slice::<BlockHeader>(h1)?;
+        let bh_2 = from_slice::<BlockHeader>(h2)?;
 
         if bh_1.cid() == bh_2.cid() {
             bail!("no consensus fault: submitted blocks are the same");
@@ -206,7 +206,7 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
         // Specifically, since A is of lower height, it must be that B was mined
         // omitting A from its tipset
         if !extra.is_empty() {
-            let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
+            let bh_3 = from_slice::<BlockHeader>(extra)?;
             if bh_1.parents() == bh_3.parents()
                 && bh_1.epoch() == bh_3.epoch()
                 && bh_2.parents().cids().contains(bh_3.cid())

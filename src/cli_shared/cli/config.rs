@@ -122,6 +122,7 @@ mod test {
         path::PathBuf,
     };
 
+    use crate::cli_shared::cli::client::{BufferSize, ChunkSize};
     use crate::utils::io::ProgressBarVisibility;
     use chrono::Duration;
     use quickcheck::Arbitrary;
@@ -169,6 +170,8 @@ mod test {
                     snapshot_path: Option::arbitrary(g),
                     snapshot_head: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),
+                    chunk_size: ChunkSize::arbitrary(g),
+                    buffer_size: BufferSize::arbitrary(g),
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
