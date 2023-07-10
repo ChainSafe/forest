@@ -35,7 +35,7 @@ impl<B, T> DagCborDecodingReader<B, T> {
 
 impl<B, T> Future for DagCborDecodingReader<B, T>
 where
-    B: AsyncRead + Unpin,
+    B: AsyncRead,
     T: serde::de::DeserializeOwned,
 {
     type Output = io::Result<T>;
@@ -44,31 +44,32 @@ where
         // https://github.com/mxinden/asynchronous-codec/blob/master/src/framed_read.rs#L161
         let mut buf = [0u8; 8 * 1024];
         loop {
-            let n = std::task::ready!(Pin::new(&mut self.io).poll_read(cx, &mut buf))?;
+            let this = self.as_mut().project();
+            let n = std::task::ready!(this.io.poll_read(cx, &mut buf))?;
             // Terminated
             if n == 0 {
                 let item = serde_ipld_dagcbor::de::from_reader(&self.bytes[..])
                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()));
                 return Poll::Ready(item);
             }
-            self.bytes_read += n;
-            if self.max_bytes_allowed > 0 && self.bytes_read > self.max_bytes_allowed {
+            *this.bytes_read += n;
+            if *this.max_bytes_allowed > 0 && *this.bytes_read > *this.max_bytes_allowed {
                 let err = io::Error::new(
                     io::ErrorKind::Other,
                     format!(
                         "Buffer size exceeds the maximum allowed {}B",
-                        self.max_bytes_allowed,
+                        *this.max_bytes_allowed,
                     ),
                 );
                 warn!("{err}");
                 return Poll::Ready(Err(err));
             }
-            self.bytes.extend_from_slice(&buf[..n.min(buf.len())]);
+            this.bytes.extend_from_slice(&buf[..n.min(buf.len())]);
             // This is what `FramedRead` does internally
             // Assuming io will be re-used to send new messages.
             //
             // Note: `from_reader` ensures no trailing data left in `bytes`
-            if let Ok(r) = serde_ipld_dagcbor::de::from_reader(&self.bytes[..]) {
+            if let Ok(r) = serde_ipld_dagcbor::de::from_reader(&this.bytes[..]) {
                 return Poll::Ready(Ok(r));
             }
         }
