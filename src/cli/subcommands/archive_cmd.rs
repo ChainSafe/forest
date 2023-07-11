@@ -72,10 +72,10 @@ struct ArchiveInfo {
 
 impl std::fmt::Display for ArchiveInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "CAR format:         {}\n", self.variant)?;
-        write!(f, "Network:            {}\n", self.network)?;
-        write!(f, "Epoch:              {}\n", self.epoch)?;
-        write!(f, "  With state-roots: {}\n", self.epoch - self.tipsets + 1)?;
+        writeln!(f, "CAR format:         {}", self.variant)?;
+        writeln!(f, "Network:            {}", self.network)?;
+        writeln!(f, "Epoch:              {}", self.epoch)?;
+        writeln!(f, "  With state-roots: {}", self.epoch - self.tipsets + 1)?;
         write!(f, "  With messages:    {}", self.epoch - self.messages + 1)?;
         Ok(())
     }
