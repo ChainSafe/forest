@@ -104,6 +104,7 @@ impl ArchiveInfo {
         let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
             .context("Missing root tipset")?;
         let root_epoch = root.epoch();
+
         let tipsets = itertools::unfold(Some(root.clone()), |tipset| {
             let child = tipset.take()?;
             *tipset = Tipset::load(&store, child.parents()).ok().flatten();
@@ -131,6 +132,9 @@ impl ArchiveInfo {
                 bail!("Broken invariant: tipset with negative epoch");
             }
 
+            // Update the lowest-stateroot-epoch only if our parent also has a
+            // state-root. The genesis state-root is usually available but we're
+            // not interested in that.
             if lowest_stateroot_epoch == parent.epoch() && store.has(tipset.parent_state())? {
                 lowest_stateroot_epoch = tipset.epoch();
             }
@@ -148,8 +152,11 @@ impl ArchiveInfo {
                 }
             }
 
-            let may_skip = lowest_stateroot_epoch != tipset.epoch()
-                && lowest_stateroot_epoch != tipset.epoch();
+            // If we've already found the lowest-stateroot-epoch and
+            // lowest-message-epoch then we can skip scanning the rest of the
+            // archive when we find a checkpoint.
+            let may_skip =
+                lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
                 if let Some(genesis_keys) =
                     crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset(
