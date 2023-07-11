@@ -59,7 +59,6 @@ fil_actor_verifreg_state = "6"
 fil_actors_shared = "6"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
-frc46_token = "7"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
