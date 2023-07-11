@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// assert_eq!(shim_from_v2, shim_from_v3);
 /// assert_eq!(shim_from_v2, fvm2_success.into());
-/// assert_eq!(*shim_from_v3, fvm3_success);
+/// assert_eq!(shim_from_v3, fvm3_success.into());
 /// ```
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
