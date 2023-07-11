@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::{version::NetworkVersion};
+use crate::shim::version::NetworkVersion;
+use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::sector::{
     RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
     SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
@@ -12,6 +13,7 @@ use fvm_shared3::sector::{
 pub use fvm_shared3::sector::{
     RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
 };
+use num_derive::FromPrimitive;
 use std::ops::Deref;
 
 pub use fvm_shared3::sector::StoragePower;
@@ -153,7 +155,8 @@ impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
 }
 
 /// `SectorSize` indicates one of a set of possible sizes in the network.
-#[derive(Clone, Debug, PartialEq, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
+#[repr(u64)]
 pub enum SectorSize {
     _2KiB = 2 << 10,
     _8MiB = 8 << 20,
