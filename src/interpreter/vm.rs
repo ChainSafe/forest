@@ -15,7 +15,6 @@ use crate::shim::{
     message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
-    Inner,
 };
 use ahash::HashSet;
 use anyhow::bail;
@@ -378,7 +377,7 @@ where
 
         if !exit_code.is_success() {
             match exit_code.value() {
-                1..=<ExitCode as Inner>::FVM::FIRST_USER_EXIT_CODE => {
+                1..=ExitCode::FIRST_USER_EXIT_CODE => {
                     log::debug!(
                         "Internal message execution failure. Exit code was {}",
                         exit_code

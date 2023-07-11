@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::shim::{address::Address, clock::ChainEpoch, state_tree::ActorState, Inner};
+use crate::shim::{address::Address, clock::ChainEpoch, state_tree::ActorState};
 use fvm_ipld_blockstore::Blockstore;
 
 use super::{ActorMigration, ActorMigrationInput};
@@ -50,14 +50,13 @@ impl<BS: Blockstore + Clone + Send + Sync> MigrationJob<BS> {
         {
             Ok(Some(MigrationJobOutput {
                 address: self.address,
-                actor_state: <ActorState as Inner>::FVM::new(
+                actor_state: ActorState::new(
                     result.new_code_cid,
                     result.new_head,
-                    self.actor_state.balance.clone(),
+                    self.actor_state.balance.clone().into(),
                     self.actor_state.sequence,
-                    self.actor_state.delegated_address,
-                )
-                .into(),
+                    self.actor_state.delegated_address.map(Address::from),
+                ),
             }))
         } else {
             Ok(None)
