@@ -46,8 +46,8 @@ impl ArchiveCommands {
             ArchiveCommands::Export {
                 input_path,
                 output_path,
-                depth,
                 epoch,
+                depth,
             } => {
                 let chain_finality = config.chain.policy.chain_finality;
                 let depth = depth.unwrap_or(chain_finality);
@@ -55,59 +55,69 @@ impl ArchiveCommands {
                     bail!("depth has to be at least {}", chain_finality);
                 }
 
-                let store = Arc::new(
-                    CarBackedBlockstore::new(std::fs::File::open(input_path)?).context(
-                        "couldn't read input CAR file - it's either compressed or corrupt",
-                    )?,
-                );
-
-                let genesis = read_genesis_header(
-                    config.client.genesis_file.as_ref(),
-                    config.chain.genesis_bytes(),
-                    &store,
-                )
-                .await?;
-
-                let chain_store = Arc::new(ChainStore::new(
-                    store,
-                    config.chain.clone(),
-                    &genesis,
-                    TempDir::new()?.path(),
-                )?);
-
-                // TODO: This is totally unnecessary. It should be possible to do `tipset_by_height` without this step.
-                // One solution to this is making `ts` an `Option` in `tipset_by_height` method.
-                let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
-
-                let ts = chain_store
-                    .tipset_by_height(*epoch, ts, true)
-                    .context("unable to get a tipset at given height")?;
-
-                // The lower bound of this snapshot.
-                let recent_roots = epoch - depth;
-
-                let output_path = match output_path.is_dir() {
-                    true => output_path.join(snapshot::filename(
-                        TrustedVendor::Forest,
-                        config.chain.network.to_string(),
-                        Utc::now().date_naive(),
-                        *epoch,
-                    )),
-                    false => output_path.clone(),
-                };
-
-                let writer = tokio::fs::File::create(&output_path)
-                    .await
-                    .context(format!(
-                        "unable to create the snapshot - is the output path '{}' correct?",
-                        output_path.to_str().unwrap_or_default()
-                    ))?;
-
-                chain_store
-                    .export::<_, Sha256>(&ts, recent_roots, writer.compat(), true, false)
-                    .await?;
+                do_export(config, input_path, output_path, epoch, &depth).await
             }
         }
-        Ok(())
     }
+}
+
+async fn do_export(
+    config: Config,
+    input_path: &PathBuf,
+    output_path: &PathBuf,
+    epoch: &ChainEpoch,
+    depth: &ChainEpoch,
+) -> anyhow::Result<()> {
+    let store = Arc::new(
+        CarBackedBlockstore::new(std::fs::File::open(input_path)?)
+            .context("couldn't read input CAR file - it's either compressed or corrupt")?,
+    );
+
+    let genesis = read_genesis_header(
+        config.client.genesis_file.as_ref(),
+        config.chain.genesis_bytes(),
+        &store,
+    )
+    .await?;
+
+    let chain_store = Arc::new(ChainStore::new(
+        store,
+        config.chain.clone(),
+        &genesis,
+        TempDir::new()?.path(),
+    )?);
+
+    // TODO: This is totally unnecessary. It should be possible to do `tipset_by_height` without this step.
+    // One solution to this is making `ts` an `Option` in `tipset_by_height` method.
+    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+
+    let ts = chain_store
+        .tipset_by_height(*epoch, ts, true)
+        .context("unable to get a tipset at given height")?;
+
+    // The lower bound of this snapshot.
+    let recent_roots = epoch - depth;
+
+    let output_path = match output_path.is_dir() {
+        true => output_path.join(snapshot::filename(
+            TrustedVendor::Forest,
+            config.chain.network.to_string(),
+            Utc::now().date_naive(),
+            *epoch,
+        )),
+        false => output_path.clone(),
+    };
+
+    let writer = tokio::fs::File::create(&output_path)
+        .await
+        .context(format!(
+            "unable to create the snapshot - is the output path '{}' correct?",
+            output_path.to_str().unwrap_or_default()
+        ))?;
+
+    chain_store
+        .export::<_, Sha256>(&ts, recent_roots, writer.compat(), true, false)
+        .await?;
+
+    Ok(())
 }
