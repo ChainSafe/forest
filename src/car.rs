@@ -120,7 +120,10 @@ where
                 .collect::<Result<IndexMap<_, _, _>, _>>()?;
 
         match index.len() {
-            0 => Err(io::Error::new(InvalidData, "CARv1 files must not be empty")),
+            0 => Err(io::Error::new(
+                InvalidData,
+                "CARv1 files must contain at least one block",
+            )),
             num_blocks => {
                 debug!(num_blocks, "indexed CAR");
                 Ok(Self {
@@ -214,67 +217,130 @@ pub struct CompressedCarV1BackedBlockstore<ReaderT> {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error(
-"using a compressed CAR file as a blockstore requires decompressing sections ('zstd frames') of the compressed file.
-But the given file contains a section which is {} big, exceeding the limit of {}.", indicatif::HumanBytes(*.found), indicatif::HumanBytes(*.limit))]
-pub struct ZstdFrameTooBig {
-    found: u64,
-    limit: u64,
+#[error("zstd frame exceeds configured max frame size")]
+pub struct MaxFrameSizeExceeded;
+
+#[derive(Debug)]
+struct CompressedBlockDataLocation {
+    zstd_frame_offset: u64,
+    location_in_frame: UncompressedBlockDataLocation,
+}
+
+/// An iterator over offsets and contents of zstd frames.
+///
+/// Note that each iteration reads an entire frame into memory, and typical zstd compressed files
+/// are single-frame.
+///
+/// As such, there is a configurable max_frame_size, which causes the iterator to return a [`Other`] error containing a [`MaxFrameSizeExceeded`] when hit.
+///
+/// After such an error, the iterator should be considered unrecoverable, and discarded.
+pub struct ZstdFrames<ReaderT> {
+    inner: ReaderT,
+    max_frame_size: u64,
+}
+
+impl<ReaderT> ZstdFrames<ReaderT> {
+    pub fn new(inner: ReaderT, max_frame_size: u64) -> Self {
+        Self {
+            inner,
+            max_frame_size,
+        }
+    }
+}
+
+impl<ReaderT> Iterator for ZstdFrames<ReaderT>
+where
+    ReaderT: BufRead + Seek,
+{
+    type Item = io::Result<(u64, std::io::Cursor<Vec<u8>>)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut v = vec![];
+        match self.inner.stream_position().and_then(|offset| {
+            // we MUST have a BufReader here - otherwise zstd::Decoder creates an internal buffer, and its contents is lost on the next iteration
+            zstd::Decoder::with_buffer((&mut self.inner).take(self.max_frame_size))
+                .and_then(|decoder| decoder.single_frame().read_to_end(&mut v))
+                .map(|_num_bytes| offset)
+        }) {
+            Ok(offset) => Some(Ok((offset, std::io::Cursor::new(v)))),
+            Err(e) if e.kind() == UnexpectedEof && v.is_empty() => None,
+            Err(e)
+                if e.kind() == UnexpectedEof
+                    && u64::try_from(v.len()).unwrap() == self.max_frame_size =>
+            {
+                Some(Err(io::Error::new(Other, MaxFrameSizeExceeded)))
+            }
+            Err(e) => Some(Err(e)),
+        }
+    }
+}
+
+#[test]
+fn test_zstd_frames() {
+    let frames = ZstdFrames::new(
+        std::io::Cursor::new(include_bytes!("../test-snapshots/chain4.car.zst-manyframe")),
+        1_000_000_u64.next_power_of_two(),
+    )
+    .collect::<Result<Vec<_>, _>>()
+    .unwrap();
+    assert_eq!(9, frames.len());
 }
 
 impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
+    // This used to avoid reading entire zstd frames in, but we're going to read-cache, so may as well
+    // rewrite the whole thing to uncompress a frame at a time.
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(mut reader: ReaderT) -> io::Result<Self>
     where
         ReaderT: BufRead + Seek,
     {
-        let mut block_buffer = vec![];
-        let mut index = IndexMap::with_hasher(ahash::RandomState::new());
+        let mut zstd_frames = ZstdFrames::new(&mut reader, 1_000_000_u64.next_power_of_two());
+        let (first_zstd_frame_offset, mut first_zstd_frame) = zstd_frames
+            .next()
+            .ok_or(io::Error::new(InvalidData, "CAR must not be empty"))??;
 
-        let mut roots_and_first_frame_offset = None;
+        let roots = get_roots_from_v1_header(&mut first_zstd_frame)?;
+        let mut index = std::iter::from_fn(|| {
+            read_block_data_location_and_skip(&mut first_zstd_frame).transpose()
+        })
+        .map_ok(|(cid, location_in_frame)| {
+            (
+                cid,
+                CompressedBlockDataLocation {
+                    zstd_frame_offset: first_zstd_frame_offset,
+                    location_in_frame,
+                },
+            )
+        })
+        .collect::<Result<IndexMap<_, _, _>, _>>()?;
 
-        for_each_zstd_frame(&mut reader, |offset, uncompressed| {
-            const MAX_ZSTD_FRAME_SIZE: usize = 1_000_000_usize.next_power_of_two();
-
-            let mut uncompressed = CountRead::new(uncompressed);
-
-            if roots_and_first_frame_offset.is_none() {
-                roots_and_first_frame_offset =
-                    Some((get_roots_from_v1_header(&mut uncompressed)?, offset))
-            }
-
+        for maybe_frame in zstd_frames {
+            let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
             index.extend(
                 std::iter::from_fn(|| {
-                    copy_varint_framed_block(&mut uncompressed, &mut block_buffer).transpose()
+                    read_block_data_location_and_skip(&mut zstd_frame).transpose()
                 })
-                .map_ok(|cid| (cid, offset))
+                .map_ok(|(cid, location_in_frame)| {
+                    (
+                        cid,
+                        CompressedBlockDataLocation {
+                            zstd_frame_offset,
+                            location_in_frame,
+                        },
+                    )
+                })
                 .collect::<Result<Vec<_>, _>>()?,
-            );
-
-            let frame_size = uncompressed.bytes_read();
-            match frame_size > MAX_ZSTD_FRAME_SIZE {
-                // we could short-circuit earlier by using Read::take, but the error message
-                // might be confusing because the frame would be truncated, and we don't want to
-                // blanket qualify all errors with "this may have been caused by hitting the zstd frame limit"
-                true => Err(io::Error::new(
-                    Unsupported,
-                    ZstdFrameTooBig {
-                        limit: u64::try_from(MAX_ZSTD_FRAME_SIZE).unwrap(),
-                        found: u64::try_from(frame_size).unwrap(),
-                    },
-                )),
-                false => Ok(()),
-            }
-        })?;
-
-        let (roots, first_frame_offset) =
-            roots_and_first_frame_offset.ok_or(io::Error::new(InvalidData, "empty file"))?;
+            )
+        }
 
         match index.len() {
-            0 => Err(io::Error::new(InvalidData, "CARv1 files must not be empty")),
+            0 => Err(io::Error::new(
+                InvalidData,
+                "CARv1 files must contain at least one block",
+            )),
             num_blocks => {
                 debug!(num_blocks, "indexed CAR");
                 Ok(Self {
@@ -283,7 +349,6 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
                         write_cache: AHashMap::new(),
                         index,
                         roots,
-                        first_frame_offset,
                     }),
                 })
             }
@@ -303,11 +368,8 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
-    // Cid -> zstd frame offset
-    index: IndexMap<Cid, u64, ahash::RandomState>,
+    index: IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>,
     roots: Vec<Cid>,
-    // skip the header where appropriate
-    first_frame_offset: u64,
 }
 
 impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
@@ -320,7 +382,6 @@ where
             reader,
             write_cache,
             index,
-            first_frame_offset,
             ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
@@ -328,22 +389,25 @@ where
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
-            (Some(zstd_frame_offset), Vacant(_)) => {
+            (
+                Some(CompressedBlockDataLocation {
+                    zstd_frame_offset,
+                    location_in_frame: UncompressedBlockDataLocation { offset, length },
+                }),
+                Vacant(_),
+            ) => {
                 trace!("fetching from disk");
                 reader.seek(SeekFrom::Start(*zstd_frame_offset))?;
-                let mut uncompressed = zstd::Decoder::new(reader)?.single_frame();
-                let mut block_data = vec![];
-                // TODO(aatifsyed): ugly
-                if zstd_frame_offset == first_frame_offset {
-                    read_header(&mut uncompressed)?;
-                }
-                std::iter::from_fn(|| {
-                    copy_varint_framed_block(&mut uncompressed, &mut block_data)
-                        .expect("invalid index: zstd frame doesn't contain valid blocks")
-                })
-                .find(|it| it == k) // when we've found it, `block data` will correspond to this CID
-                .expect("invalid index: zstd frame doesn't contain block");
-                Ok(Some(block_data))
+                let mut frame = std::io::Cursor::new(vec![]);
+                zstd::Decoder::new(reader)?
+                    .single_frame()
+                    .read_to_end(frame.get_mut())?;
+                frame
+                    .seek(SeekFrom::Start(*offset))
+                    .expect("index offset is incorrect");
+                let mut data = vec![0; usize::try_from(*length).unwrap()];
+                frame.read_exact(&mut data)?;
+                Ok(Some(data))
             }
             (None, Occupied(cached)) => {
                 trace!("getting from write cache");
@@ -396,35 +460,6 @@ fn handle_write_cache(
         (Some(_), Occupied(_)) => {
             unreachable!("we don't insert a CID in the write cache if it exists on disk")
         }
-    }
-}
-
-/// `f` is a callback that takes `zstd_frame_offset_position` and an `impl Read`.
-/// It is run for each zstd frame.
-///
-/// Returns the number of zstd frames read.
-// This could be refactored into an iterator, but it's non-trivial:
-// Each Iterator::Item needs a mutable reference to the same reader, and `LendingIterator` is non-trivial
-// We could work around this by having a separate readerstate, maybe with judicious RefCells which would
-// panic if callers had overlapping reads (corrupting the stream).
-// The Iterator::Item would also need a drop handler that would advance the reader to the next frame to avoid corruption.
-//
-// So take a callback instead
-fn for_each_zstd_frame<ReaderT, F>(mut reader: ReaderT, mut f: F) -> io::Result<usize>
-where
-    ReaderT: BufRead + Seek,
-    F: FnMut(u64, &'_ mut zstd::Decoder<'_, &'_ mut ReaderT>) -> io::Result<()>,
-{
-    let mut num_frames = 0;
-    loop {
-        if reader.fill_buf()?.is_empty() {
-            break Ok(num_frames);
-        }
-        num_frames += 1;
-        let stream_position = reader.stream_position()?;
-        let mut uncompressed = zstd::Decoder::with_buffer(&mut reader)?.single_frame();
-        f(stream_position, &mut uncompressed)?;
-        let _leftover_bytes_in_frame = io::copy(&mut uncompressed, &mut io::sink())?;
     }
 }
 
@@ -503,30 +538,6 @@ fn read_block_data_location_and_skip(
             length: block_data_length,
         },
     )))
-}
-
-/// Returns `cid` and copies `block data` into the buffer provided,
-/// leaving the reader at the marked position or returns [`Ok(None)`] at EOF
-/// ```text
-/// start ►│              reader end ►│
-///        ├───────────┬───┬──────────┤
-///        │body length│cid│block data│
-///        └───────────┴───┴──────────┘
-/// ```
-#[tracing::instrument(level = "trace", skip_all, ret, err)]
-fn copy_varint_framed_block(
-    mut reader: impl Read,
-    block_data: &mut Vec<u8>,
-) -> io::Result<Option<Cid>> {
-    let Some(body_length) = read_varint_body_length_or_eof(&mut reader)? else {
-        return Ok(None)
-    };
-    let mut reader = CountRead::new(reader);
-    let cid = Cid::read_bytes(&mut reader).map_err(cid_error_to_io_error)?;
-    let block_data_length = usize::try_from(body_length).unwrap() - reader.bytes_read();
-    block_data.resize(block_data_length, 0);
-    reader.read_exact(block_data)?;
-    Ok(Some(cid))
 }
 
 /// Reads `body length`, leaving the reader at the start of a varint frame,
@@ -670,7 +681,7 @@ fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
 mod tests {
 
     use super::{
-        for_each_zstd_frame, zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
+        zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
         UncompressedCarV1BackedBlockstore,
     };
 
@@ -739,14 +750,6 @@ mod tests {
             8000usize.next_power_of_two(),
             3,
         ))
-        .unwrap();
-        assert_eq!(9, num_zstd_frames);
-
-        let mut num_zstd_frames = 0;
-        for_each_zstd_frame(std::io::Cursor::new(&zstd_multiframe), |_, _| {
-            num_zstd_frames += 1;
-            Ok(())
-        })
         .unwrap();
         assert_eq!(9, num_zstd_frames);
 
