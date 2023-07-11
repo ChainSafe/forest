@@ -647,17 +647,14 @@ where
         return Ok(ts.clone());
     }
 
-    if let Some(ts) = Tipset::load(store, tsk)? {
-        // construct new Tipset to return
-        let ts = Arc::new(ts);
-        cache.lock().put(tsk.clone(), ts.clone());
-        metrics::LRU_CACHE_MISS
-            .with_label_values(&[metrics::values::TIPSET])
-            .inc();
-        Ok(ts)
-    } else {
-        Err(Error::NotFound(String::from("Key for header")))
-    }
+    let ts = Tipset::load(store, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?;
+    // construct new Tipset to return
+    let ts = Arc::new(ts);
+    cache.lock().put(tsk.clone(), ts.clone());
+    metrics::LRU_CACHE_MISS
+        .with_label_values(&[metrics::values::TIPSET])
+        .inc();
+    Ok(ts)
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
