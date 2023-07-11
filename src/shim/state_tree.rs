@@ -375,7 +375,7 @@ pub mod state_tree_v0 {
     use fvm_ipld_blockstore::Blockstore;
     use fvm_ipld_encoding::repr::*;
     use fvm_ipld_encoding::tuple::*;
-    use fvm_ipld_encoding3::CborStore;
+    use fvm_ipld_encoding::CborStore;
 
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
