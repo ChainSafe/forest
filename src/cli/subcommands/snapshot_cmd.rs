@@ -60,7 +60,7 @@ pub enum SnapshotCommands {
         #[arg(long)]
         validate_tipsets: Option<i64>,
         /// Path to an uncompressed snapshot (CAR)
-        snapshot: PathBuf,
+        snapshot: Option<PathBuf>,
     },
 }
 
@@ -152,55 +152,65 @@ impl SnapshotCommands {
                 validate_tipsets,
                 snapshot,
             } => {
-                // Check for any broken links in the snapshot
-                match validate(&config, recent_stateroots, snapshot).await {
-                    Ok(_) => println!("No Broken links encountered"),
-                    Err(error) => println!("Error: {}", error),
-                }
-                // Validate snapshot
-                if let Some(validate_from) = *validate_tipsets {
-                    let chain_data_path = chain_path(&config);
-                    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
-                    // Init genesis header from genesis file
-                    let genesis_header = read_genesis_header(
-                        config.client.genesis_file.as_ref(),
-                        config.chain.genesis_bytes(),
-                        &db,
-                    )
-                    .await?;
-
-                    // Initialize ChainStore
-                    let chain_store = Arc::new(ChainStore::new(
-                        db,
-                        config.chain.clone(),
-                        &genesis_header,
-                        chain_data_path.as_path(),
-                    )?);
-                    // Fetch proof parameters if not available
-                    if let Err(_) = ensure_params_downloaded().await {
-                        if cns::FETCH_PARAMS {
-                            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+                match (snapshot, *validate_tipsets) {
+                    (Some(path), None) => {
+                        // Check for any broken links in the snapshot provided
+                        match validate(&config, recent_stateroots, path).await {
+                            Ok(_) => println!("No Broken links encountered"),
+                            Err(error) => println!("Error: {}", error),
                         }
                     }
-                    let reward_calc = cns::reward_calc();
-                    // Initialize StateManager
-                    let state_manager = Arc::new(StateManager::new(
-                        Arc::clone(&chain_store),
-                        Arc::clone(&config.chain),
-                        reward_calc,
-                    )?);
-                    // Use the specified HEAD, otherwise take the current HEAD.
-                    let current_height = config
-                        .client
-                        .snapshot_head
-                        .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-                    assert!(current_height.is_positive());
-                    match validate_from.is_negative() {
-                        // allow --height=-1000 to scroll back from the current head
-                        true => state_manager
-                            .validate((current_height + validate_from)..=current_height)?,
-                        false => state_manager.validate(validate_from..=current_height)?,
-                    };
+                    (None, Some(validate_from)) => {
+                        // Get DB path
+                        let chain_data_path = chain_path(&config);
+                        let db =
+                            open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
+                        // Init genesis header from genesis file
+                        let genesis_header = read_genesis_header(
+                            config.client.genesis_file.as_ref(),
+                            config.chain.genesis_bytes(),
+                            &db,
+                        )
+                        .await?;
+
+                        // Initialize ChainStore
+                        let chain_store = Arc::new(ChainStore::new(
+                            db,
+                            config.chain.clone(),
+                            &genesis_header,
+                            chain_data_path.as_path(),
+                        )?);
+                        // Fetch proof parameters if not available
+                        if let Err(_) = ensure_params_downloaded().await {
+                            if cns::FETCH_PARAMS {
+                                crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+                            }
+                        }
+                        // Initialize StateManager
+                        let state_manager = Arc::new(StateManager::new(
+                            Arc::clone(&chain_store),
+                            Arc::clone(&config.chain),
+                            cns::reward_calc(),
+                        )?);
+                        // Use the specified HEAD, otherwise take the current HEAD.
+                        let current_height = config
+                            .client
+                            .snapshot_head
+                            .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
+                        assert!(current_height.is_positive());
+                        match validate_from.is_negative() {
+                            // allow --height=-1000 to scroll back from the current head
+                            true => state_manager
+                                .validate((current_height + validate_from)..=current_height)?,
+                            false => state_manager.validate(validate_from..=current_height)?,
+                        };
+                    }
+                    (Some(_), Some(_)) => {
+                        println!("Error: Please select only one option for validation.");
+                    }
+                    (None, None) => {
+                        println!("Error: No option selected to run validation.");
+                    }
                 }
                 Ok(())
             }
