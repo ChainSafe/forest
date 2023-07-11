@@ -82,11 +82,22 @@ impl std::fmt::Display for ArchiveInfo {
 }
 
 impl ArchiveInfo {
+    // Scan a CAR file to identify which network it belongs to and how many
+    // tipsets/messages are available. Progress is rendered with `indicatif`.
     fn from_file(path: PathBuf) -> anyhow::Result<Self> {
         Self::from_reader(std::fs::File::open(path)?)
     }
 
+    // Scan a CAR archive to identify which network it belongs to and how many
+    // tipsets/messages are available. Progress is rendered with `indicatif`.
     fn from_reader(reader: impl Read + Seek) -> anyhow::Result<Self> {
+        Self::from_reader_with(reader, true)
+    }
+
+    // Scan a CAR archive to identify which network it belongs to and how many
+    // tipsets/messages are available. Progress is optionally rendered with
+    // `indicatif`.
+    fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
         let store = CarBackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
 
@@ -105,7 +116,13 @@ impl ArchiveInfo {
         let mut lowest_stateroot_epoch = root_epoch;
         let mut lowest_message_epoch = root_epoch;
 
-        for (parent, tipset) in windowed.progress_count(root_epoch as u64) {
+        let iter = if progress {
+            itertools::Either::Left(windowed.progress_count(root_epoch as u64))
+        } else {
+            itertools::Either::Right(windowed)
+        };
+
+        for (parent, tipset) in iter {
             if tipset.epoch() >= parent.epoch() && parent.epoch() != root_epoch {
                 bail!("Broken invariant: non-sequential epochs");
             }
@@ -157,5 +174,26 @@ impl ArchiveInfo {
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn archive_info_calibnet() {
+        let info =
+            ArchiveInfo::from_reader_with(std::io::Cursor::new(calibnet::DEFAULT_GENESIS), false).unwrap();
+        assert!(info.network == "calibnet");
+        assert!(info.epoch == 0);
+    }
+
+    #[test]
+    fn archive_info_mainnet() {
+        let info =
+            ArchiveInfo::from_reader_with(std::io::Cursor::new(mainnet::DEFAULT_GENESIS), false).unwrap();
+        assert!(info.network == "mainnet");
+        assert!(info.epoch == 0);
     }
 }
