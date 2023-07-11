@@ -499,10 +499,11 @@ dependencies = [
 
 [[package]]
 name = "bigdecimal"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6773ddc0eafc0e509fb60e48dff7f450f8e674a0686ae8605e8d9901bd5eefa"
+checksum = "5274a6b6e0ee020148397245b973e30163b7bffbc6d473613f850cb99888581e"
 dependencies = [
+ "libm 0.2.7",
  "num-bigint",
  "num-integer",
  "num-traits",
