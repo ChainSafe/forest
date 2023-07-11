@@ -59,7 +59,6 @@ fil_actor_verifreg_state = "6"
 fil_actors_shared = "6"
 filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
-frc46_token = "7"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
@@ -71,8 +70,8 @@ fvm_ipld_blockstore = "0.2"
 fvm_ipld_car = "0.7"
 fvm_ipld_encoding = "0.4"
 fvm_ipld_hamt = "0.7"
-fvm_shared2 = { package = "fvm_shared", version = "~2.5", default-features = false, features = ["testing"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["testing", "proofs"] }
+fvm_shared2 = { package = "fvm_shared", version = "~2.5" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.4", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
