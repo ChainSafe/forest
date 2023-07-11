@@ -73,13 +73,13 @@ mod tests {
 
     #[test]
     fn ram_str_conversions() {
-        assert_eq!(ram_to_int("2048").unwrap(), SectorSize::_2KiB.into());
-        assert_eq!(ram_to_int("2048B").unwrap(), SectorSize::_2KiB.into());
-        assert_eq!(ram_to_int("2kib").unwrap(), SectorSize::_2KiB.into());
-        assert_eq!(ram_to_int("8Mib").unwrap(), SectorSize::_8MiB.into());
-        assert_eq!(ram_to_int("512MiB").unwrap(), SectorSize::_512MiB.into());
-        assert_eq!(ram_to_int("32Gi").unwrap(), SectorSize::_32GiB.into());
-        assert_eq!(ram_to_int("32GiB").unwrap(), SectorSize::_32GiB.into());
-        assert_eq!(ram_to_int("64Gib").unwrap(), SectorSize::_64GiB.into());
+        assert_eq!(ram_to_int("2048").unwrap(), SectorSize::_2KiB);
+        assert_eq!(ram_to_int("2048B").unwrap(), SectorSize::_2KiB);
+        assert_eq!(ram_to_int("2kib").unwrap(), SectorSize::_2KiB);
+        assert_eq!(ram_to_int("8Mib").unwrap(), SectorSize::_8MiB);
+        assert_eq!(ram_to_int("512MiB").unwrap(), SectorSize::_512MiB);
+        assert_eq!(ram_to_int("32Gi").unwrap(), SectorSize::_32GiB);
+        assert_eq!(ram_to_int("32GiB").unwrap(), SectorSize::_32GiB);
+        assert_eq!(ram_to_int("64Gib").unwrap(), SectorSize::_64GiB);
     }
 }
