@@ -15,7 +15,6 @@ argon2 = "0.5"
 async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"] }
 async-fs = "1"
 async-recursion = "1.0"
-async-stream = "0.3.5"
 async-trait = "0.1"
 axum = { version = "0.6", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
@@ -230,10 +229,5 @@ mimalloc = ["dep:mimalloc"]
 
 [[bench]]
 name = "example-benchmark"
-harness = false
-required-features = ["benchmark-private"]
-
-[[bench]]
-name = "car-backed-blockstore"
 harness = false
 required-features = ["benchmark-private"]
