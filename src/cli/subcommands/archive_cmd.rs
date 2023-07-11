@@ -47,7 +47,7 @@ pub enum ArchiveCommands {
 }
 
 impl ArchiveCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, _config: Config) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
                 let info = ArchiveInfo::from_file(snapshot)?;
@@ -75,12 +75,73 @@ impl ArchiveInfo {
     fn from_reader(reader: impl Read + Seek) -> anyhow::Result<Self> {
         let store = CarBackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
+
+        let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
+            .context("Missing root tipset")?;
+        let root_epoch = root.epoch();
+        let tipsets = itertools::unfold(Some(root.clone()), |tipset| {
+            let child = tipset.take()?;
+            *tipset = Tipset::load(&store, child.parents()).ok().flatten();
+            Some(child)
+        });
+
+        let windowed = (std::iter::once(root).chain(tipsets)).tuple_windows();
+
+        let mut network: String = "unknown".into();
+        let mut lowest_stateroot_epoch = root_epoch;
+        let mut lowest_message_epoch = root_epoch;
+
+        for (parent, tipset) in windowed.progress_count(root_epoch as u64) {
+            if tipset.epoch() >= parent.epoch() && parent.epoch() != root_epoch {
+                bail!("Broken invariant: non-sequential epochs");
+            }
+
+            if tipset.epoch() < 0 {
+                bail!("Broken invariant: tipset with negative epoch");
+            }
+
+            if lowest_stateroot_epoch == parent.epoch() && store.has(tipset.parent_state())? {
+                lowest_stateroot_epoch = tipset.epoch();
+            }
+            if lowest_message_epoch == parent.epoch()
+                && store.has(tipset.min_ticket_block().messages())?
+            {
+                lowest_message_epoch = tipset.epoch();
+            }
+
+            if tipset.epoch() == 0 {
+                if tipset.min_ticket_block().cid().to_string() == calibnet::GENESIS_CID {
+                    network = "calibnet".into();
+                } else if tipset.min_ticket_block().cid().to_string() == mainnet::GENESIS_CID {
+                    network = "mainnet".into();
+                }
+            }
+
+            let may_skip = lowest_stateroot_epoch != tipset.epoch()
+                && lowest_stateroot_epoch != tipset.epoch();
+            if may_skip {
+                if let Some(genesis_keys) =
+                    crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset(
+                        tipset.key(),
+                    )
+                {
+                    let genesis_cid = genesis_keys.cids[0];
+                    if genesis_cid.to_string() == calibnet::GENESIS_CID {
+                        network = "calibnet".into();
+                    } else if genesis_cid.to_string() == mainnet::GENESIS_CID {
+                        network = "mainnet".into();
+                    }
+                    break;
+                }
+            }
+        }
+
         Ok(ArchiveInfo {
             variant: "CARv1".into(),
-            network: "Unknown".into(),
-            epoch: 0,
-            tipsets: 0,
-            messages: 0,
+            network,
+            epoch: root_epoch,
+            tipsets: lowest_stateroot_epoch,
+            messages: lowest_message_epoch,
         })
     }
 }
