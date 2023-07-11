@@ -60,6 +60,7 @@ pub enum SnapshotCommands {
         #[arg(long)]
         validate_tipsets: Option<i64>,
         /// Path to an uncompressed snapshot (CAR)
+        #[arg(long)]
         snapshot: Option<PathBuf>,
     },
 }
@@ -197,7 +198,9 @@ impl SnapshotCommands {
                             .client
                             .snapshot_head
                             .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-                        assert!(current_height.is_positive());
+                        if !current_height.is_positive() {
+                            bail!("DB is empty, Import a new snapshot to validate.")
+                        }
                         match validate_from.is_negative() {
                             // allow --height=-1000 to scroll back from the current head
                             true => state_manager
