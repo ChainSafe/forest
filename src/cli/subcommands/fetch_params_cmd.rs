@@ -48,17 +48,17 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
     // * there is no library to do this, but if other sector sizes are supported in
     //   future
     // this should probably be changed to parse from string to `SectorSize`
-    let mut trimmed = size.trim_end_matches('B');
-    trimmed = trimmed.trim_end_matches('b');
+    let size = size.to_lowercase();
+    let trimmed = size.trim_end_matches('b');
 
     type SectorSize = crate::shim::sector::SectorSize;
 
     match trimmed {
-        "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB),
-        "8388608" | "8Mi" | "8mi" => Ok(SectorSize::_8MiB),
-        "536870912" | "512Mi" | "512mi" => Ok(SectorSize::_512MiB),
-        "34359738368" | "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
-        "68719476736" | "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
+        "2048" | "2ki" => Ok(SectorSize::_2KiB),
+        "8388608" | "8mi" => Ok(SectorSize::_8MiB),
+        "536870912" | "512mi" => Ok(SectorSize::_512MiB),
+        "34359738368" | "32gi" => Ok(SectorSize::_32GiB),
+        "68719476736" | "64gi" => Ok(SectorSize::_64GiB),
         _ => Err(anyhow::Error::msg(format!(
             "Failed to parse: {size}. Must be a valid sector size"
         ))),
