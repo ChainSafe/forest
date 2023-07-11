@@ -19,7 +19,7 @@ cfg_if::cfg_if! {
 mod auth;
 mod beacon;
 mod blocks;
-mod car;
+mod car_backed_blockstore;
 mod chain;
 mod chain_sync;
 mod cli;
@@ -76,7 +76,7 @@ pub mod doctest_private {
 }
 
 // TODO(aatifsyed): remove
-pub use car::{
+pub use car_backed_blockstore::{
     zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
     UncompressedCarV1BackedBlockstore,
 };
@@ -85,12 +85,7 @@ pub use car::{
 // Allow benchmarks of forest internals
 #[cfg(feature = "benchmark-private")]
 #[doc(hidden)]
-pub mod benchmark_private {
-    pub use car::{
-        zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
-        UncompressedCarV1BackedBlockstore,
-    };
-}
+pub mod benchmark_private {}
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};
