@@ -1,6 +1,44 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! It can often take time to perform some operations in Forest and we would like to have a way for logging progress.
+//!
+//! Previously we used progress bars thanks to the [`indicatif`](https://crates.io/crates/indicatif) library but we had a few issues with them:
+//! - They behaved poorly together with regular logging
+//! - They were too verbose and printed even for very small tasks (less than 5 seconds)
+//! - They were only used when connected to a tty and not written in log files
+//! 
+//! This lead us to develop our own logging code.
+//! 
+//! This module provides two new types for logging progress that are [`WithProgress`] and [`WithProgressRaw`].
+//! 
+//! The main goal of [`WithProgressRaw`] is to maintain a similar API to the previous one from [`ProgressBar`] so we could remove the [`indicatif`] dependency,
+//! but, gradually, we would like to move to something better and use the [`WithProgress`] type.
+//! 
+//! The [`WithProgress`] type will provide a way to wrap user code while handling logging presentation details.
+//! 
+//! [`WithProgress`] is a wrapper that should extend to Iterators, Streams, Read/Write types. Right now it only wraps async reads.
+//!
+//! # Example
+//! ```
+//! let file = tokio::fs::File::open("test.txt").await?;
+//! let mut reader = tokio::io::BufReader::new(file);
+//! // Compute total read length or find of way to estimate it
+//! let len = ...
+//! 
+//! // We just need to wrap our reader and use the wrapped version
+//! let reader_wp = tokio::io::BufReader::new(WithProgress::wrap_async_read("reading", reader, len));
+//! let mut stream = reader_wp.lines();
+//! while let Some(line) = stream.next_line().await.unwrap() {
+//!   // Do something with the line
+//! }
+//! ```
+//! 
+//! # Future work
+//! - Add and move progressively to new API (Iterator, Streams), and removed deprecated usage of [`WithProgressRaw`]
+//! - Add support for bytes measure
+//! - Add a more accurate ETA, progress speed, etc
+
 use humantime::format_duration;
 use std::time::{Duration, Instant};
 
@@ -92,7 +130,7 @@ impl Progress {
 
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
-        if (now - self.last_logged) > UPDATE_FREQUENCY {
+        if true {//(now - self.last_logged) > UPDATE_FREQUENCY {
             let elapsed_secs = (now - self.start).as_secs_f64();
             let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
 
