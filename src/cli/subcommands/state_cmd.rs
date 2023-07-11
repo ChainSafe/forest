@@ -49,7 +49,7 @@ pub enum StateCommands {
         depth: Option<u64>,
     },
     ComputeState {
-        /// Optional path to a snapshot (.car or .car.zst)
+        /// Path to a snapshot (.car files only)
         #[arg(long)]
         snapshot: PathBuf,
         /// Set the height that the VM will see
