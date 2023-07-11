@@ -3,7 +3,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use fvm_shared::randomness::Randomness as Randomness_v2;
+use fvm_shared2::randomness::Randomness as Randomness_v2;
 use fvm_shared3::randomness::Randomness as Randomness_v3;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// # use forest_filecoin::doctest_private::Randomness;
 ///
 /// // Create FVM2 Randomness normally
-/// let fvm2_rand = fvm_shared::randomness::Randomness(vec![]);
+/// let fvm2_rand = fvm_shared2::randomness::Randomness(vec![]);
 ///
 /// // Create a correspndoning FVM3 Randomness
 /// let fvm3_rand = fvm_shared3::randomness::Randomness(vec![]);

@@ -6,10 +6,10 @@ use crate::db::db_engine::open_proxy_db;
 use crate::json::cid::CidJson;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::econ::TokenAmount;
 use crate::statediff::print_state_diff;
 use cid::Cid;
 use clap::Subcommand;
-use fvm_shared::econ::TokenAmount;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::handle_rpc_err;

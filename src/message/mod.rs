@@ -4,11 +4,11 @@
 pub mod chain_message;
 pub mod signed_message;
 
+use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message as ShimMessage};
 use crate::shim::{gas::Gas, version::NetworkVersion};
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::MethodNum;
 pub use signed_message::SignedMessage;
 
 /// Message interface to interact with Signed and unsigned messages in a generic

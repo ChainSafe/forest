@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use data_encoding::{DecodeError, DecodeKind};
 use fvm_ipld_encoding::{from_slice, to_vec};
-use fvm_shared::address::{
+use fvm_shared2::address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, SECP_PUB_LEN,
 };
 
