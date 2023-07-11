@@ -54,8 +54,7 @@ impl ArchiveCommands {
     pub async fn run(self, _config: Config) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
-                let info = ArchiveInfo::from_file(snapshot)?;
-                println!("{:?}", info);
+                println!("{}", ArchiveInfo::from_file(snapshot)?);
                 Ok(())
             }
         }
@@ -69,6 +68,17 @@ struct ArchiveInfo {
     epoch: ChainEpoch,
     tipsets: ChainEpoch,
     messages: ChainEpoch,
+}
+
+impl std::fmt::Display for ArchiveInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "CAR format:         {}\n", self.variant)?;
+        write!(f, "Network:            {}\n", self.network)?;
+        write!(f, "Epoch:              {}\n", self.epoch)?;
+        write!(f, "  With state-roots: {}\n", self.epoch - self.tipsets + 1)?;
+        write!(f, "  With messages:    {}", self.epoch - self.messages + 1)?;
+        Ok(())
+    }
 }
 
 impl ArchiveInfo {
