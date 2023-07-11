@@ -4,6 +4,7 @@
 
 use crate::beacon::Beacon;
 use crate::blocks::tipset_keys_json::TipsetKeysJson;
+use crate::blocks::TipsetKeys;
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
 use crate::json::cid::CidJson;
@@ -44,6 +45,24 @@ pub(in crate::rpc) async fn state_call<
         .chain_store()
         .tipset_from_keys(&key.into())?;
     Ok(state_manager.call(&mut message, Some(tipset))?)
+}
+
+pub(in crate::rpc) async fn state_compute<
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    B: Beacon,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateComputeParams>,
+) -> Result<StateComputeResult, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let (vm_height, messages_json, key) = params;
+
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key.clone().into())?;
+
+    Ok(())
 }
 
 /// returns the result of executing the indicated message, assuming it was

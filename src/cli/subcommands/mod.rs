@@ -9,7 +9,6 @@
 mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
-mod compute_state_cmd;
 mod config_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
@@ -37,10 +36,10 @@ use serde::Serialize;
 
 pub(super) use self::{
     attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    compute_state_cmd::ComputeStateCommand, config_cmd::ConfigCommands, db_cmd::DBCommands,
-    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
-    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    config_cmd::ConfigCommands, db_cmd::DBCommands, fetch_params_cmd::FetchCommands,
+    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
+    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -114,9 +113,6 @@ pub enum Subcommand {
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
-
-    /// Compute state
-    ComputeState(ComputeStateCommand),
 }
 
 /// Pretty-print a JSON-RPC error and exit

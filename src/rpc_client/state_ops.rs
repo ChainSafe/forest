@@ -12,3 +12,10 @@ pub async fn state_fetch_root(
 ) -> Result<StateFetchRootResult, Error> {
     call(STATE_FETCH_ROOT, params, auth_token).await
 }
+
+pub async fn state_compute(
+    params: StateComputeParams,
+    auth_token: &Option<String>,
+) -> Result<StateComputeResult, Error> {
+    call(STATE_COMPUTE, params, auth_token).await
+}

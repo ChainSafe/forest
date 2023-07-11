@@ -1,13 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::tipset_keys_json::TipsetKeysJson;
 use crate::chain::ChainStore;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
 use crate::db::utils::parity::TempParityDB;
 use crate::genesis::{import_chain, read_genesis_header};
 use crate::json::cid::CidJson;
-use crate::rpc_client::state_ops::state_fetch_root;
+use crate::rpc_client::chain_ops::{chain_get_tipset_by_height, chain_head};
+use crate::rpc_client::state_ops::{state_compute, state_fetch_root};
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::statediff::print_state_diff;
@@ -47,9 +49,9 @@ pub enum StateCommands {
         depth: Option<u64>,
     },
     ComputeState {
-        /// Path to a snapshot (.car or .car.zst)
+        /// Optional path to a snapshot (.car or .car.zst)
         #[arg(long)]
-        snapshot: PathBuf,
+        snapshot: Option<PathBuf>,
         /// Set the height that the VM will see
         #[arg(long)]
         vm_height: ChainEpoch,
@@ -145,7 +147,34 @@ impl StateCommands {
                 cid,
                 json,
             } => {
-                print_computed_state(config, &snapshot, vm_height, cid, json).await?;
+                if let Some(path) = snapshot {
+                    print_computed_state(config, &path, vm_height, cid, json).await?;
+                } else {
+                    let ts = if vm_height > 0 {
+                        let head = chain_head(&config.client.rpc_token)
+                            .await
+                            .map_err(handle_rpc_err)?;
+                        chain_get_tipset_by_height(
+                            (vm_height, head.0.key().clone()),
+                            &config.client.rpc_token,
+                        )
+                        .await
+                        .map_err(handle_rpc_err)?
+                    } else {
+                        // Fallback to chain head
+                        todo!()
+                    };
+
+                    let tipset_keys = ts.0.key().clone();
+                    let tsk_json = TipsetKeysJson(tipset_keys);
+
+                    let res =
+                        state_compute((vm_height, vec![], tsk_json), &config.client.rpc_token)
+                            .await
+                            .map_err(handle_rpc_err)?;
+
+                    println!("res: {:?}", res);
+                }
             }
         }
         Ok(())

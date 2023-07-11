@@ -73,6 +73,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
+    access.insert(state_api::STATE_COMPUTE, Access::Read);
     access.insert(state_api::STATE_REPLAY, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
@@ -344,6 +345,10 @@ pub mod state_api {
     pub const STATE_CALL: &str = "Filecoin.StateCall";
     pub type StateCallParams = (MessageJson, TipsetKeysJson);
     pub type StateCallResult = InvocResult;
+
+    pub const STATE_COMPUTE: &str = "Filecoin.StateCompute";
+    pub type StateComputeParams = (i64, Vec<MessageJson>, TipsetKeysJson);
+    pub type StateComputeResult = ();
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
     pub type StateReplayParams = (CidJson, TipsetKeysJson);
