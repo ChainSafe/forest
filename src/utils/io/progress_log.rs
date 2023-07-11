@@ -130,7 +130,7 @@ impl Progress {
 
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
-        if true {//(now - self.last_logged) > UPDATE_FREQUENCY {
+        if (now - self.last_logged) > UPDATE_FREQUENCY {
             let elapsed_secs = (now - self.start).as_secs_f64();
             let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
 
