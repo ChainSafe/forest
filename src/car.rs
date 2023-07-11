@@ -211,82 +211,41 @@ where
     }
 }
 
+/// **Note that all operations on this store are blocking**.
+///
+/// Similar to [`UncompressedCarV1BackedBlockstore`], this blockstore wraps a CAR file on-disk,
+/// but notably that file is [zstd compressed](http://facebook.github.io/zstd/).
+///
+/// Seeking through a compressed file is non-trivial, as to uncompress a byte at N, you must first
+/// decompress ALL preceding bytes, which precludes trivial random access.
+///
+/// However, the zstd format is frame oriented - each successive frame may be uncompressed independently.
+///
+/// It can still be practical to randomly seek through a zstd compressed file, if the zstd frames are small.
+///
+/// This blockstore also requires the zstd frames to align with the varint frames:
+/// ```text
+/// ┌────────────────────┐
+/// │zstd frame          │
+/// ├──────┬──────┬──────┤
+/// │varint│varint│varint│
+/// │frame │frame │frame │
+/// └──────┴──────┴──────┘
+/// ```
+/// [`zstd_compress_varint_manyframe`] can be used to prepare such a file.
+/// This makes our code much simpler. However, once rust support for the
+/// [zstd seekable extension format](https://github.com/facebook/zstd/blob/118200f7b95deaf38b3368cb445a564f187da1a2/contrib/seekable_format/zstd_seekable_compression_format.md)
+/// is better, this restriction could be lifted.
 pub struct CompressedCarV1BackedBlockstore<ReaderT> {
     // https://github.com/ChainSafe/forest/issues/3096
     inner: Mutex<CompressedCarV1BackedBlockstoreInner<ReaderT>>,
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("zstd frame exceeds configured max frame size")]
-pub struct MaxFrameSizeExceeded;
-
-#[derive(Debug)]
-struct CompressedBlockDataLocation {
-    zstd_frame_offset: u64,
-    location_in_frame: UncompressedBlockDataLocation,
-}
-
-/// An iterator over offsets and contents of zstd frames.
-///
-/// Note that each iteration reads an entire frame into memory, and typical zstd compressed files
-/// are single-frame.
-///
-/// As such, there is a configurable max_frame_size, which causes the iterator to return a [`Other`] error containing a [`MaxFrameSizeExceeded`] when hit.
-///
-/// After such an error, the iterator should be considered unrecoverable, and discarded.
-pub struct ZstdFrames<ReaderT> {
-    inner: ReaderT,
-    max_frame_size: u64,
-}
-
-impl<ReaderT> ZstdFrames<ReaderT> {
-    pub fn new(inner: ReaderT, max_frame_size: u64) -> Self {
-        Self {
-            inner,
-            max_frame_size,
-        }
-    }
-}
-
-impl<ReaderT> Iterator for ZstdFrames<ReaderT>
-where
-    ReaderT: BufRead + Seek,
-{
-    type Item = io::Result<(u64, std::io::Cursor<Vec<u8>>)>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut v = vec![];
-        match self.inner.stream_position().and_then(|offset| {
-            // we MUST have a BufReader here - otherwise zstd::Decoder creates an internal buffer, and its contents is lost on the next iteration
-            zstd::Decoder::with_buffer((&mut self.inner).take(self.max_frame_size))
-                .and_then(|decoder| decoder.single_frame().read_to_end(&mut v))
-                .map(|_num_bytes| offset)
-        }) {
-            Ok(offset) => Some(Ok((offset, std::io::Cursor::new(v)))),
-            Err(e) if e.kind() == UnexpectedEof && v.is_empty() => None,
-            Err(e)
-                if e.kind() == UnexpectedEof
-                    && u64::try_from(v.len()).unwrap() == self.max_frame_size =>
-            {
-                Some(Err(io::Error::new(Other, MaxFrameSizeExceeded)))
-            }
-            Err(e) => Some(Err(e)),
-        }
-    }
-}
-
-#[test]
-fn test_zstd_frames() {
-    let frames = ZstdFrames::new(
-        std::io::Cursor::new(include_bytes!("../test-snapshots/chain4.car.zst-manyframe")),
-        1_000_000_u64.next_power_of_two(),
-    )
-    .collect::<Result<Vec<_>, _>>()
-    .unwrap();
-    assert_eq!(9, frames.len());
-}
-
 impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
+    /// returns an [`Other`] error containing a [`MaxFrameSizeExceeded`] when the `reader`'s file
+    /// has frames which are too large.
+    /// See the documentation for [`Self`] for more.
+    ///
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
@@ -373,6 +332,12 @@ struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     latest_zstd_frame: Option<(u64, std::io::Cursor<Vec<u8>>)>,
     index: IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>,
     roots: Vec<Cid>,
+}
+
+#[derive(Debug)]
+struct CompressedBlockDataLocation {
+    zstd_frame_offset: u64,
+    location_in_frame: UncompressedBlockDataLocation,
 }
 
 impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
@@ -616,6 +581,70 @@ where
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("zstd frame exceeds configured max frame size")]
+pub struct MaxFrameSizeExceeded;
+
+/// An iterator over offsets and contents of zstd frames.
+///
+/// Note that each iteration reads an entire frame into memory, and typical zstd compressed files
+/// are single-frame.
+///
+/// As such, there is a configurable max_frame_size, which causes the iterator to return a [`Other`] error containing a [`MaxFrameSizeExceeded`] when hit.
+///
+/// After such an error, the iterator should be considered unrecoverable, and discarded.
+pub struct ZstdFrames<ReaderT> {
+    inner: ReaderT,
+    max_frame_size: u64,
+}
+
+impl<ReaderT> ZstdFrames<ReaderT> {
+    pub fn new(inner: ReaderT, max_frame_size: u64) -> Self {
+        Self {
+            inner,
+            max_frame_size,
+        }
+    }
+}
+
+impl<ReaderT> Iterator for ZstdFrames<ReaderT>
+where
+    ReaderT: BufRead + Seek,
+{
+    type Item = io::Result<(u64, std::io::Cursor<Vec<u8>>)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut v = vec![];
+        match self.inner.stream_position().and_then(|offset| {
+            // we MUST have a BufReader here - otherwise zstd::Decoder creates an internal buffer, and its contents is lost on the next iteration
+            zstd::Decoder::with_buffer((&mut self.inner).take(self.max_frame_size))
+                .and_then(|decoder| decoder.single_frame().read_to_end(&mut v))
+                .map(|_num_bytes| offset)
+        }) {
+            Ok(offset) => Some(Ok((offset, std::io::Cursor::new(v)))),
+            Err(e) if e.kind() == UnexpectedEof && v.is_empty() => None,
+            Err(e)
+                if e.kind() == UnexpectedEof
+                    && u64::try_from(v.len()).unwrap() == self.max_frame_size =>
+            {
+                Some(Err(io::Error::new(Other, MaxFrameSizeExceeded)))
+            }
+            Err(e) => Some(Err(e)),
+        }
+    }
+}
+
+#[test]
+fn test_zstd_frames() {
+    let frames = ZstdFrames::new(
+        std::io::Cursor::new(include_bytes!("../test-snapshots/chain4.car.zst-manyframe")),
+        1_000_000_u64.next_power_of_two(),
+    )
+    .collect::<Result<Vec<_>, _>>()
+    .unwrap();
+    assert_eq!(9, frames.len());
+}
+
 /// `reader` reads uncompressed [varint frames](index.html#varint-frames).
 ///
 /// This function repeatedly takes a group of successive varint frames from `reader`,
@@ -756,6 +785,7 @@ mod tests {
         include_bytes!("../test-snapshots/chain4.car")
     }
 
+    /// Don't clutter our repository with test .car files - just create one in-memory
     fn chain4_car_zstd_manyframe() -> Vec<u8> {
         let mut zstd_multiframe = vec![];
 
