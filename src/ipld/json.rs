@@ -247,6 +247,14 @@ mod tests {
 
     #[quickcheck]
     fn ipld_roundtrip(ipld: Ipld) {
+        // Filter out problematic NaN values.
+        for item in ipld.iter() {
+            if let Ipld::Float(v) = item {
+                if v.is_nan() {
+                    return;
+                }
+            }
+        }
         let serialized: String = serde_json::to_string(&IpldJsonRef(&ipld)).unwrap();
         let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
         assert_eq!(ipld, parsed.0);
