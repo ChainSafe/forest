@@ -143,7 +143,7 @@ impl Provider for TestApi {
             }
             sequence += 1;
         }
-        let actor = <ActorState as crate::shim::Inner>::FVM::new(
+        let actor = ActorState::new(
             // Account Actor code (v10, calibnet)
             Cid::try_from("bafk2bzacebhfuz3sv7duvk653544xsxhdn4lsmy7ol7k6gdgancyctvmd7lnq")
                 .unwrap(),
@@ -153,7 +153,7 @@ impl Provider for TestApi {
             None,
         );
 
-        Ok(actor.into())
+        Ok(actor)
     }
 
     fn messages_for_block(

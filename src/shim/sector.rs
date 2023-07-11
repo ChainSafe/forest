@@ -1,15 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::{version::NetworkVersion, Inner};
+use crate::shim::{version::NetworkVersion};
 use fvm_shared2::sector::{
     RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
     SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
 };
 use fvm_shared3::sector::{
-    PoStProof as PoStProofV3, RegisteredPoStProof as RegisteredPoStProofV3,
-    RegisteredSealProof as RegisteredSealProofV3, SectorInfo as SectorInfoV3,
-    SectorSize as SectorSizeV3,
+    PoStProof as PoStProofV3, SectorInfo as SectorInfoV3, SectorSize as SectorSizeV3,
+};
+pub use fvm_shared3::sector::{
+    RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
 };
 use std::ops::Deref;
 
@@ -50,10 +51,6 @@ impl From<RegisteredSealProofV3> for RegisteredSealProof {
     fn from(value: RegisteredSealProofV3) -> Self {
         RegisteredSealProof(value)
     }
-}
-
-impl crate::shim::Inner for RegisteredSealProof {
-    type FVM = RegisteredSealProofV3;
 }
 
 impl Deref for RegisteredSealProof {
@@ -146,10 +143,6 @@ impl From<i64> for RegisteredPoStProof {
     fn from(value: i64) -> Self {
         RegisteredPoStProof(RegisteredPoStProofV3::from(value))
     }
-}
-
-impl Inner for RegisteredPoStProof {
-    type FVM = RegisteredPoStProofV3;
 }
 
 impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
@@ -279,8 +272,7 @@ mod tests {
         let orig_sector_size = fvm_shared3::sector::SectorSize::_2KiB;
         let orig_json_repr = serde_json::to_string(&orig_sector_size).unwrap();
 
-        let shimmed_sector_size =
-            crate::shim::sector::SectorSize::_2KiB;
+        let shimmed_sector_size = crate::shim::sector::SectorSize::_2KiB;
         let shimmed_json_repr = serde_json::to_string(&shimmed_sector_size).unwrap();
 
         assert_eq!(orig_json_repr, shimmed_json_repr);
