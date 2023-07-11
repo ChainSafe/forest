@@ -20,6 +20,10 @@
 //!   other archives. These archives are much smaller but can rarely be used on
 //!   their own. They are typically merged with other archives before use.
 //!
+//! The subcommands in this module manipulate archive files without needing a
+//! running Forest-daemon or a separate database. Operations are carried out
+//! directly on CAR files.
+//!
 //! Additional reading:
 //!     <https://github.com/ChainSafe/forest/blob/main/documentation/src/developer_documentation/filecoin_archive.md>
 //!     [`CarBackedBlockstore`]
