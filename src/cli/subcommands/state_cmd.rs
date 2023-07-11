@@ -115,7 +115,7 @@ async fn print_computed_state(
     };
 
     let tsk = TipsetKeys::new(cids);
-    println!("Found heaviest tipset! {}", tsk);
+    //println!("Found heaviest tipset! {}", tsk);
 
     let ts = sm.chain_store().tipset_from_keys(&tsk)?;
 
@@ -123,12 +123,8 @@ async fn print_computed_state(
         .tipset_by_height(vm_height.into(), ts, false)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
-    println!("Replaying message...");
-
-    let (msg, ret) = sm.replay(&tipset, mcid).await?;
-
-    println!("msg:\n{:?}", msg);
-    println!("ret:\n{:?}", ret);
+    let (st, _) = sm.tipset_state(&tipset).await?;
+    println!("computed state cid: {}", st);
 
     Ok(())
 }
