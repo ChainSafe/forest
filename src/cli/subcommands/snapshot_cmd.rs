@@ -7,13 +7,16 @@ use crate::car_backed_blockstore::CarBackedBlockstore;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::cli_shared::chain_path;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
+use crate::state_manager::StateManager;
+use crate::fil_cns::composition as cns;
 use crate::shim::clock::ChainEpoch;
-use crate::utils::io::ProgressBar;
+use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
 use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
@@ -51,6 +54,10 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
+        /// Validate snapshot at given EPOCH, use a negative value -N to validate
+        /// the last N EPOCH(s) starting at HEAD.
+        #[arg(long)]
+        validate_tipsets: Option<i64>,
         /// Path to an uncompressed snapshot (CAR)
         snapshot: PathBuf,
     },
@@ -141,8 +148,65 @@ impl SnapshotCommands {
             }
             Self::Validate {
                 recent_stateroots,
+                validate_tipsets,
                 snapshot,
-            } => validate(&config, recent_stateroots, snapshot).await,
+            } => {
+                // Check for any broken links in the snapshot
+                match validate(&config, recent_stateroots, snapshot).await {
+                    Ok(_) => println!("No Broken links encountered"),
+                    Err(error) => println!("Error: {}", error),
+                }
+                // Validate snapshot
+                if let Some(validate_from) = *validate_tipsets {
+                    let store = Arc::new(
+                        CarBackedBlockstore::new(std::fs::File::open(snapshot)?)
+                            .context("couldn't read input CAR file - is it compressed?")?,
+                    );
+                    // Init genesis header from genesis file
+                    let genesis_header = read_genesis_header(
+                        config.client.genesis_file.as_ref(),
+                        config.chain.genesis_bytes(),
+                        &store,
+                    )
+                    .await?;
+                    let chain_data_path = chain_path(&config);
+                    // Initialize ChainStore
+                    let chain_store = Arc::new(ChainStore::new(
+                        store,
+                        config.chain.clone(),
+                        &genesis_header,
+                        chain_data_path.as_path(),
+                    )?);
+                    // Sets proof parameter file download path early, the files will be checked and
+                    // downloaded later right after snapshot import step
+                    if cns::FETCH_PARAMS {
+                        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+                            &config.client.data_dir,
+                        );
+                    }
+                    let reward_calc = cns::reward_calc();
+                    // Initialize StateManager
+                    let state_manager = Arc::new(StateManager::new(
+                        Arc::clone(&chain_store),
+                        Arc::clone(&config.chain),
+                        reward_calc,
+                    )?);
+                    // We've been provided a snapshot and asked to validate it
+                    ensure_params_downloaded().await?;
+                    // Use the specified HEAD, otherwise take the current HEAD.
+                    let current_height = config
+                        .client
+                        .snapshot_head
+                        .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
+                    assert!(current_height.is_positive());
+                    match validate_from.is_negative() {
+                        // allow --height=-1000 to scroll back from the current head
+                        true => state_manager.validate((current_height + validate_from)..=current_height)?,
+                        false => state_manager.validate(validate_from..=current_height)?,
+                    };
+                }
+                Ok(())
+            }
         }
     }
 }
