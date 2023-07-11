@@ -4,11 +4,11 @@ use std::ops::{Deref, DerefMut};
 
 use anyhow::{bail, Context};
 use cid::Cid;
-use fvm::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
+use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
-use fvm_shared::state::StateTreeVersion as StateTreeVersionV2;
+use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
 use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
 pub use fvm_shared3::ActorID;
 use num::FromPrimitive;
@@ -164,7 +164,7 @@ where
     {
         match self {
             StateTree::V2(st) => {
-                let inner = |address: fvm_shared::address::Address, actor_state: &ActorStateV2| {
+                let inner = |address: fvm_shared2::address::Address, actor_state: &ActorStateV2| {
                     f(address.into(), &actor_state.into())
                 };
                 st.for_each(inner)
@@ -211,8 +211,8 @@ where
 /// use cid::Cid;
 ///
 /// // Create FVM2 ActorState normally
-/// let fvm2_actor_state = fvm::state_tree::ActorState::new(Cid::default(), Cid::default(),
-/// fvm_shared::econ::TokenAmount::from_atto(42), 0);
+/// let fvm2_actor_state = fvm2::state_tree::ActorState::new(Cid::default(), Cid::default(),
+/// fvm_shared2::econ::TokenAmount::from_atto(42), 0);
 ///
 /// // Create a correspndoning FVM3 ActorState
 /// let fvm3_actor_state = fvm3::state_tree::ActorState::new(Cid::default(), Cid::default(),

@@ -21,7 +21,7 @@ use ahash::HashSet;
 use anyhow::bail;
 use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
-use fvm::{
+use fvm2::{
     executor::{DefaultExecutor, Executor},
     machine::{DefaultMachine, Machine, NetworkConfig},
 };
@@ -34,7 +34,7 @@ use fvm3::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
-use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
+use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
 
 use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
@@ -44,7 +44,7 @@ pub(in crate::interpreter) type ForestMachineV3<DB> = DefaultMachine_v3<DB, Fore
 
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
-    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>;
+    fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachine<DB>>>;
 
 type ForestKernelV3<DB> =
     fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
@@ -153,8 +153,8 @@ where
             let mut context = config.for_epoch(epoch, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: fvm::machine::DefaultMachine<DB, ForestExternsV2<DB>> =
-                fvm::machine::DefaultMachine::new(
+            let fvm: fvm2::machine::DefaultMachine<DB, ForestExternsV2<DB>> =
+                fvm2::machine::DefaultMachine::new(
                     &engine,
                     &context,
                     store.clone(),
@@ -320,7 +320,7 @@ where
             VM::VM2 { fvm_executor, .. } => {
                 let ret = fvm_executor.execute_message(
                     msg.into(),
-                    fvm::executor::ApplyKind::Implicit,
+                    fvm2::executor::ApplyKind::Implicit,
                     raw_length,
                 )?;
                 Ok(ret.into())
@@ -349,7 +349,7 @@ where
             VM::VM2 { fvm_executor, .. } => {
                 let ret = fvm_executor.execute_message(
                     unsigned.into(),
-                    fvm::executor::ApplyKind::Explicit,
+                    fvm2::executor::ApplyKind::Explicit,
                     raw_length,
                 )?;
 

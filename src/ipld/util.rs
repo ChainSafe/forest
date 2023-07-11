@@ -44,7 +44,7 @@ where
         }
         &Ipld::Link(cid) => {
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
-            if cid.codec() == fvm_shared::IPLD_RAW {
+            if cid.codec() == crate::shim::crypto::IPLD_RAW {
                 if !walked.insert(cid) {
                     return Ok(());
                 }
@@ -190,7 +190,7 @@ fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     } else {
         matches!(
             cid.codec(),
-            fvm_shared::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
+            crate::shim::crypto::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
         )
     }
 }

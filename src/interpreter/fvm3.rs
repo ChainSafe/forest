@@ -8,7 +8,8 @@ use crate::blocks::BlockHeader;
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
 use crate::shim::{
-    gas::price_list_by_network_version, state_tree::StateTree, version::NetworkVersion,
+    address::Address, gas::price_list_by_network_version, state_tree::StateTree,
+    version::NetworkVersion,
 };
 use anyhow::bail;
 use cid::Cid;
@@ -21,8 +22,10 @@ use fvm_ipld_blockstore::{
     Blockstore,
 };
 use fvm_ipld_encoding::from_slice;
-use fvm_shared::{address::Address, clock::ChainEpoch};
-use fvm_shared3::consensus::{ConsensusFault, ConsensusFaultType};
+use fvm_shared3::{
+    clock::ChainEpoch,
+    consensus::{ConsensusFault, ConsensusFaultType},
+};
 use tracing::error;
 
 use crate::interpreter::resolve_to_key_addr;
@@ -77,30 +80,30 @@ impl<DB: Blockstore> ForestExterns<DB> {
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
-            .get_actor(&miner_addr.into())?
+            .get_actor(miner_addr)?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tbs = TrackingBlockstore::new(&self.db);
 
         let ms = fil_actor_interface::miner::State::load(&tbs, actor.code, actor.state)?;
 
-        let worker = ms.info(&tbs)?.worker;
+        let worker = ms.info(&tbs)?.worker.into();
 
         let state = StateTree::new_from_root(&self.db, &self.root)?;
 
-        let addr = resolve_to_key_addr(&state, &tbs, &worker.into())?;
+        let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
         let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;
 
-        Ok((addr.into(), gas_used.round_up() as i64))
+        Ok((addr, gas_used.round_up() as i64))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64, Error> {
         let (worker_addr, gas_used) =
-            self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch())?;
+            self.worker_key_at_lookback(bh.miner_address(), bh.epoch())?;
 
-        bh.check_block_signature(&worker_addr.into())?;
+        bh.check_block_signature(&worker_addr)?;
 
         Ok(gas_used)
     }

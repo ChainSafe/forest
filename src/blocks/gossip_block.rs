@@ -17,17 +17,10 @@ pub struct GossipBlock {
 #[cfg(test)]
 impl quickcheck::Arbitrary for GossipBlock {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        use crate::blocks::ArbitraryCid;
-        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-        let bls_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-
-        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-        let secp_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-
         Self {
             header: BlockHeader::arbitrary(g),
-            bls_messages: bls_cids,
-            secpk_messages: secp_cids,
+            bls_messages: Vec::arbitrary(g),
+            secpk_messages: Vec::arbitrary(g),
         }
     }
 }
