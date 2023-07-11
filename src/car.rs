@@ -634,17 +634,6 @@ where
     }
 }
 
-#[test]
-fn test_zstd_frames() {
-    let frames = ZstdFrames::new(
-        std::io::Cursor::new(include_bytes!("../test-snapshots/chain4.car.zst-manyframe")),
-        1_000_000_u64.next_power_of_two(),
-    )
-    .collect::<Result<Vec<_>, _>>()
-    .unwrap();
-    assert_eq!(9, frames.len());
-}
-
 /// `reader` reads uncompressed [varint frames](index.html#varint-frames).
 ///
 /// This function repeatedly takes a group of successive varint frames from `reader`,
@@ -726,7 +715,7 @@ mod tests {
 
     use super::{
         zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
-        UncompressedCarV1BackedBlockstore,
+        UncompressedCarV1BackedBlockstore, ZstdFrames,
     };
 
     use futures::executor::block_on;
@@ -799,6 +788,17 @@ mod tests {
         assert_eq!(9, num_zstd_frames);
 
         zstd_multiframe
+    }
+
+    #[test]
+    fn test_zstd_frames() {
+        let frames = ZstdFrames::new(
+            std::io::Cursor::new(chain4_car_zstd_manyframe()),
+            1_000_000_u64.next_power_of_two(),
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+        assert_eq!(9, frames.len());
     }
 
     #[test]
