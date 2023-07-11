@@ -6,16 +6,17 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::CarBackedBlockstore;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
-use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::cli_shared::chain_path;
+use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::db::db_engine::{db_root, open_proxy_db};
+use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
-use crate::state_manager::StateManager;
-use crate::fil_cns::composition as cns;
 use crate::shim::clock::ChainEpoch;
+use crate::state_manager::StateManager;
 use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
 use anyhow::{bail, Context as _};
 use chrono::Utc;
@@ -158,31 +159,28 @@ impl SnapshotCommands {
                 }
                 // Validate snapshot
                 if let Some(validate_from) = *validate_tipsets {
-                    let store = Arc::new(
-                        CarBackedBlockstore::new(std::fs::File::open(snapshot)?)
-                            .context("couldn't read input CAR file - is it compressed?")?,
-                    );
+                    let chain_data_path = chain_path(&config);
+                    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
                     // Init genesis header from genesis file
                     let genesis_header = read_genesis_header(
                         config.client.genesis_file.as_ref(),
                         config.chain.genesis_bytes(),
-                        &store,
+                        &db,
                     )
                     .await?;
-                    let chain_data_path = chain_path(&config);
+
                     // Initialize ChainStore
                     let chain_store = Arc::new(ChainStore::new(
-                        store,
+                        db,
                         config.chain.clone(),
                         &genesis_header,
                         chain_data_path.as_path(),
                     )?);
-                    // Sets proof parameter file download path early, the files will be checked and
-                    // downloaded later right after snapshot import step
-                    if cns::FETCH_PARAMS {
-                        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-                            &config.client.data_dir,
-                        );
+                    // Fetch proof parameters if not available
+                    if let Err(_) = ensure_params_downloaded().await {
+                        if cns::FETCH_PARAMS {
+                            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+                        }
                     }
                     let reward_calc = cns::reward_calc();
                     // Initialize StateManager
@@ -191,8 +189,6 @@ impl SnapshotCommands {
                         Arc::clone(&config.chain),
                         reward_calc,
                     )?);
-                    // We've been provided a snapshot and asked to validate it
-                    ensure_params_downloaded().await?;
                     // Use the specified HEAD, otherwise take the current HEAD.
                     let current_height = config
                         .client
@@ -201,7 +197,8 @@ impl SnapshotCommands {
                     assert!(current_height.is_positive());
                     match validate_from.is_negative() {
                         // allow --height=-1000 to scroll back from the current head
-                        true => state_manager.validate((current_height + validate_from)..=current_height)?,
+                        true => state_manager
+                            .validate((current_height + validate_from)..=current_height)?,
                         false => state_manager.validate(validate_from..=current_height)?,
                     };
                 }
