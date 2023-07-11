@@ -18,6 +18,7 @@ mod net_cmd;
 pub mod send_cmd;
 mod shutdown_cmd;
 mod snapshot_cmd;
+mod archive_cmd;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -39,7 +40,7 @@ pub(super) use self::{
     config_cmd::ConfigCommands, db_cmd::DBCommands, fetch_params_cmd::FetchCommands,
     mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
     shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    sync_cmd::SyncCommands, wallet_cmd::WalletCommands, archive_cmd::ArchiveCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -96,6 +97,10 @@ pub enum Subcommand {
     /// Manage snapshots
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
+
+    /// Manage archives
+    #[command(subcommand)]
+    Archive(ArchiveCommands),
 
     /// Send funds between accounts
     Send(SendCommand),
