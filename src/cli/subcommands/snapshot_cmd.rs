@@ -182,7 +182,7 @@ impl SnapshotCommands {
                             chain_data_path.as_path(),
                         )?);
                         // Fetch proof parameters if not available
-                        if let Err(_) = ensure_params_downloaded().await {
+                        if ensure_params_downloaded().await.is_err() {
                             if cns::FETCH_PARAMS {
                                 crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
                             }
