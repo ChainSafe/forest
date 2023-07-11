@@ -7,20 +7,20 @@
 //! graph and references to missing keys are common.
 //!
 //! Each graph contains blocks, messages, state trees, and miscellaneous data
-//! such as compiled WASM code. The amount of data differs greatly in different
+//! such as compiled `WASM` code. The amount of data differs greatly in different
 //! kinds of archives. While there are no fixed definitions, there are three
 //! common kind of archives:
 //!   A full archive contains a complete graph with no missing nodes. These
-//!   archives are large (14TiB for Filecoin's mainnet) and only used in special
+//!   archives are large (14 TiB for Filecoin's mainnet) and only used in special
 //!   situations.
-//!   A lite-archive typically has ~3 million blocks, 2000 complete sets of
+//!   A lite-archive typically has roughly 3 million blocks, 2000 complete sets of
 //!   state-roots, and 2000 sets of messages. These archives usually take up
-//!   ~100GiB.
+//!   roughly 100 GiB.
 //!   A diff-archive contains the subset of nodes that are _not_ shared by two
 //!   other archives. These archives are much smaller but can rarely be used on
 //!   their own. They are typically merged with other archives before use.
 //!
-//! The subcommands in this module manipulate archive files without needing a
+//! The sub-commands in this module manipulate archive files without needing a
 //! running Forest-daemon or a separate database. Operations are carried out
 //! directly on CAR files.
 //!
