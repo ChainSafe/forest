@@ -18,6 +18,7 @@ use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
+use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::{
     address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
@@ -28,8 +29,7 @@ use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
-use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
+use fvm_ipld_encoding::to_vec;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -1455,7 +1455,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
                          tree: &StateTree<&DB>|
      -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
-        let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
+        let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::fmt::{Debug, Display};
 
-use fvm::gas::{
+use fvm2::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
 };

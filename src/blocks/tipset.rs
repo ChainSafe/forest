@@ -5,9 +5,9 @@ use std::fmt;
 
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -42,7 +42,7 @@ impl TipsetKeys {
         for cid in self.cids() {
             bytes.append(&mut cid.to_bytes())
         }
-        Ok(RawBytes::new(bytes).cid()?)
+        Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
 }
 
@@ -57,8 +57,6 @@ impl fmt::Display for TipsetKeys {
         write!(f, "[{}]", s)
     }
 }
-
-impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
@@ -102,7 +100,6 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -111,13 +108,12 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
-    use crate::blocks::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-            let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-            Self { cids }
+            Self {
+                cids: Vec::arbitrary(g),
+            }
         }
     }
 

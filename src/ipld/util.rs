@@ -14,7 +14,7 @@ use std::{
 use crate::blocks::{BlockHeader, Tipset};
 use crate::utils::io::{progress_bar, ProgressBar};
 use cid::Cid;
-use fvm_ipld_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
 
 use crate::ipld::{CidHashSet, Ipld};
@@ -45,7 +45,7 @@ where
         }
         &Ipld::Link(cid) => {
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
-            if cid.codec() == fvm_shared::IPLD_RAW {
+            if cid.codec() == crate::shim::crypto::IPLD_RAW {
                 if !walked.insert(cid) {
                     return Ok(());
                 }
@@ -155,7 +155,7 @@ where
         }
 
         let data = load_block(next).await?;
-        let h = BlockHeader::unmarshal_cbor(&data)?;
+        let h = from_slice::<BlockHeader>(&data)?;
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
@@ -193,7 +193,7 @@ fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     } else {
         matches!(
             cid.codec(),
-            fvm_shared::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
+            crate::shim::crypto::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
         )
     }
 }
