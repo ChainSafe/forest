@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::tipset_keys_json::TipsetKeysJson;
+use crate::blocks::TipsetKeys;
+use crate::car_backed_blockstore::{read_header, CarBackedBlockstore};
 use crate::chain::ChainStore;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
-use crate::db::utils::parity::TempParityDB;
-use crate::genesis::{import_chain, read_genesis_header};
+use crate::genesis::read_genesis_header;
 use crate::json::cid::CidJson;
 use crate::rpc_client::chain_ops::{chain_get_tipset_by_height, chain_head};
 use crate::rpc_client::state_ops::{state_compute, state_fetch_root};
@@ -19,6 +20,7 @@ use clap::Subcommand;
 use fvm_shared::econ::TokenAmount;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use std::{path::Path, path::PathBuf, sync::Arc};
+use tempfile::TempDir;
 
 use super::handle_rpc_err;
 use super::Config;
@@ -73,26 +75,31 @@ async fn print_computed_state(
 ) -> anyhow::Result<()> {
     println!("Computing state @{}", vm_height);
 
-    let temp = TempParityDB::new();
-
     println!("Network: {}", config.chain.network);
 
-    // TODO: maybe check if there is a mismatch between snapshot and network
+    let temp_dir = TempDir::new()?;
+    println!("Using temp dir: {:?}", temp_dir.path());
+
+    // Initialize CarBackedBlockstore
+    let reader = std::fs::File::open(snapshot)?;
+    let store = Arc::new(
+        CarBackedBlockstore::new(reader)
+            .context("couldn't read input CAR file - is it compressed?")?,
+    );
+
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
-        &temp.db,
+        &store,
     )
     .await?;
 
-    println!("Using temp path: {:?}", temp.dir.path());
-
     // Initialize ChainStore
     let cs = Arc::new(ChainStore::new(
-        temp.db,
+        store,
         config.chain.clone(),
         &genesis_header,
-        temp.dir.path(),
+        TempDir::new()?.path(),
     )?);
 
     // Initialize StateManager
@@ -101,12 +108,20 @@ async fn print_computed_state(
         config.chain,
         Arc::new(crate::interpreter::RewardActorMessageCalc),
     )?);
-    import_chain::<_>(&sm, snapshot.to_str().unwrap(), false).await?;
 
-    let heaviest = cs.heaviest_tipset();
+    let cids = {
+        let reader = std::fs::File::open(snapshot)?;
+        let header = read_header(reader)?;
+        header.roots
+    };
+
+    let tsk = TipsetKeys::new(cids);
+    println!("Found heaviest tipset! {}", tsk);
+
+    let ts = sm.chain_store().tipset_from_keys(&tsk)?;
 
     let tipset = cs
-        .tipset_by_height(vm_height.into(), heaviest, false)
+        .tipset_by_height(vm_height.into(), ts, false)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
     println!("Replaying message...");

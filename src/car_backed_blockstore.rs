@@ -222,7 +222,7 @@ where
 }
 
 #[tracing::instrument(level = "trace", skip_all, ret, err)]
-fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
+pub fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
     let header_len = read_u32_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
