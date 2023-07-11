@@ -148,7 +148,7 @@ impl Provider for TestApi {
             Cid::try_from("bafk2bzacebhfuz3sv7duvk653544xsxhdn4lsmy7ol7k6gdgancyctvmd7lnq")
                 .unwrap(),
             Cid::default(),
-            balance.into(),
+            balance,
             sequence,
             None,
         );
