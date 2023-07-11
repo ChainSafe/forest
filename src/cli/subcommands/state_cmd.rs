@@ -79,6 +79,7 @@ async fn print_computed_state(
     println!("Using temp dir: {:?}", temp_dir.path());
 
     // Initialize CarBackedBlockstore
+    println!("Loading snapshot...");
     let reader = std::fs::File::open(snapshot)?;
     let store = Arc::new(
         CarBackedBlockstore::new(reader)
