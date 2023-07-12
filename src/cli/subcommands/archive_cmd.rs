@@ -310,8 +310,8 @@ mod tests {
         let info =
             ArchiveInfo::from_reader_with(std::io::Cursor::new(calibnet::DEFAULT_GENESIS), false)
                 .unwrap();
-        assert!(info.network == "calibnet");
-        assert!(info.epoch == 0);
+        assert_eq!(info.network, "calibnet");
+        assert_eq!(info.epoch, 0);
     }
 
     #[test]
@@ -319,7 +319,7 @@ mod tests {
         let info =
             ArchiveInfo::from_reader_with(std::io::Cursor::new(mainnet::DEFAULT_GENESIS), false)
                 .unwrap();
-        assert!(info.network == "mainnet");
-        assert!(info.epoch == 0);
+        assert_eq!(info.network, "mainnet");
+        assert_eq!(info.epoch, 0);
     }
 }
