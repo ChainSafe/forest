@@ -76,7 +76,7 @@ pub enum ArchiveCommands {
         /// to be `900`. If this ever changes - the actual value is specified in the error message
         /// that is thrown in case `depth` value is too low.
         /// This parameter is optional due to the fact that we need to fetch the exact default
-        /// dynamically from a config.
+        /// dynamically from configuration.
         // TODO: Investigate if we can have a dynamic default here somehow.
         #[arg(short)]
         depth: Option<ChainEpoch>,
