@@ -32,7 +32,7 @@
 - [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
   `forest-cli archive info` command for inspecting archives.
 - [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
-  `forest-cli archive export -=X` command for exporting archives.
+  `forest-cli archive export -e=X` command for exporting archives.
 
 ### Changed
 
