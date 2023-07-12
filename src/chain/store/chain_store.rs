@@ -56,6 +56,10 @@ const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
+/// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
+/// while maintaining the same type.
+pub type ChainEpochDelta = ChainEpoch;
+
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
 #[derive(Clone, Debug)]
