@@ -380,8 +380,8 @@ pub mod state_tree_v0 {
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
     // use crate::shim::hamtv0::Hamt;
-    use fvm_ipld_hamt::Hamtv0 as Hamt;
     use crate::shim::hamtv0::DEFAULT_BIT_WIDTH;
+    use fvm_ipld_hamt::Hamtv0 as Hamt;
 
     /// State of all actor implementations.
     #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -459,8 +459,8 @@ pub mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let hamt: Hamt<S, ActorState> =
-                        Hamt::load_with_bit_width(&actors, store, DEFAULT_BIT_WIDTH)?;
+                    let hamt =
+                        Hamt::load_with_bit_width(&actors, store, DEFAULT_BIT_WIDTH).unwrap();
 
                     Ok(Self {
                         hamt,
