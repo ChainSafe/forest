@@ -158,53 +158,15 @@ impl SnapshotCommands {
                         // Check for any broken links in the snapshot provided
                         match validate(&config, recent_stateroots, path).await {
                             Ok(_) => println!("No Broken links encountered"),
-                            Err(error) => println!("Error: {}", error),
+                            Err(error) => println!("Validation Failed: {}", error),
                         }
                     }
                     (None, Some(validate_from)) => {
-                        // Get DB path
-                        let chain_data_path = chain_path(&config);
-                        let db =
-                            open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
-                        // Init genesis header from genesis file
-                        let genesis_header = read_genesis_header(
-                            config.client.genesis_file.as_ref(),
-                            config.chain.genesis_bytes(),
-                            &db,
-                        )
-                        .await?;
-
-                        // Initialize ChainStore
-                        let chain_store = Arc::new(ChainStore::new(
-                            db,
-                            config.chain.clone(),
-                            &genesis_header,
-                            chain_data_path.as_path(),
-                        )?);
-                        // Fetch proof parameters if not available
-                        if ensure_params_downloaded().await.is_err() && cns::FETCH_PARAMS {
-                            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+                        // Check for any broken links in the snapshot provided
+                        match validate_tipset_range(&config, validate_from).await {
+                            Ok(_) => println!("Validation successful"),
+                            Err(error) => println!("Validation Failed: {}", error),
                         }
-                        // Initialize StateManager
-                        let state_manager = Arc::new(StateManager::new(
-                            Arc::clone(&chain_store),
-                            Arc::clone(&config.chain),
-                            cns::reward_calc(),
-                        )?);
-                        // Use the specified HEAD, otherwise take the current HEAD.
-                        let current_height = config
-                            .client
-                            .snapshot_head
-                            .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-                        if !current_height.is_positive() {
-                            bail!("DB is empty, Import a new snapshot to validate.")
-                        }
-                        match validate_from.is_negative() {
-                            // allow --height=-1000 to scroll back from the current head
-                            true => state_manager
-                                .validate((current_height + validate_from)..=current_height)?,
-                            false => state_manager.validate(validate_from..=current_height)?,
-                        };
                     }
                     (Some(_), Some(_)) => {
                         println!("Error: Please select only one option for validation.");
@@ -327,4 +289,50 @@ where
     println!("Snapshot is valid");
 
     Ok(())
+}
+
+async fn validate_tipset_range(config: &Config, validate_from: i64) -> anyhow::Result<()> {
+    // Get DB path
+    let chain_data_path = chain_path(config);
+    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
+    // Init genesis header from genesis file
+    let genesis_header = read_genesis_header(
+        config.client.genesis_file.as_ref(),
+        config.chain.genesis_bytes(),
+        &db,
+    )
+    .await?;
+
+    // Initialize ChainStore
+    let chain_store = Arc::new(ChainStore::new(
+        db,
+        config.chain.clone(),
+        &genesis_header,
+        chain_data_path.as_path(),
+    )?);
+    // Fetch proof parameters if not available
+    if ensure_params_downloaded().await.is_err() && cns::FETCH_PARAMS {
+        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+            &config.client.data_dir,
+        );
+    }
+    // Initialize StateManager
+    let state_manager = Arc::new(StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&config.chain),
+        cns::reward_calc(),
+    )?);
+    // Use the specified HEAD, otherwise take the current HEAD.
+    let current_height = config
+        .client
+        .snapshot_head
+        .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
+    if !current_height.is_positive() {
+        bail!("DB is empty, Import a new snapshot to validate.")
+    }
+    match validate_from.is_negative() {
+        // allow --height=-1000 to scroll back from the current head
+        true => state_manager.validate((current_height + validate_from)..=current_height),
+        false => state_manager.validate(validate_from..=current_height),
+    }
 }
