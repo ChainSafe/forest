@@ -73,7 +73,6 @@ lint-clippy:
 
 	# add-on features
 	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings
-	cargo clippy --features=instrumented_kernel --quiet --no-deps -- --deny=warnings
 
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)

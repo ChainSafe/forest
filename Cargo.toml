@@ -152,7 +152,6 @@ slotmap = "1.0"
 smart-default = "0.7.1"
 static_assertions = "1.1.0"
 statrs = "0.16"
-stdext = { version = "0.3", optional = true }
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
 tap = "1"
@@ -218,10 +217,9 @@ overflow-checks = true
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc"]
-instrumented_kernel = ["dep:stdext"]
 insecure_post = []
-doctest-private = []                 # see lib.rs::doctest_private
-benchmark-private = []               # see lib.rs::benchmark_private
+doctest-private = []   # see lib.rs::doctest_private
+benchmark-private = [] # see lib.rs::benchmark_private
 
 # Allocator
 rustalloc = []
