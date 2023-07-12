@@ -161,10 +161,16 @@ impl SnapshotCommands {
             } => {
                 // this is all blocking...
                 use std::fs::File;
-                let (roots, store) = match CompressedCarV1BackedBlockstore::new(BufReader::new(
-                    File::open(snapshot)?,
-                )) {
-                    Ok(bs) => (bs.roots(), DynBlockstore::new(bs)),
+                match CompressedCarV1BackedBlockstore::new(BufReader::new(File::open(snapshot)?)) {
+                    Ok(store) => {
+                        validate_with_blockstore(
+                            &config,
+                            store.roots(),
+                            Arc::new(store),
+                            recent_stateroots,
+                        )
+                        .await
+                    }
                     Err(error)
                         if error.kind() == std::io::ErrorKind::Other
                             && error.get_ref().is_some_and(|inner| {
@@ -175,11 +181,16 @@ impl SnapshotCommands {
                     }
                     Err(error) => {
                         info!(%error, "file may be uncompressed, retrying as a plain CAR...");
-                        let bs = UncompressedCarV1BackedBlockstore::new(File::open(snapshot)?)?;
-                        (bs.roots(), DynBlockstore::new(bs))
+                        let store = UncompressedCarV1BackedBlockstore::new(File::open(snapshot)?)?;
+                        validate_with_blockstore(
+                            &config,
+                            store.roots(),
+                            Arc::new(store),
+                            recent_stateroots,
+                        )
+                        .await
                     }
-                };
-                validate_with_blockstore(&config, roots, Arc::new(store), recent_stateroots).await
+                }
             }
             Self::Compress {
                 source,
@@ -332,26 +343,4 @@ where
     println!("Snapshot is valid");
 
     Ok(())
-}
-
-// https://github.com/ChainSafe/forest/issues/2676
-pub struct DynBlockstore(Box<dyn Blockstore + Send + Sync>);
-impl DynBlockstore {
-    pub fn new(blockstore: impl Blockstore + Send + Sync + 'static) -> Self {
-        Self(Box::new(blockstore))
-    }
-}
-impl Blockstore for DynBlockstore {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.0.get(k)
-    }
-
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.0.put_keyed(k, block)
-    }
-
-    fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        self.0.has(k)
-    }
-    // The rest of the Blockstore methods trade caller convenience for object safety...
 }
