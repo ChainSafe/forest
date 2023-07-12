@@ -23,7 +23,7 @@ const SKIP_LENGTH: ChainEpoch = 20;
 
 // This module helps speed up boot times for forest by checkpointing previously
 // seen tipsets from snapshots.
-pub(super) mod checkpoint_tipsets {
+pub mod checkpoint_tipsets {
     use std::str::FromStr;
 
     use crate::blocks::{Tipset, TipsetKeys};
@@ -51,7 +51,7 @@ pub(super) mod checkpoint_tipsets {
 
     type GenesisTipsetCids = TipsetKeys;
 
-    pub(super) fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
+    pub fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
         let key = tipset_hash(tsk);
         if KNOWN_CHECKPOINTS.mainnet.contains(&key) {
             return Some(TipsetKeys::new(vec![Cid::from_str(

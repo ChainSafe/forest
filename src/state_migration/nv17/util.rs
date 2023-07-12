@@ -69,7 +69,7 @@ mod tests {
     use super::*;
     use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
-    use fvm_shared::{
+    use fvm_shared2::{
         bigint::Zero,
         commcid::{FIL_COMMITMENT_UNSEALED, SHA2_256_TRUNC254_PADDED},
         piece::PaddedPieceSize,

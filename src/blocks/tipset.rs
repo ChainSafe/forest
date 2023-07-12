@@ -8,6 +8,8 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -100,7 +102,6 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -109,13 +110,12 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
-    use crate::blocks::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-            let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-            Self { cids }
+            Self {
+                cids: Vec::arbitrary(g),
+            }
         }
     }
 
@@ -168,6 +168,18 @@ impl Tipset {
             key: OnceCell::new(),
         })
     }
+
+    /// Loads a tipset from memory given the tipset keys.
+    pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
+        Ok(tsk
+            .cids()
+            .iter()
+            .map(|c| store.get_cbor(c))
+            .collect::<anyhow::Result<Option<_>>>()?
+            .map(Tipset::new)
+            .transpose()?)
+    }
+
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch()

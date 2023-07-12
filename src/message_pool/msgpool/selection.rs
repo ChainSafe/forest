@@ -920,7 +920,7 @@ mod test_selection {
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
-        let nmsgs = (fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
+        let nmsgs = (crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT) + 1;
 
         // make many small chains for the two actors
         for i in 0..nmsgs {
@@ -947,13 +947,13 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
 
-        let expected = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
         assert_eq!(msgs.len(), expected as usize);
         let mut m_gas_lim = 0;
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
-        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT as u64);
+        assert!(m_gas_lim <= crate::shim::econ::BLOCK_GAS_LIMIT);
     }
 
     #[tokio::test]
@@ -1094,7 +1094,7 @@ mod test_selection {
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
-        let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let n_msgs = 10 * crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
 
         // we create 10 messages from each actor to another, with the first actor paying
         // higher gas prices than the second; we expect message selection to
@@ -1114,7 +1114,7 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 0.25).unwrap();
 
-        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
 
         assert_eq!(msgs.len(), expected_msgs as usize);
 
@@ -1173,7 +1173,7 @@ mod test_selection {
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1)); // in FIL
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1)); // in FIL
 
-        let n_msgs = 5 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let n_msgs = 5 * crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
         for i in 0..n_msgs as usize {
             let bias = (n_msgs as usize - i) / 3;
             let m = create_fake_smsg(
@@ -1198,7 +1198,7 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 0.1).unwrap();
 
-        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
         assert_eq!(
             msgs.len(),
             expected_msgs as usize,
@@ -1291,7 +1291,7 @@ mod test_selection {
             api.set_state_balance_raw(a, TokenAmount::from_whole(1));
         }
 
-        let n_msgs = 1 + fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let n_msgs = 1 + crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
         for i in 0..n_msgs {
             for j in 0..n_actors {
                 let premium =
@@ -1309,7 +1309,7 @@ mod test_selection {
         }
 
         let msgs = mpool.select_messages(&ts, 0.1).unwrap();
-        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
 
         assert_eq!(
             msgs.len(),

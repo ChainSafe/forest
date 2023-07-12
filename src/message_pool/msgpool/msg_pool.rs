@@ -322,7 +322,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
+        if msg.value() > *crate::shim::econ::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
