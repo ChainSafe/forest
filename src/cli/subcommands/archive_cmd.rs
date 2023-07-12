@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
 use tokio_util::compat::TokioAsyncReadCompatExt;
+use tracing::info;
 
 #[derive(Debug, Subcommand)]
 pub enum ArchiveCommands {
@@ -32,8 +33,10 @@ pub enum ArchiveCommands {
         epoch: ChainEpoch,
         /// How far back we want to go. Think of it as `$epoch - $depth`, the lower bound of this
         /// snapshot. This value cannot be less than `chain finality`, which is currently assumed
-        /// to be `900`. This parameter is optional due to the fact that we need to fetch the exact
-        /// default dynamically from a config.
+        /// to be `900`. If this ever changes - the actual value is specified in the error message
+        /// that is thrown in case `depth` value is too low.
+        /// This parameter is optional due to the fact that we need to fetch the exact default
+        /// dynamically from a config.
         // TODO: Investigate if we can have a dynamic default here somehow.
         #[arg(short)]
         depth: Option<ChainEpoch>,
@@ -68,6 +71,11 @@ async fn do_export(
     epoch: &ChainEpoch,
     depth: &ChainEpoch,
 ) -> anyhow::Result<()> {
+    info!(
+        "indexing a car-backed store using snapshot: {}",
+        input_path.to_str().unwrap_or_default()
+    );
+
     let store = Arc::new(
         CarBackedBlockstore::new(std::fs::File::open(input_path)?)
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
@@ -80,23 +88,24 @@ async fn do_export(
     )
     .await?;
 
+    let tmp_chain_dir = TempDir::new()?;
+
     let chain_store = Arc::new(ChainStore::new(
         store,
         config.chain.clone(),
         &genesis,
-        TempDir::new()?.path(),
+        tmp_chain_dir.path(),
     )?);
 
     // TODO: This is totally unnecessary. It should be possible to do `tipset_by_height` without this step.
     // One solution to this is making `ts` an `Option` in `tipset_by_height` method.
     let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
 
+    info!("looking up a tipset by epoch: {}", epoch);
+
     let ts = chain_store
         .tipset_by_height(*epoch, ts, true)
         .context("unable to get a tipset at given height")?;
-
-    // The lower bound of this snapshot.
-    let recent_roots = epoch - depth;
 
     let output_path = match output_path.is_dir() {
         true => output_path.join(snapshot::filename(
@@ -111,12 +120,17 @@ async fn do_export(
     let writer = tokio::fs::File::create(&output_path)
         .await
         .context(format!(
-            "unable to create the snapshot - is the output path '{}' correct?",
+            "unable to create a snapshot - is the output path '{}' correct?",
             output_path.to_str().unwrap_or_default()
         ))?;
 
+    info!(
+        "exporting snapshot at location: {}",
+        output_path.to_str().unwrap_or_default()
+    );
+
     chain_store
-        .export::<_, Sha256>(&ts, recent_roots, writer.compat(), true, false)
+        .export::<_, Sha256>(&ts, *depth, writer.compat(), true, true)
         .await?;
 
     Ok(())
