@@ -189,6 +189,104 @@ pub struct MarketBalance {
     locked: TokenAmount,
 }
 
+/// Performs the state transition for the tipset and applies all unique
+/// messages in all blocks. This function returns the state root and
+/// receipt root of the transition.
+#[allow(clippy::too_many_arguments)]
+pub fn apply_blocks<R, CB, DB>(
+    blockstore: Arc<DB>,
+    parent_epoch: ChainEpoch,
+    p_state: &Cid,
+    messages: &[BlockMessages],
+    epoch: ChainEpoch,
+    rand: R,
+    base_fee: TokenAmount,
+    mut callback: Option<CB>,
+    tipset: Arc<Tipset>,
+    //
+    circ_supply: TokenAmount,
+    reward_calc: Arc<dyn RewardCalc>,
+    engine: &crate::shim::machine::MultiEngine,
+    chainstore: &Arc<ChainStore<DB>>,
+    chain_config: &Arc<ChainConfig>,
+) -> Result<CidPair, anyhow::Error>
+where
+    R: Rand + Clone + 'static,
+    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+    DB: Blockstore + Clone + Send + Sync + 'static,
+{
+    let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
+
+    let create_vm = |state_root, epoch, timestamp, circ_supply, reward_calc| {
+        VM::new(
+            state_root,
+            blockstore.clone(),
+            epoch,
+            rand.clone(),
+            base_fee.clone(),
+            circ_supply,
+            reward_calc,
+            todo!(),
+            todo!(),
+            engine,
+            chain_config.clone(),
+            timestamp,
+        )
+    };
+
+    let mut parent_state = *p_state;
+    let genesis_timestamp = Lazy::new(|| {
+        chainstore
+            .genesis()
+            .expect("could not find genesis block!")
+            .timestamp()
+    });
+
+    for epoch_i in parent_epoch..epoch {
+        if epoch_i > parent_epoch {
+            let timestamp = *genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+            let mut vm = create_vm(
+                parent_state,
+                epoch_i,
+                timestamp,
+                circ_supply.clone(),
+                reward_calc.clone(),
+            )?;
+            // run cron for null rounds if any
+            if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
+                error!("Beginning of epoch cron failed to run: {}", e);
+            }
+
+            parent_state = vm.flush()?;
+        }
+
+        if let Some(new_state) =
+            run_state_migrations(epoch_i, chain_config, &blockstore.clone(), &parent_state)?
+        {
+            parent_state = new_state;
+        }
+    }
+
+    let mut vm = create_vm(
+        parent_state,
+        epoch,
+        tipset.min_timestamp(),
+        circ_supply.clone(),
+        reward_calc.clone(),
+    )?;
+
+    // Apply tipset messages
+    let receipts = vm.apply_block_messages(messages, epoch, callback)?;
+
+    // Construct receipt root from receipts
+    let receipt_root = Amt::new_from_iter(blockstore.clone(), receipts)?;
+
+    // Flush changes to blockstore
+    let state_root = vm.flush()?;
+
+    Ok((state_root, receipt_root))
+}
+
 /// State manager handles all interactions with the internal Filecoin actors
 /// state. This encapsulates the [`ChainStore`] functionality, which only
 /// handles chain data, to allow for interactions with the underlying state of

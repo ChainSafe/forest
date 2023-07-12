@@ -10,8 +10,8 @@ use crate::genesis::read_genesis_header;
 use crate::json::cid::CidJson;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
-use crate::state_manager::StateManager;
 use crate::shim::econ::TokenAmount;
+use crate::state_manager::StateManager;
 use crate::statediff::print_state_diff;
 use anyhow::Context;
 use cid::Cid;
@@ -157,7 +157,6 @@ impl StateCommands {
                 json,
             } => {
                 print_computed_state(config, &snapshot, vm_height, json).await?;
-
             }
         }
         Ok(())
