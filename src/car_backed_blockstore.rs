@@ -145,6 +145,7 @@ where
     }
 
     /// In the order seen in the file
+    #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
     }
@@ -321,6 +322,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     }
 
     /// In the order seen in the file
+    #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
     }
@@ -492,8 +494,6 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
 /// This allows us to keep indexing fast.
 ///
 /// [`Ok(None)`] on EOF
-///
-/// TODO(aatifsyed): is the speed claim even true? could we use [`copy_varint_framed_block`] instead?
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_data_location_and_skip(
     mut reader: (impl Read + Seek),

@@ -75,12 +75,6 @@ pub mod doctest_private {
     };
 }
 
-// TODO(aatifsyed): remove
-pub use car_backed_blockstore::{
-    zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
-    UncompressedCarV1BackedBlockstore,
-};
-
 /// These items are semver-exempt, and exist for forest author use only
 // Allow benchmarks of forest internals
 #[cfg(feature = "benchmark-private")]
