@@ -4,8 +4,8 @@ use std::ops::{Deref, DerefMut};
 
 use anyhow::{bail, Context};
 use cid::Cid;
-use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
-use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
+pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
+pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
@@ -15,7 +15,7 @@ use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::shim::{address::Address, econ::TokenAmount, Inner};
+use crate::shim::{address::Address, econ::TokenAmount};
 
 #[derive(
     Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr, FromPrimitive,
@@ -250,9 +250,6 @@ impl ActorState {
             delegated_address.map(Into::into),
         ))
     }
-}
-impl Inner for ActorState {
-    type FVM = ActorStateV3;
 }
 
 impl Deref for ActorState {
