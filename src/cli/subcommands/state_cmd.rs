@@ -55,9 +55,6 @@ pub enum StateCommands {
         /// Set the height that the VM will see
         #[arg(long)]
         vm_height: ChainEpoch,
-        /// Message CID
-        #[arg(long)]
-        cid: Cid,
         /// Generate json output
         #[arg(long)]
         json: bool,
@@ -68,7 +65,6 @@ async fn print_computed_state(
     config: Config,
     snapshot: &Path,
     vm_height: ChainEpoch,
-    mcid: Cid,
     json: bool,
 ) -> anyhow::Result<()> {
     println!("Computing state @{}", vm_height);
@@ -123,8 +119,12 @@ async fn print_computed_state(
         .tipset_by_height(vm_height.into(), ts, false)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
-    let (st, _) = sm.tipset_state(&tipset).await?;
-    println!("computed state cid: {}", st);
+    if json {
+        // call version with traces enabled
+    } else {
+        let (st, _) = sm.tipset_state(&tipset).await?;
+        println!("computed state cid: {}", st);
+    }
 
     Ok(())
 }
@@ -154,10 +154,9 @@ impl StateCommands {
             Self::ComputeState {
                 snapshot,
                 vm_height,
-                cid,
                 json,
             } => {
-                print_computed_state(config, &snapshot, vm_height, cid, json).await?;
+                print_computed_state(config, &snapshot, vm_height, json).await?;
 
             }
         }
