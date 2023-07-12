@@ -85,6 +85,7 @@ use crate::utils::{try_collate, Collate};
 ///
 /// On creation, [`UncompressedCarV1BackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
 /// and their offsets into that file.
+/// Note that it prepares its own buffer for doing so.
 ///
 /// When a block is requested, [`UncompressedCarV1BackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
 ///
@@ -306,7 +307,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
                     inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
                         reader,
                         write_cache: AHashMap::new(),
-                        latest_zstd_frame: None,
+                        most_recent_zstd_frame: None,
                         index,
                         roots,
                     }),
@@ -329,7 +330,7 @@ struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
     // zstd frame offset, zstd frame contents
-    latest_zstd_frame: Option<(u64, std::io::Cursor<Vec<u8>>)>,
+    most_recent_zstd_frame: Option<(u64, std::io::Cursor<Vec<u8>>)>,
     index: IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>,
     roots: Vec<Cid>,
 }
@@ -350,7 +351,7 @@ where
             reader,
             write_cache,
             index,
-            latest_zstd_frame,
+            most_recent_zstd_frame,
             ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
@@ -365,20 +366,21 @@ where
                 }),
                 Vacant(_),
             ) => {
-                let zstd_frame = match latest_zstd_frame.as_mut() {
-                    Some((offset, latest_zstd_frame)) if offset == zstd_frame_offset => {
+                let zstd_frame = match most_recent_zstd_frame.as_mut() {
+                    Some((offset, most_recent_zstd_frame)) if offset == zstd_frame_offset => {
                         trace!("read cache hit");
-                        latest_zstd_frame
+                        most_recent_zstd_frame
                     }
                     Some(_) | None => {
                         trace!("read cache miss, reading from disk");
                         reader.seek(SeekFrom::Start(*zstd_frame_offset))?;
                         let mut zstd_frame = std::io::Cursor::new(vec![]);
-                        zstd::Decoder::new(reader)?
+                        zstd::Decoder::new(reader)
+                            .expect("we're not using a custom dictionary")
                             .single_frame()
                             .read_to_end(zstd_frame.get_mut())?;
                         let (_, inserted_zstd_frame) =
-                            latest_zstd_frame.insert((*zstd_frame_offset, zstd_frame));
+                            most_recent_zstd_frame.insert((*zstd_frame_offset, zstd_frame));
                         inserted_zstd_frame
                     }
                 };
@@ -617,8 +619,11 @@ where
         let mut v = vec![];
         match self.inner.stream_position().and_then(|offset| {
             // we MUST have a BufReader here - otherwise zstd::Decoder creates an internal buffer, and its contents is lost on the next iteration
-            zstd::Decoder::with_buffer((&mut self.inner).take(self.max_frame_size))
-                .and_then(|decoder| decoder.single_frame().read_to_end(&mut v))
+            let decoder = zstd::Decoder::with_buffer((&mut self.inner).take(self.max_frame_size))
+                .expect("we're not using a custom dictionary");
+            decoder
+                .single_frame()
+                .read_to_end(&mut v)
                 .map(|_num_bytes| offset)
         }) {
             Ok(offset) => Some(Ok((offset, std::io::Cursor::new(v)))),

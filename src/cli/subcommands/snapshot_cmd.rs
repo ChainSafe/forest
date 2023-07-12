@@ -4,7 +4,7 @@
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
-    CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore,
+    self, CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore,
 };
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
@@ -24,6 +24,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
+use tracing::info;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -59,6 +60,17 @@ pub enum SnapshotCommands {
         snapshot: PathBuf,
         #[arg(short, long)]
         compressed: bool,
+    },
+    /// Make this snapshot suitable for use as a compressed car-backed blockstore.
+    Compress {
+        /// May be a compressed file
+        source: PathBuf,
+        destination: PathBuf,
+        #[arg(short, long, default_value_t = 3)]
+        compression_level: u16,
+        /// End zstd frames after they exceed this length
+        #[arg(short = 's', long, default_value_t = 8000usize.next_power_of_two())]
+        frame_size: usize,
     },
 }
 
@@ -150,6 +162,45 @@ impl SnapshotCommands {
                 snapshot,
                 compressed,
             } => validate(&config, recent_stateroots, snapshot, *compressed).await,
+            Self::Compress {
+                source,
+                destination,
+                compression_level,
+                frame_size,
+            } => {
+                // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
+                // For example, the zstsd magic bytes are a valid varint frame prefix:
+                assert_eq!(
+                    unsigned_varint::io::read_usize(&[0xFD, 0x2F, 0xB5, 0x28][..]).unwrap(),
+                    6141,
+                );
+                // so the best thing to do is to just try compressed and then uncompressed.
+                use car_backed_blockstore::zstd_compress_varint_manyframe;
+                use tokio::fs::File;
+                match zstd_compress_varint_manyframe(
+                    async_compression::tokio::bufread::ZstdDecoder::new(tokio::io::BufReader::new(
+                        File::open(source).await?,
+                    )),
+                    File::create(destination).await?,
+                    *frame_size,
+                    *compression_level,
+                )
+                .await
+                {
+                    Ok(_num_frames) => Ok(()),
+                    Err(error) => {
+                        info!(%error, "file may be uncompressed, retrying...");
+                        zstd_compress_varint_manyframe(
+                            File::open(source).await?,
+                            File::create(destination).await?,
+                            *frame_size,
+                            *compression_level,
+                        )
+                        .await?;
+                        Ok(())
+                    }
+                }
+            }
         }
     }
 }
