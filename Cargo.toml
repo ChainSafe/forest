@@ -189,6 +189,7 @@ libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-res
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck = "1"
 quickcheck_macros = "1"
+tokio-test = "0.4.2"
 
 [build-dependencies]
 anyhow = "1"
