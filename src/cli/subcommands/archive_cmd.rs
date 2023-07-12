@@ -143,7 +143,7 @@ async fn do_export(
 
     // TODO: This is totally unnecessary. It should be possible to do `tipset_by_height` without this step.
     // One solution to this is making `ts` an `Option` in `tipset_by_height` method.
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+    let ts = Tipset::load(&store, &TipsetKeys::new(chain_store.db.roots()))?;
 
     info!("looking up a tipset by epoch: {}", epoch);
 
