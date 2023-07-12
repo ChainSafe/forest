@@ -156,26 +156,19 @@ impl SnapshotCommands {
                 match (snapshot, *validate_tipsets) {
                     (Some(path), None) => {
                         // Check for any broken links in the snapshot provided
-                        match validate(&config, recent_stateroots, path).await {
-                            Ok(_) => println!("No Broken links encountered"),
-                            Err(error) => println!("Validation Failed: {}", error),
-                        }
+                        validate(&config, recent_stateroots, path).await
                     }
                     (None, Some(validate_from)) => {
                         // Check for any broken links in the snapshot provided
-                        match validate_tipset_range(&config, validate_from).await {
-                            Ok(_) => println!("Validation successful"),
-                            Err(error) => println!("Validation Failed: {}", error),
-                        }
+                        validate_tipset_range(&config, validate_from).await
                     }
                     (Some(_), Some(_)) => {
-                        println!("Error: Please select only one option for validation.");
+                        bail!("Error: Please select only one option for validation.");
                     }
                     (None, None) => {
-                        println!("Error: No option selected to run validation.");
+                        bail!("Error: No option selected to run validation.");
                     }
                 }
-                Ok(())
             }
         }
     }
