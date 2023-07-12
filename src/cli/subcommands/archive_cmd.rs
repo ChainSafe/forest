@@ -115,6 +115,20 @@ impl ArchiveCommands {
     }
 }
 
+// This does nothing if the output path is a file. If it is a directory - it produces the following:
+// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
+fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> PathBuf {
+    match output_path.is_dir() {
+        true => output_path.join(snapshot::filename(
+            TrustedVendor::Forest,
+            chain,
+            Utc::now().date_naive(),
+            epoch,
+        )),
+        false => output_path.clone(),
+    }
+}
+
 async fn do_export(
     config: Config,
     reader: impl Read + Seek + Send + Sync,
@@ -151,15 +165,7 @@ async fn do_export(
         .tipset_by_height(epoch, ts, true)
         .context("unable to get a tipset at given height")?;
 
-    let output_path = match output_path.is_dir() {
-        true => output_path.join(snapshot::filename(
-            TrustedVendor::Forest,
-            config.chain.network.to_string(),
-            Utc::now().date_naive(),
-            epoch,
-        )),
-        false => output_path.clone(),
-    };
+    let output_path = build_output_path(config.chain.network.to_string(), epoch, output_path);
 
     let writer = tokio::fs::File::create(&output_path)
         .await
@@ -330,9 +336,10 @@ mod tests {
 
     #[tokio::test]
     async fn export() {
+        let config = Config::default();
         let output_path = TempDir::new().unwrap();
         do_export(
-            Config::default(),
+            config.clone(),
             std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
             output_path.path().into(),
             0,
@@ -340,7 +347,13 @@ mod tests {
         )
         .await
         .unwrap();
-        let file = tokio::fs::File::open(output_path.path()).await.unwrap();
+        let file = tokio::fs::File::open(build_output_path(
+            config.chain.network.to_string(),
+            0,
+            output_path.path().into(),
+        ))
+        .await
+        .unwrap();
         let file = BufReader::new(file);
         CarReader::new(ZstdDecoder::new(file).compat())
             .await
