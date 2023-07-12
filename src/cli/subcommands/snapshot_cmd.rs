@@ -56,14 +56,12 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Path to an uncompressed snapshot (CAR)
+        /// Path to a snapshot CAR, which may be zstd compressed
         snapshot: PathBuf,
-        #[arg(short, long)]
-        compressed: bool,
     },
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
     Compress {
-        /// May be a compressed file
+        /// CAR file. May be a zstd-compressed
         source: PathBuf,
         destination: PathBuf,
         #[arg(short, long, default_value_t = 3)]
@@ -160,8 +158,21 @@ impl SnapshotCommands {
             Self::Validate {
                 recent_stateroots,
                 snapshot,
-                compressed,
-            } => validate(&config, recent_stateroots, snapshot, *compressed).await,
+            } => {
+                // this is all blocking...
+                use std::fs::File;
+                let (roots, store) = match CompressedCarV1BackedBlockstore::new(BufReader::new(
+                    File::open(snapshot)?,
+                )) {
+                    Ok(bs) => (bs.roots(), DynBlockstore::new(bs)),
+                    Err(error) => {
+                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
+                        let bs = UncompressedCarV1BackedBlockstore::new(File::open(snapshot)?)?;
+                        (bs.roots(), DynBlockstore::new(bs))
+                    }
+                };
+                validate_with_blockstore(&config, roots, Arc::new(store), recent_stateroots).await
+            }
             Self::Compress {
                 source,
                 destination,
@@ -189,7 +200,7 @@ impl SnapshotCommands {
                 {
                     Ok(_num_frames) => Ok(()),
                     Err(error) => {
-                        info!(%error, "file may be uncompressed, retrying...");
+                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
                         zstd_compress_varint_manyframe(
                             File::open(source).await?,
                             File::create(destination).await?,
@@ -201,28 +212,6 @@ impl SnapshotCommands {
                     }
                 }
             }
-        }
-    }
-}
-
-async fn validate(
-    config: &Config,
-    recent_stateroots: &i64,
-    snapshot: &PathBuf,
-    compressed: bool,
-) -> anyhow::Result<()> {
-    match compressed {
-        true => {
-            let store = CompressedCarV1BackedBlockstore::new(BufReader::new(std::fs::File::open(
-                snapshot,
-            )?))?;
-            validate_with_blockstore(config, store.roots(), Arc::new(store), recent_stateroots)
-                .await
-        }
-        false => {
-            let store = UncompressedCarV1BackedBlockstore::new(std::fs::File::open(snapshot)?)?;
-            validate_with_blockstore(config, store.roots(), Arc::new(store), recent_stateroots)
-                .await
         }
     }
 }
@@ -335,4 +324,26 @@ where
     println!("Snapshot is valid");
 
     Ok(())
+}
+
+// https://github.com/ChainSafe/forest/issues/2676
+pub struct DynBlockstore(Box<dyn Blockstore + Send + Sync>);
+impl DynBlockstore {
+    pub fn new(blockstore: impl Blockstore + Send + Sync + 'static) -> Self {
+        Self(Box::new(blockstore))
+    }
+}
+impl Blockstore for DynBlockstore {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.0.get(k)
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.0.put_keyed(k, block)
+    }
+
+    fn has(&self, k: &Cid) -> anyhow::Result<bool> {
+        self.0.has(k)
+    }
+    // The rest of the Blockstore methods trade caller convenience for object safety...
 }
