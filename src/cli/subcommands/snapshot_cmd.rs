@@ -4,7 +4,7 @@
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
-    self, CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore,
+    self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
@@ -64,10 +64,10 @@ pub enum SnapshotCommands {
         /// CAR file. May be a zstd-compressed
         source: PathBuf,
         destination: PathBuf,
-        #[arg(short, long, default_value_t = 3)]
+        #[arg(hide = true, long, default_value_t = 3)]
         compression_level: u16,
         /// End zstd frames after they exceed this length
-        #[arg(short = 's', long, default_value_t = 8000usize.next_power_of_two())]
+        #[arg(hide = true, long, default_value_t = 8000usize.next_power_of_two())]
         frame_size: usize,
     },
 }
@@ -165,6 +165,14 @@ impl SnapshotCommands {
                     File::open(snapshot)?,
                 )) {
                     Ok(bs) => (bs.roots(), DynBlockstore::new(bs)),
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::Other
+                            && error.get_ref().is_some_and(|inner| {
+                                inner.downcast_ref::<MaxFrameSizeExceeded>().is_some()
+                            }) =>
+                    {
+                        bail!("The provided compressed car file cannot be used as a blockstore. Prepare it using `forest snapshot compress ...`")
+                    }
                     Err(error) => {
                         info!(%error, "file may be uncompressed, retrying as a plain CAR...");
                         let bs = UncompressedCarV1BackedBlockstore::new(File::open(snapshot)?)?;
