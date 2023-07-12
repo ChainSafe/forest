@@ -95,7 +95,7 @@ Display the keys in the keystore. Usage:
 
 Create a new wallet. The signature type can either be secp256k1 or bls. Defaults
 to use secp256k1. Usage:
-`forest-cli --token <admin_token> wallet new <bls/secp256k1>`
+`forest-cli --token <admin_token> wallet new [ bls | secp256k1 ]`
 
 ### Set-default:
 
