@@ -30,7 +30,7 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::car_backed_blockstore::CarBackedBlockstore;
-use crate::chain::ChainStore;
+use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::cli_shared::snapshot;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::genesis::read_genesis_header;
@@ -79,7 +79,7 @@ pub enum ArchiveCommands {
         /// dynamically from configuration.
         // TODO: Investigate if we can have a dynamic default here somehow.
         #[arg(short)]
-        depth: Option<ChainEpoch>,
+        depth: Option<ChainEpochDelta>,
     },
 }
 
@@ -113,7 +113,7 @@ async fn do_export(
     input_path: PathBuf,
     output_path: PathBuf,
     epoch: ChainEpoch,
-    depth: ChainEpoch,
+    depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     info!(
         "indexing a car-backed store using snapshot: {}",
