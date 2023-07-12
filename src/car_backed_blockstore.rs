@@ -592,7 +592,7 @@ pub struct MaxFrameSizeExceeded;
 /// Note that each iteration reads an entire frame into memory, and typical zstd compressed files
 /// are single-frame.
 ///
-/// As such, there is a configurable max_frame_size, which causes the iterator to return a [`Other`] error containing a [`MaxFrameSizeExceeded`] when hit.
+/// As such, there is a configurable `max_frame_size`, which causes the iterator to return a [`Other`] error containing a [`MaxFrameSizeExceeded`] when hit.
 ///
 /// After such an error, the iterator should be considered unrecoverable, and discarded.
 pub struct ZstdFrames<ReaderT> {
@@ -666,7 +666,7 @@ pub async fn zstd_compress_varint_manyframe(
     Ok(count)
 }
 
-/// Create a paramaterized collator function
+/// Create a parameterized collator function
 fn varint_to_zstd_frame_collator(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
