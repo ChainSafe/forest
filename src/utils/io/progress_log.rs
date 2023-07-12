@@ -9,7 +9,7 @@
 //! - They were only used when connected to a TTY and not written in log files
 //! This lead us to develop our own logging code.
 //! This module provides two new types for logging progress that are [`WithProgress`] and [`WithProgressRaw`].
-//! The main goal of [`WithProgressRaw`] is to maintain a similar API to the previous one from [`ProgressBar`] so we could remove the [`indicatif`] dependency,
+//! The main goal of [`WithProgressRaw`] is to maintain a similar API to the previous one from progress bar so we could remove the [`indicatif`](https://crates.io/crates/indicatif) dependency,
 //! but, gradually, we would like to move to something better and use the [`WithProgress`] type.
 //! The [`WithProgress`] type will provide a way to wrap user code while handling logging presentation details.
 //! [`WithProgress`] is a wrapper that should extend to Iterators, Streams, Read/Write types. Right now it only wraps async reads.
