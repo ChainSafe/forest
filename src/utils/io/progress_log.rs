@@ -15,11 +15,13 @@
 //! [`WithProgress`] is a wrapper that should extend to Iterators, Streams, Read/Write types. Right now it only wraps async reads.
 //!
 //! # Example
-//! ```ignore
+//! ```
 //! use tokio_test::block_on;
+//! use tokio::io::AsyncBufReadExt;
+//! use forest_filecoin::doctest_private::WithProgress;
 //! block_on(async {
-//!     let file = tokio::fs::File::open("test.txt").await.unwrap();
-//!     let mut reader = tokio::io::BufReader::new(file);
+//!     let data: String = "some very big string".into();
+//!     let mut reader = tokio::io::BufReader::new(data.as_bytes());
 //!     let len = 0; // Compute total read length or find of way to estimate it
 //!     // We just need to wrap our reader and use the wrapped version
 //!     let reader_wp = tokio::io::BufReader::new(WithProgress::wrap_async_read("reading", reader, len));
