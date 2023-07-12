@@ -12,12 +12,32 @@ use tracing::log::LevelFilter;
 
 use super::client::Client;
 
-#[derive(PartialEq, Eq, Debug, Clone, Hash)]
-pub struct LogLevelFilter(LevelFilter);
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Hash)]
+pub enum LogFilter {
+    /// A level lower than all log levels.
+    Off,
+    /// Corresponds to the `Error` log level.
+    Error,
+    /// Corresponds to the `Warn` log level.
+    Warn,
+    /// Corresponds to the `Info` log level.
+    Info,
+    /// Corresponds to the `Debug` log level.
+    Debug,
+    /// Corresponds to the `Trace` log level.
+    Trace,
+}
 
-impl Default for LogLevelFilter {
-    fn default() -> Self {
-        Self(LevelFilter::Off)
+impl From<LogFilter> for LevelFilter {
+    fn from(value: LogFilter) -> Self {
+        match value {
+            LogFilter::Debug => LevelFilter::Debug,
+            LogFilter::Off => LevelFilter::Off,
+            LogFilter::Error => LevelFilter::Error,
+            LogFilter::Warn => LevelFilter::Warn,
+            LogFilter::Info => LevelFilter::Info,
+            LogFilter::Trace => LevelFilter::Trace,
+        }
     }
 }
 
@@ -30,7 +50,7 @@ impl LogConfig {
     pub(in crate::cli_shared) fn to_filter_string(&self) -> String {
         self.filters
             .iter()
-            .map(|f| format!("{}={}", f.module, f.level.0))
+            .map(|f| format!("{}={}", f.module, LevelFilter::from(f.level.clone())))
             .collect::<Vec<_>>()
             .join(",")
     }
@@ -40,18 +60,15 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             filters: vec![
-                LogValue::new("axum", LogLevelFilter(LevelFilter::Warn)),
-                LogValue::new(
-                    "bellperson::groth16::aggregate::verify",
-                    LogLevelFilter(LevelFilter::Warn),
-                ),
-                LogValue::new("filecoin_proofs", LogLevelFilter(LevelFilter::Warn)),
-                LogValue::new("libp2p_bitswap", LogLevelFilter(LevelFilter::Off)),
-                LogValue::new("libp2p_gossipsub", LogLevelFilter(LevelFilter::Error)),
-                LogValue::new("libp2p_kad", LogLevelFilter(LevelFilter::Error)),
-                LogValue::new("rpc", LogLevelFilter(LevelFilter::Error)),
-                LogValue::new("storage_proofs_core", LogLevelFilter(LevelFilter::Warn)),
-                LogValue::new("tracing_loki", LogLevelFilter(LevelFilter::Off)),
+                LogValue::new("axum", LogFilter::Warn),
+                LogValue::new("bellperson::groth16::aggregate::verify", LogFilter::Warn),
+                LogValue::new("filecoin_proofs", LogFilter::Warn),
+                LogValue::new("libp2p_bitswap", LogFilter::Off),
+                LogValue::new("libp2p_gossipsub", LogFilter::Error),
+                LogValue::new("libp2p_kad", LogFilter::Error),
+                LogValue::new("rpc", LogFilter::Error),
+                LogValue::new("storage_proofs_core", LogFilter::Warn),
+                LogValue::new("tracing_loki", LogFilter::Off),
             ],
         }
     }
@@ -60,12 +77,11 @@ impl Default for LogConfig {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct LogValue {
     pub module: String,
-    #[serde(skip)]
-    pub level: LogLevelFilter,
+    pub level: LogFilter,
 }
 
 impl LogValue {
-    pub fn new(module: &str, level: LogLevelFilter) -> Self {
+    pub fn new(module: &str, level: LogFilter) -> Self {
         Self {
             module: module.to_string(),
             level,
