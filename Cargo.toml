@@ -217,7 +217,6 @@ overflow-checks = true
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc"]
-insecure_post = []
 doctest-private = []   # see lib.rs::doctest_private
 benchmark-private = [] # see lib.rs::benchmark_private
 
