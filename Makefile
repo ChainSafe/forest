@@ -71,9 +71,6 @@ lint-clippy:
 	cargo clippy --quiet --no-deps -- --deny=warnings
 	cargo clippy --tests --quiet --no-deps -- --deny=warnings
 
-	# add-on features
-	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings
-
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
 	docker run --rm -i hadolint/hadolint < $<
