@@ -586,7 +586,7 @@ where
                     Ok(block)
                 }
             },
-            Some("Exporting snapshot | blocks "),
+            Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
         )
