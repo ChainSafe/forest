@@ -105,7 +105,7 @@ where
         impl<'de, V> Deserialize<'de> for FakeDeserialize<V> {
             fn deserialize<D>(_: D) -> Result<Self, D::Error>
             where
-                D: fvm_ipld_encoding3::serde_bytes::Deserializer<'de>,
+                D: fvm_ipld_encoding::serde_bytes::Deserializer<'de>,
             {
                 use serde::de::Error;
                 Err(D::Error::custom(

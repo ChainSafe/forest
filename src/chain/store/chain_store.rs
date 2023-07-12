@@ -586,7 +586,7 @@ where
                     Ok(block)
                 }
             },
-            Some("Exporting snapshot | blocks "),
+            Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
         )
@@ -647,18 +647,9 @@ where
         return Ok(ts.clone());
     }
 
-    let block_headers: Vec<BlockHeader> = tsk
-        .cids()
-        .iter()
-        .map(|c| {
-            store
-                .get_cbor(c)?
-                .ok_or_else(|| Error::NotFound(String::from("Key for header")))
-        })
-        .collect::<Result<_, Error>>()?;
-
+    let ts = Tipset::load(store, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?;
     // construct new Tipset to return
-    let ts = Arc::new(Tipset::new(block_headers)?);
+    let ts = Arc::new(ts);
     cache.lock().put(tsk.clone(), ts.clone());
     metrics::LRU_CACHE_MISS
         .with_label_values(&[metrics::values::TIPSET])

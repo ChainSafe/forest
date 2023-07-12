@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
+  `forest-cli archive info` command for inspecting archives.
+
 ### Changed
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database

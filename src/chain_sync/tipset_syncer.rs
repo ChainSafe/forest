@@ -18,18 +18,18 @@ use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
+use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::{
     address::Address, clock::ChainEpoch, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, message::Message, state_tree::StateTree,
 };
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
-use crate::utils::io::ProgressBar;
+use crate::utils::io::WithProgressRaw;
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
-use fvm_shared::ALLOWABLE_CLOCK_DRIFT;
+use fvm_ipld_encoding::to_vec;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -862,16 +862,15 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
     tracker.write().set_epoch(current_head.epoch());
 
     let total_size = proposed_head.epoch() - current_head.epoch();
-    let pb = ProgressBar::new(total_size as u64);
-    pb.message("Downloading headers ");
-    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+    #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
+    let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
 
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
-        pb.set((work_to_be_done - total_size).unsigned_abs());
+        wp.set((work_to_be_done - total_size).unsigned_abs());
         validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)?;
 
         // Check if we are at the end of the range
@@ -906,7 +905,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
             parent_tipsets.push(tipset);
         }
     }
-    drop(pb);
+    drop(wp);
 
     // Unwrapping is safe here because we assume that the tipset
     // vector was initialized with a tipset that will not be removed
@@ -1455,7 +1454,7 @@ async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C:
                          tree: &StateTree<&DB>|
      -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
-        let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
+        let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;

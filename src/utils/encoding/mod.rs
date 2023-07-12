@@ -4,7 +4,7 @@
 use crate::shim::address::Address;
 use blake2b_simd::Params;
 use filecoin_proofs_api::ProverId;
-use fvm_ipld_encoding3::strict_bytes::{Deserialize, Serialize};
+use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
 /// `serde_bytes` with max length check
@@ -169,7 +169,7 @@ mod tests {
         use cs_serde_bytes;
 
         #[derive(Deserialize, Serialize)]
-        struct A(#[serde(with = "fvm_ipld_encoding3::strict_bytes")] Vec<u8>);
+        struct A(#[serde(with = "fvm_ipld_encoding::strict_bytes")] Vec<u8>);
 
         #[derive(Deserialize, Serialize)]
         struct B(#[serde(with = "cs_serde_bytes")] Vec<u8>);

@@ -6,7 +6,7 @@ use crate::shim::executor::{Receipt, Receipt_v3};
 pub mod json {
     use crate::shim::error::ExitCode;
     use base64::{prelude::BASE64_STANDARD, Engine};
-    use fvm_ipld_encoding3::RawBytes;
+    use fvm_ipld_encoding::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
@@ -106,7 +106,7 @@ impl quickcheck::Arbitrary for MessageReceiptWrapper {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let message_receipt = Receipt_v3 {
             exit_code: crate::shim::error::ExitCode::from(u32::arbitrary(g)).into(),
-            return_data: fvm_ipld_encoding3::RawBytes::new(Vec::arbitrary(g)),
+            return_data: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
             gas_used: u64::arbitrary(g),
             events_root: None,
         };
