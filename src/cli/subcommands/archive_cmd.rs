@@ -10,13 +10,13 @@
 //! such as compiled `WASM` code. The amount of data differs greatly in different
 //! kinds of archives. While there are no fixed definitions, there are three
 //! common kind of archives:
-//!   A full archive contains a complete graph with no missing nodes. These
+//! - A full archive contains a complete graph with no missing nodes. These
 //!   archives are large (14 TiB for Filecoin's mainnet) and only used in special
 //!   situations.
-//!   A lite-archive typically has roughly 3 million blocks, 2000 complete sets of
+//! - A lite-archive typically has roughly 3 million blocks, 2000 complete sets of
 //!   state-roots, and 2000 sets of messages. These archives usually take up
 //!   roughly 100 GiB.
-//!   A diff-archive contains the subset of nodes that are _not_ shared by two
+//! - A diff-archive contains the subset of nodes that are _not_ shared by two
 //!   other archives. These archives are much smaller but can rarely be used on
 //!   their own. They are typically merged with other archives before use.
 //!
@@ -83,20 +83,20 @@ impl std::fmt::Display for ArchiveInfo {
 
 impl ArchiveInfo {
     // Scan a CAR file to identify which network it belongs to and how many
-    // tipsets/messages are available. Progress is rendered with `indicatif`.
+    // tipsets/messages are available. Progress is rendered to stdout.
     fn from_file(path: PathBuf) -> anyhow::Result<Self> {
         Self::from_reader(std::fs::File::open(path)?)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
-    // tipsets/messages are available. Progress is rendered with `indicatif`.
+    // tipsets/messages are available. Progress is rendered to stdout.
     fn from_reader(reader: impl Read + Seek) -> anyhow::Result<Self> {
         Self::from_reader_with(reader, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
-    // tipsets/messages are available. Progress is optionally rendered with
-    // `indicatif`.
+    // tipsets/messages are available. Progress is optionally rendered to
+    // stdout.
     fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
         let store = CarBackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
