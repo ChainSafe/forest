@@ -206,6 +206,8 @@ pub fn apply_blocks<R, CB, DB>(
     //
     circ_supply: TokenAmount,
     reward_calc: Arc<dyn RewardCalc>,
+    chain_epoch_root: fn(ChainEpoch) -> anyhow::Result<Cid>,
+    chain_epoch_tsk: fn(ChainEpoch) -> anyhow::Result<TipsetKeys>,
     engine: &crate::shim::machine::MultiEngine,
     chainstore: &Arc<ChainStore<DB>>,
     chain_config: &Arc<ChainConfig>,
@@ -217,7 +219,13 @@ where
 {
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
-    let create_vm = |state_root, epoch, timestamp, circ_supply, reward_calc| {
+    let create_vm = |state_root,
+                     epoch,
+                     timestamp,
+                     circ_supply,
+                     reward_calc,
+                     chain_epoch_root,
+                     chain_epoch_tsk| {
         VM::new(
             state_root,
             blockstore.clone(),
@@ -226,8 +234,8 @@ where
             base_fee.clone(),
             circ_supply,
             reward_calc,
-            todo!(),
-            todo!(),
+            Box::new(chain_epoch_root),
+            Box::new(chain_epoch_tsk),
             engine,
             chain_config.clone(),
             timestamp,
@@ -251,6 +259,8 @@ where
                 timestamp,
                 circ_supply.clone(),
                 reward_calc.clone(),
+                chain_epoch_root.clone(),
+                chain_epoch_tsk.clone(),
             )?;
             // run cron for null rounds if any
             if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
@@ -273,6 +283,8 @@ where
         tipset.min_timestamp(),
         circ_supply.clone(),
         reward_calc.clone(),
+        chain_epoch_root.clone(),
+        chain_epoch_tsk.clone(),
     )?;
 
     // Apply tipset messages
