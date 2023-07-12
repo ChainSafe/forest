@@ -194,7 +194,6 @@ pub struct MarketBalance {
 /// receipt root of the transition.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_blocks<R, CB, DB>(
-    blockstore: Arc<DB>,
     parent_epoch: ChainEpoch,
     p_state: &Cid,
     messages: &[BlockMessages],
@@ -203,14 +202,14 @@ pub fn apply_blocks<R, CB, DB>(
     base_fee: TokenAmount,
     mut callback: Option<CB>,
     tipset: Arc<Tipset>,
-    //
+    blockstore: Arc<DB>,
     circ_supply: TokenAmount,
     reward_calc: Arc<dyn RewardCalc>,
     chain_epoch_root: fn(ChainEpoch) -> anyhow::Result<Cid>,
     chain_epoch_tsk: fn(ChainEpoch) -> anyhow::Result<TipsetKeys>,
     engine: &crate::shim::machine::MultiEngine,
-    chainstore: &Arc<ChainStore<DB>>,
     chain_config: &Arc<ChainConfig>,
+    genesis_timestamp: Lazy<u64, impl Fn() -> u64>,
 ) -> Result<CidPair, anyhow::Error>
 where
     R: Rand + Clone + 'static,
@@ -243,12 +242,6 @@ where
     };
 
     let mut parent_state = *p_state;
-    let genesis_timestamp = Lazy::new(|| {
-        chainstore
-            .genesis()
-            .expect("could not find genesis block!")
-            .timestamp()
-    });
 
     for epoch_i in parent_epoch..epoch {
         if epoch_i > parent_epoch {
