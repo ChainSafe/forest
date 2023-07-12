@@ -4,7 +4,7 @@
 use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
 
-use indicatif::ProgressStyle;
+use crate::utils::io::WithProgress;
 use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
@@ -27,13 +27,12 @@ pub fn global_http_client() -> reqwest::Client {
 ///
 /// This function returns a reader of uncompressed data.
 pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
-    let read_progress = indicatif::ProgressBar::new_spinner().with_style(spinner_style());
     // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
     // malformed it'll end up trying to treat it as a local filepath. If that fails - an error
     // is thrown.
     let (stream, content_length) = match Url::parse(location) {
         Ok(url) => {
-            info!("downloading file: {}", url);
+            info!("Downloading file: {}", url);
             let resp = reqwest::get(url).await?.error_for_status()?;
             let content_length = resp.content_length().unwrap_or_default();
             let stream = resp
@@ -44,19 +43,18 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
             (Left(stream), content_length)
         }
         Err(_) => {
-            info!("reading file: {}", location);
+            info!("Reading file: {}", location);
             let stream = tokio::fs::File::open(location).await?;
             let content_length = stream.metadata().await?.len();
             (Right(stream), content_length)
         }
     };
 
-    if content_length > 0 {
-        read_progress.set_length(content_length);
-        read_progress.set_style(progress_style())
-    }
-
-    let mut reader = tokio::io::BufReader::new(read_progress.wrap_async_read(stream));
+    let mut reader = tokio::io::BufReader::new(WithProgress::wrap_async_read(
+        "Loading",
+        stream,
+        content_length,
+    ));
 
     Ok(match is_zstd(reader.fill_buf().await?) {
         true => Left(ZstdDecoder::new(reader)),
@@ -69,26 +67,4 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
 // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
 fn is_zstd(buf: &[u8]) -> bool {
     zstd_safe::get_frame_content_size(buf).is_ok()
-}
-
-fn progress_style() -> ProgressStyle {
-    indicatif::ProgressStyle::with_template(
-        "{msg:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
-    )
-    .expect("invalid progress template")
-    .progress_chars("=>-")
-}
-
-fn spinner_style() -> ProgressStyle {
-    ProgressStyle::with_template("{spinner:.blue} {msg}")
-        .unwrap()
-        .tick_strings(&[
-            "▹▹▹▹▹",
-            "▸▹▹▹▹",
-            "▹▸▹▹▹",
-            "▹▹▸▹▹",
-            "▹▹▹▸▹",
-            "▹▹▹▹▸",
-            "▪▪▪▪▪",
-        ])
 }
