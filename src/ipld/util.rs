@@ -197,3 +197,99 @@ fn should_save_block_to_snapshot(cid: &Cid) -> bool {
         )
     }
 }
+
+use crate::shim::clock::ChainEpoch;
+use futures::Stream;
+use fvm_ipld_blockstore::Blockstore;
+use pin_project_lite::pin_project;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+enum Work {
+    Pass(Cid),
+    Iterate(Ipld),
+}
+
+pin_project! {
+    struct ChainStream<DB, T> {
+        #[pin]
+        tipset_stream: T,
+        db: DB,
+        dfs: VecDeque<Work>,
+        seen: CidHashSet,
+        stateroot_limit: ChainEpoch,
+    }
+}
+
+impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
+    type Item = anyhow::Result<(Cid, Vec<u8>)>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        use Work::*;
+        let mut this = self.project();
+        let stateroot_limit = *this.stateroot_limit;
+        // FIXME: yield after N items to avoid blocking the task runner
+        // cx.waker().wake_by_ref();
+        loop {
+            while let Some(ipld) = this.dfs.pop_front() {
+                match ipld {
+                    Pass(cid) => {
+                        let result = this.db.get(&cid);
+                        return Poll::Ready(Some(result.and_then(|val| {
+                            let block = val.ok_or(anyhow::anyhow!("missing key"))?;
+                            Ok((cid, block))
+                        })));
+                    }
+                    Iterate(Ipld::Null) => {}
+                    Iterate(Ipld::Bool(_)) => {}
+                    Iterate(Ipld::Integer(_)) => {}
+                    Iterate(Ipld::Float(_)) => {}
+                    Iterate(Ipld::String(_)) => {}
+                    Iterate(Ipld::Bytes(_)) => {}
+                    Iterate(Ipld::List(list)) => list
+                        .into_iter()
+                        .rev()
+                        .for_each(|elt| this.dfs.push_front(Iterate(elt))),
+                    Iterate(Ipld::Map(map)) => map
+                        .into_values()
+                        .rev()
+                        .for_each(|elt| this.dfs.push_front(Iterate(elt))),
+                    Iterate(Ipld::Link(cid)) => {
+                        if !this.seen.insert(cid) {
+                            let result = this.db.get(&cid);
+                            return Poll::Ready(Some(result.and_then(|val| {
+                                let block = val.ok_or(anyhow::anyhow!("missing key"))?;
+                                let ipld: Ipld = from_slice(&block).unwrap();
+                                this.dfs.push_front(Iterate(ipld));
+                                Ok((cid, block))
+                            })));
+                        }
+                    }
+                }
+            }
+
+            if let Some(tipset) = futures::ready!(this.tipset_stream.as_mut().poll_next(cx)) {
+                for block in tipset.into_blocks().into_iter() {
+                    this.dfs.push_back(Pass(*block.cid()));
+                    if block.epoch() >= stateroot_limit {
+                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
+                    }
+
+                    if block.epoch() == 0 || block.epoch() >= stateroot_limit {
+                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
+                    }
+                }
+            } else {
+                return Poll::Ready(None);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn stream_calibnet_genesis() {
+        todo!()
+    }
+}
