@@ -86,8 +86,8 @@ pub enum RetryError {
 }
 
 /// _Collation_ is a mixture between [`futures::StreamExt::fold`] and [`futures::StreamExt::chunks`].
-/// It allows a user to fold into collections, like `chunks`,
-/// but without consuming the entire stream, like `fold`.
+/// It allows a user to fold into collections, like `fold`,
+/// but without consuming the entire stream, like `chunks`.
 ///
 /// `collate_fn` should accept a [`Collate`] and return:
 /// - [`ControlFlow::Continue`] to add the next stream item to the current collation

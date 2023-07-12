@@ -42,7 +42,7 @@
 //!
 //! ## Block ordering
 //! > _... a filecoin-deterministic car-file is currently implementation-defined as containing all DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting from a single root._
-//! //! - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
+//! - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
 //!
 //! # Future work
 //! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the file, to improve random access performance.
