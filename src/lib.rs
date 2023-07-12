@@ -70,6 +70,7 @@ pub mod doctest_private {
             randomness::Randomness, sector::RegisteredSealProof, state_tree::ActorState,
             version::NetworkVersion,
         },
+        utils::io::progress_log::WithProgress,
         utils::{encoding::blake2b_256, io::read_toml},
     };
 }
