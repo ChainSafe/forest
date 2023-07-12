@@ -102,7 +102,14 @@ impl ArchiveCommands {
                     bail!("depth has to be at least {}", chain_finality);
                 }
 
-                do_export(config, input_path, output_path, epoch, depth).await
+                let reader = std::fs::File::open(&input_path)?;
+
+                info!(
+                    "indexing a car-backed store using snapshot: {}",
+                    input_path.to_str().unwrap_or_default()
+                );
+
+                do_export(config, reader, output_path, epoch, depth).await
             }
         }
     }
@@ -110,18 +117,13 @@ impl ArchiveCommands {
 
 async fn do_export(
     config: Config,
-    input_path: PathBuf,
+    reader: impl Read + Seek + Send + Sync,
     output_path: PathBuf,
     epoch: ChainEpoch,
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
-    info!(
-        "indexing a car-backed store using snapshot: {}",
-        input_path.to_str().unwrap_or_default()
-    );
-
     let store = Arc::new(
-        CarBackedBlockstore::new(std::fs::File::open(input_path)?)
+        CarBackedBlockstore::new(reader)
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
     );
 
@@ -304,6 +306,9 @@ impl ArchiveInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_compression::tokio::bufread::ZstdDecoder;
+    use fvm_ipld_car::CarReader;
+    use tokio::io::BufReader;
 
     #[test]
     fn archive_info_calibnet() {
@@ -321,5 +326,24 @@ mod tests {
                 .unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
+    }
+
+    #[tokio::test]
+    async fn export() {
+        let output_path = TempDir::new().unwrap();
+        do_export(
+            Config::default(),
+            std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
+            output_path.path().into(),
+            0,
+            1,
+        )
+        .await
+        .unwrap();
+        let file = tokio::fs::File::open(output_path.path()).await.unwrap();
+        let file = BufReader::new(file);
+        CarReader::new(ZstdDecoder::new(file).compat())
+            .await
+            .unwrap();
     }
 }
