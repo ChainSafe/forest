@@ -8,6 +8,8 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -166,6 +168,18 @@ impl Tipset {
             key: OnceCell::new(),
         })
     }
+
+    /// Loads a tipset from memory given the tipset keys.
+    pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
+        Ok(tsk
+            .cids()
+            .iter()
+            .map(|c| store.get_cbor(c))
+            .collect::<anyhow::Result<Option<_>>>()?
+            .map(Tipset::new)
+            .transpose()?)
+    }
+
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch()

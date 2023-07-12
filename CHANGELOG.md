@@ -32,6 +32,8 @@
 - [#3167](https://github.com/ChainSafe/forest/pull/3167): Added a new option
   `--validate-tipsets` to re-validate already computed tipsets and `snapshot` is
   now an option not an argument in `forest-cli snapshot validate`.
+- [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
+  `forest-cli archive info` command for inspecting archives.
 
 ### Changed
 
