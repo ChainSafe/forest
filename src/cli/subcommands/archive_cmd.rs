@@ -77,7 +77,7 @@ pub enum ArchiveCommands {
         /// that is thrown in case `depth` value is too low.
         /// This parameter is optional due to the fact that we need to fetch the exact default
         /// dynamically from configuration.
-        // TODO: Investigate if we can have a dynamic default here somehow.
+        // Potentially replace with dynamic default: https://github.com/ChainSafe/forest/issues/3182
         #[arg(short)]
         depth: Option<ChainEpochDelta>,
     },
