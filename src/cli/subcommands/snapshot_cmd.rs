@@ -6,18 +6,16 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::CarBackedBlockstore;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
-use crate::cli_shared::chain_path;
+use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::db::db_engine::{db_root, open_proxy_db};
-use crate::fil_cns::composition as cns;
-use crate::genesis::read_genesis_header;
+use crate::genesis::{import_chain, read_genesis_header};
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
-use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
+use crate::utils::io::ProgressBar;
 use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
@@ -55,13 +53,12 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Re-Validate already computed tipsets at given EPOCH,
+        /// Validate already computed tipsets at given EPOCH,
         /// use a negative value -N to validate the last N EPOCH(s) starting at HEAD.
         #[arg(long)]
         validate_tipsets: Option<i64>,
         /// Path to an uncompressed snapshot (CAR)
-        #[arg(long)]
-        snapshot: Option<PathBuf>,
+        snapshot: PathBuf,
     },
 }
 
@@ -152,24 +149,7 @@ impl SnapshotCommands {
                 recent_stateroots,
                 validate_tipsets,
                 snapshot,
-            } => {
-                match (snapshot, *validate_tipsets) {
-                    (Some(path), None) => {
-                        // Check for any broken links in the snapshot provided
-                        validate(&config, recent_stateroots, path).await
-                    }
-                    (None, Some(validate_from)) => {
-                        // Check for any broken links in the snapshot provided
-                        validate_tipset_range(&config, validate_from).await
-                    }
-                    (Some(_), Some(_)) => {
-                        bail!("Error: Please select only one option for validation.");
-                    }
-                    (None, None) => {
-                        bail!("Error: No option selected to run validation.");
-                    }
-                }
-            }
+            } => validate(&config, recent_stateroots, validate_tipsets, snapshot).await,
         }
     }
 }
@@ -177,6 +157,7 @@ impl SnapshotCommands {
 async fn validate(
     config: &Config,
     recent_stateroots: &i64,
+    validate_tipsets: &Option<i64>,
     snapshot: &PathBuf,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
@@ -189,12 +170,12 @@ async fn validate(
         &store,
     )
     .await?;
-
+    let chain_data_root = TempDir::new()?;
     let chain_store = Arc::new(ChainStore::new(
         store,
         config.chain.clone(),
         &genesis,
-        TempDir::new()?.path(),
+        chain_data_root.path(),
     )?);
 
     let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
@@ -209,6 +190,35 @@ async fn validate(
     )
     .await?;
 
+    if let Some(validate_from) = *validate_tipsets {
+        // Initialize StateManager
+        let state_manager = Arc::new(StateManager::new(
+            Arc::clone(&chain_store),
+            Arc::clone(&config.chain),
+            Arc::new(crate::interpreter::RewardActorMessageCalc),
+        )?);
+        import_chain::<_>(
+            &state_manager,
+            &snapshot.to_string_lossy(),
+            true,
+            ChunkSize::default(),
+            BufferSize::default(),
+        )
+        .await?;
+        // Use the specified HEAD, otherwise take the current HEAD.
+        let current_height = config
+            .client
+            .snapshot_head
+            .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
+        assert!(current_height.is_positive());
+        match validate_from.is_negative() {
+            // allow --height=-1000 to scroll back from the current head
+            true => state_manager.validate((current_height + validate_from)..=current_height)?,
+            false => state_manager.validate(validate_from..=current_height)?,
+        }
+    }
+
+    println!("Snapshot is valid");
     Ok(())
 }
 
@@ -279,53 +289,5 @@ where
 
     drop(pb);
 
-    println!("Snapshot is valid");
-
     Ok(())
-}
-
-async fn validate_tipset_range(config: &Config, validate_from: i64) -> anyhow::Result<()> {
-    // Get DB path
-    let chain_data_path = chain_path(config);
-    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
-    // Init genesis header from genesis file
-    let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
-        &db,
-    )
-    .await?;
-
-    // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(
-        db,
-        config.chain.clone(),
-        &genesis_header,
-        chain_data_path.as_path(),
-    )?);
-    // Fetch proof parameters if not available
-    if ensure_params_downloaded().await.is_err() && cns::FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &config.client.data_dir,
-        );
-    }
-    // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&config.chain),
-        cns::reward_calc(),
-    )?);
-    // Use the specified HEAD, otherwise take the current HEAD.
-    let current_height = config
-        .client
-        .snapshot_head
-        .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-    if !current_height.is_positive() {
-        bail!("DB is empty, Import a new snapshot to validate.")
-    }
-    match validate_from.is_negative() {
-        // allow --height=-1000 to scroll back from the current head
-        true => state_manager.validate((current_height + validate_from)..=current_height),
-        false => state_manager.validate(validate_from..=current_height),
-    }
 }

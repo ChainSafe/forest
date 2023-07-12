@@ -49,10 +49,10 @@ pushd "$(mktemp --directory)"
 
     validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed
-    "$FOREST_CLI_PATH" --chain calibnet snapshot validate --snapshot "$validate_me"
+    "$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me"
 
     : : validating under mainnet chain should fail
-    if "$FOREST_CLI_PATH" --chain mainnet snapshot validate --snapshot "$validate_me"; then
+    if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me"; then
         exit 1
     fi
 rm -- *
