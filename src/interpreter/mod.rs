@@ -4,10 +4,6 @@
 mod errors;
 mod fvm;
 pub mod fvm3;
-#[cfg(feature = "instrumented_kernel")]
-mod instrumented_kernel;
-#[cfg(feature = "instrumented_kernel")]
-mod metrics;
 mod vm;
 
 use crate::shim::{
