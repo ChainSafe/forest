@@ -55,8 +55,8 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Validate snapshot at given EPOCH, use a negative value -N to validate
-        /// the last N EPOCH(s) starting at HEAD.
+        /// Re-Validate already computed tipsets at given EPOCH,
+        /// use a negative value -N to validate the last N EPOCH(s) starting at HEAD.
         #[arg(long)]
         validate_tipsets: Option<i64>,
         /// Path to an uncompressed snapshot (CAR)
@@ -182,10 +182,8 @@ impl SnapshotCommands {
                             chain_data_path.as_path(),
                         )?);
                         // Fetch proof parameters if not available
-                        if ensure_params_downloaded().await.is_err() {
-                            if cns::FETCH_PARAMS {
-                                crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-                            }
+                        if ensure_params_downloaded().await.is_err() && cns::FETCH_PARAMS {
+                            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
                         }
                         // Initialize StateManager
                         let state_manager = Arc::new(StateManager::new(
