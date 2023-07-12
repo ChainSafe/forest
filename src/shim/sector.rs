@@ -1,16 +1,19 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::{version::NetworkVersion, Inner};
+use crate::shim::version::NetworkVersion;
+use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::sector::{
     RegisteredPoStProof as RegisteredPoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
     SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
 };
 use fvm_shared3::sector::{
-    PoStProof as PoStProofV3, RegisteredPoStProof as RegisteredPoStProofV3,
-    RegisteredSealProof as RegisteredSealProofV3, SectorInfo as SectorInfoV3,
-    SectorSize as SectorSizeV3,
+    PoStProof as PoStProofV3, SectorInfo as SectorInfoV3, SectorSize as SectorSizeV3,
 };
+pub use fvm_shared3::sector::{
+    RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
+};
+use num_derive::FromPrimitive;
 use std::ops::Deref;
 
 pub use fvm_shared3::sector::StoragePower;
@@ -40,7 +43,7 @@ pub struct RegisteredSealProof(RegisteredSealProofV3);
 impl RegisteredSealProof {
     pub fn from_sector_size(size: SectorSize, network_version: NetworkVersion) -> Self {
         RegisteredSealProof(RegisteredSealProofV3::from_sector_size(
-            *size,
+            size.into(),
             network_version.into(),
         ))
     }
@@ -50,10 +53,6 @@ impl From<RegisteredSealProofV3> for RegisteredSealProof {
     fn from(value: RegisteredSealProofV3) -> Self {
         RegisteredSealProof(value)
     }
-}
-
-impl crate::shim::Inner for RegisteredSealProof {
-    type FVM = RegisteredSealProofV3;
 }
 
 impl Deref for RegisteredSealProof {
@@ -148,10 +147,6 @@ impl From<i64> for RegisteredPoStProof {
     }
 }
 
-impl Inner for RegisteredPoStProof {
-    type FVM = RegisteredPoStProofV3;
-}
-
 impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
     fn from(value: RegisteredPoStProofV2) -> RegisteredPoStProof {
         let num_id: i64 = value.into();
@@ -160,48 +155,60 @@ impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
 }
 
 /// `SectorSize` indicates one of a set of possible sizes in the network.
-#[derive(Clone, Debug, PartialEq, Copy, serde::Serialize, serde::Deserialize)]
-pub struct SectorSize(SectorSizeV3);
+#[derive(Clone, Debug, PartialEq, Eq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
+#[repr(u64)]
+pub enum SectorSize {
+    _2KiB = 2 << 10,
+    _8MiB = 8 << 20,
+    _512MiB = 512 << 20,
+    _32GiB = 32 << 30,
+    _64GiB = 2 * (32 << 30),
+}
 
 impl From<SectorSizeV3> for SectorSize {
     fn from(value: SectorSizeV3) -> Self {
-        SectorSize(value)
+        match value {
+            SectorSizeV3::_2KiB => SectorSize::_2KiB,
+            SectorSizeV3::_8MiB => SectorSize::_8MiB,
+            SectorSizeV3::_512MiB => SectorSize::_512MiB,
+            SectorSizeV3::_32GiB => SectorSize::_32GiB,
+            SectorSizeV3::_64GiB => SectorSize::_64GiB,
+        }
     }
-}
-
-impl Deref for SectorSize {
-    type Target = SectorSizeV3;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Inner for SectorSize {
-    type FVM = SectorSizeV3;
 }
 
 impl From<SectorSizeV2> for SectorSize {
     fn from(value: SectorSizeV2) -> SectorSize {
-        let size = match value {
-            SectorSizeV2::_2KiB => SectorSizeV3::_2KiB,
-            SectorSizeV2::_8MiB => SectorSizeV3::_8MiB,
-            SectorSizeV2::_512MiB => SectorSizeV3::_512MiB,
-            SectorSizeV2::_32GiB => SectorSizeV3::_32GiB,
-            SectorSizeV2::_64GiB => SectorSizeV3::_64GiB,
-        };
-
-        SectorSize(size)
+        match value {
+            SectorSizeV2::_2KiB => SectorSize::_2KiB,
+            SectorSizeV2::_8MiB => SectorSize::_8MiB,
+            SectorSizeV2::_512MiB => SectorSize::_512MiB,
+            SectorSizeV2::_32GiB => SectorSize::_32GiB,
+            SectorSizeV2::_64GiB => SectorSize::_64GiB,
+        }
     }
 }
 
 impl From<SectorSize> for SectorSizeV2 {
     fn from(value: SectorSize) -> SectorSizeV2 {
-        match value.0 {
-            SectorSizeV3::_2KiB => SectorSizeV2::_2KiB,
-            SectorSizeV3::_8MiB => SectorSizeV2::_8MiB,
-            SectorSizeV3::_512MiB => SectorSizeV2::_512MiB,
-            SectorSizeV3::_32GiB => SectorSizeV2::_32GiB,
-            SectorSizeV3::_64GiB => SectorSizeV2::_64GiB,
+        match value {
+            SectorSize::_2KiB => SectorSizeV2::_2KiB,
+            SectorSize::_8MiB => SectorSizeV2::_8MiB,
+            SectorSize::_512MiB => SectorSizeV2::_512MiB,
+            SectorSize::_32GiB => SectorSizeV2::_32GiB,
+            SectorSize::_64GiB => SectorSizeV2::_64GiB,
+        }
+    }
+}
+
+impl From<SectorSize> for SectorSizeV3 {
+    fn from(value: SectorSize) -> SectorSizeV3 {
+        match value {
+            SectorSize::_2KiB => SectorSizeV3::_2KiB,
+            SectorSize::_8MiB => SectorSizeV3::_8MiB,
+            SectorSize::_512MiB => SectorSizeV3::_512MiB,
+            SectorSize::_32GiB => SectorSizeV3::_32GiB,
+            SectorSize::_64GiB => SectorSizeV3::_64GiB,
         }
     }
 }
@@ -268,8 +275,7 @@ mod tests {
         let orig_sector_size = fvm_shared3::sector::SectorSize::_2KiB;
         let orig_json_repr = serde_json::to_string(&orig_sector_size).unwrap();
 
-        let shimmed_sector_size =
-            crate::shim::sector::SectorSize(fvm_shared3::sector::SectorSize::_2KiB);
+        let shimmed_sector_size = crate::shim::sector::SectorSize::_2KiB;
         let shimmed_json_repr = serde_json::to_string(&shimmed_sector_size).unwrap();
 
         assert_eq!(orig_json_repr, shimmed_json_repr);
@@ -279,6 +285,6 @@ mod tests {
         let orig_deser: fvm_shared3::sector::SectorSize =
             serde_json::from_str(&orig_json_repr).unwrap();
 
-        assert_eq!(shimmed_deser.0, orig_deser);
+        assert_eq!(shimmed_deser as u64, orig_deser as u64);
     }
 }

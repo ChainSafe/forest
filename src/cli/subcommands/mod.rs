@@ -26,7 +26,6 @@ mod wallet_cmd;
 use std::io::{self, Write};
 
 use crate::blocks::tipset_json::TipsetJson;
-use crate::cli::subcommands::archive_cmd::ArchiveCommands;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use crate::utils::version::FOREST_VERSION_STRING;
@@ -37,11 +36,11 @@ use log::error;
 use serde::Serialize;
 
 pub(super) use self::{
-    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    config_cmd::ConfigCommands, db_cmd::DBCommands, fetch_params_cmd::FetchCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
+    chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
+    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -99,6 +98,10 @@ pub enum Subcommand {
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
 
+    /// Manage archives
+    #[command(subcommand)]
+    Archive(ArchiveCommands),
+
     /// Send funds between accounts
     Send(SendCommand),
 
@@ -109,10 +112,6 @@ pub enum Subcommand {
     /// Database management
     #[command(subcommand)]
     DB(DBCommands),
-
-    /// Snapshot management that does not require a running node
-    #[command(subcommand)]
-    Archive(ArchiveCommands),
 
     /// Attach to daemon via a JavaScript console
     Attach(AttachCommand),

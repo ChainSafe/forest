@@ -104,7 +104,7 @@ pub async fn get_params(
         .filter(|(name, info)| match storage_size {
             SectorSizeOpt::Keys => !name.ends_with("params"),
             SectorSizeOpt::Size(size) => {
-                (*size) as u64 == info.sector_size || !name.ends_with(".params")
+                size as u64 == info.sector_size || !name.ends_with(".params")
             }
             SectorSizeOpt::All => true,
         })
