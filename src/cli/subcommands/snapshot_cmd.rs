@@ -210,11 +210,16 @@ async fn validate(
             .client
             .snapshot_head
             .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-        assert!(current_height.is_positive());
-        match validate_from.is_negative() {
-            // allow --height=-1000 to scroll back from the current head
-            true => state_manager.validate((current_height + validate_from)..=current_height)?,
-            false => state_manager.validate(validate_from..=current_height)?,
+        if !current_height.is_positive() {
+            bail!("Invalid snapshot head, current_height = {}", current_height);
+        } else {
+            match validate_from.is_negative() {
+                // allow --height=-1000 to scroll back from the current head
+                true => {
+                    state_manager.validate((current_height + validate_from)..=current_height)?
+                }
+                false => state_manager.validate(validate_from..=current_height)?,
+            }
         }
     }
 
