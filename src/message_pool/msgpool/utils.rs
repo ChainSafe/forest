@@ -37,7 +37,7 @@ pub(in crate::message_pool) fn get_gas_reward(
 
 pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: u64) -> f64 {
     let a = BigRational::new(
-        gas_reward.atto() * fvm_shared::BLOCK_GAS_LIMIT,
+        gas_reward.atto() * crate::shim::econ::BLOCK_GAS_LIMIT,
         gas_limit.into(),
     );
     a.to_f64().unwrap()

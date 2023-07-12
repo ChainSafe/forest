@@ -3,7 +3,7 @@
 use std::time;
 
 use cid::Cid;
-use fvm::{
+use fvm2::{
     call_manager::CallManager,
     gas::{Gas, PriceList},
     kernel::{
@@ -12,7 +12,7 @@ use fvm::{
     },
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{
+use fvm_shared2::{
     address::Address, clock::ChainEpoch, consensus::ConsensusFault,
     crypto::signature::SignatureType, econ::TokenAmount, piece::PieceInfo,
     randomness::RANDOMNESS_LENGTH, sector::*, ActorID, MethodNum,
@@ -45,12 +45,12 @@ macro_rules! forward_instrumented {
 /// Instrumented Kernel flavor. Having overhead of additional metrics, it
 /// provides general information of its method usage via Prometheus.
 pub struct ForestInstrumentedKernel<DB: Blockstore + 'static>(
-    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
+    fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachine<DB>>>,
     Option<TokenAmount>,
 );
 
-impl<DB: Blockstore> fvm::Kernel for ForestInstrumentedKernel<DB> {
-    type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<DB>>;
+impl<DB: Blockstore> fvm2::Kernel for ForestInstrumentedKernel<DB> {
+    type CallManager = fvm2::call_manager::DefaultCallManager<ForestMachine<DB>>;
 
     fn into_inner(self) -> (Self::CallManager, BlockRegistry) {
         self.0.into_inner()
@@ -69,25 +69,25 @@ impl<DB: Blockstore> fvm::Kernel for ForestInstrumentedKernel<DB> {
     {
         let circ_supply = mgr.context().circ_supply.clone();
         ForestInstrumentedKernel(
-            fvm::DefaultKernel::new(mgr, blocks, caller, actor_id, method, value_received),
+            fvm2::DefaultKernel::new(mgr, blocks, caller, actor_id, method, value_received),
             Some(circ_supply),
         )
     }
 }
-impl<DB: Blockstore> fvm::kernel::ActorOps for ForestInstrumentedKernel<DB> {
-    fn resolve_address(&self, address: &Address) -> fvm::kernel::Result<Option<ActorID>> {
+impl<DB: Blockstore> fvm2::kernel::ActorOps for ForestInstrumentedKernel<DB> {
+    fn resolve_address(&self, address: &Address) -> fvm2::kernel::Result<Option<ActorID>> {
         forward_instrumented!(|| self.0.resolve_address(address))
     }
 
-    fn get_actor_code_cid(&self, id: ActorID) -> fvm::kernel::Result<Option<Cid>> {
+    fn get_actor_code_cid(&self, id: ActorID) -> fvm2::kernel::Result<Option<Cid>> {
         forward_instrumented!(|| self.0.get_actor_code_cid(id))
     }
 
-    fn new_actor_address(&mut self) -> fvm::kernel::Result<Address> {
+    fn new_actor_address(&mut self) -> fvm2::kernel::Result<Address> {
         forward_instrumented!(|| self.0.new_actor_address())
     }
 
-    fn create_actor(&mut self, code_id: Cid, actor_id: ActorID) -> fvm::kernel::Result<()> {
+    fn create_actor(&mut self, code_id: Cid, actor_id: ActorID) -> fvm2::kernel::Result<()> {
         forward_instrumented!(|| self.0.create_actor(code_id, actor_id))
     }
 
@@ -99,12 +99,12 @@ impl<DB: Blockstore> fvm::kernel::ActorOps for ForestInstrumentedKernel<DB> {
         forward_instrumented!(|| self.0.get_code_cid_for_type(typ))
     }
 }
-impl<DB: Blockstore> fvm::kernel::IpldBlockOps for ForestInstrumentedKernel<DB> {
-    fn block_open(&mut self, cid: &Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
+impl<DB: Blockstore> fvm2::kernel::IpldBlockOps for ForestInstrumentedKernel<DB> {
+    fn block_open(&mut self, cid: &Cid) -> fvm2::kernel::Result<(BlockId, BlockStat)> {
         forward_instrumented!(|| self.0.block_open(cid))
     }
 
-    fn block_create(&mut self, codec: u64, data: &[u8]) -> fvm::kernel::Result<BlockId> {
+    fn block_create(&mut self, codec: u64, data: &[u8]) -> fvm2::kernel::Result<BlockId> {
         forward_instrumented!(|| self.0.block_create(codec, data))
     }
 
@@ -113,20 +113,25 @@ impl<DB: Blockstore> fvm::kernel::IpldBlockOps for ForestInstrumentedKernel<DB> 
         id: BlockId,
         hash_fun: u64,
         hash_len: u32,
-    ) -> fvm::kernel::Result<Cid> {
+    ) -> fvm2::kernel::Result<Cid> {
         forward_instrumented!(|| self.0.block_link(id, hash_fun, hash_len))
     }
 
-    fn block_read(&mut self, id: BlockId, offset: u32, buf: &mut [u8]) -> fvm::kernel::Result<i32> {
+    fn block_read(
+        &mut self,
+        id: BlockId,
+        offset: u32,
+        buf: &mut [u8],
+    ) -> fvm2::kernel::Result<i32> {
         forward_instrumented!(|| self.0.block_read(id, offset, buf))
     }
 
-    fn block_stat(&mut self, id: BlockId) -> fvm::kernel::Result<BlockStat> {
+    fn block_stat(&mut self, id: BlockId) -> fvm2::kernel::Result<BlockStat> {
         forward_instrumented!(|| self.0.block_stat(id))
     }
 }
-impl<DB: Blockstore> fvm::kernel::CircSupplyOps for ForestInstrumentedKernel<DB> {
-    fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
+impl<DB: Blockstore> fvm2::kernel::CircSupplyOps for ForestInstrumentedKernel<DB> {
+    fn total_fil_circ_supply(&self) -> fvm2::kernel::Result<TokenAmount> {
         match self.1.clone() {
             Some(supply) => Ok(supply),
             None => {
@@ -136,7 +141,7 @@ impl<DB: Blockstore> fvm::kernel::CircSupplyOps for ForestInstrumentedKernel<DB>
     }
 }
 
-impl<DB: Blockstore> fvm::kernel::CryptoOps for ForestInstrumentedKernel<DB> {
+impl<DB: Blockstore> fvm2::kernel::CryptoOps for ForestInstrumentedKernel<DB> {
     fn hash(&mut self, code: u64, data: &[u8]) -> Result<cid::multihash::MultihashGeneric<64>> {
         forward_instrumented!(|| self.0.hash(code, data))
     }
@@ -192,9 +197,9 @@ impl<DB: Blockstore> fvm::kernel::CryptoOps for ForestInstrumentedKernel<DB> {
 
     fn recover_secp_public_key(
         &mut self,
-        hash: &[u8; fvm_shared::crypto::signature::SECP_SIG_MESSAGE_HASH_SIZE],
-        signature: &[u8; fvm_shared::crypto::signature::SECP_SIG_LEN],
-    ) -> Result<[u8; fvm_shared::crypto::signature::SECP_PUB_LEN]> {
+        hash: &[u8; fvm_shared2::crypto::signature::SECP_SIG_MESSAGE_HASH_SIZE],
+        signature: &[u8; fvm_shared2::crypto::signature::SECP_SIG_LEN],
+    ) -> Result<[u8; fvm_shared2::crypto::signature::SECP_PUB_LEN]> {
         forward_instrumented!(|| self.0.recover_secp_public_key(hash, signature))
     }
 }
