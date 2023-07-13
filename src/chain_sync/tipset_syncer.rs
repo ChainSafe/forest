@@ -1040,9 +1040,8 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
-        let mut result = Vec::new();
         // Since the bundle only has messages, we have to put the headers in them
-        for (messages, tipset) in compacted_messages.into_iter().rev().zip(batch.iter()) {
+        compacted_messages.into_iter().rev().zip(batch.iter()).map(|(messages, tipset)| {
             // Construct full tipset from fetched messages
             let bundle = TipsetBundle {
                 blocks: tipset.blocks().to_vec(),
@@ -1059,9 +1058,8 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
             } else {
                 warn!("ChainExchange request for messages returned null messages");
             }
-            result.push(full_tipset);
-        }
-        Ok(result)
+            Ok(full_tipset)
+        }).collect()
     } else {
         Ok(vec![])
     }
