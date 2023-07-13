@@ -129,10 +129,13 @@ Create the wallet
 t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
 ```
 
-Fund it using the
-[faucet](https://faucet.calibration.fildev.network/funds.html). You can verify
-it was funded after a few minutes in [Filscan](https://calibration.filscan.io/)
-by pasting the Message ID obtained from the faucet. Example from
+You can fund your wallet using this
+[faucet](https://faucet.calibration.fildev.network/funds.html). If this faucet
+is unavailable or does not work, there is an
+[alternative faucet](https://faucet.triangleplatform.com/filecoin/calibration).
+You can verify your wallet was funded after a few minutes in
+[Filscan](https://calibration.filscan.io/) by pasting the Message ID obtained
+from the faucet. Example from
 [this wallet](https://calibration.filscan.io/tipset/message-detail?cid=bafy2bzacebdverplts5qs3lwzsenzlh4rdsmvc42r6yg6suu4comr7gkbe76a).
 
 Verify that your account has 100 FIL . The result is in `attoFIL`.

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use crate::blocks::BlockHeader;
@@ -18,22 +17,13 @@ pub struct GossipBlock {
 #[cfg(test)]
 impl quickcheck::Arbitrary for GossipBlock {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        use crate::blocks::ArbitraryCid;
-        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-        let bls_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-
-        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-        let secp_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-
         Self {
             header: BlockHeader::arbitrary(g),
-            bls_messages: bls_cids,
-            secpk_messages: secp_cids,
+            bls_messages: Vec::arbitrary(g),
+            secpk_messages: Vec::arbitrary(g),
         }
     }
 }
-
-impl Cbor for GossipBlock {}
 
 pub mod json {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};

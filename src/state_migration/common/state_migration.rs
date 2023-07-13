@@ -63,7 +63,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let threads = num_cpus::get().max(3);
         let chan_size = threads / 2;
 
-        log::info!("Using {threads} threads for migration and channel size of {chan_size}",);
+        tracing::info!("Using {threads} threads for migration and channel size of {chan_size}",);
 
         let pool = rayon::ThreadPoolBuilder::new()
             .thread_name(|id| format!("state migration thread: {id}"))
