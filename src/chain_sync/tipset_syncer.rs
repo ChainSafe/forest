@@ -1014,7 +1014,9 @@ fn sync_tipset<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-/// Ask peers for the [`Message`]s that these [`Tipset`]s should contain
+/// Ask peers for the [`Message`]s that these [`Tipset`]s should contain.
+/// Requests covering too many tipsets may be rejected. As of 2023-07-13,
+/// requesting for 8 tipsets works fine but requesting for 64 is flaky.
 async fn fetch_batch<DB: Blockstore, C: Consensus>(
     batch: Vec<Arc<Tipset>>,
     network: &SyncNetworkContext<DB>,
