@@ -262,7 +262,7 @@ mod tests {
                     }
                 }
                 Ipld::Map(map) => {
-                    for (_, item) in map {
+                    for item in map.values_mut() {
                         fixup_floats(item);
                     }
                 }
