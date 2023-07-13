@@ -1019,6 +1019,15 @@ async fn fetch_batch<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensu
     network: &SyncNetworkContext<DB>,
     db: &DB,
 ) -> Result<Vec<FullTipset>, TipsetRangeSyncerError<C>> {
+    // If all of the tipsets can be populated with messages from the local
+    // database, do so. If any of them cannot, move forward with the full
+    // network request. It's quite rare that we already have the messages. It
+    // only happens when the local database has been seeded with the
+    // information.
+    if let Some(cached) = batch.iter().map(|tipset| tipset.fill_tipset(db)).collect() {
+        return Ok(cached);
+    }
+
     // Tipsets in `batch` are already in chronological order
     if let Some(head) = batch.last() {
         let epoch = head.epoch();
@@ -1081,9 +1090,7 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
         // Chunk tipsets in batches (default batch size is 8)
         .chunks(request_window)
         // Request batches from the p2p network
-        .map(|batch| 
-            fetch_batch::<_, C>(batch, &network, db)
-        )
+        .map(|batch| fetch_batch::<_, C>(batch, &network, db))
         // run 64 batches concurrently
         .buffered(64)
         // validate each full tipset in each batch
