@@ -1019,12 +1019,9 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
     network: &SyncNetworkContext<DB>,
     db: &DB,
 ) -> Result<Vec<FullTipset>, TipsetRangeSyncerError<C>> {
-    // If all of the tipsets can be populated with messages from the local
-    // database, do so. If any of them cannot, move forward with the full
-    // network request. It's quite rare that we already have the messages. It
-    // only happens when the local database has been seeded with the
-    // information.
     if let Some(cached) = batch.iter().map(|tipset| tipset.fill_from_blockstore(db)).collect() {
+        // user has already seeded the database with this information (or we're
+        // recovering from e.g a crash)
         return Ok(cached);
     }
 
