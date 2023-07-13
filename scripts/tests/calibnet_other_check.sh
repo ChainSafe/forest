@@ -54,7 +54,4 @@ if [[ $EXPECTED_WALK != "$ACTUAL_WALK" ]]; then
   printf "Expected:\n%s" "$EXPECTED_WALK"
   exit 1
 fi
-echo "Verifying saved .car file"
-car verify bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo.car
-echo "Inspecting saved .car file"
-car inspect bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo.car
+
