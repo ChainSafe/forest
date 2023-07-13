@@ -13,7 +13,7 @@ use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use log::error;
+use tracing::error;
 
 pub(in crate::rpc) async fn net_addrs_listen<
     DB: Blockstore + Clone + Send + Sync + 'static,

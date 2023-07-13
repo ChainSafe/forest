@@ -55,13 +55,13 @@ where
 
     for (height, migrate) in mappings {
         if epoch == chain_config.epoch(height) {
-            log::info!("Running {height} migration at epoch {epoch}");
+            tracing::info!("Running {height} migration at epoch {epoch}");
             let start_time = std::time::Instant::now();
             let new_state = migrate(chain_config, db, parent_state, epoch)?;
             let elapsed = start_time.elapsed().as_secs_f32();
             if new_state != *parent_state {
                 reveal_five_trees();
-                log::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}. Took: {elapsed}s.");
+                tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}. Took: {elapsed}s.");
             } else {
                 anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}. Took {elapsed}s.");
             }

@@ -105,20 +105,10 @@ mod tests {
 
     use super::*;
 
-    impl quickcheck::Arbitrary for CidJson {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let cid = Cid::new_v1(
-                u64::arbitrary(g),
-                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-            );
-            CidJson(cid)
-        }
-    }
-
     #[quickcheck]
-    fn cid_roundtrip(cid: CidJson) {
-        let serialized = crate::to_string_with!(&cid.0, serialize);
+    fn cid_roundtrip(cid: Cid) {
+        let serialized = crate::to_string_with!(&cid, serialize);
         let parsed: Cid = crate::from_str_with!(&serialized, deserialize);
-        assert_eq!(cid.0, parsed);
+        assert_eq!(cid, parsed);
     }
 }

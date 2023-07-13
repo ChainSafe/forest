@@ -10,7 +10,7 @@ use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
 use crate::utils::io::ProgressBar;
 use chrono::Utc;
 use clap::Subcommand;
-use log::error;
+use tracing::error;
 
 use crate::cli::subcommands::{handle_rpc_err, prompt_confirm};
 

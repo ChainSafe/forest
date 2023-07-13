@@ -7,11 +7,11 @@ use crate::db::DBStatistics;
 use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
-use log::warn;
 use prometheus::core::{AtomicU64, GenericCounterVec, Opts};
 use prometheus::{Encoder, TextEncoder};
 use std::{net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
+use tracing::warn;
 
 lazy_static::lazy_static! {
     static ref REGISTRIES_EXT: RwLock<HashMap<String,prometheus_client::registry::Registry>> = RwLock::new(HashMap::new());

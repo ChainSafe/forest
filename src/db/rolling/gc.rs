@@ -257,7 +257,7 @@ where
                     Ok(block)
                 }
             },
-            Some("Running DB GC | blocks "),
+            Some("Running DB GC | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_DB_GC.clone()),
             estimated_reachable_records,
         )

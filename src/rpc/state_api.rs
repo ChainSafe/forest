@@ -244,7 +244,7 @@ pub(in crate::rpc) async fn state_fetch_root<
             Ok(()) => *fetched += 1,
             Err(msg) => {
                 *failures += 1;
-                log::debug!("Request failed: {msg}");
+                tracing::debug!("Request failed: {msg}");
             }
         }
     }
@@ -273,7 +273,7 @@ pub(in crate::rpc) async fn state_fetch_root<
                     counter += 1;
                     if counter % 1_000 == 0 {
                         // set RUST_LOG=forest_filecoin::rpc::state_api=debug to enable these printouts.
-                        log::debug!(
+                        tracing::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
                                 dfs_guard.len(), task_set.len()
                             );
