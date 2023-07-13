@@ -377,7 +377,7 @@ mod tests {
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
     use fvm_ipld_encoding::IPLD_RAW;
     use fvm_ipld_hamt::BytesKey;
-    use fvm_shared::{
+    use fvm_shared2::{
         bigint::Zero,
         commcid::{
             FIL_COMMITMENT_SEALED, FIL_COMMITMENT_UNSEALED, POSEIDON_BLS12_381_A1_FC1,
@@ -492,7 +492,7 @@ mod tests {
             deal_weight: Zero::zero(),
             verified_deal_weight: Zero::zero(),
             info: fil_actor_miner_state::v8::SectorPreCommitInfo {
-                seal_proof: fvm_shared::sector::RegisteredSealProof::StackedDRG32GiBV1P1,
+                seal_proof: fvm_shared2::sector::RegisteredSealProof::StackedDRG32GiBV1P1,
                 sealed_cid: make_sealed_cid("100".as_bytes())?,
                 ..Default::default()
             },
@@ -888,8 +888,8 @@ mod tests {
             pending_worker_key: None,
             peer_id: vec![],
             multi_address: vec![],
-            window_post_proof_type: fvm_shared::sector::RegisteredPoStProof::Invalid(0),
-            sector_size: fvm_shared::sector::SectorSize::_2KiB, // 0 not available in rust API, change Go code to 2 << 10 and all tests still pass
+            window_post_proof_type: fvm_shared2::sector::RegisteredPoStProof::Invalid(0),
+            sector_size: fvm_shared2::sector::SectorSize::_2KiB, // 0 not available in rust API, change Go code to 2 << 10 and all tests still pass
             window_post_partition_sectors: 0,
             consensus_fault_elapsed: 0,
             pending_owner_address: None,

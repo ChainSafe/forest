@@ -34,7 +34,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
@@ -43,6 +42,7 @@ use tokio::sync::{
     broadcast::{self, Sender as Publisher},
     Mutex as TokioMutex,
 };
+use tracing::{debug, info, trace, warn};
 
 use super::{
     index::{checkpoint_tipsets, ChainIndex},
@@ -55,6 +55,10 @@ use crate::chain::Scale;
 const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
+
+/// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
+/// while maintaining the same type.
+pub type ChainEpochDelta = ChainEpoch;
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -291,7 +295,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            log::debug!("Block {cid} was previously validated");
+            debug!("Block {cid} was previously validated");
         }
         validated
     }
@@ -586,7 +590,7 @@ where
                     Ok(block)
                 }
             },
-            Some("Exporting snapshot | blocks "),
+            Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
         )
@@ -647,18 +651,9 @@ where
         return Ok(ts.clone());
     }
 
-    let block_headers: Vec<BlockHeader> = tsk
-        .cids()
-        .iter()
-        .map(|c| {
-            store
-                .get_cbor(c)?
-                .ok_or_else(|| Error::NotFound(String::from("Key for header")))
-        })
-        .collect::<Result<_, Error>>()?;
-
+    let ts = Tipset::load(store, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?;
     // construct new Tipset to return
-    let ts = Arc::new(Tipset::new(block_headers)?);
+    let ts = Arc::new(ts);
     cache.lock().put(tsk.clone(), ts.clone());
     metrics::LRU_CACHE_MISS
         .with_label_values(&[metrics::values::TIPSET])

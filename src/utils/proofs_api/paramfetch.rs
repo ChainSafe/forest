@@ -14,10 +14,10 @@ use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use futures::TryStreamExt;
-use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use tap::Pipe as _;
 use tokio::fs::{self, File};
+use tracing::{debug, error, info, warn};
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
@@ -104,7 +104,7 @@ pub async fn get_params(
         .filter(|(name, info)| match storage_size {
             SectorSizeOpt::Keys => !name.ends_with("params"),
             SectorSizeOpt::Size(size) => {
-                (*size) as u64 == info.sector_size || !name.ends_with(".params")
+                size as u64 == info.sector_size || !name.ends_with(".params")
             }
             SectorSizeOpt::All => true,
         })

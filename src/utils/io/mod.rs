@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod progress_bar;
+pub mod progress_log;
 mod tempfile;
 mod writer_checksum;
 
@@ -12,6 +13,7 @@ use std::{
 };
 
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
+pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;
 
 pub use self::tempfile::*;
@@ -21,7 +23,7 @@ pub use self::tempfile::*;
 pub fn set_user_perm(file: &File) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
-    use log::info;
+    use tracing::info;
 
     let mut perm = file.metadata()?.permissions();
     #[allow(clippy::useless_conversion)] // Otherwise it does not build on macos

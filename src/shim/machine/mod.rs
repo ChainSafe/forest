@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm::machine::MultiEngine as MultiEngine_v2;
+use fvm2::machine::MultiEngine as MultiEngine_v2;
 use fvm3::engine::MultiEngine as MultiEngine_v3;
 mod manifest;
 pub use manifest::*;

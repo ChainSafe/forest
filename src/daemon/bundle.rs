@@ -1,17 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli_shared::cli::Config;
+use crate::cli_shared::cli::{BufferSize, ChunkSize, Config};
 use crate::genesis::forest_load_car;
 use crate::networks::Height;
 use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
-use log::info;
 use tokio::{
     fs::File,
     io::{BufReader, BufWriter},
 };
 use tokio_util::compat::TokioAsyncReadCompatExt;
+use tracing::info;
 
 pub async fn load_bundles<DB>(epoch: ChainEpoch, config: &Config, db: DB) -> anyhow::Result<()>
 where
@@ -31,7 +31,13 @@ where
     }
 
     for (manifest_cid, reader) in bundles {
-        let (result, _) = forest_load_car(db.clone(), reader.compat()).await?;
+        let (result, _) = forest_load_car(
+            db.clone(),
+            reader.compat(),
+            ChunkSize::default(),
+            BufferSize::default(),
+        )
+        .await?;
         assert_eq!(
             result.len(),
             1,

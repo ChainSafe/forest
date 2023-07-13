@@ -6,7 +6,7 @@ use crate::chain::{ChainStore, Error as ChainError};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use log::debug;
+use tracing::debug;
 
 use super::{
     ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
