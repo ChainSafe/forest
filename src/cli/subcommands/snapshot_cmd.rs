@@ -132,6 +132,7 @@ impl SnapshotCommands {
                     "Export completed. Snapshot located at {}",
                     out.display()
                 ));
+                println!("\n");
                 Ok(())
             }
             Self::Fetch { directory, vendor } => {
