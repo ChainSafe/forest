@@ -1285,6 +1285,7 @@ where
         let pb = crate::utils::io::ProgressBar::new((epochs.end() - epochs.start()) as u64);
         pb.message("Compute parent state: ");
         pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+
         tipsets
             .take_while(|tipset| tipset.epoch() >= *epochs.start())
             .tuple_windows()

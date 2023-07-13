@@ -204,13 +204,12 @@ async fn validate(
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
         ensure_params_downloaded().await?;
+        // Prepare tipset stream to validate
         let heaviest_epoch = ts.epoch();
         let end_tipset = state_manager
             .chain_store()
             .tipset_by_height(heaviest_epoch, ts, false)
             .context(format!("couldn't get a tipset at height {heaviest_epoch}"))?;
-
-        // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = itertools::unfold(Some(end_tipset), |tipset| {
             let child = tipset.take()?;
             // if this has parents, unfold them in the next iteration
@@ -220,6 +219,7 @@ async fn validate(
                 .ok();
             Some(child)
         });
+
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
             true => state_manager
