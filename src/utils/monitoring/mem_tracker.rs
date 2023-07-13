@@ -7,8 +7,8 @@ use std::{
 };
 
 use human_repr::HumanCount;
-use log::info;
 use memory_stats::memory_stats;
+use tracing::info;
 
 pub struct MemStatsTracker {
     check_interval: Duration,

@@ -9,7 +9,7 @@ use std::{
 
 use ahash::HashSet;
 use cid::Cid;
-use log::warn;
+use tracing::warn;
 
 pub struct FileBacked<T: FileBackedObject> {
     inner: T,

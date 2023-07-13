@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::db::file_backed_obj::FileBackedObject;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::{from_slice, to_vec};
 
 use crate::blocks::*;
 
 impl FileBackedObject for TipsetKeys {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
-        Ok(self.marshal_cbor()?)
+        Ok(to_vec(self)?)
     }
 
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
-        Ok(fvm_ipld_encoding::from_slice(bytes)?)
+        Ok(from_slice(bytes)?)
     }
 }
 

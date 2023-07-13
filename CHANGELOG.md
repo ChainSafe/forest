@@ -29,11 +29,21 @@
 
 ### Added
 
+- [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
+  `forest-cli archive info` command for inspecting archives.
+- [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
+  `forest-cli archive export -e=X` command for exporting archives.
+
 ### Changed
+
+- [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
+  lookup errors instead of silently ignoring them.
 
 ### Removed
 
 ### Fixed
+
+## Forest v0.11.1 "Dagny Taggert"
 
 ## Forest v0.11.0 "Hypersonic"
 
@@ -59,10 +69,6 @@
   migration support for NV17.
 - [#3107](https://github.com/ChainSafe/forest/pull/3107): Introduced 'head'
   parameter for snapshot validation.
-
-### Changed
-
-### Removed
 
 ### Fixed
 

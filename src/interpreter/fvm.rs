@@ -1,9 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::BlockHeader;
+use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
 use crate::shim::{
     gas::{price_list_by_network_version, Gas, GasTracker},
@@ -12,17 +14,18 @@ use crate::shim::{
 };
 use anyhow::bail;
 use cid::Cid;
-use fvm::externs::{Consensus, Externs, Rand};
+use fvm2::externs::{Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
-use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
+use fvm_ipld_encoding::from_slice;
+use fvm_shared2::{
     address::Address,
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
+use tracing::error;
 
 use crate::interpreter::resolve_to_key_addr;
 
@@ -33,6 +36,7 @@ pub struct ForestExternsV2<DB> {
     lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
+    bail: AtomicBool,
 }
 
 impl<DB: Blockstore> ForestExternsV2<DB> {
@@ -51,6 +55,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
             lookback,
             db,
             chain_config,
+            bail: AtomicBool::new(false),
         }
     }
 
@@ -90,13 +95,17 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
         Ok((addr.into(), gas_used.round_up() as i64))
     }
 
-    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
+    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64, Error> {
         let (worker_addr, gas_used) =
             self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch())?;
 
         bh.check_block_signature(&worker_addr.into())?;
 
         Ok(gas_used)
+    }
+
+    pub fn bail(&self) -> bool {
+        self.bail.load(Ordering::Relaxed)
     }
 }
 
@@ -149,8 +158,8 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
                 h2
             );
         };
-        let bh_1 = BlockHeader::unmarshal_cbor(h1)?;
-        let bh_2 = BlockHeader::unmarshal_cbor(h2)?;
+        let bh_1 = from_slice::<BlockHeader>(h1)?;
+        let bh_2 = from_slice::<BlockHeader>(h2)?;
 
         if bh_1.cid() == bh_2.cid() {
             bail!("no consensus fault: submitted blocks are the same");
@@ -197,7 +206,7 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
         // Specifically, since A is of lower height, it must be that B was mined
         // omitting A from its tipset
         if !extra.is_empty() {
-            let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
+            let bh_3 = from_slice::<BlockHeader>(extra)?;
             if bh_1.parents() == bh_3.parents()
                 && bh_1.epoch() == bh_3.epoch()
                 && bh_2.parents().cids().contains(bh_3.cid())
@@ -215,27 +224,34 @@ impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
             Some(fault_type) => {
                 // (4) expensive final checks
 
+                let bail = |err| {
+                    // When a lookup error occurs we should just bail terminating all the
+                    // computations.
+                    error!("database lookup error: {err}");
+                    self.bail.store(true, Ordering::Relaxed);
+                    Err(err)
+                };
+
                 // check blocks are properly signed by their respective miner
                 // note we do not need to check extra's: it is a parent to block b
                 // which itself is signed, so it was willingly included by the miner
-                if let Ok(gas_used) = self.verify_block_signature(&bh_1) {
-                    total_gas += gas_used;
-                    if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
-                        total_gas += gas_used;
-                        let ret = Some(ConsensusFault {
-                            target: bh_1.miner_address().into(),
-                            epoch: bh_2.epoch(),
-                            fault_type,
-                        });
-                        Ok((ret, total_gas))
-                    } else {
-                        // invalid consensus fault: cannot verify second block header signature
-                        Ok((None, total_gas))
+                for block_header in [&bh_1, &bh_2] {
+                    let res = self.verify_block_signature(block_header);
+                    match res {
+                        // invalid consensus fault: cannot verify block header signature
+                        Err(Error::Signature(_)) => return Ok((None, total_gas)),
+                        Err(Error::Lookup(err)) => return bail(err),
+                        Ok(gas_used) => total_gas += gas_used,
                     }
-                } else {
-                    // invalid consensus fault: cannot verify first block header signature
-                    Ok((None, total_gas))
                 }
+
+                let ret = Some(ConsensusFault {
+                    target: bh_1.miner_address().into(),
+                    epoch: bh_2.epoch(),
+                    fault_type,
+                });
+
+                Ok((ret, total_gas))
             }
         }
     }

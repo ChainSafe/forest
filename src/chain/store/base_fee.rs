@@ -7,7 +7,6 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
 use ahash::{HashSet, HashSetExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
 
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: u64 = BLOCK_GAS_LIMIT / 2;

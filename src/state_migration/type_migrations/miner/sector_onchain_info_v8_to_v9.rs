@@ -5,7 +5,7 @@ use fil_actor_miner_state::{
     v8::SectorOnChainInfo as SectorOnChainInfoV8, v9::SectorOnChainInfo as SectorOnChainInfoV9,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::bigint::BigInt;
+use num::BigInt;
 
 use super::super::super::common::{TypeMigration, TypeMigrator};
 

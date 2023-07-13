@@ -81,12 +81,6 @@ impl ProgressBar {
         }
     }
 
-    pub fn set_units(&self, u: Units) {
-        if self.display {
-            self.inner.lock().set_units(u)
-        }
-    }
-
     pub fn set(&self, i: u64) -> u64 {
         if self.display {
             self.inner.lock().set(i)

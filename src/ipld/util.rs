@@ -8,13 +8,12 @@ use std::{
         atomic::{self, AtomicU64},
         Arc,
     },
-    time::Duration,
 };
 
 use crate::blocks::{BlockHeader, Tipset};
-use crate::utils::io::{progress_bar, ProgressBar};
+use crate::utils::io::progress_log::WithProgressRaw;
 use cid::Cid;
-use fvm_ipld_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
 
 use crate::ipld::{CidHashSet, Ipld};
@@ -45,7 +44,7 @@ where
         }
         &Ipld::Link(cid) => {
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
-            if cid.codec() == fvm_shared::IPLD_RAW {
+            if cid.codec() == crate::shim::crypto::IPLD_RAW {
                 if !walked.insert(cid) {
                     return Ok(());
                 }
@@ -117,10 +116,9 @@ where
     T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
 {
     let estimated_total_records = estimated_total_records.unwrap_or_default();
-    let bar = ProgressBar::new(estimated_total_records);
-    bar.message(progress_bar_message.unwrap_or("Walking snapshot "));
-    bar.set_units(progress_bar::Units::Default);
-    bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
+    let message = progress_bar_message.unwrap_or("Walking snapshot");
+    #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
+    let wp = WithProgressRaw::new(message, estimated_total_records);
 
     let mut seen = CidHashSet::default();
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -128,13 +126,13 @@ where
     let incl_roots_epoch = tipset.epoch() - recent_roots;
 
     let on_inserted = {
-        let bar = bar.clone();
+        let wp = wp.clone();
         let progress_tracker = progress_tracker.clone();
         move |len: usize| {
             let progress = len as u64;
             let total = progress.max(estimated_total_records);
-            bar.set(progress);
-            bar.set_total(total);
+            wp.set(progress);
+            wp.set_total(total);
             if let Some(progress_tracker) = &progress_tracker {
                 progress_tracker
                     .0
@@ -155,7 +153,7 @@ where
         }
 
         let data = load_block(next).await?;
-        let h = BlockHeader::unmarshal_cbor(&data)?;
+        let h = from_slice::<BlockHeader>(&data)?;
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
@@ -180,7 +178,6 @@ where
         }
     }
 
-    bar.finish();
     Ok(seen.len())
 }
 
@@ -193,7 +190,7 @@ fn should_save_block_to_snapshot(cid: &Cid) -> bool {
     } else {
         matches!(
             cid.codec(),
-            fvm_shared::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
+            crate::shim::crypto::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
         )
     }
 }
