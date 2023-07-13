@@ -3,9 +3,8 @@
 
 use std::path::PathBuf;
 
-use async_recursion::async_recursion;
 use clap::Subcommand;
-use futures::{AsyncRead, StreamExt};
+use futures::{AsyncRead, StreamExt, TryStreamExt};
 use fvm_ipld_car::Block;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
@@ -28,9 +27,12 @@ impl CarCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Concat { car_files, output } => {
-                let readers: Vec<_> = stream::iter(car_files)
+                let readers: Vec<_> = futures::stream::iter(car_files)
                     .then(|f| async {
-                        CarReader::new(BufReader::new(File::open(f).await?).compat()).await
+                        CarReader::new(
+                            tokio::io::BufReader::new(tokio::fs::File::open(f).await?).compat(),
+                        )
+                        .await
                     })
                     .try_collect()
                     .await?;
@@ -94,29 +96,18 @@ where
         }
     }
 
-    #[async_recursion]
+    // Note: Using loop instead of recursion here to avoid stack overflow
     async fn next_block(&mut self) -> Result<Option<Block>, fvm_ipld_car::Error> {
-        while let Some(block) = if self.index >= self.readers.len() {
-            Ok(None)
-        } else if let Some(block) = self.readers[self.index].next_block().await? {
-            // Note: Using while loop here because below code causes stack overflow in unit tests
-            // ```rust
-            // if self.seen.insert(block.cid) {
-            //  Ok(Some(block))
-            // } else {
-            //     self.next_block().await
-            // }
-            // ```
-            Ok(Some(block))
-        } else {
-            self.index += 1;
-            self.next_block().await
-        }? {
-            if self.seen.insert(block.cid) {
-                return Ok(Some(block));
-            }
+        loop {
+            if self.index >= self.readers.len() {
+                break Ok(None);
+            } else if let Some(block) = self.readers[self.index].next_block().await? {
+                if self.seen.insert(block.cid) {
+                    break Ok(Some(block));
+                }
+            } else {
+                self.index += 1;
+            };
         }
-
-        Ok(None)
     }
 }
