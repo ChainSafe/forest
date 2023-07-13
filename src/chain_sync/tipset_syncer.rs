@@ -1041,25 +1041,30 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
         // Since the bundle only has messages, we have to put the headers in them
-        compacted_messages.into_iter().rev().zip(batch.iter()).map(|(messages, tipset)| {
-            // Construct full tipset from fetched messages
-            let bundle = TipsetBundle {
-                blocks: tipset.blocks().to_vec(),
-                messages: Some(messages),
-            };
+        compacted_messages
+            .into_iter()
+            .rev()
+            .zip(batch.iter())
+            .map(|(messages, tipset)| {
+                // Construct full tipset from fetched messages
+                let bundle = TipsetBundle {
+                    blocks: tipset.blocks().to_vec(),
+                    messages: Some(messages),
+                };
 
-            let full_tipset = FullTipset::try_from(&bundle)
-                .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+                let full_tipset = FullTipset::try_from(&bundle)
+                    .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
-            // Persist the messages in the store
-            if let Some(m) = bundle.messages {
-                crate::chain::persist_objects(db, &m.bls_msgs)?;
-                crate::chain::persist_objects(db, &m.secp_msgs)?;
-            } else {
-                warn!("ChainExchange request for messages returned null messages");
-            }
-            Ok(full_tipset)
-        }).collect()
+                // Persist the messages in the store
+                if let Some(m) = bundle.messages {
+                    crate::chain::persist_objects(db, &m.bls_msgs)?;
+                    crate::chain::persist_objects(db, &m.secp_msgs)?;
+                } else {
+                    warn!("ChainExchange request for messages returned null messages");
+                }
+                Ok(full_tipset)
+            })
+            .collect()
     } else {
         Ok(vec![])
     }

@@ -204,9 +204,10 @@ impl Tipset {
             .collect();
 
         // the given tipset has already been verified, so this cannot fail
-        Some(FullTipset::new(blocks).expect(
-            "block headers have already been verified so this check cannot fail",
-        ))
+        Some(
+            FullTipset::new(blocks)
+                .expect("block headers have already been verified so this check cannot fail"),
+        )
     }
 
     /// Returns epoch of the tipset.
