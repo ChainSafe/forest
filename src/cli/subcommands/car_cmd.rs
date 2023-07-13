@@ -3,7 +3,9 @@
 
 use std::path::PathBuf;
 
+use async_recursion::async_recursion;
 use clap::Subcommand;
+use futures::{AsyncRead, StreamExt};
 use fvm_ipld_car::Block;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
@@ -51,13 +53,24 @@ impl CarCommands {
                     }
                 }
 
-                let (tx, rx) = flume::bounded(100);
+                let mut stream = Box::pin(
+                    futures::stream::unfold(
+                        MultiCarDedupReader::new(vec![reader_a, reader_b]),
+                        move |mut reader| async {
+                            reader
+                                .next_block()
+                                .await
+                                .expect("Failed calling `MultiCarReader::next_block`")
+                                .map(|b| (b, reader))
+                        },
+                    )
+                    .map(|out| (out.cid, out.data)),
+                );
 
                 let write_task = tokio::spawn(async move {
                     let car_writer = CarHeader::from(roots);
                     let mut output_file =
                         tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
-                    let mut stream = rx.stream();
                     car_writer
                         .write_stream_async(&mut output_file, &mut stream)
                         .await?;
@@ -65,19 +78,57 @@ impl CarCommands {
                     Ok::<_, anyhow::Error>(())
                 });
 
-                let mut seen = CidHashSet::default();
-                for mut reader in [reader_a, reader_b] {
-                    while let Some(Block { cid, data }) = reader.next_block().await? {
-                        if seen.insert(cid) {
-                            tx.send_async((cid, data)).await?;
-                        }
-                    }
-                }
-
-                drop(tx);
                 write_task.await??;
             }
         }
         Ok(())
+    }
+}
+
+struct MultiCarDedupReader<R>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    readers: Vec<CarReader<R>>,
+    index: usize,
+    seen: CidHashSet,
+}
+
+impl<R> MultiCarDedupReader<R>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    fn new(readers: Vec<CarReader<R>>) -> Self {
+        Self {
+            readers,
+            index: 0,
+            seen: Default::default(),
+        }
+    }
+
+    #[async_recursion]
+    async fn next_block(&mut self) -> Result<Option<Block>, fvm_ipld_car::Error> {
+        while let Some(block) = if self.index >= self.readers.len() {
+            Ok(None)
+        } else if let Some(block) = self.readers[self.index].next_block().await? {
+            // Note: Using while loop here because below code causes stack overflow in unit tests
+            // ```rust
+            // if self.seen.insert(block.cid) {
+            //  Ok(Some(block))
+            // } else {
+            //     self.next_block().await
+            // }
+            // ```
+            Ok(Some(block))
+        } else {
+            self.index += 1;
+            self.next_block().await
+        }? {
+            if self.seen.insert(block.cid) {
+                return Ok(Some(block));
+            }
+        }
+
+        Ok(None)
     }
 }

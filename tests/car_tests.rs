@@ -89,6 +89,10 @@ fn new_block(rng: &mut SmallRng) -> (Cid, Vec<u8>) {
 async fn validate_car(path: impl AsRef<Path>) -> Result<()> {
     let mut reader = CarReader::new(tokio::fs::File::open(path).await?.compat()).await?;
     assert!(reader.validate);
-    while reader.next_block().await?.is_some() {}
+    let mut count = 0;
+    while reader.next_block().await?.is_some() {
+        count += 1;
+    }
+    println!("Result car block count: {count}");
     Ok(())
 }
