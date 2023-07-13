@@ -213,7 +213,6 @@ impl TryFrom<&TipsetBundle> for FullTipset {
 
 /// Constructs a [`FullTipset`] from headers and compacted messages from a
 /// bundle.
-// TODO(aatifsyed): refactor
 fn fts_from_bundle_parts(
     headers: Vec<BlockHeader>,
     messages: Option<&CompactedMessages>,
