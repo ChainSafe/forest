@@ -1022,7 +1022,11 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
     network: &SyncNetworkContext<DB>,
     db: &DB,
 ) -> Result<Vec<FullTipset>, TipsetRangeSyncerError<C>> {
-    if let Some(cached) = batch.iter().map(|tipset| tipset.fill_from_blockstore(db)).collect() {
+    if let Some(cached) = batch
+        .iter()
+        .map(|tipset| tipset.fill_from_blockstore(db))
+        .collect()
+    {
         // user has already seeded the database with this information (or we're
         // recovering from e.g a crash)
         return Ok(cached);
