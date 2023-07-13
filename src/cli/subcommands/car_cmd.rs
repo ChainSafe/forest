@@ -55,7 +55,8 @@ impl CarCommands {
 
                 let write_task = tokio::spawn(async move {
                     let car_writer = CarHeader::from(roots);
-                    let mut output_file = tokio::fs::File::create(output).await?.compat();
+                    let mut output_file =
+                        tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
                     let mut stream = rx.stream();
                     car_writer
                         .write_stream_async(&mut output_file, &mut stream)

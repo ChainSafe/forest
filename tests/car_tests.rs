@@ -10,9 +10,10 @@ use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
+use futures::StreamExt;
 use fvm_ipld_car::{CarHeader, CarReader};
 use fvm_ipld_encoding::DAG_CBOR;
-use rand::{rngs::OsRng, Rng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use tempfile::NamedTempFile;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -79,7 +80,7 @@ async fn new_car(size: usize, path: impl AsRef<Path>) -> Result<()> {
 }
 
 fn new_block(rng: &mut SmallRng) -> (Cid, Vec<u8>) {
-    let mut data = [0; 1024];
+    let mut data = [0; 64];
     rng.fill(&mut data);
     let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&data));
     (cid, data.to_vec())
