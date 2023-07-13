@@ -3,11 +3,11 @@
 
 use std::path::PathBuf;
 
-use log::error;
 use prometheus::{
     core::{Collector, Desc},
     proto, Gauge, Opts,
 };
+use tracing::error;
 
 pub struct DBCollector {
     db_directory: PathBuf,

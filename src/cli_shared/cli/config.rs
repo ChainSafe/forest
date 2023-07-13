@@ -1,17 +1,45 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use core::time::Duration;
-use std::{path::PathBuf, sync::Arc};
-
 use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
-use log::LevelFilter;
+use core::time::Duration;
 use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, sync::Arc};
+use tracing::log::LevelFilter;
 
 use super::client::Client;
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Hash)]
+pub enum LogFilter {
+    /// A level lower than all log levels.
+    Off,
+    /// Corresponds to the `Error` log level.
+    Error,
+    /// Corresponds to the `Warn` log level.
+    Warn,
+    /// Corresponds to the `Info` log level.
+    Info,
+    /// Corresponds to the `Debug` log level.
+    Debug,
+    /// Corresponds to the `Trace` log level.
+    Trace,
+}
+
+impl From<LogFilter> for LevelFilter {
+    fn from(value: LogFilter) -> Self {
+        match value {
+            LogFilter::Debug => LevelFilter::Debug,
+            LogFilter::Off => LevelFilter::Off,
+            LogFilter::Error => LevelFilter::Error,
+            LogFilter::Warn => LevelFilter::Warn,
+            LogFilter::Info => LevelFilter::Info,
+            LogFilter::Trace => LevelFilter::Trace,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub struct LogConfig {
@@ -22,7 +50,7 @@ impl LogConfig {
     pub(in crate::cli_shared) fn to_filter_string(&self) -> String {
         self.filters
             .iter()
-            .map(|f| format!("{}={}", f.module, f.level))
+            .map(|f| format!("{}={}", f.module, LevelFilter::from(f.level.clone())))
             .collect::<Vec<_>>()
             .join(",")
     }
@@ -32,15 +60,15 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             filters: vec![
-                LogValue::new("axum", LevelFilter::Warn),
-                LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
-                LogValue::new("filecoin_proofs", LevelFilter::Warn),
-                LogValue::new("libp2p_bitswap", LevelFilter::Off),
-                LogValue::new("libp2p_gossipsub", LevelFilter::Error),
-                LogValue::new("libp2p_kad", LevelFilter::Error),
-                LogValue::new("rpc", LevelFilter::Error),
-                LogValue::new("storage_proofs_core", LevelFilter::Warn),
-                LogValue::new("tracing_loki", LevelFilter::Off),
+                LogValue::new("axum", LogFilter::Warn),
+                LogValue::new("bellperson::groth16::aggregate::verify", LogFilter::Warn),
+                LogValue::new("filecoin_proofs", LogFilter::Warn),
+                LogValue::new("libp2p_bitswap", LogFilter::Off),
+                LogValue::new("libp2p_gossipsub", LogFilter::Error),
+                LogValue::new("libp2p_kad", LogFilter::Error),
+                LogValue::new("rpc", LogFilter::Error),
+                LogValue::new("storage_proofs_core", LogFilter::Warn),
+                LogValue::new("tracing_loki", LogFilter::Off),
             ],
         }
     }
@@ -49,11 +77,11 @@ impl Default for LogConfig {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct LogValue {
     pub module: String,
-    pub level: LevelFilter,
+    pub level: LogFilter,
 }
 
 impl LogValue {
-    pub fn new(module: &str, level: LevelFilter) -> Self {
+    pub fn new(module: &str, level: LogFilter) -> Self {
         Self {
             module: module.to_string(),
             level,
