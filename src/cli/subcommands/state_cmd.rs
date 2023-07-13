@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKeys;
-use crate::car_backed_blockstore::{read_header, CarBackedBlockstore};
+use crate::car_backed_blockstore::CarBackedBlockstore;
 use crate::chain::ChainStore;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
@@ -84,6 +84,8 @@ async fn print_computed_state(
             .context("couldn't read input CAR file - is it compressed?")?,
     );
 
+    let tsk = TipsetKeys::new(store.roots());
+
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -105,15 +107,6 @@ async fn print_computed_state(
         config.chain,
         Arc::new(crate::interpreter::RewardActorMessageCalc),
     )?);
-
-    let cids = {
-        let reader = std::fs::File::open(snapshot)?;
-        let header = read_header(reader)?;
-        header.roots
-    };
-
-    let tsk = TipsetKeys::new(cids);
-    //println!("Found heaviest tipset! {}", tsk);
 
     let ts = sm.chain_store().tipset_from_keys(&tsk)?;
 
