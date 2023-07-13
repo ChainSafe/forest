@@ -3,9 +3,7 @@
 use std::borrow::Borrow;
 
 use fvm2::executor::ApplyRet as ApplyRet_v2;
-use fvm2::trace::ExecutionEvent as ExecutionEvent_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
-use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
@@ -143,20 +141,16 @@ impl From<Receipt_v3> for Receipt {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum ExecutionTrace {
-    V2(Vec<ExecutionEvent_v2>),
-    V3(Vec<ExecutionEvent_v3>),
-}
-
-#[derive(Clone, Debug)]
-pub enum ExecutionEvent {
-    V2(ExecutionEvent_v2),
-    V3(ExecutionEvent_v3),
-}
-
 // TODO: use this https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L35
 // to create the equivalent ExecutionTrace structure that we could serialize/deserialize
+
+#[derive(Clone, Debug)]
+pub struct ExecutionTrace {
+    // message: MessageTrace,
+    // message_return: ReturnTrace,
+    // gas_charges: Vec<GasTrace>,
+    // subcalls: Vec<ExecutionTrace>,
+}
 
 // impl Serialize for ExecutionEvent {
 //     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
