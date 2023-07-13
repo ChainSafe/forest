@@ -1014,7 +1014,7 @@ fn sync_tipset<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-async fn fetch_batch<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensus>(
+async fn fetch_batch<DB: Blockstore, C: Consensus>(
     batch: Vec<Arc<Tipset>>,
     network: &SyncNetworkContext<DB>,
     db: &DB,
