@@ -112,7 +112,6 @@ where
             .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
             // State API
             .with_method(STATE_CALL, state_call::<DB, B>)
-            .with_method(STATE_COMPUTE, state_compute::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
