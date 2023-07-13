@@ -4,6 +4,7 @@ use std::borrow::Borrow;
 
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
+use fvm3::trace::ExecutionEvent;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
@@ -56,6 +57,30 @@ impl ApplyRet {
         match self {
             ApplyRet::V2(v2) => Receipt::V2(v2.msg_receipt.clone()),
             ApplyRet::V3(v3) => Receipt::V3(v3.msg_receipt.clone()),
+        }
+    }
+
+    pub fn gas_used(&self) -> u64 {
+        match self {
+            ApplyRet::V2(v2) => v2.gas_burned as u64,
+            ApplyRet::V3(v3) => v3.gas_burned,
+        }
+    }
+
+    pub fn exec_trace(&self) -> Vec<ExecutionEvent> {
+        match self {
+            ApplyRet::V2(_v2) => todo!(),
+            ApplyRet::V3(v3) => v3.exec_trace.clone(),
+        }
+    }
+
+    pub fn actor_error(&self) -> String {
+        match self {
+            ApplyRet::V2(_v2) => todo!(),
+            ApplyRet::V3(v3) => v3
+                .failure_info
+                .clone()
+                .map_or("".into(), |af| af.to_string()),
         }
     }
 }

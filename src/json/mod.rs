@@ -4,7 +4,9 @@
 pub mod actor_state;
 pub mod address;
 pub mod cid;
+pub mod invoc_result;
 pub mod message;
+pub mod message_gas_cost;
 pub mod message_receipt;
 pub mod sector;
 pub mod signature;

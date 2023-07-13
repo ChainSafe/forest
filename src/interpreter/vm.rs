@@ -24,6 +24,7 @@ use fvm2::{
     executor::{DefaultExecutor, Executor},
     machine::{DefaultMachine, Machine, NetworkConfig},
 };
+//use fvm3::trace::ExecutionTrace;
 use fvm3::{
     executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
     machine::{
@@ -35,6 +36,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
+//use serde::{Deserialize, Serialize};
 
 use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
 
@@ -82,6 +84,31 @@ pub trait RewardCalc: Send + Sync + 'static {
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub struct MessageGasCost {
+    pub message: Cid,
+    pub gas_used: u64,
+}
+
+impl MessageGasCost {
+    pub fn new(msg: &Message, ret: ApplyRet) -> Self {
+        Self {
+            message: msg.cid().unwrap(),
+            gas_used: ret.gas_used(),
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct InvocResult {
+    pub msg_cid: Cid,
+    pub msg: Message,
+    pub msg_receipt: Receipt,
+    pub gas_cost: MessageGasCost,
+    //execution_trace: ExecutionTrace,
+    pub error: String,
+}
+
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
 pub enum VM<DB: Blockstore + 'static> {
@@ -113,6 +140,7 @@ where
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
         timestamp: u64,
+        enable_tracing: bool,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
@@ -127,6 +155,9 @@ where
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
+            if enable_tracing {
+                context.enable_tracing();
+            }
             let fvm: fvm3::machine::DefaultMachine<DB, ForestExterns_v3<DB>> =
                 fvm3::machine::DefaultMachine::new(
                     &context,
@@ -152,6 +183,9 @@ where
             let mut context = config.for_epoch(epoch, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
+            if enable_tracing {
+                context.enable_tracing();
+            }
             let fvm: fvm2::machine::DefaultMachine<DB, ForestExternsV2<DB>> =
                 fvm2::machine::DefaultMachine::new(
                     &engine,
@@ -245,9 +279,10 @@ where
         mut callback: Option<
             impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
-    ) -> Result<Vec<Receipt>, anyhow::Error> {
+    ) -> Result<(Vec<Receipt>, Vec<InvocResult>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
+        let mut invoc_results = Vec::new();
 
         for block in messages.iter() {
             let mut penalty = TokenAmount::zero();
@@ -268,7 +303,22 @@ where
                 // Update totals
                 gas_reward += ret.miner_tip();
                 penalty += ret.penalty();
-                receipts.push(ret.msg_receipt());
+                let msg_receipt = ret.msg_receipt();
+                receipts.push(msg_receipt.clone());
+
+                // Push InvocResult
+                if true {
+                    //let execution_trace = ret.exec_trace();
+                    let error = ret.actor_error();
+                    invoc_results.push(InvocResult {
+                        msg_cid: cid,
+                        msg: msg.message().clone(),
+                        msg_receipt,
+                        gas_cost: MessageGasCost::new(msg.message(), ret),
+                        //execution_trace,
+                        error,
+                    });
+                }
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -307,7 +357,7 @@ where
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
             log::error!("End of epoch cron failed to run: {}", e);
         }
-        Ok(receipts)
+        Ok((receipts, invoc_results))
     }
 
     /// Applies single message through VM and returns result from execution.

@@ -57,6 +57,9 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
+///
+type Trace = Vec<crate::interpreter::InvocResult>;
+
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
@@ -238,6 +241,7 @@ where
             engine,
             chain_config.clone(),
             timestamp,
+            false,
         )
     };
 
@@ -281,7 +285,7 @@ where
     )?;
 
     // Apply tipset messages
-    let receipts = vm.apply_block_messages(messages, epoch, callback)?;
+    let (receipts, _) = vm.apply_block_messages(messages, epoch, callback)?;
 
     // Construct receipt root from receipts
     let receipt_root = Amt::new_from_iter(blockstore.clone(), receipts)?;
@@ -310,7 +314,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -460,7 +464,8 @@ where
         base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: Arc<Tipset>,
-    ) -> Result<CidPair, anyhow::Error>
+        enable_tracing: bool,
+    ) -> Result<(CidPair, Trace), anyhow::Error>
     where
         R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
@@ -484,6 +489,7 @@ where
                 &self.engine,
                 Arc::clone(self.chain_config()),
                 timestamp,
+                enable_tracing,
             )
         };
 
@@ -520,7 +526,7 @@ where
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // Apply tipset messages
-        let receipts = vm.apply_block_messages(messages, epoch, callback)?;
+        let (receipts, trace) = vm.apply_block_messages(messages, epoch, callback)?;
 
         // Construct receipt root from receipts
         let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
@@ -528,7 +534,7 @@ where
         // Flush changes to blockstore
         let state_root = vm.flush()?;
 
-        Ok((state_root, receipt_root))
+        Ok(((state_root, receipt_root), trace))
     }
 
     /// Returns the pair of (parent state root, message receipt root). This will
@@ -550,8 +556,8 @@ where
 
                     (*tipset.parent_state(), *message_receipts.message_receipts())
                 } else {
-                    let ts_state = self
-                        .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
+                    let (ts_state, _) = self
+                        .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, false)
                         .await?;
                     debug!("Completed tipset state calculation {:?}", tipset.cids());
                     ts_state
@@ -586,6 +592,7 @@ where
             &self.engine,
             Arc::clone(self.chain_config()),
             tipset.min_timestamp(),
+            false,
         )?;
 
         if msg.gas_limit == 0 {
@@ -659,6 +666,7 @@ where
             &self.engine,
             Arc::clone(self.chain_config()),
             ts.min_timestamp(),
+            false,
         )?;
 
         for msg in prior_messages {
@@ -702,7 +710,7 @@ where
             Ok(())
         };
         let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback))
+            .compute_tipset_state(Arc::clone(ts), Some(callback), false)
             .await;
 
         if let Err(error_message) = result {
@@ -745,7 +753,8 @@ where
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
             let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-            let (state, _) = self.compute_tipset_state_blocking(tipset.clone(), no_func)?;
+            let ((state, _), _) =
+                self.compute_tipset_state_blocking(tipset.clone(), no_func, false)?;
             return Ok((tipset, state));
         }
 
@@ -842,13 +851,16 @@ where
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         callback: Option<CB>,
-    ) -> Result<CidPair, Error>
+        enable_tracing: bool,
+    ) -> Result<(CidPair, Trace), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         let sm = Arc::clone(self);
-        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback))
-            .await?
+        tokio::task::spawn_blocking(move || {
+            sm.compute_tipset_state_blocking(tipset, callback, enable_tracing)
+        })
+        .await?
     }
 
     /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.
@@ -878,7 +890,8 @@ where
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         callback: Option<CB>,
-    ) -> Result<CidPair, Error>
+        enable_tracing: bool,
+    ) -> Result<(CidPair, Trace), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -893,7 +906,10 @@ where
                 .first()
                 .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
 
-            return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
+            return Ok((
+                (*tipset.parent_state(), *message_receipts.message_receipts()),
+                vec![],
+            ));
         }
 
         let block_headers = tipset.blocks();
@@ -949,6 +965,7 @@ where
             base_fee,
             callback,
             tipset,
+            enable_tracing,
         )?)
     }
 
@@ -1380,8 +1397,8 @@ where
             .par_bridge()
             .try_for_each(|(child, parent)| {
                 info!(height = parent.epoch(), "compute parent state");
-                let (actual_state, actual_receipt) = self
-                    .compute_tipset_state_blocking(parent, NO_CALLBACK)
+                let ((actual_state, actual_receipt), _) = self
+                    .compute_tipset_state_blocking(parent, NO_CALLBACK, false)
                     .context("couldn't compute tipset state")?;
                 let expected_receipt = child.min_ticket_block().message_receipts();
                 let expected_state = child.parent_state();
