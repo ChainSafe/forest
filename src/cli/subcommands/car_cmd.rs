@@ -16,8 +16,8 @@ use crate::ipld::CidHashSet;
 #[derive(Debug, Subcommand)]
 pub enum CarCommands {
     Concat {
-        first: PathBuf,
-        second: PathBuf,
+        /// A list of `.car` file paths
+        car_files: Vec<PathBuf>,
         /// The output `.car` file path
         #[arg(short, long)]
         output: PathBuf,
@@ -27,24 +27,21 @@ pub enum CarCommands {
 impl CarCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
-            Self::Concat {
-                first,
-                second,
-                output,
-            } => {
-                let reader_a = CarReader::new(
-                    tokio::io::BufReader::new(tokio::fs::File::open(first).await?).compat(),
-                )
-                .await?;
-                let reader_b = CarReader::new(
-                    tokio::io::BufReader::new(tokio::fs::File::open(second).await?).compat(),
-                )
-                .await?;
+            Self::Concat { car_files, output } => {
+                let mut readers = Vec::with_capacity(car_files.len());
+                for f in car_files {
+                    readers.push(
+                        CarReader::new(
+                            tokio::io::BufReader::new(tokio::fs::File::open(f).await?).compat(),
+                        )
+                        .await?,
+                    );
+                }
                 let mut roots = vec![];
                 {
                     let mut seen = CidHashSet::default();
-                    for header in [&reader_a.header, &reader_b.header] {
-                        for &root in &header.roots {
+                    for reader in &readers {
+                        for &root in &reader.header.roots {
                             if seen.insert(root) {
                                 println!("roots.push {root}");
                                 roots.push(root);
@@ -55,7 +52,7 @@ impl CarCommands {
 
                 let mut stream = Box::pin(
                     futures::stream::unfold(
-                        MultiCarDedupReader::new(vec![reader_a, reader_b]),
+                        MultiCarDedupReader::new(readers),
                         move |mut reader| async {
                             reader
                                 .next_block()

@@ -61,6 +61,26 @@ async fn forest_cli_car_concat_same_file() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn forest_cli_car_concat_same_file_3_times() -> Result<()> {
+    let output = NamedTempFile::new()?;
+
+    cli()?
+        .arg("car")
+        .arg("concat")
+        .arg("./test-snapshots/chain4.car")
+        .arg("./test-snapshots/chain4.car")
+        .arg("./test-snapshots/chain4.car")
+        .arg("-o")
+        .arg(output.path().as_os_str().to_str().unwrap())
+        .assert()
+        .success();
+
+    validate_car(output.path()).await?;
+
+    Ok(())
+}
+
 async fn new_car(size: usize, path: impl AsRef<Path>) -> Result<()> {
     let rng = SmallRng::seed_from_u64(0xdeadbeef);
     let (cid, _data) = new_block(&mut rng.clone());
