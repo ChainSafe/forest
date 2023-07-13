@@ -199,7 +199,7 @@ async fn validate(
         }
         // Initialize StateManager
         let state_manager = Arc::new(StateManager::new(
-            Arc::clone(&chain_store),
+            chain_store,
             Arc::clone(&config.chain),
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
@@ -212,7 +212,6 @@ async fn validate(
             .context(format!("couldn't get a tipset at height {heaviest_epoch}"))?;
         let tipsets = itertools::unfold(Some(end_tipset), |tipset| {
             let child = tipset.take()?;
-            // if this has parents, unfold them in the next iteration
             *tipset = state_manager
                 .chain_store()
                 .tipset_from_keys(child.parents())
