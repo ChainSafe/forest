@@ -60,7 +60,7 @@ impl CarCommands {
                             reader
                                 .next_block()
                                 .await
-                                .expect("Failed calling `MultiCarReader::next_block`")
+                                .expect("Failed calling `MultiCarDedupReader::next_block`")
                                 .map(|b| (b, reader))
                         },
                     )
