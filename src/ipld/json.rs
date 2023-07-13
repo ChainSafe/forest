@@ -246,15 +246,30 @@ mod tests {
     use super::*;
 
     #[quickcheck]
-    fn ipld_roundtrip(ipld: Ipld) {
-        // Filter out problematic NaN values.
-        for item in ipld.iter() {
-            if let Ipld::Float(v) = item {
-                if v.is_nan() {
-                    return;
+    fn ipld_roundtrip(mut ipld: Ipld) {
+        /// `NaN != NaN`, which breaks our round-trip tests.
+        /// Correct this by changing any NaNs to zero.
+        fn fixup_floats(ipld: &mut Ipld) {
+            match ipld {
+                Ipld::Float(v) => {
+                    if v.is_nan() {
+                        *ipld = Ipld::Float(0.0);
+                    }
                 }
+                Ipld::List(list) => {
+                    for item in list {
+                        fixup_floats(item);
+                    }
+                }
+                Ipld::Map(map) => {
+                    for (_, item) in map {
+                        fixup_floats(item);
+                    }
+                }
+                _ => {}
             }
         }
+        fixup_floats(&mut ipld);
         let serialized: String = serde_json::to_string(&IpldJsonRef(&ipld)).unwrap();
         let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
         assert_eq!(ipld, parsed.0);
