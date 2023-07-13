@@ -192,7 +192,7 @@ async fn validate(
     .await?;
 
     if let Some(validate_from) = *validate_tipsets {
-        // Fetch proof parameters if not available
+        // Set proof parameter data dir
         if cns::FETCH_PARAMS {
             crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
                 &config.client.data_dir,
