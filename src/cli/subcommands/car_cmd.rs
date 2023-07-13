@@ -28,15 +28,12 @@ impl CarCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Concat { car_files, output } => {
-                let mut readers = Vec::with_capacity(car_files.len());
-                for f in car_files {
-                    readers.push(
-                        CarReader::new(
-                            tokio::io::BufReader::new(tokio::fs::File::open(f).await?).compat(),
-                        )
-                        .await?,
-                    );
-                }
+                let readers: Vec<_> = stream::iter(car_files)
+                    .then(|f| async {
+                        CarReader::new(BufReader::new(File::open(f).await?).compat()).await
+                    })
+                    .try_collect()
+                    .await?;
                 let mut roots = vec![];
                 {
                     let mut seen = CidHashSet::default();
