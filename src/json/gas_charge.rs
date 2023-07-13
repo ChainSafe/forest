@@ -9,8 +9,8 @@ use crate::shim::gas::GasV3;
 pub mod json {
     use cid::Cid;
 
-    use std::borrow::Cow;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::borrow::Cow;
 
     use super::*;
 
@@ -63,7 +63,8 @@ pub mod json {
             compute_gas: GasV3::from_milligas(gc.compute_gas.into()),
             other_gas: GasV3::from_milligas(gc.other_gas.into()),
             elapsed: Default::default(),
-        }.into())
+        }
+        .into())
     }
 }
 

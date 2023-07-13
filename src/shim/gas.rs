@@ -6,13 +6,13 @@ use fvm2::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
 };
+pub use fvm3::gas::Gas as GasV3;
+pub use fvm3::gas::GasCharge as GasChargeV3;
 pub use fvm3::gas::GasTracker;
 use fvm3::gas::{
-    price_list_by_network_version as price_list_by_network_version_v3,
-    PriceList as PriceListV3, MILLIGAS_PRECISION,
+    price_list_by_network_version as price_list_by_network_version_v3, PriceList as PriceListV3,
+    MILLIGAS_PRECISION,
 };
-pub use fvm3::gas::GasCharge as GasChargeV3;
-pub use fvm3::gas::Gas as GasV3;
 
 use crate::shim::version::NetworkVersion;
 

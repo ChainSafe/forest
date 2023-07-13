@@ -3,8 +3,8 @@
 use std::borrow::Borrow;
 
 use fvm2::executor::ApplyRet as ApplyRet_v2;
-use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm2::trace::ExecutionEvent as ExecutionEvent_v2;
+use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;

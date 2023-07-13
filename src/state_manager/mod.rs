@@ -527,7 +527,8 @@ where
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // Apply tipset messages
-        let (receipts, trace) = vm.apply_block_messages(messages, epoch, callback, enable_tracing)?;
+        let (receipts, trace) =
+            vm.apply_block_messages(messages, epoch, callback, enable_tracing)?;
 
         // Construct receipt root from receipts
         let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
