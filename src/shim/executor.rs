@@ -155,6 +155,9 @@ pub enum ExecutionEvent {
     V3(ExecutionEvent_v3),
 }
 
+// TODO: use this https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L35
+// to create the equivalent ExecutionTrace structure that we could serialize/deserialize
+
 // impl Serialize for ExecutionEvent {
 //     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 //     where
