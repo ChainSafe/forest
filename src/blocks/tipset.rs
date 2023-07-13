@@ -183,7 +183,7 @@ impl Tipset {
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipset(&self, store: impl Blockstore) -> Option<FullTipset> {
         // Collect all messages before moving tipset.
-        let messages: Vec<(Vec<_>, Vec<_>)> = self
+        let messages = self
             .blocks()
             .iter()
             .map(|h| crate::chain::store::block_messages(&store, h))
