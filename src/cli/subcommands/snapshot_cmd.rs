@@ -8,6 +8,7 @@ use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::fil_cns::composition as cns;
 use crate::genesis::{import_chain, read_genesis_header};
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
@@ -15,7 +16,7 @@ use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
-use crate::utils::io::ProgressBar;
+use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
 use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
@@ -191,12 +192,20 @@ async fn validate(
     .await?;
 
     if let Some(validate_from) = *validate_tipsets {
+        // Fetch proof parameters if not available
+        if cns::FETCH_PARAMS {
+            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+                &config.client.data_dir,
+            );
+        }
+
         // Initialize StateManager
         let state_manager = Arc::new(StateManager::new(
             Arc::clone(&chain_store),
             Arc::clone(&config.chain),
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
+        ensure_params_downloaded().await?;
         import_chain::<_>(
             &state_manager,
             &snapshot.to_string_lossy(),
