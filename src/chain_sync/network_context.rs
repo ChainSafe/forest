@@ -363,7 +363,9 @@ where
                     RequestResponseError::ConnectionClosed
                     | RequestResponseError::DialFailure
                     | RequestResponseError::UnsupportedProtocols => {
-                        peer_manager.mark_peer_bad(peer_id).await;
+                        // Ignore these errors for now. Normally we would
+                        // ban the peer but it may be too harsh.
+                        // https://github.com/ChainSafe/forest/issues/3183
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.

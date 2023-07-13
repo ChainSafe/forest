@@ -204,6 +204,7 @@ impl PeerManager {
 
     /// Removes a peer from the set and returns true if the value was present
     /// previously
+    #[allow(unused)]
     pub async fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
         let mut peers = self.peers.write().await;
         let removed = remove_peer(&mut peers, &peer_id);

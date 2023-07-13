@@ -601,11 +601,12 @@ async fn handle_hello_event(
         },
         request_response::Event::OutboundFailure {
             request_id,
-            peer,
+            peer: _,
             error: _,
         } => {
+            // https://github.com/ChainSafe/forest/issues/3183
+            // skip banning for now, it may be too harsh
             hello.on_error(&request_id);
-            peer_manager.mark_peer_bad(peer).await;
         }
         request_response::Event::InboundFailure {
             request_id,
