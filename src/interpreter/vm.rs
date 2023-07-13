@@ -24,7 +24,6 @@ use fvm2::{
     executor::{DefaultExecutor, Executor},
     machine::{DefaultMachine, Machine, NetworkConfig},
 };
-//use fvm3::trace::ExecutionTrace;
 use fvm3::{
     executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
     machine::{
@@ -90,13 +89,13 @@ impl MessageGasCost {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct InvocResult {
     pub msg_cid: Cid,
     pub msg: Message,
     pub msg_receipt: Receipt,
     pub gas_cost: MessageGasCost,
-    //execution_trace: ExecutionTrace,
+    //pub execution_trace: ExecutionTrace,
     pub error: String,
 }
 
@@ -270,6 +269,7 @@ where
         mut callback: Option<
             impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
+        enable_tracing: bool,
     ) -> Result<(Vec<Receipt>, Vec<InvocResult>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -298,8 +298,8 @@ where
                 receipts.push(msg_receipt.clone());
 
                 // Push InvocResult
-                if true {
-                    //let execution_trace = ret.exec_trace();
+                if enable_tracing {
+                    let execution_trace = ret.exec_trace();
                     let error = ret.actor_error();
                     invoc_results.push(InvocResult {
                         msg_cid: cid,

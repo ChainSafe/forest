@@ -4,7 +4,8 @@ use std::borrow::Borrow;
 
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
-use fvm3::trace::ExecutionEvent;
+use fvm2::trace::ExecutionEvent as ExecutionEvent_v2;
+use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
@@ -67,11 +68,12 @@ impl ApplyRet {
         }
     }
 
-    pub fn exec_trace(&self) -> Vec<ExecutionEvent> {
-        match self {
-            ApplyRet::V2(_v2) => todo!(),
-            ApplyRet::V3(v3) => v3.exec_trace.clone(),
-        }
+    pub fn exec_trace(&self) -> ExecutionTrace {
+        todo!()
+        // match self {
+        //     ApplyRet::V2(v2) => ExecutionTrace::V2(v2.exec_trace.clone()),
+        //     ApplyRet::V3(v3) => ExecutionTrace::V3(v3.exec_trace.clone()),
+        // }
     }
 
     pub fn actor_error(&self) -> String {
@@ -140,3 +142,36 @@ impl From<Receipt_v3> for Receipt {
         Receipt::V3(other)
     }
 }
+
+#[derive(Clone, Debug)]
+pub enum ExecutionTrace {
+    V2(Vec<ExecutionEvent_v2>),
+    V3(Vec<ExecutionEvent_v3>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ExecutionEvent {
+    V2(ExecutionEvent_v2),
+    V3(ExecutionEvent_v3),
+}
+
+// impl Serialize for ExecutionEvent {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         match self {
+//             ExecutionEvent::V2(v2) => v2.serialize(serializer),
+//             ExecutionEvent::V3(v3) => v3.serialize(serializer),
+//         }
+//     }
+// }
+
+// impl<'de> Deserialize<'de> for ExecutionTrace {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         ExecutionEvent_v2::deserialize(deserializer).map(Receipt::V2)
+//     }
+// }

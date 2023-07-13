@@ -45,7 +45,7 @@ pub mod json {
         msg_receipt: Receipt,
         #[serde(with = "crate::json::message_gas_cost::json")]
         gas_cost: MessageGasCost,
-        // todo: exec_trace
+        //exec_trace: ExecutionTrace,
         error: String,
     }
 
@@ -73,6 +73,7 @@ pub mod json {
             msg: ir.msg,
             msg_receipt: ir.msg_receipt,
             gas_cost: ir.gas_cost,
+            //exec_trace: ir.exec_trace,
             error: ir.error,
         })
     }

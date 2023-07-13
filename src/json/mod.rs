@@ -8,6 +8,8 @@ pub mod invoc_result;
 pub mod message;
 pub mod message_gas_cost;
 pub mod message_receipt;
+pub mod gas_charge;
+pub mod execution_event;
 pub mod sector;
 pub mod signature;
 pub mod signed_message;

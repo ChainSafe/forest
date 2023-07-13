@@ -8,9 +8,11 @@ use fvm2::gas::{
 };
 pub use fvm3::gas::GasTracker;
 use fvm3::gas::{
-    price_list_by_network_version as price_list_by_network_version_v3, Gas as GasV3,
-    GasCharge as GasChargeV3, PriceList as PriceListV3, MILLIGAS_PRECISION,
+    price_list_by_network_version as price_list_by_network_version_v3,
+    PriceList as PriceListV3, MILLIGAS_PRECISION,
 };
+pub use fvm3::gas::GasCharge as GasChargeV3;
+pub use fvm3::gas::Gas as GasV3;
 
 use crate::shim::version::NetworkVersion;
 
@@ -77,7 +79,8 @@ impl From<GasV3> for Gas {
     }
 }
 
-pub struct GasCharge(GasChargeV3);
+#[derive(Debug)]
+pub struct GasCharge(pub GasChargeV3);
 
 impl GasCharge {
     /// Calculates total gas charge (in `milligas`) by summing compute and

@@ -213,6 +213,7 @@ pub fn apply_blocks<R, CB, DB>(
     engine: &crate::shim::machine::MultiEngine,
     chain_config: &Arc<ChainConfig>,
     genesis_timestamp: Lazy<u64, impl Fn() -> u64>,
+    enable_tracing: bool,
 ) -> Result<CidPair, anyhow::Error>
 where
     R: Rand + Clone + 'static,
@@ -285,7 +286,7 @@ where
     )?;
 
     // Apply tipset messages
-    let (receipts, _) = vm.apply_block_messages(messages, epoch, callback)?;
+    let (receipts, _) = vm.apply_block_messages(messages, epoch, callback, enable_tracing)?;
 
     // Construct receipt root from receipts
     let receipt_root = Amt::new_from_iter(blockstore.clone(), receipts)?;
@@ -526,7 +527,7 @@ where
         let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
         // Apply tipset messages
-        let (receipts, trace) = vm.apply_block_messages(messages, epoch, callback)?;
+        let (receipts, trace) = vm.apply_block_messages(messages, epoch, callback, enable_tracing)?;
 
         // Construct receipt root from receipts
         let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
