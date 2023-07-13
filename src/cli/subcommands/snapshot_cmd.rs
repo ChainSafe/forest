@@ -6,10 +6,9 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::CarBackedBlockstore;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
-use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::fil_cns::composition as cns;
-use crate::genesis::{import_chain, read_genesis_header};
+use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
@@ -183,7 +182,7 @@ async fn validate(
 
     validate_links_and_genesis_traversal(
         &chain_store,
-        ts,
+        &ts,
         chain_store.blockstore(),
         *recent_stateroots,
         &Tipset::from(genesis),
@@ -198,7 +197,6 @@ async fn validate(
                 &config.client.data_dir,
             );
         }
-
         // Initialize StateManager
         let state_manager = Arc::new(StateManager::new(
             Arc::clone(&chain_store),
@@ -206,29 +204,27 @@ async fn validate(
             Arc::new(crate::interpreter::RewardActorMessageCalc),
         )?);
         ensure_params_downloaded().await?;
-        import_chain::<_>(
-            &state_manager,
-            &snapshot.to_string_lossy(),
-            true,
-            ChunkSize::default(),
-            BufferSize::default(),
-        )
-        .await?;
-        // Use the specified HEAD, otherwise take the current HEAD.
-        let current_height = config
-            .client
-            .snapshot_head
-            .unwrap_or(state_manager.chain_store().heaviest_tipset().epoch());
-        if !current_height.is_positive() {
-            bail!("Invalid snapshot head, current_height = {}", current_height);
-        } else {
-            match validate_from.is_negative() {
-                // allow --height=-1000 to scroll back from the current head
-                true => {
-                    state_manager.validate((current_height + validate_from)..=current_height)?
-                }
-                false => state_manager.validate(validate_from..=current_height)?,
-            }
+        let heaviest_epoch = ts.epoch();
+        let end_tipset = state_manager
+            .chain_store()
+            .tipset_by_height(heaviest_epoch, ts, false)
+            .context(format!("couldn't get a tipset at height {heaviest_epoch}"))?;
+
+        // lookup tipset parents as we go along, iterating DOWN from `end`
+        let tipsets = itertools::unfold(Some(end_tipset), |tipset| {
+            let child = tipset.take()?;
+            // if this has parents, unfold them in the next iteration
+            *tipset = state_manager
+                .chain_store()
+                .tipset_from_keys(child.parents())
+                .ok();
+            Some(child)
+        });
+        match validate_from.is_negative() {
+            // allow --height=-1000 to scroll back from the current head
+            true => state_manager
+                .validate_stream((heaviest_epoch + validate_from)..=heaviest_epoch, tipsets)?,
+            false => state_manager.validate_stream(validate_from..=heaviest_epoch, tipsets)?,
         }
     }
 
@@ -238,7 +234,7 @@ async fn validate(
 
 async fn validate_links_and_genesis_traversal<DB>(
     chain_store: &ChainStore<DB>,
-    ts: Arc<Tipset>,
+    ts: &Arc<Tipset>,
     db: &DB,
     recent_stateroots: ChainEpoch,
     genesis_tipset: &Tipset,

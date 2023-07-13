@@ -1251,8 +1251,6 @@ where
     /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
     pub fn validate(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
-        use rayon::iter::ParallelIterator as _;
-
         let heaviest = self.cs.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
@@ -1270,6 +1268,19 @@ where
             *tipset = self.cs.tipset_from_keys(child.parents()).ok();
             Some(child)
         });
+
+        self.validate_stream(epochs, tipsets)
+    }
+
+    pub fn validate_stream<F>(
+        self: &Arc<Self>,
+        epochs: RangeInclusive<i64>,
+        tipsets: itertools::Unfold<Option<Arc<Tipset>>, F>,
+    ) -> anyhow::Result<()>
+    where
+        F: FnMut(&mut Option<Arc<Tipset>>) -> Option<Arc<Tipset>> + Send,
+    {
+        use rayon::iter::ParallelIterator as _;
 
         tipsets
             .take_while(|tipset| tipset.epoch() >= *epochs.start())
