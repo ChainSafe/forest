@@ -1038,7 +1038,7 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
-        // Since the bundle only has messages, we have to put the headers in them
+        // inflate our tipsets with the messages from the wire format
         compacted_messages
             .into_iter()
             .rev()
