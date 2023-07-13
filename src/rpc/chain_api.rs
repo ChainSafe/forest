@@ -141,7 +141,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
         .write_all(checksum_file_content.as_bytes())
         .await?;
     checksum_file.flush().await?;
-    log::info!(
+    tracing::info!(
         "Snapshot checksum: {encoded_hash} saved to {}",
         checksum_path.display()
     );

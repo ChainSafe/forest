@@ -1,12 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::ops::{Deref, DerefMut};
-
 use fvm_shared2::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use serde::{Deserialize, Serialize};
-
-use crate::shim::Inner;
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
 ///
@@ -21,28 +17,14 @@ use crate::shim::Inner;
 ///
 /// assert_eq!(shim_from_v2, shim_from_v3);
 /// assert_eq!(shim_from_v2, fvm2_success.into());
-/// assert_eq!(*shim_from_v3, fvm3_success);
+/// assert_eq!(shim_from_v3, fvm3_success.into());
 /// ```
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ExitCode(ExitCodeV3);
-
-impl Inner for ExitCode {
-    type FVM = ExitCodeV3;
-}
-
-impl Deref for ExitCode {
-    type Target = ExitCodeV3;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for ExitCode {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+impl ExitCode {
+    /// The lowest exit code that an actor may abort with.
+    pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV3::FIRST_USER_EXIT_CODE;
 }
 
 impl From<u32> for ExitCode {
@@ -65,12 +47,12 @@ impl From<ExitCodeV2> for ExitCode {
 
 impl From<ExitCode> for ExitCodeV2 {
     fn from(value: ExitCode) -> Self {
-        Self::new(value.value())
+        Self::new(value.0.value())
     }
 }
 
 impl From<ExitCode> for ExitCodeV3 {
     fn from(value: ExitCode) -> Self {
-        *value
+        value.0
     }
 }

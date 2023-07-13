@@ -41,7 +41,6 @@ use bundle::load_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
-use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::{
@@ -61,6 +60,7 @@ use tokio::{
     sync::{mpsc, RwLock},
     task::JoinSet,
 };
+use tracing::{debug, info, warn};
 
 lazy_static! {
     static ref IPC_PATH: TempPath = Builder::new()

@@ -15,7 +15,6 @@ use crate::shim::{
     message::{Message, Message_v3},
     state_tree::ActorState,
     version::NetworkVersion,
-    Inner,
 };
 use ahash::HashSet;
 use anyhow::bail;
@@ -42,21 +41,12 @@ use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExte
 pub(in crate::interpreter) type ForestMachine<DB> = DefaultMachine<DB, ForestExternsV2<DB>>;
 pub(in crate::interpreter) type ForestMachineV3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
 
-#[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
     fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachine<DB>>>;
-
 type ForestKernelV3<DB> =
     fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
-
-#[cfg(not(feature = "instrumented_kernel"))]
 type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
-
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
-
-#[cfg(feature = "instrumented_kernel")]
-type ForestExecutor<DB> =
-    DefaultExecutor<crate::interpreter::instrumented_kernel::ForestInstrumentedKernel<DB>>;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.
@@ -306,7 +296,7 @@ where
         }
 
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
-            log::error!("End of epoch cron failed to run: {}", e);
+            tracing::error!("End of epoch cron failed to run: {}", e);
         }
         Ok(receipts)
     }
@@ -378,14 +368,14 @@ where
 
         if !exit_code.is_success() {
             match exit_code.value() {
-                1..=<ExitCode as Inner>::FVM::FIRST_USER_EXIT_CODE => {
-                    log::debug!(
+                1..=ExitCode::FIRST_USER_EXIT_CODE => {
+                    tracing::debug!(
                         "Internal message execution failure. Exit code was {}",
                         exit_code
                     )
                 }
                 _ => {
-                    log::warn!("Message execution failed with exit code {}", exit_code)
+                    tracing::warn!("Message execution failed with exit code {}", exit_code)
                 }
             };
         }

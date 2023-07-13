@@ -10,13 +10,7 @@ use fvm_ipld_encoding::{
     ser, strict_bytes,
 };
 use fvm_shared2::commcid::Commitment;
-pub use fvm_shared2::crypto::signature::{
-    Signature as Signature_v2, SignatureType as SignatureType_v2,
-};
 pub use fvm_shared2::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
-pub use fvm_shared3::crypto::signature::{
-    Signature as Signature_v3, SignatureType as SignatureType_v3,
-};
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 

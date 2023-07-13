@@ -34,8 +34,8 @@ use libp2p::{
     swarm::{SwarmBuilder, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
-use log::{debug, error, info, trace, warn};
 use tokio_stream::wrappers::IntervalStream;
+use tracing::{debug, error, info, trace, warn};
 
 use super::{
     chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},

@@ -30,8 +30,8 @@ use crate::rpc_api::{
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Params, Server};
-use log::info;
 use tokio::sync::mpsc::Sender;
+use tracing::info;
 
 use crate::rpc::{
     beacon_api::beacon_get_entry,
