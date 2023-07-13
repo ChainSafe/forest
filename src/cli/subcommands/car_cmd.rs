@@ -30,9 +30,14 @@ impl CarCommands {
                 second,
                 output,
             } => {
-                let reader_a = CarReader::new(tokio::fs::File::open(first).await?.compat()).await?;
-                let reader_b =
-                    CarReader::new(tokio::fs::File::open(second).await?.compat()).await?;
+                let reader_a = CarReader::new(
+                    tokio::io::BufReader::new(tokio::fs::File::open(first).await?).compat(),
+                )
+                .await?;
+                let reader_b = CarReader::new(
+                    tokio::io::BufReader::new(tokio::fs::File::open(second).await?).compat(),
+                )
+                .await?;
                 let mut roots = vec![];
                 {
                     let mut seen = CidHashSet::default();
