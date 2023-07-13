@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod cid_hashset;
-mod error;
 pub mod json;
 pub mod selector;
 pub mod util;
@@ -13,15 +12,6 @@ pub use util::*;
 
 pub use self::cid_hashset::CidHashSet;
 
-#[cfg(test)]
-fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
-    match ipld {
-        Ipld::Map(map) => map.get(segment),
-        Ipld::List(list) => list.get(segment.parse::<usize>().ok()?),
-        _ => None,
-    }
-}
-
 pub use libipld_core::serde::{from_ipld, to_ipld};
 #[cfg(test)]
 mod tests {
@@ -29,5 +19,4 @@ mod tests {
     mod json_tests;
     mod selector_explore;
     mod selector_gen_tests;
-    mod walk_tests;
 }

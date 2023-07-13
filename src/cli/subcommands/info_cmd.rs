@@ -11,8 +11,7 @@ use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
 
-use fvm_shared::clock::EPOCH_DURATION_SECONDS;
-use fvm_shared::{clock::ChainEpoch, BLOCKS_PER_EPOCH};
+use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use humantime::format_duration;
 use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -213,9 +212,9 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use crate::blocks::{BlockHeader, Tipset};
+    use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use crate::shim::{address::Address, econ::TokenAmount};
     use chrono::DateTime;
-    use fvm_shared::clock::EPOCH_DURATION_SECONDS;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, sync::Arc, time::Duration};
 

@@ -27,12 +27,12 @@ use anyhow::Context;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
-use log::warn;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tracing::warn;
 
 use crate::message_pool::{
     config::MpoolConfig,
@@ -322,7 +322,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
+        if msg.value() > *crate::shim::econ::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {

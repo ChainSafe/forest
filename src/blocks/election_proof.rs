@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::json::vrf::VRFProof;
+use crate::shim::clock::BLOCKS_PER_EPOCH;
 use crate::utils::encoding::blake2b_256;
-use fvm_shared::BLOCKS_PER_EPOCH;
 use lazy_static::lazy_static;
 use num::{
     bigint::{ParseBigIntError, Sign},

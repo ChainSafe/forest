@@ -5,9 +5,8 @@ use std::{fmt::Display, str::FromStr, sync::Arc};
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use crate::shim::sector::{RegisteredPoStProof, RegisteredSealProof};
+use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
-use crate::shim::Inner;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
@@ -214,14 +213,14 @@ impl ChainConfig {
 
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            <RegisteredSealProof as Inner>::FVM::StackedDRG2KiBV1,
-            <RegisteredSealProof as Inner>::FVM::StackedDRG8MiBV1,
+            RegisteredSealProofV3::StackedDRG2KiBV1,
+            RegisteredSealProofV3::StackedDRG8MiBV1,
         ]);
         policy.valid_pre_commit_proof_type = allowed_proof_types;
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow2KiBV1,
-            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow8MiBV1,
+            RegisteredPoStProofV3::StackedDRGWindow2KiBV1,
+            RegisteredPoStProofV3::StackedDRGWindow8MiBV1,
         ]);
         policy.valid_post_proof_type = allowed_proof_types;
 

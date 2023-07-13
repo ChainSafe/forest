@@ -7,6 +7,9 @@ use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, Tipset};
 use crate::chain_sync::collect_errs;
 use crate::networks::{ChainConfig, Height};
+use crate::shim::crypto::{
+    cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
+};
 use crate::shim::{
     address::Address,
     randomness::Randomness,
@@ -22,10 +25,6 @@ use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
-use fvm_shared::{
-    commcid::cid_to_replica_commitment_v1, crypto::signature::ops::verify_bls_sig,
-    TICKET_RANDOMNESS_LOOKBACK,
-};
 use nonempty::NonEmpty;
 
 use crate::fil_cns::{metrics, FilecoinConsensusError};
@@ -339,7 +338,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), FilecoinConsensusError> {
-    verify_bls_sig(evrf, rand, &worker.into()).map_err(FilecoinConsensusError::VrfValidation)
+    verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
@@ -352,21 +351,6 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
     let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
         .with_label_values(&[metrics::values::VERIFY_WINNING_POST_PROOF])
         .start_timer();
-
-    if cfg!(feature = "insecure_post") {
-        let wpp = header.winning_post_proof();
-        if wpp.is_empty() {
-            return Err(FilecoinConsensusError::InsecurePostValidation(
-                String::from("No winning PoSt proof provided"),
-            ));
-        }
-        if wpp[0].proof_bytes == b"valid_proof" {
-            return Ok(());
-        }
-        return Err(FilecoinConsensusError::InsecurePostValidation(
-            String::from("Winning PoSt is invalid"),
-        ));
-    }
 
     let miner_addr_buf = to_vec(header.miner_address())?;
     let rand_base = header

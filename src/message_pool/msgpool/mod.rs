@@ -20,9 +20,9 @@ use crate::shim::{address::Address, crypto::Signature};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
-use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
+use tracing::error;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 use super::errors::Error;
@@ -875,7 +875,7 @@ pub mod tests {
         // the max messages
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
-        let max_messages = fvm_shared::BLOCK_GAS_LIMIT / gas_limit;
+        let max_messages = crate::shim::econ::BLOCK_GAS_LIMIT as i64 / gas_limit;
         let n_messages = max_messages + 1;
         for i in 0..n_messages {
             let msg = create_smsg(

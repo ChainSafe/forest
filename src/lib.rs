@@ -68,8 +68,9 @@ pub mod doctest_private {
         shim::{
             address::Address, crypto::Signature, econ::TokenAmount, error::ExitCode,
             randomness::Randomness, sector::RegisteredSealProof, state_tree::ActorState,
-            version::NetworkVersion, Inner,
+            version::NetworkVersion,
         },
+        utils::io::progress_log::WithProgress,
         utils::{encoding::blake2b_256, io::read_toml},
     };
 }

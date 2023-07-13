@@ -18,7 +18,7 @@ use libp2p::{
     swarm::{keep_alive, NetworkBehaviour},
     Multiaddr,
 };
-use log::warn;
+use tracing::warn;
 
 use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,

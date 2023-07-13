@@ -7,8 +7,8 @@ use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use log::warn;
 use parity_db::{CompressionType, Db, Operation, Options};
+use tracing::warn;
 
 use super::errors::Error;
 use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, Store};
