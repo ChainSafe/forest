@@ -61,31 +61,26 @@ async fn forest_cli_car_concat_same_file() -> Result<()> {
 }
 
 async fn new_car(size: usize, path: impl AsRef<Path>) -> Result<()> {
-    let (tx, rx) = flume::bounded(100);
-    let (cid, data) = new_block();
+    let rng = SmallRng::seed_from_u64(0xdeadbeef);
+    let (cid, _data) = new_block(&mut rng.clone());
     let header = CarHeader::from(vec![cid]);
-    tx.send((cid, data))?;
+
+    let mut block_stream = Box::pin(
+        futures::stream::unfold(rng, |mut rng| async { Some((new_block(&mut rng), rng)) })
+            .take(size),
+    );
 
     let mut writer = tokio::fs::File::create(path).await?.compat();
-    let write_task = tokio::spawn(async move {
-        let mut stream = rx.stream();
-        header.write_stream_async(&mut writer, &mut stream).await?;
-        Ok(())
-    });
-
-    for _ in 1..size {
-        tx.send_async(new_block()).await?;
-    }
-
-    drop(tx);
-    write_task.await??;
+    header
+        .write_stream_async(&mut writer, &mut block_stream)
+        .await?;
 
     Ok(())
 }
 
-fn new_block() -> (Cid, Vec<u8>) {
+fn new_block(rng: &mut SmallRng) -> (Cid, Vec<u8>) {
     let mut data = [0; 1024];
-    OsRng.fill(&mut data);
+    rng.fill(&mut data);
     let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&data));
     (cid, data.to_vec())
 }
