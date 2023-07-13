@@ -270,7 +270,7 @@ mod tests {
             }
         }
         fixup_floats(&mut ipld);
-        let serialized: String = serde_json::to_string(&IpldJsonRef(&ipld)).unwrap();
+        let serialized = serde_json::to_string(&IpldJsonRef(&ipld)).unwrap();
         let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
         assert_eq!(ipld, parsed.0);
     }
