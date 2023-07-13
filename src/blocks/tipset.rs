@@ -205,7 +205,7 @@ impl Tipset {
 
         // the given tipset has already been verified, so this cannot fail
         Some(FullTipset::new(blocks).expect(
-            "block headers have already been verified when the Tipset so this check cannot fail",
+            "block headers have already been verified so this check cannot fail",
         ))
     }
 
