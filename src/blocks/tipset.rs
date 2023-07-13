@@ -182,26 +182,21 @@ impl Tipset {
 
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
-        // Collect all messages before moving tipset.
-        let messages = self
-            .blocks()
-            .iter()
-            .map(|h| crate::chain::store::block_messages(&store, h))
-            .collect::<Result<Vec<_>, _>>()
-            .ok()?;
-
-        // Zip messages with blocks
+        // Find tipset messages. If any are mnissing, return `None`.
         let blocks = self
             .blocks()
             .iter()
             .cloned()
-            .zip(messages)
-            .map(|(header, (bls_messages, secp_messages))| Block {
-                header,
-                bls_messages,
-                secp_messages,
+            .map(|header| {
+                let (bls_messages, secp_messages) =
+                    crate::chain::store::block_messages(&store, &header).ok()?;
+                Some(Block {
+                    header,
+                    bls_messages,
+                    secp_messages,
+                })
             })
-            .collect();
+            .collect::<Option<Vec<_>>>()?;
 
         // the given tipset has already been verified, so this cannot fail
         Some(
