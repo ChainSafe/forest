@@ -47,8 +47,6 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::ReadBuf;
 
-use log::info;
-
 const UPDATE_FREQUENCY: Duration = Duration::from_millis(5000);
 
 pin_project! {
@@ -137,7 +135,7 @@ impl Progress {
                 (self.total_items.saturating_sub(self.completed_items)) as f64 / throughput;
             let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
 
-            info!(
+            tracing::info!(
                 target: "forest::progress",
                 "{} {} (elapsed: {}, eta: {})",
                 self.message, self.completed_items, elapsed_duration, eta_duration

@@ -1,15 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::io::WithProgress;
 use async_compression::tokio::bufread::ZstdDecoder;
 use futures::TryStreamExt;
-
-use crate::utils::io::WithProgress;
-use log::info;
 use std::io::ErrorKind;
 use tap::Pipe;
 use tokio::io::{AsyncBufReadExt, AsyncRead};
 use tokio_util::either::Either::{Left, Right};
+use tracing::info;
 use url::Url;
 
 use once_cell::sync::Lazy;

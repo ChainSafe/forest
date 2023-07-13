@@ -23,7 +23,7 @@ pub use self::tempfile::*;
 pub fn set_user_perm(file: &File) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
-    use log::info;
+    use tracing::info;
 
     let mut perm = file.metadata()?.permissions();
     #[allow(clippy::useless_conversion)] // Otherwise it does not build on macos

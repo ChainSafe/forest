@@ -34,7 +34,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
@@ -43,6 +42,7 @@ use tokio::sync::{
     broadcast::{self, Sender as Publisher},
     Mutex as TokioMutex,
 };
+use tracing::{debug, info, trace, warn};
 
 use super::{
     index::{checkpoint_tipsets, ChainIndex},
@@ -295,7 +295,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            log::debug!("Block {cid} was previously validated");
+            debug!("Block {cid} was previously validated");
         }
         validated
     }

@@ -27,12 +27,12 @@ use anyhow::Context;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
-use log::warn;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tracing::warn;
 
 use crate::message_pool::{
     config::MpoolConfig,

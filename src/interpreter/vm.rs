@@ -296,7 +296,7 @@ where
         }
 
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
-            log::error!("End of epoch cron failed to run: {}", e);
+            tracing::error!("End of epoch cron failed to run: {}", e);
         }
         Ok(receipts)
     }
@@ -369,13 +369,13 @@ where
         if !exit_code.is_success() {
             match exit_code.value() {
                 1..=ExitCode::FIRST_USER_EXIT_CODE => {
-                    log::debug!(
+                    tracing::debug!(
                         "Internal message execution failure. Exit code was {}",
                         exit_code
                     )
                 }
                 _ => {
-                    log::warn!("Message execution failed with exit code {}", exit_code)
+                    tracing::warn!("Message execution failed with exit code {}", exit_code)
                 }
             };
         }

@@ -14,10 +14,10 @@ use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
-use log::{error, warn};
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::{error, warn};
 use xsalsa20poly1305::{
     aead::{generic_array::GenericArray, Aead},
     KeyInit, XSalsa20Poly1305, NONCE_SIZE,
