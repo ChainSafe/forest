@@ -151,6 +151,7 @@ pub struct CompactedMessages {
     /// Unsigned BLS messages.
     pub bls_msgs: Vec<Message>,
     /// Describes which block each message belongs to.
+    /// if `bls_msg_includes[2] = vec![5]` then `block[2]` contains `bls_msgs[5]`
     pub bls_msg_includes: Vec<Vec<u64>>,
 
     /// Signed SECP messages.
@@ -212,6 +213,7 @@ impl TryFrom<&TipsetBundle> for FullTipset {
 
 /// Constructs a [`FullTipset`] from headers and compacted messages from a
 /// bundle.
+// TODO(aatifsyed): refactor
 fn fts_from_bundle_parts(
     headers: Vec<BlockHeader>,
     messages: Option<&CompactedMessages>,
