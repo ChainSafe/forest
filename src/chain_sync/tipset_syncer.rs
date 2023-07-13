@@ -1024,7 +1024,7 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
     // network request. It's quite rare that we already have the messages. It
     // only happens when the local database has been seeded with the
     // information.
-    if let Some(cached) = batch.iter().map(|tipset| tipset.fill_tipset(db)).collect() {
+    if let Some(cached) = batch.iter().map(|tipset| tipset.fill_from_blockstore(db)).collect() {
         return Ok(cached);
     }
 

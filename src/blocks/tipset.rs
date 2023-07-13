@@ -181,7 +181,7 @@ impl Tipset {
     }
 
     /// Constructs and returns a full tipset if messages from storage exists
-    pub fn fill_tipset(&self, store: impl Blockstore) -> Option<FullTipset> {
+    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
         // Collect all messages before moving tipset.
         let messages = self
             .blocks()
