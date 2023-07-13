@@ -248,7 +248,7 @@ mod tests {
     #[quickcheck]
     fn ipld_roundtrip(mut ipld: Ipld) {
         /// `NaN != NaN`, which breaks our round-trip tests.
-        /// Correct this by changing any NaNs to zero.
+        /// Correct this by changing any `NaN`s to zero.
         fn fixup_floats(ipld: &mut Ipld) {
             match ipld {
                 Ipld::Float(v) => {
