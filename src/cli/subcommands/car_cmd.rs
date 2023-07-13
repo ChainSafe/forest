@@ -64,18 +64,12 @@ impl CarCommands {
                     .map(|out| (out.cid, out.data)),
                 );
 
-                let write_task = tokio::spawn(async move {
-                    let car_writer = CarHeader::from(roots);
-                    let mut output_file =
-                        tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
-                    car_writer
-                        .write_stream_async(&mut output_file, &mut stream)
-                        .await?;
-
-                    Ok::<_, anyhow::Error>(())
-                });
-
-                write_task.await??;
+                let car_writer = CarHeader::from(roots);
+                let mut output_file =
+                    tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
+                car_writer
+                    .write_stream_async(&mut output_file, &mut stream)
+                    .await?;
             }
         }
         Ok(())
