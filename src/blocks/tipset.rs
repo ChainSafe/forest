@@ -10,10 +10,10 @@ use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
 

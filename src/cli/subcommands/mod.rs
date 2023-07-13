@@ -32,8 +32,8 @@ use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
 use jsonrpc_v2::Error as JsonRpcError;
-use log::error;
 use serde::Serialize;
+use tracing::error;
 
 pub(super) use self::{
     archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,

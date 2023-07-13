@@ -53,8 +53,6 @@ pub enum FilecoinConsensusError {
     BeaconValidation(String),
     #[error("Failed to verify winning PoSt: {0}")]
     WinningPoStValidation(String),
-    #[error("[INSECURE-POST-VALIDATION] {0}")]
-    InsecurePostValidation(String),
     #[error("Chain store error: {0}")]
     ChainStore(#[from] ChainStoreError),
     #[error("StateManager error: {0}")]

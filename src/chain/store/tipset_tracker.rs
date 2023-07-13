@@ -9,8 +9,8 @@ use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, warn};
 use parking_lot::Mutex;
+use tracing::{debug, warn};
 
 use super::Error;
 
