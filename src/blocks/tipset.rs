@@ -180,15 +180,14 @@ impl Tipset {
             .transpose()?)
     }
 
-    /// Constructs and returns a full tipset if messages from storage exists -
-    /// non self version
+    /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipset(&self, store: impl Blockstore) -> Option<FullTipset> {
         // Collect all messages before moving tipset.
         let messages: Vec<(Vec<_>, Vec<_>)> = self
             .blocks()
             .iter()
             .map(|h| crate::chain::store::block_messages(&store, h))
-            .collect::<Result<Vec<_>,_>>()
+            .collect::<Result<Vec<_>, _>>()
             .ok()?;
 
         // Zip messages with blocks
@@ -205,7 +204,9 @@ impl Tipset {
             .collect();
 
         // the given tipset has already been verified, so this cannot fail
-        Some(FullTipset::new(blocks).unwrap())
+        Some(FullTipset::new(blocks).expect(
+            "block headers have already been verified when the Tipset so this check cannot fail",
+        ))
     }
 
     /// Returns epoch of the tipset.
