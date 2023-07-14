@@ -143,13 +143,12 @@ mod tests {
 
     #[quickcheck]
     fn car_dedup_block_stream_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        let unique_len = {
-            let mut set = HashSet::from_iter(a.0.iter().map(|b| b.cid).collect::<Vec<Cid>>());
-            for block in &b.0 {
-                set.insert(block.cid);
-            }
-            set.len()
-        };
+        let unique_len = [a.0.as_slice(), b.0.as_slice()]
+            .concat()
+            .iter()
+            .map(|b| b.cid)
+            .collect::<HashSet<Cid>>()
+            .len();
 
         println!(
             "a.len: {}, b.len:{}, total: {}, unique: {unique_len}",
