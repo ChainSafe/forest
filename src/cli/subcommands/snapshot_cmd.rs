@@ -274,7 +274,7 @@ where
     {
         validate_links_and_genesis_traversal(
             &chain_store,
-            &Arc::new(ts.clone()),
+            &ts,
             chain_store.blockstore(),
             *recent_stateroots,
             &Tipset::from(genesis),
@@ -316,7 +316,7 @@ where
 
 async fn validate_links_and_genesis_traversal<DB>(
     chain_store: &ChainStore<DB>,
-    ts: &Arc<Tipset>,
+    ts: &Tipset,
     db: &DB,
     recent_stateroots: ChainEpoch,
     genesis_tipset: &Tipset,
