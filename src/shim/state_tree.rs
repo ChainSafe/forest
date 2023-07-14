@@ -376,9 +376,7 @@ pub mod state_tree_v0 {
 
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
-    // use crate::shim::hamtv0::Hamt;
-    use crate::shim::hamtv0::DEFAULT_BIT_WIDTH;
-    use fvm_ipld_hamt::Hamtv0 as Hamt;
+    use fvm_ipld_hamt::{Hamtv0 as Hamt, DEFAULT_BIT_WIDTH_V0 as DEFAULT_BIT_WIDTH};
 
     /// State of all actor implementations.
     #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
