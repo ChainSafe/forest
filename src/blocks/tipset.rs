@@ -284,13 +284,12 @@ impl Tipset {
     }
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
-        let tipsets = itertools::unfold(Some(self), move |tipset| {
+        itertools::unfold(Some(self), move |tipset| {
             tipset.take().and_then(|child| {
                 *tipset = Tipset::load(&store, child.parents()).ok().flatten();
                 Some(child)
             })
-        });
-        tipsets
+        })
     }
 }
 
