@@ -34,7 +34,7 @@
 - [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
   `forest-cli archive export -e=X` command for exporting archives.
 - [#3150](https://github.com/ChainSafe/forest/pull/3150):
-  `forest-cli car concat` subcommand for concatenating 2 `.car` files.
+  `forest-cli car concat` subcommand for concatenating `.car` files.
 
 ### Changed
 
