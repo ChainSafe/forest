@@ -283,7 +283,7 @@ impl Tipset {
         broken
     }
     /// Returns an iterator of all tipsets
-    pub fn chain(self, store: impl Blockstore + 'static) -> impl Iterator<Item = Tipset> {
+    pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
         let tipsets = itertools::unfold(Some(self), move |tipset| {
             if let Some(child) = tipset.take() {
                 *tipset = Tipset::load(&store, child.parents()).ok().flatten();
