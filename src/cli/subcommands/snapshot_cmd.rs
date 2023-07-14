@@ -175,7 +175,7 @@ impl SnapshotCommands {
                             store.roots(),
                             Arc::new(store),
                             recent_stateroots,
-                            validate_tipsets,
+                            *validate_tipsets,
                         )
                         .await
                     }
@@ -195,7 +195,7 @@ impl SnapshotCommands {
                             store.roots(),
                             Arc::new(store),
                             recent_stateroots,
-                            validate_tipsets,
+                            *validate_tipsets,
                         )
                         .await
                     }
@@ -249,7 +249,7 @@ async fn validate_with_blockstore<BlockstoreT>(
     roots: Vec<Cid>,
     store: Arc<BlockstoreT>,
     recent_stateroots: &i64,
-    validate_tipsets: &Option<i64>,
+    validate_tipsets: Option<i64>,
 ) -> anyhow::Result<()>
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
@@ -280,7 +280,7 @@ where
     )
     .await?;
 
-    if let Some(validate_from) = *validate_tipsets {
+    if let Some(validate_from) = validate_tipsets {
         let last_epoch = match validate_from.is_negative() {
             true => ts.epoch() + validate_from,
             false => validate_from,
