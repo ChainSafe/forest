@@ -124,12 +124,8 @@ mod tests {
 
     impl Arbitrary for Blocks {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let n = loop {
-                let n = u16::arbitrary(g) as usize;
-                if n > 0 {
-                    break n;
-                }
-            };
+            // `CarReader` complains when n is 0: Error: Failed to parse CAR file: empty CAR file
+            let n = u16::arbitrary(g).saturating_add(1) as usize;
             let mut blocks = Vec::with_capacity(n);
             for _ in 0..n {
                 // use small len here to increase the chance of duplication
