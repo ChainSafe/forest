@@ -15,15 +15,18 @@ use crate::rpc_api::{
 use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
 use ahash::{HashMap, HashMapExt};
+use anyhow::Context;
 use cid::Cid;
 use fil_actor_interface::market;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 use parking_lot::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 // TODO handle using configurable verification implementation in RPC (all
 // defaulting to Full).
@@ -224,11 +227,27 @@ pub(in crate::rpc) async fn state_fetch_root<
     B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
-    Params((CidJson(root_cid),)): Params<StateFetchRootParams>,
+    Params((CidJson(root_cid), save_to_file)): Params<StateFetchRootParams>,
 ) -> Result<StateFetchRootResult, JsonRpcError> {
     let network_send = data.network_send.clone();
     let db = data.chain_store.db.clone();
     drop(data);
+
+    let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
+        let (car_tx, car_rx) = flume::bounded(100);
+        let header = CarHeader::from(vec![root_cid]);
+        let file = tokio::fs::File::create(save_to_file).await?;
+
+        let car_handle = tokio::spawn(async move {
+            let mut file = file.compat();
+            let mut stream = car_rx.stream();
+            header.write_stream_async(&mut file, &mut stream).await
+        });
+
+        (Some(car_tx), Some(car_handle))
+    } else {
+        (None, None)
+    };
 
     const MAX_CONCURRENT_REQUESTS: usize = 64;
     const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -262,6 +281,9 @@ pub(in crate::rpc) async fn state_fetch_root<
     // more than 1000 elements (even when walking tens of millions of nodes).
     let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
     let mut to_be_fetched = vec![];
+    if !db.has(&root_cid)? {
+        to_be_fetched.push(root_cid);
+    }
     // Loop until: No more items in `dfs` AND no running worker tasks.
     loop {
         while let Some(ipld) = lock_pop(&dfs) {
@@ -278,8 +300,17 @@ pub(in crate::rpc) async fn state_fetch_root<
                                 dfs_guard.len(), task_set.len()
                             );
                     }
+
                     if let Some(next_ipld) = db.get_cbor(&new_cid)? {
                         dfs_guard.push(next_ipld);
+                        if let Some(car_tx) = &car_tx {
+                            car_tx.send((
+                                new_cid,
+                                db.get(&new_cid)?.with_context(|| {
+                                    format!("Failed to get cid {new_cid} from block store")
+                                })?,
+                            ))?;
+                        }
                     } else {
                         to_be_fetched.push(new_cid);
                     }
@@ -325,6 +356,22 @@ pub(in crate::rpc) async fn state_fetch_root<
             // the entire graph has been walked and fetched.
             break;
         }
+    }
+
+    // Push root block if missing
+    if let Some(car_tx) = &car_tx {
+        if !seen.insert(root_cid) {
+            car_tx.send((
+                root_cid,
+                db.get(&root_cid)?
+                    .with_context(|| format!("Failed to get cid {root_cid} from block store"))?,
+            ))?;
+        }
+    }
+
+    drop(car_tx);
+    if let Some(car_handle) = car_handle {
+        car_handle.await??;
     }
 
     Ok(format!(
