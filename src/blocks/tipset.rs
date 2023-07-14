@@ -8,10 +8,12 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use log::info;
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
 
@@ -166,6 +168,43 @@ impl Tipset {
             key: OnceCell::new(),
         })
     }
+
+    /// Loads a tipset from memory given the tipset keys.
+    pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
+        Ok(tsk
+            .cids()
+            .iter()
+            .map(|c| store.get_cbor(c))
+            .collect::<anyhow::Result<Option<_>>>()?
+            .map(Tipset::new)
+            .transpose()?)
+    }
+
+    /// Constructs and returns a full tipset if messages from storage exists
+    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
+        // Find tipset messages. If any are missing, return `None`.
+        let blocks = self
+            .blocks()
+            .iter()
+            .cloned()
+            .map(|header| {
+                let (bls_messages, secp_messages) =
+                    crate::chain::store::block_messages(&store, &header).ok()?;
+                Some(Block {
+                    header,
+                    bls_messages,
+                    secp_messages,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+
+        // the given tipset has already been verified, so this cannot fail
+        Some(
+            FullTipset::new(blocks)
+                .expect("block headers have already been verified so this check cannot fail"),
+        )
+    }
+
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch()

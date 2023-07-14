@@ -7,7 +7,7 @@ use libp2p::{
     swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
-use log::debug;
+use tracing::debug;
 
 use super::*;
 use crate::libp2p::{rpc::RequestResponseError, service::metrics};

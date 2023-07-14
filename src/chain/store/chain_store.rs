@@ -4,7 +4,7 @@
 use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -34,7 +34,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, info, trace, warn};
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
@@ -43,6 +42,7 @@ use tokio::sync::{
     broadcast::{self, Sender as Publisher},
     Mutex as TokioMutex,
 };
+use tracing::{debug, info, warn};
 
 use super::{
     index::{checkpoint_tipsets, ChainIndex},
@@ -55,6 +55,10 @@ use crate::chain::Scale;
 const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
+
+/// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
+/// while maintaining the same type.
+pub type ChainEpochDelta = ChainEpoch;
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -291,7 +295,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            log::debug!("Block {cid} was previously validated");
+            debug!("Block {cid} was previously validated");
         }
         validated
     }
@@ -433,43 +437,6 @@ where
         ))
     }
 
-    /// Constructs and returns a full tipset if messages from storage exists -
-    /// non self version
-    pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
-    where
-        DB: Blockstore,
-    {
-        // Collect all messages before moving tipset.
-        let messages: Vec<(Vec<_>, Vec<_>)> = match ts
-            .blocks()
-            .iter()
-            .map(|h| block_messages(self.blockstore(), h))
-            .collect::<Result<_, Error>>()
-        {
-            Ok(m) => m,
-            Err(e) => {
-                trace!("failed to fill tipset: {}", e);
-                return None;
-            }
-        };
-
-        // Zip messages with blocks
-        let blocks = ts
-            .blocks()
-            .iter()
-            .cloned()
-            .zip(messages)
-            .map(|(header, (bls_messages, secp_messages))| Block {
-                header,
-                bls_messages,
-                secp_messages,
-            })
-            .collect();
-
-        // the given tipset has already been verified, so this cannot fail
-        Some(FullTipset::new(blocks).unwrap())
-    }
-
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.
@@ -586,7 +553,7 @@ where
                     Ok(block)
                 }
             },
-            Some("Exporting snapshot | blocks "),
+            Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
         )
@@ -647,18 +614,9 @@ where
         return Ok(ts.clone());
     }
 
-    let block_headers: Vec<BlockHeader> = tsk
-        .cids()
-        .iter()
-        .map(|c| {
-            store
-                .get_cbor(c)?
-                .ok_or_else(|| Error::NotFound(String::from("Key for header")))
-        })
-        .collect::<Result<_, Error>>()?;
-
+    let ts = Tipset::load(store, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?;
     // construct new Tipset to return
-    let ts = Arc::new(Tipset::new(block_headers)?);
+    let ts = Arc::new(ts);
     cache.lock().put(tsk.clone(), ts.clone());
     metrics::LRU_CACHE_MISS
         .with_label_values(&[metrics::values::TIPSET])

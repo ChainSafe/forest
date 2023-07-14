@@ -57,6 +57,9 @@ References: [1](https://en.wikipedia.org/wiki/Memory_paging#Swappiness)
 ❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
+Also see the [CLI documentation](./cli.md) for more details about commands and
+their usage.
+
 ### Create a Forest node running calibration network. Then list all connected peers.
 
 ```shell
@@ -129,10 +132,13 @@ Create the wallet
 t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
 ```
 
-Fund it using the
-[faucet](https://faucet.calibration.fildev.network/funds.html). You can verify
-it was funded after a few minutes in [Filscan](https://calibration.filscan.io/)
-by pasting the Message ID obtained from the faucet. Example from
+You can fund your wallet using this
+[faucet](https://faucet.calibration.fildev.network/funds.html). If this faucet
+is unavailable or does not work, there is an
+[alternative faucet](https://faucet.triangleplatform.com/filecoin/calibration).
+You can verify your wallet was funded after a few minutes in
+[Filscan](https://calibration.filscan.io/) by pasting the Message ID obtained
+from the faucet. Example from
 [this wallet](https://calibration.filscan.io/tipset/message-detail?cid=bafy2bzacebdverplts5qs3lwzsenzlh4rdsmvc42r6yg6suu4comr7gkbe76a).
 
 Verify that your account has 100 FIL . The result is in `attoFIL`.
@@ -149,10 +155,11 @@ Create another wallet
 t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
 ```
 
-Send 10 FIL from the original wallet to the new one
+Send 10 FIL from the original wallet to the new one (default unit for the amount
+in send command is FIL).
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN send --from t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca 10000000000000000000
+❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN send --from t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca 10
 ```
 
 Verify the balance of the new address.

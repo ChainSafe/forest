@@ -18,9 +18,9 @@ use std::env;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::utils::net::global_http_client;
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
-use log::debug;
 use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tracing::debug;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
