@@ -282,6 +282,15 @@ impl Tipset {
         }
         broken
     }
+    /// Returns an iterator of all tipsets
+    pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
+        itertools::unfold(Some(self), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
+                child
+            })
+        })
+    }
 }
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
