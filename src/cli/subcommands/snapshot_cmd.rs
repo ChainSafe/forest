@@ -172,7 +172,7 @@ async fn validate(
     .await?;
     let chain_data_root = TempDir::new()?;
     let chain_store = Arc::new(ChainStore::new(
-        store,
+        Arc::clone(&store),
         config.chain.clone(),
         &genesis,
         chain_data_root.path(),
@@ -209,15 +209,8 @@ async fn validate(
         )?);
         ensure_params_downloaded().await?;
         // Prepare tipset stream to validate
-        let tipsets = itertools::unfold(Some(ts), |tipset| {
-            let child = tipset.take()?;
-            *tipset = state_manager
-                .chain_store()
-                .tipset_from_keys(child.parents())
-                .ok();
-            Some(child)
-        })
-        .take_while(|tipset| tipset.epoch() >= last_epoch);
+        let tipsets = Tipset::chain(Arc::clone(&store), Arc::clone(&ts))
+            .take_while(|tipset| tipset.epoch() >= last_epoch);
 
         state_manager.validate_stream(tipsets)?
     }
