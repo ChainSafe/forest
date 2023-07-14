@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
+use std::pin::Pin;
 
-use async_trait::async_trait;
+use cid::Cid;
 use clap::Subcommand;
-use futures::{AsyncRead, StreamExt, TryStreamExt};
+use futures::{AsyncRead, Stream, StreamExt, TryStreamExt};
 use fvm_ipld_car::Block;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
@@ -29,14 +30,14 @@ impl CarCommands {
         match self {
             Self::Concat { car_files, output } => {
                 let readers: Vec<_> = futures::stream::iter(car_files)
-                    .then(|f| async {
-                        CarReader::new(
-                            tokio::io::BufReader::new(tokio::fs::File::open(f).await?).compat(),
-                        )
-                        .await
-                    })
+                    .then(tokio::fs::File::open)
+                    .map_ok(tokio::io::BufReader::new)
+                    .map_ok(tokio::io::BufReader::compat)
+                    .map_err(fvm_ipld_car::Error::from)
+                    .and_then(CarReader::new)
                     .try_collect()
                     .await?;
+
                 let mut roots = vec![];
                 {
                     let mut seen = CidHashSet::default();
@@ -49,25 +50,14 @@ impl CarCommands {
                     }
                 }
 
-                let mut stream = Box::pin(
-                    futures::stream::unfold(
-                        MultiCarDedupReader::new(readers),
-                        move |mut reader| async {
-                            reader
-                                .next_block()
-                                .await
-                                .expect("Failed calling `MultiCarDedupReader::next_block`")
-                                .map(|b| (b, reader))
-                        },
-                    )
-                    .map(|out| (out.cid, out.data)),
-                );
-
                 let car_writer = CarHeader::from(roots);
                 let mut output_file =
                     tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
                 car_writer
-                    .write_stream_async(&mut output_file, &mut stream)
+                    .write_stream_async(
+                        &mut output_file,
+                        &mut dedup_block_stream(merge_car_readers(readers)),
+                    )
                     .await?;
             }
         }
@@ -75,83 +65,77 @@ impl CarCommands {
     }
 }
 
-#[async_trait]
-trait CarBlockProvider {
-    async fn next_block(&mut self) -> Result<Option<Block>, fvm_ipld_car::Error>;
-}
-
-#[async_trait]
-impl<R> CarBlockProvider for CarReader<R>
+fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = Block>
 where
     R: AsyncRead + Send + Unpin,
 {
-    async fn next_block(&mut self) -> Result<Option<Block>, fvm_ipld_car::Error> {
-        CarReader::next_block(self).await
-    }
+    let readers_streams: Vec<_> = readers
+        .into_iter()
+        .map(|r| {
+            Box::pin(futures::stream::unfold(r, move |mut reader| async {
+                reader
+                    .next_block()
+                    .await
+                    .expect("Failed calling `CarReader::next_block`")
+                    .map(|b| (b, reader))
+            }))
+        })
+        .collect();
+    futures::stream::select_all(readers_streams)
 }
 
-struct MultiCarDedupReader<R: CarBlockProvider> {
-    readers: Vec<R>,
-    index: usize,
-    seen: CidHashSet,
-}
-
-impl<R: CarBlockProvider> MultiCarDedupReader<R> {
-    fn new(readers: Vec<R>) -> Self {
-        Self {
-            readers,
-            index: 0,
-            seen: Default::default(),
-        }
-    }
-
-    // Note: Using loop instead of recursion here to avoid stack overflow
-    async fn next_block(&mut self) -> Result<Option<Block>, fvm_ipld_car::Error> {
-        loop {
-            if self.index >= self.readers.len() {
-                break Ok(None);
-            } else if let Some(block) = self.readers[self.index].next_block().await? {
-                if self.seen.insert(block.cid) {
-                    break Ok(Some(block));
-                }
-            } else {
-                self.index += 1;
-            };
-        }
-    }
+fn dedup_block_stream(
+    stream: impl Stream<Item = Block>,
+) -> Pin<Box<impl Stream<Item = (Cid, Vec<u8>)>>> {
+    let mut seen = CidHashSet::default();
+    Box::pin(stream.filter_map(move |b| {
+        futures::future::ready(if seen.insert(b.cid) {
+            Some((b.cid, b.data))
+        } else {
+            None
+        })
+    }))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::vec::IntoIter;
-
     use super::*;
     use ahash::HashSet;
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
-    #[async_trait]
-    impl CarBlockProvider for IntoIter<Block> {
-        async fn next_block(&mut self) -> Result<Option<Block>, fvm_ipld_car::Error> {
-            Ok(self.next())
-        }
-    }
-
     #[derive(Debug, Clone)]
     struct Blocks(Vec<Block>);
 
+    impl Blocks {
+        async fn into_car_bytes(self) -> anyhow::Result<Vec<u8>> {
+            // Dummy root
+            let writer = CarHeader::from(vec![self.0[0].cid]);
+            let mut car = vec![];
+            let mut stream = Box::pin(futures::stream::iter(self.0).map(|b| (b.cid, b.data)));
+            writer.write_stream_async(&mut car, &mut stream).await?;
+            Ok(car)
+        }
+    }
+
     impl Arbitrary for Blocks {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let n = u16::arbitrary(g) as usize;
+            let n = loop {
+                let n = u16::arbitrary(g) as usize;
+                if n > 0 {
+                    break n;
+                }
+            };
             let mut blocks = Vec::with_capacity(n);
             for _ in 0..n {
                 // use small len here to increase the chance of duplication
                 let data = [u8::arbitrary(g), u8::arbitrary(g)];
-                let cid = Cid::new_v0(multihash::Code::Sha2_256.digest(&data)).unwrap();
+                let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&data));
                 let block = Block {
                     cid,
                     data: data.to_vec(),
@@ -163,7 +147,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn car_dedup_reader_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
+    fn car_dedup_block_stream_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
         let unique_len = {
             let mut set = HashSet::from_iter(a.0.iter().map(|b| b.cid).collect::<Vec<Cid>>());
             for block in &b.0 {
@@ -181,13 +165,15 @@ mod tests {
 
         let rt = tokio::runtime::Runtime::new()?;
         let count = rt.block_on(async move {
-            let mut reader = MultiCarDedupReader::new(vec![a.0.into_iter(), b.0.into_iter()]);
-            let mut count = 0usize;
-            while let Ok(Some(_)) = reader.next_block().await {
-                count += 1;
-            }
-            count
-        });
+            let car_a = a.into_car_bytes().await?;
+            let car_b = b.into_car_bytes().await?;
+            let deduped = dedup_block_stream(merge_car_readers(vec![
+                CarReader::new(car_a.as_slice()).await?,
+                CarReader::new(car_b.as_slice()).await?,
+            ]));
+            let count = deduped.count().await;
+            Ok::<_, anyhow::Error>(count)
+        })?;
 
         assert_eq!(count, unique_len);
 
