@@ -4,7 +4,7 @@
 use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -42,7 +42,7 @@ use tokio::sync::{
     broadcast::{self, Sender as Publisher},
     Mutex as TokioMutex,
 };
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, warn};
 
 use super::{
     index::{checkpoint_tipsets, ChainIndex},
@@ -435,43 +435,6 @@ where
         Err(Error::Other(
             "Found no beacon entries in the 20 latest tipsets".to_owned(),
         ))
-    }
-
-    /// Constructs and returns a full tipset if messages from storage exists -
-    /// non self version
-    pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
-    where
-        DB: Blockstore,
-    {
-        // Collect all messages before moving tipset.
-        let messages: Vec<(Vec<_>, Vec<_>)> = match ts
-            .blocks()
-            .iter()
-            .map(|h| block_messages(self.blockstore(), h))
-            .collect::<Result<_, Error>>()
-        {
-            Ok(m) => m,
-            Err(e) => {
-                trace!("failed to fill tipset: {}", e);
-                return None;
-            }
-        };
-
-        // Zip messages with blocks
-        let blocks = ts
-            .blocks()
-            .iter()
-            .cloned()
-            .zip(messages)
-            .map(|(header, (bls_messages, secp_messages))| Block {
-                header,
-                bls_messages,
-                secp_messages,
-            })
-            .collect();
-
-        // the given tipset has already been verified, so this cannot fail
-        Some(FullTipset::new(blocks).unwrap())
     }
 
     /// Retrieves block messages to be passed through the VM.

@@ -325,6 +325,8 @@ pub mod wallet_api {
 
 /// State API
 pub mod state_api {
+    use std::path::PathBuf;
+
     use crate::blocks::tipset_keys_json::TipsetKeysJson;
     use crate::json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
@@ -370,7 +372,7 @@ pub mod state_api {
     pub type StateWaitMsgResult = MessageLookup;
 
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
-    pub type StateFetchRootParams = (CidJson,);
+    pub type StateFetchRootParams = (CidJson, Option<PathBuf>);
     pub type StateFetchRootResult = String;
 }
 
