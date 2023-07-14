@@ -109,13 +109,16 @@ mod tests {
     struct Blocks(Vec<Block>);
 
     impl Blocks {
-        async fn into_car_bytes(self) -> anyhow::Result<Vec<u8>> {
+        async fn into_car_bytes(self) -> Vec<u8> {
             // Dummy root
             let writer = CarHeader::from(vec![self.0[0].cid]);
             let mut car = vec![];
             let mut stream = Box::pin(futures::stream::iter(self.0).map(|b| (b.cid, b.data)));
-            writer.write_stream_async(&mut car, &mut stream).await?;
-            Ok(car)
+            writer
+                .write_stream_async(&mut car, &mut stream)
+                .await
+                .unwrap();
+            car
         }
     }
 
@@ -161,8 +164,8 @@ mod tests {
 
         let rt = tokio::runtime::Runtime::new()?;
         let count = rt.block_on(async move {
-            let car_a = a.into_car_bytes().await?;
-            let car_b = b.into_car_bytes().await?;
+            let car_a = a.into_car_bytes().await;
+            let car_b = b.into_car_bytes().await;
             let deduped = dedup_block_stream(merge_car_readers(vec![
                 CarReader::new(car_a.as_slice()).await?,
                 CarReader::new(car_b.as_slice()).await?,
