@@ -87,7 +87,7 @@ jsonwebtoken = "8.1"
 lazy_static = "1.4"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
-libipld-core = { version = "0.16", features = ['serde-codec'] }
+libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
 libp2p = { version = "0.52.1", default-features = false, features = [
   'gossipsub',
