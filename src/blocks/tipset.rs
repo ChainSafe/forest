@@ -180,6 +180,31 @@ impl Tipset {
             .transpose()?)
     }
 
+    /// Constructs and returns a full tipset if messages from storage exists
+    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
+        // Find tipset messages. If any are missing, return `None`.
+        let blocks = self
+            .blocks()
+            .iter()
+            .cloned()
+            .map(|header| {
+                let (bls_messages, secp_messages) =
+                    crate::chain::store::block_messages(&store, &header).ok()?;
+                Some(Block {
+                    header,
+                    bls_messages,
+                    secp_messages,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+
+        // the given tipset has already been verified, so this cannot fail
+        Some(
+            FullTipset::new(blocks)
+                .expect("block headers have already been verified so this check cannot fail"),
+        )
+    }
+
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch()

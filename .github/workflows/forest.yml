@@ -133,7 +133,6 @@ jobs:
         run: |
           # File name is hard-coded in ./scripts/tests/calibnet_other_check.sh
           car verify bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo.car
-          car inspect bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo.car
 
   # state migration regression tests
   state-migrations-check:
