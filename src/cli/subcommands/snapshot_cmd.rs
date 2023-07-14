@@ -191,6 +191,10 @@ async fn validate(
     .await?;
 
     if let Some(validate_from) = *validate_tipsets {
+        let last_epoch = match validate_from.is_negative() {
+            true => ts.epoch() + validate_from,
+            false => validate_from,
+        };
         // Set proof parameter data dir
         if cns::FETCH_PARAMS {
             crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
@@ -205,26 +209,17 @@ async fn validate(
         )?);
         ensure_params_downloaded().await?;
         // Prepare tipset stream to validate
-        let heaviest_epoch = ts.epoch();
-        let end_tipset = state_manager
-            .chain_store()
-            .tipset_by_height(heaviest_epoch, ts, false)
-            .context(format!("couldn't get a tipset at height {heaviest_epoch}"))?;
-        let tipsets = itertools::unfold(Some(end_tipset), |tipset| {
+        let tipsets = itertools::unfold(Some(ts), |tipset| {
             let child = tipset.take()?;
             *tipset = state_manager
                 .chain_store()
                 .tipset_from_keys(child.parents())
                 .ok();
             Some(child)
-        });
+        })
+        .take_while(|tipset| tipset.epoch() >= last_epoch);
 
-        match validate_from.is_negative() {
-            // allow --height=-1000 to scroll back from the current head
-            true => state_manager
-                .validate_stream((heaviest_epoch + validate_from)..=heaviest_epoch, tipsets)?,
-            false => state_manager.validate_stream(validate_from..=heaviest_epoch, tipsets)?,
-        }
+        state_manager.validate_stream(tipsets)?
     }
 
     println!("Snapshot is valid");

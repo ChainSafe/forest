@@ -49,7 +49,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -1267,35 +1267,22 @@ where
             // if this has parents, unfold them in the next iteration
             *tipset = self.cs.tipset_from_keys(child.parents()).ok();
             Some(child)
-        });
+        })
+        .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
-        self.validate_stream(epochs, tipsets)
+        self.validate_stream(tipsets)
     }
 
-    pub fn validate_stream<F>(
-        self: &Arc<Self>,
-        epochs: RangeInclusive<i64>,
-        tipsets: itertools::Unfold<Option<Arc<Tipset>>, F>,
-    ) -> anyhow::Result<()>
+    pub fn validate_stream<T>(self: &Arc<Self>, tipsets: T) -> anyhow::Result<()>
     where
-        F: FnMut(&mut Option<Arc<Tipset>>) -> Option<Arc<Tipset>> + Send,
+        T: Iterator<Item = Arc<Tipset>> + Send,
     {
         use rayon::iter::ParallelIterator as _;
-
-        let pb = crate::utils::io::ProgressBar::new((epochs.end() - epochs.start()) as u64);
-        pb.message("Compute parent state: ");
-        pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
-
         tipsets
-            .take_while(|tipset| tipset.epoch() >= *epochs.start())
             .tuple_windows()
             .par_bridge()
             .try_for_each(|(child, parent)| {
-                pb.message(&format!(
-                    "Compute parent state: (height={}) ",
-                    parent.epoch()
-                ));
-                pb.set((epochs.end() - parent.epoch()) as u64);
+                info!(height = parent.epoch(), "compute parent state");
                 let (actual_state, actual_receipt) = self
                     .compute_tipset_state_blocking(parent, NO_CALLBACK)
                     .context("couldn't compute tipset state")?;
@@ -1325,11 +1312,7 @@ where
                         bail!("state mismatch");
                     }
                 }
-            })?;
-
-        drop(pb);
-
-        Ok(())
+            })
     }
 
     fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
