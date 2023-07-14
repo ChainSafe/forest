@@ -283,18 +283,21 @@ impl Tipset {
         }
         broken
     }
-    /// Returns a stream of all ancestors
+    /// Returns an iterator of all tipsets
     pub fn chain(
+        self: Arc<Self>,
         store: impl Blockstore + 'static,
-        ts: Arc<Tipset>,
     ) -> impl Iterator<Item = Arc<Tipset>> {
-        let tipsets = itertools::unfold(Some(ts), move |tipset| {
-            let child = tipset.take().unwrap();
-            *tipset = Tipset::load(&store, child.parents())
-                .ok()
-                .flatten()
-                .map(|ts| Arc::new(ts));
-            Some(child)
+        let tipsets = itertools::unfold(Some(self), move |tipset| {
+            if let Some(child) = tipset.take() {
+                *tipset = Tipset::load(&store, child.parents())
+                    .ok()
+                    .flatten()
+                    .map(|ts| Arc::new(ts));
+                Some(child)
+            } else {
+                None
+            }
         });
         tipsets
     }

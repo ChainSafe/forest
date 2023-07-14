@@ -299,7 +299,8 @@ where
         )?);
         ensure_params_downloaded().await?;
         // Prepare tipset stream to validate
-        let tipsets = Tipset::chain(Arc::clone(&store), Arc::clone(&ts))
+        let tipsets = ts
+            .chain(Arc::clone(&store))
             .take_while(|tipset| tipset.epoch() >= last_epoch);
 
         state_manager.validate_stream(tipsets)?
