@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
-use std::pin::Pin;
 
 use cid::Cid;
 use clap::Subcommand;
@@ -84,17 +83,15 @@ where
     futures::stream::select_all(readers_streams)
 }
 
-fn dedup_block_stream(
-    stream: impl Stream<Item = Block>,
-) -> Pin<Box<impl Stream<Item = (Cid, Vec<u8>)>>> {
+fn dedup_block_stream(stream: impl Stream<Item = Block>) -> impl Stream<Item = (Cid, Vec<u8>)> {
     let mut seen = CidHashSet::default();
-    Box::pin(stream.filter_map(move |b| {
+    stream.filter_map(move |b| {
         futures::future::ready(if seen.insert(b.cid) {
             Some((b.cid, b.data))
         } else {
             None
         })
-    }))
+    })
 }
 
 #[cfg(test)]
