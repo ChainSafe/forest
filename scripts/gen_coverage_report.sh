@@ -7,6 +7,7 @@
 # - validating 200 tipsets from the snapshot
 # - syncing to HEAD
 # - exporting a snapshot
+# - send command
 #
 # llvm-cov can be installed by running: cargo install cargo-llvm-cov
 #
@@ -73,6 +74,9 @@ cov forest-cli --token "$TOKEN" wallet verify -a "$NEW_ADDR" -m deadbeef -s "$SI
 
 # Check balance
 cov forest-cli --token "$TOKEN" wallet balance "$NEW_ADDR" | grep 0
+
+# Send funds
+cov forest-cli --token "$TOKEN" send --from "$DEFAULT_ADDR" "$NEW_ADDR" .000000000000000001
 
 # Create a read-only token
 READ_TOKEN=$(cov forest-cli --token "$TOKEN" auth create-token --perm read)
