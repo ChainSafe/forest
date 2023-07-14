@@ -240,51 +240,38 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
 
 #[cfg(test)]
 mod tests {
-    use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
     use super::*;
 
-    #[derive(Clone, Debug, PartialEq)]
-    struct IpldWrapper {
-        ipld: libipld_macro::Ipld,
-    }
-
-    impl quickcheck::Arbitrary for IpldWrapper {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let bool_item = bool::arbitrary(g);
-            let int_item = i128::arbitrary(g);
-            let float_item = f64::arbitrary(g);
-            let string_item = String::arbitrary(g);
-            let bytes_item = Vec::arbitrary(g);
-            let list_item = Vec::new();
-            let map_item = BTreeMap::new();
-            let cid = Cid::new_v1(
-                u64::arbitrary(g),
-                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-            );
-            let binding = [
-                Ipld::Null,
-                Ipld::Bool(bool_item),
-                Ipld::Integer(int_item),
-                // Filter out problematic NaN values.
-                Ipld::Float(if float_item.is_nan() { 0.0 } else { float_item }),
-                Ipld::String(string_item),
-                Ipld::Bytes(bytes_item),
-                Ipld::List(list_item),
-                Ipld::Map(map_item),
-                Ipld::Link(cid),
-            ];
-            let ipld = g.choose(&binding).unwrap();
-            IpldWrapper { ipld: ipld.clone() }
-        }
-    }
-
     #[quickcheck]
-    fn ipld_roundtrip(ipld: IpldWrapper) {
-        let serialized: String = serde_json::to_string(&IpldJsonRef(&ipld.ipld)).unwrap();
+    fn ipld_roundtrip(mut ipld: Ipld) {
+        /// `NaN != NaN`, which breaks our round-trip tests.
+        /// Correct this by changing any `NaN`s to zero.
+        fn fixup_floats(ipld: &mut Ipld) {
+            match ipld {
+                Ipld::Float(v) => {
+                    if v.is_nan() {
+                        *ipld = Ipld::Float(0.0);
+                    }
+                }
+                Ipld::List(list) => {
+                    for item in list {
+                        fixup_floats(item);
+                    }
+                }
+                Ipld::Map(map) => {
+                    for item in map.values_mut() {
+                        fixup_floats(item);
+                    }
+                }
+                _ => {}
+            }
+        }
+        fixup_floats(&mut ipld);
+        let serialized = serde_json::to_string(&IpldJsonRef(&ipld)).unwrap();
         let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(ipld.ipld, parsed.0);
+        assert_eq!(ipld, parsed.0);
     }
 }
