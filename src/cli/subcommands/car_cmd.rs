@@ -84,7 +84,7 @@ fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = BlockP
 where
     R: AsyncRead + Send + Unpin,
 {
-    futures::stream::iter(readers).flat_map(|r| read_car_as_stream(r))
+    futures::stream::iter(readers).flat_map(read_car_as_stream)
 }
 
 fn dedup_block_stream(stream: impl Stream<Item = BlockPair>) -> impl Stream<Item = BlockPair> {
