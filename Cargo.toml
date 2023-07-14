@@ -69,8 +69,7 @@ fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_car = "0.7"
 fvm_ipld_encoding = "0.4"
-# fvm_ipld_hamt = { git = "https://github.com/creativcoder/ref-fvm", branch = "creativcoder/hamtv0-forest" }
-fvm_ipld_hamt = { path = "../ref-fvm/ipld/hamt" }
+fvm_ipld_hamt = { git = "https://github.com/creativcoder/ref-fvm", branch = "creativcoder/hamtv0-forest" }
 fvm_shared2 = { package = "fvm_shared", version = "~2.5" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.4", features = ["testing", "proofs"] }
 gethostname = "0.4"
@@ -174,9 +173,6 @@ uuid = { version = "1.3", features = ['v4'] }
 walkdir = "2"
 xsalsa20poly1305 = "0.9"
 zstd-safe = "6.0.5"
-
-# hamtv0 specific deps
-forest_hash_utils = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"
