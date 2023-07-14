@@ -18,7 +18,7 @@ use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
-use anyhow::bail;
+use anyhow::{bail, Context};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
@@ -268,46 +268,44 @@ where
         chain_data_root.path(),
     )?);
 
-    if let Some(ts) = Tipset::load(store.clone(), &TipsetKeys::new(roots))
-        .ok()
-        .flatten()
-    {
-        validate_links_and_genesis_traversal(
-            &chain_store,
-            &ts,
-            chain_store.blockstore(),
-            *recent_stateroots,
-            &Tipset::from(genesis),
-            &config.chain.network,
-        )
-        .await?;
+    let ts =
+        Tipset::load(store.clone(), &TipsetKeys::new(roots))?.context("missing root tipset")?;
 
-        if let Some(validate_from) = *validate_tipsets {
-            let last_epoch = match validate_from.is_negative() {
-                true => ts.epoch() + validate_from,
-                false => validate_from,
-            };
-            // Set proof parameter data dir
-            if cns::FETCH_PARAMS {
-                crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-                    &config.client.data_dir,
-                );
-            }
-            // Initialize StateManager
-            let state_manager = Arc::new(StateManager::new(
-                chain_store,
-                Arc::clone(&config.chain),
-                Arc::new(crate::interpreter::RewardActorMessageCalc),
-            )?);
-            ensure_params_downloaded().await?;
-            // Prepare tipset stream to validate
-            let tipsets = ts
-                .chain(Arc::clone(&store))
-                .map(|ts| Arc::clone(&Arc::new(ts)))
-                .take_while(|tipset| tipset.epoch() >= last_epoch);
+    validate_links_and_genesis_traversal(
+        &chain_store,
+        &ts,
+        chain_store.blockstore(),
+        *recent_stateroots,
+        &Tipset::from(genesis),
+        &config.chain.network,
+    )
+    .await?;
 
-            state_manager.validate_stream(tipsets)?
+    if let Some(validate_from) = *validate_tipsets {
+        let last_epoch = match validate_from.is_negative() {
+            true => ts.epoch() + validate_from,
+            false => validate_from,
+        };
+        // Set proof parameter data dir
+        if cns::FETCH_PARAMS {
+            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+                &config.client.data_dir,
+            );
         }
+        // Initialize StateManager
+        let state_manager = Arc::new(StateManager::new(
+            chain_store,
+            Arc::clone(&config.chain),
+            Arc::new(crate::interpreter::RewardActorMessageCalc),
+        )?);
+        ensure_params_downloaded().await?;
+        // Prepare tipset stream to validate
+        let tipsets = ts
+            .chain(Arc::clone(&store))
+            .map(|ts| Arc::clone(&Arc::new(ts)))
+            .take_while(|tipset| tipset.epoch() >= last_epoch);
+
+        state_manager.validate_stream(tipsets)?
     }
 
     println!("Snapshot is valid");
