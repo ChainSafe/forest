@@ -268,8 +268,7 @@ where
         chain_data_root.path(),
     )?);
 
-    let ts =
-        Tipset::load(&store, &TipsetKeys::new(roots))?.context("missing root tipset")?;
+    let ts = Tipset::load(&store, &TipsetKeys::new(roots))?.context("missing root tipset")?;
 
     validate_links_and_genesis_traversal(
         &chain_store,
