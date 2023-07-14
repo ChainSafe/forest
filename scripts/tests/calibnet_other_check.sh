@@ -46,11 +46,12 @@ $FOREST_CLI_PATH sync wait # allow the node to re-sync
 
 echo "Test IPLD traversal by fetching the state of epoch 1"
 # The IPLD graph for the state-root of epoch 1 contains 1197 CIDs
-EXPECTED_WALK="IPLD graph traversed! CIDs: 1195, fetched: 11, failures: 0."
+EXPECTED_WALK="IPLD graph traversed! CIDs: 1195, fetched: 12, failures: 0."
 # The state-root of epoch 1 can be found here: https://calibration.filscan.io/tipset/chain?hash=bafy2bzaced577h7b7wzib6tryq4w6mnzdwtrjpyii4srahqwfqxsfey5kyxos
-ACTUAL_WALK=$($FOREST_CLI_PATH state fetch bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo)
+ACTUAL_WALK=$($FOREST_CLI_PATH state fetch bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo -s bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo.car)
 if [[ $EXPECTED_WALK != "$ACTUAL_WALK" ]]; then
   printf "Invalid traversal:\n%s" "$ACTUAL_WALK"
   printf "Expected:\n%s" "$EXPECTED_WALK"
   exit 1
 fi
+
