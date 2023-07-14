@@ -269,7 +269,7 @@ where
     )?);
 
     let ts =
-        Tipset::load(store.clone(), &TipsetKeys::new(roots))?.context("missing root tipset")?;
+        Tipset::load(&store, &TipsetKeys::new(roots))?.context("missing root tipset")?;
 
     validate_links_and_genesis_traversal(
         &chain_store,
