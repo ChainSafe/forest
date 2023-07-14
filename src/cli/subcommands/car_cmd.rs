@@ -6,12 +6,13 @@ use std::path::PathBuf;
 use cid::Cid;
 use clap::Subcommand;
 use futures::{AsyncRead, Stream, StreamExt, TryStreamExt};
-use fvm_ipld_car::Block;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::ipld::CidHashSet;
+
+type BlockPair = (Cid, Vec<u8>);
 
 #[derive(Debug, Subcommand)]
 pub enum CarCommands {
@@ -37,8 +38,8 @@ impl CarCommands {
                     .try_collect()
                     .await?;
 
-                let mut roots = vec![];
-                {
+                let roots = {
+                    let mut roots = vec![];
                     let mut seen = CidHashSet::default();
                     for reader in &readers {
                         for &root in &reader.header.roots {
@@ -47,15 +48,17 @@ impl CarCommands {
                             }
                         }
                     }
-                }
+                    roots
+                };
 
                 let car_writer = CarHeader::from(roots);
                 let mut output_file =
                     tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
+
                 car_writer
                     .write_stream_async(
                         &mut output_file,
-                        &mut dedup_block_stream(merge_car_readers(readers)),
+                        &mut Box::pin(dedup_block_stream(merge_car_readers(readers))),
                     )
                     .await?;
             }
@@ -64,34 +67,29 @@ impl CarCommands {
     }
 }
 
-fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = Block>
+fn read_car_as_stream<R>(reader: CarReader<R>) -> impl Stream<Item = BlockPair>
 where
     R: AsyncRead + Send + Unpin,
 {
-    let readers_streams: Vec<_> = readers
-        .into_iter()
-        .map(|r| {
-            Box::pin(futures::stream::unfold(r, move |mut reader| async {
-                reader
-                    .next_block()
-                    .await
-                    .expect("Failed calling `CarReader::next_block`")
-                    .map(|b| (b, reader))
-            }))
-        })
-        .collect();
-    futures::stream::select_all(readers_streams)
+    futures::stream::unfold(reader, move |mut reader| async {
+        reader
+            .next_block()
+            .await
+            .expect("Failed to call CarReader::next_block")
+            .map(|b| ((b.cid, b.data), reader))
+    })
 }
 
-fn dedup_block_stream(stream: impl Stream<Item = Block>) -> impl Stream<Item = (Cid, Vec<u8>)> {
+fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = BlockPair>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    futures::stream::iter(readers).flat_map(|r| read_car_as_stream(r))
+}
+
+fn dedup_block_stream(stream: impl Stream<Item = BlockPair>) -> impl Stream<Item = BlockPair> {
     let mut seen = CidHashSet::default();
-    stream.filter_map(move |b| {
-        futures::future::ready(if seen.insert(b.cid) {
-            Some((b.cid, b.data))
-        } else {
-            None
-        })
-    })
+    stream.filter(move |(cid, _data)| futures::future::ready(seen.insert(*cid)))
 }
 
 #[cfg(test)]
@@ -101,6 +99,7 @@ mod tests {
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
+    use fvm_ipld_car::Block;
     use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
