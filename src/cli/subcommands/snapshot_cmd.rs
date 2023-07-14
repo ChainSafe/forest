@@ -3,7 +3,9 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::car_backed_blockstore::CarBackedBlockstore;
+use crate::car_backed_blockstore::{
+    self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
+};
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -16,12 +18,15 @@ use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
-use anyhow::{bail, Context as _};
+use anyhow::bail;
 use chrono::Utc;
 use clap::Subcommand;
+use fvm_ipld_blockstore::Blockstore;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
+use tracing::info;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -57,8 +62,19 @@ pub enum SnapshotCommands {
         /// use a negative value -N to validate the last N EPOCH(s) starting at HEAD.
         #[arg(long)]
         validate_tipsets: Option<i64>,
-        /// Path to an uncompressed snapshot (CAR)
+        /// Path to a snapshot CAR, which may be zstd compressed
         snapshot: PathBuf,
+    },
+    /// Make this snapshot suitable for use as a compressed car-backed blockstore.
+    Compress {
+        /// CAR file. May be a zstd-compressed
+        source: PathBuf,
+        destination: PathBuf,
+        #[arg(hide = true, long, default_value_t = 3)]
+        compression_level: u16,
+        /// End zstd frames after they exceed this length
+        #[arg(hide = true, long, default_value_t = 8000usize.next_power_of_two())]
+        frame_size: usize,
     },
 }
 
@@ -149,21 +165,95 @@ impl SnapshotCommands {
                 recent_stateroots,
                 validate_tipsets,
                 snapshot,
-            } => validate(&config, recent_stateroots, validate_tipsets, snapshot).await,
+            } => {
+                // this is all blocking...
+                use std::fs::File;
+                match CompressedCarV1BackedBlockstore::new(BufReader::new(File::open(snapshot)?)) {
+                    Ok(store) => {
+                        validate_with_blockstore(
+                            &config,
+                            store.roots(),
+                            Arc::new(store),
+                            recent_stateroots,
+                            validate_tipsets,
+                        )
+                        .await
+                    }
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::Other
+                            && error.get_ref().is_some_and(|inner| {
+                                inner.downcast_ref::<MaxFrameSizeExceeded>().is_some()
+                            }) =>
+                    {
+                        bail!("The provided compressed car file cannot be used as a blockstore. Prepare it using `forest snapshot compress ...`")
+                    }
+                    Err(error) => {
+                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
+                        let store = UncompressedCarV1BackedBlockstore::new(File::open(snapshot)?)?;
+                        validate_with_blockstore(
+                            &config,
+                            store.roots(),
+                            Arc::new(store),
+                            recent_stateroots,
+                            validate_tipsets,
+                        )
+                        .await
+                    }
+                }
+            }
+            Self::Compress {
+                source,
+                destination,
+                compression_level,
+                frame_size,
+            } => {
+                // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
+                // For example, the zstsd magic bytes are a valid varint frame prefix:
+                assert_eq!(
+                    unsigned_varint::io::read_usize(&[0xFD, 0x2F, 0xB5, 0x28][..]).unwrap(),
+                    6141,
+                );
+                // so the best thing to do is to just try compressed and then uncompressed.
+                use car_backed_blockstore::zstd_compress_varint_manyframe;
+                use tokio::fs::File;
+                match zstd_compress_varint_manyframe(
+                    async_compression::tokio::bufread::ZstdDecoder::new(tokio::io::BufReader::new(
+                        File::open(source).await?,
+                    )),
+                    File::create(destination).await?,
+                    *frame_size,
+                    *compression_level,
+                )
+                .await
+                {
+                    Ok(_num_frames) => Ok(()),
+                    Err(error) => {
+                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
+                        zstd_compress_varint_manyframe(
+                            File::open(source).await?,
+                            File::create(destination).await?,
+                            *frame_size,
+                            *compression_level,
+                        )
+                        .await?;
+                        Ok(())
+                    }
+                }
+            }
         }
     }
 }
 
-async fn validate(
+async fn validate_with_blockstore<BlockstoreT>(
     config: &Config,
+    roots: Vec<Cid>,
+    store: Arc<BlockstoreT>,
     recent_stateroots: &i64,
     validate_tipsets: &Option<i64>,
-    snapshot: &PathBuf,
-) -> anyhow::Result<()> {
-    let store = Arc::new(
-        CarBackedBlockstore::new(std::fs::File::open(snapshot)?)
-            .context("couldn't read input CAR file - is it compressed?")?,
-    );
+) -> anyhow::Result<()>
+where
+    BlockstoreT: Blockstore + Send + Sync + 'static,
+{
     let genesis = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -178,7 +268,7 @@ async fn validate(
         chain_data_root.path(),
     )?);
 
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(roots))?;
 
     validate_links_and_genesis_traversal(
         &chain_store,
@@ -228,7 +318,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     network: &NetworkChain,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let mut seen = CidHashSet::default();
     let upto = ts.epoch() - recent_stateroots;
