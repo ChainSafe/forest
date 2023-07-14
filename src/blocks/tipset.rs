@@ -13,7 +13,6 @@ use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
@@ -284,16 +283,10 @@ impl Tipset {
         broken
     }
     /// Returns an iterator of all tipsets
-    pub fn chain(
-        self: Arc<Self>,
-        store: impl Blockstore + 'static,
-    ) -> impl Iterator<Item = Arc<Tipset>> {
+    pub fn chain(self, store: impl Blockstore + 'static) -> impl Iterator<Item = Tipset> {
         let tipsets = itertools::unfold(Some(self), move |tipset| {
             if let Some(child) = tipset.take() {
-                *tipset = Tipset::load(&store, child.parents())
-                    .ok()
-                    .flatten()
-                    .map(|ts| Arc::new(ts));
+                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
                 Some(child)
             } else {
                 None
