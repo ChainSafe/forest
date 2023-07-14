@@ -41,7 +41,6 @@ use bundle::load_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
-use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::{
@@ -61,6 +60,7 @@ use tokio::{
     sync::{mpsc, RwLock},
     task::JoinSet,
 };
+use tracing::{debug, info, warn};
 
 lazy_static! {
     static ref IPC_PATH: TempPath = Builder::new()
@@ -506,14 +506,12 @@ async fn fetch_snapshot_if_required(
                 crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
                     .await
                     .context("couldn't get snapshot size")?;
-            let num_bytes = byte_unit::Byte::from(num_bytes)
-                .get_appropriate_unit(true)
-                .format(2);
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
             let message = format!(
-                "Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). "
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
             );
             let have_permission = asyncify(|| {
                 dialoguer::Confirm::with_theme(&ColorfulTheme::default())

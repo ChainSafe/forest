@@ -13,8 +13,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
 use human_repr::HumanCount;
-use log::info;
 use serde::ser::Serialize;
+use tracing::info;
 
 /// DB key size in bytes for estimating reachable data size. Use parity-db value
 /// for simplicity. The actual value for other underlying DB might be slightly

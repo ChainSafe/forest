@@ -26,10 +26,10 @@ use futures::{
     try_join, StreamExt,
 };
 use fvm_ipld_blockstore::Blockstore;
-use log::{debug, error, info, trace, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
     bad_block_cache::BadBlockCache,
@@ -307,7 +307,7 @@ where
 
         let epoch = block.header.epoch();
 
-        log::debug!(
+        debug!(
             "Getting messages of gossipblock, epoch: {epoch}, block: {}",
             block.header.cid()
         );

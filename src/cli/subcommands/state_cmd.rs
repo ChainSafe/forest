@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
+
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
 use crate::json::cid::CidJson;
@@ -30,6 +32,9 @@ struct VestingScheduleEntry {
 pub enum StateCommands {
     Fetch {
         root: Cid,
+        /// The `.car` file path to save the state root
+        #[arg(short, long)]
+        save_to_file: Option<PathBuf>,
     },
     Diff {
         /// The previous CID state root
@@ -45,10 +50,10 @@ pub enum StateCommands {
 impl StateCommands {
     pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
-            Self::Fetch { root } => {
+            Self::Fetch { root, save_to_file } => {
                 println!(
                     "{}",
-                    state_fetch_root((CidJson(root),), &config.client.rpc_token)
+                    state_fetch_root((CidJson(root), save_to_file), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                 );

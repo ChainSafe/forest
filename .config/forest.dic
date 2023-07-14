@@ -8,9 +8,11 @@ bitfield
 bitswap
 BLAKE2b
 blockchain/M
+blockstore/SM
 BLS
 callee
 CAR/SM
+CARv1/SM
 CBOR
 CID/SM
 CIDs
@@ -58,6 +60,7 @@ PoSt
 RPC
 SECP
 SECP256k1
+seekable
 serializable
 serializer/SM
 statediff
@@ -73,6 +76,7 @@ tipsetkey/S
 TOML
 trie
 TTY
+uncompress
 URL
 validator/S
 varint
