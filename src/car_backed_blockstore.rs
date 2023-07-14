@@ -49,6 +49,8 @@
 //! - Use an inner [`Blockstore`] for writes.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
 //! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
+//! - CARv2 support
+//! - A wrapper that abstracts over car formats for reading.
 
 use ahash::AHashMap;
 use bytes::{buf::Writer, BufMut as _, BytesMut};
