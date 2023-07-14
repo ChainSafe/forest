@@ -432,8 +432,10 @@ pub(super) async fn start(
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => state_manager.validate((current_height + validate_from)..=current_height)?,
-            false => state_manager.validate(validate_from..=current_height)?,
+            true => {
+                state_manager.validate_range((current_height + validate_from)..=current_height)?
+            }
+            false => state_manager.validate_range(validate_from..=current_height)?,
         }
     }
 

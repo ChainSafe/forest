@@ -1250,7 +1250,7 @@ where
     /// This function is blocking, but we do observe threads waiting and synchronizing.
     /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
-    pub fn validate(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
+    pub fn validate_range(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         let heaviest = self.cs.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
@@ -1270,10 +1270,10 @@ where
         })
         .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
-        self.validate_stream(tipsets)
+        self.validate_tipsets(tipsets)
     }
 
-    pub fn validate_stream<T>(self: &Arc<Self>, tipsets: T) -> anyhow::Result<()>
+    pub fn validate_tipsets<T>(self: &Arc<Self>, tipsets: T) -> anyhow::Result<()>
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {

@@ -300,11 +300,11 @@ where
         ensure_params_downloaded().await?;
         // Prepare tipset stream to validate
         let tipsets = ts
-            .chain(Arc::clone(&store))
+            .chain(&store)
             .map(|ts| Arc::clone(&Arc::new(ts)))
             .take_while(|tipset| tipset.epoch() >= last_epoch);
 
-        state_manager.validate_stream(tipsets)?
+        state_manager.validate_tipsets(tipsets)?
     }
 
     println!("Snapshot is valid");
