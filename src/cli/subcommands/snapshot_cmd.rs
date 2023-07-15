@@ -115,8 +115,8 @@ impl SnapshotCommands {
                     recent_roots: config.chain.recent_state_roots,
                     output_path,
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
-                    skip_checksum: skip_checksum,
-                    dry_run: dry_run,
+                    skip_checksum,
+                    dry_run,
                 };
 
                 let bar = Arc::new(tokio::sync::Mutex::new({
