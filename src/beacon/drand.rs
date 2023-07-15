@@ -234,7 +234,7 @@ impl DrandBeacon {
         config: &DrandConfig<'_>,
     ) -> Result<Self, anyhow::Error> {
         if genesis_ts == 0 {
-            panic!("Genesis timestamp cannot be 0")
+            anyhow::bail!("Genesis timestamp cannot be 0")
         }
 
         let chain_info = &config.chain_info;
