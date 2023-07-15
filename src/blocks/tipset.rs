@@ -7,6 +7,7 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -169,7 +170,8 @@ impl Tipset {
         })
     }
 
-    /// Loads a tipset from memory given the tipset keys.
+    /// Fetch a tipset from the blockstore. This call fails if the tipset
+    /// present but invalid. If the tipset is missing, None is returned.
     pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids()
@@ -178,6 +180,12 @@ impl Tipset {
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
+    }
+
+    /// Fetch a tipset from the blockstore. This calls fails if the tipset is
+    /// missing or invalid.
+    pub fn load_required(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Tipset> {
+        Ok(Tipset::load(store, tsk)?.context("Required tipset missing from database")?)
     }
 
     /// Constructs and returns a full tipset if messages from storage exists

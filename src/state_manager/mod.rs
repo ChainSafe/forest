@@ -37,7 +37,6 @@ use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -811,16 +810,7 @@ where
         }
 
         let parent_epoch = if first_block.epoch() > 0 {
-            let parent_cid = first_block
-                .parents()
-                .cids()
-                .get(0)
-                .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
-            let parent: BlockHeader = self
-                .blockstore()
-                .get_cbor(parent_cid)?
-                .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
-            parent.epoch()
+            Tipset::load_required(self.blockstore(), first_block.parents())?.epoch()
         } else {
             Default::default()
         };
