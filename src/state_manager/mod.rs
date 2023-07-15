@@ -634,8 +634,7 @@ where
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
-            let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-            let (state, _) = self.compute_tipset_state_blocking(tipset.clone(), no_func)?;
+            let (state, _) = self.compute_tipset_state_blocking(tipset.clone(), NO_CALLBACK)?;
             return Ok((tipset, state));
         }
 
