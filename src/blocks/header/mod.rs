@@ -36,10 +36,10 @@ pub mod json;
 /// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
-///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
 ///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
 ///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
-///     .miner_address(Address::new_id(0)) // optional
+///     .miner_address(Address::new_id(0)) // required
+///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
 ///     .election_proof(None) // optional
