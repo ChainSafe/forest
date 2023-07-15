@@ -325,15 +325,11 @@ where
         .take_while(|tipset| tipset.epoch() > epoch_limit)
     {
         let height = tipset.epoch();
-        pb.tick();
         pb.set_message(format!("{} remaining epochs", height - epoch_limit));
 
-        let mut assert_cid_exists = |cid: Cid| {
-            pb.tick();
-            async move {
-                let data = db.get(&cid)?;
-                data.ok_or_else(|| anyhow::anyhow!("Broken IPLD link at epoch: {height}"))
-            }
+        let mut assert_cid_exists = |cid: Cid| async move {
+            let data = db.get(&cid)?;
+            data.ok_or_else(|| anyhow::anyhow!("Broken IPLD link at epoch: {height}"))
         };
 
         for h in tipset.blocks() {
@@ -438,12 +434,11 @@ where
         .map(|ts| Arc::clone(&Arc::new(ts)))
         .take_while(|tipset| tipset.epoch() >= last_epoch)
         .inspect(|tipset| {
-            pb.tick();
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
         });
 
-    // ProgressBar::wrap_iter belives the progress has been abandoned once the
-    // iterator has been consumed.
+    // ProgressBar::wrap_iter believes the progress has been abandoned once the
+    // iterator is consumed.
     state_manager.validate_tipsets(tipsets)?;
 
     pb.finish_with_message("✅ verified!");
