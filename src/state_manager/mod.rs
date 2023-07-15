@@ -388,7 +388,7 @@ where
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
-                let timestamp = *genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
                 let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
