@@ -219,7 +219,7 @@ where
         reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?;
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp())?);
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
 
         Ok(Self {
             cs,

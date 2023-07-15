@@ -232,10 +232,8 @@ impl DrandBeacon {
         genesis_ts: u64,
         interval: u64,
         config: &DrandConfig<'_>,
-    ) -> Result<Self, anyhow::Error> {
-        if genesis_ts == 0 {
-            anyhow::bail!("Genesis timestamp cannot be 0")
-        }
+    ) -> Self {
+        assert!(genesis_ts == 0, "Genesis timestamp cannot be 0");
 
         let chain_info = &config.chain_info;
 
@@ -257,21 +255,22 @@ impl DrandBeacon {
                 })
             })
             .join()
-            .expect("thread panicked")?;
+            .expect("thread panicked")
+            .expect("failed to fetch remote drand chain info");
             debug_assert!(&remote_chain_info == chain_info);
         }
 
-        Ok(Self {
+        Self {
             url: config.server,
             pub_key: DrandPublic {
-                coefficient: hex::decode(chain_info.public_key.as_ref())?,
+                coefficient: hex::decode(chain_info.public_key.as_ref()).expect("invalid static encoding of drand hex public key"),
             },
             interval: chain_info.period as u64,
             drand_gen_time: chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
             local_cache: Default::default(),
-        })
+        }
     }
 }
 
