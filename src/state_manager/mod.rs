@@ -774,9 +774,7 @@ where
         }
 
         let block_headers = tipset.blocks();
-        let first_block = block_headers
-            .first()
-            .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
+        let first_block = tipset.min_ticket_block();
 
         let check_for_duplicates = |s: &BlockHeader| {
             block_headers
