@@ -383,7 +383,7 @@ pub(super) async fn start(
                     network_name,
                     start_time,
                     // TODO: the RPCState can fetch this itself from the StateManager
-                    beacon: beacon,
+                    beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                     gc_event_tx,
