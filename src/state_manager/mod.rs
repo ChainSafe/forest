@@ -375,7 +375,7 @@ where
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
-                chain_epoch_tsk(Arc::clone(self), Arc::clone(&tipset)),
+                chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&tipset)),
                 &self.engine,
                 Arc::clone(self.chain_config()),
                 timestamp,
@@ -472,7 +472,7 @@ where
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-            chain_epoch_tsk(Arc::clone(self), Arc::clone(tipset)),
+            chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(tipset)),
             &self.engine,
             Arc::clone(self.chain_config()),
             tipset.min_timestamp(),
@@ -545,7 +545,7 @@ where
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
-            chain_epoch_tsk(Arc::clone(self), Arc::clone(&ts)),
+            chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&ts)),
             &self.engine,
             Arc::clone(self.chain_config()),
             ts.min_timestamp(),
@@ -657,19 +657,6 @@ where
             .tipset_from_keys(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
-    }
-
-    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may **not** be null.
-    pub fn get_epoch_tsk(
-        self: &Arc<Self>,
-        tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<TipsetKeys, Error> {
-        let ts = self
-            .cs
-            .tipset_by_height(round, tipset, true)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        Ok(ts.key().clone())
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -1310,11 +1297,11 @@ where
 fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
+) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
-    Box::new(move |round| {
+    Arc::new(move |round| {
         let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;
         Ok(st)
     })
@@ -1323,11 +1310,11 @@ where
 // Create a boxed closure for getting the keys of a tipset at a given epoch. The indirection is due
 // to the way we interface with the FVM. Most likely, this could be written a lot better.
 fn chain_epoch_tsk<DB>(
-    sm: Arc<StateManager<DB>>,
+    cs: Arc<ChainStore<DB>>,
     tipset: Arc<Tipset>,
-) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>
+) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
-    Box::new(move |round| Ok(sm.get_epoch_tsk(tipset.clone(), round)?))
+    Arc::new(move |round| Ok(cs.get_epoch_tsk(tipset.clone(), round)?))
 }

@@ -594,6 +594,17 @@ where
 
         Ok(digest)
     }
+
+    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may **not** be null.
+    pub fn get_epoch_tsk(
+        &self,
+        tipset: Arc<Tipset>,
+        round: ChainEpoch,
+    ) -> Result<TipsetKeys, Error> {
+        let ts = self.tipset_by_height(round, tipset, true)
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+        Ok(ts.key().clone())
+    }
 }
 
 pub(in crate::chain) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;

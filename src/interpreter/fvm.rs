@@ -33,7 +33,7 @@ pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
-    lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
+    lookback: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
@@ -44,7 +44,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
         root: Cid,
-        lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
+        lookback: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
