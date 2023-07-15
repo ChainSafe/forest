@@ -20,7 +20,6 @@ mod wallet_api;
 
 use std::{net::TcpListener, sync::Arc};
 
-use crate::chain::Scale;
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, progress_api::GET_PROGRESS,
@@ -42,7 +41,7 @@ use crate::rpc::{
 
 pub type RpcResult<T> = Result<T, JSONRPCError>;
 
-pub async fn start_rpc<DB, S>(
+pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
@@ -50,7 +49,6 @@ pub async fn start_rpc<DB, S>(
 ) -> Result<(), JSONRPCError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    S: Scale + 'static,
 {
     use auth_api::*;
     use chain_api::*;

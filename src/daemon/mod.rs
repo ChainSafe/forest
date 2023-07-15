@@ -372,7 +372,7 @@ pub(super) async fn start(
                     .get_beacon_schedule(chain_store.genesis()?.timestamp())
                     .into_dyn(),
             );
-            start_rpc::<_, cns::FullConsensus>(
+            start_rpc(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
