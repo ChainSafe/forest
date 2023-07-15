@@ -5,6 +5,7 @@ use crate::interpreter::{InvocResult, MessageGasCost};
 
 pub mod json {
     use crate::shim::executor::Receipt;
+    use crate::shim::executor::Trace;
     use crate::shim::message::Message;
     use cid::Cid;
 
@@ -45,7 +46,7 @@ pub mod json {
         msg_receipt: Receipt,
         #[serde(with = "crate::json::message_gas_cost::json")]
         gas_cost: MessageGasCost,
-        //exec_trace: ExecutionTrace,
+        execution_trace: Option<Trace>,
         error: String,
     }
 
@@ -58,6 +59,7 @@ pub mod json {
             msg: ir.msg.clone(),
             msg_receipt: ir.msg_receipt.clone(),
             gas_cost: ir.gas_cost.clone(),
+            execution_trace: ir.execution_trace.clone(),
             error: ir.error.clone(),
         }
         .serialize(serializer)
@@ -73,7 +75,7 @@ pub mod json {
             msg: ir.msg,
             msg_receipt: ir.msg_receipt,
             gas_cost: ir.gas_cost,
-            //exec_trace: ir.exec_trace,
+            execution_trace: ir.execution_trace,
             error: ir.error,
         })
     }

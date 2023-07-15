@@ -60,6 +60,21 @@ type CidPair = (Cid, Cid);
 ///
 type Trace = Vec<crate::interpreter::InvocResult>;
 
+#[derive(Default, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct TraceInfo {
+    #[serde(with = "crate::json::cid")]
+    root: Cid,
+    #[serde(with = "crate::json::invoc_result::json::vec")]
+    trace: Vec<crate::interpreter::InvocResult>,
+}
+
+impl TraceInfo {
+    pub fn new(root: Cid, trace: Vec<crate::interpreter::InvocResult>) -> Self {
+        Self { root, trace }
+    }
+}
+
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
@@ -854,7 +869,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: bool,
-    ) -> Result<(CidPair, Trace), Error>
+    ) -> Result<(CidPair, TraceInfo), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -893,7 +908,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: bool,
-    ) -> Result<(CidPair, Trace), Error>
+    ) -> Result<(CidPair, TraceInfo), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -910,7 +925,7 @@ where
 
             return Ok((
                 (*tipset.parent_state(), *message_receipts.message_receipts()),
-                vec![],
+                TraceInfo::default(),
             ));
         }
 
@@ -958,7 +973,7 @@ where
         let sm = Arc::clone(self);
         let sr = *first_block.state_root();
         let epoch = first_block.epoch();
-        Ok(sm.apply_blocks(
+        let (cid_pair, trace) = sm.apply_blocks(
             parent_epoch,
             &sr,
             &blocks,
@@ -968,7 +983,8 @@ where
             callback,
             tipset,
             enable_tracing,
-        )?)
+        )?;
+        Ok((cid_pair, TraceInfo::new(cid_pair.0, trace)))
     }
 
     /// Check if tipset had executed the message, by loading the receipt based

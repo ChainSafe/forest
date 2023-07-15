@@ -9,7 +9,7 @@ use crate::shim::{
     address::Address,
     econ::TokenAmount,
     error::ExitCode,
-    executor::{ApplyRet, Receipt},
+    executor::{build_lotus_trace, ApplyRet, ExecutionEvent_v3, Receipt, Trace},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
     message::{Message, Message_v3},
@@ -95,8 +95,45 @@ pub struct InvocResult {
     pub msg: Message,
     pub msg_receipt: Receipt,
     pub gas_cost: MessageGasCost,
-    //pub execution_trace: ExecutionTrace,
+    pub execution_trace: Option<Trace>,
     pub error: String,
+}
+
+fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
+    let exec_trace: Option<Trace> = if !exec_trace.is_empty() {
+        let mut trace_iter = exec_trace.into_iter();
+        let mut initial_gas_charges = Vec::new();
+        loop {
+            match trace_iter.next() {
+                Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
+                Some(ExecutionEvent_v3::Call {
+                    from,
+                    to,
+                    method,
+                    params,
+                    value,
+                }) => {
+                    break build_lotus_trace(
+                        from,
+                        to.into(),
+                        method,
+                        params.clone(),
+                        value.into(),
+                        &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
+                    )
+                    .ok()
+                }
+                // Skip anything unexpected.
+                Some(_) => {}
+                // Return none if we don't even have a call.
+                None => break None,
+            }
+        }
+    } else {
+        None
+    };
+
+    exec_trace
 }
 
 /// Interpreter which handles execution of state transitioning messages and
@@ -299,14 +336,16 @@ where
 
                 // Push InvocResult
                 if enable_tracing {
-                    let execution_trace = ret.exec_trace();
+                    let trace = build_exec_trace(ret.exec_events());
+
+                    // TODO: replace actor error by failure_info
                     let error = ret.actor_error();
                     invoc_results.push(InvocResult {
                         msg_cid: cid,
                         msg: msg.message().clone(),
                         msg_receipt,
                         gas_cost: MessageGasCost::new(msg.message(), ret),
-                        //execution_trace,
+                        execution_trace: trace,
                         error,
                     });
                 }

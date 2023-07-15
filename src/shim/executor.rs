@@ -1,16 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::borrow::Borrow;
+use std::borrow::Cow;
+
+use anyhow::anyhow;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
+pub use fvm3::gas::GasCharge as GasChargeV3;
+pub use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
+use fvm_ipld_encoding::ipld_block::IpldBlock;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
+use fvm_shared3::error::ErrorNumber;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
+use crate::shim::message::MethodNum;
 
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
@@ -66,12 +75,11 @@ impl ApplyRet {
         }
     }
 
-    pub fn exec_trace(&self) -> ExecutionTrace {
-        todo!()
-        // match self {
-        //     ApplyRet::V2(v2) => ExecutionTrace::V2(v2.exec_trace.clone()),
-        //     ApplyRet::V3(v3) => ExecutionTrace::V3(v3.exec_trace.clone()),
-        // }
+    pub fn exec_events(&self) -> Vec<ExecutionEvent_v3> {
+        match self {
+            ApplyRet::V2(_v2) => todo!(),
+            ApplyRet::V3(v3) => v3.exec_trace.clone(),
+        }
     }
 
     pub fn actor_error(&self) -> String {
@@ -144,31 +152,135 @@ impl From<Receipt_v3> for Receipt {
 // TODO: use this https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L35
 // to create the equivalent ExecutionTrace structure that we could serialize/deserialize
 
-#[derive(Clone, Debug)]
-pub struct ExecutionTrace {
-    // message: MessageTrace,
-    // message_return: ReturnTrace,
-    // gas_charges: Vec<GasTrace>,
-    // subcalls: Vec<ExecutionTrace>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct LotusGasCharge {
+    pub name: Cow<'static, str>,
+    pub total_gas: u64,
+    pub compute_gas: u64,
+    pub other_gas: u64,
+    pub duration_nanos: u64,
 }
 
-// impl Serialize for ExecutionEvent {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         match self {
-//             ExecutionEvent::V2(v2) => v2.serialize(serializer),
-//             ExecutionEvent::V3(v3) => v3.serialize(serializer),
-//         }
-//     }
-// }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TraceMessage {
+    pub from: Address,
+    pub to: Address,
+    pub value: TokenAmount,
+    pub method_num: MethodNum,
+    pub params: Vec<u8>,
+    pub codec: u64,
+}
 
-// impl<'de> Deserialize<'de> for ExecutionTrace {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         ExecutionEvent_v2::deserialize(deserializer).map(Receipt::V2)
-//     }
-// }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TraceReturn {
+    exit_code: ExitCode,
+    return_data: Vec<u8>,
+    codec: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Trace {
+    msg: TraceMessage,
+    msg_ret: TraceReturn,
+    gas_charges: Vec<LotusGasCharge>,
+    subcalls: Vec<Trace>,
+}
+
+//
+pub fn build_lotus_trace(
+    from: u64,
+    to: Address,
+    method: u64,
+    params: Option<IpldBlock>,
+    value: TokenAmount,
+    trace_iter: &mut impl Iterator<Item = ExecutionEvent_v3>,
+) -> anyhow::Result<Trace> {
+    let params = params.unwrap_or_default();
+    let mut new_trace = Trace {
+        msg: TraceMessage {
+            from: Address::new_id(from),
+            to,
+            value,
+            method_num: method,
+            params: params.data,
+            codec: params.codec,
+        },
+        msg_ret: TraceReturn {
+            exit_code: ExitCode::OK,
+            return_data: Vec::new(),
+            codec: 0,
+        },
+        gas_charges: vec![],
+        subcalls: vec![],
+    };
+
+    while let Some(trace) = trace_iter.next() {
+        match trace {
+            ExecutionEvent_v3::Call {
+                from,
+                to,
+                method,
+                params,
+                value,
+            } => {
+                new_trace.subcalls.push(build_lotus_trace(
+                    from,
+                    to.into(),
+                    method,
+                    params,
+                    value.into(),
+                    trace_iter,
+                )?);
+            }
+            ExecutionEvent_v3::CallReturn(exit_code, return_data) => {
+                let return_data = return_data.unwrap_or_default();
+                new_trace.msg_ret = TraceReturn {
+                    exit_code,
+                    return_data: return_data.data,
+                    codec: return_data.codec,
+                };
+                return Ok(new_trace);
+            }
+            ExecutionEvent_v3::CallError(syscall_err) => {
+                // Errors indicate the message couldn't be dispatched at all
+                // (as opposed to failing during execution of the receiving actor).
+                // These errors are mapped to exit codes that persist on chain.
+                let exit_code = match syscall_err.1 {
+                    ErrorNumber::InsufficientFunds => ExitCode::SYS_INSUFFICIENT_FUNDS,
+                    ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER,
+                    _ => ExitCode::SYS_ASSERTION_FAILED,
+                };
+
+                new_trace.msg_ret = TraceReturn {
+                    exit_code,
+                    return_data: Default::default(),
+                    codec: 0,
+                };
+                return Ok(new_trace);
+            }
+            ExecutionEvent_v3::GasCharge(GasChargeV3 {
+                name,
+                compute_gas,
+                other_gas,
+                elapsed,
+            }) => {
+                new_trace.gas_charges.push(LotusGasCharge {
+                    name,
+                    total_gas: (compute_gas + other_gas).round_up(),
+                    compute_gas: compute_gas.round_up(),
+                    other_gas: other_gas.round_up(),
+                    duration_nanos: elapsed
+                        .get()
+                        .copied()
+                        .unwrap_or_default()
+                        .as_nanos()
+                        .try_into()
+                        .unwrap_or(u64::MAX),
+                });
+            }
+            _ => (), // ignore unknown events.
+        };
+    }
+
+    Err(anyhow!("should have returned on an ExecutionEvent:Return"))
+}

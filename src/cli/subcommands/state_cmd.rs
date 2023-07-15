@@ -8,7 +8,6 @@ use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
 use crate::genesis::read_genesis_header;
 use crate::json::cid::CidJson;
-use crate::json::invoc_result::json::vec::*;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
@@ -116,8 +115,8 @@ async fn print_computed_state(
 
     if json {
         // call version with traces enabled
-        let (_, trace) = sm.compute_tipset_state(tipset, NO_CALLBACK, true).await?;
-        let json_trace = serde_json::to_string_pretty(&InvocResultSlice(&trace))?;
+        let (_, trace_info) = sm.compute_tipset_state(tipset, NO_CALLBACK, true).await?;
+        let json_trace = serde_json::to_string_pretty(&trace_info)?;
         println!("{}", json_trace);
     } else {
         let ((st, _), _) = sm.compute_tipset_state(tipset, NO_CALLBACK, false).await?;
