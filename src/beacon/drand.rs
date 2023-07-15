@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
@@ -63,6 +63,10 @@ impl<T> BeaconSchedule<T>
 where
     T: Beacon,
 {
+    pub fn into_dyn(self: BeaconSchedule<T>) -> BeaconSchedule<Box<dyn Beacon>> {
+        BeaconSchedule(self.0.into_iter().map(BeaconPoint::into_dyn).collect())
+    }
+
     /// Constructs a new, empty `BeaconSchedule<T>` with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         BeaconSchedule(Vec::with_capacity(capacity))
@@ -120,7 +124,7 @@ where
             .iter()
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
-            .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
+            .map(|upgrade| (upgrade.height, &upgrade.beacon))
             .context("Invalid beacon schedule, no valid beacon")
     }
 }
@@ -129,7 +133,16 @@ where
 /// itself.
 pub struct BeaconPoint<T> {
     pub height: ChainEpoch,
-    pub beacon: Arc<T>,
+    pub beacon: T,
+}
+
+impl<T: Beacon> BeaconPoint<T> {
+    fn into_dyn(self) -> BeaconPoint<Box<dyn Beacon>> {
+        BeaconPoint {
+            height: self.height,
+            beacon: Box::new(self.beacon),
+        }
+    }
 }
 
 #[async_trait]
@@ -137,7 +150,7 @@ pub struct BeaconPoint<T> {
 /// beacon.
 pub trait Beacon
 where
-    Self: Sized + Send + Sync + 'static,
+    Self: Send + Sync + 'static,
 {
     /// Verify a new beacon entry against the most recent one before it.
     fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error>;
@@ -152,6 +165,26 @@ where
         network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
     ) -> u64;
+}
+
+#[async_trait]
+impl Beacon for Box<dyn Beacon> {
+    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
+        self.as_ref().verify_entry(curr, prev)
+    }
+
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
+        self.as_ref().entry(round).await
+    }
+
+    fn max_beacon_round_for_epoch(
+        &self,
+        network_version: NetworkVersion,
+        fil_epoch: ChainEpoch,
+    ) -> u64 {
+        self.as_ref()
+            .max_beacon_round_for_epoch(network_version, fil_epoch)
+    }
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]

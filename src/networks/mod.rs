@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr};
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
@@ -274,11 +274,7 @@ impl ChainConfig {
         for dc in ds_iter {
             points.0.push(BeaconPoint {
                 height: dc.height,
-                beacon: Arc::new(DrandBeacon::new(
-                    genesis_ts,
-                    self.block_delay_secs,
-                    dc.config,
-                )?),
+                beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config)?,
             });
         }
         Ok(points)
