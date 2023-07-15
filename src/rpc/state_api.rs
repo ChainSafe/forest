@@ -330,7 +330,6 @@ pub(in crate::rpc) async fn state_fetch_root<
                     move || {
                         let (tx, rx) = flume::bounded(1);
                         network_send.send(NetworkMessage::BitswapRequest {
-                            epoch: 0,
                             cid,
                             response_channel: tx,
                         })?;
