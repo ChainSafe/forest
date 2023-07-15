@@ -384,12 +384,7 @@ where
         };
 
         let mut parent_state = *p_state;
-        let genesis_timestamp = Lazy::new(|| {
-            self.chain_store()
-                .genesis()
-                .expect("could not find genesis block!")
-                .timestamp()
-        });
+        let genesis_timestamp = self.chain_store().genesis()?.timestamp();
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
