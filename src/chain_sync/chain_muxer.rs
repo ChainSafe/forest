@@ -336,7 +336,7 @@ where
             bls_messages,
             secp_messages,
         };
-        Ok(FullTipset::new(vec![block]).unwrap())
+        Ok(FullTipset::from(block))
     }
 
     fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
