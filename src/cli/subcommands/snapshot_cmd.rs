@@ -248,6 +248,22 @@ impl SnapshotCommands {
     }
 }
 
+// Check the validity of a snapshot by looking at IPLD links, the genesis block,
+// and message output. More checks may be added in the future.
+//
+// If the snapshot is valid, the output should look like this:
+//     Checking IPLD integrity:       ✅ verified!
+//     Identifying genesis block:     ✅ found!
+//     Verifying network identity:    ✅ verified!
+//     Running tipset transactions:   ✅ verified!
+//   Snapshot is valid
+//
+// If we receive a mainnet snapshot but expect a calibnet snapshot, the output
+// should look like this:
+//     Checking IPLD integrity:       ✅ verified!
+//     Identifying genesis block:     ✅ found!
+//     Verifying network identity:    ❌ wrong!
+//   Error: Expected mainnet but found calibnet
 async fn validate_with_blockstore<BlockstoreT>(
     roots: Vec<Cid>,
     store: Arc<BlockstoreT>,
@@ -289,17 +305,10 @@ where
     Ok(())
 }
 
-fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
-    let pb = indicatif::ProgressBar::new_spinner()
-        .with_style(
-            indicatif::ProgressStyle::with_template("{spinner} {prefix:<30} {msg}")
-                .expect("indicatif template must be valid"),
-        )
-        .with_prefix(prefix);
-    pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
-    pb
-}
-
+// The Filecoin block chain is a DAG of Ipld nodes. The complete graph isn't
+// required to sync to the network and snapshot files usually disgard data after
+// 2000 epochs. Validity can be verified by ensuring there are no bad IPLD or
+// broken links in the N most recent epochs.
 async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: i64) -> Result<()>
 where
     DB: Blockstore + Send + Sync,
@@ -337,6 +346,11 @@ where
     Ok(())
 }
 
+// The genesis block determines the network identity (e.g., mainnet or
+// calibnet). Scanning through the entire blockchain can be time-consuming, so
+// Forest keeps a list of known tipsets for each network. Finding a known tipset
+// short-circuits the search for the genesis block. If no genesis block can be
+// found or if the genesis block is unrecognizable, an error is returned.
 fn query_network<DB>(ts: Tipset, db: &DB) -> Result<NetworkChain>
 where
     DB: Blockstore + Send + Sync + Clone + 'static,
@@ -369,6 +383,13 @@ where
     bail!("Snapshot does not contain a genesis block")
 }
 
+// Each tipset in the blockchain contains a set of messages. A message is a
+// transaction that manipulates a persistent state-tree. The hashes of these
+// state-trees are stored in the tipsets and can be used to verify if the
+// messages were correctly executed.
+// Note: Messages may access state-trees 900 epochs in the past. So, if a
+// snapshot has state-trees for 2000 epochs, one can only validate the messages
+// for the last 1100 epochs.
 async fn validate_stateroots<DB>(
     ts: Tipset,
     db: &DB,
@@ -428,4 +449,15 @@ where
     pb.finish_with_message("✅ verified!");
     drop(pb);
     Ok(())
+}
+
+fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
+    let pb = indicatif::ProgressBar::new_spinner()
+        .with_style(
+            indicatif::ProgressStyle::with_template("{spinner} {prefix:<30} {msg}")
+                .expect("indicatif template must be valid"),
+        )
+        .with_prefix(prefix);
+    pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
+    pb
 }
