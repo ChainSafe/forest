@@ -834,14 +834,12 @@ where
             .block_msgs_for_tipset(&tipset)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        let sm = Arc::clone(self);
         let sr = *first_block.state_root();
-        let epoch = first_block.epoch();
-        Ok(sm.apply_blocks(
+        Ok(self.apply_blocks(
             parent_epoch,
             &sr,
             &blocks,
-            epoch,
+            tipset.epoch(),
             chain_rand,
             base_fee,
             callback,
