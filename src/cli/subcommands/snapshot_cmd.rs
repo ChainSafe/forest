@@ -13,14 +13,12 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
-use crate::networks::ChainConfig;
-use crate::networks::NetworkChain;
-use crate::networks::{calibnet, mainnet};
+use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::state_manager::StateManager;
 use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
@@ -84,7 +82,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -256,7 +254,7 @@ async fn validate_with_blockstore<BlockstoreT>(
     check_links: i64,
     check_network: Option<NetworkChain>,
     check_stateroots: i64,
-) -> anyhow::Result<()>
+) -> Result<()>
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
 {
@@ -292,25 +290,26 @@ where
 }
 
 fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
-    let pb = indicatif::ProgressBar::new_spinner().with_style(
-        indicatif::ProgressStyle::with_template("{spinner} {prefix:<30} {msg}")
-            .expect("indicatif template must be valid"),
-    ).with_prefix(prefix);
+    let pb = indicatif::ProgressBar::new_spinner()
+        .with_style(
+            indicatif::ProgressStyle::with_template("{spinner} {prefix:<30} {msg}")
+                .expect("indicatif template must be valid"),
+        )
+        .with_prefix(prefix);
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     pb
 }
 
-async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: i64) -> anyhow::Result<()>
+async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: i64) -> Result<()>
 where
     DB: Blockstore + Send + Sync,
 {
     let epoch_limit = ts.epoch() - epochs;
     let mut seen = CidHashSet::default();
 
-    let pb = validation_spinner("Checking IPLD integrity:")
-        .with_finish(indicatif::ProgressFinish::AbandonWithMessage(
-            "❌ Invalid IPLD data!".into(),
-        ));
+    let pb = validation_spinner("Checking IPLD integrity:").with_finish(
+        indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),
+    );
 
     for tipset in ts
         .chain(db)
@@ -338,16 +337,15 @@ where
     Ok(())
 }
 
-fn query_network<DB>(ts: Tipset, db: &DB) -> anyhow::Result<NetworkChain>
+fn query_network<DB>(ts: Tipset, db: &DB) -> Result<NetworkChain>
 where
     DB: Blockstore + Send + Sync + Clone + 'static,
 {
-    let pb = validation_spinner("Identifying genesis block:")
-        .with_finish(indicatif::ProgressFinish::AbandonWithMessage(
-            "✅ found!".into(),
-        ));
+    let pb = validation_spinner("Identifying genesis block:").with_finish(
+        indicatif::ProgressFinish::AbandonWithMessage("✅ found!".into()),
+    );
 
-    fn match_genesis_block(block_cid: Cid) -> anyhow::Result<NetworkChain> {
+    fn match_genesis_block(block_cid: Cid) -> Result<NetworkChain> {
         if block_cid.to_string() == calibnet::GENESIS_CID {
             Ok(NetworkChain::Calibnet)
         } else if block_cid.to_string() == mainnet::GENESIS_CID {
@@ -376,7 +374,7 @@ async fn validate_stateroots<DB>(
     db: &DB,
     network: NetworkChain,
     epochs: i64,
-) -> anyhow::Result<()>
+) -> Result<()>
 where
     DB: Blockstore + Send + Sync + Clone + 'static,
 {
@@ -391,10 +389,11 @@ where
         chain_data_root.path(),
     )?);
 
-    let pb = validation_spinner("Running tipset transactions:")
-        .with_finish(indicatif::ProgressFinish::AbandonWithMessage(
+    let pb = validation_spinner("Running tipset transactions:").with_finish(
+        indicatif::ProgressFinish::AbandonWithMessage(
             "❌ Transaction result differs from Lotus!".into(),
-        ));
+        ),
+    );
 
     let last_epoch = ts.epoch() - epochs;
 
