@@ -10,12 +10,12 @@ use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 pub use fvm3::gas::GasCharge as GasChargeV3;
 pub use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
-use fvm_ipld_encoding::ipld_block::IpldBlock;
-use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ErrorNumber;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
+
+use fvm_ipld_encoding::{ipld_block::IpldBlock, strict_bytes, RawBytes};
 
 use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
@@ -167,6 +167,7 @@ pub struct TraceMessage {
     pub to: Address,
     pub value: TokenAmount,
     pub method_num: MethodNum,
+    #[serde(with = "strict_bytes")]
     pub params: Vec<u8>,
     pub codec: u64,
 }
@@ -174,6 +175,7 @@ pub struct TraceMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TraceReturn {
     exit_code: ExitCode,
+    #[serde(with = "strict_bytes")]
     return_data: Vec<u8>,
     codec: u64,
 }
