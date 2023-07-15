@@ -4,7 +4,6 @@
 pub mod actor_state;
 pub mod address;
 pub mod cid;
-pub mod gas_charge;
 pub mod invoc_result;
 pub mod message;
 pub mod message_gas_cost;

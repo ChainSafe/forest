@@ -4,7 +4,6 @@
 
 use crate::beacon::Beacon;
 use crate::blocks::tipset_keys_json::TipsetKeysJson;
-use crate::blocks::TipsetKeys;
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
 use crate::json::cid::CidJson;
