@@ -42,7 +42,6 @@ use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
-use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
