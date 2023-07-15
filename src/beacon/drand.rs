@@ -228,11 +228,7 @@ pub struct DrandBeacon {
 
 impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
-    pub fn new(
-        genesis_ts: u64,
-        interval: u64,
-        config: &DrandConfig<'_>,
-    ) -> Self {
+    pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert!(genesis_ts == 0, "Genesis timestamp cannot be 0");
 
         let chain_info = &config.chain_info;
@@ -263,7 +259,8 @@ impl DrandBeacon {
         Self {
             url: config.server,
             pub_key: DrandPublic {
-                coefficient: hex::decode(chain_info.public_key.as_ref()).expect("invalid static encoding of drand hex public key"),
+                coefficient: hex::decode(chain_info.public_key.as_ref())
+                    .expect("invalid static encoding of drand hex public key"),
             },
             interval: chain_info.period as u64,
             drand_gen_time: chain_info.genesis_time as u64,
