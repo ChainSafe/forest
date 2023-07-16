@@ -678,24 +678,6 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        // Check for duplicate miners
-        // This check happens in `blocks::tipset::verify_blocks`.
-        {
-            let block_headers = tipset.blocks();
-
-            let check_for_duplicates = |s: &BlockHeader| {
-                block_headers
-                    .iter()
-                    .filter(|val| val.miner_address() == s.miner_address())
-                    .take(2)
-                    .count()
-            };
-            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
-                // Duplicate Miner found
-                return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
-            }
-        }
-
         let chain_rand = self.chain_rand(tipset.key().clone());
         let base_fee = tipset.min_ticket_block().parent_base_fee().clone();
 
