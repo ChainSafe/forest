@@ -621,7 +621,7 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        Ok(apply_block_messages_with_chain_store(
+        Ok(apply_block_messages(
             Arc::clone(self.chain_store()),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -1179,14 +1179,14 @@ where
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` does a fair bit of caching to make these scans faster.
-fn apply_block_messages<DB, CB>(
-    reward_calc: Arc<dyn RewardCalc>,
-    engine: &crate::shim::machine::MultiEngine,
+pub fn apply_block_messages<DB, CB>(
+    chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
-    mut callback: Option<CB>,
+    reward_calc: Arc<dyn RewardCalc>,
+    engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-    chain_store: Arc<ChainStore<DB>>,
+    mut callback: Option<CB>,
 ) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1279,30 +1279,4 @@ where
     let state_root = vm.flush()?;
 
     Ok((state_root, receipt_root))
-}
-
-// Convenience wrapper around `apply_block_messages`. See that function for
-// documentation.
-pub fn apply_block_messages_with_chain_store<DB, CB>(
-    chain_store: Arc<ChainStore<DB>>,
-    chain_config: Arc<ChainConfig>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
-    reward_calc: Arc<dyn RewardCalc>,
-    engine: &crate::shim::machine::MultiEngine,
-    tipset: Arc<Tipset>,
-    callback: Option<CB>,
-) -> Result<CidPair, Error>
-where
-    DB: Blockstore + Send + Sync + 'static,
-    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
-{
-    Ok(apply_block_messages(
-        reward_calc,
-        engine,
-        Arc::clone(&chain_config),
-        beacon,
-        callback,
-        tipset,
-        Arc::clone(&chain_store),
-    )?)
 }
