@@ -126,7 +126,7 @@ where
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     pub fn new(
         db: Arc<DB>,
@@ -499,6 +499,7 @@ where
         skip_checksum: bool,
     ) -> Result<Option<digest::Output<D>>, Error>
     where
+        DB: Send + Sync,
         D: Digest + Send + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
@@ -618,7 +619,7 @@ where
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error>
     where
-        DB: 'static,
+        DB: Send + Sync + 'static,
     {
         let version = chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
@@ -632,10 +633,7 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let genesis_timestamp = self
-                .genesis()
-                .map_err(anyhow::Error::from)?
-                .timestamp();
+            let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp)?);
             let (state, _) = crate::state_manager::apply_block_messages_with_chain_store(
                 Arc::clone(self),

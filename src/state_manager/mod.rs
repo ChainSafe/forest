@@ -374,6 +374,7 @@ where
         let store = self.blockstore_owned();
         let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
+            Arc::clone(tipset),
             *bstate,
             store,
             bheight,
@@ -386,7 +387,6 @@ where
                 Arc::clone(&self.chain_config),
                 Arc::clone(tipset),
             ),
-            chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(tipset)),
             &self.engine,
             self.chain_config(),
             Arc::clone(self.chain_store()),
@@ -452,6 +452,7 @@ where
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
+            Arc::clone(&ts),
             st,
             store,
             epoch,
@@ -464,7 +465,6 @@ where
                 Arc::clone(&self.chain_config),
                 Arc::clone(&ts),
             ),
-            chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&ts)),
             &self.engine,
             self.chain_config(),
             Arc::clone(self.chain_store()),
@@ -1137,18 +1137,6 @@ where
     })
 }
 
-// Create a boxed closure for getting the keys of a tipset at a given epoch. The indirection is due
-// to the way we interface with the FVM. Most likely, this could be written a lot better.
-fn chain_epoch_tsk<DB>(
-    cs: Arc<ChainStore<DB>>,
-    tipset: Arc<Tipset>,
-) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    Arc::new(move |round| Ok(cs.get_epoch_tsk(tipset.clone(), round)?))
-}
-
 /// Messages are transactions that produce new states. The state (usually
 /// referred to as the 'state-tree') is a mapping from actor addresses to actor
 /// states. Each block contains the hash of the state-tree that should be used
@@ -1215,8 +1203,6 @@ fn apply_block_messages<DB, CB>(
     engine: &crate::shim::machine::MultiEngine,
     chain_config: Arc<ChainConfig>,
     get_root: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-    get_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>,
-    genesis_timestamp: u64,
     rand: impl Rand + Clone + 'static,
     messages: &[BlockMessages],
     mut callback: Option<CB>,
@@ -1243,10 +1229,16 @@ where
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
+    let genesis_timestamp = chain_store
+        .genesis()
+        .map_err(anyhow::Error::from)?
+        .timestamp();
+
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply = GenesisInfo::from_chain_config(&chain_config)
             .get_circulating_supply(epoch, &db, &state_root)?;
         VM::new(
+            Arc::clone(&tipset),
             state_root,
             Arc::clone(&db),
             epoch,
@@ -1255,7 +1247,6 @@ where
             circulating_supply,
             reward_calc.clone(),
             get_root.clone(),
-            get_tsk.clone(),
             engine,
             Arc::clone(&chain_config),
             Arc::clone(&chain_store),
@@ -1314,11 +1305,6 @@ where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
-    let genesis_timestamp = chain_store
-        .genesis()
-        .map_err(anyhow::Error::from)?
-        .timestamp();
-
     let chain_rand = ChainRand::new(
         Arc::clone(&chain_config),
         Arc::clone(&tipset),
@@ -1340,8 +1326,6 @@ where
             Arc::clone(&chain_config),
             Arc::clone(&tipset),
         ),
-        chain_epoch_tsk(Arc::clone(&chain_store), Arc::clone(&tipset)),
-        genesis_timestamp,
         chain_rand,
         &block_messages,
         callback,

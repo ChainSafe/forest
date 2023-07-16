@@ -3,8 +3,9 @@
 
 use std::sync::Arc;
 
-use crate::message::ChainMessage;
+use crate::blocks::Tipset;
 use crate::chain::store::ChainStore;
+use crate::message::ChainMessage;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -23,7 +24,10 @@ use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use fvm2::{
     executor::{DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2},
-    machine::{DefaultMachine as DefaultMachine_v2, Machine as Machine_v2, NetworkConfig as NetworkConfig_v2},
+    machine::{
+        DefaultMachine as DefaultMachine_v2, Machine as Machine_v2,
+        NetworkConfig as NetworkConfig_v2,
+    },
 };
 use fvm3::{
     executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
@@ -39,8 +43,10 @@ use num::Zero;
 
 use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
 
-pub(in crate::interpreter) type ForestMachineV2<DB> = DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
-pub(in crate::interpreter) type ForestMachineV3<DB> = DefaultMachine_v3<Arc<DB>, ForestExternsV3<DB>>;
+pub(in crate::interpreter) type ForestMachineV2<DB> =
+    DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
+pub(in crate::interpreter) type ForestMachineV3<DB> =
+    DefaultMachine_v3<Arc<DB>, ForestExternsV3<DB>>;
 
 type ForestKernelV2<DB> =
     fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachineV2<DB>>>;
@@ -76,7 +82,7 @@ pub trait RewardCalc: Send + Sync + 'static {
 
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
-pub enum VM<DB: Blockstore + 'static> {
+pub enum VM<DB: Blockstore + Send + Sync + 'static> {
     VM2 {
         fvm_executor: ForestExecutorV2<DB>,
         reward_calc: Arc<dyn RewardCalc>,
@@ -89,10 +95,11 @@ pub enum VM<DB: Blockstore + 'static> {
 
 impl<DB> VM<DB>
 where
-    DB: Blockstore,
+    DB: Blockstore + Send + Sync,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        heaviest_tipset: Arc<Tipset>,
         root: Cid,
         store: Arc<DB>,
         epoch: ChainEpoch,
@@ -101,7 +108,6 @@ where
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
-        epoch_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
         chain_store: Arc<ChainStore<DB>>,
@@ -120,20 +126,19 @@ where
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: ForestMachineV3<DB> =
-                fvm3::machine::DefaultMachine::new(
-                    &context,
-                    store.clone(),
-                    ForestExternsV3::new(
-                        RandWrapper::from(rand),
-                        epoch,
-                        root,
-                        lb_fn,
-                        epoch_tsk,
-                        store,
-                        chain_config,
-                    ),
-                )?;
+            let fvm: ForestMachineV3<DB> = fvm3::machine::DefaultMachine::new(
+                &context,
+                store.clone(),
+                ForestExternsV3::new(
+                    RandWrapper::from(rand),
+                    heaviest_tipset,
+                    epoch,
+                    root,
+                    store,
+                    chain_store,
+                    chain_config,
+                ),
+            )?;
             let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
             Ok(VM::VM3 {
                 fvm_executor: exec,
@@ -145,20 +150,19 @@ where
             let mut context = config.for_epoch(epoch, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: ForestMachineV2<DB> =
-                fvm2::machine::DefaultMachine::new(
-                    &engine,
-                    &context,
-                    store.clone(),
-                    ForestExternsV2::new(
-                        RandWrapper::from(rand),
-                        epoch,
-                        root,
-                        lb_fn,
-                        store,
-                        chain_config,
-                    ),
-                )?;
+            let fvm: ForestMachineV2<DB> = fvm2::machine::DefaultMachine::new(
+                &engine,
+                &context,
+                store.clone(),
+                ForestExternsV2::new(
+                    RandWrapper::from(rand),
+                    epoch,
+                    root,
+                    lb_fn,
+                    store,
+                    chain_config,
+                ),
+            )?;
             let exec: ForestExecutorV2<DB> = DefaultExecutor_v2::new(fvm);
             Ok(VM::VM2 {
                 fvm_executor: exec,
