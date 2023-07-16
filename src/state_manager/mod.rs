@@ -13,7 +13,7 @@ pub use utils::is_valid_for_sending;
 mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
 use crate::interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use crate::json::message_receipt;
@@ -432,7 +432,7 @@ where
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
-        let chain_rand = self.chain_rand(ts.key().to_owned());
+        let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)
     }
 
@@ -449,7 +449,7 @@ where
             .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = self.chain_rand(ts.key().to_owned());
+        let chain_rand = self.chain_rand(Arc::clone(&ts));
 
         let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the
@@ -678,7 +678,7 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        let chain_rand = self.chain_rand(tipset.key().clone());
+        let chain_rand = self.chain_rand(Arc::clone(&tipset));
         let base_fee = tipset.min_ticket_block().parent_base_fee().clone();
 
         let block_messages = self
@@ -688,7 +688,10 @@ where
 
         let circ_supply = {
             let sm = Arc::clone(self);
-            Arc::new(move |epoch, root| sm.genesis_info.get_circulating_supply(epoch, sm.blockstore(), &root))
+            Arc::new(move |epoch, root| {
+                sm.genesis_info
+                    .get_circulating_supply(epoch, sm.blockstore(), &root)
+            })
         };
 
         Ok(apply_block_messages(
@@ -1174,10 +1177,10 @@ where
             })
     }
 
-    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
+    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config.clone(),
-            blocks,
+            tipset,
             self.cs.clone(),
             self.beacon.clone(),
         )
