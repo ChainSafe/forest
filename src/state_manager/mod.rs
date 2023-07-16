@@ -1231,9 +1231,9 @@ where
         beacon,
     );
 
+    let genesis_info = GenesisInfo::from_chain_config(&chain_config);
     let create_vm = |state_root: Cid, epoch, timestamp| {
-        let circulating_supply = GenesisInfo::from_chain_config(&chain_config)
-            .get_circulating_supply(epoch, &chain_store.db, &state_root)?;
+        let circulating_supply = genesis_info.get_circulating_supply(epoch, &chain_store.db, &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),
