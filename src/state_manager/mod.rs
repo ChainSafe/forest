@@ -341,86 +341,6 @@ where
         Ok(None)
     }
 
-    /// Performs the state transition for the tipset and applies all unique
-    /// messages in all blocks. This function returns the state root and
-    /// receipt root of the transition.
-    #[allow(clippy::too_many_arguments)]
-    pub fn apply_blocks<R, CB>(
-        self: &Arc<Self>,
-        parent_epoch: ChainEpoch,
-        p_state: &Cid,
-        messages: &[BlockMessages],
-        epoch: ChainEpoch,
-        rand: R,
-        base_fee: TokenAmount,
-        mut callback: Option<CB>,
-        tipset: Arc<Tipset>,
-    ) -> Result<CidPair, anyhow::Error>
-    where
-        R: Rand + Clone + 'static,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
-    {
-        let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
-
-        let db = self.blockstore().clone();
-
-        let create_vm = |state_root, epoch, timestamp| {
-            VM::new(
-                state_root,
-                self.blockstore().clone(),
-                epoch,
-                rand.clone(),
-                base_fee.clone(),
-                self.genesis_info
-                    .get_circulating_supply(epoch, &db, &state_root)?,
-                self.reward_calc.clone(),
-                chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
-                chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&tipset)),
-                &self.engine,
-                Arc::clone(self.chain_config()),
-                timestamp,
-            )
-        };
-
-        let mut parent_state = *p_state;
-        let genesis_timestamp = self.chain_store().genesis()?.timestamp();
-
-        for epoch_i in parent_epoch..epoch {
-            if epoch_i > parent_epoch {
-                let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
-                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
-                // run cron for null rounds if any
-                if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                    error!("Beginning of epoch cron failed to run: {}", e);
-                }
-
-                parent_state = vm.flush()?;
-            }
-
-            if let Some(new_state) = run_state_migrations(
-                epoch_i,
-                self.chain_config(),
-                self.blockstore(),
-                &parent_state,
-            )? {
-                parent_state = new_state;
-            }
-        }
-
-        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
-
-        // Apply tipset messages
-        let receipts = vm.apply_block_messages(messages, epoch, callback)?;
-
-        // Construct receipt root from receipts
-        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
-
-        // Flush changes to blockstore
-        let state_root = vm.flush()?;
-
-        Ok((state_root, receipt_root))
-    }
-
     /// Returns the pair of (parent state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
@@ -624,7 +544,7 @@ where
         tipset: Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error> {
-        let version = self.get_network_version(round);
+        let version = self.chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
@@ -758,58 +678,49 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        // special case for genesis block
-        if tipset.epoch() == 0 {
-            // NB: This is here because the process that executes blocks requires that the
-            // block miner reference a valid miner in the state tree. Unless we create some
-            // magical genesis miner, this won't work properly, so we short circuit here
-            // This avoids the question of 'who gets paid the genesis block reward'
-            let message_receipts = tipset
-                .blocks()
-                .first()
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+        // Check for duplicate miners
+        // This check happens in `blocks::tipset::verify_blocks`.
+        {
+            let block_headers = tipset.blocks();
 
-            return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
+            let check_for_duplicates = |s: &BlockHeader| {
+                block_headers
+                    .iter()
+                    .filter(|val| val.miner_address() == s.miner_address())
+                    .take(2)
+                    .count()
+            };
+            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
+                // Duplicate Miner found
+                return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
+            }
         }
 
-        let block_headers = tipset.blocks();
-        let first_block = tipset.min_ticket_block();
+        let chain_rand = self.chain_rand(tipset.key().clone());
+        let base_fee = tipset.min_ticket_block().parent_base_fee().clone();
 
-        let check_for_duplicates = |s: &BlockHeader| {
-            block_headers
-                .iter()
-                .filter(|val| val.miner_address() == s.miner_address())
-                .take(2)
-                .count()
-        };
-        if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
-            // Duplicate Miner found
-            return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
-        }
-
-        let parent_epoch = if first_block.epoch() > 0 {
-            Tipset::load_required(self.blockstore(), first_block.parents())?.epoch()
-        } else {
-            Default::default()
-        };
-
-        let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-        let chain_rand = self.chain_rand(tipset_keys);
-        let base_fee = first_block.parent_base_fee().clone();
-
-        let blocks = self
+        let block_messages = self
             .chain_store()
             .block_msgs_for_tipset(&tipset)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        let sr = *first_block.state_root();
-        Ok(self.apply_blocks(
-            parent_epoch,
-            &sr,
-            &blocks,
-            tipset.epoch(),
+        let circ_supply = {
+            let sm = Arc::clone(self);
+            Arc::new(move |epoch, root| sm.genesis_info.get_circulating_supply(epoch, sm.blockstore(), &root))
+        };
+
+        Ok(apply_block_messages(
+            self.blockstore(),
+            circ_supply,
+            self.reward_calc.clone(),
+            &self.engine,
+            Arc::clone(self.chain_config()),
+            chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
+            chain_epoch_tsk(Arc::clone(self.chain_store()), Arc::clone(&tipset)),
+            self.cs.genesis().map_err(anyhow::Error::from)?.timestamp(),
             chain_rand,
             base_fee,
+            &block_messages,
             callback,
             tipset,
         )?)
@@ -1314,4 +1225,99 @@ where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
     Arc::new(move |round| Ok(cs.get_epoch_tsk(tipset.clone(), round)?))
+}
+
+///
+/// Caching:
+///   TipsetKeys -> Tipset
+///   Epoch -> TipsetKeys
+pub fn apply_block_messages<DB, CB>(
+    db: &DB,
+    circulating_supply: Arc<dyn Fn(ChainEpoch, Cid) -> anyhow::Result<TokenAmount>>,
+    reward_calc: Arc<dyn RewardCalc>,
+    engine: &crate::shim::machine::MultiEngine,
+    chain_config: Arc<ChainConfig>,
+    get_root: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
+    get_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>,
+    genesis_timestamp: u64,
+    rand: impl Rand + Clone + 'static,
+    base_fee: TokenAmount,
+
+    messages: &[BlockMessages],
+    mut callback: Option<CB>,
+    tipset: Arc<Tipset>,
+) -> Result<CidPair, anyhow::Error>
+where
+    DB: Blockstore + Clone + Send + Sync + 'static,
+    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+{
+    // special case for genesis block
+    if tipset.epoch() == 0 {
+        // NB: This is here because the process that executes blocks requires that the
+        // block miner reference a valid miner in the state tree. Unless we create some
+        // magical genesis miner, this won't work properly, so we short circuit here
+        // This avoids the question of 'who gets paid the genesis block reward'
+        let message_receipts = tipset
+            .blocks()
+            .first()
+            .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+
+        return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
+    }
+
+    let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
+
+    let create_vm = |state_root, epoch, timestamp| {
+        VM::new(
+            state_root,
+            db.clone(),
+            epoch,
+            rand.clone(),
+            base_fee.clone(),
+            circulating_supply(epoch, state_root)?,
+            reward_calc.clone(),
+            get_root.clone(),
+            get_tsk.clone(),
+            engine,
+            Arc::clone(&chain_config),
+            timestamp,
+        )
+    };
+
+    let mut parent_state = *tipset.parent_state();
+
+    let parent_epoch = Tipset::load_required(db, tipset.parents())?.epoch();
+    let epoch = tipset.epoch();
+
+    for epoch_i in parent_epoch..epoch {
+        if epoch_i > parent_epoch {
+            let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+            let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
+            // run cron for null rounds if any
+            if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
+                error!("Beginning of epoch cron failed to run: {}", e);
+            }
+
+            parent_state = vm.flush()?;
+        }
+
+        if let Some(new_state) =
+            run_state_migrations(epoch_i, &chain_config, &db.clone(), &parent_state)?
+        {
+            parent_state = new_state;
+        }
+    }
+
+    let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
+
+    // Apply tipset messages
+    let receipts = vm.apply_block_messages(messages, epoch, callback)?;
+
+    // Construct receipt root from receipts
+    let receipt_root = Amt::new_from_iter(db, receipts)?;
+
+    // Flush changes to blockstore
+    let state_root = vm.flush()?;
+
+    Ok((state_root, receipt_root))
 }
