@@ -318,7 +318,7 @@ pub(super) async fn start(
         network_name.clone(),
         network_send.clone(),
         MpoolConfig::load_config(&db)?,
-        Arc::clone(state_manager.chain_config()),
+        state_manager.chain_config(),
         &mut services,
     )?;
 

@@ -237,8 +237,8 @@ where
         self.chain_config.network_version(epoch)
     }
 
-    pub fn chain_config(&self) -> &Arc<ChainConfig> {
-        &self.chain_config
+    pub fn chain_config(&self) -> Arc<ChainConfig> {
+        Arc::clone(&self.chain_config)
     }
 
     /// Gets actor from given [`Cid`], if it exists.
@@ -380,7 +380,7 @@ where
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
         let store = self.blockstore().clone();
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
             *bstate,
             store,
@@ -389,10 +389,14 @@ where
             TokenAmount::zero(),
             genesis_info.get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
-            chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
+            chain_epoch_root(
+                Arc::clone(&self.cs),
+                Arc::clone(&self.chain_config),
+                Arc::clone(tipset),
+            ),
             chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(tipset)),
             &self.engine,
-            Arc::clone(self.chain_config()),
+            self.chain_config(),
             tipset.min_timestamp(),
         )?;
 
@@ -453,7 +457,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
             st,
             store,
@@ -462,10 +466,14 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             genesis_info.get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
-            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
+            chain_epoch_root(
+                Arc::clone(&self.cs),
+                Arc::clone(&self.chain_config),
+                Arc::clone(&ts),
+            ),
             chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&ts)),
             &self.engine,
-            Arc::clone(self.chain_config()),
+            self.chain_config(),
             ts.min_timestamp(),
         )?;
 
@@ -529,52 +537,6 @@ where
             .try_recv()
             .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
         Ok((out_mes, out_ret))
-    }
-
-    /// Gets look-back tipset for block validations.
-    ///
-    /// The look-back tipset for a round is the tipset with epoch `round -
-    /// chain_finality`. Chain finality is usually 900. The given is a
-    /// reference point in the blockchain such that the look-back tipset can
-    /// be found by tracing the `parent` pointers.
-    pub fn get_lookback_tipset_for_round(
-        self: &Arc<Self>,
-        heaviest_tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<(Arc<Tipset>, Cid), Error> {
-        let version = self.chain_config.network_version(round);
-        let lb = if version <= NetworkVersion::V3 {
-            ChainEpoch::from(10)
-        } else {
-            self.chain_config.policy.chain_finality
-        };
-        let lbr = (round - lb).max(0);
-
-        // More null blocks than lookback
-        if lbr >= heaviest_tipset.epoch() {
-            let (state, _) =
-                self.compute_tipset_state_blocking(heaviest_tipset.clone(), NO_CALLBACK)?;
-            return Ok((heaviest_tipset, state));
-        }
-
-        let next_ts = self
-            .cs
-            .tipset_by_height(lbr + 1, heaviest_tipset.clone(), false)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        if lbr > next_ts.epoch() {
-            return Err(Error::Other(format!(
-                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
-                heaviest_tipset.key(),
-                heaviest_tipset.epoch(),
-                next_ts.key(),
-                next_ts.epoch()
-            )));
-        }
-        let lbts = self
-            .cs
-            .tipset_from_keys(next_ts.parents())
-            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
-        Ok((lbts, *next_ts.parent_state()))
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -687,17 +649,21 @@ where
 
         let circ_supply = {
             let db = Arc::new(self.blockstore().clone());
-            let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+            let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
             Arc::new(move |epoch, root| genesis_info.get_circulating_supply(epoch, &db, &root))
         };
 
         Ok(apply_block_messages(
-            self.blockstore(),
+            Arc::new(self.blockstore().clone()),
             circ_supply,
             self.reward_calc.clone(),
             &self.engine,
-            Arc::clone(self.chain_config()),
-            chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
+            self.chain_config(),
+            chain_epoch_root(
+                Arc::clone(self.chain_store()),
+                Arc::clone(&self.chain_config),
+                Arc::clone(&tipset),
+            ),
             chain_epoch_tsk(Arc::clone(self.chain_store()), Arc::clone(&tipset)),
             self.cs.genesis().map_err(anyhow::Error::from)?.timestamp(),
             chain_rand,
@@ -1185,14 +1151,19 @@ where
 }
 
 fn chain_epoch_root<DB>(
-    sm: Arc<StateManager<DB>>,
+    chain_store: Arc<ChainStore<DB>>,
+    chain_config: Arc<ChainConfig>,
     tipset: Arc<Tipset>,
 ) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
     Arc::new(move |round| {
-        let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;
+        let (_, st) = chain_store.get_lookback_tipset_for_round(
+            Arc::clone(&chain_config),
+            tipset.clone(),
+            round,
+        )?;
         Ok(st)
     })
 }
@@ -1204,7 +1175,7 @@ fn chain_epoch_tsk<DB>(
     tipset: Arc<Tipset>,
 ) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     Arc::new(move |round| Ok(cs.get_epoch_tsk(tipset.clone(), round)?))
 }
@@ -1267,7 +1238,7 @@ where
 /// `StateManager` and `ChainStore` do a fair bit of caching to make these scans
 /// faster.
 pub fn apply_block_messages<DB, CB>(
-    db: &DB,
+    db: Arc<DB>,
     circulating_supply: Arc<dyn Fn(ChainEpoch, Cid) -> anyhow::Result<TokenAmount>>,
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
@@ -1305,7 +1276,7 @@ where
     let create_vm = |state_root, epoch, timestamp| {
         VM::new(
             state_root,
-            db.clone(),
+            Arc::clone(&db),
             epoch,
             rand.clone(),
             base_fee.clone(),
@@ -1321,7 +1292,7 @@ where
 
     let mut parent_state = *tipset.parent_state();
 
-    let parent_epoch = Tipset::load_required(db, tipset.parents())?.epoch();
+    let parent_epoch = Tipset::load_required(&db, tipset.parents())?.epoch();
     let epoch = tipset.epoch();
 
     for epoch_i in parent_epoch..epoch {
@@ -1336,9 +1307,7 @@ where
             parent_state = vm.flush()?;
         }
 
-        if let Some(new_state) =
-            run_state_migrations(epoch_i, &chain_config, &db.clone(), &parent_state)?
-        {
+        if let Some(new_state) = run_state_migrations(epoch_i, &chain_config, &db, &parent_state)? {
             parent_state = new_state;
         }
     }
@@ -1355,4 +1324,59 @@ where
     let state_root = vm.flush()?;
 
     Ok((state_root, receipt_root))
+}
+
+pub fn apply_block_messages_with_minimal_caching<DB>(
+    chain_store: Arc<ChainStore<DB>>,
+    chain_config: Arc<ChainConfig>,
+    reward_calc: Arc<dyn RewardCalc>,
+    engine: &crate::shim::machine::MultiEngine,
+    tipset: Arc<Tipset>,
+) -> Result<CidPair, Error>
+where
+    DB: Blockstore + Clone + Send + Sync + 'static,
+{
+    let genesis_timestamp = chain_store
+        .genesis()
+        .map_err(anyhow::Error::from)?
+        .timestamp();
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp)?);
+
+    let chain_rand = ChainRand::new(
+        Arc::clone(&chain_config),
+        Arc::clone(&tipset),
+        Arc::clone(&chain_store),
+        beacon,
+    );
+    let base_fee = tipset.min_ticket_block().parent_base_fee().clone();
+
+    let block_messages = chain_store
+        .block_msgs_for_tipset(&tipset)
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+    let circ_supply = {
+        let db = Arc::clone(&chain_store.db);
+        let genesis_info = GenesisInfo::from_chain_config(&chain_config);
+        Arc::new(move |epoch, root| genesis_info.get_circulating_supply(epoch, &db, &root))
+    };
+
+    Ok(apply_block_messages(
+        Arc::clone(&chain_store.db),
+        circ_supply,
+        reward_calc,
+        engine,
+        Arc::clone(&chain_config),
+        chain_epoch_root(
+            Arc::clone(&chain_store),
+            Arc::clone(&chain_config),
+            Arc::clone(&tipset),
+        ),
+        chain_epoch_tsk(Arc::clone(&chain_store), Arc::clone(&tipset)),
+        genesis_timestamp,
+        chain_rand,
+        base_fee,
+        &block_messages,
+        NO_CALLBACK,
+        tipset,
+    )?)
 }

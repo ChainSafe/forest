@@ -13,7 +13,8 @@ use crate::metrics;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
-    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message,
+    state_tree::StateTree, version::NetworkVersion,
 };
 use crate::utils::{
     db::{
@@ -603,6 +604,62 @@ where
             .tipset_by_height(round, tipset, true)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         Ok(ts.key().clone())
+    }
+
+    /// Gets look-back tipset for block validations.
+    ///
+    /// The look-back tipset for a round is the tipset with epoch `round -
+    /// chain_finality`. Chain finality is usually 900. The given is a
+    /// reference point in the blockchain such that the look-back tipset can
+    /// be found by tracing the `parent` pointers.
+    pub fn get_lookback_tipset_for_round(
+        self: &Arc<Self>,
+        chain_config: Arc<ChainConfig>,
+        heaviest_tipset: Arc<Tipset>,
+        round: ChainEpoch,
+    ) -> Result<(Arc<Tipset>, Cid), Error>
+    where
+        DB: Clone + 'static,
+    {
+        let version = chain_config.network_version(round);
+        let lb = if version <= NetworkVersion::V3 {
+            ChainEpoch::from(10)
+        } else {
+            chain_config.policy.chain_finality
+        };
+        let lbr = (round - lb).max(0);
+
+        // More null blocks than lookback
+        if lbr >= heaviest_tipset.epoch() {
+            // This situation is extremely rare so it's fine to compute the
+            // state-root without caching.
+            let (state, _) = crate::state_manager::apply_block_messages_with_minimal_caching(
+                Arc::clone(self),
+                Arc::clone(&chain_config),
+                Arc::new(crate::interpreter::RewardActorMessageCalc),
+                &crate::shim::machine::MultiEngine::default(),
+                Arc::clone(&heaviest_tipset),
+            )
+            .map_err(|e| Error::Other(e.to_string()))?;
+            return Ok((heaviest_tipset, state));
+        }
+
+        let next_ts = self
+            .tipset_by_height(lbr + 1, heaviest_tipset.clone(), false)
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+        if lbr > next_ts.epoch() {
+            return Err(Error::Other(format!(
+                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
+                heaviest_tipset.key(),
+                heaviest_tipset.epoch(),
+                next_ts.key(),
+                next_ts.epoch()
+            )));
+        }
+        let lbts = self
+            .tipset_from_keys(next_ts.parents())
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
+        Ok((lbts, *next_ts.parent_state()))
     }
 }
 

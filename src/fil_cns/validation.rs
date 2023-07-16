@@ -71,7 +71,12 @@ pub(in crate::fil_cns) async fn validate_block<
 
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = state_manager
-        .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
+        .chain_store()
+        .get_lookback_tipset_for_round(
+            state_manager.chain_config(),
+            base_tipset.clone(),
+            block.header().epoch(),
+        )
         .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
@@ -149,7 +154,7 @@ pub(in crate::fil_cns) async fn validate_block<
             v_base_tipset.as_ref(),
             v_prev_beacon.as_ref(),
             &work_addr,
-            v_state_manager.chain_config(),
+            &v_state_manager.chain_config(),
         )
     }));
 

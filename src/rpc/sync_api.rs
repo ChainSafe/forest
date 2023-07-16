@@ -145,7 +145,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                Arc::clone(state_manager_for_thread.chain_config()),
+                state_manager_for_thread.chain_config(),
                 &mut services,
             )
             .unwrap()
