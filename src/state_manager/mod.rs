@@ -687,10 +687,10 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let circ_supply = {
-            let sm = Arc::clone(self);
+            let db = Arc::new(self.blockstore().clone());
+            let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
             Arc::new(move |epoch, root| {
-                sm.genesis_info
-                    .get_circulating_supply(epoch, sm.blockstore(), &root)
+                genesis_info.get_circulating_supply(epoch, &db, &root)
             })
         };
 
