@@ -389,6 +389,7 @@ where
             chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(tipset)),
             &self.engine,
             self.chain_config(),
+            Arc::clone(self.chain_store()),
             tipset.min_timestamp(),
         )?;
 
@@ -466,6 +467,7 @@ where
             chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&ts)),
             &self.engine,
             self.chain_config(),
+            Arc::clone(self.chain_store()),
             ts.min_timestamp(),
         )?;
 
@@ -633,6 +635,7 @@ where
         Ok(apply_block_messages_with_chain_store(
             Arc::clone(self.chain_store()),
             Arc::clone(&self.chain_config),
+            self.beacon_schedule(),
             Arc::clone(&self.reward_calc),
             &self.engine,
             tipset,
@@ -1218,6 +1221,7 @@ fn apply_block_messages<DB, CB>(
     messages: &[BlockMessages],
     mut callback: Option<CB>,
     tipset: Arc<Tipset>,
+    chain_store: Arc<ChainStore<DB>>,
 ) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -1254,6 +1258,7 @@ where
             get_tsk.clone(),
             engine,
             Arc::clone(&chain_config),
+            Arc::clone(&chain_store),
             timestamp,
         )
     };
@@ -1299,6 +1304,7 @@ where
 pub fn apply_block_messages_with_chain_store<DB, CB>(
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
+    beacon: Arc<BeaconSchedule<DrandBeacon>>,
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
@@ -1312,7 +1318,6 @@ where
         .genesis()
         .map_err(anyhow::Error::from)?
         .timestamp();
-    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp)?);
 
     let chain_rand = ChainRand::new(
         Arc::clone(&chain_config),
@@ -1341,5 +1346,6 @@ where
         &block_messages,
         callback,
         tipset,
+        Arc::clone(&chain_store),
     )?)
 }

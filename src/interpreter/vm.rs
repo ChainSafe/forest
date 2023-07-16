@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use crate::message::ChainMessage;
+use crate::chain::store::ChainStore;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -103,6 +104,7 @@ where
         epoch_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
+        chain_store: Arc<ChainStore<DB>>,
         timestamp: u64,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
