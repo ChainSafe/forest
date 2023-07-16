@@ -1156,7 +1156,7 @@ fn chain_epoch_root<DB>(
     tipset: Arc<Tipset>,
 ) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     Arc::new(move |round| {
         let (_, st) = chain_store.get_lookback_tipset_for_round(
@@ -1254,7 +1254,7 @@ pub fn apply_block_messages<DB, CB>(
     tipset: Arc<Tipset>,
 ) -> Result<CidPair, anyhow::Error>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
     // special case for genesis block
@@ -1334,7 +1334,7 @@ pub fn apply_block_messages_with_minimal_caching<DB>(
     tipset: Arc<Tipset>,
 ) -> Result<CidPair, Error>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let genesis_timestamp = chain_store
         .genesis()

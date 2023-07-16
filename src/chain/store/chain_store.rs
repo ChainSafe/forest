@@ -619,7 +619,7 @@ where
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error>
     where
-        DB: Clone + 'static,
+        DB: 'static,
     {
         let version = chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
