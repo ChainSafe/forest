@@ -36,7 +36,7 @@ pub struct ForestExterns<DB> {
     root: Cid,
     lookback: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     get_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
-    db: DB,
+    db: Arc<DB>,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
 }
@@ -48,7 +48,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         root: Cid,
         lookback: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         get_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<crate::blocks::TipsetKeys>>,
-        db: DB,
+        db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExterns {
