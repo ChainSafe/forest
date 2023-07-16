@@ -37,7 +37,6 @@ pub struct ForestExterns<DB> {
     heaviest_tipset: Arc<Tipset>,
     epoch: ChainEpoch,
     root: Cid,
-    db: Arc<DB>,
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
@@ -49,7 +48,6 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         heaviest_tipset: Arc<Tipset>,
         epoch: ChainEpoch,
         root: Cid,
-        db: Arc<DB>,
         chain_store: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
@@ -58,7 +56,6 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
             heaviest_tipset,
             epoch,
             root,
-            db,
             chain_store,
             chain_config,
             bail: AtomicBool::new(false),
@@ -86,19 +83,19 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
             )?;
             st
         };
-        let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
+        let lb_state = StateTree::new_from_root(&self.chain_store.db, &prev_root)?;
 
         let actor = lb_state
             .get_actor(miner_addr)?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
-        let tbs = TrackingBlockstore::new(&self.db);
+        let tbs = TrackingBlockstore::new(&self.chain_store.db);
 
         let ms = fil_actor_interface::miner::State::load(&tbs, actor.code, actor.state)?;
 
         let worker = ms.info(&tbs)?.worker.into();
 
-        let state = StateTree::new_from_root(&self.db, &self.root)?;
+        let state = StateTree::new_from_root(&self.chain_store.db, &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
