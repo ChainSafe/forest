@@ -15,7 +15,7 @@ pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
-use crate::interpreter::{resolve_to_key_addr, RewardCalc, ExecutionContext, VM};
+use crate::interpreter::{resolve_to_key_addr, ExecutionContext, RewardCalc, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;

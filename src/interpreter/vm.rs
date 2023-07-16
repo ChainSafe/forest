@@ -122,7 +122,10 @@ impl<DB> VM<DB>
 where
     DB: Blockstore + Send + Sync,
 {
-    pub fn new(context: ExecutionContext<DB>,multi_engine: &MultiEngine) -> Result<Self, anyhow::Error> {
+    pub fn new(
+        context: ExecutionContext<DB>,
+        multi_engine: &MultiEngine,
+    ) -> Result<Self, anyhow::Error> {
         let ExecutionContext {
             heaviest_tipset,
             state_tree_root,
@@ -148,7 +151,7 @@ where
             let mut context = config.for_epoch(epoch, timestamp, state_tree_root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: ForestMachineV3<DB> = fvm3::machine::DefaultMachine::new(
+            let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
                 &context,
                 Arc::clone(&chain_store.db),
                 ForestExternsV3::new(
@@ -171,7 +174,7 @@ where
             let mut context = config.for_epoch(epoch, state_tree_root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-            let fvm: ForestMachineV2<DB> = fvm2::machine::DefaultMachine::new(
+            let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
                 &engine,
                 &context,
                 Arc::clone(&chain_store.db),

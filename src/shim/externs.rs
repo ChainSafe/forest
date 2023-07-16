@@ -40,7 +40,7 @@ impl Rand for Box<dyn Rand> {
         pers: i64,
         round: ChainEpoch_v2,
         entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]>{
+    ) -> anyhow::Result<[u8; 32]> {
         self.as_ref().get_beacon_randomness(pers, round, entropy)
     }
 }
