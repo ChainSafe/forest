@@ -75,7 +75,7 @@ pub struct ChainStore<DB> {
     publisher: Publisher<HeadChange>,
 
     /// key-value `datastore`.
-    pub db: DB,
+    pub db: Arc<DB>,
 
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
@@ -132,10 +132,8 @@ where
         chain_config: Arc<ChainConfig>,
         genesis_block_header: &BlockHeader,
         chain_data_root: &Path,
-    ) -> Result<Self>
-    where
-        DB: Clone,
-    {
+    ) -> Result<Self> {
+        let db = Arc::new(db);
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let file_backed_genesis = Mutex::new(FileBacked::new(
@@ -164,8 +162,8 @@ where
 
         let cs = Self {
             publisher,
-            chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
-            tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
+            chain_index: ChainIndex::new(ts_cache.clone(), Arc::clone(&db)),
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
             ts_cache,
             file_backed_genesis,
@@ -601,7 +599,8 @@ where
         tipset: Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<TipsetKeys, Error> {
-        let ts = self.tipset_by_height(round, tipset, true)
+        let ts = self
+            .tipset_by_height(round, tipset, true)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         Ok(ts.key().clone())
     }

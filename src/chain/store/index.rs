@@ -107,7 +107,7 @@ pub(in crate::chain) struct LookbackEntry {
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub(in crate::chain) struct ChainIndex<BS> {
+pub(in crate::chain) struct ChainIndex<DB> {
     /// Cache of look-back entries to speed up lookup.
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
@@ -115,11 +115,11 @@ pub(in crate::chain) struct ChainIndex<BS> {
     ts_cache: Arc<TipsetCache>,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: BS,
+    db: Arc<DB>,
 }
 
-impl<BS: Blockstore> ChainIndex<BS> {
-    pub(in crate::chain) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
+impl<DB: Blockstore> ChainIndex<DB> {
+    pub(in crate::chain) fn new(ts_cache: Arc<TipsetCache>, db: Arc<DB>) -> Self {
         Self {
             skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
