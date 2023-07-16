@@ -197,6 +197,8 @@ pub struct StateManager<DB> {
 
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache,
+    // Beacon can be cheaply crated from the `chain_config`. The only reason we
+    // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
