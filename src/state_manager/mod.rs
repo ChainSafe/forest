@@ -1203,7 +1203,14 @@ where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
-    // special case for genesis block
+    // This function will:
+    // 1. handle the genesis block as a special case
+    // 2. run 'cron' for any null-tipsets between the current tipset and our parent tipset
+    // 3. run migrations
+    // 4. execute block messages
+    // 5. write the state-tree to the DB and return the CID.
+
+    // step 1: special case for genesis block
     if tipset.epoch() == 0 {
         // NB: This is here because the process that executes blocks requires that the
         // block miner reference a valid miner in the state tree. Unless we create some
@@ -1254,6 +1261,7 @@ where
 
     for epoch_i in parent_epoch..epoch {
         if epoch_i > parent_epoch {
+            // step 2: running cron for any null-tipsets
             let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
             let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
             // run cron for null rounds if any
@@ -1264,6 +1272,7 @@ where
             parent_state = vm.flush()?;
         }
 
+        // step 3: run migrations
         if let Some(new_state) =
             run_state_migrations(epoch_i, &chain_config, &chain_store.db, &parent_state)?
         {
@@ -1277,13 +1286,11 @@ where
 
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
-    // Apply tipset messages
+    // step 4: apply tipset messages
     let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
-    // Construct receipt root from receipts
+    // step 5: construct receipt root from receipts and flush the state-tree
     let receipt_root = Amt::new_from_iter(&chain_store.db, receipts)?;
-
-    // Flush changes to blockstore
     let state_root = vm.flush()?;
 
     Ok((state_root, receipt_root))
