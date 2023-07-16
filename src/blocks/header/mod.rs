@@ -231,6 +231,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
+// <https://spec.filecoin.io/#example-blockheader>
 impl BlockHeader {
     /// Generates a `BlockHeader` builder as a constructor
     pub fn builder() -> BlockHeaderBuilder {
@@ -291,11 +292,11 @@ impl BlockHeader {
                 .expect("internal error - block serialization may not fail")
         })
     }
-    /// Get `BlockHeader.parent_base_fee`
+    /// Identical for all blocks in same tipset: the base fee after executing parent tipset.
     pub fn parent_base_fee(&self) -> &TokenAmount {
         &self.parent_base_fee
     }
-    /// Get `BlockHeader.fork_signal`
+    /// Currently unused/undefined
     pub fn fork_signal(&self) -> u64 {
         self.fork_signal
     }

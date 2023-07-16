@@ -1169,18 +1169,21 @@ where
 /// # Execution environment
 ///
 /// Message transaction depend on the following:
-/// - a current state-tree (stored as IPLD in a key-value database)
+/// - a current state-tree (stored as IPLD in a key-value database). This
+///   reference is in `tipset.parent_state`.
 /// - a way to look up past state-trees (going back at most 900 epochs, see
-///   https://docs.filecoin.io/reference/general/glossary/#finality)
-/// - a way to look up past tipset IDs (going back at most 900 epochs)
-/// - a deterministic source of randomness
+///   https://docs.filecoin.io/reference/general/glossary/#finality).
+/// - a way to look up past tipset IDs (going back at most 900 epochs).
+/// - a deterministic source of randomness.
 /// - the circulating supply of FIL (see
-///   https://filecoin.io/blog/filecoin-circulating-supply/)
-/// - the base fee (see https://spec.filecoin.io/systems/filecoin_vm/gas_fee/)
+///   https://filecoin.io/blog/filecoin-circulating-supply/). The circulating
+///   supply is determined by the epoch and the states of a few key actors.
+/// - the base fee (see https://spec.filecoin.io/systems/filecoin_vm/gas_fee/).
+///   This value is defined by `tipset.parent_base_fee`.
 /// - the genesis timestamp (UNIX epoch time when the first block was
-///   mined/created)
+///   mined/created).
 /// - a chain configuration (maps epoch to network version, has chain specific
-///   settings)
+///   settings).
 ///
 /// The result of running a set of block messages is an index to the final
 /// state-tree and an index to an array of message receipts (listing gas used,
@@ -1220,7 +1223,6 @@ where
 /// faster.
 pub fn apply_block_messages<DB, CB>(
     db: Arc<DB>,
-    circulating_supply: Arc<dyn Fn(ChainEpoch, Cid) -> anyhow::Result<TokenAmount>>,
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
     chain_config: Arc<ChainConfig>,
@@ -1228,8 +1230,6 @@ pub fn apply_block_messages<DB, CB>(
     get_tsk: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>,
     genesis_timestamp: u64,
     rand: impl Rand + Clone + 'static,
-    base_fee: TokenAmount,
-
     messages: &[BlockMessages],
     mut callback: Option<CB>,
     tipset: Arc<Tipset>,
@@ -1254,14 +1254,16 @@ where
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
-    let create_vm = |state_root, epoch, timestamp| {
+    let create_vm = |state_root: Cid, epoch, timestamp| {
+        let circulating_supply = GenesisInfo::from_chain_config(&chain_config)
+            .get_circulating_supply(epoch, &db, &state_root)?;
         VM::new(
             state_root,
             Arc::clone(&db),
             epoch,
             rand.clone(),
-            base_fee.clone(),
-            circulating_supply(epoch, state_root)?,
+            tipset.min_ticket_block().parent_base_fee().clone(),
+            circulating_supply,
             reward_calc.clone(),
             get_root.clone(),
             get_tsk.clone(),
@@ -1331,21 +1333,13 @@ where
         Arc::clone(&chain_store),
         beacon,
     );
-    let base_fee = tipset.min_ticket_block().parent_base_fee().clone();
 
     let block_messages = chain_store
         .block_msgs_for_tipset(&tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
-    let circ_supply = {
-        let db = Arc::clone(&chain_store.db);
-        let genesis_info = GenesisInfo::from_chain_config(&chain_config);
-        Arc::new(move |epoch, root| genesis_info.get_circulating_supply(epoch, &db, &root))
-    };
-
     Ok(apply_block_messages(
         Arc::clone(&chain_store.db),
-        circ_supply,
         reward_calc,
         engine,
         Arc::clone(&chain_config),
@@ -1357,7 +1351,6 @@ where
         chain_epoch_tsk(Arc::clone(&chain_store), Arc::clone(&tipset)),
         genesis_timestamp,
         chain_rand,
-        base_fee,
         &block_messages,
         callback,
         tipset,
