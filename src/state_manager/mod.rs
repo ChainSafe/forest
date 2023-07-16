@@ -1264,7 +1264,7 @@ where
 /// # Caching
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
-/// `StateManger` and `ChainStore` do a fair bit of caching to make these scans
+/// `StateManager` and `ChainStore` do a fair bit of caching to make these scans
 /// faster.
 pub fn apply_block_messages<DB, CB>(
     db: &DB,
