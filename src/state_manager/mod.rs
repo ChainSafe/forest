@@ -1208,7 +1208,7 @@ where
     // 2. run 'cron' for any null-tipsets between the current tipset and our parent tipset
     // 3. run migrations
     // 4. execute block messages
-    // 5. write the state-tree to the DB and return the CID.
+    // 5. write the state-tree to the DB and return the CID
 
     // step 1: special case for genesis block
     if tipset.epoch() == 0 {
@@ -1236,7 +1236,8 @@ where
 
     let genesis_info = GenesisInfo::from_chain_config(&chain_config);
     let create_vm = |state_root: Cid, epoch, timestamp| {
-        let circulating_supply = genesis_info.get_circulating_supply(epoch, &chain_store.db, &state_root)?;
+        let circulating_supply =
+            genesis_info.get_circulating_supply(epoch, &chain_store.db, &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),
