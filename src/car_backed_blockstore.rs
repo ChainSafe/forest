@@ -669,7 +669,7 @@ pub async fn zstd_compress_varint_manyframe(
 }
 
 /// Create a parameterized collator function
-fn varint_to_zstd_frame_collator(
+pub fn varint_to_zstd_frame_collator(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> impl Fn(
@@ -696,7 +696,7 @@ fn varint_to_zstd_frame_collator(
 }
 
 /// Encode `body` as a varint frame into `encoder` (writing the length and then the body itself)
-fn zstd_compress_fold_varint_frame(
+pub fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
 ) -> zstd::Encoder<Writer<BytesMut>> {
@@ -710,7 +710,7 @@ fn zstd_compress_fold_varint_frame(
     encoder
 }
 
-fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
+pub fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
     encoder
         .finish()
         .expect("BytesMut has infallible IO")
