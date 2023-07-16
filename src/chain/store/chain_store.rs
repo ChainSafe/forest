@@ -435,6 +435,7 @@ where
         ))
     }
 
+    // FIXME: This function doesn't use the chain store at all.
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.

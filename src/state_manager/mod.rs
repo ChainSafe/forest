@@ -15,7 +15,7 @@ pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
-use crate::interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
+use crate::interpreter::{resolve_to_key_addr, RewardCalc, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -24,7 +24,6 @@ use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
-    externs::Rand,
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
@@ -1119,9 +1118,9 @@ where
 /// Message transaction depend on the following:
 /// - a current state-tree (stored as IPLD in a key-value database). This
 ///   reference is in `tipset.parent_state`.
-/// - a way to look up past state-trees (going back at most 900 epochs, see
-///   https://docs.filecoin.io/reference/general/glossary/#finality).
-/// - a way to look up past tipset IDs (going back at most 900 epochs).
+/// - up to 900 past state-trees. See
+///   https://docs.filecoin.io/reference/general/glossary/#finality.
+/// - up to 900 past tipset IDs.
 /// - a deterministic source of randomness.
 /// - the circulating supply of FIL (see
 ///   https://filecoin.io/blog/filecoin-circulating-supply/). The circulating
@@ -1164,18 +1163,27 @@ where
 /// So, in the above example, if the genesis block was mined at time `X`, the
 /// null tipset for epoch 9 will have timestamp `X + 30 * 9`.
 ///
+/// # Migrations
+///
+/// Migrations happen between network upgrades and modify the state tree. If a
+/// migration is scheduled for epoch 10, it will be run _after_ the messages for
+/// epoch 10. The tipset for epoch 11 will link the state-tree produced by the
+/// migration.
+///
+/// Example timeline with a migration at epoch 10:
+///   1. Tipset-epoch-10 executes, producing state-tree A.
+///   2. Migration consumes state-tree A and produces state-tree B.
+///   3. Tipset-epoch-11 executes, consuming state-tree B (rather than A).
+///
 /// # Caching
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
-/// `StateManager` and `ChainStore` do a fair bit of caching to make these scans
-/// faster.
+/// The `ChainStore` does a fair bit of caching to make these scans faster.
 fn apply_block_messages<DB, CB>(
-    db: Arc<DB>,
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
     chain_config: Arc<ChainConfig>,
-    rand: impl Rand + Clone + 'static,
-    messages: &[BlockMessages],
+    beacon: Arc<BeaconSchedule<DrandBeacon>>,
     mut callback: Option<CB>,
     tipset: Arc<Tipset>,
     chain_store: Arc<ChainStore<DB>>,
@@ -1205,13 +1213,20 @@ where
         .map_err(anyhow::Error::from)?
         .timestamp();
 
+    let rand = ChainRand::new(
+        Arc::clone(&chain_config),
+        Arc::clone(&tipset),
+        Arc::clone(&chain_store),
+        beacon,
+    );
+
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply = GenesisInfo::from_chain_config(&chain_config)
-            .get_circulating_supply(epoch, &db, &state_root)?;
+            .get_circulating_supply(epoch, &chain_store.db, &state_root)?;
         VM::new(
             Arc::clone(&tipset),
             state_root,
-            Arc::clone(&db),
+            Arc::clone(&chain_store.db),
             epoch,
             rand.clone(),
             tipset.min_ticket_block().parent_base_fee().clone(),
@@ -1226,7 +1241,7 @@ where
 
     let mut parent_state = *tipset.parent_state();
 
-    let parent_epoch = Tipset::load_required(&db, tipset.parents())?.epoch();
+    let parent_epoch = Tipset::load_required(&chain_store.db, tipset.parents())?.epoch();
     let epoch = tipset.epoch();
 
     for epoch_i in parent_epoch..epoch {
@@ -1241,18 +1256,24 @@ where
             parent_state = vm.flush()?;
         }
 
-        if let Some(new_state) = run_state_migrations(epoch_i, &chain_config, &db, &parent_state)? {
+        if let Some(new_state) =
+            run_state_migrations(epoch_i, &chain_config, &chain_store.db, &parent_state)?
+        {
             parent_state = new_state;
         }
     }
 
+    let block_messages = chain_store
+        .block_msgs_for_tipset(&tipset)
+        .map_err(|e| Error::Other(e.to_string()))?;
+
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
     // Apply tipset messages
-    let receipts = vm.apply_block_messages(messages, epoch, callback)?;
+    let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
     // Construct receipt root from receipts
-    let receipt_root = Amt::new_from_iter(db, receipts)?;
+    let receipt_root = Amt::new_from_iter(&chain_store.db, receipts)?;
 
     // Flush changes to blockstore
     let state_root = vm.flush()?;
@@ -1275,24 +1296,11 @@ where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
-    let chain_rand = ChainRand::new(
-        Arc::clone(&chain_config),
-        Arc::clone(&tipset),
-        Arc::clone(&chain_store),
-        beacon,
-    );
-
-    let block_messages = chain_store
-        .block_msgs_for_tipset(&tipset)
-        .map_err(|e| Error::Other(e.to_string()))?;
-
     Ok(apply_block_messages(
-        Arc::clone(&chain_store.db),
         reward_calc,
         engine,
         Arc::clone(&chain_config),
-        chain_rand,
-        &block_messages,
+        beacon,
         callback,
         tipset,
         Arc::clone(&chain_store),
