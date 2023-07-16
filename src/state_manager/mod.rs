@@ -206,7 +206,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -620,12 +620,12 @@ where
     ///
     /// VM transaction execution essentially looks like this:
     /// ```text
-    /// state[N-1800..N] * transaction = state[N+1]
+    /// state[N-900..N] * transaction = state[N+1]
     /// ```
     ///
     /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
     /// a [`Cid`] - the _state root_.
-    /// The previous 1800 states can be queried in a transaction, so a store needs at least that many.
+    /// The previous 900 states can be queried in a transaction, so a store needs at least that many.
     /// (a snapshot typically contains 2000, for example).
     ///
     /// Each transaction costs FIL to execute - this is _gas_.
@@ -645,38 +645,13 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        let chain_rand = self.chain_rand(Arc::clone(&tipset));
-        let base_fee = tipset.min_ticket_block().parent_base_fee().clone();
-
-        let block_messages = self
-            .chain_store()
-            .block_msgs_for_tipset(&tipset)
-            .map_err(|e| Error::Other(e.to_string()))?;
-
-        let circ_supply = {
-            let db = self.blockstore_owned();
-            let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
-            Arc::new(move |epoch, root| genesis_info.get_circulating_supply(epoch, &db, &root))
-        };
-
-        Ok(apply_block_messages(
-            self.blockstore_owned(),
-            circ_supply,
-            self.reward_calc.clone(),
+        Ok(apply_block_messages_with_chain_store(
+            Arc::clone(self.chain_store()),
+            Arc::clone(&self.chain_config),
+            Arc::clone(&self.reward_calc),
             &self.engine,
-            self.chain_config(),
-            chain_epoch_root(
-                Arc::clone(self.chain_store()),
-                Arc::clone(&self.chain_config),
-                Arc::clone(&tipset),
-            ),
-            chain_epoch_tsk(Arc::clone(self.chain_store()), Arc::clone(&tipset)),
-            self.cs.genesis().map_err(anyhow::Error::from)?.timestamp(),
-            chain_rand,
-            base_fee,
-            &block_messages,
-            callback,
             tipset,
+            callback,
         )?)
     }
 
@@ -1332,15 +1307,17 @@ where
     Ok((state_root, receipt_root))
 }
 
-pub fn apply_block_messages_with_minimal_caching<DB>(
+pub fn apply_block_messages_with_chain_store<DB, CB>(
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
+    callback: Option<CB>,
 ) -> Result<CidPair, Error>
 where
     DB: Blockstore + Send + Sync + 'static,
+    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
     let genesis_timestamp = chain_store
         .genesis()
@@ -1382,7 +1359,7 @@ where
         chain_rand,
         base_fee,
         &block_messages,
-        NO_CALLBACK,
+        callback,
         tipset,
     )?)
 }

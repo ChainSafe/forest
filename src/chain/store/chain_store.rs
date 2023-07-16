@@ -632,12 +632,13 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let (state, _) = crate::state_manager::apply_block_messages_with_minimal_caching(
+            let (state, _) = crate::state_manager::apply_block_messages_with_chain_store(
                 Arc::clone(self),
                 Arc::clone(&chain_config),
                 Arc::new(crate::interpreter::RewardActorMessageCalc),
                 &crate::shim::machine::MultiEngine::default(),
                 Arc::clone(&heaviest_tipset),
+                crate::state_manager::NO_CALLBACK,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset, state));
