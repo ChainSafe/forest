@@ -15,7 +15,7 @@ pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
-use crate::interpreter::{resolve_to_key_addr, RewardCalc, VM};
+use crate::interpreter::{resolve_to_key_addr, RewardCalc, ExecutionContext, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -370,21 +370,25 @@ where
     ) -> StateCallResult {
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
-        let store = self.blockstore_owned();
         let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
-            Arc::clone(tipset),
-            *bstate,
-            store,
-            bheight,
-            rand,
-            TokenAmount::zero(),
-            genesis_info.get_circulating_supply(bheight, &self.blockstore_owned(), bstate)?,
-            self.reward_calc.clone(),
+            ExecutionContext {
+                heaviest_tipset: Arc::clone(tipset),
+                state_tree_root: *bstate,
+                epoch: bheight,
+                rand: Box::new(rand),
+                base_fee: TokenAmount::zero(),
+                circ_supply: genesis_info.get_circulating_supply(
+                    bheight,
+                    &self.blockstore_owned(),
+                    bstate,
+                )?,
+                reward_calc: self.reward_calc.clone(),
+                chain_config: self.chain_config(),
+                chain_store: Arc::clone(self.chain_store()),
+                timestamp: tipset.min_timestamp(),
+            },
             &self.engine,
-            self.chain_config(),
-            Arc::clone(self.chain_store()),
-            tipset.min_timestamp(),
         )?;
 
         if msg.gas_limit == 0 {
@@ -440,24 +444,28 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = self.chain_rand(Arc::clone(&ts));
 
-        let store = self.blockstore_owned();
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
-            Arc::clone(&ts),
-            st,
-            store,
-            epoch,
-            chain_rand,
-            ts.blocks()[0].parent_base_fee().clone(),
-            genesis_info.get_circulating_supply(epoch, &self.blockstore_owned(), &st)?,
-            self.reward_calc.clone(),
+            ExecutionContext {
+                heaviest_tipset: Arc::clone(&ts),
+                state_tree_root: st,
+                epoch,
+                rand: Box::new(chain_rand),
+                base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                circ_supply: genesis_info.get_circulating_supply(
+                    epoch,
+                    &self.blockstore_owned(),
+                    &st,
+                )?,
+                reward_calc: self.reward_calc.clone(),
+                chain_config: self.chain_config(),
+                chain_store: Arc::clone(self.chain_store()),
+                timestamp: ts.min_timestamp(),
+            },
             &self.engine,
-            self.chain_config(),
-            Arc::clone(self.chain_store()),
-            ts.min_timestamp(),
         )?;
 
         for msg in prior_messages {
@@ -1227,18 +1235,19 @@ where
         let circulating_supply = GenesisInfo::from_chain_config(&chain_config)
             .get_circulating_supply(epoch, &chain_store.db, &state_root)?;
         VM::new(
-            Arc::clone(&tipset),
-            state_root,
-            Arc::clone(&chain_store.db),
-            epoch,
-            rand.clone(),
-            tipset.min_ticket_block().parent_base_fee().clone(),
-            circulating_supply,
-            reward_calc.clone(),
+            ExecutionContext {
+                heaviest_tipset: Arc::clone(&tipset),
+                state_tree_root: state_root,
+                epoch,
+                rand: Box::new(rand.clone()),
+                base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
+                circ_supply: circulating_supply,
+                reward_calc: reward_calc.clone(),
+                chain_config: Arc::clone(&chain_config),
+                chain_store: Arc::clone(&chain_store),
+                timestamp,
+            },
             engine,
-            Arc::clone(&chain_config),
-            Arc::clone(&chain_store),
-            timestamp,
         )
     };
 
