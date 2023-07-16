@@ -539,7 +539,7 @@ where
     /// be found by tracing the `parent` pointers.
     pub fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
-        tipset: Arc<Tipset>,
+        heaviest_tipset: Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error> {
         let version = self.chain_config.network_version(round);
@@ -551,20 +551,20 @@ where
         let lbr = (round - lb).max(0);
 
         // More null blocks than lookback
-        if lbr >= tipset.epoch() {
-            let (state, _) = self.compute_tipset_state_blocking(tipset.clone(), NO_CALLBACK)?;
-            return Ok((tipset, state));
+        if lbr >= heaviest_tipset.epoch() {
+            let (state, _) = self.compute_tipset_state_blocking(heaviest_tipset.clone(), NO_CALLBACK)?;
+            return Ok((heaviest_tipset, state));
         }
 
         let next_ts = self
             .cs
-            .tipset_by_height(lbr + 1, tipset.clone(), false)
+            .tipset_by_height(lbr + 1, heaviest_tipset.clone(), false)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
-                tipset.key(),
-                tipset.epoch(),
+                heaviest_tipset.key(),
+                heaviest_tipset.epoch(),
                 next_ts.key(),
                 next_ts.epoch()
             )));
