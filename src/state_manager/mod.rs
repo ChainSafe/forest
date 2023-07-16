@@ -1175,6 +1175,9 @@ where
 ///   2. Migration consumes state-tree A and produces state-tree B.
 ///   3. Tipset-epoch-11 executes, consuming state-tree B (rather than A).
 ///
+/// Note: The migration actually happens when tipset-epoch-11 executes. This is
+///       because tipset-epoch-10 may be null and therefore not executed at all.
+///
 /// # Caching
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
