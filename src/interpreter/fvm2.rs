@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::BlockHeader;
+use crate::blocks::Tipset;
+use crate::chain::store::ChainStore;
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
 use crate::shim::{
@@ -31,29 +33,32 @@ use crate::interpreter::resolve_to_key_addr;
 
 pub struct ForestExternsV2<DB> {
     rand: Box<dyn Rand>,
+    heaviest_tipset: Arc<Tipset>,
     epoch: ChainEpoch,
     root: Cid,
-    lookback: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     db: Arc<DB>,
+    chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
 }
 
-impl<DB: Blockstore> ForestExternsV2<DB> {
+impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
     pub fn new(
         rand: impl Rand + 'static,
+        heaviest_tipset: Arc<Tipset>,
         epoch: ChainEpoch,
         root: Cid,
-        lookback: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         db: Arc<DB>,
+        chain_store: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExternsV2 {
             rand: Box::new(rand),
+            heaviest_tipset,
             epoch,
             root,
-            lookback,
             db,
+            chain_store,
             chain_config,
             bail: AtomicBool::new(false),
         }
@@ -72,7 +77,14 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
             );
         }
 
-        let prev_root = (self.lookback)(height)?;
+        let prev_root = {
+            let (_, st) = self.chain_store.get_lookback_tipset_for_round(
+                Arc::clone(&self.chain_config),
+                Arc::clone(&self.heaviest_tipset),
+                height,
+            )?;
+            st
+        };
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
@@ -109,7 +121,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
     }
 }
 
-impl<DB: Blockstore> Externs for ForestExternsV2<DB> {}
+impl<DB: Blockstore + Send + Sync + 'static> Externs for ForestExternsV2<DB> {}
 
 impl<DB> Rand for ForestExternsV2<DB> {
     fn get_chain_randomness(
@@ -131,7 +143,7 @@ impl<DB> Rand for ForestExternsV2<DB> {
     }
 }
 
-impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
+impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExternsV2<DB> {
     // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,

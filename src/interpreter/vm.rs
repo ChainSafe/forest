@@ -41,7 +41,7 @@ use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
 
-use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
+use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
 
 pub(in crate::interpreter) type ForestMachineV2<DB> =
     DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
@@ -107,7 +107,6 @@ where
         base_fee: TokenAmount,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
-        lb_fn: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
         chain_store: Arc<ChainStore<DB>>,
@@ -156,10 +155,11 @@ where
                 store.clone(),
                 ForestExternsV2::new(
                     RandWrapper::from(rand),
+                    heaviest_tipset,
                     epoch,
                     root,
-                    lb_fn,
                     store,
+                    chain_store,
                     chain_config,
                 ),
             )?;

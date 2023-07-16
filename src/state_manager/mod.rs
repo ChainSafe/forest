@@ -382,11 +382,6 @@ where
             TokenAmount::zero(),
             genesis_info.get_circulating_supply(bheight, &self.blockstore_owned(), bstate)?,
             self.reward_calc.clone(),
-            chain_epoch_root(
-                Arc::clone(&self.cs),
-                Arc::clone(&self.chain_config),
-                Arc::clone(tipset),
-            ),
             &self.engine,
             self.chain_config(),
             Arc::clone(self.chain_store()),
@@ -460,11 +455,6 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             genesis_info.get_circulating_supply(epoch, &self.blockstore_owned(), &st)?,
             self.reward_calc.clone(),
-            chain_epoch_root(
-                Arc::clone(&self.cs),
-                Arc::clone(&self.chain_config),
-                Arc::clone(&ts),
-            ),
             &self.engine,
             self.chain_config(),
             Arc::clone(self.chain_store()),
@@ -1119,24 +1109,6 @@ where
     }
 }
 
-fn chain_epoch_root<DB>(
-    chain_store: Arc<ChainStore<DB>>,
-    chain_config: Arc<ChainConfig>,
-    tipset: Arc<Tipset>,
-) -> Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    Arc::new(move |round| {
-        let (_, st) = chain_store.get_lookback_tipset_for_round(
-            Arc::clone(&chain_config),
-            tipset.clone(),
-            round,
-        )?;
-        Ok(st)
-    })
-}
-
 /// Messages are transactions that produce new states. The state (usually
 /// referred to as the 'state-tree') is a mapping from actor addresses to actor
 /// states. Each block contains the hash of the state-tree that should be used
@@ -1202,7 +1174,6 @@ fn apply_block_messages<DB, CB>(
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
     chain_config: Arc<ChainConfig>,
-    get_root: Arc<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     rand: impl Rand + Clone + 'static,
     messages: &[BlockMessages],
     mut callback: Option<CB>,
@@ -1246,7 +1217,6 @@ where
             tipset.min_ticket_block().parent_base_fee().clone(),
             circulating_supply,
             reward_calc.clone(),
-            get_root.clone(),
             engine,
             Arc::clone(&chain_config),
             Arc::clone(&chain_store),
@@ -1321,11 +1291,6 @@ where
         reward_calc,
         engine,
         Arc::clone(&chain_config),
-        chain_epoch_root(
-            Arc::clone(&chain_store),
-            Arc::clone(&chain_config),
-            Arc::clone(&tipset),
-        ),
         chain_rand,
         &block_messages,
         callback,
