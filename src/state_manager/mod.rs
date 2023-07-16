@@ -552,7 +552,8 @@ where
 
         // More null blocks than lookback
         if lbr >= heaviest_tipset.epoch() {
-            let (state, _) = self.compute_tipset_state_blocking(heaviest_tipset.clone(), NO_CALLBACK)?;
+            let (state, _) =
+                self.compute_tipset_state_blocking(heaviest_tipset.clone(), NO_CALLBACK)?;
             return Ok((heaviest_tipset, state));
         }
 
@@ -1208,10 +1209,63 @@ where
     Arc::new(move |round| Ok(cs.get_epoch_tsk(tipset.clone(), round)?))
 }
 
+/// Messages are transactions that produce new states. The state (usually
+/// referred to as the 'state-tree') is a mapping from actor addresses to actor
+/// states. Each block contains the hash of the state-tree that should be used
+/// as the starting state when executing the block messages.
 ///
-/// Caching:
-///   TipsetKeys -> Tipset
-///   Epoch -> TipsetKeys
+/// # Execution environment
+///
+/// Message transaction depend on the following:
+/// - a current state-tree (stored as IPLD in a key-value database)
+/// - a way to look up past state-trees (going back at most 900 epochs, see
+///   https://docs.filecoin.io/reference/general/glossary/#finality)
+/// - a way to look up past tipset IDs (going back at most 900 epochs)
+/// - a deterministic source of randomness
+/// - the circulating supply of FIL (see
+///   https://filecoin.io/blog/filecoin-circulating-supply/)
+/// - the base fee (see https://spec.filecoin.io/systems/filecoin_vm/gas_fee/)
+/// - the genesis timestamp (UNIX epoch time when the first block was
+///   mined/created)
+/// - a chain configuration (maps epoch to network version, has chain specific
+///   settings)
+///
+/// The result of running a set of block messages is an index to the final
+/// state-tree and an index to an array of message receipts (listing gas used,
+/// return codes, etc).
+///
+/// # Cron and null tipsets
+///
+/// Once per epoch, after all messages have run, a special 'cron' transaction
+/// must be executed. The tasks of the 'cron' transaction include running batch
+/// jobs and keeping the state up-to-date with the current epoch.
+///
+/// It can happen that no blocks are mined in an epoch. The tipset for such an
+/// epoch is called a null tipset. A null tipset has no identity and cannot be
+/// directly executed. This is a problem for 'cron' which much run for every
+/// epoch, even if there are no messages. The fix is to run 'cron' if there are
+/// any null tipsets between the current epoch and the parent epoch.
+///
+/// Imagine the blockchain looks like this with a null tipset at epoch 9:
+///
+/// ┌────────┐ ┌────┐ ┌───────┐  ┌───────┐
+/// │Epoch 10│ │Null│ │Epoch 8├──►Epoch 7├─►
+/// └───┬────┘ └────┘ └───▲───┘  └───────┘
+///     └─────────────────┘
+///
+/// The parent of tipset-epoch-10 is tipset-epoch-8. Before executing the
+/// messages in epoch 10, we have to run cron for epoch 9. However, running
+/// 'cron' requires the timestamp of the youngest block in the tipset (which
+/// doesn't exist becaue there are no blocks in the tipset). Lotus dictates that
+/// the timestamp of a null tipset is `30s * epoch` after the genesis timestamp.
+/// So, in the above example, if the genesis block was mined at time `X`, the
+/// null tipset for epoch 9 will have timestamp `X + 30 * 9`.
+///
+/// # Caching
+///
+/// Scanning the blockchain to find past tipsets and state-trees may be slow.
+/// `StateManger` and `ChainStore` do a fair bit of caching to make these scans
+/// faster.
 pub fn apply_block_messages<DB, CB>(
     db: &DB,
     circulating_supply: Arc<dyn Fn(ChainEpoch, Cid) -> anyhow::Result<TokenAmount>>,
