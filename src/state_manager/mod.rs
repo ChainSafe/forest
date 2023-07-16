@@ -1209,12 +1209,8 @@ where
         // block miner reference a valid miner in the state tree. Unless we create some
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
-        let message_receipts = tipset
-            .blocks()
-            .first()
-            .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-
-        return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
+        let message_receipts = tipset.min_ticket_block().message_receipts();
+        return Ok((*tipset.parent_state(), *message_receipts));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
