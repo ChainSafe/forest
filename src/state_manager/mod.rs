@@ -633,7 +633,7 @@ where
     /// This is similarly a [`Cid`] into the block store.
     ///
     /// Each [`Tipset`] knows its previous state, so computing tipset state consists of:
-    /// - fetching the previous state, and its 1799 ancestors.
+    /// - fetching the previous state, and its 899 ancestors.
     /// - executing a transaction using all messages in the tipset.
     /// - returning the _new state root_ and the _receipt root_ of the transaction.
     #[tracing::instrument(skip_all)]
