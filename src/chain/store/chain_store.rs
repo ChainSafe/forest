@@ -129,12 +129,11 @@ where
     DB: Blockstore + Send + Sync,
 {
     pub fn new(
-        db: DB,
+        db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: &BlockHeader,
         chain_data_root: &Path,
     ) -> Result<Self> {
-        let db = Arc::new(db);
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let file_backed_genesis = Mutex::new(FileBacked::new(
@@ -904,7 +903,7 @@ mod tests {
 
     #[test]
     fn genesis_test() {
-        let db = crate::db::MemoryDB::default();
+        let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let gen_block = BlockHeader::builder()
@@ -924,7 +923,7 @@ mod tests {
 
     #[test]
     fn block_validation_cache_basic() {
-        let db = crate::db::MemoryDB::default();
+        let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block = BlockHeader::builder()
             .miner_address(Address::new_id(0))

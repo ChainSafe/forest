@@ -208,7 +208,7 @@ const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<(
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
@@ -250,6 +250,10 @@ where
     /// Returns a reference to the state manager's [`Blockstore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
+    }
+
+    pub fn blockstore_owned(&self) -> Arc<DB> {
+        Arc::clone(&self.cs.db)
     }
 
     /// Returns reference to the state manager's [`ChainStore`].
@@ -379,7 +383,7 @@ where
     ) -> StateCallResult {
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
-        let store = self.blockstore().clone();
+        let store = self.blockstore_owned();
         let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
             *bstate,
@@ -387,7 +391,7 @@ where
             bheight,
             rand,
             TokenAmount::zero(),
-            genesis_info.get_circulating_supply(bheight, self.blockstore(), bstate)?,
+            genesis_info.get_circulating_supply(bheight, &self.blockstore_owned(), bstate)?,
             self.reward_calc.clone(),
             chain_epoch_root(
                 Arc::clone(&self.cs),
@@ -453,7 +457,7 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = self.chain_rand(Arc::clone(&ts));
 
-        let store = self.blockstore().clone();
+        let store = self.blockstore_owned();
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
@@ -464,7 +468,7 @@ where
             epoch,
             chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            genesis_info.get_circulating_supply(epoch, self.blockstore(), &st)?,
+            genesis_info.get_circulating_supply(epoch, &self.blockstore_owned(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(
                 Arc::clone(&self.cs),
@@ -648,13 +652,13 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let circ_supply = {
-            let db = Arc::new(self.blockstore().clone());
+            let db = self.blockstore_owned();
             let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
             Arc::new(move |epoch, root| genesis_info.get_circulating_supply(epoch, &db, &root))
         };
 
         Ok(apply_block_messages(
-            Arc::new(self.blockstore().clone()),
+            self.blockstore_owned(),
             circ_supply,
             self.reward_calc.clone(),
             &self.engine,

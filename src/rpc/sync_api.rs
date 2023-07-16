@@ -92,7 +92,7 @@ mod tests {
 
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
