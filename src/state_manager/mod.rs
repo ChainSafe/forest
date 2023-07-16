@@ -1189,7 +1189,7 @@ where
 /// # Caching
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
-/// The `ChainStore` does a fair bit of caching to make these scans faster.
+/// The `ChainStore` caches recent tipsets to make these scans faster.
 pub fn apply_block_messages<DB, CB>(
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
