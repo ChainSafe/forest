@@ -231,7 +231,7 @@ where
     }
 
     pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
-        self.beacon.clone()
+        Arc::clone(&self.beacon)
     }
 
     /// Returns network version for the given epoch.
@@ -353,25 +353,11 @@ where
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
-                let cid_pair = if tipset.epoch() == 0 {
-                    // NB: This is here because the process that executes blocks requires that the
-                    // block miner reference a valid miner in the state tree. Unless we create some
-                    // magical genesis miner, this won't work properly, so we short circuit here
-                    // This avoids the question of 'who gets paid the genesis block reward'
-                    let message_receipts = tipset.blocks().first().ok_or_else(|| {
-                        Error::Other("Could not get message receipts".to_string())
-                    })?;
-
-                    (*tipset.parent_state(), *message_receipts.message_receipts())
-                } else {
-                    let ts_state = self
-                        .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
-                        .await?;
-                    debug!("Completed tipset state calculation {:?}", tipset.cids());
-                    ts_state
-                };
-
-                Ok(cid_pair)
+                let ts_state = self
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
+                    .await?;
+                debug!("Completed tipset state calculation {:?}", tipset.cids());
+                Ok(ts_state)
             })
             .await
     }
@@ -598,8 +584,28 @@ where
         Ok(true)
     }
 
-    /// Performs a state transition, and returns the state and receipt root of
-    /// the transition.
+    /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.
+    /// Each _block_ contains _messages_, which are executed by the _Filecoin Virtual Machine_
+    /// in a _transaction_.
+    ///
+    /// VM transaction execution essentially looks like this:
+    /// ```text
+    /// state[N-900..N] * transaction = state[N+1]
+    /// ```
+    ///
+    /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
+    /// a [`Cid`] - the _state root_.
+    /// The previous 900 states can be queried in a transaction, so a store needs at least that many.
+    /// (a snapshot typically contains 2000, for example).
+    ///
+    /// Each transaction costs FIL to execute - this is _gas_.
+    /// After execution, the transaction has a _receipt_, showing how much gas was spent.
+    /// This is similarly a [`Cid`] into the block store.
+    ///
+    /// Each [`Tipset`] knows its previous state, so computing tipset state consists of:
+    /// - fetching the previous state, and its 899 ancestors.
+    /// - executing a transaction using all messages in the tipset.
+    /// - returning the _new state root_ and the _receipt root_ of the transaction.
     #[instrument(skip(self, tipset, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
@@ -609,8 +615,8 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        let sm = Arc::clone(self);
-        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback))
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || this.compute_tipset_state_blocking(tipset, callback))
             .await?
     }
 
@@ -1221,7 +1227,7 @@ where
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// `StateManager` and `ChainStore` do a fair bit of caching to make these scans
 /// faster.
-pub fn apply_block_messages<DB, CB>(
+fn apply_block_messages<DB, CB>(
     db: Arc<DB>,
     reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
@@ -1309,6 +1315,8 @@ where
     Ok((state_root, receipt_root))
 }
 
+// Convenience wrapper around `apply_block_messages`. See that function for
+// documentation.
 pub fn apply_block_messages_with_chain_store<DB, CB>(
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
