@@ -197,7 +197,6 @@ pub struct StateManager<DB> {
 
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache,
-    genesis_info: GenesisInfo,
     beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
@@ -222,7 +221,6 @@ where
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
-            genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
             engine: crate::shim::machine::MultiEngine::default(),
@@ -382,14 +380,14 @@ where
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
         let store = self.blockstore().clone();
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             *bstate,
             store,
             bheight,
             rand,
             TokenAmount::zero(),
-            self.genesis_info
-                .get_circulating_supply(bheight, self.blockstore(), bstate)?,
+            genesis_info.get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
             chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(tipset)),
@@ -455,14 +453,14 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             st,
             store,
             epoch,
             chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            self.genesis_info
-                .get_circulating_supply(epoch, self.blockstore(), &st)?,
+            genesis_info.get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             chain_epoch_tsk(Arc::clone(&self.cs), Arc::clone(&ts)),
@@ -689,9 +687,7 @@ where
         let circ_supply = {
             let db = Arc::new(self.blockstore().clone());
             let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
-            Arc::new(move |epoch, root| {
-                genesis_info.get_circulating_supply(epoch, &db, &root)
-            })
+            Arc::new(move |epoch, root| genesis_info.get_circulating_supply(epoch, &db, &root))
         };
 
         Ok(apply_block_messages(
