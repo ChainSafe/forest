@@ -9,14 +9,16 @@ use crate::car_backed_blockstore::{
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::NetworkChain;
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::shim::clock::ChainEpoch;
-use crate::utils::io::ProgressBar;
-use anyhow::bail;
+use crate::state_manager::StateManager;
+use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
+use anyhow::{bail, Context};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
@@ -56,6 +58,10 @@ pub enum SnapshotCommands {
         /// Number of block headers to validate from the tip
         #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
+        /// Validate already computed tipsets at given EPOCH,
+        /// use a negative value -N to validate the last N EPOCH(s) starting at HEAD.
+        #[arg(long)]
+        validate_tipsets: Option<i64>,
         /// Path to a snapshot CAR, which may be zstd compressed
         snapshot: PathBuf,
     },
@@ -157,6 +163,7 @@ impl SnapshotCommands {
             }
             Self::Validate {
                 recent_stateroots,
+                validate_tipsets,
                 snapshot,
             } => {
                 // this is all blocking...
@@ -168,6 +175,7 @@ impl SnapshotCommands {
                             store.roots(),
                             Arc::new(store),
                             recent_stateroots,
+                            *validate_tipsets,
                         )
                         .await
                     }
@@ -187,6 +195,7 @@ impl SnapshotCommands {
                             store.roots(),
                             Arc::new(store),
                             recent_stateroots,
+                            *validate_tipsets,
                         )
                         .await
                     }
@@ -240,9 +249,10 @@ async fn validate_with_blockstore<BlockstoreT>(
     roots: Vec<Cid>,
     store: Arc<BlockstoreT>,
     recent_stateroots: &i64,
-) -> Result<(), anyhow::Error>
+    validate_tipsets: Option<i64>,
+) -> anyhow::Result<()>
 where
-    BlockstoreT: Blockstore + Send + Sync,
+    BlockstoreT: Blockstore + Send + Sync + 'static,
 {
     let genesis = read_genesis_header(
         config.client.genesis_file.as_ref(),
@@ -250,19 +260,19 @@ where
         &store,
     )
     .await?;
-
+    let chain_data_root = TempDir::new()?;
     let chain_store = Arc::new(ChainStore::new(
-        store,
+        Arc::clone(&store),
         config.chain.clone(),
         &genesis,
-        TempDir::new()?.path(),
+        chain_data_root.path(),
     )?);
 
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(roots))?;
+    let ts = Tipset::load(&store, &TipsetKeys::new(roots))?.context("missing root tipset")?;
 
     validate_links_and_genesis_traversal(
         &chain_store,
-        ts,
+        &ts,
         chain_store.blockstore(),
         *recent_stateroots,
         &Tipset::from(genesis),
@@ -270,12 +280,40 @@ where
     )
     .await?;
 
+    if let Some(validate_from) = validate_tipsets {
+        let last_epoch = match validate_from.is_negative() {
+            true => ts.epoch() + validate_from,
+            false => validate_from,
+        };
+        // Set proof parameter data dir
+        if cns::FETCH_PARAMS {
+            crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+                &config.client.data_dir,
+            );
+        }
+        // Initialize StateManager
+        let state_manager = Arc::new(StateManager::new(
+            chain_store,
+            Arc::clone(&config.chain),
+            Arc::new(crate::interpreter::RewardActorMessageCalc),
+        )?);
+        ensure_params_downloaded().await?;
+        // Prepare tipset stream to validate
+        let tipsets = ts
+            .chain(&store)
+            .map(|ts| Arc::clone(&Arc::new(ts)))
+            .take_while(|tipset| tipset.epoch() >= last_epoch);
+
+        state_manager.validate_tipsets(tipsets)?
+    }
+
+    println!("Snapshot is valid");
     Ok(())
 }
 
 async fn validate_links_and_genesis_traversal<DB>(
     chain_store: &ChainStore<DB>,
-    ts: Arc<Tipset>,
+    ts: &Tipset,
     db: &DB,
     recent_stateroots: ChainEpoch,
     genesis_tipset: &Tipset,
@@ -339,8 +377,6 @@ where
     }
 
     drop(pb);
-
-    println!("Snapshot is valid");
 
     Ok(())
 }

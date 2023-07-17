@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#3167](https://github.com/ChainSafe/forest/pull/3167): Added a new option
+  `--validate-tipsets` for `forest-cli snapshot validate`.
 - [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
   `forest-cli archive info` command for inspecting archives.
 - [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
