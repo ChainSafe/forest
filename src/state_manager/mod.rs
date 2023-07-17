@@ -1158,7 +1158,7 @@ where
 ///
 /// It can happen that no blocks are mined in an epoch. The tipset for such an
 /// epoch is called a null tipset. A null tipset has no identity and cannot be
-/// directly executed. This is a problem for 'cron' which much run for every
+/// directly executed. This is a problem for 'cron' which must run for every
 /// epoch, even if there are no messages. The fix is to run 'cron' if there are
 /// any null tipsets between the current epoch and the parent epoch.
 ///
