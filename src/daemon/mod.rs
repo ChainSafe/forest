@@ -320,7 +320,7 @@ pub(super) async fn start(
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(&db)?,
+        MpoolConfig::load_config(db.as_ref())?,
         state_manager.chain_config(),
         &mut services,
     )?;
