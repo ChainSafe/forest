@@ -340,7 +340,7 @@ where
         if lbts.epoch() == height || !prev {
             Ok(lbts)
         } else {
-            self.tipset_from_keys(lbts.parents())
+            self.chain_index.load_tipset(lbts.parents())
         }
     }
 
