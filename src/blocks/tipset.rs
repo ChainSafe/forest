@@ -301,6 +301,16 @@ pub struct FullTipset {
     key: OnceCell<TipsetKeys>,
 }
 
+// Constructing a FullTipset from a single Block is infallible.
+impl From<Block> for FullTipset {
+    fn from(block: Block) -> Self {
+        FullTipset {
+            blocks: vec![block],
+            key: OnceCell::new(),
+        }
+    }
+}
+
 impl PartialEq for FullTipset {
     fn eq(&self, other: &Self) -> bool {
         self.blocks.eq(&other.blocks)
