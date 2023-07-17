@@ -209,6 +209,11 @@ impl Blockstore for ParityDb {
 
 impl BitswapStoreRead for ParityDb {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        // We need to check both columns because we don't know which one
+        // the data is in. The order is important because most data will
+        // be in the [`DbColumn::GraphDagCborBlake2b256`] column and so
+        // it directly affects performance. If this assumption ever changes
+        // then this code should be modified accordingly.
         for column in [DbColumn::GraphDagCborBlake2b256, DbColumn::GraphFull] {
             if self
                 .db
