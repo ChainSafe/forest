@@ -5,7 +5,6 @@ mod empty_map;
 mod walk;
 use std::ops::SubAssign;
 
-use fvm_ipld_encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
@@ -160,8 +159,6 @@ pub enum Selector {
     // },
 }
 
-impl Cbor for Selector {}
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum RecursionLimit {
     #[serde(rename = "none", with = "empty_map")]
@@ -209,55 +206,6 @@ pub enum Condition {
 
 #[cfg(test)]
 impl Selector {
-    /// Returns a vector of all sectors of interest, `None` variant is
-    /// synonymous with all.
-    pub fn interests(&self) -> Option<Vec<String>> {
-        match self {
-            ExploreAll { .. } => None,
-            ExploreFields { fields } => Some(fields.keys().cloned().collect()),
-            ExploreIndex { index, .. } => Some(vec![index.to_string()]),
-            ExploreRange { start, end, .. } => {
-                if end < start {
-                    return None;
-                }
-                let mut inter = Vec::with_capacity(end - start);
-                for i in *start..*end {
-                    inter.push(i.to_string());
-                }
-                Some(inter)
-            }
-            ExploreRecursive {
-                current, sequence, ..
-            } => {
-                if let Some(selector) = current {
-                    selector.interests()
-                } else {
-                    sequence.interests()
-                }
-            }
-            ExploreRecursiveEdge => {
-                // Should never be called on this variant
-                Some(vec![])
-            }
-            ExploreUnion(selectors) => {
-                let mut segs = Vec::new();
-                for m in selectors {
-                    if let Some(i) = m.interests() {
-                        segs.extend_from_slice(&i);
-                    } else {
-                        // if any member has all interests, union will as well
-                        return None;
-                    }
-                }
-                Some(segs)
-            }
-            Matcher => {
-                // Intentionally an empty vector
-                Some(vec![])
-            }
-        }
-    }
-
     /// Processes and returns resultant selector node
     pub fn explore(self, ipld: &Ipld, p: &str) -> Option<Selector> {
         match self {
@@ -354,31 +302,6 @@ impl Selector {
             ExploreRecursiveEdge => None,
             // Matcher is terminal selector
             Matcher => None,
-        }
-    }
-
-    /// Returns true if `matcher`, false otherwise
-    pub fn decide(&self) -> bool {
-        match self {
-            Matcher => true,
-            ExploreUnion(selectors) => {
-                for s in selectors {
-                    if s.decide() {
-                        return true;
-                    }
-                }
-                false
-            }
-            ExploreRecursive {
-                current, sequence, ..
-            } => {
-                if let Some(curr) = current {
-                    curr.decide()
-                } else {
-                    sequence.decide()
-                }
-            }
-            _ => false,
         }
     }
 

@@ -8,7 +8,7 @@ use crate::shim::{crypto::Signature, message::Message};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
-use fvm_ipld_encoding::{to_vec, Cbor};
+use fvm_ipld_encoding::to_vec;
 use hex::encode;
 use serde::Deserialize;
 use std::str::FromStr as _;

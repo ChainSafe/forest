@@ -5,13 +5,15 @@ use std::fmt;
 
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::cid::CidCborExt;
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
-use fvm_ipld_encoding::Cbor;
-use log::info;
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
 
@@ -42,7 +44,7 @@ impl TipsetKeys {
         for cid in self.cids() {
             bytes.append(&mut cid.to_bytes())
         }
-        Ok(RawBytes::new(bytes).cid()?)
+        Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
 }
 
@@ -57,8 +59,6 @@ impl fmt::Display for TipsetKeys {
         write!(f, "[{}]", s)
     }
 }
-
-impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
@@ -102,7 +102,6 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -111,13 +110,12 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
-    use crate::blocks::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-            let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-            Self { cids }
+            Self {
+                cids: Vec::arbitrary(g),
+            }
         }
     }
 
@@ -170,6 +168,43 @@ impl Tipset {
             key: OnceCell::new(),
         })
     }
+
+    /// Loads a tipset from memory given the tipset keys.
+    pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
+        Ok(tsk
+            .cids()
+            .iter()
+            .map(|c| store.get_cbor(c))
+            .collect::<anyhow::Result<Option<_>>>()?
+            .map(Tipset::new)
+            .transpose()?)
+    }
+
+    /// Constructs and returns a full tipset if messages from storage exists
+    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
+        // Find tipset messages. If any are missing, return `None`.
+        let blocks = self
+            .blocks()
+            .iter()
+            .cloned()
+            .map(|header| {
+                let (bls_messages, secp_messages) =
+                    crate::chain::store::block_messages(&store, &header).ok()?;
+                Some(Block {
+                    header,
+                    bls_messages,
+                    secp_messages,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+
+        // the given tipset has already been verified, so this cannot fail
+        Some(
+            FullTipset::new(blocks)
+                .expect("block headers have already been verified so this check cannot fail"),
+        )
+    }
+
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch()
@@ -247,6 +282,15 @@ impl Tipset {
         }
         broken
     }
+    /// Returns an iterator of all tipsets
+    pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
+        itertools::unfold(Some(self), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
+                child
+            })
+        })
+    }
 }
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
@@ -255,6 +299,16 @@ impl Tipset {
 pub struct FullTipset {
     blocks: Vec<Block>,
     key: OnceCell<TipsetKeys>,
+}
+
+// Constructing a FullTipset from a single Block is infallible.
+impl From<Block> for FullTipset {
+    fn from(block: Block) -> Self {
+        FullTipset {
+            blocks: vec![block],
+            key: OnceCell::new(),
+        }
+    }
 }
 
 impl PartialEq for FullTipset {

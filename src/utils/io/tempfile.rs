@@ -3,7 +3,7 @@
 
 use std::{fs, path::PathBuf};
 
-use log::warn;
+use tracing::warn;
 
 /// Wrapper of temporary file that deletes file on drop
 #[derive(Debug, Clone)]

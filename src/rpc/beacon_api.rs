@@ -9,13 +9,12 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
-pub(in crate::rpc) async fn beacon_get_entry<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn beacon_get_entry<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<BeaconGetEntryParams>,
 ) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (first,) = params;
     let (_, beacon) = data.beacon.beacon_for_epoch(first)?;

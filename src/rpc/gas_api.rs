@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::beacon::Beacon;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use crate::json::{address::json::AddressJson, message::json::MessageJson};
@@ -22,28 +21,26 @@ use rand_distr::{Distribution, Normal};
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
-pub(in crate::rpc) async fn gas_estimate_fee_cap<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn gas_estimate_fee_cap<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<GasEstimateFeeCapParams>,
 ) -> Result<GasEstimateFeeCapResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
-    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
+    estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
 
-fn estimate_fee_cap<DB, B>(
-    data: &Data<RPCState<DB, B>>,
+fn estimate_fee_cap<DB>(
+    data: &Data<RPCState<DB>>,
     msg: Message,
     max_queue_blks: i64,
     _tsk: TipsetKeys,
 ) -> Result<TokenAmount, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
@@ -60,27 +57,25 @@ where
 }
 
 /// Estimate the fee cap
-pub(in crate::rpc) async fn gas_estimate_gas_premium<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn gas_estimate_gas_premium<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<GasEstimateGasPremiumParams>,
 ) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
-    estimate_gas_premium::<DB, B>(&data, nblocksincl)
+    estimate_gas_premium::<DB>(&data, nblocksincl)
         .await
         .map(|n| TokenAmount::to_string(&n))
 }
 
-async fn estimate_gas_premium<DB, B>(
-    data: &Data<RPCState<DB, B>>,
+async fn estimate_gas_premium<DB>(
+    data: &Data<RPCState<DB>>,
     mut nblocksincl: u64,
 ) -> Result<TokenAmount, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     if nblocksincl == 0 {
         nblocksincl = 1;
@@ -161,26 +156,24 @@ where
 }
 
 /// Estimate the gas limit
-pub(in crate::rpc) async fn gas_estimate_gas_limit<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<GasEstimateGasLimitParams>,
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
-    estimate_gas_limit::<DB, B>(&data, msg, tsk).await
+    estimate_gas_limit::<DB>(&data, msg, tsk).await
 }
 
-async fn estimate_gas_limit<DB, B>(
-    data: &Data<RPCState<DB, B>>,
+async fn estimate_gas_limit<DB>(
+    data: &Data<RPCState<DB>>,
     msg: Message,
     _: TipsetKeys,
 ) -> Result<i64, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let mut msg = msg;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
@@ -217,33 +210,31 @@ where
 }
 
 /// Estimates the gas parameters for a given message
-pub(in crate::rpc) async fn gas_estimate_message_gas<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<GasEstimateMessageGasParams>,
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
-    estimate_message_gas::<DB, B>(&data, msg, spec, tsk)
+    estimate_message_gas::<DB>(&data, msg, spec, tsk)
         .await
         .map(MessageJson::from)
 }
 
-pub(in crate::rpc) async fn estimate_message_gas<DB, B>(
-    data: &Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn estimate_message_gas<DB>(
+    data: &Data<RPCState<DB>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: TipsetKeys,
 ) -> Result<Message, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {
-        let gl = estimate_gas_limit::<DB, B>(data, msg.clone(), tsk.clone()).await?;
+        let gl = estimate_gas_limit::<DB>(data, msg.clone(), tsk.clone()).await?;
         msg.set_gas_limit(gl as u64);
     }
     if msg.gas_premium.is_zero() {

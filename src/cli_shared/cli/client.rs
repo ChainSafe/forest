@@ -14,6 +14,24 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct ChunkSize(pub u32);
+impl Default for ChunkSize {
+    fn default() -> Self {
+        ChunkSize(500_000)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct BufferSize(pub u32);
+impl Default for BufferSize {
+    fn default() -> Self {
+        BufferSize(1)
+    }
+}
+
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
@@ -31,6 +49,12 @@ pub struct Client {
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
     pub skip_load: bool,
+    /// When importing CAR files, chunk key-value pairs before committing them
+    /// to the database.
+    pub chunk_size: ChunkSize,
+    /// When importing CAR files, maintain a read-ahead buffer measured in
+    /// number of chunks.
+    pub buffer_size: BufferSize,
     pub encrypt_keystore: bool,
     /// Metrics bind, e.g. 127.0.0.1:6116
     pub metrics_address: SocketAddr,
@@ -56,11 +80,31 @@ impl Default for Client {
             snapshot_height: None,
             snapshot_head: None,
             skip_load: false,
+            chunk_size: ChunkSize::default(),
+            buffer_size: BufferSize::default(),
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{BufferSize, ChunkSize};
+    use quickcheck::Arbitrary;
+
+    impl Arbitrary for ChunkSize {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            ChunkSize(u32::arbitrary(g))
+        }
+    }
+
+    impl Arbitrary for BufferSize {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            BufferSize(u32::arbitrary(g))
         }
     }
 }

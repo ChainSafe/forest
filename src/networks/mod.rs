@@ -1,13 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr};
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use crate::shim::sector::{RegisteredPoStProof, RegisteredSealProof};
+use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
-use crate::shim::Inner;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
@@ -214,14 +213,14 @@ impl ChainConfig {
 
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            <RegisteredSealProof as Inner>::FVM::StackedDRG2KiBV1,
-            <RegisteredSealProof as Inner>::FVM::StackedDRG8MiBV1,
+            RegisteredSealProofV3::StackedDRG2KiBV1,
+            RegisteredSealProofV3::StackedDRG8MiBV1,
         ]);
         policy.valid_pre_commit_proof_type = allowed_proof_types;
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow2KiBV1,
-            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow8MiBV1,
+            RegisteredPoStProofV3::StackedDRGWindow2KiBV1,
+            RegisteredPoStProofV3::StackedDRGWindow8MiBV1,
         ]);
         policy.valid_post_proof_type = allowed_proof_types;
 
@@ -261,28 +260,21 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub fn get_beacon_schedule(
-        &self,
-        genesis_ts: u64,
-    ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule<DrandBeacon> {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
         };
 
-        let mut points = BeaconSchedule::with_capacity(ds_iter.len());
-        for dc in ds_iter {
-            points.0.push(BeaconPoint {
-                height: dc.height,
-                beacon: Arc::new(DrandBeacon::new(
-                    genesis_ts,
-                    self.block_delay_secs,
-                    dc.config,
-                )?),
-            });
-        }
-        Ok(points)
+        BeaconSchedule(
+            ds_iter
+                .map(|dc| BeaconPoint {
+                    height: dc.height,
+                    beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config),
+                })
+                .collect(),
+        )
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {

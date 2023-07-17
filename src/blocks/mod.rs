@@ -19,19 +19,6 @@ pub use ticket::Ticket;
 pub use tipset::*;
 
 #[cfg(test)]
-#[derive(Clone)]
-struct ArbitraryCid(cid::Cid);
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ArbitraryCid {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        ArbitraryCid(cid::Cid::new_v1(
-            u64::arbitrary(g),
-            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-        ))
-    }
-}
-#[cfg(test)]
 mod tests {
     mod header_json_test;
     mod serialization_vectors;
