@@ -43,7 +43,7 @@ jobs:
       - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.8.0
         with:
-          args: --verbose --timeout 60 --exclude twitter.com --no-progress 'README.md'
+          args: --verbose --no-progress --timeout 60 --max-retries 6 --retry-wait-time 10 --exclude twitter.com 'README.md'
           # Fail action on broken links
           fail: true
       - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
@@ -62,7 +62,7 @@ jobs:
         uses: lycheeverse/lychee-action@v1.8.0
         with:
           # Check all docs
-          args: --verbose --no-progress './target/doc/*/index.html'
+          args: --verbose --no-progress --timeout 60 --max-retries 6 --retry-wait-time 10 './target/doc/*/index.html'
           # Fail action on broken links
           fail: true
       - name: Prepare rustdoc for publishing
