@@ -57,14 +57,14 @@ pub enum SnapshotCommands {
     Validate {
         /// Number of recent epochs to scan for broken links
         #[arg(long, default_value_t = 2000)]
-        check_links: i64,
+        check_links: u32,
         /// Assert the snapshot belongs to this network. If left blank, the
         /// network will be inferred before executing messages.
         #[arg(long)]
         check_network: Option<crate::networks::NetworkChain>,
         /// Number of recent epochs to scan for bad messages/transactions
         #[arg(long, default_value_t = 60)]
-        check_stateroots: i64,
+        check_stateroots: u32,
         /// Path to a snapshot CAR, which may be zstd compressed
         snapshot: PathBuf,
     },
@@ -267,9 +267,9 @@ impl SnapshotCommands {
 async fn validate_with_blockstore<BlockstoreT>(
     roots: Vec<Cid>,
     store: Arc<BlockstoreT>,
-    check_links: i64,
+    check_links: u32,
     check_network: Option<NetworkChain>,
-    check_stateroots: i64,
+    check_stateroots: u32,
 ) -> Result<()>
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
@@ -309,11 +309,11 @@ where
 // required to sync to the network and snapshot files usually disgard data after
 // 2000 epochs. Validity can be verified by ensuring there are no bad IPLD or
 // broken links in the N most recent epochs.
-async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: i64) -> Result<()>
+async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> Result<()>
 where
     DB: Blockstore + Send + Sync,
 {
-    let epoch_limit = ts.epoch() - epochs;
+    let epoch_limit = ts.epoch() - epochs as i64;
     let mut seen = CidHashSet::default();
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
@@ -390,7 +390,7 @@ async fn validate_stateroots<DB>(
     ts: Tipset,
     db: &DB,
     network: NetworkChain,
-    epochs: i64,
+    epochs: u32,
 ) -> Result<()>
 where
     DB: Blockstore + Send + Sync + Clone + 'static,
@@ -412,7 +412,7 @@ where
         ),
     );
 
-    let last_epoch = ts.epoch() - epochs;
+    let last_epoch = ts.epoch() - epochs as i64;
 
     // Set proof parameter data dir
     if cns::FETCH_PARAMS {
