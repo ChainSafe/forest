@@ -123,10 +123,7 @@ where
     DB: Blockstore + Send + Sync,
 {
     pub fn new(
-        context: ExecutionContext<DB>,
-        multi_engine: &MultiEngine,
-    ) -> Result<Self, anyhow::Error> {
-        let ExecutionContext {
+        ExecutionContext {
             heaviest_tipset,
             state_tree_root,
             epoch,
@@ -137,7 +134,9 @@ where
             chain_config,
             chain_store,
             timestamp,
-        } = context;
+        }: ExecutionContext<DB>,
+        multi_engine: &MultiEngine,
+    ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
