@@ -114,6 +114,10 @@ mod tests {
                 .unwrap();
             car
         }
+
+        fn into_stream(self) -> impl Stream<Item = BlockPair> {
+            futures::stream::iter(self.0.into_iter().map(|b| (b.cid, b.data)))
+        }
     }
 
     impl Arbitrary for Blocks {
@@ -183,13 +187,18 @@ mod tests {
     }
 
     fn dedup_block_stream_wrapper(a: Blocks, b: Blocks) -> anyhow::Result<HashSet<Cid>> {
-        let stream = futures::stream::iter([a, b]).flat_map(|blocks| {
-            futures::stream::iter(blocks.0.into_iter().map(|b| (b.cid, b.data)))
-        });
+        let blocks: Vec<Cid> = futures::executor::block_on_stream(dedup_block_stream(
+            a.into_stream().chain(b.into_stream()),
+        ))
+        .map(|(cid, _)| cid)
+        .collect();
+        let len = blocks.len();
+        let set = HashSet::from_iter(blocks);
 
-        Ok(futures::executor::block_on_stream(stream)
-            .map(|(cid, _)| cid)
-            .collect())
+        // Ensure `dedup_block_stream` works properly
+        assert_eq!(len, set.len());
+
+        Ok(set)
     }
 
     #[quickcheck]
