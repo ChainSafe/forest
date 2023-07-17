@@ -201,12 +201,7 @@ mod tests {
 
     #[quickcheck]
     fn car_dedup_block_stream_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        let cid_union = HashSet::from_iter(
-            [a.0.as_slice(), b.0.as_slice()]
-                .concat()
-                .iter()
-                .map(|b| b.cid),
-        );
+        let cid_union = HashSet::from_iter(HashSet::from(&a).union(HashSet::from(&b)))
 
         block_on(async move {
             let car_a = a.into_car_bytes().await;
