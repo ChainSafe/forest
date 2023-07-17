@@ -18,8 +18,8 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
 use flume::Sender;
+use futures::stream::StreamExt;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
-use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{

@@ -2547,7 +2547,6 @@ dependencies = [
  "flume",
  "fs_extra",
  "futures",
- "futures-util",
  "fvm 2.5.0",
  "fvm 3.5.0",
  "fvm_ipld_amt",
