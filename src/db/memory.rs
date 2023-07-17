@@ -9,7 +9,6 @@ use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
-use std::ops::Deref;
 
 use super::SettingsStore;
 
@@ -18,14 +17,6 @@ type MemoryDbInner = Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>;
 /// A thread-safe `HashMap` wrapper, acting as a memory-backed blockstore.
 #[derive(Debug, Default, Clone)]
 pub struct MemoryDB(MemoryDbInner);
-
-impl Deref for MemoryDB {
-    type Target = MemoryDbInner;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl SettingsStore for MemoryDB {
     fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
