@@ -45,7 +45,7 @@ where
                 if height == &info.height {
                     assert!(
                         info.bundle.is_some(),
-                        "Actor bundle info for height {height} needs to be defined in `networks/src/lib.rs` to run state migration"
+                        "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"
                     );
                     break;
                 }
@@ -72,3 +72,6 @@ where
 
     Ok(None)
 }
+
+#[cfg(test)]
+mod tests;
