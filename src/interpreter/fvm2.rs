@@ -61,6 +61,15 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
         }
     }
 
+    fn get_lookback_tipset_for_round(&self, height: ChainEpoch) -> anyhow::Result<Cid> {
+        let (_, st) = self.chain_store.get_lookback_tipset_for_round(
+            Arc::clone(&self.chain_config),
+            Arc::clone(&self.heaviest_tipset),
+            height,
+        )?;
+        Ok(st)
+    }
+
     fn worker_key_at_lookback(
         &self,
         miner_addr: &Address,
@@ -74,14 +83,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
             );
         }
 
-        let prev_root = {
-            let (_, st) = self.chain_store.get_lookback_tipset_for_round(
-                Arc::clone(&self.chain_config),
-                Arc::clone(&self.heaviest_tipset),
-                height,
-            )?;
-            st
-        };
+        let prev_root = self.get_lookback_tipset_for_round(height)?;
         let lb_state = StateTree::new_from_root(&self.chain_store.db, &prev_root)?;
 
         let actor = lb_state
