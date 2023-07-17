@@ -432,8 +432,10 @@ pub(super) async fn start(
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => state_manager.validate((current_height + validate_from)..=current_height)?,
-            false => state_manager.validate(validate_from..=current_height)?,
+            true => {
+                state_manager.validate_range((current_height + validate_from)..=current_height)?
+            }
+            false => state_manager.validate_range(validate_from..=current_height)?,
         }
     }
 
@@ -506,14 +508,12 @@ async fn fetch_snapshot_if_required(
                 crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
                     .await
                     .context("couldn't get snapshot size")?;
-            let num_bytes = byte_unit::Byte::from(num_bytes)
-                .get_appropriate_unit(true)
-                .format(2);
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
             let message = format!(
-                "Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). "
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
             );
             let have_permission = asyncify(|| {
                 dialoguer::Confirm::with_theme(&ColorfulTheme::default())

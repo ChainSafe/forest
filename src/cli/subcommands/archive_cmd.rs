@@ -24,12 +24,10 @@
 //! running Forest-daemon or a separate database. Operations are carried out
 //! directly on CAR files.
 //!
-//! Additional reading:
-//!     <https://github.com/ChainSafe/forest/blob/main/documentation/src/developer_documentation/filecoin_archive.md>
-//!     [`CarBackedBlockstore`]
+//! Additional reading: [`crate::car_backed_blockstore`]
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::car_backed_blockstore::CarBackedBlockstore;
+use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::cli_shared::snapshot;
 use crate::cli_shared::snapshot::TrustedVendor;
@@ -137,7 +135,7 @@ async fn do_export(
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
-        CarBackedBlockstore::new(reader)
+        UncompressedCarV1BackedBlockstore::new(reader)
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
     );
 
@@ -223,7 +221,7 @@ impl ArchiveInfo {
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
-        let store = CarBackedBlockstore::new(reader)
+        let store = UncompressedCarV1BackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
 
         let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
