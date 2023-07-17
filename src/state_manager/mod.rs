@@ -13,9 +13,9 @@ pub use utils::is_valid_for_sending;
 mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
-use crate::interpreter::{resolve_to_key_addr, BlockMessages, VM};
+use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -24,7 +24,6 @@ use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
-    externs::Rand,
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
@@ -37,13 +36,11 @@ use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
-use once_cell::unsync::Lazy;
 use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
@@ -199,18 +196,19 @@ pub struct StateManager<DB> {
 
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache,
-    genesis_info: GenesisInfo,
+    // Beacon can be cheaply crated from the `chain_config`. The only reason we
+    // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
 
 #[allow(clippy::type_complexity)]
-const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
@@ -222,7 +220,6 @@ where
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
-            genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
             engine: crate::shim::machine::MultiEngine::default(),
@@ -230,7 +227,7 @@ where
     }
 
     pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
-        self.beacon.clone()
+        Arc::clone(&self.beacon)
     }
 
     /// Returns network version for the given epoch.
@@ -238,8 +235,8 @@ where
         self.chain_config.network_version(epoch)
     }
 
-    pub fn chain_config(&self) -> &Arc<ChainConfig> {
-        &self.chain_config
+    pub fn chain_config(&self) -> Arc<ChainConfig> {
+        Arc::clone(&self.chain_config)
     }
 
     /// Gets actor from given [`Cid`], if it exists.
@@ -251,6 +248,10 @@ where
     /// Returns a reference to the state manager's [`Blockstore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
+    }
+
+    pub fn blockstore_owned(&self) -> Arc<DB> {
+        Arc::clone(&self.cs.db)
     }
 
     /// Returns reference to the state manager's [`ChainStore`].
@@ -340,90 +341,6 @@ where
         Ok(None)
     }
 
-    /// Performs the state transition for the tipset and applies all unique
-    /// messages in all blocks. This function returns the state root and
-    /// receipt root of the transition.
-    #[allow(clippy::too_many_arguments)]
-    pub fn apply_blocks<R, CB>(
-        self: &Arc<Self>,
-        parent_epoch: ChainEpoch,
-        p_state: &Cid,
-        messages: &[BlockMessages],
-        epoch: ChainEpoch,
-        rand: R,
-        base_fee: TokenAmount,
-        mut callback: Option<CB>,
-        tipset: Arc<Tipset>,
-    ) -> Result<CidPair, anyhow::Error>
-    where
-        R: Rand + Clone + 'static,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
-    {
-        let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
-
-        let db = self.blockstore().clone();
-
-        let create_vm = |state_root, epoch, timestamp| {
-            VM::new(
-                state_root,
-                self.blockstore().clone(),
-                epoch,
-                rand.clone(),
-                base_fee.clone(),
-                self.genesis_info
-                    .get_circulating_supply(epoch, &db, &state_root)?,
-                chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
-                chain_epoch_tsk(Arc::clone(self), Arc::clone(&tipset)),
-                &self.engine,
-                Arc::clone(self.chain_config()),
-                timestamp,
-            )
-        };
-
-        let mut parent_state = *p_state;
-        let genesis_timestamp = Lazy::new(|| {
-            self.chain_store()
-                .genesis()
-                .expect("could not find genesis block!")
-                .timestamp()
-        });
-
-        for epoch_i in parent_epoch..epoch {
-            if epoch_i > parent_epoch {
-                let timestamp = *genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
-                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
-                // run cron for null rounds if any
-                if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                    error!("Beginning of epoch cron failed to run: {}", e);
-                }
-
-                parent_state = vm.flush()?;
-            }
-
-            if let Some(new_state) = run_state_migrations(
-                epoch_i,
-                self.chain_config(),
-                self.blockstore(),
-                &parent_state,
-            )? {
-                parent_state = new_state;
-            }
-        }
-
-        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
-
-        // Apply tipset messages
-        let receipts = vm.apply_block_messages(messages, epoch, callback)?;
-
-        // Construct receipt root from receipts
-        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
-
-        // Flush changes to blockstore
-        let state_root = vm.flush()?;
-
-        Ok((state_root, receipt_root))
-    }
-
     /// Returns the pair of (parent state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
@@ -432,25 +349,11 @@ where
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
-                let cid_pair = if tipset.epoch() == 0 {
-                    // NB: This is here because the process that executes blocks requires that the
-                    // block miner reference a valid miner in the state tree. Unless we create some
-                    // magical genesis miner, this won't work properly, so we short circuit here
-                    // This avoids the question of 'who gets paid the genesis block reward'
-                    let message_receipts = tipset.blocks().first().ok_or_else(|| {
-                        Error::Other("Could not get message receipts".to_string())
-                    })?;
-
-                    (*tipset.parent_state(), *message_receipts.message_receipts())
-                } else {
-                    let ts_state = self
-                        .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
-                        .await?;
-                    debug!("Completed tipset state calculation {:?}", tipset.cids());
-                    ts_state
-                };
-
-                Ok(cid_pair)
+                let ts_state = self
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
+                    .await?;
+                debug!("Completed tipset state calculation {:?}", tipset.cids());
+                Ok(ts_state)
             })
             .await
     }
@@ -464,20 +367,24 @@ where
     ) -> StateCallResult {
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
-        let store = self.blockstore().clone();
+        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
-            *bstate,
-            store,
-            bheight,
-            rand,
-            TokenAmount::zero(),
-            self.genesis_info
-                .get_circulating_supply(bheight, self.blockstore(), bstate)?,
-            chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-            chain_epoch_tsk(Arc::clone(self), Arc::clone(tipset)),
+            ExecutionContext {
+                heaviest_tipset: Arc::clone(tipset),
+                state_tree_root: *bstate,
+                epoch: bheight,
+                rand: Box::new(rand),
+                base_fee: TokenAmount::zero(),
+                circ_supply: genesis_info.get_circulating_supply(
+                    bheight,
+                    &self.blockstore_owned(),
+                    bstate,
+                )?,
+                chain_config: self.chain_config(),
+                chain_store: Arc::clone(self.chain_store()),
+                timestamp: tipset.min_timestamp(),
+            },
             &self.engine,
-            Arc::clone(self.chain_config()),
-            tipset.min_timestamp(),
         )?;
 
         if msg.gas_limit == 0 {
@@ -514,7 +421,7 @@ where
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
-        let chain_rand = self.chain_rand(ts.key().to_owned());
+        let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)
     }
 
@@ -531,25 +438,29 @@ where
             .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = self.chain_rand(ts.key().to_owned());
+        let chain_rand = self.chain_rand(Arc::clone(&ts));
 
-        let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
+        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
         let mut vm = VM::new(
-            st,
-            store,
-            epoch,
-            chain_rand,
-            ts.blocks()[0].parent_base_fee().clone(),
-            self.genesis_info
-                .get_circulating_supply(epoch, self.blockstore(), &st)?,
-            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
-            chain_epoch_tsk(Arc::clone(self), Arc::clone(&ts)),
+            ExecutionContext {
+                heaviest_tipset: Arc::clone(&ts),
+                state_tree_root: st,
+                epoch,
+                rand: Box::new(chain_rand),
+                base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                circ_supply: genesis_info.get_circulating_supply(
+                    epoch,
+                    &self.blockstore_owned(),
+                    &st,
+                )?,
+                chain_config: self.chain_config(),
+                chain_store: Arc::clone(self.chain_store()),
+                timestamp: ts.min_timestamp(),
+            },
             &self.engine,
-            Arc::clone(self.chain_config()),
-            ts.min_timestamp(),
         )?;
 
         for msg in prior_messages {
@@ -614,65 +525,6 @@ where
         Ok((out_mes, out_ret))
     }
 
-    /// Gets look-back tipset for block validations.
-    ///
-    /// The look-back tipset for a round is the tipset with epoch `round -
-    /// chain_finality`. Chain finality is usually 900. The given is a
-    /// reference point in the blockchain such that the look-back tipset can
-    /// be found by tracing the `parent` pointers.
-    pub fn get_lookback_tipset_for_round(
-        self: &Arc<Self>,
-        tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<(Arc<Tipset>, Cid), Error> {
-        let version = self.get_network_version(round);
-        let lb = if version <= NetworkVersion::V3 {
-            ChainEpoch::from(10)
-        } else {
-            self.chain_config.policy.chain_finality
-        };
-        let lbr = (round - lb).max(0);
-
-        // More null blocks than lookback
-        if lbr >= tipset.epoch() {
-            let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-            let (state, _) = self.compute_tipset_state_blocking(tipset.clone(), no_func)?;
-            return Ok((tipset, state));
-        }
-
-        let next_ts = self
-            .cs
-            .tipset_by_height(lbr + 1, tipset.clone(), false)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        if lbr > next_ts.epoch() {
-            return Err(Error::Other(format!(
-                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
-                tipset.key(),
-                tipset.epoch(),
-                next_ts.key(),
-                next_ts.epoch()
-            )));
-        }
-        let lbts = self
-            .cs
-            .tipset_from_keys(next_ts.parents())
-            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
-        Ok((lbts, *next_ts.parent_state()))
-    }
-
-    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may **not** be null.
-    pub fn get_epoch_tsk(
-        self: &Arc<Self>,
-        tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<TipsetKeys, Error> {
-        let ts = self
-            .cs
-            .tipset_by_height(round, tipset, true)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        Ok(ts.key().clone())
-    }
-
     /// Checks the eligibility of the miner. This is used in the validation that
     /// a block's miner has the requirements to mine a block.
     pub fn eligible_to_mine(
@@ -726,8 +578,27 @@ where
         Ok(true)
     }
 
-    /// Performs a state transition, and returns the state and receipt root of
-    /// the transition.
+    /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.
+    /// Each _block_ contains _messages_, which are executed by the _Filecoin Virtual Machine_.
+    ///
+    /// VM message execution essentially looks like this:
+    /// ```text
+    /// state[N-900..N] * message = state[N+1]
+    /// ```
+    ///
+    /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
+    /// a [`Cid`] - the _state root_.
+    /// The previous 900 states (configurable, see
+    /// <https://docs.filecoin.io/reference/general/glossary/#finality>) can be
+    /// queried when executing a message, so a store needs at least that many.
+    /// (a snapshot typically contains 2000, for example).
+    ///
+    /// Each message costs FIL to execute - this is _gas_.
+    /// After execution, the message has a _receipt_, showing how much gas was spent.
+    /// This is similarly a [`Cid`] into the block store.
+    ///
+    /// For details, see the documentation for [`apply_block_messages`].
+    ///
     #[instrument(skip(self, tipset, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
@@ -737,33 +608,12 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        let sm = Arc::clone(self);
-        tokio::task::spawn_blocking(move || sm.compute_tipset_state_blocking(tipset, callback))
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || this.compute_tipset_state_blocking(tipset, callback))
             .await?
     }
 
-    /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.
-    /// Each _block_ contains _messages_, which are executed by the _Filecoin Virtual Machine_
-    /// in a _transaction_.
-    ///
-    /// VM transaction execution essentially looks like this:
-    /// ```text
-    /// state[N-1800..N] * transaction = state[N+1]
-    /// ```
-    ///
-    /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
-    /// a [`Cid`] - the _state root_.
-    /// The previous 1800 states can be queried in a transaction, so a store needs at least that many.
-    /// (a snapshot typically contains 2000, for example).
-    ///
-    /// Each transaction costs FIL to execute - this is _gas_.
-    /// After execution, the transaction has a _receipt_, showing how much gas was spent.
-    /// This is similarly a [`Cid`] into the block store.
-    ///
-    /// Each [`Tipset`] knows its previous state, so computing tipset state consists of:
-    /// - fetching the previous state, and its 1799 ancestors.
-    /// - executing a transaction using all messages in the tipset.
-    /// - returning the _new state root_ and the _receipt root_ of the transaction.
+    /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking<CB: 'static>(
         self: &Arc<Self>,
@@ -773,73 +623,13 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        // special case for genesis block
-        if tipset.epoch() == 0 {
-            // NB: This is here because the process that executes blocks requires that the
-            // block miner reference a valid miner in the state tree. Unless we create some
-            // magical genesis miner, this won't work properly, so we short circuit here
-            // This avoids the question of 'who gets paid the genesis block reward'
-            let message_receipts = tipset
-                .blocks()
-                .first()
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-
-            return Ok((*tipset.parent_state(), *message_receipts.message_receipts()));
-        }
-
-        let block_headers = tipset.blocks();
-        let first_block = block_headers
-            .first()
-            .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
-
-        let check_for_duplicates = |s: &BlockHeader| {
-            block_headers
-                .iter()
-                .filter(|val| val.miner_address() == s.miner_address())
-                .take(2)
-                .count()
-        };
-        if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
-            // Duplicate Miner found
-            return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
-        }
-
-        let parent_epoch = if first_block.epoch() > 0 {
-            let parent_cid = first_block
-                .parents()
-                .cids()
-                .get(0)
-                .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
-            let parent: BlockHeader = self
-                .blockstore()
-                .get_cbor(parent_cid)?
-                .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
-            parent.epoch()
-        } else {
-            Default::default()
-        };
-
-        let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-        let chain_rand = self.chain_rand(tipset_keys);
-        let base_fee = first_block.parent_base_fee().clone();
-
-        let blocks = self
-            .chain_store()
-            .block_msgs_for_tipset(&tipset)
-            .map_err(|e| Error::Other(e.to_string()))?;
-
-        let sm = Arc::clone(self);
-        let sr = *first_block.state_root();
-        let epoch = first_block.epoch();
-        Ok(sm.apply_blocks(
-            parent_epoch,
-            &sr,
-            &blocks,
-            epoch,
-            chain_rand,
-            base_fee,
-            callback,
+        Ok(apply_block_messages(
+            Arc::clone(self.chain_store()),
+            Arc::clone(&self.chain_config),
+            self.beacon_schedule(),
+            &self.engine,
             tipset,
+            callback,
         )?)
     }
 
@@ -1309,37 +1099,193 @@ where
             })
     }
 
-    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
+    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config.clone(),
-            blocks,
+            tipset,
             self.cs.clone(),
             self.beacon.clone(),
         )
     }
 }
 
-fn chain_epoch_root<DB>(
-    sm: Arc<StateManager<DB>>,
+/// Messages are transactions that produce new states. The state (usually
+/// referred to as the 'state-tree') is a mapping from actor addresses to actor
+/// states. Each block contains the hash of the state-tree that should be used
+/// as the starting state when executing the block messages.
+///
+/// # Execution environment
+///
+/// Transaction execution has the following inputs:
+/// - a current state-tree (stored as IPLD in a key-value database). This
+///   reference is in [`Tipset::parent_state`].
+/// - up to 900 past state-trees. See
+///   <https://docs.filecoin.io/reference/general/glossary/#finality>.
+/// - up to 900 past tipset IDs.
+/// - a deterministic source of randomness.
+/// - the circulating supply of FIL (see
+///   <https://filecoin.io/blog/filecoin-circulating-supply/>). The circulating
+///   supply is determined by the epoch and the states of a few key actors.
+/// - the base fee (see <https://spec.filecoin.io/systems/filecoin_vm/gas_fee/>).
+///   This value is defined by `tipset.parent_base_fee`.
+/// - the genesis timestamp (UNIX epoch time when the first block was
+///   mined/created).
+/// - a chain configuration (maps epoch to network version, has chain specific
+///   settings).
+///
+/// The result of running a set of block messages is an index to the final
+/// state-tree and an index to an array of message receipts (listing gas used,
+/// return codes, etc).
+///
+/// # Cron and null tipsets
+///
+/// Once per epoch, after all messages have run, a special 'cron' transaction
+/// must be executed. The tasks of the 'cron' transaction include running batch
+/// jobs and keeping the state up-to-date with the current epoch.
+///
+/// It can happen that no blocks are mined in an epoch. The tipset for such an
+/// epoch is called a null tipset. A null tipset has no identity and cannot be
+/// directly executed. This is a problem for 'cron' which must run for every
+/// epoch, even if there are no messages. The fix is to run 'cron' if there are
+/// any null tipsets between the current epoch and the parent epoch.
+///
+/// Imagine the blockchain looks like this with a null tipset at epoch 9:
+///
+/// ```text
+/// ┌────────┐ ┌────┐ ┌───────┐  ┌───────┐
+/// │Epoch 10│ │Null│ │Epoch 8├──►Epoch 7├─►
+/// └───┬────┘ └────┘ └───▲───┘  └───────┘
+///     └─────────────────┘
+/// ```
+///
+/// The parent of tipset-epoch-10 is tipset-epoch-8. Before executing the
+/// messages in epoch 10, we have to run cron for epoch 9. However, running
+/// 'cron' requires the timestamp of the youngest block in the tipset (which
+/// doesn't exist because there are no blocks in the tipset). Lotus dictates that
+/// the timestamp of a null tipset is `30s * epoch` after the genesis timestamp.
+/// So, in the above example, if the genesis block was mined at time `X`, the
+/// null tipset for epoch 9 will have timestamp `X + 30 * 9`.
+///
+/// # Migrations
+///
+/// Migrations happen between network upgrades and modify the state tree. If a
+/// migration is scheduled for epoch 10, it will be run _after_ the messages for
+/// epoch 10. The tipset for epoch 11 will link the state-tree produced by the
+/// migration.
+///
+/// Example timeline with a migration at epoch 10:
+///   1. Tipset-epoch-10 executes, producing state-tree A.
+///   2. Migration consumes state-tree A and produces state-tree B.
+///   3. Tipset-epoch-11 executes, consuming state-tree B (rather than A).
+///
+/// Note: The migration actually happens when tipset-epoch-11 executes. This is
+///       because tipset-epoch-10 may be null and therefore not executed at all.
+///
+/// # Caching
+///
+/// Scanning the blockchain to find past tipsets and state-trees may be slow.
+/// The `ChainStore` caches recent tipsets to make these scans faster.
+pub fn apply_block_messages<DB, CB>(
+    chain_store: Arc<ChainStore<DB>>,
+    chain_config: Arc<ChainConfig>,
+    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
+    mut callback: Option<CB>,
+) -> Result<CidPair, anyhow::Error>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
+    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
-    Box::new(move |round| {
-        let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;
-        Ok(st)
-    })
-}
+    // This function will:
+    // 1. handle the genesis block as a special case
+    // 2. run 'cron' for any null-tipsets between the current tipset and our parent tipset
+    // 3. run migrations
+    // 4. execute block messages
+    // 5. write the state-tree to the DB and return the CID
 
-// Create a boxed closure for getting the keys of a tipset at a given epoch. The indirection is due
-// to the way we interface with the FVM. Most likely, this could be written a lot better.
-fn chain_epoch_tsk<DB>(
-    sm: Arc<StateManager<DB>>,
-    tipset: Arc<Tipset>,
-) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<TipsetKeys>>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    Box::new(move |round| Ok(sm.get_epoch_tsk(tipset.clone(), round)?))
+    // step 1: special case for genesis block
+    if tipset.epoch() == 0 {
+        // NB: This is here because the process that executes blocks requires that the
+        // block miner reference a valid miner in the state tree. Unless we create some
+        // magical genesis miner, this won't work properly, so we short circuit here
+        // This avoids the question of 'who gets paid the genesis block reward'
+        let message_receipts = tipset.min_ticket_block().message_receipts();
+        return Ok((*tipset.parent_state(), *message_receipts));
+    }
+
+    let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
+
+    let genesis_timestamp = chain_store
+        .genesis()
+        .map_err(anyhow::Error::from)?
+        .timestamp();
+
+    let rand = ChainRand::new(
+        Arc::clone(&chain_config),
+        Arc::clone(&tipset),
+        Arc::clone(&chain_store),
+        beacon,
+    );
+
+    let genesis_info = GenesisInfo::from_chain_config(&chain_config);
+    let create_vm = |state_root: Cid, epoch, timestamp| {
+        let circulating_supply =
+            genesis_info.get_circulating_supply(epoch, &chain_store.db, &state_root)?;
+        VM::new(
+            ExecutionContext {
+                heaviest_tipset: Arc::clone(&tipset),
+                state_tree_root: state_root,
+                epoch,
+                rand: Box::new(rand.clone()),
+                base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
+                circ_supply: circulating_supply,
+                chain_config: Arc::clone(&chain_config),
+                chain_store: Arc::clone(&chain_store),
+                timestamp,
+            },
+            engine,
+        )
+    };
+
+    let mut parent_state = *tipset.parent_state();
+
+    let parent_epoch = Tipset::load_required(&chain_store.db, tipset.parents())?.epoch();
+    let epoch = tipset.epoch();
+
+    for epoch_i in parent_epoch..epoch {
+        if epoch_i > parent_epoch {
+            // step 2: running cron for any null-tipsets
+            let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+            let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
+            // run cron for null rounds if any
+            if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
+                error!("Beginning of epoch cron failed to run: {}", e);
+            }
+
+            parent_state = vm.flush()?;
+        }
+
+        // step 3: run migrations
+        if let Some(new_state) =
+            run_state_migrations(epoch_i, &chain_config, &chain_store.db, &parent_state)?
+        {
+            parent_state = new_state;
+        }
+    }
+
+    let block_messages = chain_store
+        .block_msgs_for_tipset(&tipset)
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+    let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
+
+    // step 4: apply tipset messages
+    let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
+
+    // step 5: construct receipt root from receipts and flush the state-tree
+    let receipt_root = Amt::new_from_iter(&chain_store.db, receipts)?;
+    let state_root = vm.flush()?;
+
+    Ok((state_root, receipt_root))
 }
