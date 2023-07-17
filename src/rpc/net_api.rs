@@ -3,7 +3,6 @@
 
 use std::str::FromStr;
 
-use crate::beacon::Beacon;
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc_api::{
     data_types::{AddrInfo, RPCState},
@@ -15,11 +14,8 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use tracing::error;
 
-pub(in crate::rpc) async fn net_addrs_listen<
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn net_addrs_listen<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
 ) -> Result<NetAddrsListenResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
@@ -35,8 +31,8 @@ pub(in crate::rpc) async fn net_addrs_listen<
     })
 }
 
-pub(in crate::rpc) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
 ) -> Result<NetPeersResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
@@ -57,11 +53,8 @@ pub(in crate::rpc) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'st
     Ok(connections)
 }
 
-pub(in crate::rpc) async fn net_connect<
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn net_connect<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<NetConnectParams>,
 ) -> Result<NetConnectResult, JsonRpcError> {
     let (AddrInfo { id, addrs },) = params;
@@ -84,11 +77,8 @@ pub(in crate::rpc) async fn net_connect<
     }
 }
 
-pub(in crate::rpc) async fn net_disconnect<
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn net_disconnect<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<NetDisconnectParams>,
 ) -> Result<NetDisconnectResult, JsonRpcError> {
     let (id,) = params;

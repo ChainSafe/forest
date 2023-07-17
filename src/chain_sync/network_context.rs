@@ -20,7 +20,6 @@ use crate::libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
-use crate::shim::clock::ChainEpoch;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -178,7 +177,6 @@ where
     /// `Bitswap` if it doesn't exist in the `BlockStore`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
-        epoch: ChainEpoch,
         content: Cid,
     ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
@@ -191,7 +189,6 @@ where
 
         self.network_send
             .send_async(NetworkMessage::BitswapRequest {
-                epoch,
                 cid: content,
                 response_channel: tx,
             })
