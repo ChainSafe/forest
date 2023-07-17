@@ -432,6 +432,7 @@ where
     }
 
     // FIXME: This function doesn't use the chain store at all.
+    //        Tracking issue: https://github.com/ChainSafe/forest/issues/3208
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.
