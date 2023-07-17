@@ -591,7 +591,7 @@ where
         Ok(digest)
     }
 
-    /// Get the [`TipsetKeys`] for a given epoch. The [`TipsetKeys`] may **not** be null.
+    /// Get the [`TipsetKeys`] for a given epoch. The returned key will never be null.
     pub fn get_epoch_tsk(
         &self,
         tipset: Arc<Tipset>,
