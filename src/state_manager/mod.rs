@@ -15,7 +15,7 @@ pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
-use crate::interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
+use crate::interpreter::{resolve_to_key_addr, BlockMessages, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -203,7 +203,6 @@ pub struct StateManager<DB> {
     beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
-    reward_calc: Arc<dyn RewardCalc>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -216,7 +215,6 @@ where
     pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
-        reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?;
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
@@ -228,7 +226,6 @@ where
             beacon,
             chain_config,
             engine: crate::shim::machine::MultiEngine::default(),
-            reward_calc,
         })
     }
 
@@ -375,7 +372,6 @@ where
                 base_fee.clone(),
                 self.genesis_info
                     .get_circulating_supply(epoch, &db, &state_root)?,
-                self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(&tipset)),
                 chain_epoch_tsk(Arc::clone(self), Arc::clone(&tipset)),
                 &self.engine,
@@ -477,7 +473,6 @@ where
             TokenAmount::zero(),
             self.genesis_info
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
-            self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
             chain_epoch_tsk(Arc::clone(self), Arc::clone(tipset)),
             &self.engine,
@@ -550,7 +545,6 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
-            self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             chain_epoch_tsk(Arc::clone(self), Arc::clone(&ts)),
             &self.engine,
