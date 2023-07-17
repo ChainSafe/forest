@@ -61,7 +61,7 @@ mod tests {
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::SyncStage;
-    use crate::db::{MemoryDB, Store};
+    use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
@@ -131,7 +131,7 @@ mod tests {
 
             for i in tsk {
                 let bz2 = bz.clone();
-                db.write(i.to_bytes(), bz2).unwrap();
+                db.put_keyed(&i, &bz2).unwrap();
             }
 
             let provider =

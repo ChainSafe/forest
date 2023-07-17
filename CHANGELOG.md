@@ -27,6 +27,9 @@
 
 ### Breaking
 
+- [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
+  organisation to use multiple columns. The database will need to be recreated.
+
 ### Added
 
 - [#3167](https://github.com/ChainSafe/forest/pull/3167): Added a new option
