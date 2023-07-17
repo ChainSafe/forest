@@ -1158,7 +1158,7 @@ where
 ///
 /// Imagine the blockchain looks like this with a null tipset at epoch 9:
 ///
-/// ```
+/// ```text
 /// ┌────────┐ ┌────┐ ┌───────┐  ┌───────┐
 /// │Epoch 10│ │Null│ │Epoch 8├──►Epoch 7├─►
 /// └───┬────┘ └────┘ └───▲───┘  └───────┘
