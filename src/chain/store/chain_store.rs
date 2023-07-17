@@ -631,7 +631,7 @@ where
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
             let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
-            let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp)?);
+            let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let (state, _) = crate::state_manager::apply_block_messages(
                 Arc::clone(self),
                 Arc::clone(&chain_config),
