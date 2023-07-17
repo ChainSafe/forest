@@ -34,7 +34,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use lru::LruCache;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{
@@ -665,8 +664,6 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 }
-
-pub(in crate::chain) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
 /// of type `SignedMessage`

@@ -12,7 +12,7 @@ use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use tracing::info;
 
-use crate::chain::{Error, TipsetCache};
+use crate::chain::{Error};
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
@@ -100,12 +100,14 @@ pub mod checkpoint_tipsets {
 /// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
 /// doing `lookbacks`.
 #[derive(Clone, PartialEq, Debug)]
-pub(in crate::chain) struct LookbackEntry {
+struct LookbackEntry {
     tipset: Arc<Tipset>,
     parent_height: ChainEpoch,
     target_height: ChainEpoch,
     target: TipsetKeys,
 }
+
+type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
