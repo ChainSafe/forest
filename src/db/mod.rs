@@ -1,44 +1,53 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod errors;
 mod memory;
 mod metrics;
 pub mod parity_db;
 pub mod parity_db_config;
-pub use errors::Error;
 pub use memory::MemoryDB;
 
 pub mod rolling;
 
-/// Store interface used as a KV store implementation
-pub trait Store {
-    /// Read single value from data store and return `None` if key doesn't
-    /// exist.
-    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
+/// Interface used to store and retrieve settings from the database.
+/// To store IPLD blocks, use the `BlockStore` trait.
+pub trait SettingsStore {
+    /// Reads binary field from the Settings store. This should be used for
+    /// non-serializable data. For serializable data, use [`SettingsStore::read_obj`].
+    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
     where
-        K: AsRef<[u8]>;
+        K: AsRef<str>;
 
-    /// Write a single value to the data store.
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    /// Writes binary field to the Settings store. This should be used for
+    /// non-serializable data. For serializable data, use [`SettingsStore::write_obj`].
+    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
     where
-        K: AsRef<[u8]>,
+        K: AsRef<str>,
         V: AsRef<[u8]>;
 
-    /// Returns `Ok(true)` if key exists in store
-    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    fn read_obj<K, T>(&self, key: K) -> anyhow::Result<Option<T>>
     where
-        K: AsRef<[u8]>;
-
-    /// Write slice of KV pairs.
-    fn bulk_write(
-        &self,
-        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
-    ) -> Result<(), Error> {
-        values
-            .into_iter()
-            .try_for_each(|(key, value)| self.write(key.into(), value.into()))
+        K: AsRef<str>,
+        T: serde::de::DeserializeOwned,
+    {
+        match self.read_bin(key)? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
     }
+
+    fn write_obj<K, T>(&self, key: K, value: &T) -> anyhow::Result<()>
+    where
+        K: AsRef<str>,
+        T: serde::Serialize,
+    {
+        self.write_bin(key, serde_json::to_vec(value)?)
+    }
+
+    /// Returns `Ok(true)` if key exists in store
+    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
+    where
+        K: AsRef<str>;
 }
 
 /// Traits for collecting DB stats
@@ -55,7 +64,6 @@ pub mod db_engine {
 
     pub type Db = crate::db::parity_db::ParityDb;
     pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
-    pub(in crate::db) type DbError = parity_db::Error;
     const DIR_NAME: &str = "paritydb";
 
     pub fn db_root(chain_data_root: &Path) -> PathBuf {

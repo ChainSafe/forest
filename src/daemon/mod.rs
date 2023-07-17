@@ -247,18 +247,8 @@ pub(super) async fn start(
 
     let publisher = chain_store.publisher();
 
-    // Reward calculation is needed by the VM to calculate state, which can happen
-    // essentially anywhere the `StateManager` is called. It is consensus
-    // specific, but threading it through the type system would be a nightmare,
-    // which is why dynamic dispatch is used.
-    let reward_calc = cns::reward_calc();
-
     // Initialize StateManager
-    let sm = StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&config.chain),
-        reward_calc,
-    )?;
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))?;
 
     let state_manager = Arc::new(sm);
 
@@ -778,11 +768,7 @@ mod test {
             &genesis_header,
             chain_data_root.path(),
         )?);
-        let sm = Arc::new(StateManager::new(
-            cs,
-            chain_config,
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
             &sm,
             file_path,
@@ -810,11 +796,7 @@ mod test {
             &genesis_header,
             chain_data_root.path(),
         )?);
-        let sm = Arc::new(StateManager::new(
-            cs,
-            chain_config,
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
             &sm,
             "test-snapshots/chain4.car",
