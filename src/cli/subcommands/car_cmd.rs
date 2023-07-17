@@ -124,6 +124,11 @@ mod tests {
         fn into_stream(self) -> impl Stream<Item = BlockPair> {
             futures::stream::iter(self.0.into_iter().map(|b| (b.cid, b.data)))
         }
+
+        /// Implicit clone is performed inside to simplify caller code
+        fn to_stream(&self) -> impl Stream<Item = BlockPair> {
+            self.clone().into_stream()
+        }
     }
 
     impl Arbitrary for Blocks {
@@ -169,7 +174,7 @@ mod tests {
     #[quickcheck]
     fn dedup_block_stream_tests_a_a(a: Blocks) {
         // ∀A. A∪A = A
-        let union = dedup_block_stream_wrapper(a.clone(), a.clone());
+        let union = dedup_block_stream_wrapper(&a, &a);
         let union_a = HashSet::from(&a);
         assert_eq!(union, union_a);
     }
@@ -178,19 +183,19 @@ mod tests {
     fn dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) {
         let union_a = HashSet::from(&a);
         let union_b = HashSet::from(&b);
-        let union1 = dedup_block_stream_wrapper(a.clone(), b.clone());
-        let union2 = dedup_block_stream_wrapper(b, a);
+        let union_a_b = dedup_block_stream_wrapper(&a, &b);
+        let union_b_a = dedup_block_stream_wrapper(&b, &a);
         // ∀AB. A∪B = B∪A
-        assert_eq!(union1, union2);
+        assert_eq!(union_a_b, union_b_a);
         // ∀AB. A⊆(A∪B)
-        union1.is_superset(&union_a);
+        union_a_b.is_superset(&union_a);
         // ∀AB. B⊆(A∪B)
-        union1.is_superset(&union_b);
+        union_a_b.is_superset(&union_b);
     }
 
-    fn dedup_block_stream_wrapper(a: Blocks, b: Blocks) -> HashSet<Cid> {
+    fn dedup_block_stream_wrapper(a: &Blocks, b: &Blocks) -> HashSet<Cid> {
         let blocks: Vec<Cid> = futures::executor::block_on_stream(dedup_block_stream(
-            a.into_stream().chain(b.into_stream()),
+            a.to_stream().chain(b.to_stream()),
         ))
         .map(|(cid, _)| cid)
         .collect();
