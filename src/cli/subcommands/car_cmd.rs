@@ -93,7 +93,7 @@ mod tests {
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
-    use futures::executor::block_on_stream;
+    use futures::executor::{block_on, block_on_stream};
     use fvm_ipld_car::Block;
     use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
@@ -153,8 +153,7 @@ mod tests {
 
     #[quickcheck]
     fn blocks_roundtrip(blocks: Blocks) -> anyhow::Result<()> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async move {
+        block_on(async move {
             let car = blocks.into_car_bytes().await;
             let mut reader = CarReader::new(car.as_slice()).await?;
             let mut blocks2 = vec![];
@@ -167,9 +166,7 @@ mod tests {
             assert_eq!(car, car2);
 
             Ok::<_, anyhow::Error>(())
-        })?;
-
-        Ok(())
+        })
     }
 
     #[quickcheck]
@@ -218,8 +215,7 @@ mod tests {
             cid_union.len(),
         );
 
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async move {
+        block_on(async move {
             let car_a = a.into_car_bytes().await;
             let car_b = b.into_car_bytes().await;
             let mut deduped = pin!(dedup_block_stream(merge_car_readers(vec![
