@@ -9,6 +9,7 @@ use clap::Subcommand;
 use futures::{AsyncRead, Stream, StreamExt, TryStreamExt};
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
+use itertools::Itertools;
 
 use crate::ipld::CidHashSet;
 
@@ -37,20 +38,14 @@ impl CarCommands {
                     .try_collect()
                     .await?;
 
-                let roots = {
-                    let mut roots = vec![];
-                    let mut seen = CidHashSet::default();
-                    for reader in &readers {
-                        for &root in &reader.header.roots {
-                            if seen.insert(root) {
-                                roots.push(root);
-                            }
-                        }
-                    }
-                    roots
-                };
+                let all_roots = readers
+                    .iter()
+                    .flat_map(|it| it.header.roots.iter())
+                    .unique()
+                    .cloned()
+                    .collect::<Vec<_>>();
 
-                let car_writer = CarHeader::from(roots);
+                let car_writer = CarHeader::from(all_roots);
                 let mut output_file =
                     futures::io::BufWriter::new(async_fs::File::create(output).await?);
 
