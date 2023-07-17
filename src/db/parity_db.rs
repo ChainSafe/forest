@@ -192,11 +192,7 @@ impl Blockstore for ParityDb {
     {
         let values = blocks.into_iter().map(|(k, v)| {
             let column = Self::choose_column(&k);
-            match column {
-                DbColumn::GraphDagCborBlake2b256 | DbColumn::Settings | DbColumn::GraphFull => {
-                    (column, k.to_bytes(), v.as_ref().to_vec())
-                }
-            }
+            (column, k.to_bytes(), v.as_ref().to_vec())
         });
         let tx = values
             .into_iter()
