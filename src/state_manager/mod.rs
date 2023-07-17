@@ -605,6 +605,12 @@ where
     /// - fetching the previous state, and its 899 ancestors.
     /// - executing a transaction using all messages in the tipset.
     /// - returning the _new state root_ and the _receipt root_ of the transaction.
+    ///
+    /// # Why 900 previous messages?
+    ///
+    /// That is the "chain finality" for calibnet and mainnet. See
+    /// <https://docs.filecoin.io/reference/general/glossary/#finality>
+    ///
     #[instrument(skip(self, tipset, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
