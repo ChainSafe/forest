@@ -157,7 +157,21 @@ mod tests {
     }
 
     #[quickcheck]
-    fn car_dedup_block_stream_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
+    fn car_dedup_block_stream_tests_a_a(a: Blocks) -> anyhow::Result<()> {
+        car_dedup_block_stream_tests_inner(a.clone(), a)
+    }
+
+    #[quickcheck]
+    fn car_dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) -> anyhow::Result<()> {
+        car_dedup_block_stream_tests_inner(a, b)
+    }
+
+    #[quickcheck]
+    fn car_dedup_block_stream_tests_b_a(a: Blocks, b: Blocks) -> anyhow::Result<()> {
+        car_dedup_block_stream_tests_inner(b, a)
+    }
+
+    fn car_dedup_block_stream_tests_inner(a: Blocks, b: Blocks) -> anyhow::Result<()> {
         let cid_union: HashSet<Cid> = [a.0.as_slice(), b.0.as_slice()]
             .concat()
             .iter()
