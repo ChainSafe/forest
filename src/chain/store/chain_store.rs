@@ -637,6 +637,10 @@ where
                 Arc::clone(&chain_config),
                 beacon,
                 Arc::new(crate::interpreter::RewardActorMessageCalc),
+                // Creating new WASM engines is expensive (takes seconds to
+                // minutes). It's only acceptable here about this situation is
+                // so rare (may happens in dev-networks, doesn't happen in
+                // calibnet or mainnet.)
                 &crate::shim::machine::MultiEngine::default(),
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
