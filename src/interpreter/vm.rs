@@ -367,15 +367,12 @@ where
         let exit_code = ret.msg_receipt().exit_code();
 
         if !exit_code.is_success() {
-            match exit_code.value() {
-                1..=ExitCode::FIRST_USER_EXIT_CODE => {
-                    tracing::debug!(
-                        "Internal message execution failure. Exit code was {}",
-                        exit_code
-                    )
-                }
-                // Warning removed, as message execution failure in this case is likely an internal error in `builtin-actors` and unlikely to be a problem with Forest rather than a badly written transaction.
-                _ => {}
+            // Warning on other `ExitCode` values removed, as message execution failure in that case is likely an internal error in `builtin-actors` and unlikely to be a problem with Forest rather than a badly written transaction.
+            if let 1..=ExitCode::FIRST_USER_EXIT_CODE = exit_code.value() {
+                tracing::debug!(
+                    "Internal message execution failure. Exit code was {}",
+                    exit_code
+                )
             };
         }
 
