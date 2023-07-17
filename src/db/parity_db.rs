@@ -44,20 +44,17 @@ impl DbColumn {
         DbColumn::iter()
             .map(|col| {
                 match col {
-                    DbColumn::GraphDagCborBlake2b256 => parity_db::ColumnOptions {
-                        preimage: true,
-                        compression,
-                        ..Default::default()
-                    },
+                    DbColumn::GraphDagCborBlake2b256 | DbColumn::Settings => {
+                        parity_db::ColumnOptions {
+                            preimage: true,
+                            compression,
+                            ..Default::default()
+                        }
+                    }
                     DbColumn::GraphFull => parity_db::ColumnOptions {
                         preimage: true,
                         // This is needed for key retrieval.
                         btree_index: true,
-                        compression,
-                        ..Default::default()
-                    },
-                    DbColumn::Settings => parity_db::ColumnOptions {
-                        preimage: true,
                         compression,
                         ..Default::default()
                     },
