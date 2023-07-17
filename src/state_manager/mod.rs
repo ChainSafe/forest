@@ -217,7 +217,7 @@ where
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?;
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp())?);
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
 
         Ok(Self {
             cs,
@@ -1244,9 +1244,7 @@ where
     /// This function is blocking, but we do observe threads waiting and synchronizing.
     /// This is suspected to be due something in the VM or its `WASM` runtime.
     #[tracing::instrument(skip(self))]
-    pub fn validate(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
-        use rayon::iter::ParallelIterator as _;
-
+    pub fn validate_range(self: &Arc<Self>, epochs: RangeInclusive<i64>) -> anyhow::Result<()> {
         let heaviest = self.cs.heaviest_tipset();
         let heaviest_epoch = heaviest.epoch();
         let end = self
@@ -1263,10 +1261,18 @@ where
             // if this has parents, unfold them in the next iteration
             *tipset = self.cs.tipset_from_keys(child.parents()).ok();
             Some(child)
-        });
+        })
+        .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
+        self.validate_tipsets(tipsets)
+    }
+
+    pub fn validate_tipsets<T>(self: &Arc<Self>, tipsets: T) -> anyhow::Result<()>
+    where
+        T: Iterator<Item = Arc<Tipset>> + Send,
+    {
+        use rayon::iter::ParallelIterator as _;
         tipsets
-            .take_while(|tipset| tipset.epoch() >= *epochs.start())
             .tuple_windows()
             .par_bridge()
             .try_for_each(|(child, parent)| {

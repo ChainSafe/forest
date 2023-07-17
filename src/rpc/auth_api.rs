@@ -2,19 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
-use crate::beacon::Beacon;
 use crate::rpc_api::{auth_api::*, data_types::RPCState};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// RPC call to create a new JWT Token
-pub(in crate::rpc) async fn auth_new<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn auth_new<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<AuthNewParams>,
 ) -> Result<AuthNewResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let auth_params: AuthNewParams = params;
     let ks = data.keystore.read().await;
@@ -24,13 +22,12 @@ where
 }
 
 /// RPC call to verify JWT Token and return the token's permissions
-pub(in crate::rpc) async fn auth_verify<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn auth_verify<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<AuthVerifyParams>,
 ) -> Result<AuthVerifyResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let ks = data.keystore.read().await;
     let (header_raw,) = params;

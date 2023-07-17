@@ -433,8 +433,6 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
     use crate::shim::{address::Address, version::NetworkVersion};
     use fvm_ipld_encoding::{from_slice, to_vec};
@@ -467,10 +465,10 @@ mod tests {
             .beacon_entries(Vec::new())
             .build()
             .unwrap();
-        let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
+        let beacon_schedule = BeaconSchedule(vec![BeaconPoint {
             height: 0,
-            beacon: Arc::new(MockBeacon::default()),
-        }]));
+            beacon: MockBeacon::default(),
+        }]);
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand

@@ -630,7 +630,7 @@ where
             Err(e) if e.kind() == UnexpectedEof && v.is_empty() => None,
             Err(e)
                 if e.kind() == UnexpectedEof
-                    && u64::try_from(v.len()).unwrap() == self.max_frame_size =>
+                    && u64::try_from(v.len()).unwrap() >= self.max_frame_size =>
             {
                 Some(Err(io::Error::new(Other, MaxFrameSizeExceeded)))
             }

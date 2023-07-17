@@ -356,7 +356,13 @@ pub(super) async fn start(
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            start_rpc::<_, _, cns::FullConsensus>(
+            let beacon = Arc::new(
+                rpc_state_manager
+                    .chain_config()
+                    .get_beacon_schedule(chain_store.genesis()?.timestamp())
+                    .into_dyn(),
+            );
+            start_rpc(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -367,7 +373,7 @@ pub(super) async fn start(
                     network_name,
                     start_time,
                     // TODO: the RPCState can fetch this itself from the StateManager
-                    beacon: rpc_state_manager.beacon_schedule(),
+                    beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                     gc_event_tx,
@@ -422,8 +428,10 @@ pub(super) async fn start(
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => state_manager.validate((current_height + validate_from)..=current_height)?,
-            false => state_manager.validate(validate_from..=current_height)?,
+            true => {
+                state_manager.validate_range((current_height + validate_from)..=current_height)?
+            }
+            false => state_manager.validate_range(validate_from..=current_height)?,
         }
     }
 
