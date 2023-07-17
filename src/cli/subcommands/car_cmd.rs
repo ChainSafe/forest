@@ -93,6 +93,7 @@ mod tests {
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
+    use futures::executor::block_on_stream;
     use fvm_ipld_car::Block;
     use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
@@ -174,9 +175,7 @@ mod tests {
     #[quickcheck]
     fn dedup_block_stream_tests_a_a(a: Blocks) {
         // ∀A. A∪A = A
-        let union = dedup_block_stream_wrapper(&a, &a);
-        let union_a = HashSet::from(&a);
-        assert_eq!(union, union_a);
+        assert_eq!(dedup_block_stream_wrapper(&a, &a), HashSet::from(&a));
     }
 
     #[quickcheck]
@@ -194,11 +193,10 @@ mod tests {
     }
 
     fn dedup_block_stream_wrapper(a: &Blocks, b: &Blocks) -> HashSet<Cid> {
-        let blocks: Vec<Cid> = futures::executor::block_on_stream(dedup_block_stream(
-            a.to_stream().chain(b.to_stream()),
-        ))
-        .map(|(cid, _)| cid)
-        .collect();
+        let blocks: Vec<Cid> =
+            block_on_stream(dedup_block_stream(a.to_stream().chain(b.to_stream())))
+                .map(|(cid, _)| cid)
+                .collect();
 
         // Ensure `dedup_block_stream` works properly
         assert!(blocks.iter().all_unique());
