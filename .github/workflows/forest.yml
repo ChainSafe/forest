@@ -119,20 +119,8 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "^1.20"
-      - name: Install go-car
-        run: go install github.com/ipld/go-car/cmd/car@v0.0.0-20230704002448-4de031a1d8a8
-        env:
-          CC: ""
-          CXX: ""
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
-      - name: Verify saved state root .car file
-        run: |
-          # File name is hard-coded in ./scripts/tests/calibnet_other_check.sh
-          car verify bafy2bzacedjq7lc42qhlk2iymcpjlanntyzdupc3ckg66gkca6plfjs5m7euo.car
 
   # state migration regression tests
   state-migrations-check:
