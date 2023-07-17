@@ -90,7 +90,7 @@ where
             .export::<_, Sha256>(
                 &start_ts,
                 recent_roots,
-                VoidAsyncWriter::default(),
+                VoidAsyncWriter,
                 true, // `compressed` is always on
                 skip_checksum,
             )
