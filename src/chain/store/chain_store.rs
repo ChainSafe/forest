@@ -159,7 +159,7 @@ where
 
         let cs = Self {
             publisher,
-            chain_index: ChainIndex::new(ts_cache.clone(), Arc::clone(&db)),
+            chain_index: ChainIndex::new(ts_cache, Arc::clone(&db)),
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
             file_backed_genesis,
