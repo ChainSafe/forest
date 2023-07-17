@@ -55,10 +55,9 @@
 use ahash::AHashMap;
 use bytes::{buf::Writer, BufMut as _, BytesMut};
 use cid::Cid;
-use futures::{stream, StreamExt as _, TryStream, TryStreamExt as _};
+use futures::{stream, Stream, StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use indexmap::IndexMap;
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
@@ -80,6 +79,9 @@ use tokio_util_06::codec::{FramedRead as FramedRead06, FramedWrite as FramedWrit
 use tracing::{debug, trace};
 
 use crate::utils::{try_collate, Collate};
+
+// TODO(aatifsyed): do we even need an indexmap if we're not benchmarking this?
+type AIndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
 
 /// **Note that all operations on this store are blocking**.
 ///
@@ -122,7 +124,7 @@ where
         // now create the index
         let index =
             iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
-                .collect::<Result<IndexMap<_, _, _>, _>>()?;
+                .collect::<Result<AIndexMap<_, _>, _>>()?;
 
         match index.len() {
             0 => Err(io::Error::new(
@@ -158,14 +160,14 @@ where
 struct UncompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: AHashMap<Cid, Vec<u8>>,
-    index: IndexMap<Cid, UncompressedBlockDataLocation, ahash::RandomState>,
+    index: AIndexMap<Cid, UncompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
 /// you should get data that corresponds to a [`Cid`] (but NOT the [`Cid`] itself).
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct UncompressedBlockDataLocation {
+pub struct UncompressedBlockDataLocation {
     offset: u64,
     length: u32,
 }
@@ -279,7 +281,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
                         },
                     )
                 })
-                .collect::<Result<IndexMap<_, _, _>, _>>()?;
+                .collect::<Result<AIndexMap<_, _>, _>>()?;
 
         for maybe_frame in zstd_frames {
             let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
@@ -318,6 +320,26 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
         }
     }
 
+    /// `index` must correspond to the `reader`. [`Blockstore`] API calls may panic if this is not upheld
+    ///
+    ///  See also [`Self::new`]
+    // TODO(aatifsyed): do we want to check that `reader` contains e.g the `roots`? That `index` is non-empty?
+    pub fn new_with_trusted_index(
+        reader: ReaderT,
+        index: AIndexMap<Cid, CompressedBlockDataLocation>,
+        roots: Vec<Cid>,
+    ) -> Self {
+        Self {
+            inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
+                reader,
+                write_cache: AHashMap::new(),
+                most_recent_zstd_frame: None,
+                index,
+                roots,
+            }),
+        }
+    }
+
     pub fn roots(&self) -> Vec<Cid> {
         self.inner.lock().roots.clone()
     }
@@ -334,14 +356,14 @@ struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     write_cache: AHashMap<Cid, Vec<u8>>,
     // zstd frame offset, zstd frame contents
     most_recent_zstd_frame: Option<(u64, std::io::Cursor<Vec<u8>>)>,
-    index: IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>,
+    index: AIndexMap<Cid, CompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct CompressedBlockDataLocation {
-    zstd_frame_offset: u64,
-    location_in_frame: UncompressedBlockDataLocation,
+pub struct CompressedBlockDataLocation {
+    pub zstd_frame_offset: u64,
+    pub location_in_frame: UncompressedBlockDataLocation,
 }
 
 impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
@@ -421,7 +443,7 @@ where
 /// - If the write cache already contains different data with this CID
 fn handle_write_cache(
     write_cache: &mut AHashMap<Cid, Vec<u8>>,
-    index: &mut IndexMap<Cid, impl Any, impl BuildHasher>,
+    index: &mut indexmap::IndexMap<Cid, impl Any, impl BuildHasher>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
@@ -737,7 +759,7 @@ pub async fn write_car(
     roots: Vec<Cid>,
     // TODO(aatifsyed): can we be smarter about the serialization here?
     // TODO(aatifsyed): should this accept (Cid, Ipld)?
-    blocks: impl TryStream<Ok = (Cid, Vec<u8>), Error = io::Error>,
+    blocks: impl Stream<Item = io::Result<(Cid, Vec<u8>)>>,
     // TODO(aatifsyed): document that this should be uncompressed for manyframe formats
     writer: impl AsyncWrite,
 ) -> io::Result<()> {
@@ -766,7 +788,7 @@ pub async fn write_car(
             zstd_compression_level,
             index_writer,
         } => {
-            let index = v1_manyframe_index(
+            let index = write_manyframe_and_create_index(
                 roots,
                 blocks,
                 zstd_frame_size_tripwire,
@@ -786,16 +808,16 @@ pub async fn write_car(
     }
 }
 
-async fn v1_manyframe_index(
+async fn write_manyframe_and_create_index(
     roots: Vec<Cid>,
-    blocks: impl TryStream<Ok = (Cid, Vec<u8>), Error = io::Error>,
+    blocks: impl Stream<Item = io::Result<(Cid, Vec<u8>)>>,
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
     writer: impl AsyncWrite,
-) -> io::Result<indexmap::IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>> {
+) -> io::Result<AIndexMap<Cid, CompressedBlockDataLocation>> {
     let header = v1_header(roots);
     let mut zstd_frame_offset = u64::try_from(header.len()).unwrap();
-    let mut index = indexmap::IndexMap::default();
+    let mut index = AIndexMap::default();
     let zstd_frames = try_collate(
         blocks.map_ok(|(cid, ipld)| encode_concat_cid_and_ipld(cid, ipld)),
         varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
@@ -851,8 +873,8 @@ fn encode_concat_cid_and_ipld(cid: Cid, ipld: Vec<u8>) -> BytesMut {
 mod tests {
 
     use super::{
-        v1_manyframe_index, zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
-        CompressedCarV1BackedBlockstoreInner, UncompressedCarV1BackedBlockstore, ZstdFrames,
+        write_manyframe_and_create_index, zstd_compress_varint_manyframe, AIndexMap,
+        CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore, ZstdFrames,
     };
 
     use cid::Cid;
@@ -862,38 +884,25 @@ mod tests {
     };
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
-    use indexmap::IndexMap;
-    use parking_lot::Mutex;
     use tap::Tap as _;
 
     #[test]
-    fn test_write_indexed_oob() {
-        let sample_data = {
-            let bs =
-                UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(chain4_car())).unwrap();
-            bs.cids()
-                .into_iter()
-                .map(|cid| (cid, bs.get(&cid).unwrap().unwrap()))
-                .collect::<IndexMap<_, _, ahash::RandomState>>()
-        };
+    fn written_index_can_be_used_as_a_blockstore_index() {
+        let (sample_roots, sample_data) = chain4_roots_and_contents();
         let mut many_frame_zstd = std::io::Cursor::new(vec![]);
-        let index = block_on(v1_manyframe_index(
-            vec![Cid::default()],
+        let index = block_on(write_manyframe_and_create_index(
+            sample_roots.clone(),
             stream::iter(sample_data.clone()).map(Ok),
             8_000_usize.next_power_of_two(),
             3,
             &mut many_frame_zstd,
         ))
         .unwrap();
-        let blockstore = CompressedCarV1BackedBlockstore {
-            inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
-                reader: many_frame_zstd,
-                write_cache: ahash::AHashMap::new(),
-                most_recent_zstd_frame: None,
-                index,
-                roots: vec![Cid::default()],
-            }),
-        };
+        let blockstore = CompressedCarV1BackedBlockstore::new_with_trusted_index(
+            many_frame_zstd,
+            index,
+            sample_roots,
+        );
         for cid in blockstore.cids() {
             let expected = sample_data.get(&cid).unwrap();
             let actual = blockstore.get(&cid).unwrap().unwrap();
@@ -946,6 +955,18 @@ mod tests {
             }
             blockstore
         })
+    }
+
+    fn chain4_roots_and_contents() -> (Vec<Cid>, AIndexMap<Cid, Vec<u8>>) {
+        let bs =
+            UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(chain4_car())).unwrap();
+        (
+            bs.roots(),
+            bs.cids()
+                .into_iter()
+                .map(|cid| (cid, bs.get(&cid).unwrap().unwrap()))
+                .collect(),
+        )
     }
 
     fn chain4_car() -> &'static [u8] {
