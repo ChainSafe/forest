@@ -39,10 +39,19 @@ async fn test_state_migration(
     });
     let height_info = &chain_config.height_infos[height as usize];
 
-    println!("before load car");
-    let mem: crate::db::MemoryDB = crate::db::MemoryDB::default();
-    fvm_ipld_car::load_car(&mem, get_actors_bundle(&Default::default(), height).await?).await?;
-    println!("after load car");
+    fvm_ipld_car::load_car(
+        &store,
+        get_actors_bundle(
+            &{
+                let mut config = crate::Config::default();
+                config.chain = chain_config.clone();
+                config
+            },
+            height,
+        )
+        .await?,
+    )
+    .await?;
 
     let new_state = run_state_migrations(height_info.epoch, &chain_config, &store, &old_state)?;
 
