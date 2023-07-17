@@ -14,6 +14,8 @@ use tracing::info;
 
 use crate::chain::{Error, TipsetCache};
 
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
+
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
 
 /// Configuration which sets the length of tipsets to skip in between each
@@ -112,14 +114,15 @@ pub(in crate::chain) struct ChainIndex<DB> {
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
-    ts_cache: Arc<TipsetCache>,
+    ts_cache: TipsetCache,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: Arc<DB>,
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub(in crate::chain) fn new(ts_cache: Arc<TipsetCache>, db: Arc<DB>) -> Self {
+    pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
+        let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self {
             skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
