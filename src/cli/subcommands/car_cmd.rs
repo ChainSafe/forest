@@ -180,16 +180,14 @@ mod tests {
 
     #[quickcheck]
     fn dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) {
-        let union_a = HashSet::from(&a);
-        let union_b = HashSet::from(&b);
         let union_a_b = dedup_block_stream_wrapper(&a, &b);
         let union_b_a = dedup_block_stream_wrapper(&b, &a);
         // ∀AB. A∪B = B∪A
         assert_eq!(union_a_b, union_b_a);
         // ∀AB. A⊆(A∪B)
-        union_a_b.is_superset(&union_a);
+        union_a_b.is_superset(&HashSet::from(&a));
         // ∀AB. B⊆(A∪B)
-        union_a_b.is_superset(&union_b);
+        union_a_b.is_superset(&HashSet::from(&b));
     }
 
     fn dedup_block_stream_wrapper(a: &Blocks, b: &Blocks) -> HashSet<Cid> {
