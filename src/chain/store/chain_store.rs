@@ -603,13 +603,14 @@ where
         Ok(ts.key().clone())
     }
 
-    /// Gets look-back tipset for block validations.
+    /// Gets look-back tipset (and state-root of that tipset) for block
+    /// validations.
     ///
     /// The look-back tipset for a round is the tipset with epoch `round -
     /// chain_finality`. [Chain
     /// finality](https://docs.filecoin.io/reference/general/glossary/#finality)
     /// is usually 900. The 'heaviest_tipset' is a reference point in the
-    /// blockchain. It must be a child of the tipset we're searching for.
+    /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         chain_config: Arc<ChainConfig>,
