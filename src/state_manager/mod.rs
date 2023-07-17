@@ -584,32 +584,25 @@ where
     }
 
     /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.
-    /// Each _block_ contains _messages_, which are executed by the _Filecoin Virtual Machine_
-    /// in a _transaction_.
+    /// Each _block_ contains _messages_, which are executed by the _Filecoin Virtual Machine_.
     ///
-    /// VM transaction execution essentially looks like this:
+    /// VM message execution essentially looks like this:
     /// ```text
-    /// state[N-900..N] * transaction = state[N+1]
+    /// state[N-900..N] * message = state[N+1]
     /// ```
     ///
     /// The `state`s above are stored in the `IPLD Blockstore`, and can be referred to by
     /// a [`Cid`] - the _state root_.
-    /// The previous 900 states can be queried in a transaction, so a store needs at least that many.
+    /// The previous 900 states (configurable, see
+    /// <https://docs.filecoin.io/reference/general/glossary/#finality>) can be
+    /// queried when executing a message, so a store needs at least that many.
     /// (a snapshot typically contains 2000, for example).
     ///
-    /// Each transaction costs FIL to execute - this is _gas_.
-    /// After execution, the transaction has a _receipt_, showing how much gas was spent.
+    /// Each message costs FIL to execute - this is _gas_.
+    /// After execution, the message has a _receipt_, showing how much gas was spent.
     /// This is similarly a [`Cid`] into the block store.
     ///
-    /// Each [`Tipset`] knows its previous state, so computing tipset state consists of:
-    /// - fetching the previous state, and its 899 ancestors.
-    /// - executing a transaction using all messages in the tipset.
-    /// - returning the _new state root_ and the _receipt root_ of the transaction.
-    ///
-    /// # Why 900 previous messages?
-    ///
-    /// That is the "chain finality" for calibnet and mainnet. See
-    /// <https://docs.filecoin.io/reference/general/glossary/#finality>
+    /// For details, see the documentation for [`apply_block_messages`].
     ///
     #[instrument(skip(self, tipset, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
