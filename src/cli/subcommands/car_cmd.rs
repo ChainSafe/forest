@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
+use std::pin::pin;
 
 use cid::Cid;
 use clap::Subcommand;
 use futures::{AsyncRead, Stream, StreamExt, TryStreamExt};
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::ipld::CidHashSet;
 
@@ -30,9 +30,8 @@ impl CarCommands {
         match self {
             Self::Concat { car_files, output } => {
                 let readers: Vec<_> = futures::stream::iter(car_files)
-                    .then(tokio::fs::File::open)
-                    .map_ok(tokio::io::BufReader::new)
-                    .map_ok(tokio::io::BufReader::compat)
+                    .then(async_fs::File::open)
+                    .map_ok(futures::io::BufReader::new)
                     .map_err(fvm_ipld_car::Error::from)
                     .and_then(CarReader::new)
                     .try_collect()
@@ -53,12 +52,12 @@ impl CarCommands {
 
                 let car_writer = CarHeader::from(roots);
                 let mut output_file =
-                    tokio::io::BufWriter::new(tokio::fs::File::create(output).await?).compat();
+                    futures::io::BufWriter::new(async_fs::File::create(output).await?);
 
                 car_writer
                     .write_stream_async(
                         &mut output_file,
-                        &mut Box::pin(dedup_block_stream(merge_car_readers(readers))),
+                        &mut pin!(dedup_block_stream(merge_car_readers(readers))),
                     )
                     .await?;
             }
@@ -113,7 +112,7 @@ mod tests {
             // Dummy root
             let writer = CarHeader::from(vec![self.0[0].cid]);
             let mut car = vec![];
-            let mut stream = Box::pin(futures::stream::iter(self.0).map(|b| (b.cid, b.data)));
+            let mut stream = pin!(futures::stream::iter(self.0).map(|b| (b.cid, b.data)));
             writer
                 .write_stream_async(&mut car, &mut stream)
                 .await
@@ -142,13 +141,34 @@ mod tests {
     }
 
     #[quickcheck]
+    fn blocks_roundtrip(blocks: Blocks) -> anyhow::Result<()> {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async move {
+            let car = blocks.into_car_bytes().await;
+            let mut reader = CarReader::new(car.as_slice()).await?;
+            let mut blocks2 = vec![];
+            while let Some(b) = reader.next_block().await? {
+                blocks2.push(b);
+            }
+            let blocks2 = Blocks(blocks2);
+            let car2 = blocks2.into_car_bytes().await;
+
+            assert_eq!(car, car2);
+
+            Ok::<_, anyhow::Error>(())
+        })?;
+
+        Ok(())
+    }
+
+    #[quickcheck]
     fn car_dedup_block_stream_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        let unique_len = [a.0.as_slice(), b.0.as_slice()]
+        let cid_union: HashSet<Cid> = [a.0.as_slice(), b.0.as_slice()]
             .concat()
             .iter()
             .map(|b| b.cid)
-            .collect::<HashSet<Cid>>()
-            .len();
+            .collect();
+        let unique_len = cid_union.len();
 
         println!(
             "a.len: {}, b.len:{}, total: {}, unique: {unique_len}",
@@ -161,11 +181,19 @@ mod tests {
         let count = rt.block_on(async move {
             let car_a = a.into_car_bytes().await;
             let car_b = b.into_car_bytes().await;
-            let deduped = dedup_block_stream(merge_car_readers(vec![
+            let mut deduped = pin!(dedup_block_stream(merge_car_readers(vec![
                 CarReader::new(car_a.as_slice()).await?,
                 CarReader::new(car_b.as_slice()).await?,
-            ]));
-            let count = deduped.count().await;
+            ])));
+            let mut count = 0;
+            let mut cid_union2 = HashSet::default();
+            while let Some((cid, _)) = deduped.next().await {
+                cid_union2.insert(cid);
+                count += 1;
+            }
+
+            assert_eq!(cid_union, cid_union2);
+
             Ok::<_, anyhow::Error>(count)
         })?;
 
