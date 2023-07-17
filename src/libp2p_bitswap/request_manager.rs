@@ -9,7 +9,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use crate::ipld::CidHashMap;
+use ahash::{HashSet, HashSetExt};
 use flume::TryRecvError;
 use libipld::{Block, Cid};
 use libp2p::PeerId;
@@ -32,7 +33,7 @@ pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
     outbound_request_rx: flume::Receiver<(PeerId, BitswapRequest)>,
     peers: RwLock<HashSet<PeerId>>,
-    response_channels: RwLock<HashMap<Cid, ResponseChannels>>,
+    response_channels: RwLock<CidHashMap<ResponseChannels>>,
 }
 
 impl BitswapRequestManager {
@@ -52,7 +53,7 @@ impl Default for BitswapRequestManager {
             outbound_request_tx,
             outbound_request_rx,
             peers: RwLock::new(HashSet::new()),
-            response_channels: RwLock::new(HashMap::new()),
+            response_channels: RwLock::new(CidHashMap::new()),
         }
     }
 }

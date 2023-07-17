@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::ipld::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -14,7 +14,7 @@ use crate::state_migration::common::migration_job::{MigrationJob, MigrationJobOu
 /// - migrations where state upgrade is required,
 /// - creating new actors that were not present in the prior network version.
 pub(in crate::state_migration) struct StateMigration<BS> {
-    migrations: HashMap<Cid, Migrator<BS>>,
+    migrations: CidHashMap<Migrator<BS>>,
     /// Verifies correctness of the migration specification.
     verifier: Option<MigrationVerifier<BS>>,
     /// Post migrator(s). This may include new actor creation.
@@ -24,7 +24,7 @@ pub(in crate::state_migration) struct StateMigration<BS> {
 impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     pub(in crate::state_migration) fn new(verifier: Option<MigrationVerifier<BS>>) -> Self {
         Self {
-            migrations: Default::default(),
+            migrations: CidHashMap::new(),
             verifier,
             post_migrators: Default::default(),
         }
