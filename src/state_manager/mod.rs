@@ -1127,13 +1127,13 @@ where
 /// - a current state-tree (stored as IPLD in a key-value database). This
 ///   reference is in `tipset.parent_state`.
 /// - up to 900 past state-trees. See
-///   https://docs.filecoin.io/reference/general/glossary/#finality.
+///   <https://docs.filecoin.io/reference/general/glossary/#finality>.
 /// - up to 900 past tipset IDs.
 /// - a deterministic source of randomness.
 /// - the circulating supply of FIL (see
-///   https://filecoin.io/blog/filecoin-circulating-supply/). The circulating
+///   <https://filecoin.io/blog/filecoin-circulating-supply/>). The circulating
 ///   supply is determined by the epoch and the states of a few key actors.
-/// - the base fee (see https://spec.filecoin.io/systems/filecoin_vm/gas_fee/).
+/// - the base fee (see <https://spec.filecoin.io/systems/filecoin_vm/gas_fee/>).
 ///   This value is defined by `tipset.parent_base_fee`.
 /// - the genesis timestamp (UNIX epoch time when the first block was
 ///   mined/created).
@@ -1158,15 +1158,17 @@ where
 ///
 /// Imagine the blockchain looks like this with a null tipset at epoch 9:
 ///
+/// ```
 /// ┌────────┐ ┌────┐ ┌───────┐  ┌───────┐
 /// │Epoch 10│ │Null│ │Epoch 8├──►Epoch 7├─►
 /// └───┬────┘ └────┘ └───▲───┘  └───────┘
 ///     └─────────────────┘
+/// ```
 ///
 /// The parent of tipset-epoch-10 is tipset-epoch-8. Before executing the
 /// messages in epoch 10, we have to run cron for epoch 9. However, running
 /// 'cron' requires the timestamp of the youngest block in the tipset (which
-/// doesn't exist becaue there are no blocks in the tipset). Lotus dictates that
+/// doesn't exist because there are no blocks in the tipset). Lotus dictates that
 /// the timestamp of a null tipset is `30s * epoch` after the genesis timestamp.
 /// So, in the above example, if the genesis block was mined at time `X`, the
 /// null tipset for epoch 9 will have timestamp `X + 30 * 9`.
