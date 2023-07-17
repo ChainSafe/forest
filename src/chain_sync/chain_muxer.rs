@@ -315,14 +315,14 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<Message>(epoch, m))
+            .map(|m| network.bitswap_get::<Message>(m))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
         let secp_messages: Vec<_> = block
             .secpk_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<SignedMessage>(epoch, m))
+            .map(|m| network.bitswap_get::<SignedMessage>(m))
             .collect();
 
         let (bls_messages, secp_messages) =
@@ -336,7 +336,7 @@ where
             bls_messages,
             secp_messages,
         };
-        Ok(FullTipset::new(vec![block]).unwrap())
+        Ok(FullTipset::from(block))
     }
 
     fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
