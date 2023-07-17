@@ -639,7 +639,6 @@ where
                 Arc::clone(self),
                 Arc::clone(&chain_config),
                 beacon,
-                Arc::new(crate::interpreter::RewardActorMessageCalc),
                 // Creating new WASM engines is expensive (takes seconds to
                 // minutes). It's only acceptable here because this situation is
                 // so rare (may happen in dev-networks, doesn't happen in

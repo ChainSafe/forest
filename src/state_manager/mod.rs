@@ -15,7 +15,7 @@ pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{ChainStore, HeadChange};
-use crate::interpreter::{resolve_to_key_addr, ExecutionContext, RewardCalc, VM};
+use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -201,7 +201,6 @@ pub struct StateManager<DB> {
     beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
-    reward_calc: Arc<dyn RewardCalc>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -214,7 +213,6 @@ where
     pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
-        reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?;
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
@@ -225,7 +223,6 @@ where
             beacon,
             chain_config,
             engine: crate::shim::machine::MultiEngine::default(),
-            reward_calc,
         })
     }
 
@@ -383,7 +380,6 @@ where
                     &self.blockstore_owned(),
                     bstate,
                 )?,
-                reward_calc: self.reward_calc.clone(),
                 chain_config: self.chain_config(),
                 chain_store: Arc::clone(self.chain_store()),
                 timestamp: tipset.min_timestamp(),
@@ -460,7 +456,6 @@ where
                     &self.blockstore_owned(),
                     &st,
                 )?,
-                reward_calc: self.reward_calc.clone(),
                 chain_config: self.chain_config(),
                 chain_store: Arc::clone(self.chain_store()),
                 timestamp: ts.min_timestamp(),
@@ -632,7 +627,6 @@ where
             Arc::clone(self.chain_store()),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
-            Arc::clone(&self.reward_calc),
             &self.engine,
             tipset,
             callback,
@@ -1195,7 +1189,6 @@ pub fn apply_block_messages<DB, CB>(
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
-    reward_calc: Arc<dyn RewardCalc>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
@@ -1247,7 +1240,6 @@ where
                 rand: Box::new(rand.clone()),
                 base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
                 circ_supply: circulating_supply,
-                reward_calc: reward_calc.clone(),
                 chain_config: Arc::clone(&chain_config),
                 chain_store: Arc::clone(&chain_store),
                 timestamp,

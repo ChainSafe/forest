@@ -38,7 +38,7 @@ use fvm3::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
-use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
+use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
 use num::Zero;
 
 use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
@@ -64,33 +64,11 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-/// Allows the generation of a reward message based on gas fees and penalties.
-///
-/// This should facilitate custom consensus protocols using their own economic
-/// incentives.
-pub trait RewardCalc: Send + Sync + 'static {
-    /// Construct a reward message, if rewards are applicable.
-    fn reward_message(
-        &self,
-        epoch: ChainEpoch,
-        miner: Address,
-        win_count: i64,
-        penalty: TokenAmount,
-        gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error>;
-}
-
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
 pub enum VM<DB: Blockstore + Send + Sync + 'static> {
-    VM2 {
-        fvm_executor: ForestExecutorV2<DB>,
-        reward_calc: Arc<dyn RewardCalc>,
-    },
-    VM3 {
-        fvm_executor: ForestExecutorV3<DB>,
-        reward_calc: Arc<dyn RewardCalc>,
-    },
+    VM2(ForestExecutorV2<DB>),
+    VM3(ForestExecutorV3<DB>),
 }
 
 pub struct ExecutionContext<DB> {
@@ -108,8 +86,6 @@ pub struct ExecutionContext<DB> {
     pub base_fee: TokenAmount,
     // https://filecoin.io/blog/filecoin-circulating-supply/
     pub circ_supply: TokenAmount,
-    // XXX: This will be removed.
-    pub reward_calc: Arc<dyn RewardCalc>,
     // The chain config is used to determine which consensus rules to use.
     pub chain_config: Arc<ChainConfig>,
     // Caching interface to the DB
@@ -130,7 +106,6 @@ where
             rand,
             base_fee,
             circ_supply,
-            reward_calc,
             chain_config,
             chain_store,
             timestamp,
@@ -163,10 +138,7 @@ where
                 ),
             )?;
             let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
-            Ok(VM::VM3 {
-                fvm_executor: exec,
-                reward_calc,
-            })
+            Ok(VM::VM3(exec))
         } else {
             let config = NetworkConfig_v2::new(network_version.into());
             let engine = multi_engine.v2.get(&config)?;
@@ -187,29 +159,26 @@ where
                 ),
             )?;
             let exec: ForestExecutorV2<DB> = DefaultExecutor_v2::new(fvm);
-            Ok(VM::VM2 {
-                fvm_executor: exec,
-                reward_calc,
-            })
+            Ok(VM::VM2(exec))
         }
     }
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         match self {
-            VM::VM2 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
-            VM::VM3 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
+            VM::VM2(fvm_executor) => Ok(fvm_executor.flush()?),
+            VM::VM3(fvm_executor) => Ok(fvm_executor.flush()?),
         }
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
         match self {
-            VM::VM2 { fvm_executor, .. } => Ok(fvm_executor
+            VM::VM2(fvm_executor) => Ok(fvm_executor
                 .state_tree()
                 .get_actor(&addr.into())?
                 .map(ActorState::from)),
-            VM::VM3 { fvm_executor, .. } => {
+            VM::VM3(fvm_executor) => {
                 if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
                     Ok(fvm_executor
                         .state_tree()
@@ -336,7 +305,7 @@ where
         let raw_length = to_vec(msg).expect("encoding error").len();
 
         match self {
-            VM::VM2 { fvm_executor, .. } => {
+            VM::VM2(fvm_executor) => {
                 let ret = fvm_executor.execute_message(
                     msg.into(),
                     fvm2::executor::ApplyKind::Implicit,
@@ -344,7 +313,7 @@ where
                 )?;
                 Ok(ret.into())
             }
-            VM::VM3 { fvm_executor, .. } => {
+            VM::VM3(fvm_executor) => {
                 let ret = fvm_executor.execute_message(
                     msg.into(),
                     fvm3::executor::ApplyKind::Implicit,
@@ -365,7 +334,7 @@ where
         let unsigned = msg.message().clone();
         let raw_length = to_vec(msg).expect("encoding error").len();
         let ret: ApplyRet = match self {
-            VM::VM2 { fvm_executor, .. } => {
+            VM::VM2(fvm_executor) => {
                 let ret = fvm_executor.execute_message(
                     unsigned.into(),
                     fvm2::executor::ApplyKind::Explicit,
@@ -378,7 +347,7 @@ where
 
                 ret.into()
             }
-            VM::VM3 { fvm_executor, .. } => {
+            VM::VM3(fvm_executor) => {
                 let ret = fvm_executor.execute_message(
                     unsigned.into(),
                     fvm3::executor::ApplyKind::Explicit,
@@ -420,36 +389,12 @@ where
         penalty: TokenAmount,
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
-        match self {
-            VM::VM2 { reward_calc, .. } => {
-                reward_calc.reward_message(epoch, miner, win_count, penalty, gas_reward)
-            }
-            VM::VM3 { reward_calc, .. } => {
-                reward_calc.reward_message(epoch, miner, win_count, penalty, gas_reward)
-            }
-        }
-    }
-}
-
-/// Default reward working with the Filecoin Reward Actor.
-pub struct RewardActorMessageCalc;
-
-impl RewardCalc for RewardActorMessageCalc {
-    fn reward_message(
-        &self,
-        epoch: ChainEpoch,
-        miner: Address,
-        win_count: i64,
-        penalty: TokenAmount,
-        gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
             miner: miner.into(),
             penalty: penalty.into(),
             gas_reward: gas_reward.into(),
             win_count,
         })?;
-
         let rew_msg = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
             to: Address::REWARD_ACTOR.into(),
@@ -463,57 +408,6 @@ impl RewardCalc for RewardActorMessageCalc {
             gas_fee_cap: Default::default(),
             gas_premium: Default::default(),
         };
-
         Ok(Some(rew_msg.into()))
-    }
-}
-
-/// Not giving any reward for block creation.
-pub struct NoRewardCalc;
-
-impl RewardCalc for NoRewardCalc {
-    fn reward_message(
-        &self,
-        _epoch: ChainEpoch,
-        _miner: Address,
-        _win_count: i64,
-        _penalty: TokenAmount,
-        _gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error> {
-        Ok(None)
-    }
-}
-
-/// Giving a fixed amount of coins for each block produced directly to the
-/// miner, on top of the gas spent, so the circulating supply isn't burned.
-/// Ignores penalties.
-pub struct FixedRewardCalc {
-    pub reward: TokenAmount,
-}
-
-impl RewardCalc for FixedRewardCalc {
-    fn reward_message(
-        &self,
-        epoch: ChainEpoch,
-        miner: Address,
-        _win_count: i64,
-        _penalty: TokenAmount,
-        gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error> {
-        let msg = Message_v3 {
-            from: Address::REWARD_ACTOR.into(),
-            to: miner.into(),
-            method_num: METHOD_SEND,
-            params: Default::default(),
-            // Epoch as sequence is intentional
-            sequence: epoch as u64,
-            gas_limit: 1 << 30,
-            value: (gas_reward + &self.reward).into(),
-            version: Default::default(),
-            gas_fee_cap: Default::default(),
-            gas_premium: Default::default(),
-        };
-
-        Ok(Some(msg.into()))
     }
 }
