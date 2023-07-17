@@ -292,11 +292,7 @@ where
             );
         }
         // Initialize StateManager
-        let state_manager = Arc::new(StateManager::new(
-            chain_store,
-            Arc::clone(&config.chain),
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&config.chain))?);
         ensure_params_downloaded().await?;
         // Prepare tipset stream to validate
         let tipsets = ts
