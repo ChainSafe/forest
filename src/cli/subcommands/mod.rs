@@ -9,6 +9,7 @@
 mod archive_cmd;
 mod attach_cmd;
 mod auth_cmd;
+mod car_cmd;
 mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
@@ -37,7 +38,7 @@ use tracing::error;
 
 pub(super) use self::{
     archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
-    chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
+    car_cmd::CarCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
     fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
     send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
     state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
@@ -118,6 +119,10 @@ pub enum Subcommand {
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
+
+    /// Utilities for manipulating CAR files
+    #[command(subcommand)]
+    Car(CarCommands),
 }
 
 /// Pretty-print a JSON-RPC error and exit

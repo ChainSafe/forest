@@ -38,6 +38,8 @@
   `forest-cli archive info` command for inspecting archives.
 - [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
   `forest-cli archive export -e=X` command for exporting archives.
+- [#3150](https://github.com/ChainSafe/forest/pull/3150):
+  `forest-cli car concat` subcommand for concatenating `.car` files.
 - [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
   option to `forest-cli state fetch` command.
 
