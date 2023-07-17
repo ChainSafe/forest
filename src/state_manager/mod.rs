@@ -1131,7 +1131,7 @@ where
 ///
 /// Transaction execution has the following inputs:
 /// - a current state-tree (stored as IPLD in a key-value database). This
-///   reference is in `tipset.parent_state`.
+///   reference is in [`Tipset::parent_state`].
 /// - up to 900 past state-trees. See
 ///   <https://docs.filecoin.io/reference/general/glossary/#finality>.
 /// - up to 900 past tipset IDs.
