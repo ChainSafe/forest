@@ -157,9 +157,9 @@ mod tests {
     }
 
     #[quickcheck]
-    fn car_dedup_block_stream_tests_a_a(a: Blocks) -> anyhow::Result<()> {
+    fn dedup_block_stream_tests_a_a(a: Blocks) -> anyhow::Result<()> {
         // ∀A. A∪A = A
-        let union = car_dedup_block_stream_tests_inner(a.clone(), a.clone())?;
+        let union = dedup_block_stream_wrapper(a.clone(), a.clone())?;
         let union_a: HashSet<Cid> = a.0.iter().map(|b| b.cid).collect();
         assert_eq!(union, union_a);
 
@@ -167,31 +167,45 @@ mod tests {
     }
 
     #[quickcheck]
-    fn car_dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        let union1 = car_dedup_block_stream_tests_inner(a.clone(), b.clone())?;
-        let union2 = car_dedup_block_stream_tests_inner(b, a)?;
+    fn dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) -> anyhow::Result<()> {
+        let union_a: HashSet<Cid> = a.0.iter().map(|b| b.cid).collect();
+        let union_b: HashSet<Cid> = b.0.iter().map(|b| b.cid).collect();
+        let union1 = dedup_block_stream_wrapper(a.clone(), b.clone())?;
+        let union2 = dedup_block_stream_wrapper(b, a)?;
         // ∀AB. A∪B = B∪A
         assert_eq!(union1, union2);
+        // ∀AB. A⊆(A∪B)
+        union1.is_superset(&union_a);
+        // ∀AB. B⊆(A∪B)
+        union1.is_superset(&union_b);
 
         Ok(())
     }
 
-    fn car_dedup_block_stream_tests_inner(a: Blocks, b: Blocks) -> anyhow::Result<HashSet<Cid>> {
+    fn dedup_block_stream_wrapper(a: Blocks, b: Blocks) -> anyhow::Result<HashSet<Cid>> {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async move {
+            let stream = futures::stream::iter([a, b]).flat_map(|blocks| {
+                futures::stream::iter(blocks.0.into_iter().map(|b| (b.cid, b.data)))
+            });
+            let mut deduped = pin!(dedup_block_stream(stream));
+
+            let mut cid_union = HashSet::default();
+            while let Some((cid, _)) = deduped.next().await {
+                cid_union.insert(cid);
+            }
+
+            Ok::<_, anyhow::Error>(cid_union)
+        })
+    }
+
+    #[quickcheck]
+    fn car_dedup_block_stream_tests(a: Blocks, b: Blocks) -> anyhow::Result<()> {
         let cid_union: HashSet<Cid> = [a.0.as_slice(), b.0.as_slice()]
             .concat()
             .iter()
             .map(|b| b.cid)
             .collect();
-
-        // ∀AB. A⊆(A∪B)
-        for block in &a.0 {
-            assert!(cid_union.contains(&block.cid));
-        }
-
-        // ∀AB. B⊆(A∪B)
-        for block in &b.0 {
-            assert!(cid_union.contains(&block.cid));
-        }
 
         println!(
             "a.len: {}, b.len:{}, total: {}, unique: {}",
@@ -217,7 +231,7 @@ mod tests {
 
             assert_eq!(cid_union, cid_union2);
 
-            Ok::<_, anyhow::Error>(cid_union2)
+            Ok::<_, anyhow::Error>(())
         })
     }
 }
