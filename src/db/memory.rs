@@ -12,18 +12,18 @@ use parking_lot::RwLock;
 
 use super::SettingsStore;
 
-type MemoryDbInner = Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>;
-
-/// A thread-safe `HashMap` wrapper, acting as a memory-backed blockstore.
 #[derive(Debug, Default, Clone)]
-pub struct MemoryDB(MemoryDbInner);
+pub struct MemoryDB {
+    blockchain_db: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
+    settings_db: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+}
 
 impl SettingsStore for MemoryDB {
     fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
     where
         K: AsRef<str>,
     {
-        Ok(self.0.read().get(key.as_ref().as_bytes()).cloned())
+        Ok(self.settings_db.read().get(key.as_ref()).cloned())
     }
 
     fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
@@ -31,9 +31,9 @@ impl SettingsStore for MemoryDB {
         K: AsRef<str>,
         V: AsRef<[u8]>,
     {
-        self.0
+        self.settings_db
             .write()
-            .insert(key.as_ref().as_bytes().to_vec(), value.as_ref().to_vec());
+            .insert(key.as_ref().to_owned(), value.as_ref().to_vec());
         Ok(())
     }
 
@@ -41,24 +41,26 @@ impl SettingsStore for MemoryDB {
     where
         K: AsRef<str>,
     {
-        Ok(self.0.read().contains_key(key.as_ref().as_bytes()))
+        Ok(self.settings_db.read().contains_key(key.as_ref()))
     }
 }
 
 impl Blockstore for MemoryDB {
     fn get(&self, k: &Cid) -> Result<Option<Vec<u8>>> {
-        Ok(self.0.read().get(&k.to_bytes()).cloned())
+        Ok(self.blockchain_db.read().get(&k.to_bytes()).cloned())
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> Result<()> {
-        self.0.write().insert(k.to_bytes(), block.to_vec());
+        self.blockchain_db
+            .write()
+            .insert(k.to_bytes(), block.to_vec());
         Ok(())
     }
 }
 
 impl BitswapStoreRead for MemoryDB {
     fn contains(&self, cid: &Cid) -> Result<bool> {
-        Ok(self.0.read().contains_key(&cid.to_bytes()))
+        Ok(self.blockchain_db.read().contains_key(&cid.to_bytes()))
     }
 
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
