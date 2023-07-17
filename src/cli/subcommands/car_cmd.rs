@@ -183,20 +183,13 @@ mod tests {
     }
 
     fn dedup_block_stream_wrapper(a: Blocks, b: Blocks) -> anyhow::Result<HashSet<Cid>> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(async move {
-            let stream = futures::stream::iter([a, b]).flat_map(|blocks| {
-                futures::stream::iter(blocks.0.into_iter().map(|b| (b.cid, b.data)))
-            });
-            let mut deduped = pin!(dedup_block_stream(stream));
+        let stream = futures::stream::iter([a, b]).flat_map(|blocks| {
+            futures::stream::iter(blocks.0.into_iter().map(|b| (b.cid, b.data)))
+        });
 
-            let mut cid_union = HashSet::default();
-            while let Some((cid, _)) = deduped.next().await {
-                cid_union.insert(cid);
-            }
-
-            Ok::<_, anyhow::Error>(cid_union)
-        })
+        Ok(futures::executor::block_on_stream(stream)
+            .map(|(cid, _)| cid)
+            .collect())
     }
 
     #[quickcheck]
