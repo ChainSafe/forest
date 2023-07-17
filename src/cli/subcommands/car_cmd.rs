@@ -158,56 +158,66 @@ mod tests {
 
     #[quickcheck]
     fn car_dedup_block_stream_tests_a_a(a: Blocks) -> anyhow::Result<()> {
-        car_dedup_block_stream_tests_inner(a.clone(), a)
+        // ∀A. A∪A = A
+        let union = car_dedup_block_stream_tests_inner(a.clone(), a.clone())?;
+        let union_a: HashSet<Cid> = a.0.iter().map(|b| b.cid).collect();
+        assert_eq!(union, union_a);
+
+        Ok(())
     }
 
     #[quickcheck]
     fn car_dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        car_dedup_block_stream_tests_inner(a, b)
+        let union1 = car_dedup_block_stream_tests_inner(a.clone(), b.clone())?;
+        let union2 = car_dedup_block_stream_tests_inner(b, a)?;
+        // ∀AB. A∪B = B∪A
+        assert_eq!(union1, union2);
+
+        Ok(())
     }
 
-    #[quickcheck]
-    fn car_dedup_block_stream_tests_b_a(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        car_dedup_block_stream_tests_inner(b, a)
-    }
-
-    fn car_dedup_block_stream_tests_inner(a: Blocks, b: Blocks) -> anyhow::Result<()> {
+    fn car_dedup_block_stream_tests_inner(a: Blocks, b: Blocks) -> anyhow::Result<HashSet<Cid>> {
         let cid_union: HashSet<Cid> = [a.0.as_slice(), b.0.as_slice()]
             .concat()
             .iter()
             .map(|b| b.cid)
             .collect();
-        let unique_len = cid_union.len();
+
+        // ∀AB. A⊆(A∪B)
+        for block in &a.0 {
+            assert!(cid_union.contains(&block.cid));
+        }
+
+        // ∀AB. B⊆(A∪B)
+        for block in &b.0 {
+            assert!(cid_union.contains(&block.cid));
+        }
 
         println!(
-            "a.len: {}, b.len:{}, total: {}, unique: {unique_len}",
+            "a.len: {}, b.len:{}, total: {}, unique: {}",
             a.0.len(),
             b.0.len(),
             a.0.len() + b.0.len(),
+            cid_union.len(),
         );
 
         let rt = tokio::runtime::Runtime::new()?;
-        let count = rt.block_on(async move {
+        rt.block_on(async move {
             let car_a = a.into_car_bytes().await;
             let car_b = b.into_car_bytes().await;
             let mut deduped = pin!(dedup_block_stream(merge_car_readers(vec![
                 CarReader::new(car_a.as_slice()).await?,
                 CarReader::new(car_b.as_slice()).await?,
             ])));
-            let mut count = 0;
+
             let mut cid_union2 = HashSet::default();
             while let Some((cid, _)) = deduped.next().await {
                 cid_union2.insert(cid);
-                count += 1;
             }
 
             assert_eq!(cid_union, cid_union2);
 
-            Ok::<_, anyhow::Error>(count)
-        })?;
-
-        assert_eq!(count, unique_len);
-
-        Ok(())
+            Ok::<_, anyhow::Error>(cid_union2)
+        })
     }
 }
