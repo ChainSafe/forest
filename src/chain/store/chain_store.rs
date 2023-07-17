@@ -606,9 +606,9 @@ where
     /// Gets look-back tipset for block validations.
     ///
     /// The look-back tipset for a round is the tipset with epoch `round -
-    /// chain_finality`. Chain finality is usually 900. The given is a
-    /// reference point in the blockchain such that the look-back tipset can
-    /// be found by tracing the `parent` pointers.
+    /// chain_finality`. Chain finality is usually 900. The 'heaviest_tipset' is
+    /// a reference point in the blockchain. It must be a child (ie. heavier)
+    /// than the tipset we're searching for.
     pub fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         chain_config: Arc<ChainConfig>,
