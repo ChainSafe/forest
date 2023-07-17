@@ -78,9 +78,6 @@ pub struct ChainStore<DB> {
     /// key-value `datastore`.
     pub db: Arc<DB>,
 
-    /// Caches loaded tipsets for fast retrieval.
-    ts_cache: Arc<TipsetCache>,
-
     /// Used as a cache for tipset `lookbacks`.
     chain_index: ChainIndex<DB>,
 
@@ -165,7 +162,6 @@ where
             chain_index: ChainIndex::new(ts_cache.clone(), Arc::clone(&db)),
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
-            ts_cache,
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
             validated_blocks,
@@ -261,7 +257,7 @@ where
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset());
         }
-        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
+        self.chain_index.load_tipset(tsk)
     }
 
     /// Returns Tipset key hash from key-value store from provided CIDs
