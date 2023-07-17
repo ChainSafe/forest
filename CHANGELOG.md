@@ -49,7 +49,7 @@
 
 ### Fixed
 
-## Forest v0.11.1 "Dagny Taggert"
+## Forest v0.11.1 "Dagny Taggart"
 
 ## Forest v0.11.0 "Hypersonic"
 
