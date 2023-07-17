@@ -255,9 +255,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Sen
     // more than 1000 elements (even when walking tens of millions of nodes).
     let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
     let mut to_be_fetched = vec![];
-    if !db.has(&root_cid)? {
-        to_be_fetched.push(root_cid);
-    }
+
     // Loop until: No more items in `dfs` AND no running worker tasks.
     loop {
         while let Some(ipld) = lock_pop(&dfs) {
@@ -301,6 +299,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Sen
                     let network_send = network_send.clone();
                     let db = db.clone();
                     let dfs_vec = Arc::clone(&dfs);
+                    let car_tx = car_tx.clone();
                     move || {
                         let (tx, rx) = flume::bounded(1);
                         network_send.send(NetworkMessage::BitswapRequest {
@@ -316,6 +315,15 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Sen
                             .get_cbor::<Ipld>(&cid)?
                             .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
                         dfs_vec.lock().push(new_ipld);
+                        if let Some(car_tx) = &car_tx {
+                            car_tx.send((
+                                cid,
+                                db.get(&cid)?.with_context(|| {
+                                    format!("Failed to get cid {cid} from block store")
+                                })?,
+                            ))?;
+                        }
+
                         Ok(())
                     }
                 });
@@ -328,17 +336,6 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Clone + Sync + Sen
             // We are out of work items (dfs) and all worker threads have finished, this means
             // the entire graph has been walked and fetched.
             break;
-        }
-    }
-
-    // Push root block if missing
-    if let Some(car_tx) = &car_tx {
-        if !seen.insert(root_cid) {
-            car_tx.send((
-                root_cid,
-                db.get(&root_cid)?
-                    .with_context(|| format!("Failed to get cid {root_cid} from block store"))?,
-            ))?;
         }
     }
 
