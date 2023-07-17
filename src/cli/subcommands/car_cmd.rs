@@ -102,6 +102,12 @@ mod tests {
     #[derive(Debug, Clone)]
     struct Blocks(Vec<Block>);
 
+    impl From<&Blocks> for HashSet<Cid> {
+        fn from(blocks: &Blocks) -> Self {
+            blocks.0.iter().map(|b| b.cid).collect()
+        }
+    }
+
     impl Blocks {
         async fn into_car_bytes(self) -> Vec<u8> {
             // Dummy root
@@ -161,44 +167,38 @@ mod tests {
     }
 
     #[quickcheck]
-    fn dedup_block_stream_tests_a_a(a: Blocks) -> anyhow::Result<()> {
+    fn dedup_block_stream_tests_a_a(a: Blocks) {
         // ∀A. A∪A = A
-        let union = dedup_block_stream_wrapper(a.clone(), a.clone())?;
-        let union_a: HashSet<Cid> = a.0.iter().map(|b| b.cid).collect();
+        let union = dedup_block_stream_wrapper(a.clone(), a.clone());
+        let union_a = HashSet::from(&a);
         assert_eq!(union, union_a);
-
-        Ok(())
     }
 
     #[quickcheck]
-    fn dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) -> anyhow::Result<()> {
-        let union_a: HashSet<Cid> = a.0.iter().map(|b| b.cid).collect();
-        let union_b: HashSet<Cid> = b.0.iter().map(|b| b.cid).collect();
-        let union1 = dedup_block_stream_wrapper(a.clone(), b.clone())?;
-        let union2 = dedup_block_stream_wrapper(b, a)?;
+    fn dedup_block_stream_tests_a_b(a: Blocks, b: Blocks) {
+        let union_a = HashSet::from(&a);
+        let union_b = HashSet::from(&b);
+        let union1 = dedup_block_stream_wrapper(a.clone(), b.clone());
+        let union2 = dedup_block_stream_wrapper(b, a);
         // ∀AB. A∪B = B∪A
         assert_eq!(union1, union2);
         // ∀AB. A⊆(A∪B)
         union1.is_superset(&union_a);
         // ∀AB. B⊆(A∪B)
         union1.is_superset(&union_b);
-
-        Ok(())
     }
 
-    fn dedup_block_stream_wrapper(a: Blocks, b: Blocks) -> anyhow::Result<HashSet<Cid>> {
+    fn dedup_block_stream_wrapper(a: Blocks, b: Blocks) -> HashSet<Cid> {
         let blocks: Vec<Cid> = futures::executor::block_on_stream(dedup_block_stream(
             a.into_stream().chain(b.into_stream()),
         ))
         .map(|(cid, _)| cid)
         .collect();
-        let len = blocks.len();
-        let set = HashSet::from_iter(blocks);
 
         // Ensure `dedup_block_stream` works properly
-        assert_eq!(len, set.len());
+        assert!(blocks.iter().all_unique());
 
-        Ok(set)
+        HashSet::from_iter(blocks)
     }
 
     #[quickcheck]
