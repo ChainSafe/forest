@@ -71,9 +71,10 @@ use std::{
         ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
         Read, Seek, SeekFrom, Write as _,
     },
+    iter,
     ops::ControlFlow,
 };
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{BytesCodec, FramedWrite};
 use tokio_util_06::codec::{FramedRead as FramedRead06, FramedWrite as FramedWrite06};
 use tracing::{debug, trace};
@@ -120,7 +121,7 @@ where
 
         // now create the index
         let index =
-            std::iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
+            iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
                 .collect::<Result<IndexMap<_, _, _>, _>>()?;
 
         match index.len() {
@@ -163,7 +164,7 @@ struct UncompressedCarV1BackedBlockstoreInner<ReaderT> {
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
 /// you should get data that corresponds to a [`Cid`] (but NOT the [`Cid`] itself).
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct UncompressedBlockDataLocation {
     offset: u64,
     length: u32,
@@ -267,36 +268,33 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
             .ok_or(io::Error::new(InvalidData, "CAR must not be empty"))??;
 
         let roots = get_roots_from_v1_header(&mut first_zstd_frame)?;
-        let mut index = std::iter::from_fn(|| {
-            read_block_data_location_and_skip(&mut first_zstd_frame).transpose()
-        })
-        .map_ok(|(cid, location_in_frame)| {
-            (
-                cid,
-                CompressedBlockDataLocation {
-                    zstd_frame_offset: first_zstd_frame_offset,
-                    location_in_frame,
-                },
-            )
-        })
-        .collect::<Result<IndexMap<_, _, _>, _>>()?;
-
-        for maybe_frame in zstd_frames {
-            let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
-            index.extend(
-                std::iter::from_fn(|| {
-                    read_block_data_location_and_skip(&mut zstd_frame).transpose()
-                })
+        let mut index =
+            iter::from_fn(|| read_block_data_location_and_skip(&mut first_zstd_frame).transpose())
                 .map_ok(|(cid, location_in_frame)| {
                     (
                         cid,
                         CompressedBlockDataLocation {
-                            zstd_frame_offset,
+                            zstd_frame_offset: first_zstd_frame_offset,
                             location_in_frame,
                         },
                     )
                 })
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect::<Result<IndexMap<_, _, _>, _>>()?;
+
+        for maybe_frame in zstd_frames {
+            let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
+            index.extend(
+                iter::from_fn(|| read_block_data_location_and_skip(&mut zstd_frame).transpose())
+                    .map_ok(|(cid, location_in_frame)| {
+                        (
+                            cid,
+                            CompressedBlockDataLocation {
+                                zstd_frame_offset,
+                                location_in_frame,
+                            },
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
             )
         }
 
@@ -340,7 +338,7 @@ struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     roots: Vec<Cid>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct CompressedBlockDataLocation {
     zstd_frame_offset: u64,
     location_in_frame: UncompressedBlockDataLocation,
@@ -671,7 +669,7 @@ pub async fn zstd_compress_varint_manyframe(
 }
 
 /// Create a parameterized collator function
-pub fn varint_to_zstd_frame_collator(
+fn varint_to_zstd_frame_collator(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> impl Fn(
@@ -698,7 +696,7 @@ pub fn varint_to_zstd_frame_collator(
 }
 
 /// Encode `body` as a varint frame into `encoder` (writing the length and then the body itself)
-pub fn zstd_compress_fold_varint_frame(
+fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
 ) -> zstd::Encoder<Writer<BytesMut>> {
@@ -712,7 +710,7 @@ pub fn zstd_compress_fold_varint_frame(
     encoder
 }
 
-pub fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
+fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
     encoder
         .finish()
         .expect("BytesMut has infallible IO")
@@ -720,7 +718,7 @@ pub fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMu
 }
 
 #[allow(clippy::enum_variant_names)] // V2 support soon
-pub enum CarFormat {
+pub enum CarFormat<'index_writer> {
     V1Plain,
     /// See [crate::car_backed_blockstore::CompressedCarV1BackedBlockstore]
     V1ManyFrame {
@@ -730,12 +728,12 @@ pub enum CarFormat {
     V1ManyFrameIndexedOutOfBand {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
-        write_to: Box<dyn AsyncWrite>,
+        index_writer: Box<dyn AsyncWrite + 'index_writer>,
     },
 }
 
 pub async fn write_car(
-    format: CarFormat,
+    format: CarFormat<'_>,
     roots: Vec<Cid>,
     // TODO(aatifsyed): can we be smarter about the serialization here?
     // TODO(aatifsyed): should this accept (Cid, Ipld)?
@@ -746,7 +744,7 @@ pub async fn write_car(
     match format {
         CarFormat::V1Plain => {
             stream::once(future::ready(Ok(v1_header(roots))))
-                .chain(blocks.map_ok(|(cid, ipld)| cid_and_ipld(cid, ipld)))
+                .chain(blocks.map_ok(|(cid, ipld)| encode_concat_cid_and_ipld(cid, ipld)))
                 .forward(FramedWrite06::new(writer, VarintFrameCodec::default()))
                 .await
         }
@@ -756,21 +754,79 @@ pub async fn write_car(
         } => {
             try_collate(
                 stream::once(future::ready(Ok(v1_header(roots))))
-                    .chain(blocks.map_ok(|(cid, ipld)| cid_and_ipld(cid, ipld))),
+                    .chain(blocks.map_ok(|(cid, ipld)| encode_concat_cid_and_ipld(cid, ipld))),
                 varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
                 zstd_compress_finish,
             )
-            .forward(FramedWrite::new(writer, BytesCodec::default()))
+            .forward(FramedWrite::new(writer, BytesCodec::new()))
             .await
         }
         CarFormat::V1ManyFrameIndexedOutOfBand {
             zstd_frame_size_tripwire,
             zstd_compression_level,
-            write_to,
+            index_writer,
         } => {
-            todo!("how should we index as we stream?")
+            let index = v1_manyframe_index(
+                roots,
+                blocks,
+                zstd_frame_size_tripwire,
+                zstd_compression_level,
+                writer,
+            )
+            .await?;
+
+            // TODO(aatifsyed): do we want a versioned index?
+            let mut serialized_index = BytesMut::new();
+            fvm_ipld_encoding::to_writer((&mut serialized_index).writer(), &index)
+                .expect("BytesMut has infallible IO");
+            Box::into_pin(index_writer)
+                .write_all_buf(&mut serialized_index)
+                .await
         }
     }
+}
+
+async fn v1_manyframe_index(
+    roots: Vec<Cid>,
+    blocks: impl TryStream<Ok = (Cid, Vec<u8>), Error = io::Error>,
+    zstd_frame_size_tripwire: usize,
+    zstd_compression_level: u16,
+    writer: impl AsyncWrite,
+) -> io::Result<indexmap::IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>> {
+    let header = v1_header(roots);
+    let mut zstd_frame_offset = u64::try_from(header.len()).unwrap();
+    let mut index = indexmap::IndexMap::default();
+    let zstd_frames = try_collate(
+        blocks.map_ok(|(cid, ipld)| encode_concat_cid_and_ipld(cid, ipld)),
+        varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
+        zstd_compress_finish,
+    )
+    .inspect_ok(|zstd_frame| {
+        // TODO(aatifsyed): don't uncompress again
+        let mut cursor = std::io::Cursor::new(zstd::decode_all(zstd_frame.as_ref()).unwrap());
+        index.extend(
+            iter::from_fn(|| {
+                read_block_data_location_and_skip(&mut cursor)
+                    .expect("we've just serialized this correctly, and BytesMut has infallible IO")
+            })
+            .map(|(cid, location_in_frame)| {
+                (
+                    cid,
+                    CompressedBlockDataLocation {
+                        zstd_frame_offset,
+                        location_in_frame,
+                    },
+                )
+            }),
+        );
+        // the next frame starts after the current one
+        zstd_frame_offset += u64::try_from(zstd_frame.len()).unwrap();
+    });
+    stream::once(future::ready(Ok(header)))
+        .chain(zstd_frames)
+        .forward(FramedWrite::new(writer, BytesCodec::new()))
+        .await?;
+    Ok(index)
 }
 
 fn v1_header(roots: Vec<Cid>) -> BytesMut {
@@ -783,7 +839,7 @@ fn v1_header(roots: Vec<Cid>) -> BytesMut {
 }
 
 // TODO(aatifsyed): don't actually need to take Vec<u8>..
-fn cid_and_ipld(cid: Cid, ipld: Vec<u8>) -> BytesMut {
+fn encode_concat_cid_and_ipld(cid: Cid, ipld: Vec<u8>) -> BytesMut {
     let mut buffer = BytesMut::new();
     cid.write_bytes((&mut buffer).writer())
         .expect("BytesMut has infallible IO");
@@ -795,14 +851,55 @@ fn cid_and_ipld(cid: Cid, ipld: Vec<u8>) -> BytesMut {
 mod tests {
 
     use super::{
-        zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
-        UncompressedCarV1BackedBlockstore, ZstdFrames,
+        v1_manyframe_index, zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
+        CompressedCarV1BackedBlockstoreInner, UncompressedCarV1BackedBlockstore, ZstdFrames,
     };
 
-    use futures::executor::block_on;
+    use cid::Cid;
+    use futures::{
+        executor::block_on,
+        stream::{self, StreamExt as _},
+    };
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
+    use indexmap::IndexMap;
+    use parking_lot::Mutex;
     use tap::Tap as _;
+
+    #[test]
+    fn test_write_indexed_oob() {
+        let sample_data = {
+            let bs =
+                UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(chain4_car())).unwrap();
+            bs.cids()
+                .into_iter()
+                .map(|cid| (cid, bs.get(&cid).unwrap().unwrap()))
+                .collect::<IndexMap<_, _, ahash::RandomState>>()
+        };
+        let mut many_frame_zstd = std::io::Cursor::new(vec![]);
+        let index = block_on(v1_manyframe_index(
+            vec![Cid::default()],
+            stream::iter(sample_data.clone()).map(Ok),
+            8_000_usize.next_power_of_two(),
+            3,
+            &mut many_frame_zstd,
+        ))
+        .unwrap();
+        let blockstore = CompressedCarV1BackedBlockstore {
+            inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
+                reader: many_frame_zstd,
+                write_cache: ahash::AHashMap::new(),
+                most_recent_zstd_frame: None,
+                index,
+                roots: vec![Cid::default()],
+            }),
+        };
+        for cid in blockstore.cids() {
+            let expected = sample_data.get(&cid).unwrap();
+            let actual = blockstore.get(&cid).unwrap().unwrap();
+            assert_eq!(expected, &actual);
+        }
+    }
 
     #[test]
     fn test_uncompressed() {
