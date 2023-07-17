@@ -12,7 +12,7 @@ use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use tracing::info;
 
-use crate::chain::{Error};
+use crate::chain::Error;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
