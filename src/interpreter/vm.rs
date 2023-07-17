@@ -374,9 +374,8 @@ where
                         exit_code
                     )
                 }
-                _ => {
-                    tracing::warn!("Message execution failed with exit code {}", exit_code)
-                }
+                // Warning removed, as message execution failure in this case is likely an internal error in `builtin-actors` and unlikely to be a problem with Forest rather than a badly written transaction.
+                _ => {}
             };
         }
 
