@@ -96,7 +96,7 @@ impl<B> Scale for FilecoinConsensus<B> {
 #[async_trait]
 impl<B> Consensus for FilecoinConsensus<B>
 where
-    B: Beacon + Unpin,
+    B: Beacon,
 {
     type Error = FilecoinConsensusError;
 

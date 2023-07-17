@@ -366,7 +366,13 @@ pub(super) async fn start(
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            start_rpc::<_, _, cns::FullConsensus>(
+            let beacon = Arc::new(
+                rpc_state_manager
+                    .chain_config()
+                    .get_beacon_schedule(chain_store.genesis()?.timestamp())
+                    .into_dyn(),
+            );
+            start_rpc(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -377,7 +383,7 @@ pub(super) async fn start(
                     network_name,
                     start_time,
                     // TODO: the RPCState can fetch this itself from the StateManager
-                    beacon: rpc_state_manager.beacon_schedule(),
+                    beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                     gc_event_tx,

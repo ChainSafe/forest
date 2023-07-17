@@ -3,7 +3,6 @@
 #![allow(clippy::unused_async)]
 use std::{convert::TryFrom, str::FromStr};
 
-use crate::beacon::Beacon;
 use crate::json::{address::json::AddressJson, signature::json::SignatureJson};
 use crate::key_management::{json::KeyInfoJson, Error, Key};
 use crate::rpc_api::{data_types::RPCState, wallet_api::*};
@@ -14,13 +13,12 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::Zero;
 
 /// Return the balance from `StateManager` for a given `Address`
-pub(in crate::rpc) async fn wallet_balance<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_balance<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletBalanceParams>,
 ) -> Result<WalletBalanceResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
@@ -43,12 +41,11 @@ where
 }
 
 /// Get the default Address for the Wallet
-pub(in crate::rpc) async fn wallet_default_address<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_default_address<DB>(
+    data: Data<RPCState<DB>>,
 ) -> Result<WalletDefaultAddressResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let keystore = data.keystore.read().await;
 
@@ -57,13 +54,12 @@ where
 }
 
 /// Export `KeyInfo` from the Wallet given its address
-pub(in crate::rpc) async fn wallet_export<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_export<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletExportParams>,
 ) -> Result<WalletExportResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (addr_str,) = params;
     let addr = Address::from_str(&addr_str)?;
@@ -75,13 +71,12 @@ where
 }
 
 /// Return whether or not a Key is in the Wallet
-pub(in crate::rpc) async fn wallet_has<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_has<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletHasParams>,
 ) -> Result<WalletHasResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (addr_str,) = params;
     let addr = Address::from_str(&addr_str)?;
@@ -93,13 +88,12 @@ where
 }
 
 /// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
-pub(in crate::rpc) async fn wallet_import<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_import<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletImportParams>,
 ) -> Result<WalletImportResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let key_info: crate::key_management::KeyInfo = match params.first().cloned() {
         Some(key_info) => key_info.into(),
@@ -126,12 +120,11 @@ where
 }
 
 /// List all Addresses in the Wallet
-pub(in crate::rpc) async fn wallet_list<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_list<DB>(
+    data: Data<RPCState<DB>>,
 ) -> Result<WalletListResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let keystore = data.keystore.read().await;
     Ok(crate::key_management::list_addrs(&keystore)?
@@ -141,13 +134,12 @@ where
 }
 
 /// Generate a new Address that is stored in the Wallet
-pub(in crate::rpc) async fn wallet_new<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_new<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletNewParams>,
 ) -> Result<WalletNewResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (sig_raw,) = params;
     let mut keystore = data.keystore.write().await;
@@ -164,13 +156,12 @@ where
 }
 
 /// Set the default Address for the Wallet
-pub(in crate::rpc) async fn wallet_set_default<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_set_default<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletSetDefaultParams>,
 ) -> Result<WalletSetDefaultResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (address,) = params;
     let mut keystore = data.keystore.write().await;
@@ -183,13 +174,12 @@ where
 }
 
 /// Sign a vector of bytes
-pub(in crate::rpc) async fn wallet_sign<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_sign<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<WalletSignParams>,
 ) -> Result<WalletSignResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
@@ -217,13 +207,12 @@ where
 }
 
 /// Verify a Signature, true if verified, false otherwise
-pub(in crate::rpc) async fn wallet_verify<DB, B>(
-    _data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn wallet_verify<DB>(
+    _data: Data<RPCState<DB>>,
     Params(params): Params<WalletVerifyParams>,
 ) -> Result<WalletVerifyResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (addr, msg, SignatureJson(sig)) = params;
     let address = addr.0;
