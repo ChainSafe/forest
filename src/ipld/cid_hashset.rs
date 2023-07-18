@@ -108,7 +108,7 @@ mod tests {
     fn quickcheck_constructor(cid: Cid, payload: u64) -> (CidHashMap<u64>, HashMap<Cid, u64>) {
         let mut cid_hash_map = CidHashMap::new();
         let mut hash_map = HashMap::new();
-        cid_hash_map.insert(cid.clone(), payload.clone());
+        cid_hash_map.insert(cid, payload);
         hash_map.insert(cid, payload);
         (cid_hash_map, hash_map)
     }
@@ -118,38 +118,38 @@ mod tests {
         let mut cid_hash_map = CidHashMap::new();
         let mut hash_map = HashMap::new();
         assert_eq!(
-            cid_hash_map.insert(cid.clone(), payload.clone()),
+            cid_hash_map.insert(cid, payload),
             hash_map.insert(cid, payload)
         );
     }
 
     #[quickcheck]
     fn contains_key(cid: Cid, payload: u64) {
-        let (cid_hash_map, hash_map) = quickcheck_constructor(cid.clone(), payload.clone());
+        let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
         assert_eq!(cid_hash_map.contains_key(cid), hash_map.contains_key(&cid));
     }
 
     #[quickcheck]
     fn remove_key(cid: Cid, payload: u64) {
-        let (mut cid_hash_map, mut hash_map) = quickcheck_constructor(cid.clone(), payload.clone());
+        let (mut cid_hash_map, mut hash_map) = quickcheck_constructor(cid, payload);
         assert_eq!(cid_hash_map.remove(cid), hash_map.remove(&cid));
     }
 
     #[quickcheck]
     fn get_value_at_key(cid: Cid, payload: u64) {
-        let (cid_hash_map, hash_map) = quickcheck_constructor(cid.clone(), payload.clone());
+        let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
         assert_eq!(cid_hash_map.get(cid), hash_map.get(&cid));
     }
 
     #[quickcheck]
     fn len(cid: Cid, payload: u64) {
-        let (cid_hash_map, hash_map) = quickcheck_constructor(cid.clone(), payload.clone());
+        let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
         assert_eq!(cid_hash_map.len(), hash_map.len());
     }
 
     #[quickcheck]
     fn capacity(cid: Cid, payload: u64) {
-        let (cid_hash_map, hash_map) = quickcheck_constructor(cid.clone(), payload.clone());
+        let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
         assert_eq!(cid_hash_map.capacity(), hash_map.capacity());
     }
 }
