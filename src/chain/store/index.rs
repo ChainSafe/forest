@@ -83,8 +83,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// load when epoch 2 is requested. The ambiguity is solved by passing in a
     /// younger tipset (higher epoch) from which has the desired tipset as an
     /// ancestor.
-    /// Calling `get_tipset_by_height(epoch_3a, 2)` will return `Epoch 2A`.
-    /// Calling `get_tipset_by_height(epoch_3b, 2)` will return `Epoch 2B`.
+    /// Calling `get_tipset_by_height(2, epoch_3a)` will return `Epoch 2A`.
+    /// Calling `get_tipset_by_height(2, epoch_3b)` will return `Epoch 2B`.
     ///
     /// # What happens when a null tipset is requested?
     ///
