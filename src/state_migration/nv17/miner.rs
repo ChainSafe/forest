@@ -370,7 +370,7 @@ mod tests {
     use crate::shim::{
         econ::TokenAmount,
         machine::Manifest,
-        state_tree::{ActorState, StateTree, StateTreeVersion},
+        state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
     use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
@@ -384,7 +384,6 @@ mod tests {
             SHA2_256_TRUNC254_PADDED,
         },
         piece::PaddedPieceSize,
-        state::StateRoot,
     };
 
     #[test]
