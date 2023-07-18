@@ -9,9 +9,6 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init
 
-echo "Validating checkpoint tipset hashes"
-$FOREST_CLI_PATH chain validate-tipset-checkpoints
-
 echo "Running database garbage collection"
 forest_check_db_stats
 $FOREST_CLI_PATH db gc

@@ -29,6 +29,8 @@
 
 - [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
   organisation to use multiple columns. The database will need to be recreated.
+- [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
+  `forest-cli chain validate-tipset-checkpoints` command.
 
 ### Added
 
