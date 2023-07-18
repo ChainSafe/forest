@@ -8,7 +8,6 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
-    error::ExitCode,
     executor::{ApplyRet, Receipt},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
@@ -338,13 +337,10 @@ where
         let exit_code = ret.msg_receipt().exit_code();
 
         if !exit_code.is_success() {
-            // Warning on other `ExitCode` values removed, as message execution failure in that case is likely an internal error in `builtin-actors` and unlikely to be a problem with Forest rather than a badly written transaction.
-            if let 1..=ExitCode::FIRST_USER_EXIT_CODE = exit_code.value() {
-                tracing::debug!(
-                    "Internal message execution failure. Exit code was {}",
-                    exit_code
-                )
-            };
+            tracing::debug!(
+                "Internal message execution failure. Exit code was {}",
+                exit_code
+            )
         }
 
         Ok(ret)
