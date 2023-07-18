@@ -714,6 +714,15 @@ fn varint_to_zstd_frame_collator(
 }
 
 /// Encode `body` as a varint frame into `encoder` (writing the length and then the body itself)
+/// ```text
+///    ┌──────────────────────────────···
+///    │ zstd frame
+///    ├···┬───────────┬─────────────┬···
+///    │   │varint:    │             │
+///    │   │body length│frame body   │
+///    └···┼───────────┴─────────────┼···
+/// start ►│                    end ►│
+/// ```
 fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
@@ -726,6 +735,7 @@ fn zstd_compress_fold_varint_frame(
     encoder
 }
 
+/// Finish a zstd frame
 fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
     encoder
         .finish()
@@ -819,7 +829,9 @@ async fn write_manyframe_and_create_index(
     )
     .inspect_ok(|zstd_frame| {
         // TODO(aatifsyed): don't uncompress again
-        let mut cursor = std::io::Cursor::new(zstd::decode_all(zstd_frame.as_ref()).unwrap());
+        let mut cursor = std::io::Cursor::new(
+            zstd::decode_all(zstd_frame.as_ref()).expect("We've just compressed this frame"),
+        );
         index.extend(
             iter::from_fn(|| {
                 read_block_data_location_and_skip(&mut cursor)
