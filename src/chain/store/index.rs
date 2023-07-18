@@ -119,7 +119,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
             if to == child.epoch() {
                 return Ok(child);
             }
-            if to < parent.epoch() {
+            if to > parent.epoch() {
+                // We're at a point where child.epoch() > x > parent.epoch().
                 match resolve {
                     ResolveNullTipset::TakeOlder => return Ok(parent),
                     ResolveNullTipset::TakeYounger => return Ok(child),
