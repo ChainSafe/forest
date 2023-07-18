@@ -7,7 +7,10 @@ use std::{io, marker::PhantomData, time::Duration};
 use async_trait::async_trait;
 use decoder::DagCborDecodingReader;
 use futures::prelude::*;
-use libp2p::request_response::{self, OutboundFailure};
+use libp2p::{
+    core::ProtocolName,
+    request_response::{self, OutboundFailure},
+};
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy
@@ -68,7 +71,7 @@ impl From<OutboundFailure> for RequestResponseError {
 #[async_trait]
 impl<P, RQ, RS> request_response::Codec for CborRequestResponse<P, RQ, RS>
 where
-    P: AsRef<str> + Send + Clone,
+    P: ProtocolName + Clone + Send + Sync,
     RQ: Serialize + DeserializeOwned + Send + Sync,
     RS: Serialize + DeserializeOwned + Send + Sync,
 {
