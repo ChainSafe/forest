@@ -20,8 +20,6 @@ mod wallet_api;
 
 use std::{net::TcpListener, sync::Arc};
 
-use crate::beacon::Beacon;
-use crate::chain::Scale;
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, progress_api::GET_PROGRESS,
@@ -43,16 +41,14 @@ use crate::rpc::{
 
 pub type RpcResult<T> = Result<T, JSONRPCError>;
 
-pub async fn start_rpc<DB, B, S>(
-    state: Arc<RPCState<DB, B>>,
+pub async fn start_rpc<DB>(
+    state: Arc<RPCState<DB>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
     shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
-    S: Scale + 'static,
 {
     use auth_api::*;
     use chain_api::*;
@@ -66,81 +62,78 @@ where
         Server::new()
             .with_data(Data(state))
             // Auth API
-            .with_method(AUTH_NEW, auth_new::<DB, B>)
-            .with_method(AUTH_VERIFY, auth_verify::<DB, B>)
+            .with_method(AUTH_NEW, auth_new::<DB>)
+            .with_method(AUTH_VERIFY, auth_verify::<DB>)
             // Beacon API
-            .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB, B>)
+            .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
             // Chain API
-            .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB, B>)
-            .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB, B>)
-            .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB, B>)
-            .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB, B>)
-            .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB, B>)
-            .with_method(
-                CHAIN_GET_TIPSET_BY_HEIGHT,
-                chain_get_tipset_by_height::<DB, B>,
-            )
-            .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB, B>)
-            .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB, B>)
-            .with_method(CHAIN_GET_TIPSET_HASH, chain_get_tipset_hash::<DB, B>)
+            .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB>)
+            .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB>)
+            .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)
+            .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)
+            .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)
+            .with_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)
+            .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB>)
+            .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
+            .with_method(CHAIN_GET_TIPSET_HASH, chain_get_tipset_hash::<DB>)
             .with_method(
                 CHAIN_VALIDATE_TIPSET_CHECKPOINTS,
-                chain_validate_tipset_checkpoints::<DB, B>,
+                chain_validate_tipset_checkpoints::<DB>,
             )
-            .with_method(CHAIN_HEAD, chain_head::<DB, B>)
-            .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
-            .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB, B>)
-            .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB, B>)
+            .with_method(CHAIN_HEAD, chain_head::<DB>)
+            .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
+            .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB>)
+            .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
             // Message Pool API
-            .with_method(MPOOL_PENDING, mpool_pending::<DB, B>)
-            .with_method(MPOOL_PUSH, mpool_push::<DB, B>)
-            .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB, B>)
+            .with_method(MPOOL_PENDING, mpool_pending::<DB>)
+            .with_method(MPOOL_PUSH, mpool_push::<DB>)
+            .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
             // Sync API
-            .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB, B>)
-            .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB, B>)
-            .with_method(SYNC_STATE, sync_state::<DB, B>)
+            .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)
+            .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)
+            .with_method(SYNC_STATE, sync_state::<DB>)
             // Wallet API
-            .with_method(WALLET_BALANCE, wallet_balance::<DB, B>)
-            .with_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB, B>)
-            .with_method(WALLET_EXPORT, wallet_export::<DB, B>)
-            .with_method(WALLET_HAS, wallet_has::<DB, B>)
-            .with_method(WALLET_IMPORT, wallet_import::<DB, B>)
-            .with_method(WALLET_LIST, wallet_list::<DB, B>)
-            .with_method(WALLET_NEW, wallet_new::<DB, B>)
-            .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB, B>)
-            .with_method(WALLET_SIGN, wallet_sign::<DB, B>)
-            .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
+            .with_method(WALLET_BALANCE, wallet_balance::<DB>)
+            .with_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB>)
+            .with_method(WALLET_EXPORT, wallet_export::<DB>)
+            .with_method(WALLET_HAS, wallet_has::<DB>)
+            .with_method(WALLET_IMPORT, wallet_import::<DB>)
+            .with_method(WALLET_LIST, wallet_list::<DB>)
+            .with_method(WALLET_NEW, wallet_new::<DB>)
+            .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
+            .with_method(WALLET_SIGN, wallet_sign::<DB>)
+            .with_method(WALLET_VERIFY, wallet_verify::<DB>)
             // State API
-            .with_method(STATE_CALL, state_call::<DB, B>)
-            .with_method(STATE_REPLAY, state_replay::<DB, B>)
-            .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
-            .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
-            .with_method(STATE_REPLAY, state_replay::<DB, B>)
-            .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB, B>)
-            .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
-            .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
-            .with_method(STATE_WAIT_MSG, state_wait_msg::<DB, B>)
-            .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB, B>)
+            .with_method(STATE_CALL, state_call::<DB>)
+            .with_method(STATE_REPLAY, state_replay::<DB>)
+            .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
+            .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
+            .with_method(STATE_REPLAY, state_replay::<DB>)
+            .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
+            .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
+            .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
+            .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
+            .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
             // Gas API
-            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB, B>)
-            .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB, B>)
-            .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB, B>)
-            .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB, B>)
+            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
+            .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
+            .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)
+            .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
             // Common API
             .with_method(VERSION, move || version(block_delay, forest_version))
             .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
-            .with_method(START_TIME, start_time::<DB, B>)
+            .with_method(START_TIME, start_time::<DB>)
             // Net API
-            .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
-            .with_method(NET_PEERS, net_api::net_peers::<DB, B>)
-            .with_method(NET_CONNECT, net_api::net_connect::<DB, B>)
-            .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB, B>)
+            .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
+            .with_method(NET_PEERS, net_api::net_peers::<DB>)
+            .with_method(NET_CONNECT, net_api::net_connect::<DB>)
+            .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
             // DB API
-            .with_method(DB_GC, db_api::db_gc::<DB, B>)
+            .with_method(DB_GC, db_api::db_gc::<DB>)
             // Progress API
             .with_method(GET_PROGRESS, progress_api::get_progress)
             // Node API
-            .with_method(NODE_STATUS, node_api::node_status::<DB, B>)
+            .with_method(NODE_STATUS, node_api::node_status::<DB>)
             .finish_unwrapped(),
     );
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::beacon::Beacon;
 use crate::chain_sync::SyncState;
 use crate::json::cid::CidJson;
 use crate::rpc_api::{
@@ -14,26 +13,24 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
-pub(in crate::rpc) async fn sync_check_bad<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn sync_check_bad<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<SyncCheckBadParams>,
 ) -> Result<SyncCheckBadResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (CidJson(cid),) = params;
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(in crate::rpc) async fn sync_mark_bad<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn sync_mark_bad<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<SyncMarkBadParams>,
 ) -> Result<SyncMarkBadResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
@@ -46,12 +43,11 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub(in crate::rpc) async fn sync_state<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn sync_state<DB>(
+    data: Data<RPCState<DB>>,
 ) -> Result<SyncStateResult, JsonRpcError>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
@@ -65,7 +61,7 @@ mod tests {
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::SyncStage;
-    use crate::db::{MemoryDB, Store};
+    use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
@@ -81,18 +77,18 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    fn state_setup() -> (
-        Arc<RPCState<MemoryDB, MockBeacon>>,
-        flume::Receiver<NetworkMessage>,
-    ) {
-        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
-            height: 0,
-            beacon: Arc::new(MockBeacon::default()),
-        }]));
+    fn state_setup() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
+        let beacon = Arc::new(
+            BeaconSchedule(vec![BeaconPoint {
+                height: 0,
+                beacon: MockBeacon::default(),
+            }])
+            .into_dyn(),
+        );
 
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
@@ -113,14 +109,7 @@ mod tests {
         );
 
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let state_manager = Arc::new(
-            StateManager::new(
-                cs_arc.clone(),
-                chain_config,
-                Arc::new(crate::interpreter::RewardActorMessageCalc),
-            )
-            .unwrap(),
-        );
+        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let cs_for_chain = &cs_arc;
@@ -135,7 +124,7 @@ mod tests {
 
             for i in tsk {
                 let bz2 = bz.clone();
-                db.write(i.to_bytes(), bz2).unwrap();
+                db.put_keyed(&i, &bz2).unwrap();
             }
 
             let provider =
@@ -145,7 +134,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                Arc::clone(state_manager_for_thread.chain_config()),
+                state_manager_for_thread.chain_config(),
                 &mut services,
             )
             .unwrap()

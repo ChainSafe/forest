@@ -231,6 +231,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
+// <https://spec.filecoin.io/#example-blockheader>
 impl BlockHeader {
     /// Generates a `BlockHeader` builder as a constructor
     pub fn builder() -> BlockHeaderBuilder {
@@ -291,11 +292,11 @@ impl BlockHeader {
                 .expect("internal error - block serialization may not fail")
         })
     }
-    /// Get `BlockHeader.parent_base_fee`
+    /// Identical for all blocks in same tipset: the base fee after executing parent tipset.
     pub fn parent_base_fee(&self) -> &TokenAmount {
         &self.parent_base_fee
     }
-    /// Get `BlockHeader.fork_signal`
+    /// Currently unused/undefined
     pub fn fork_signal(&self) -> u64 {
         self.fork_signal
     }
@@ -433,8 +434,6 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
     use crate::shim::{address::Address, version::NetworkVersion};
     use fvm_ipld_encoding::{from_slice, to_vec};
@@ -467,10 +466,10 @@ mod tests {
             .beacon_entries(Vec::new())
             .build()
             .unwrap();
-        let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
+        let beacon_schedule = BeaconSchedule(vec![BeaconPoint {
             height: 0,
-            beacon: Arc::new(MockBeacon::default()),
-        }]));
+            beacon: MockBeacon::default(),
+        }]);
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand

@@ -400,7 +400,7 @@ where
 
     let chain_data_root = TempDir::new()?;
     let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
+        Arc::new(db.clone()),
         Arc::clone(&chain_config),
         &genesis,
         chain_data_root.path(),
@@ -424,7 +424,6 @@ where
     let state_manager = Arc::new(StateManager::new(
         chain_store,
         Arc::clone(&chain_config),
-        Arc::new(crate::interpreter::RewardActorMessageCalc),
     )?);
     ensure_params_downloaded().await?;
 

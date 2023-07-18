@@ -26,6 +26,25 @@ pub trait Rand {
     ) -> anyhow::Result<[u8; 32]>;
 }
 
+impl Rand for Box<dyn Rand> {
+    fn get_chain_randomness(
+        &self,
+        pers: i64,
+        round: ChainEpoch_v2,
+        entropy: &[u8],
+    ) -> anyhow::Result<[u8; 32]> {
+        self.as_ref().get_chain_randomness(pers, round, entropy)
+    }
+    fn get_beacon_randomness(
+        &self,
+        pers: i64,
+        round: ChainEpoch_v2,
+        entropy: &[u8],
+    ) -> anyhow::Result<[u8; 32]> {
+        self.as_ref().get_beacon_randomness(pers, round, entropy)
+    }
+}
+
 impl<T: Rand> Rand_v2 for RandWrapper<T> {
     fn get_chain_randomness(
         &self,

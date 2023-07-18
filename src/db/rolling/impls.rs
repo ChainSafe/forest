@@ -68,13 +68,13 @@ impl Blockstore for RollingDB {
     }
 }
 
-impl Store for RollingDB {
-    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, crate::db::Error>
+impl SettingsStore for RollingDB {
+    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
     where
-        K: AsRef<[u8]>,
+        K: AsRef<str>,
     {
         for db in self.db_queue().iter() {
-            if let Some(v) = Store::read(db, key.as_ref())? {
+            if let Some(v) = SettingsStore::read_bin(db, key.as_ref())? {
                 return Ok(Some(v));
             }
         }
@@ -82,12 +82,12 @@ impl Store for RollingDB {
         Ok(None)
     }
 
-    fn exists<K>(&self, key: K) -> Result<bool, crate::db::Error>
+    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
     where
-        K: AsRef<[u8]>,
+        K: AsRef<str>,
     {
         for db in self.db_queue().iter() {
-            if Store::exists(db, key.as_ref())? {
+            if SettingsStore::exists(db, key.as_ref())? {
                 return Ok(true);
             }
         }
@@ -95,19 +95,12 @@ impl Store for RollingDB {
         Ok(false)
     }
 
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::db::Error>
+    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
     where
-        K: AsRef<[u8]>,
+        K: AsRef<str>,
         V: AsRef<[u8]>,
     {
-        Store::write(&self.current(), key, value)
-    }
-
-    fn bulk_write(
-        &self,
-        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
-    ) -> Result<(), crate::db::Error> {
-        Store::bulk_write(&self.current(), values)
+        SettingsStore::write_bin(&self.current(), key, value)
     }
 }
 

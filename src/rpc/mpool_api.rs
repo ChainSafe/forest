@@ -4,7 +4,6 @@
 
 use std::convert::TryFrom;
 
-use crate::beacon::Beacon;
 use crate::blocks::TipsetKeys;
 use crate::json::{
     cid::{vec::CidJsonVec, CidJson},
@@ -21,13 +20,12 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use super::gas_api::estimate_message_gas;
 
 /// Return `Vec` of pending messages in `mpool`
-pub(in crate::rpc) async fn mpool_pending<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn mpool_pending<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<MpoolPendingParams>,
 ) -> Result<MpoolPendingResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
@@ -81,13 +79,12 @@ where
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
-pub(in crate::rpc) async fn mpool_push<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn mpool_push<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (SignedMessageJson(smsg),) = params;
 
@@ -97,13 +94,12 @@ where
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
-pub(in crate::rpc) async fn mpool_push_message<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn mpool_push_message<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (MessageJson(umsg), spec) = params;
 
@@ -121,7 +117,7 @@ where
             "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
         );
     }
-    let mut umsg = estimate_message_gas::<DB, B>(&data, umsg, spec, Default::default()).await?;
+    let mut umsg = estimate_message_gas::<DB>(&data, umsg, spec, Default::default()).await?;
     if umsg.gas_premium > umsg.gas_fee_cap {
         return Err("After estimation, gas premium is greater than gas fee cap".into());
     }

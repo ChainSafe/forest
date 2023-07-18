@@ -18,12 +18,12 @@ use super::Error;
 #[derive(Default)]
 pub(in crate::chain) struct TipsetTracker<DB> {
     entries: Mutex<BTreeMap<ChainEpoch, Vec<Cid>>>,
-    db: DB,
+    db: Arc<DB>,
     chain_config: Arc<ChainConfig>,
 }
 
 impl<DB: Blockstore> TipsetTracker<DB> {
-    pub fn new(db: DB, chain_config: Arc<ChainConfig>) -> Self {
+    pub fn new(db: Arc<DB>, chain_config: Arc<ChainConfig>) -> Self {
         Self {
             entries: Default::default(),
             db,
@@ -140,7 +140,7 @@ mod test {
             (head_epoch - chain_config.policy.chain_finality + 3, vec![]),
         ]);
         let tipset_tracker = TipsetTracker {
-            db,
+            db: Arc::new(db),
             chain_config: chain_config.clone(),
             entries: Mutex::new(entries),
         };
