@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
-use ahash::{HashMap, HashMapExt, HashSet};
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 
 // The size of a CID is 96 bytes. A CID contains:
@@ -17,25 +17,23 @@ use cid::Cid;
 // length=32. Taking advantage of this knowledge, we can store the vast majority of CIDs (+99.99%)
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Default)]
-pub struct CidHashSet {
-    v1_dagcbor_blake2b: HashSet<[u8; BLAKE2B256_SIZE]>,
-    fallback: HashSet<Cid>,
-}
+pub struct CidHashSet(CidHashMap<()>);
 
 impl CidHashSet {
     pub fn insert(&mut self, cid: Cid) -> bool {
-        match cid.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => self.v1_dagcbor_blake2b.insert(bytes),
-            Err(()) => self.fallback.insert(cid),
+        if self.0.contains_key(cid) {
+            false
+        } else {
+            self.0.insert(cid, ()).is_none()
         }
     }
 
     pub fn len(&self) -> usize {
-        self.v1_dagcbor_blake2b.len() + self.fallback.len()
+        self.0.len()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CidHashMap<V> {
     v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
     fallback_hash_map: HashMap<Cid, V>,
