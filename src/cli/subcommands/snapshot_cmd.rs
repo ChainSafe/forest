@@ -421,10 +421,7 @@ where
         );
     }
     // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(
-        chain_store,
-        Arc::clone(&chain_config),
-    )?);
+    let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&chain_config))?);
     ensure_params_downloaded().await?;
 
     // Prepare tipsets for validation
