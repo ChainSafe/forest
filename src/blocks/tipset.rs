@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt;
+use std::{fmt, sync::OnceLock};
 
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
@@ -256,6 +256,7 @@ impl Tipset {
         }
         broken
     }
+
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
         itertools::unfold(Some(self), move |tipset| {
@@ -264,6 +265,46 @@ impl Tipset {
                 child
             })
         })
+    }
+
+    ///
+    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<BlockHeader> {
+        use crate::networks::{calibnet, mainnet};
+        use ahash::HashMap;
+        use std::str::FromStr;
+        #[derive(Serialize, Deserialize)]
+        struct KnownHeaders {
+            calibnet: HashMap<ChainEpoch, String>,
+            mainnet: HashMap<ChainEpoch, String>,
+        }
+
+        static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
+        let headers = KNOWN_HEADERS.get_or_init(|| {
+            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
+        });
+
+        let calibnet_cid = Cid::from_str(calibnet::GENESIS_CID).unwrap();
+        let mainnet_cid = Cid::from_str(mainnet::GENESIS_CID).unwrap();
+
+        for tipset in self.clone().chain(&store) {
+            for (genesis_cid, known_blocks) in [
+                (calibnet_cid, &headers.calibnet),
+                (mainnet_cid, &headers.mainnet),
+            ] {
+                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
+                    if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
+                        return Ok(store.get_cbor(&genesis_cid)?.ok_or_else(|| {
+                            anyhow::anyhow!("Genesis block missing from database")
+                        })?);
+                    }
+                }
+            }
+
+            if tipset.epoch() == 0 {
+                return Ok(tipset.min_ticket_block().clone());
+            }
+        }
+        anyhow::bail!("Genesis block not found")
     }
 }
 

@@ -29,11 +29,10 @@
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::{ChainEpochDelta, ChainStore};
-use crate::cli_shared::snapshot;
-use crate::cli_shared::snapshot::TrustedVendor;
+use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::genesis::read_genesis_header;
-use crate::networks::{calibnet, mainnet};
-use crate::shim::clock::ChainEpoch;
+use crate::networks::{calibnet, mainnet, NetworkChain};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use crate::Config;
 use anyhow::{bail, Context as _};
 use chrono::Utc;
@@ -79,6 +78,10 @@ pub enum ArchiveCommands {
         #[arg(short)]
         depth: Option<ChainEpochDelta>,
     },
+    Checkpoints {
+        /// Path to snapshot file.
+        snapshot: PathBuf,
+    },
 }
 
 impl ArchiveCommands {
@@ -109,6 +112,7 @@ impl ArchiveCommands {
 
                 do_export(config, reader, output_path, epoch, depth).await
             }
+            Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
         }
     }
 }
@@ -281,18 +285,17 @@ impl ArchiveInfo {
             let may_skip =
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
-                if let Some(genesis_keys) =
-                    crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset(
-                        tipset.key(),
-                    )
-                {
-                    let genesis_cid = genesis_keys.cids[0];
-                    if genesis_cid.to_string() == calibnet::GENESIS_CID {
-                        network = "calibnet".into();
-                    } else if genesis_cid.to_string() == mainnet::GENESIS_CID {
-                        network = "mainnet".into();
+                match tipset.genesis(&store).ok() {
+                    Some(genesis_block) => {
+                        if genesis_block.cid().to_string() == calibnet::GENESIS_CID {
+                            network = "calibnet".into();
+                        } else if genesis_block.cid().to_string() == mainnet::GENESIS_CID {
+                            network = "mainnet".into();
+                        }
                     }
-                    break;
+                    None => {
+                        break;
+                    }
                 }
             }
         }
@@ -305,6 +308,46 @@ impl ArchiveInfo {
             messages: lowest_message_epoch,
         })
     }
+}
+
+// Print a mapping of epochs to block headers in yaml format. This mapping can
+// be used by Forest to quickly identify tipsets.
+fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
+    let file = std::fs::File::open(snapshot)?;
+    let store = UncompressedCarV1BackedBlockstore::new(file)
+        .context("couldn't read input CAR file - is it compressed?")?;
+    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+
+    let genesis = root.genesis(&store)?;
+    let chain_name = if genesis.cid().to_string() == calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid().to_string() == mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        bail!("Unrecognizable genesis block");
+    };
+
+    println!("{}:", chain_name);
+    for (epoch, cid) in list_checkpoints(store, root) {
+        println!("  {}: {}", epoch, cid);
+    }
+    Ok(())
+}
+
+fn list_checkpoints(
+    db: impl Blockstore,
+    root: Tipset,
+) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> {
+    let interval = EPOCHS_IN_DAY * 30;
+    let mut target_epoch = root.epoch() - root.epoch() % interval;
+    root.chain(db).filter_map(move |tipset| {
+        if tipset.epoch() <= target_epoch && tipset.epoch() != 0 {
+            target_epoch -= interval;
+            Some((tipset.epoch(), *tipset.min_ticket_block().cid()))
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(test)]

@@ -272,38 +272,6 @@ where
     Ok(TipsetJson(ts))
 }
 
-pub(in crate::rpc) async fn chain_get_tipset_hash<DB>(
-    data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetTipSetHashParams>,
-) -> Result<ChainGetTipSetHashResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let (TipsetKeysJson(tsk),) = params;
-    let ts = data.state_manager.chain_store().tipset_hash_from_keys(&tsk);
-    Ok(ts)
-}
-
-pub(in crate::rpc) async fn chain_validate_tipset_checkpoints<DB>(
-    data: Data<RPCState<DB>>,
-    Params(params): Params<ChainValidateTipSetCheckpointsParams>,
-) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let () = params;
-
-    let tipset = data.state_manager.chain_store().heaviest_tipset();
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(tipset.key())?;
-    data.state_manager
-        .chain_store()
-        .validate_tipset_checkpoints(ts, &data.state_manager.chain_config().network)?;
-    Ok("Ok".to_string())
-}
-
 pub(in crate::rpc) async fn chain_get_name<DB>(
     data: Data<RPCState<DB>>,
 ) -> Result<ChainGetNameResult, JsonRpcError>

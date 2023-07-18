@@ -10,7 +10,6 @@ use fvm_ipld_blockstore::Blockstore;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-use tracing::info;
 
 use crate::chain::Error;
 
@@ -21,81 +20,6 @@ const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
 /// Configuration which sets the length of tipsets to skip in between each
 /// cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
-
-// This module helps speed up boot times for forest by checkpointing previously
-// seen tipsets from snapshots.
-pub mod checkpoint_tipsets {
-    use std::str::FromStr;
-
-    use crate::blocks::{Tipset, TipsetKeys};
-    use crate::networks::NetworkChain;
-    use ahash::HashSet;
-    use cid::Cid;
-    use serde::{Deserialize, Serialize};
-
-    // Represents a static map of validated tipset hashes which helps to remove the
-    // need to validate the tipset back to genesis if it has been validated
-    // before, thereby reducing boot times. NB: Add desired tipset checkpoints
-    // below this by using RPC command: forest-cli chain tipset-hash <cid keys>
-    // and one can use forest-cli chain validate-tipset-checkpoints to validate
-    // tipset hashes for entries that fall within the range of epochs in current
-    // downloaded snapshot file.
-    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    struct KnownCheckpoints {
-        calibnet: HashSet<String>,
-        mainnet: HashSet<String>,
-    }
-
-    lazy_static::lazy_static! {
-        static ref KNOWN_CHECKPOINTS: KnownCheckpoints = serde_yaml::from_str(include_str!("known_checkpoints.yaml")).unwrap();
-    }
-
-    type GenesisTipsetCids = TipsetKeys;
-
-    pub fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
-        let key = tipset_hash(tsk);
-        if KNOWN_CHECKPOINTS.mainnet.contains(&key) {
-            return Some(TipsetKeys::new(vec![Cid::from_str(
-                crate::networks::mainnet::GENESIS_CID,
-            )
-            .unwrap()]));
-        }
-        if KNOWN_CHECKPOINTS.calibnet.contains(&key) {
-            return Some(TipsetKeys::new(vec![Cid::from_str(
-                crate::networks::calibnet::GENESIS_CID,
-            )
-            .unwrap()]));
-        }
-        None
-    }
-
-    pub fn get_tipset_hashes(network: &NetworkChain) -> Option<HashSet<String>> {
-        match network {
-            NetworkChain::Mainnet => Some(KNOWN_CHECKPOINTS.mainnet.clone()),
-            NetworkChain::Calibnet => Some(KNOWN_CHECKPOINTS.calibnet.clone()),
-            NetworkChain::Devnet(_) => None, // skip and pass through if an unsupported network found
-        }
-    }
-
-    // Validate that the genesis tipset matches our hard-coded values
-    pub fn validate_genesis_cid(ts: &Tipset, network: &NetworkChain) -> bool {
-        match network {
-            NetworkChain::Mainnet => {
-                ts.min_ticket_block().cid().to_string() == crate::networks::mainnet::GENESIS_CID
-            }
-            NetworkChain::Calibnet => {
-                ts.min_ticket_block().cid().to_string() == crate::networks::calibnet::GENESIS_CID
-            }
-            NetworkChain::Devnet(_) => true, // skip and pass through if an unsupported network found
-        }
-    }
-
-    pub fn tipset_hash(tsk: &TipsetKeys) -> String {
-        let ts_bytes: Vec<_> = tsk.cids().iter().flat_map(|s| s.to_bytes()).collect();
-        let tipset_keys_hash = blake2b_simd::blake2b(&ts_bytes).to_hex();
-        tipset_keys_hash.to_string()
-    }
-}
 
 /// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
 /// doing `lookbacks`.
@@ -111,7 +35,7 @@ type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub(in crate::chain) struct ChainIndex<DB> {
+pub struct ChainIndex<DB> {
     /// Cache of look-back entries to speed up lookup.
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
@@ -158,6 +82,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         from: Arc<Tipset>,
         to: ChainEpoch,
     ) -> Result<Arc<Tipset>, Error> {
+        if to == 0 {
+            return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
+        }
         if from.epoch() - to <= SKIP_LENGTH {
             return self.walk_back(from, to);
         }
@@ -178,19 +105,6 @@ impl<DB: Blockstore> ChainIndex<DB> {
                     .inc();
                 self.fill_cache(std::mem::take(&mut cur))?
             };
-
-            if to == 0 {
-                if let Some(genesis_tipset_keys) =
-                    checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
-                {
-                    let tipset = self.load_tipset(&genesis_tipset_keys)?;
-                    info!(
-                        "Resolving genesis using checkpoint tipset at height: {}",
-                        lbe.tipset.epoch()
-                    );
-                    return Ok(tipset);
-                }
-            }
 
             if lbe.tipset.epoch() == to || lbe.parent_height < to {
                 return Ok(lbe.tipset.clone());

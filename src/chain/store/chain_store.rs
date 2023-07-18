@@ -9,7 +9,7 @@ use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -42,11 +42,7 @@ use tokio::sync::{
 };
 use tracing::{debug, info, warn};
 
-use super::{
-    index::{checkpoint_tipsets, ChainIndex},
-    tipset_tracker::TipsetTracker,
-    Error,
-};
+use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::chain::Scale;
 
 // A cap on the size of the future_sink
@@ -255,11 +251,6 @@ where
         self.chain_index.load_tipset(tsk)
     }
 
-    /// Returns Tipset key hash from key-value store from provided CIDs
-    pub fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
-        checkpoint_tipsets::tipset_hash(tsk)
-    }
-
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
     fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
@@ -337,53 +328,6 @@ where
         } else {
             self.chain_index.load_tipset(lbts.parents())
         }
-    }
-
-    pub fn validate_tipset_checkpoints(
-        &self,
-        from: Arc<Tipset>,
-        network: &NetworkChain,
-    ) -> Result<(), Error> {
-        info!(
-            "Validating {network} tipset checkpoint hashes from: {}",
-            from.epoch()
-        );
-
-        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(network) else {
-            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
-            return Ok(());
-        };
-
-        let mut ts = from;
-        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-        hashes.remove(&tipset_hash);
-
-        loop {
-            let pts = self.chain_index.load_tipset(ts.parents())?;
-            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-            hashes.remove(&tipset_hash);
-
-            ts = pts;
-
-            if ts.epoch() == 0 {
-                break;
-            }
-        }
-
-        if !hashes.is_empty() {
-            return Err(Error::Other(format!(
-                "Found tipset hash(es) on {network} that are no longer valid: {hashes:?}"
-            )));
-        }
-
-        if !checkpoint_tipsets::validate_genesis_cid(&ts, network) {
-            return Err(Error::Other(format!(
-                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
-                ts.key().cid()
-            )));
-        }
-
-        Ok(())
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
