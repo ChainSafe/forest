@@ -338,8 +338,8 @@ where
 
         if !exit_code.is_success() {
             tracing::debug!(
-                "Internal message execution failure. Exit code was {}",
-                exit_code
+                ?exit_code,
+                "VM message execution failure."
             )
         }
 
