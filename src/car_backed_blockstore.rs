@@ -765,7 +765,7 @@ pub async fn write_car(
 ) -> io::Result<()> {
     match format {
         CarFormat::V1Plain => {
-            stream::once(future::ready(Ok(v1_header(roots))))
+            stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
                 .chain(blocks.map_ok(|(cid, ipld)| encode_concat_cid_and_ipld(cid, ipld)))
                 .forward(FramedWrite06::new(writer, VarintFrameCodec::default()))
                 .await
@@ -775,7 +775,7 @@ pub async fn write_car(
             zstd_compression_level,
         } => {
             try_collate(
-                stream::once(future::ready(Ok(v1_header(roots))))
+                stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
                     .chain(blocks.map_ok(|(cid, ipld)| encode_concat_cid_and_ipld(cid, ipld))),
                 varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
                 zstd_compress_finish,
@@ -815,7 +815,7 @@ async fn write_manyframe_and_create_index(
     zstd_compression_level: u16,
     writer: impl AsyncWrite,
 ) -> io::Result<AIndexMap<Cid, CompressedBlockDataLocation>> {
-    let header = v1_header(roots);
+    let header = compressed_v1_header(roots, zstd_compression_level);
     let mut zstd_frame_offset = u64::try_from(header.len()).unwrap();
     let mut index = AIndexMap::default();
     let zstd_frames = try_collate(
@@ -851,13 +851,27 @@ async fn write_manyframe_and_create_index(
     Ok(index)
 }
 
-fn v1_header(roots: Vec<Cid>) -> BytesMut {
+fn uncompressed_v1_header(roots: Vec<Cid>) -> BytesMut {
     let mut buffer = BytesMut::new();
     let header = CarHeader { roots, version: 1 };
     fvm_ipld_encoding::to_writer((&mut buffer).writer(), &header).expect(
         "BytesMut has infallible IO, and CarHeader probably doesn't validate on serialization",
     );
     buffer
+}
+
+fn compressed_v1_header(roots: Vec<Cid>, zstd_compression_level: u16) -> BytesMut {
+    let mut compressor =
+        zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
+            .expect("We're not using a dictionary");
+    let header = CarHeader { roots, version: 1 };
+    fvm_ipld_encoding::to_writer(&mut compressor, &header).expect(
+        "BytesMut has infallible IO, and CarHeader probably doesn't validate on serialization",
+    );
+    compressor
+        .finish()
+        .expect("BytesMut has infallible IO")
+        .into_inner()
 }
 
 // TODO(aatifsyed): don't actually need to take Vec<u8>..
