@@ -79,6 +79,7 @@ pub enum ArchiveCommands {
         #[arg(short)]
         depth: Option<ChainEpochDelta>,
     },
+    /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
         /// Path to snapshot file.
         snapshot: PathBuf,
