@@ -142,3 +142,106 @@ impl<DB: Blockstore> ChainIndex<DB> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::*;
+    use crate::blocks::BlockHeader;
+    use crate::db::MemoryDB;
+    use crate::utils::db::CborStoreExt;
+
+    fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
+        for block in tipset.blocks() {
+            db.put_cbor_default(block).unwrap();
+        }
+    }
+
+    fn genesis_tipset() -> Tipset {
+        Tipset::from(BlockHeader::default())
+    }
+
+    fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
+        // Use a static counter to give all tipsets a unique timestamp
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        Tipset::from(
+            BlockHeader::builder()
+                .parents(parent.key().clone())
+                .epoch(epoch)
+                .timestamp(n)
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn get_null_tipset() {
+        let db = Arc::new(MemoryDB::default());
+        let gen = genesis_tipset();
+        let epoch1 = tipset_child(&gen, 1);
+        let epoch3 = tipset_child(&epoch1, 3);
+        let epoch4 = tipset_child(&epoch3, 4);
+        persist_tipset(&gen, &db);
+        persist_tipset(&epoch1, &db);
+        persist_tipset(&epoch3, &db);
+        persist_tipset(&epoch4, &db);
+
+        let index = ChainIndex::new(db);
+        // epoch 2 is null. ResolveNullTipset decided whether to return epoch 1 or epoch 3
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch4.clone()), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .as_ref(),
+            &epoch1
+        );
+
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch4), ResolveNullTipset::TakeYounger)
+                .unwrap()
+                .as_ref(),
+            &epoch3
+        );
+    }
+
+    #[test]
+    fn get_different_branches() {
+        let db = Arc::new(MemoryDB::default());
+        let gen = genesis_tipset();
+        let epoch1 = tipset_child(&gen, 1);
+
+        let epoch2a = tipset_child(&epoch1, 2);
+        let epoch3a = tipset_child(&epoch2a, 3);
+
+        let epoch2b = tipset_child(&epoch1, 2);
+        let epoch3b = tipset_child(&epoch2b, 3);
+
+        persist_tipset(&gen, &db);
+        persist_tipset(&epoch1, &db);
+        persist_tipset(&epoch2a, &db);
+        persist_tipset(&epoch3a, &db);
+        persist_tipset(&epoch2b, &db);
+        persist_tipset(&epoch3b, &db);
+
+        let index = ChainIndex::new(db);
+        // The chain as forked, epoch 2 and 3 are ambiguous
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch3a), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .as_ref(),
+            &epoch2a
+        );
+
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch3b), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .as_ref(),
+            &epoch2b
+        );
+    }
+}
