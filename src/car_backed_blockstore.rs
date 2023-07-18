@@ -815,7 +815,7 @@ async fn write_manyframe_and_create_index(
     zstd_compression_level: u16,
     writer: impl AsyncWrite,
 ) -> io::Result<AIndexMap<Cid, CompressedBlockDataLocation>> {
-    let header = compressed_v1_header(roots, zstd_compression_level);
+    let header = compressed_v1_header_varint(roots, zstd_compression_level);
     let mut zstd_frame_offset = u64::try_from(header.len()).unwrap();
     let mut index = AIndexMap::default();
     let zstd_frames = try_collate(
@@ -860,14 +860,24 @@ fn uncompressed_v1_header(roots: Vec<Cid>) -> BytesMut {
     buffer
 }
 
-fn compressed_v1_header(roots: Vec<Cid>, zstd_compression_level: u16) -> BytesMut {
+/// Store the header in its own varint frame
+fn compressed_v1_header_varint(roots: Vec<Cid>, zstd_compression_level: u16) -> BytesMut {
     let mut compressor =
         zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
             .expect("We're not using a dictionary");
     let header = CarHeader { roots, version: 1 };
-    fvm_ipld_encoding::to_writer(&mut compressor, &header).expect(
+    // we need the header length first
+    let header = fvm_ipld_encoding::to_vec(&header).expect(
         "BytesMut has infallible IO, and CarHeader probably doesn't validate on serialization",
     );
+    let mut len_buffer = unsigned_varint::encode::usize_buffer();
+    let len = unsigned_varint::encode::usize(header.len(), &mut len_buffer);
+    compressor
+        .write_all(len)
+        .expect("BytesMut has infallible IO");
+    compressor
+        .write_all(&header)
+        .expect("BytesMut has infallible IO");
     compressor
         .finish()
         .expect("BytesMut has infallible IO")
@@ -912,15 +922,24 @@ mod tests {
             &mut many_frame_zstd,
         ))
         .unwrap();
-        let blockstore = CompressedCarV1BackedBlockstore::new_with_trusted_index(
-            many_frame_zstd,
+        many_frame_zstd.set_position(0);
+        let blockstore_with_preindex = CompressedCarV1BackedBlockstore::new_with_trusted_index(
+            many_frame_zstd.clone(),
             index,
             sample_roots,
         );
-        for cid in blockstore.cids() {
+        let blockstore_without_preindex =
+            CompressedCarV1BackedBlockstore::new(many_frame_zstd).unwrap();
+        for cid in blockstore_without_preindex.cids() {
             let expected = sample_data.get(&cid).unwrap();
-            let actual = blockstore.get(&cid).unwrap().unwrap();
-            assert_eq!(expected, &actual);
+            assert_eq!(
+                expected,
+                &blockstore_with_preindex.get(&cid).unwrap().unwrap()
+            );
+            assert_eq!(
+                expected,
+                &blockstore_without_preindex.get(&cid).unwrap().unwrap()
+            );
         }
     }
 
