@@ -4,6 +4,8 @@
 # Block headers can be inspected on filfox:
 # - https://filfox.info/en/block/bafy2bzacebnfm6dvxo7sm5thcxnv3kttoamb53uxycnvtdxgk5mh7d73qlly2
 # - https://calibration.filfox.info/en/block/bafy2bzacedhkkz76zdekpexha55b42eop42e24ajmajm26wws4nbvtq7louvu
+#
+# This file was generated with `forest-cli archive checkpoints`
 calibnet:
   691200: bafy2bzacedhkkz76zdekpexha55b42eop42e24ajmajm26wws4nbvtq7louvu
   604800: bafy2bzacec7prcdtac2blaeblzsorwpndtbjsz3k7tiyvwmellajinaaavpyo
