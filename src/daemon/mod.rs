@@ -171,7 +171,10 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
+    let db = Arc::new(open_proxy_db(
+        db_root(&chain_data_path),
+        config.db_config().clone(),
+    )?);
 
     let mut services = JoinSet::new();
 
@@ -213,7 +216,7 @@ pub(super) async fn start(
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
+        Arc::clone(&db),
         config.chain.clone(),
         &genesis_header,
         chain_data_path.as_path(),
@@ -226,7 +229,7 @@ pub(super) async fn start(
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
-            db,
+            db.as_ref().clone(),
             file_backed_chain_meta,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
@@ -307,8 +310,8 @@ pub(super) async fn start(
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(&db)?,
-        Arc::clone(state_manager.chain_config()),
+        MpoolConfig::load_config(db.as_ref())?,
+        state_manager.chain_config(),
         &mut services,
     )?;
 
@@ -753,7 +756,7 @@ mod test {
     }
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
@@ -782,7 +785,7 @@ mod test {
 
     #[tokio::test]
     async fn import_chain_from_file() -> anyhow::Result<()> {
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))

@@ -164,8 +164,8 @@ mod tests {
         *,
     };
 
-    async fn populate_db() -> (Vec<Cid>, MemoryDB) {
-        let db = MemoryDB::default();
+    async fn populate_db() -> (Vec<Cid>, Arc<MemoryDB>) {
+        let db = Arc::new(MemoryDB::default());
         let reader = BufReader::<&[u8]>::new(EXPORT_SR_40);
         // The cids are the tipset cids of the most recent tipset (39th)
         let cids: Vec<Cid> = load_car(&db, reader.compat()).await.unwrap();
