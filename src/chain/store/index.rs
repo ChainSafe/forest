@@ -127,7 +127,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             }
         }
         Err(Error::Other(
-            "Tipset with epoch {to} does not exist".to_string(),
+            "Tipset with epoch={to} does not exist".to_string(),
         ))
     }
 
