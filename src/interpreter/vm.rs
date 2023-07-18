@@ -364,10 +364,7 @@ where
         let exit_code = ret.msg_receipt().exit_code();
 
         if !exit_code.is_success() {
-            tracing::debug!(
-                ?exit_code,
-                "VM message execution failure."
-            )
+            tracing::debug!(?exit_code, "VM message execution failure.")
         }
 
         Ok(ret)
