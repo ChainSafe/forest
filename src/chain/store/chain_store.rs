@@ -42,7 +42,11 @@ use tokio::sync::{
 };
 use tracing::{debug, info, warn};
 
-use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
+use super::{
+    index::{ChainIndex, ResolveNullTipset},
+    tipset_tracker::TipsetTracker,
+    Error,
+};
 use crate::chain::Scale;
 
 // A cap on the size of the future_sink
@@ -70,7 +74,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    chain_index: ChainIndex<DB>,
+    pub chain_index: ChainIndex<DB>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -291,43 +295,6 @@ where
         let _did_work = file.remove(cid);
     }
 
-    /// Returns the tipset behind `tsk` at a given `height`.
-    /// If the given height is a null round:
-    /// - If `prev` is `true`, the tipset before the null round is returned.
-    /// - If `prev` is `false`, the tipset following the null round is returned.
-    #[tracing::instrument(skip(self, ts))]
-    pub fn tipset_by_height(
-        &self,
-        height: ChainEpoch,
-        ts: Arc<Tipset>,
-        prev: bool,
-    ) -> Result<Arc<Tipset>, Error> {
-        if height > ts.epoch() {
-            return Err(Error::Other(
-                "searching for tipset that has a height less than starting point".to_owned(),
-            ));
-        }
-        if height == ts.epoch() {
-            return Ok(ts);
-        }
-
-        let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
-
-        if lbts.epoch() < height {
-            warn!(
-                "chain index returned the wrong tipset at height {}, using slow retrieval",
-                height
-            );
-            lbts = self.chain_index.get_tipset_by_height(ts, height)?;
-        }
-
-        if lbts.epoch() == height || !prev {
-            Ok(lbts)
-        } else {
-            self.chain_index.load_tipset(lbts.parents())
-        }
-    }
-
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
@@ -536,7 +503,8 @@ where
         round: ChainEpoch,
     ) -> Result<TipsetKeys, Error> {
         let ts = self
-            .tipset_by_height(round, tipset, true)
+            .chain_index
+            .tipset_by_height(round, tipset, ResolveNullTipset::TakeOlder)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         Ok(ts.key().clone())
     }
@@ -589,7 +557,12 @@ where
         }
 
         let next_ts = self
-            .tipset_by_height(lbr + 1, heaviest_tipset.clone(), false)
+            .chain_index
+            .tipset_by_height(
+                lbr + 1,
+                heaviest_tipset.clone(),
+                ResolveNullTipset::TakeYounger,
+            )
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(

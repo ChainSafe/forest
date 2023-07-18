@@ -28,6 +28,7 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
+use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::genesis::read_genesis_header;
@@ -164,7 +165,8 @@ async fn do_export(
     info!("looking up a tipset by epoch: {}", epoch);
 
     let ts = chain_store
-        .tipset_by_height(epoch, ts, true)
+        .chain_index
+        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
     let output_path = build_output_path(config.chain.network.to_string(), epoch, output_path);

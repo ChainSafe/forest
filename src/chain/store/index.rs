@@ -28,6 +28,15 @@ pub struct ChainIndex<DB> {
     db: Arc<DB>,
 }
 
+#[derive(Debug, Clone, Copy)]
+// Methods for resolving fetches of null tipsets.
+// Imagine epoch 10 is null but epoch 9 and 11 exist. If epoch we request epoch
+// 10, should 9 or 11 be returned?
+pub enum ResolveNullTipset {
+    TakeYounger,
+    TakeOlder,
+}
+
 impl<DB: Blockstore> ChainIndex<DB> {
     pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
@@ -86,13 +95,16 @@ impl<DB: Blockstore> ChainIndex<DB> {
     ///               │                  │
     ///               └──────────────────┘
     /// ```
-    /// If the requested epoch points to a null tipset, the child immediately
-    /// preceding it will be returned. In the above diagram, if we request epoch
-    /// 2, the tipset for epoch 3 will be returned.
-    pub(in crate::chain) fn get_tipset_by_height(
+    /// If the requested epoch points to a null tipset, there are two options:
+    /// Pick the nearest older tipset or pick the nearest younger tipset.
+    /// Requesting epoch 2 with `ResolveNullTipset::TakeYounger` will return
+    /// epoch 3. Requesting with `ResolveNullTipset::TakeOlder` will return
+    /// epoch 1.
+    pub fn tipset_by_height(
         &self,
-        from: Arc<Tipset>,
         to: ChainEpoch,
+        from: Arc<Tipset>,
+        resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
         if to == 0 {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
@@ -104,8 +116,14 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
-            if to < parent.epoch() {
+            if to == child.epoch() {
                 return Ok(child);
+            }
+            if to < parent.epoch() {
+                match resolve {
+                    ResolveNullTipset::TakeOlder => return Ok(parent),
+                    ResolveNullTipset::TakeYounger => return Ok(child),
+                }
             }
         }
         Err(Error::Other(
