@@ -295,9 +295,9 @@ impl Tipset {
             ] {
                 if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
                     if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
-                        return Ok(store.get_cbor(&genesis_cid)?.ok_or_else(|| {
-                            anyhow::anyhow!("Genesis block missing from database")
-                        })?);
+                        return store
+                            .get_cbor(&genesis_cid)?
+                            .ok_or_else(|| anyhow::anyhow!("Genesis block missing from database"));
                     }
                 }
             }

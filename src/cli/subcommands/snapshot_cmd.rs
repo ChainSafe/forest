@@ -364,7 +364,7 @@ where
         }
     }
 
-    if let Some(genesis_block) = ts.genesis(&db).ok() {
+    if let Ok(genesis_block) = ts.genesis(db) {
         return match_genesis_block(*genesis_block.cid());
     }
 
