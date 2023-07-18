@@ -91,7 +91,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let store_clone = store_clone.clone();
-                    let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
+                    let migrator = self.migrations.get(state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
                     scope.spawn(move |_| {
                         let job = MigrationJob {
                             address,
