@@ -403,22 +403,38 @@ pub(super) async fn start(
         );
     }
 
-    let mut config = config;
+    let mut config = config.clone();
     fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
-
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
         import_chain::<_>(
             &state_manager,
             &path.display().to_string(),
             config.client.skip_load,
-            config.client.chunk_size,
-            config.client.buffer_size,
+            config.client.chunk_size.clone(),
+            config.client.buffer_size.clone(),
         )
         .await
         .context("Failed miserably while importing chain from snapshot")?;
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
+
+    let cfg = config.clone();
+    services.spawn(async move {
+        info!("Database recovery service has started");
+        loop {
+            // Create the directory if it doesn't exist and get the size
+            let db_size = std::fs::create_dir_all(&chain_data_path)
+                .ok()
+                .and_then(|_| fs_extra::dir::get_size(chain_data_path.as_path()).ok())
+                .map(|bytes| bytes / (1024 * 1024))
+                .unwrap_or(0);
+            if db_size == 0 {
+                fetch_and_reimport_snapshot(cfg.clone()).await?;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    });
 
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
         // We've been provided a snapshot and asked to validate it
@@ -453,6 +469,60 @@ pub(super) async fn start(
         .await
         .context("services failure")
         .map(|_| {})
+}
+
+async fn fetch_and_reimport_snapshot(mut config: Config) -> anyhow::Result<()> {
+    info!("Downloading a new snapshot...");
+    let chain_data_path = chain_path(&config);
+    let db = Arc::new(open_proxy_db(
+        db_root(&chain_data_path),
+        Default::default(),
+    )?);
+    let genesis_header = read_genesis_header(
+        config.client.genesis_file.as_ref(),
+        config.chain.genesis_bytes(),
+        &db,
+    )
+    .await?;
+    let cs = Arc::new(ChainStore::new(
+        db,
+        config.chain.clone(),
+        &genesis_header,
+        chain_data_path.as_path(),
+    )?);
+    let sm = Arc::new(StateManager::new(cs, Arc::clone(&config.chain))?);
+    // Fetch a fresh snapshot
+    match crate::cli_shared::snapshot::fetch(
+        Path::new("."),
+        &config.chain.network,
+        snapshot::TrustedVendor::default(),
+    )
+    .await
+    {
+        Ok(path) => {
+            config.client.snapshot_path = Some(path);
+            config.client.snapshot = true;
+        }
+        Err(_) => bail!("failed to fetch a new snapshot."),
+    };
+    // Re-Import snapshot
+    if let Some(path) = &config.client.snapshot_path {
+        let stopwatch = time::Instant::now();
+        import_chain::<_>(
+            &Arc::clone(&sm),
+            &path.display().to_string(),
+            false,
+            config.client.chunk_size.clone(),
+            config.client.buffer_size.clone(),
+        )
+        .await
+        .context("Failed miserably while re-importing chain from snapshot")?;
+        info!(
+            "Re-Imported snapshot in: {}s",
+            stopwatch.elapsed().as_secs()
+        );
+    }
+    Ok(())
 }
 
 /// If our current chain is below a supported height, we need a snapshot to bring it up
