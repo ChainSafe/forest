@@ -3,10 +3,10 @@
 
 use std::{fmt, sync::OnceLock};
 
-use crate::shim::address::Address;
-use crate::shim::clock::ChainEpoch;
+use crate::networks::{calibnet, mainnet};
+use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
-use ahash::{HashSet, HashSetExt};
+use ahash::{HashMap, HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -14,6 +14,7 @@ use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
@@ -256,7 +257,6 @@ impl Tipset {
         }
         broken
     }
-
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
         itertools::unfold(Some(self), move |tipset| {
@@ -267,11 +267,12 @@ impl Tipset {
         })
     }
 
-    ///
+    /// Fetch the genesis block header for a given tipset.
     pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<BlockHeader> {
-        use crate::networks::{calibnet, mainnet};
-        use ahash::HashMap;
-        use std::str::FromStr;
+        // Scanning through millions of epochs to find the genesis is quite
+        // slow. Let's use a list of known blocks to short-circuit the search.
+        // The blocks are hash-chained together and known blocks are guaranteed
+        // to have a known genesis.
         #[derive(Serialize, Deserialize)]
         struct KnownHeaders {
             calibnet: HashMap<ChainEpoch, String>,
@@ -287,6 +288,7 @@ impl Tipset {
         let mainnet_cid = Cid::from_str(mainnet::GENESIS_CID).unwrap();
 
         for tipset in self.clone().chain(&store) {
+            // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
                 (calibnet_cid, &headers.calibnet),
                 (mainnet_cid, &headers.mainnet),
@@ -300,6 +302,7 @@ impl Tipset {
                 }
             }
 
+            // If no known blocks are found, we'll eventually hit the genesis tipset.
             if tipset.epoch() == 0 {
                 return Ok(tipset.min_ticket_block().clone());
             }
