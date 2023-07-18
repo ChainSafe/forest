@@ -57,6 +57,12 @@ pub trait DBStatistics {
     }
 }
 
+impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
+    fn get_statistics(&self) -> Option<String> {
+        self.as_ref().get_statistics()
+    }
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 

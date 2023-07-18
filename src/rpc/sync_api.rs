@@ -88,7 +88,7 @@ mod tests {
 
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
@@ -134,7 +134,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                Arc::clone(state_manager_for_thread.chain_config()),
+                state_manager_for_thread.chain_config(),
                 &mut services,
             )
             .unwrap()

@@ -138,7 +138,7 @@ pub fn run_migration<DB>(
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: 'static + Blockstore + Clone + Send + Sync,
+    DB: Blockstore + Clone + Send + Sync,
 {
     let new_manifest_cid = chain_config
         .height_infos
