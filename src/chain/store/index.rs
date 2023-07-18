@@ -12,7 +12,9 @@ use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use tracing::info;
 
-use crate::chain::{tipset_from_keys, Error, TipsetCache};
+use crate::chain::Error;
+
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
 
@@ -98,12 +100,14 @@ pub mod checkpoint_tipsets {
 /// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
 /// doing `lookbacks`.
 #[derive(Clone, PartialEq, Debug)]
-pub(in crate::chain) struct LookbackEntry {
+struct LookbackEntry {
     tipset: Arc<Tipset>,
     parent_height: ChainEpoch,
     target_height: ChainEpoch,
     target: TipsetKeys,
 }
+
+type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
@@ -112,14 +116,15 @@ pub(in crate::chain) struct ChainIndex<DB> {
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
-    ts_cache: Arc<TipsetCache>,
+    ts_cache: TipsetCache,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: Arc<DB>,
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub(in crate::chain) fn new(ts_cache: Arc<TipsetCache>, db: Arc<DB>) -> Self {
+    pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
+        let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self {
             skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
@@ -127,8 +132,23 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
     }
 
+    /// Loads a tipset from memory given the tipset keys and cache.
     pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk)
+        if let Some(ts) = self.ts_cache.lock().get(tsk) {
+            metrics::LRU_CACHE_HIT
+                .with_label_values(&[metrics::values::TIPSET])
+                .inc();
+            return Ok(ts.clone());
+        }
+
+        let ts = Arc::new(
+            Tipset::load(&self.db, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?,
+        );
+        self.ts_cache.lock().put(tsk.clone(), ts.clone());
+        metrics::LRU_CACHE_MISS
+            .with_label_values(&[metrics::values::TIPSET])
+            .inc();
+        Ok(ts)
     }
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or
@@ -163,7 +183,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
                 if let Some(genesis_tipset_keys) =
                     checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
                 {
-                    let tipset = tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys)?;
+                    let tipset = self.load_tipset(&genesis_tipset_keys)?;
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 // JANK(aatifsyed): I don't really understand why this module exists, a lot of
 // the code looks wrong
-use std::{io::Stdout, str::FromStr, sync::Arc, time::Duration};
+use std::{io::Stdout, str::FromStr, sync::Arc};
 
 use is_terminal::IsTerminal;
 use parking_lot::{Mutex, RwLock};
@@ -66,12 +66,6 @@ impl ProgressBar {
     pub fn message(&self, message: &str) {
         if self.display {
             self.inner.lock().message(message);
-        }
-    }
-
-    pub fn set_max_refresh_rate(&self, w: Option<Duration>) {
-        if self.display {
-            self.inner.lock().set_max_refresh_rate(w);
         }
     }
 
