@@ -20,6 +20,7 @@ use cid::Cid;
 pub struct CidHashSet(CidHashMap<()>);
 
 impl CidHashSet {
+    /// Adds a value to the set if not already present and returns whether the value was newly inserted.
     pub fn insert(&mut self, cid: Cid) -> bool {
         if self.0.contains_key(cid) {
             false
@@ -28,6 +29,7 @@ impl CidHashSet {
         }
     }
 
+    /// Returns the number of items in the set.
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -58,7 +60,7 @@ impl<V> CidHashMap<V> {
         }
     }
 
-    /// Inserts a key-value pair into the map.
+    /// Inserts a key-value pair into the map; if the map did not have this key present, [`None`] is returned.
     pub fn insert(&mut self, k: Cid, v: V) -> Option<V> {
         match k.try_into() {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
