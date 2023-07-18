@@ -318,9 +318,7 @@ where
                 "chain index returned the wrong tipset at height {}, using slow retrieval",
                 height
             );
-            lbts = self
-                .chain_index
-                .get_tipset_by_height_without_cache(ts, height)?;
+            lbts = self.chain_index.get_tipset_by_height(ts, height)?;
         }
 
         if lbts.epoch() == height || !prev {

@@ -7,6 +7,7 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
@@ -15,30 +16,11 @@ use crate::chain::Error;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
-const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
-
-/// Configuration which sets the length of tipsets to skip in between each
-/// cached entry.
-const SKIP_LENGTH: ChainEpoch = 20;
-
-/// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
-/// doing `lookbacks`.
-#[derive(Clone, PartialEq, Debug)]
-struct LookbackEntry {
-    tipset: Arc<Tipset>,
-    parent_height: ChainEpoch,
-    target_height: ChainEpoch,
-    target: TipsetKeys,
-}
-
 type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
 pub struct ChainIndex<DB> {
-    /// Cache of look-back entries to speed up lookup.
-    skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
-
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
 
@@ -49,11 +31,7 @@ pub struct ChainIndex<DB> {
 impl<DB: Blockstore> ChainIndex<DB> {
     pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
-        Self {
-            skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
-            ts_cache,
-            db,
-        }
+        Self { ts_cache, db }
     }
 
     /// Loads a tipset from memory given the tipset keys and cache.
@@ -75,8 +53,42 @@ impl<DB: Blockstore> ChainIndex<DB> {
         Ok(ts)
     }
 
-    /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or
-    /// loading parents from the `blockstore`.
+    /// Find tipset at epoch `to` in the chain indicated by `from`. The `from`
+    /// tipset's epoch must not be smaller than `to`.
+    ///
+    /// # Why pass in the `from` argument?
+    ///
+    /// Imagine the database contains five tipsets and a genesis block in this
+    /// configuration:
+    ///
+    /// ```text
+    ///           ┌───────┐  ┌────────┐  ┌────────┐
+    /// Genesis◄──┤Epoch 1◄──┤Epoch 2A◄──┤Epoch 3A│
+    ///           └───▲───┘  └────────┘  └────────┘
+    ///               │      ┌────────┐  ┌────────┐
+    ///               └──────┤Epoch 2B◄──┤Epoch 3B│
+    ///                      └────────┘  └────────┘
+    /// ```
+    ///
+    /// Here we have a fork in the chain and it is ambiguous which tipset to
+    /// load when epoch 2 is requested. The ambiguity is solved by passing in a
+    /// younger tipset (higher epoch) from which has the desired tipset as an
+    /// ancestor.
+    /// Calling `get_tipset_by_height(epoch_3a, 2)` will return `Epoch 2A`.
+    /// Calling `get_tipset_by_height(epoch_3b, 2)` will return `Epoch 2B`.
+    ///
+    /// # What happens when a null tipset is requested?
+    ///
+    /// ```text
+    ///           ┌───────┐          ┌───────┐  ┌───────┐
+    /// Genesis◄──┤Epoch 1│   Null   │Epoch 3◄──┤Epoch 4│
+    ///           └───▲───┘          └───┬───┘  └───────┘
+    ///               │                  │
+    ///               └──────────────────┘
+    /// ```
+    /// If the requested epoch points to a null tipset, the child immediately
+    /// preceding it will be returned. In the above diagram, if we request epoch
+    /// 2, the tipset for epoch 3 will be returned.
     pub(in crate::chain) fn get_tipset_by_height(
         &self,
         from: Arc<Tipset>,
@@ -85,119 +97,29 @@ impl<DB: Blockstore> ChainIndex<DB> {
         if to == 0 {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
         }
-        if from.epoch() - to <= SKIP_LENGTH {
-            return self.walk_back(from, to);
-        }
-        let rounded = self.round_down(from)?;
-
-        let mut cur = rounded.key().clone();
-
-        loop {
-            let entry = self.skip_cache.lock().get(&cur).cloned();
-            let lbe = if let Some(cached) = entry {
-                metrics::LRU_CACHE_HIT
-                    .with_label_values(&[metrics::values::SKIP])
-                    .inc();
-                cached
-            } else {
-                metrics::LRU_CACHE_MISS
-                    .with_label_values(&[metrics::values::SKIP])
-                    .inc();
-                self.fill_cache(std::mem::take(&mut cur))?
-            };
-
-            if lbe.tipset.epoch() == to || lbe.parent_height < to {
-                return Ok(lbe.tipset.clone());
-            } else if to > lbe.target_height {
-                return self.walk_back(lbe.tipset.clone(), to);
-            }
-
-            cur = lbe.target.clone();
-        }
-    }
-
-    /// Walks back from the tipset, ignoring the cached entries.
-    /// This should only be used when the cache is checked to be invalidated.
-    pub(in crate::chain) fn get_tipset_by_height_without_cache(
-        &self,
-        from: Arc<Tipset>,
-        to: ChainEpoch,
-    ) -> Result<Arc<Tipset>, Error> {
-        self.walk_back(from, to)
-    }
-
-    /// Fills cache with look-back entry, and returns inserted entry.
-    fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
-        let tipset = self.load_tipset(&tsk)?;
-
-        if tipset.epoch() == 0 {
-            return Ok(Arc::new(LookbackEntry {
-                tipset,
-                parent_height: 0,
-                target_height: Default::default(),
-                target: Default::default(),
-            }));
-        }
-
-        let parent = self.load_tipset(tipset.parents())?;
-        let r_height = self.round_height(tipset.epoch()) - SKIP_LENGTH;
-
-        let parent_epoch = parent.epoch();
-        let skip_target = if parent.epoch() < r_height {
-            parent
-        } else {
-            self.walk_back(parent, r_height)?
-        };
-
-        let lbe = Arc::new(LookbackEntry {
-            tipset,
-            parent_height: parent_epoch,
-            target_height: skip_target.epoch(),
-            target: skip_target.key().clone(),
-        });
-
-        self.skip_cache.lock().put(tsk, lbe.clone());
-        Ok(lbe)
-    }
-
-    /// Rounds height epoch to nearest sparse cache index epoch.
-    fn round_height(&self, height: ChainEpoch) -> ChainEpoch {
-        (height / SKIP_LENGTH) * SKIP_LENGTH
-    }
-
-    /// Gets the closest rounded sparse index and returns the loaded tipset at
-    /// that index.
-    fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
-        let target = self.round_height(ts.epoch());
-
-        self.walk_back(ts, target)
-    }
-
-    /// Load parent tipsets until the `to` [`ChainEpoch`].
-    fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
         if to > from.epoch() {
             return Err(Error::Other(
                 "Looking for tipset with height greater than start point".to_string(),
             ));
         }
 
-        if to == from.epoch() {
-            return Ok(from);
-        }
-
-        let mut ts = from;
-        loop {
-            let pts = self.load_tipset(ts.parents())?;
-
-            if to > pts.epoch() {
-                // Pts is lower than to epoch, return the tipset above that height
-                return Ok(ts);
+        for (child, parent) in self.chain(from).tuple_windows() {
+            if to < parent.epoch() {
+                return Ok(child);
             }
-
-            if to == pts.epoch() {
-                return Ok(pts);
-            }
-            ts = pts;
         }
+        Err(Error::Other(
+            "Tipset with epoch {to} does not exist".to_string(),
+        ))
+    }
+
+    /// Iterate from the given tipset to genesis. Missing tipsets cut the chain short.
+    pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
+        itertools::unfold(Some(from), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = self.load_tipset(child.parents()).ok();
+                child
+            })
+        })
     }
 }
