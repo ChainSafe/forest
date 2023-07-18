@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
+use std::{ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
@@ -9,7 +9,6 @@ use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::metrics;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
@@ -35,8 +34,6 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use lru::LruCache;
-use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{
@@ -54,8 +51,6 @@ use crate::chain::Scale;
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
-
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
 /// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
 /// while maintaining the same type.
@@ -132,7 +127,7 @@ where
         chain_data_root: &Path,
     ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        let chain_index = ChainIndex::new(Arc::clone(&db));
         let file_backed_genesis = Mutex::new(FileBacked::new(
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
@@ -143,7 +138,7 @@ where
                 || TipsetKeys::new(vec![*genesis_block_header.cid()]),
                 None,
             )?;
-            let is_valid = tipset_from_keys(&ts_cache, &db, head_store.inner()).is_ok();
+            let is_valid = chain_index.load_tipset(head_store.inner()).is_ok();
             if !is_valid {
                 // If the stored HEAD is invalid, reset it to the genesis tipset.
                 head_store.set_inner(TipsetKeys::new(vec![*genesis_block_header.cid()]))?;
@@ -159,7 +154,7 @@ where
 
         let cs = Self {
             publisher,
-            chain_index: ChainIndex::new(ts_cache, Arc::clone(&db)),
+            chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
             file_backed_genesis,
@@ -668,34 +663,6 @@ where
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
-}
-
-pub(in crate::chain) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
-
-/// Loads a tipset from memory given the tipset keys and cache.
-pub(in crate::chain) fn tipset_from_keys<BS>(
-    cache: &TipsetCache,
-    store: &BS,
-    tsk: &TipsetKeys,
-) -> Result<Arc<Tipset>, Error>
-where
-    BS: Blockstore,
-{
-    if let Some(ts) = cache.lock().get(tsk) {
-        metrics::LRU_CACHE_HIT
-            .with_label_values(&[metrics::values::TIPSET])
-            .inc();
-        return Ok(ts.clone());
-    }
-
-    let ts = Tipset::load(store, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?;
-    // construct new Tipset to return
-    let ts = Arc::new(ts);
-    cache.lock().put(tsk.clone(), ts.clone());
-    metrics::LRU_CACHE_MISS
-        .with_label_values(&[metrics::values::TIPSET])
-        .inc();
-    Ok(ts)
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
