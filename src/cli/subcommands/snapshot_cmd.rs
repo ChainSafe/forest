@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
 use tracing::info;
+use once_cell::sync::Lazy;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -355,9 +356,9 @@ where
     );
 
     fn match_genesis_block(block_cid: Cid) -> Result<NetworkChain> {
-        if block_cid.to_string() == calibnet::GENESIS_CID {
+        if block_cid == *Lazy::get(&calibnet::GENESIS_CID).expect("failed to get calibnet genesis CID") {
             Ok(NetworkChain::Calibnet)
-        } else if block_cid.to_string() == mainnet::GENESIS_CID {
+        } else if block_cid == *Lazy::get(&mainnet::GENESIS_CID).expect("failed to get mainnet genesis CID") {
             Ok(NetworkChain::Mainnet)
         } else {
             bail!("Unrecognizable genesis block");

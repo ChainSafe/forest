@@ -176,7 +176,7 @@ impl ChainConfig {
         use mainnet::*;
         Self {
             network: NetworkChain::Mainnet,
-            genesis_cid: Some(GENESIS_CID.to_owned()),
+            genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
@@ -192,7 +192,7 @@ impl ChainConfig {
         use calibnet::*;
         Self {
             network: NetworkChain::Calibnet,
-            genesis_cid: Some(GENESIS_CID.to_owned()),
+            genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
