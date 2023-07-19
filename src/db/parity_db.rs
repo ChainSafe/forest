@@ -5,7 +5,6 @@ use std::{path::PathBuf, sync::Arc};
 
 use super::SettingsStore;
 
-use crate::db::DBStatistics;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
 use anyhow::{anyhow, Context};
@@ -19,8 +18,6 @@ use fvm_ipld_encoding::DAG_CBOR;
 
 use parity_db::{CompressionType, Db, Operation, Options};
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
-
-use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
 /// It is used to determine which column to use for a given entry type.
@@ -67,7 +64,6 @@ impl DbColumn {
 #[derive(Clone)]
 pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
-    statistics_enabled: bool,
 }
 
 impl ParityDb {
@@ -87,7 +83,6 @@ impl ParityDb {
         let opts = Self::options(path.into());
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
-            statistics_enabled: opts.stats,
         })
     }
 
@@ -224,28 +219,6 @@ impl BitswapStoreReadWrite for ParityDb {
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-}
-
-impl DBStatistics for ParityDb {
-    fn get_statistics(&self) -> Option<String> {
-        if !self.statistics_enabled {
-            return None;
-        }
-
-        let mut buf = Vec::new();
-        if let Err(err) = self.db.write_stats_text(&mut buf, None) {
-            warn!("Unable to write database statistics: {err}");
-            return None;
-        }
-
-        match String::from_utf8(buf) {
-            Ok(stats) => Some(stats),
-            Err(e) => {
-                warn!("Malformed statistics: {e}");
-                None
-            }
-        }
     }
 }
 

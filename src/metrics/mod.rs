@@ -3,7 +3,6 @@
 
 pub mod db;
 
-use crate::db::DBStatistics;
 use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
@@ -21,14 +20,10 @@ pub async fn add_metrics_registry(name: String, registry: prometheus_client::reg
     REGISTRIES_EXT.write().await.insert(name, registry);
 }
 
-pub async fn init_prometheus<DB>(
+pub async fn init_prometheus(
     prometheus_listener: TcpListener,
     db_directory: PathBuf,
-    db: DB,
-) -> anyhow::Result<()>
-where
-    DB: DBStatistics + Sync + Send + Clone + 'static,
-{
+) -> anyhow::Result<()> {
     let registry = prometheus::default_registry();
 
     // Add the DBCollector to the registry
@@ -36,10 +31,7 @@ where
     registry.register(Box::new(db_collector))?;
 
     // Create an configure HTTP server
-    let app = Router::new()
-        .route("/metrics", get(collect_prometheus_metrics))
-        .route("/stats/db", get(collect_db_metrics::<DB>))
-        .with_state(db);
+    let app = Router::new().route("/metrics", get(collect_prometheus_metrics));
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
     // Wait for server to exit
@@ -64,26 +56,6 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
         metrics.extend_from_slice(part.as_bytes());
     }
 
-    (
-        StatusCode::OK,
-        [("content-type", "text/plain; charset=utf-8")],
-        metrics,
-    )
-}
-
-#[allow(clippy::unused_async)]
-async fn collect_db_metrics<DB>(
-    axum::extract::State(db): axum::extract::State<DB>,
-) -> impl IntoResponse
-where
-    DB: DBStatistics + Sync + Send + Clone + 'static,
-{
-    let mut metrics = "# DB statistics:\n".to_owned();
-    if let Some(db_stats) = db.get_statistics() {
-        metrics.push_str(&db_stats);
-    } else {
-        metrics.push_str("Not enabled. Set enable_statistics to true in config and restart daemon");
-    }
     (
         StatusCode::OK,
         [("content-type", "text/plain; charset=utf-8")],

@@ -193,9 +193,8 @@ pub(super) async fn start(
             config.client.metrics_address
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(&config));
-        let db = db.clone();
         services.spawn(async {
-            crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
+            crate::metrics::init_prometheus(prometheus_listener, db_directory)
                 .await
                 .context("Failed to initiate prometheus server")
         });

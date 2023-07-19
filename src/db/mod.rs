@@ -49,19 +49,6 @@ pub trait SettingsStore {
         K: AsRef<str>;
 }
 
-/// Traits for collecting DB stats
-pub trait DBStatistics {
-    fn get_statistics(&self) -> Option<String> {
-        None
-    }
-}
-
-impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
-    fn get_statistics(&self) -> Option<String> {
-        self.as_ref().get_statistics()
-    }
-}
-
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 

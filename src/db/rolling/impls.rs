@@ -134,12 +134,6 @@ impl BitswapStoreReadWrite for RollingDB {
     }
 }
 
-impl DBStatistics for RollingDB {
-    fn get_statistics(&self) -> Option<String> {
-        DBStatistics::get_statistics(&self.current())
-    }
-}
-
 impl FileBackedObject for DbIndex {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
         Ok(serde_yaml::to_string(self)?.as_bytes().to_vec())
