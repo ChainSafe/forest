@@ -43,7 +43,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
         Self { ts_cache, db }
     }
 
-    /// Loads a tipset from memory given the tipset keys and cache.
+    /// Loads a tipset from memory given the tipset keys and cache. Semantically
+    /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if let Some(ts) = self.ts_cache.lock().get(tsk) {
             metrics::LRU_CACHE_HIT
@@ -133,7 +134,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         ))
     }
 
-    /// Iterate from the given tipset to genesis. Missing tipsets cut the chain short.
+    /// Iterate from the given tipset to genesis. Missing tipsets cut the chain
+    /// short. Semantically identical to [`Tipset::chain`] but the results are
+    /// cached.
     pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
         itertools::unfold(Some(from), move |tipset| {
             tipset.take().map(|child| {
