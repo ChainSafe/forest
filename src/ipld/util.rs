@@ -110,6 +110,7 @@ pub async fn walk_snapshot<F, T>(
     progress_bar_message: Option<&str>,
     progress_tracker: Option<ProgressBarCurrentTotalPair>,
     estimated_total_records: Option<u64>,
+    diff_tipset: Option<Arc<Tipset>>,
 ) -> anyhow::Result<usize>
 where
     F: FnMut(Cid) -> T + Send,
@@ -121,6 +122,16 @@ where
     let wp = WithProgressRaw::new(message, estimated_total_records);
 
     let mut seen = CidHashSet::default();
+    if let Some(diff_tipset) = &diff_tipset {
+        for i in diff_tipset.cids() {
+            seen.insert(i.clone());
+        }
+        tracing::info!(
+            "excluded {} cids using diff tipset at: {}",
+            seen.len(),
+            diff_tipset.epoch()
+        );
+    }
     let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
     let mut current_min_height = tipset.epoch();
     let incl_roots_epoch = tipset.epoch() - recent_roots;

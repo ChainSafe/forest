@@ -93,12 +93,20 @@ where
                 VoidAsyncWriter::default(),
                 true, // `compressed` is always on
                 skip_checksum,
+                None,
             )
             .await
     } else {
         let file = tokio::fs::File::create(&temp_path).await?;
         data.chain_store
-            .export::<_, Sha256>(&start_ts, recent_roots, file.compat(), true, skip_checksum)
+            .export::<_, Sha256>(
+                &start_ts,
+                recent_roots,
+                file.compat(),
+                true,
+                skip_checksum,
+                None,
+            )
             .await
     } {
         Ok(checksum_opt) if !dry_run => {

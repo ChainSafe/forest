@@ -499,11 +499,16 @@ where
         writer: W,
         compressed: bool,
         skip_checksum: bool,
+        diff: Option<ChainEpoch>,
     ) -> Result<Option<digest::Output<D>>, Error>
     where
         D: Digest + Send + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
+        let diff_tipset = self
+            .tipset_by_height(diff.unwrap(), Arc::new(tipset.clone()), true)
+            .context("unable to get a tipset at given height")?;
+
         let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
         let writer = if compressed {
             Either::Left(ZstdEncoder::new(writer))
@@ -556,6 +561,7 @@ where
             Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
+            Some(diff_tipset),
         )
         .await?;
 

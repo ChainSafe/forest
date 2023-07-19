@@ -78,6 +78,9 @@ pub enum ArchiveCommands {
         // Potentially replace with dynamic default: https://github.com/ChainSafe/forest/issues/3182
         #[arg(short)]
         depth: Option<ChainEpochDelta>,
+        /// Epoch at which to discard any reacable links/items from the exported snapshot
+        #[arg(long)]
+        diff: Option<ChainEpoch>,
     },
 }
 
@@ -93,9 +96,16 @@ impl ArchiveCommands {
                 output_path,
                 epoch,
                 depth,
+                diff,
             } => {
                 let chain_finality = config.chain.policy.chain_finality;
                 let depth = depth.unwrap_or(chain_finality);
+                if let Some(diff) = diff {
+                    if diff >= epoch {
+                        bail!("diff e {} must be less than epoch {}", diff, epoch);
+                    }
+                }
+
                 if depth < chain_finality {
                     bail!("depth has to be at least {}", chain_finality);
                 }
@@ -107,7 +117,7 @@ impl ArchiveCommands {
                     input_path.to_str().unwrap_or_default()
                 );
 
-                do_export(config, reader, output_path, epoch, depth).await
+                do_export(config, reader, output_path, epoch, depth, diff).await
             }
         }
     }
@@ -133,6 +143,7 @@ async fn do_export(
     output_path: PathBuf,
     epoch: ChainEpoch,
     depth: ChainEpochDelta,
+    diff: Option<ChainEpoch>,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
         UncompressedCarV1BackedBlockstore::new(reader)
@@ -178,7 +189,7 @@ async fn do_export(
     );
 
     chain_store
-        .export::<_, Sha256>(&ts, depth, writer.compat(), true, true)
+        .export::<_, Sha256>(&ts, depth, writer.compat(), true, true, diff)
         .await?;
 
     Ok(())

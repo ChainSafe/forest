@@ -260,6 +260,7 @@ where
             Some("Running DB GC | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_DB_GC.clone()),
             estimated_reachable_records,
+            None,
         )
         .await?;
         drop(tx);
