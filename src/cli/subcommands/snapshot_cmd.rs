@@ -42,6 +42,9 @@ pub enum SnapshotCommands {
         /// Don't write the archive.
         #[arg(long)]
         dry_run: bool,
+        /// Tipset to start the export from, default is the chain head
+        #[arg(short, long)]
+        tipset: Option<i64>,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
@@ -88,13 +91,14 @@ impl SnapshotCommands {
                 output_path,
                 skip_checksum,
                 dry_run,
+                tipset,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
-                let epoch = chain_head.epoch();
+                let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let chain_name = chain_get_name((), &config.client.rpc_token)
                     .await
@@ -105,7 +109,7 @@ impl SnapshotCommands {
                         TrustedVendor::Forest,
                         chain_name,
                         Utc::now().date_naive(),
-                        chain_head.epoch(),
+                        epoch,
                     )),
                     false => output_path.clone(),
                 };
@@ -153,6 +157,7 @@ impl SnapshotCommands {
                     "Export completed. Snapshot located at {}",
                     out.display()
                 ));
+                println!("\n");
                 Ok(())
             }
             Self::Fetch { directory, vendor } => {
