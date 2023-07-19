@@ -9,6 +9,7 @@ use crate::car_backed_blockstore::{
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::daemon::bundle::load_bundles;
 use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
@@ -406,6 +407,18 @@ where
     );
 
     let last_epoch = ts.epoch() - epochs as i64;
+
+    // Bundles are required when doing state migrations. Download any bundles
+    // that may be necessary after `last_epoch`.
+    load_bundles(
+        last_epoch,
+        &Config {
+            chain: chain_config.clone(),
+            ..Default::default()
+        },
+        Arc::new(db.clone()),
+    )
+    .await?;
 
     // Set proof parameter data dir
     if cns::FETCH_PARAMS {
