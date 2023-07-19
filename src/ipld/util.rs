@@ -251,13 +251,22 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
                         .into_values()
                         .rev()
                         .for_each(|elt| this.dfs.push_front(Iterate(elt))),
+                    // The link traversal implementation assumes there are three types of encoding:
+                    // 1. CBOR: needs to be neither reachable nor traversed, ignore it.
+                    // 2. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
+                    // 3. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
                     Iterate(Ipld::Link(cid)) => {
+                        if cid.codec() == fvm_ipld_encoding::CBOR {
+                            continue;
+                        }
                         if !this.seen.insert(cid) {
                             let result = this.db.get(&cid);
                             return Poll::Ready(Some(result.and_then(|val| {
                                 let block = val.ok_or(anyhow::anyhow!("missing key"))?;
-                                let ipld: Ipld = from_slice(&block).unwrap();
-                                this.dfs.push_front(Iterate(ipld));
+                                if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                    let ipld: Ipld = from_slice(&block).unwrap();
+                                    this.dfs.push_front(Iterate(ipld));
+                                }
                                 Ok((cid, block))
                             })));
                         }
