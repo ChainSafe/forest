@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt;
+use std::{fmt, sync::OnceLock};
 
-use crate::shim::address::Address;
-use crate::shim::clock::ChainEpoch;
+use crate::networks::{calibnet, mainnet};
+use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
-use ahash::{HashSet, HashSetExt};
+use ahash::{HashMap, HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -14,6 +14,7 @@ use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
@@ -264,6 +265,49 @@ impl Tipset {
                 child
             })
         })
+    }
+
+    /// Fetch the genesis block header for a given tipset.
+    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<BlockHeader> {
+        // Scanning through millions of epochs to find the genesis is quite
+        // slow. Let's use a list of known blocks to short-circuit the search.
+        // The blocks are hash-chained together and known blocks are guaranteed
+        // to have a known genesis.
+        #[derive(Serialize, Deserialize)]
+        struct KnownHeaders {
+            calibnet: HashMap<ChainEpoch, String>,
+            mainnet: HashMap<ChainEpoch, String>,
+        }
+
+        static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
+        let headers = KNOWN_HEADERS.get_or_init(|| {
+            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
+        });
+
+        let calibnet_cid = Cid::from_str(calibnet::GENESIS_CID).unwrap();
+        let mainnet_cid = Cid::from_str(mainnet::GENESIS_CID).unwrap();
+
+        for tipset in self.clone().chain(&store) {
+            // Search for known calibnet and mainnet blocks
+            for (genesis_cid, known_blocks) in [
+                (calibnet_cid, &headers.calibnet),
+                (mainnet_cid, &headers.mainnet),
+            ] {
+                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
+                    if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
+                        return store
+                            .get_cbor(&genesis_cid)?
+                            .ok_or_else(|| anyhow::anyhow!("Genesis block missing from database"));
+                    }
+                }
+            }
+
+            // If no known blocks are found, we'll eventually hit the genesis tipset.
+            if tipset.epoch() == 0 {
+                return Ok(tipset.min_ticket_block().clone());
+            }
+        }
+        anyhow::bail!("Genesis block not found")
     }
 }
 
