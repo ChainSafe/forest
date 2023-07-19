@@ -2,17 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use tracing_chrome::{ChromeLayerBuilder, FlushGuard};
-use tracing_subscriber::{
-    filter::{EnvFilter, LevelFilter},
-    prelude::*,
-};
+use tracing_subscriber::{filter::LevelFilter, prelude::*, EnvFilter};
 
-use crate::cli_shared::cli::{CliOpts, LogConfig};
+use crate::cli_shared::cli::CliOpts;
 
-pub fn setup_logger(
-    log_config: &LogConfig,
-    opts: &CliOpts,
-) -> (Option<tracing_loki::BackgroundTask>, Option<FlushGuard>) {
+pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Option<FlushGuard>) {
     let mut loki_task = None;
     let tracing_tokio_console = if opts.tokio_console {
         Some(
@@ -52,7 +46,7 @@ pub fn setup_logger(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(false)
                 .with_writer(file_appender)
-                .with_filter(build_env_filter(log_config)),
+                .with_filter(get_env_filter()),
         )
     } else {
         None
@@ -77,19 +71,46 @@ pub fn setup_logger(
         .with(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(opts.color.coloring_enabled())
-                .with_filter(build_env_filter(log_config)),
+                .with_filter(get_env_filter()),
         )
         .init();
     (loki_task, flush_guard)
 }
 
-fn build_env_filter(log_config: &LogConfig) -> EnvFilter {
-    EnvFilter::builder().parse_lossy(
-        [
-            "info".into(),
-            log_config.to_filter_string(),
-            std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_default(),
-        ]
-        .join(","),
-    )
+/// Returns an [`EnvFilter`] according to the `RUST_LOG` environment variable, or a default
+/// - see [`default_env_filter`]
+///
+/// Note that [`tracing_subscriber::filter::Builder`] only allows a single default directive,
+/// whereas we want to provide multiple.
+/// See also <https://github.com/tokio-rs/tracing/blob/27f688efb72316a26f3ec1f952c82626692c08ff/tracing-subscriber/src/filter/env/builder.rs#L189-L194>
+fn get_env_filter() -> EnvFilter {
+    use std::env::{
+        self,
+        VarError::{NotPresent, NotUnicode},
+    };
+    match env::var(tracing_subscriber::EnvFilter::DEFAULT_ENV) {
+        Ok(s) => EnvFilter::new(s),
+        Err(NotPresent) => default_env_filter(),
+        Err(NotUnicode(_)) => EnvFilter::default(),
+    }
+}
+
+fn default_env_filter() -> EnvFilter {
+    let default_directives = [
+        "bellperson::groth16::aggregate::verify=warn",
+        "axum=warn",
+        "filecoin_proofs=warn",
+        "libp2p_bitswap=off",
+        "libp2p_gossipsub=error",
+        "libp2p_kad=error",
+        "rpc=error",
+        "storage_proofs_core=warn",
+        "tracing_loki=off",
+    ];
+    EnvFilter::try_new(default_directives.join(",")).unwrap()
+}
+
+#[test]
+fn test_default_env_filter() {
+    let _did_not_panic = default_env_filter();
 }
