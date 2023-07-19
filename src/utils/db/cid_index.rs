@@ -11,6 +11,16 @@ fn hash_cid(cid: Cid) -> u64 {
     u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8]))
 }
 
+// Optimal position for a hash with a given table length
+fn hash_target(hash: u64, len: usize) -> usize {
+    hash as usize % len
+}
+
+// Walking distance between `at` and the optimal location of `hash`
+fn hash_distance(hash: u64, at: usize, len: usize) -> usize {
+    (at as isize - hash_target(hash, len) as isize).rem_euclid(len as isize) as usize
+}
+
 pub struct ProbingHashtable<ReaderT> {
     reader: ReaderT,
     // TODO(lemmih): Move offset and size into a separate seekable reader?
@@ -52,18 +62,40 @@ impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
         .take(len as usize))
     }
 
-    fn positions(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<(u64, Position)>> + '_> {
+    fn positions(
+        &mut self,
+        mut index: u64,
+    ) -> Result<impl Iterator<Item = Result<(u64, Position)>> + '_> {
         Ok(self.entries(index)?.filter_map(|result| {
-            result.map(|entry| match entry {
-                Entry::Empty => None,
-                Entry::Full { hash, value } => Some((hash, value)),
-            }).transpose()
+            result
+                .map(|entry| match entry {
+                    Entry::Empty => None,
+                    Entry::Full { hash, value } => Some((hash, value)),
+                })
+                .transpose()
         }))
     }
 
-    // fn lookup(&self, key: Cid) -> Vec<Position> {
-
-    // }
+    fn lookup(&mut self, index: u64) -> Result<impl Iterator<Item = Result<Position>> + '_> {
+        let len = self.len;
+        Ok(self.positions(index)?.enumerate().take_while(move |(nth, result)| {
+            match result {
+                Err(_) => true,
+                Ok((hash, position)) => {
+                    let hash_dist = hash_distance(*hash, index as usize +nth, len as usize);
+                    hash_dist <= *nth
+                }
+            }
+        }).filter_map(move |(nth, result)| {
+            result.map(|(hash, position)| {
+                if hash == hash_target(hash, len as usize) as u64 {
+                    Some(position)
+                } else {
+                    None
+                }
+            }).transpose()
+        }))
+    }
 }
 
 pub struct ProbingHashtableBuilder {
@@ -110,12 +142,12 @@ impl Entry {
 }
 
 impl Position {
+    // Returns None if the two offets cannot be stored in a single u64
     fn new(zst_frame_offset: u64, decoded_offset: u16) -> Option<Self> {
         let position = Position {
             zst_frame_offset,
             decoded_offset,
         };
-        // Return None if the two offets cannot be stored in a single u64
         if position.encode() == u64::MAX || Position::decode(position.encode()) != position {
             None
         } else {
@@ -158,7 +190,8 @@ impl ProbingHashtableBuilder {
     }
 
     fn insert(&mut self, (mut new_key, mut new_value): (u64, Position)) {
-        let entry_offset = new_key as usize % self.table.len();
+        let len = self.table.len();
+        let entry_offset = hash_target(new_key, len);
         let mut at = entry_offset;
         loop {
             match self.table[at] {
@@ -176,8 +209,9 @@ impl ProbingHashtableBuilder {
                     if prev_key == new_key {
                         self.collisions += 1;
                     }
-                    let other_offset = prev_key as usize % self.table.len();
-                    if entry_offset < other_offset {
+                    let new_distance = hash_distance(new_key, at, len);
+                    let prev_distance = hash_distance(prev_key, at, len);
+                    if new_distance > prev_distance {
                         self.table[at] = Entry::Full {
                             hash: new_key,
                             value: new_value,
@@ -195,11 +229,9 @@ impl ProbingHashtableBuilder {
         let mut map = BTreeMap::new();
         for (n, elt) in self.table.iter().enumerate() {
             if let Entry::Full { hash, .. } = elt {
-                let best_position = *hash as usize % self.table.len();
-                let diff = (n as isize - best_position as isize)
-                    .rem_euclid(self.table.len() as isize) as usize;
+                let dist = hash_distance(*hash, n, self.table.len());
 
-                map.entry(diff).and_modify(|n| *n += 1).or_insert(1);
+                map.entry(dist).and_modify(|n| *n += 1).or_insert(1);
             }
         }
         map
