@@ -76,7 +76,7 @@ async fn test_state_migration(
             ))?),
         )?,
     );
-    let chain_config = Arc::new(ChainConfig::from_chain(network)));
+    let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
 
     fvm_ipld_car::load_car(

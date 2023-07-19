@@ -64,7 +64,6 @@ pub async fn get_actors_bundle(
 
     tokio::fs::create_dir_all(&bundle_path_dir).await?;
     let bundle_path = bundle_path_dir.join(format!("bundle_{height}.car"));
-    println!("bundle_path: {}", bundle_path.display());
 
     // If the bundle already exists, return a reader to it.
     if bundle_path.exists() {
