@@ -82,7 +82,7 @@ pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Op
 ///
 /// Note that [`tracing_subscriber::filter::Builder`] only allows a single default directive,
 /// whereas we want to provide multiple.
-/// See also https://github.com/tokio-rs/tracing/blob/27f688efb72316a26f3ec1f952c82626692c08ff/tracing-subscriber/src/filter/env/builder.rs#L189-L194
+/// See also <https://github.com/tokio-rs/tracing/blob/27f688efb72316a26f3ec1f952c82626692c08ff/tracing-subscriber/src/filter/env/builder.rs#L189-L194>
 fn get_env_filter() -> EnvFilter {
     use std::env::{
         self,
