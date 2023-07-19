@@ -62,8 +62,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         Ok(ts)
     }
 
-    /// Find tipset at epoch `to` in the chain indicated by `from`. The `from`
-    /// tipset's epoch must not be smaller than `to`.
+    /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
+    /// If the tipset is _not_ in the chain of ancestors (i.e., if the `to`
+    /// epoch is higher than `from.epoch()`), an error will be returned.
     ///
     /// # Why pass in the `from` argument?
     ///
