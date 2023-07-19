@@ -151,15 +151,14 @@ impl FileBackedObject for DbIndex {
 }
 
 impl RollingDB {
-    pub fn load_or_create(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<Self> {
+    pub fn load_or_create(db_root: PathBuf) -> anyhow::Result<Self> {
         if !db_root.exists() {
             std::fs::create_dir_all(db_root.as_path())?;
         }
-        let (db_index, current, old) = load_dbs(&db_root, &db_config)?;
+        let (db_index, current, old) = load_dbs(&db_root)?;
 
         Ok(Self {
             db_root: db_root.into(),
-            db_config: db_config.into(),
             db_index: RwLock::new(db_index).into(),
             current: RwLock::new(current).into(),
             old: RwLock::new(old).into(),
@@ -171,7 +170,7 @@ impl RollingDB {
     pub(super) fn next_current(&self, current_epoch: i64) -> anyhow::Result<()> {
         let new_db_name = Uuid::new_v4().simple().to_string();
         info!("Setting {new_db_name} as current db");
-        let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
+        let db = open_db(&self.db_root.join(&new_db_name))?;
         *self.old.write() = self.current.read().clone();
         *self.current.write() = db;
         let mut db_index = self.db_index.write();
@@ -211,7 +210,7 @@ impl RollingDB {
     }
 }
 
-fn load_dbs(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(FileBacked<DbIndex>, Db, Db)> {
+fn load_dbs(db_root: &Path) -> anyhow::Result<(FileBacked<DbIndex>, Db, Db)> {
     let mut db_index = FileBacked::load_from_file_or_create(
         db_root.join("db_index.yaml"),
         Default::default,
@@ -224,8 +223,8 @@ fn load_dbs(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(FileBacked<
     if db_index_mut.old.is_empty() {
         db_index_mut.old = Uuid::new_v4().simple().to_string();
     }
-    let current = open_db(&db_root.join(&db_index_mut.current), db_config)?;
-    let old = open_db(&db_root.join(&db_index_mut.old), db_config)?;
+    let current = open_db(&db_root.join(&db_index_mut.current))?;
+    let old = open_db(&db_root.join(&db_index_mut.old))?;
     db_index.sync()?;
     Ok((db_index, current, old))
 }
@@ -264,7 +263,7 @@ mod tests {
     fn rolling_db_behaviour_tests() -> Result<()> {
         let db_root = TempDir::new()?;
         println!("Creating rolling db under {}", db_root.path().display());
-        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+        let rolling_db = RollingDB::load_or_create(db_root.path().into())?;
         println!("Generating random blocks");
         let pairs: Vec<_> = (0..1000)
             .map(|_| {
@@ -308,7 +307,7 @@ mod tests {
 
         drop(rolling_db);
 
-        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+        let rolling_db = RollingDB::load_or_create(db_root.path().into())?;
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
                 ensure!(!rolling_db.contains(k)?);

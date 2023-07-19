@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::chain_sync::SyncConfig;
-use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
 use core::time::Duration;
@@ -50,18 +49,11 @@ pub struct TokioConfig {
 #[serde(default)]
 pub struct Config {
     pub client: Client,
-    pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
     pub tokio: TokioConfig,
-}
-
-impl Config {
-    pub fn db_config(&self) -> &DbConfig {
-        &self.parity_db
-    }
 }
 
 #[cfg(test)]
@@ -85,7 +77,6 @@ mod test {
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
-        parity_db: crate::db::parity_db_config::ParityDbConfig,
         network: crate::libp2p::Libp2pConfig,
         sync: crate::chain_sync::SyncConfig,
     }
@@ -94,7 +85,6 @@ mod test {
         fn from(val: ConfigPartial) -> Self {
             Config {
                 client: val.client,
-                parity_db: val.parity_db,
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
@@ -124,10 +114,6 @@ mod test {
                     rpc_address: SocketAddr::arbitrary(g),
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
-                },
-                parity_db: crate::db::parity_db_config::ParityDbConfig {
-                    enable_statistics: bool::arbitrary(g),
-                    compression_type: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddrs: vec![Ipv4Addr::arbitrary(g).into()],

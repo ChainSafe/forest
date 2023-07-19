@@ -171,10 +171,7 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db = Arc::new(open_proxy_db(
-        db_root(&chain_data_path),
-        config.db_config().clone(),
-    )?);
+    let db = Arc::new(open_proxy_db(db_root(&chain_data_path))?);
 
     let mut services = JoinSet::new();
 

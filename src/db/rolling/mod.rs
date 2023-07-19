@@ -25,7 +25,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::db::db_engine::{open_db, Db, DbConfig};
+use crate::db::db_engine::{open_db, Db};
 
 /// This DB wrapper is specially designed for supporting the concurrent,
 /// semi-space GC algorithm that is implemented in [`DbGarbageCollector`],
@@ -35,7 +35,6 @@ use crate::db::db_engine::{open_db, Db, DbConfig};
 #[derive(Clone)]
 pub struct RollingDB {
     db_root: Arc<PathBuf>,
-    db_config: Arc<DbConfig>,
     db_index: Arc<RwLock<FileBacked<DbIndex>>>,
     /// The current writable DB
     current: Arc<RwLock<Db>>,

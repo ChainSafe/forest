@@ -4,7 +4,6 @@
 mod memory;
 mod metrics;
 pub mod parity_db;
-pub mod parity_db_config;
 pub use memory::MemoryDB;
 
 pub mod rolling;
@@ -69,19 +68,18 @@ pub mod db_engine {
     use crate::db::rolling::*;
 
     pub type Db = crate::db::parity_db::ParityDb;
-    pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
     const DIR_NAME: &str = "paritydb";
 
     pub fn db_root(chain_data_root: &Path) -> PathBuf {
         chain_data_root.join(DIR_NAME)
     }
 
-    pub(in crate::db) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, config).map_err(Into::into)
+    pub(in crate::db) fn open_db(path: &Path) -> anyhow::Result<Db> {
+        Db::open(path).map_err(Into::into)
     }
 
-    pub fn open_proxy_db(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<RollingDB> {
-        RollingDB::load_or_create(db_root, db_config)
+    pub fn open_proxy_db(db_root: PathBuf) -> anyhow::Result<RollingDB> {
+        RollingDB::load_or_create(db_root)
     }
 }
 #[cfg(test)]

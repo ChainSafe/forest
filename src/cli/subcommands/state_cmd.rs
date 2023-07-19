@@ -63,7 +63,7 @@ impl StateCommands {
                     .client
                     .data_dir
                     .join(config.chain.network.to_string());
-                let blockstore = open_proxy_db(db_root(&chain_path), Default::default())?;
+                let blockstore = open_proxy_db(db_root(&chain_path))?;
 
                 if let Err(err) = print_state_diff(&blockstore, &pre, &post, depth) {
                     eprintln!("Failed to print state diff: {err}");
