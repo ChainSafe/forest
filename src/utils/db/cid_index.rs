@@ -1,25 +1,8 @@
-use crate::utils::cid::CidCborExt;
+#![allow(dead_code)]
 use cid::Cid;
-use itertools::Itertools;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
-use std::hash::Hasher;
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
-
-fn hash_cid(cid: Cid) -> u64 {
-    u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8]))
-}
-
-// Optimal position for a hash with a given table length
-fn hash_target(hash: u64, len: usize) -> usize {
-    hash as usize % len
-}
-
-// Walking distance between `at` and the optimal location of `hash`
-fn hash_distance(hash: u64, at: usize, len: usize) -> usize {
-    (at as isize - hash_target(hash, len) as isize).rem_euclid(len as isize) as usize
-}
 
 pub struct ProbingHashtable<ReaderT> {
     reader: ReaderT,
@@ -37,7 +20,7 @@ impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
         }
     }
 
-    fn entries(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<Entry>> + '_> {
+    fn slots(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<Slot>> + '_> {
         if index >= self.len {
             return Err(Error::new(ErrorKind::InvalidInput, "out-of-bound index"));
         }
@@ -52,61 +35,113 @@ impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
                 }
                 index = 0;
             }
-            let mut buffer = [0; 16];
-            if let Err(err) = self.reader.read_exact(&mut buffer) {
-                return Some(Err(err));
-            }
             index += 1;
-            Some(Ok(Entry::from_le_bytes(buffer)))
+            Some(Slot::read(&mut self.reader))
         })
         .take(len as usize))
     }
 
-    fn positions(
-        &mut self,
-        mut index: u64,
-    ) -> Result<impl Iterator<Item = Result<(u64, Position)>> + '_> {
-        Ok(self.entries(index)?.filter_map(|result| {
+    fn entries(&mut self, index: u64) -> Result<impl Iterator<Item = Result<KeyValuePair>> + '_> {
+        Ok(self.slots(index)?.filter_map(|result| {
             result
                 .map(|entry| match entry {
-                    Entry::Empty => None,
-                    Entry::Full { hash, value } => Some((hash, value)),
+                    Slot::Empty => None,
+                    Slot::Full(entry) => Some(entry),
                 })
                 .transpose()
         }))
     }
 
-    fn lookup(&mut self, index: u64) -> Result<impl Iterator<Item = Result<Position>> + '_> {
+    fn lookup(&mut self, index: u64) -> Result<impl Iterator<Item = Result<u64>> + '_> {
         let len = self.len;
-        Ok(self.positions(index)?.enumerate().take_while(move |(nth, result)| {
-            match result {
+        Ok(self
+            .entries(index)?
+            .enumerate()
+            .take_while(move |(nth, result)| match result {
                 Err(_) => true,
-                Ok((hash, position)) => {
-                    let hash_dist = hash_distance(*hash, index as usize +nth, len as usize);
-                    hash_dist <= *nth
+                Ok(entry) => {
+                    let hash_dist = entry.hash.distance(index as usize, len as usize);
+                    *nth <= hash_dist
                 }
-            }
-        }).filter_map(move |(nth, result)| {
-            result.map(|(hash, position)| {
-                if hash == hash_target(hash, len as usize) as u64 {
-                    Some(position)
-                } else {
-                    None
-                }
-            }).transpose()
-        }))
+            })
+            .filter_map(move |(nth, result)| {
+                result
+                    .map(|entry| {
+                        if index == entry.hash.distance(index as usize + nth, len as usize) as u64 {
+                            Some(entry.value)
+                        } else {
+                            None
+                        }
+                    })
+                    .transpose()
+            }))
     }
 }
 
+#[derive(Debug)]
 pub struct ProbingHashtableBuilder {
-    table: Vec<Entry>,
+    table: Vec<Slot>,
     collisions: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Entry {
+enum Slot {
     Empty,
-    Full { hash: u64, value: Position },
+    Full(KeyValuePair),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct KeyValuePair {
+    hash: Hash,
+    value: u64,
+}
+
+impl KeyValuePair {
+    // Optimal position for a hash with a given table length
+    fn optimal_position(&self, len: usize) -> usize {
+        self.hash.optimal_position(len)
+    }
+
+    // Walking distance between `at` and the optimal location of `hash`
+    fn distance(&self, at: usize, len: usize) -> usize {
+        self.hash.distance(at, len)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hash(u64);
+
+impl From<Hash> for u64 {
+    fn from(Hash(hash): Hash) -> u64 {
+        hash
+    }
+}
+
+impl From<Cid> for Hash {
+    fn from(cid: Cid) -> Hash {
+        Hash::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8]))
+    }
+}
+
+impl Hash {
+    fn from_le_bytes(bytes: [u8; 8]) -> Hash {
+        Hash(u64::from_le_bytes(bytes))
+    }
+
+    // Optimal position for a hash with a given table length
+    fn optimal_position(&self, len: usize) -> usize {
+        self.0 as usize % len
+    }
+
+    // Walking distance between `at` and the optimal location of `hash`
+    fn distance(&self, at: usize, len: usize) -> usize {
+        let pos = self.optimal_position(len);
+        if pos > at {
+            (len - pos + at) % len
+        } else {
+            (at - pos) % len
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,29 +150,32 @@ pub struct Position {
     decoded_offset: u16,
 }
 
-impl Entry {
+impl Slot {
     fn to_le_bytes(self) -> [u8; 16] {
         let (key, value) = match self {
-            Entry::Empty => (u64::MAX, u64::MAX),
-            Entry::Full { hash, value } => (hash, value.encode()),
+            Slot::Empty => (u64::MAX, u64::MAX),
+            Slot::Full(entry) => (entry.hash.into(), entry.value),
         };
         let mut output: [u8; 16] = [0; 16];
         output[0..8].copy_from_slice(&key.to_le_bytes());
-        output[8..16].copy_from_slice(&key.to_le_bytes());
+        output[8..16].copy_from_slice(&value.to_le_bytes());
         output
     }
 
     fn from_le_bytes(bytes: [u8; 16]) -> Self {
-        let hash = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let hash = Hash::from_le_bytes(bytes[0..8].try_into().unwrap());
         let value = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
         if value == u64::MAX {
-            Entry::Empty
+            Slot::Empty
         } else {
-            Entry::Full {
-                hash,
-                value: Position::decode(value),
-            }
+            Slot::Full(KeyValuePair { hash, value })
         }
+    }
+
+    fn read(reader: &mut impl Read) -> Result<Slot> {
+        let mut buffer = [0; 16];
+        reader.read_exact(&mut buffer)?;
+        Ok(Slot::from_le_bytes(buffer))
     }
 }
 
@@ -169,7 +207,11 @@ impl Position {
 }
 
 impl ProbingHashtableBuilder {
-    pub fn new(values: &[(Cid, Position)]) -> ProbingHashtableBuilder {
+    pub fn new(values: &[(Cid, u64)]) -> ProbingHashtableBuilder {
+        Self::new_raw(&values.into_iter().cloned().map(|(cid, value)| (Hash::from(cid), value)).collect::<Vec<_>>())
+    }
+
+    pub fn new_raw(values: &[(Hash, u64)]) -> ProbingHashtableBuilder {
         let size = values.len() * 100 / 91;
         println!(
             "Entries: {}, size: {}, buffer: {}",
@@ -178,46 +220,36 @@ impl ProbingHashtableBuilder {
             size - values.len()
         );
         let mut vec = Vec::with_capacity(size);
-        vec.resize(size, Entry::Empty);
+        vec.resize(size, Slot::Empty);
         let mut table = ProbingHashtableBuilder {
             table: vec,
             collisions: 0,
         };
-        for (cid, val) in values.into_iter().cloned() {
-            table.insert((hash_cid(cid), val))
+        for (hash, value) in values.into_iter().cloned() {
+            table.insert(KeyValuePair {
+                hash,
+                value,
+            })
         }
         table
     }
 
-    fn insert(&mut self, (mut new_key, mut new_value): (u64, Position)) {
+    fn insert(&mut self, mut new: KeyValuePair) {
         let len = self.table.len();
-        let entry_offset = hash_target(new_key, len);
-        let mut at = entry_offset;
+        let mut at = new.optimal_position(len);
         loop {
             match self.table[at] {
-                Entry::Empty => {
-                    self.table[at] = Entry::Full {
-                        hash: new_key,
-                        value: new_value,
-                    };
+                Slot::Empty => {
+                    self.table[at] = Slot::Full(new);
                     break;
                 }
-                Entry::Full {
-                    hash: prev_key,
-                    value: prev_value,
-                } => {
-                    if prev_key == new_key {
+                Slot::Full(found) => {
+                    if found.hash == new.hash {
                         self.collisions += 1;
                     }
-                    let new_distance = hash_distance(new_key, at, len);
-                    let prev_distance = hash_distance(prev_key, at, len);
-                    if new_distance > prev_distance {
-                        self.table[at] = Entry::Full {
-                            hash: new_key,
-                            value: new_value,
-                        };
-                        new_key = prev_key;
-                        new_value = prev_value;
+                    if found.distance(at, len) < new.distance(at, len) {
+                        self.table[at] = Slot::Full(new);
+                        new = found;
                     }
                     at = (at + 1) % self.table.len();
                 }
@@ -228,8 +260,8 @@ impl ProbingHashtableBuilder {
     fn read_misses(&self) -> BTreeMap<usize, usize> {
         let mut map = BTreeMap::new();
         for (n, elt) in self.table.iter().enumerate() {
-            if let Entry::Full { hash, .. } = elt {
-                let dist = hash_distance(*hash, n, self.table.len());
+            if let Slot::Full(KeyValuePair { hash, .. }) = elt {
+                let dist = hash.distance(n, self.table.len());
 
                 map.entry(dist).and_modify(|n| *n += 1).or_insert(1);
             }
@@ -255,13 +287,14 @@ impl ProbingHashtableBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::cid::CidCborExt;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
 
     impl Arbitrary for Position {
         fn arbitrary(g: &mut Gen) -> Position {
             Position::new(
-                u64::arbitrary(g).saturating_sub(1) >> u16::BITS,
+                (u64::arbitrary(g) >> u16::BITS).saturating_sub(1),
                 u16::arbitrary(g),
             )
             .unwrap()
@@ -274,18 +307,49 @@ mod tests {
     }
 
     #[test]
-    fn basic_insert() {
+    fn show_misses_and_collisions() {
         let table = ProbingHashtableBuilder::new(
-            &(1..=100_000_000)
+            &(1..=100)
                 .map(|i| {
                     (
                         Cid::from_cbor_blake2b256(&i).unwrap(),
-                        Position::new(i, 0).unwrap(),
+                        i,
                     )
                 })
                 .collect::<Vec<_>>(),
         );
-        dbg!(table.read_misses());
-        dbg!(table.collisions);
+        // dbg!(table.read_misses());
+        // dbg!(table.collisions);
+    }
+
+    #[test]
+    fn show_layout() {
+        let table = ProbingHashtableBuilder::new_raw(&[
+            (Hash(0), 0),
+            (Hash(1), 0),
+            (Hash(2), 0),
+            (Hash(3), 0),
+            (Hash(6), 0),
+            (Hash(6), 0),
+            (Hash(6), 0),
+        ]);
+        dbg!(table);
+    }
+
+    #[test]
+    fn key_value_pair_distance_1() {
+        // Hash(0) is right where it wants to be
+        assert_eq!(Hash(0).distance(0, 1), 0);
+    }
+
+    #[test]
+    fn key_value_pair_distance_2() {
+        // If Hash(0) is at position 4 then it is 4 places away from where it wants to be.
+        assert_eq!(Hash(0).distance(4, 10), 4);
+    }
+    #[test]
+    fn key_value_pair_distance_3() {
+        assert_eq!(Hash(9).distance(9, 10), 0);
+        assert_eq!(Hash(9).distance(0, 10), 1);
     }
 }
