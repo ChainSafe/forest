@@ -28,7 +28,6 @@ pub struct Position {
     decoded_offset: u16,
 }
 
-
 impl Entry {
     fn to_le_bytes(self) -> [u8; 16] {
         let (key, value) = match self {
@@ -39,6 +38,20 @@ impl Entry {
         output[0..8].copy_from_slice(&key.to_le_bytes());
         output[8..16].copy_from_slice(&key.to_le_bytes());
         output
+    }
+
+    fn from_le_bytes(bytes: [u8; 16]) -> Self {
+        let hash = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let value = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        if value == u64::MAX {
+            Entry::Empty
+        } else {
+            let zst_frame_offset = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+            Entry::Full {
+                hash,
+                value: Position::decode(value),
+            }
+        }
     }
 }
 
@@ -159,7 +172,12 @@ mod tests {
     fn basic_insert() {
         let table = ProbingHashtableBuilder::new(
             &(1..=100_000_000)
-                .map(|i| (Cid::from_cbor_blake2b256(&i).unwrap(), Position::new(i, 0).unwrap()))
+                .map(|i| {
+                    (
+                        Cid::from_cbor_blake2b256(&i).unwrap(),
+                        Position::new(i, 0).unwrap(),
+                    )
+                })
                 .collect::<Vec<_>>(),
         );
         dbg!(table.read_misses());
