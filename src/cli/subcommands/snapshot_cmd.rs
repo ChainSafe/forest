@@ -9,6 +9,7 @@ use crate::car_backed_blockstore::{
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::daemon::bundle::load_bundles;
 use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
@@ -41,6 +42,9 @@ pub enum SnapshotCommands {
         /// Don't write the archive.
         #[arg(long)]
         dry_run: bool,
+        /// Tipset to start the export from, default is the chain head
+        #[arg(short, long)]
+        tipset: Option<i64>,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
@@ -87,13 +91,14 @@ impl SnapshotCommands {
                 output_path,
                 skip_checksum,
                 dry_run,
+                tipset,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
-                let epoch = chain_head.epoch();
+                let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let chain_name = chain_get_name((), &config.client.rpc_token)
                     .await
@@ -104,7 +109,7 @@ impl SnapshotCommands {
                         TrustedVendor::Forest,
                         chain_name,
                         Utc::now().date_naive(),
-                        chain_head.epoch(),
+                        epoch,
                     )),
                     false => output_path.clone(),
                 };
@@ -152,6 +157,7 @@ impl SnapshotCommands {
                     "Export completed. Snapshot located at {}",
                     out.display()
                 ));
+                println!("\n");
                 Ok(())
             }
             Self::Fetch { directory, vendor } => {
@@ -406,6 +412,18 @@ where
     );
 
     let last_epoch = ts.epoch() - epochs as i64;
+
+    // Bundles are required when doing state migrations. Download any bundles
+    // that may be necessary after `last_epoch`.
+    load_bundles(
+        last_epoch,
+        &Config {
+            chain: chain_config.clone(),
+            ..Default::default()
+        },
+        Arc::new(db.clone()),
+    )
+    .await?;
 
     // Set proof parameter data dir
     if cns::FETCH_PARAMS {
