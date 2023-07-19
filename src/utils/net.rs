@@ -3,11 +3,15 @@
 
 use crate::utils::io::WithProgress;
 use async_compression::tokio::bufread::ZstdDecoder;
+use cid::Cid;
 use futures::TryStreamExt;
-use std::io::ErrorKind;
+use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
 use tokio::io::{AsyncBufReadExt, AsyncRead};
-use tokio_util::either::Either::{Left, Right};
+use tokio_util::{
+    compat::TokioAsyncReadCompatExt,
+    either::Either::{Left, Right},
+};
 use tracing::info;
 use url::Url;
 
@@ -16,6 +20,34 @@ use once_cell::sync::Lazy;
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
     CLIENT.clone()
+}
+
+/// Download a file via IPFS http gateway in trustless mode.
+/// See <https://github.com/ipfs/specs/blob/main/http-gateways/TRUSTLESS_GATEWAY.md>
+pub async fn download_ipfs_file_trustlessly(
+    cid: &Cid,
+    gateway: Option<&str>,
+    destination: &Path,
+) -> anyhow::Result<()> {
+    // https://docs.ipfs.tech/concepts/ipfs-gateway/
+    const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
+
+    let url = format!(
+        "{}{cid}?format=car",
+        gateway.unwrap_or(DEFAULT_IPFS_GATEWAY)
+    );
+
+    let tmp =
+        tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?;
+
+    let mut reader = reader(&url).await?.compat();
+    // FIXME: When BufWriter is used, the digest of small files are wrong, likely a bug in `rs-car-ipfs`
+    // let mut file = futures::io::BufWriter::new(async_fs::File::create(tmp.path()).await?);
+    let mut file = async_fs::File::create(tmp.path()).await?;
+    rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut file, None).await?;
+    tmp.persist(destination)?;
+
+    Ok(())
 }
 
 /// `location` may be:

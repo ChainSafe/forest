@@ -2606,6 +2606,7 @@ dependencies = [
  "raw_sync",
  "rayon",
  "reqwest",
+ "rs-car-ipfs",
  "rustyline",
  "semver",
  "serde",
@@ -6055,6 +6056,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd124222d17ad93a644ed9d011a40f4fb64aa54275c08cc216524a9ea82fb09f"
 dependencies = [
  "digest 0.10.7",
+]
+
+[[package]]
+name = "rs-car"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf69c4017006c0101362b5df74ee230331703e9938f970468dc1e429afe12998"
+dependencies = [
+ "blake2b_simd",
+ "futures",
+ "libipld",
+ "sha2 0.10.7",
+]
+
+[[package]]
+name = "rs-car-ipfs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ced3977ca80da31daaf6a0530b0e4536eb704be5a5b8ed9de1368be43d44524"
+dependencies = [
+ "futures",
+ "quick-protobuf",
+ "rs-car",
 ]
 
 [[package]]

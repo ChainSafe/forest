@@ -135,6 +135,7 @@ reqwest = { version = "0.11.18", default-features = false, features = [
   "rustls-tls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
+rs-car-ipfs = "0.3"
 rustyline = "12"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
