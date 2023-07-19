@@ -15,7 +15,6 @@ use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use tracing::info;
-use once_cell::sync::Lazy;
 
 use super::{Block, BlockHeader, Error, Ticket};
 
@@ -284,8 +283,8 @@ impl Tipset {
             serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
         });
 
-        let calibnet_cid = *Lazy::get(&calibnet::GENESIS_CID).expect("failed to get calibnet genesis CID");
-        let mainnet_cid = *Lazy::get(&mainnet::GENESIS_CID).expect("failed to get mainnet genesis CID");
+        let calibnet_cid = *calibnet::GENESIS_CID;
+        let mainnet_cid = *mainnet::GENESIS_CID;
 
         for tipset in self.clone().chain(&store) {
             // Search for known calibnet and mainnet blocks

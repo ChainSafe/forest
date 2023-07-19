@@ -48,7 +48,6 @@ use std::sync::Arc;
 use tempfile::TempDir;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::info;
-use once_cell::sync::Lazy;
 
 #[derive(Debug, Subcommand)]
 pub enum ArchiveCommands {
@@ -276,9 +275,9 @@ impl ArchiveInfo {
             }
 
             if tipset.epoch() == 0 {
-                if tipset.min_ticket_block().cid() == Lazy::get(&calibnet::GENESIS_CID).expect("failed to get calibnet genesis CID") {
+                if tipset.min_ticket_block().cid() == &*calibnet::GENESIS_CID {
                     network = "calibnet".into();
-                } else if tipset.min_ticket_block().cid() == Lazy::get(&mainnet::GENESIS_CID).expect("failed to get mainnet genesis CID") {
+                } else if tipset.min_ticket_block().cid() == &*mainnet::GENESIS_CID {
                     network = "mainnet".into();
                 }
             }
@@ -291,9 +290,9 @@ impl ArchiveInfo {
             if may_skip {
                 match tipset.genesis(&store).ok() {
                     Some(genesis_block) => {
-                        if genesis_block.cid() == Lazy::get(&calibnet::GENESIS_CID).expect("failed to get calibnet genesis CID") {
+                        if genesis_block.cid() == &*calibnet::GENESIS_CID {
                             network = "calibnet".into();
-                        } else if genesis_block.cid() == Lazy::get(&mainnet::GENESIS_CID).expect("failed to get mainnet genesis CID") {
+                        } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
                             network = "mainnet".into();
                         }
                     }
@@ -323,9 +322,9 @@ fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
     let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
 
     let genesis = root.genesis(&store)?;
-    let chain_name = if genesis.cid() == Lazy::get(&calibnet::GENESIS_CID).expect("failed to get calibnet genesis CID") {
+    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
         NetworkChain::Calibnet
-    } else if genesis.cid() == Lazy::get(&mainnet::GENESIS_CID).expect("failed to get mainnet genesis CID") {
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
         NetworkChain::Mainnet
     } else {
         bail!("Unrecognizable genesis block");
