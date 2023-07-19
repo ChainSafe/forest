@@ -23,9 +23,9 @@ pub struct CborRequestResponse<P, RQ, RS> {
 impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
     fn default() -> Self {
         Self {
-            protocol: PhantomData::<P>::default(),
-            request: PhantomData::<RQ>::default(),
-            response: PhantomData::<RS>::default(),
+            protocol: PhantomData::<P>,
+            request: PhantomData::<RQ>,
+            response: PhantomData::<RS>,
         }
     }
 }
@@ -158,7 +158,7 @@ where
         Ok(r) => r,
         Err(_) => {
             let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
-            log::warn!("{err}");
+            tracing::warn!("{err}");
             Err(err)
         }
     }

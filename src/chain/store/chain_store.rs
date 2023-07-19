@@ -1,19 +1,19 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
+use std::{ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::metrics;
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
-    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message,
+    state_tree::StateTree, version::NetworkVersion,
 };
 use crate::utils::{
     db::{
@@ -34,18 +34,16 @@ use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, info, trace, warn};
-use lru::LruCache;
-use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{
     broadcast::{self, Sender as Publisher},
     Mutex as TokioMutex,
 };
+use tracing::{debug, info, warn};
 
 use super::{
-    index::{checkpoint_tipsets, ChainIndex},
+    index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
     Error,
 };
@@ -54,7 +52,9 @@ use crate::chain::Scale;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
+/// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
+/// while maintaining the same type.
+pub type ChainEpochDelta = ChainEpoch;
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -71,13 +71,10 @@ pub struct ChainStore<DB> {
     publisher: Publisher<HeadChange>,
 
     /// key-value `datastore`.
-    pub db: DB,
-
-    /// Caches loaded tipsets for fast retrieval.
-    ts_cache: Arc<TipsetCache>,
+    pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    chain_index: ChainIndex<DB>,
+    pub chain_index: ChainIndex<DB>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -121,19 +118,16 @@ where
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     pub fn new(
-        db: DB,
+        db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: &BlockHeader,
         chain_data_root: &Path,
-    ) -> Result<Self>
-    where
-        DB: Clone,
-    {
+    ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        let chain_index = ChainIndex::new(Arc::clone(&db));
         let file_backed_genesis = Mutex::new(FileBacked::new(
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
@@ -144,7 +138,7 @@ where
                 || TipsetKeys::new(vec![*genesis_block_header.cid()]),
                 None,
             )?;
-            let is_valid = tipset_from_keys(&ts_cache, &db, head_store.inner()).is_ok();
+            let is_valid = chain_index.load_tipset(head_store.inner()).is_ok();
             if !is_valid {
                 // If the stored HEAD is invalid, reset it to the genesis tipset.
                 head_store.set_inner(TipsetKeys::new(vec![*genesis_block_header.cid()]))?;
@@ -160,10 +154,9 @@ where
 
         let cs = Self {
             publisher,
-            chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
-            tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
+            chain_index,
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
-            ts_cache,
             file_backed_genesis,
             file_backed_heaviest_tipset_keys,
             validated_blocks,
@@ -259,12 +252,7 @@ where
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset());
         }
-        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
-    }
-
-    /// Returns Tipset key hash from key-value store from provided CIDs
-    pub fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
-        checkpoint_tipsets::tipset_hash(tsk)
+        self.chain_index.load_tipset(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest
@@ -291,7 +279,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            log::debug!("Block {cid} was previously validated");
+            debug!("Block {cid} was previously validated");
         }
         validated
     }
@@ -305,92 +293,6 @@ where
     pub fn unmark_block_as_validated(&self, cid: &Cid) {
         let mut file = self.validated_blocks.lock();
         let _did_work = file.remove(cid);
-    }
-
-    /// Returns the tipset behind `tsk` at a given `height`.
-    /// If the given height is a null round:
-    /// - If `prev` is `true`, the tipset before the null round is returned.
-    /// - If `prev` is `false`, the tipset following the null round is returned.
-    #[tracing::instrument(skip(self, ts))]
-    pub fn tipset_by_height(
-        &self,
-        height: ChainEpoch,
-        ts: Arc<Tipset>,
-        prev: bool,
-    ) -> Result<Arc<Tipset>, Error> {
-        if height > ts.epoch() {
-            return Err(Error::Other(
-                "searching for tipset that has a height less than starting point".to_owned(),
-            ));
-        }
-        if height == ts.epoch() {
-            return Ok(ts);
-        }
-
-        let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
-
-        if lbts.epoch() < height {
-            warn!(
-                "chain index returned the wrong tipset at height {}, using slow retrieval",
-                height
-            );
-            lbts = self
-                .chain_index
-                .get_tipset_by_height_without_cache(ts, height)?;
-        }
-
-        if lbts.epoch() == height || !prev {
-            Ok(lbts)
-        } else {
-            self.tipset_from_keys(lbts.parents())
-        }
-    }
-
-    pub fn validate_tipset_checkpoints(
-        &self,
-        from: Arc<Tipset>,
-        network: &NetworkChain,
-    ) -> Result<(), Error> {
-        info!(
-            "Validating {network} tipset checkpoint hashes from: {}",
-            from.epoch()
-        );
-
-        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(network) else {
-            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
-            return Ok(());
-        };
-
-        let mut ts = from;
-        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-        hashes.remove(&tipset_hash);
-
-        loop {
-            let pts = self.chain_index.load_tipset(ts.parents())?;
-            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-            hashes.remove(&tipset_hash);
-
-            ts = pts;
-
-            if ts.epoch() == 0 {
-                break;
-            }
-        }
-
-        if !hashes.is_empty() {
-            return Err(Error::Other(format!(
-                "Found tipset hash(es) on {network} that are no longer valid: {hashes:?}"
-            )));
-        }
-
-        if !checkpoint_tipsets::validate_genesis_cid(&ts, network) {
-            return Err(Error::Other(format!(
-                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
-                ts.key().cid()
-            )));
-        }
-
-        Ok(())
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -433,43 +335,8 @@ where
         ))
     }
 
-    /// Constructs and returns a full tipset if messages from storage exists -
-    /// non self version
-    pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
-    where
-        DB: Blockstore,
-    {
-        // Collect all messages before moving tipset.
-        let messages: Vec<(Vec<_>, Vec<_>)> = match ts
-            .blocks()
-            .iter()
-            .map(|h| block_messages(self.blockstore(), h))
-            .collect::<Result<_, Error>>()
-        {
-            Ok(m) => m,
-            Err(e) => {
-                trace!("failed to fill tipset: {}", e);
-                return None;
-            }
-        };
-
-        // Zip messages with blocks
-        let blocks = ts
-            .blocks()
-            .iter()
-            .cloned()
-            .zip(messages)
-            .map(|(header, (bls_messages, secp_messages))| Block {
-                header,
-                bls_messages,
-                secp_messages,
-            })
-            .collect();
-
-        // the given tipset has already been verified, so this cannot fail
-        Some(FullTipset::new(blocks).unwrap())
-    }
-
+    // FIXME: This function doesn't use the chain store at all.
+    //        Tracking issue: https://github.com/ChainSafe/forest/issues/3208
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.
@@ -534,6 +401,7 @@ where
         skip_checksum: bool,
     ) -> Result<Option<digest::Output<D>>, Error>
     where
+        DB: Send + Sync,
         D: Digest + Send + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
@@ -586,7 +454,7 @@ where
                     Ok(block)
                 }
             },
-            Some("Exporting snapshot | blocks "),
+            Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
         )
@@ -627,34 +495,89 @@ where
 
         Ok(digest)
     }
-}
 
-pub(in crate::chain) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
-
-/// Loads a tipset from memory given the tipset keys and cache.
-pub(in crate::chain) fn tipset_from_keys<BS>(
-    cache: &TipsetCache,
-    store: &BS,
-    tsk: &TipsetKeys,
-) -> Result<Arc<Tipset>, Error>
-where
-    BS: Blockstore,
-{
-    if let Some(ts) = cache.lock().get(tsk) {
-        metrics::LRU_CACHE_HIT
-            .with_label_values(&[metrics::values::TIPSET])
-            .inc();
-        return Ok(ts.clone());
+    /// Get the [`TipsetKeys`] for a given epoch. The returned key will never be null.
+    pub fn get_epoch_tsk(
+        &self,
+        tipset: Arc<Tipset>,
+        round: ChainEpoch,
+    ) -> Result<TipsetKeys, Error> {
+        let ts = self
+            .chain_index
+            .tipset_by_height(round, tipset, ResolveNullTipset::TakeOlder)
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+        Ok(ts.key().clone())
     }
 
-    let ts = Tipset::load(store, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?;
-    // construct new Tipset to return
-    let ts = Arc::new(ts);
-    cache.lock().put(tsk.clone(), ts.clone());
-    metrics::LRU_CACHE_MISS
-        .with_label_values(&[metrics::values::TIPSET])
-        .inc();
-    Ok(ts)
+    /// Gets look-back tipset (and state-root of that tipset) for block
+    /// validations.
+    ///
+    /// The look-back tipset for a round is the tipset with epoch `round -
+    /// chain_finality`. [Chain
+    /// finality](https://docs.filecoin.io/reference/general/glossary/#finality)
+    /// is usually 900. The `heaviest_tipset` is a reference point in the
+    /// blockchain. It must be a child of the look-back tipset.
+    pub fn get_lookback_tipset_for_round(
+        self: &Arc<Self>,
+        chain_config: Arc<ChainConfig>,
+        heaviest_tipset: Arc<Tipset>,
+        round: ChainEpoch,
+    ) -> Result<(Arc<Tipset>, Cid), Error>
+    where
+        DB: Send + Sync + 'static,
+    {
+        let version = chain_config.network_version(round);
+        let lb = if version <= NetworkVersion::V3 {
+            ChainEpoch::from(10)
+        } else {
+            chain_config.policy.chain_finality
+        };
+        let lbr = (round - lb).max(0);
+
+        // More null blocks than lookback
+        if lbr >= heaviest_tipset.epoch() {
+            // This situation is extremely rare so it's fine to compute the
+            // state-root without caching.
+            let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
+            let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
+            let (state, _) = crate::state_manager::apply_block_messages(
+                Arc::clone(self),
+                Arc::clone(&chain_config),
+                beacon,
+                // Creating new WASM engines is expensive (takes seconds to
+                // minutes). It's only acceptable here because this situation is
+                // so rare (may happen in dev-networks, doesn't happen in
+                // calibnet or mainnet.)
+                &crate::shim::machine::MultiEngine::default(),
+                Arc::clone(&heaviest_tipset),
+                crate::state_manager::NO_CALLBACK,
+            )
+            .map_err(|e| Error::Other(e.to_string()))?;
+            return Ok((heaviest_tipset, state));
+        }
+
+        let next_ts = self
+            .chain_index
+            .tipset_by_height(
+                lbr + 1,
+                heaviest_tipset.clone(),
+                ResolveNullTipset::TakeNewer,
+            )
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+        if lbr > next_ts.epoch() {
+            return Err(Error::Other(format!(
+                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
+                heaviest_tipset.key(),
+                heaviest_tipset.epoch(),
+                next_ts.key(),
+                next_ts.epoch()
+            )));
+        }
+        let lbts = self
+            .tipset_from_keys(next_ts.parents())
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
+        Ok((lbts, *next_ts.parent_state()))
+    }
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
@@ -870,7 +793,7 @@ mod tests {
 
     #[test]
     fn genesis_test() {
-        let db = crate::db::MemoryDB::default();
+        let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let gen_block = BlockHeader::builder()
@@ -890,7 +813,7 @@ mod tests {
 
     #[test]
     fn block_validation_cache_basic() {
-        let db = crate::db::MemoryDB::default();
+        let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block = BlockHeader::builder()
             .miner_address(Address::new_id(0))

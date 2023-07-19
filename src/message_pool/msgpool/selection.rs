@@ -142,7 +142,7 @@ where
         chains.sort(false);
 
         if !chains.is_empty() && chains[0].gas_perf < 0.0 {
-            log::warn!(
+            tracing::warn!(
                 "all messages in mpool have non-positive gas performance {}",
                 chains[0].gas_perf
             );
@@ -244,7 +244,7 @@ where
 
                 // adjust the effective performance for all subsequent chains
                 if let Some(next_key) = chains[i].next {
-                    let mut next_node = chains.get_mut(next_key).unwrap();
+                    let next_node = chains.get_mut(next_key).unwrap();
                     if next_node.eff_perf > 0.0 {
                         next_node.eff_perf += next_node.parent_offset;
                         let mut next_next_key = next_node.next;
@@ -445,7 +445,7 @@ where
             }
 
             if random_count > 0 {
-                log::warn!("optimal selection failed to pack a block; picked {} messages with random selection",
+                tracing::warn!("optimal selection failed to pack a block; picked {} messages with random selection",
                     random_count);
             }
         }
@@ -547,7 +547,7 @@ fn merge_and_trim(
     let first_chain_gas_perf = chains[0].gas_perf;
 
     if !chains.is_empty() && first_chain_gas_perf < 0.0 {
-        log::warn!(
+        tracing::warn!(
             "all priority messages in mpool have negative gas performance bestGasPerf: {}",
             first_chain_gas_perf
         );

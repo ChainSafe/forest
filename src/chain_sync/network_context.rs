@@ -20,16 +20,15 @@ use crate::libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
-use crate::shim::clock::ChainEpoch;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, trace, warn};
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
+use tracing::{debug, trace, warn};
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers
@@ -178,7 +177,6 @@ where
     /// `Bitswap` if it doesn't exist in the `BlockStore`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
-        epoch: ChainEpoch,
         content: Cid,
     ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
@@ -191,7 +189,6 @@ where
 
         self.network_send
             .send_async(NetworkMessage::BitswapRequest {
-                epoch,
                 cid: content,
                 response_channel: tx,
             })
@@ -302,7 +299,7 @@ where
                 };
 
                 let v = batch.get_ok().await.ok_or_else(make_failure_message)?;
-                log::debug!("Succeed: handle_chain_exchange_request");
+                debug!("Succeed: handle_chain_exchange_request");
                 v
             }
         };
@@ -325,7 +322,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        log::debug!("Sending ChainExchange Request to {peer_id}");
+        debug!("Sending ChainExchange Request to {peer_id}");
 
         let req_pre_time = SystemTime::now();
 
@@ -354,7 +351,7 @@ where
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
                 peer_manager.log_success(peer_id, res_duration).await;
-                log::debug!("Succeeded: ChainExchange Request to {peer_id}");
+                debug!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
@@ -371,14 +368,14 @@ where
                         peer_manager.log_failure(peer_id, res_duration).await;
                     }
                 }
-                log::debug!("Failed: ChainExchange Request to {peer_id}");
+                debug!("Failed: ChainExchange Request to {peer_id}");
                 Err(format!("Internal libp2p error: {e:?}"))
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
                 peer_manager.log_failure(peer_id, res_duration).await;
-                log::debug!("Timeout: ChainExchange Request to {peer_id}");
+                debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }
         }

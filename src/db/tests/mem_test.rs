@@ -8,13 +8,13 @@ use crate::db::MemoryDB;
 #[test]
 fn mem_db_write() {
     let db = MemoryDB::default();
-    subtests::write(&db);
+    subtests::write_bin(&db);
 }
 
 #[test]
 fn mem_db_read() {
     let db = MemoryDB::default();
-    subtests::read(&db);
+    subtests::read_bin(&db);
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn mem_db_does_not_exist() {
 }
 
 #[test]
-fn mem_db_bulk_write() {
+fn mem_write_read_obj() {
     let db = MemoryDB::default();
-    subtests::bulk_write(&db);
+    subtests::write_read_obj(&db);
 }

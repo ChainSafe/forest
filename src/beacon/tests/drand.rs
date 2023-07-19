@@ -19,7 +19,6 @@ fn new_beacon() -> DrandBeacon {
             network_type: crate::beacon::DrandNetwork::Incentinet,
         },
     )
-    .unwrap()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

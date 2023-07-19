@@ -7,11 +7,11 @@ use std::{
     sync::Arc,
 };
 
-use crate::beacon::Beacon;
 use crate::blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
+use crate::chain::index::ResolveNullTipset;
 use crate::json::{cid::CidJson, message::json::MessageJson};
 use crate::rpc_api::{
     chain_api::*,
@@ -29,13 +29,12 @@ use tempfile::NamedTempFile;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
-pub(in crate::rpc) async fn chain_get_message<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_message<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainGetMessageParams>,
 ) -> Result<ChainGetMessageResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (CidJson(msg_cid),) = params;
     let ret: Message = data
@@ -46,8 +45,8 @@ where
     Ok(MessageJson(ret))
 }
 
-pub(in crate::rpc) async fn chain_export<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_export<DB>(
+    data: Data<RPCState<DB>>,
     Params(ChainExportParams {
         epoch,
         recent_roots,
@@ -59,7 +58,6 @@ pub(in crate::rpc) async fn chain_export<DB, B>(
 ) -> Result<ChainExportResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     lazy_static::lazy_static! {
         static ref LOCK: Mutex<()> = Mutex::new(());
@@ -86,14 +84,17 @@ where
     })?;
     let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
-    let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
+    let start_ts =
+        data.chain_store
+            .chain_index
+            .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
     match if dry_run {
         data.chain_store
             .export::<_, Sha256>(
                 &start_ts,
                 recent_roots,
-                VoidAsyncWriter::default(),
+                VoidAsyncWriter,
                 true, // `compressed` is always on
                 skip_checksum,
             )
@@ -141,7 +142,7 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
         .write_all(checksum_file_content.as_bytes())
         .await?;
     checksum_file.flush().await?;
-    log::info!(
+    tracing::info!(
         "Snapshot checksum: {encoded_hash} saved to {}",
         checksum_path.display()
     );
@@ -149,13 +150,12 @@ async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     Ok(())
 }
 
-pub(in crate::rpc) async fn chain_read_obj<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_read_obj<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainReadObjParams>,
 ) -> Result<ChainReadObjResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (CidJson(obj_cid),) = params;
     let ret = data
@@ -166,25 +166,23 @@ where
     Ok(hex::encode(ret))
 }
 
-pub(in crate::rpc) async fn chain_has_obj<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_has_obj<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainHasObjParams>,
 ) -> Result<ChainHasObjResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (CidJson(obj_cid),) = params;
     Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
-pub(in crate::rpc) async fn chain_get_block_messages<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_block_messages<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainGetBlockMessagesParams>,
 ) -> Result<ChainGetBlockMessagesResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (CidJson(blk_cid),) = params;
     let blk: BlockHeader = data
@@ -213,53 +211,50 @@ where
     Ok(ret)
 }
 
-pub(in crate::rpc) async fn chain_get_tipset_by_height<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_tipset_by_height<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainGetTipsetByHeightParams>,
 ) -> Result<ChainGetTipsetByHeightResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (height, tsk) = params;
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
-        .tipset_by_height(height, ts, true)?;
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
     Ok(TipsetJson(tss))
 }
 
-pub(in crate::rpc) async fn chain_get_genesis<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_genesis<DB>(
+    data: Data<RPCState<DB>>,
 ) -> Result<ChainGetGenesisResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let genesis = data.state_manager.chain_store().genesis()?;
     let gen_ts = Arc::new(Tipset::from(genesis));
     Ok(Some(TipsetJson(gen_ts)))
 }
 
-pub(in crate::rpc) async fn chain_head<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_head<DB>(
+    data: Data<RPCState<DB>>,
 ) -> Result<ChainHeadResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
     Ok(TipsetJson(heaviest))
 }
 
-pub(in crate::rpc) async fn chain_get_block<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_block<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainGetBlockParams>,
 ) -> Result<ChainGetBlockResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (CidJson(blk_cid),) = params;
     let blk: BlockHeader = data
@@ -270,72 +265,35 @@ where
     Ok(BlockHeaderJson(blk))
 }
 
-pub(in crate::rpc) async fn chain_get_tipset<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_tipset<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainGetTipSetParams>,
 ) -> Result<ChainGetTipSetResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok(TipsetJson(ts))
 }
 
-pub(in crate::rpc) async fn chain_get_tipset_hash<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainGetTipSetHashParams>,
-) -> Result<ChainGetTipSetHashResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (TipsetKeysJson(tsk),) = params;
-    let ts = data.state_manager.chain_store().tipset_hash_from_keys(&tsk);
-    Ok(ts)
-}
-
-pub(in crate::rpc) async fn chain_validate_tipset_checkpoints<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainValidateTipSetCheckpointsParams>,
-) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let () = params;
-
-    let tipset = data.state_manager.chain_store().heaviest_tipset();
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(tipset.key())?;
-    data.state_manager
-        .chain_store()
-        .validate_tipset_checkpoints(ts, &data.state_manager.chain_config().network)?;
-    Ok("Ok".to_string())
-}
-
-pub(in crate::rpc) async fn chain_get_name<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_get_name<DB>(
+    data: Data<RPCState<DB>>,
 ) -> Result<ChainGetNameResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     Ok(data.state_manager.chain_config().network.to_string())
 }
 
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
-pub(in crate::rpc) async fn chain_set_head<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn chain_set_head<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainSetHeadParams>,
 ) -> Result<ChainSetHeadResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (params,) = params;
     let new_head = data.state_manager.chain_store().tipset_from_keys(&params)?;

@@ -13,7 +13,6 @@ use crate::libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
-use crate::shim::clock::ChainEpoch;
 use crate::utils::io::read_file_to_vec;
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
@@ -34,8 +33,8 @@ use libp2p::{
     swarm::{SwarmBuilder, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
-use log::{debug, error, info, trace, warn};
 use tokio_stream::wrappers::IntervalStream;
+use tracing::{debug, error, info, trace, warn};
 
 use super::{
     chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
@@ -158,7 +157,6 @@ pub enum NetworkMessage {
         response_channel: flume::Sender<HelloResponse>,
     },
     BitswapRequest {
-        epoch: ChainEpoch,
         cid: Cid,
         response_channel: flume::Sender<bool>,
     },
@@ -405,7 +403,6 @@ async fn handle_network_message(
             .await;
         }
         NetworkMessage::BitswapRequest {
-            epoch: _,
             cid,
             response_channel,
         } => {

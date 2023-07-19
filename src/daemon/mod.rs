@@ -41,7 +41,6 @@ use bundle::load_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
-use log::{debug, info, warn};
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::{
@@ -61,6 +60,7 @@ use tokio::{
     sync::{mpsc, RwLock},
     task::JoinSet,
 };
+use tracing::{debug, info, warn};
 
 lazy_static! {
     static ref IPC_PATH: TempPath = Builder::new()
@@ -171,7 +171,10 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
+    let db = Arc::new(open_proxy_db(
+        db_root(&chain_data_path),
+        config.db_config().clone(),
+    )?);
 
     let mut services = JoinSet::new();
 
@@ -213,7 +216,7 @@ pub(super) async fn start(
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
+        Arc::clone(&db),
         config.chain.clone(),
         &genesis_header,
         chain_data_path.as_path(),
@@ -226,7 +229,7 @@ pub(super) async fn start(
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
-            db,
+            db.as_ref().clone(),
             file_backed_chain_meta,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
@@ -247,18 +250,8 @@ pub(super) async fn start(
 
     let publisher = chain_store.publisher();
 
-    // Reward calculation is needed by the VM to calculate state, which can happen
-    // essentially anywhere the `StateManager` is called. It is consensus
-    // specific, but threading it through the type system would be a nightmare,
-    // which is why dynamic dispatch is used.
-    let reward_calc = cns::reward_calc();
-
     // Initialize StateManager
-    let sm = StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&config.chain),
-        reward_calc,
-    )?;
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))?;
 
     let state_manager = Arc::new(sm);
 
@@ -317,8 +310,8 @@ pub(super) async fn start(
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(&db)?,
-        Arc::clone(state_manager.chain_config()),
+        MpoolConfig::load_config(db.as_ref())?,
+        state_manager.chain_config(),
         &mut services,
     )?;
 
@@ -366,7 +359,13 @@ pub(super) async fn start(
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            start_rpc::<_, _, cns::FullConsensus>(
+            let beacon = Arc::new(
+                rpc_state_manager
+                    .chain_config()
+                    .get_beacon_schedule(chain_store.genesis()?.timestamp())
+                    .into_dyn(),
+            );
+            start_rpc(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -377,7 +376,7 @@ pub(super) async fn start(
                     network_name,
                     start_time,
                     // TODO: the RPCState can fetch this itself from the StateManager
-                    beacon: rpc_state_manager.beacon_schedule(),
+                    beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                     gc_event_tx,
@@ -432,8 +431,10 @@ pub(super) async fn start(
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => state_manager.validate((current_height + validate_from)..=current_height)?,
-            false => state_manager.validate(validate_from..=current_height)?,
+            true => {
+                state_manager.validate_range((current_height + validate_from)..=current_height)?
+            }
+            false => state_manager.validate_range(validate_from..=current_height)?,
         }
     }
 
@@ -506,14 +507,12 @@ async fn fetch_snapshot_if_required(
                 crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
                     .await
                     .context("couldn't get snapshot size")?;
-            let num_bytes = byte_unit::Byte::from(num_bytes)
-                .get_appropriate_unit(true)
-                .format(2);
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
             let message = format!(
-                "Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). "
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
             );
             let have_permission = asyncify(|| {
                 dialoguer::Confirm::with_theme(&ColorfulTheme::default())
@@ -757,7 +756,7 @@ mod test {
     }
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
@@ -772,11 +771,7 @@ mod test {
             &genesis_header,
             chain_data_root.path(),
         )?);
-        let sm = Arc::new(StateManager::new(
-            cs,
-            chain_config,
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
             &sm,
             file_path,
@@ -790,7 +785,7 @@ mod test {
 
     #[tokio::test]
     async fn import_chain_from_file() -> anyhow::Result<()> {
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -804,11 +799,7 @@ mod test {
             &genesis_header,
             chain_data_root.path(),
         )?);
-        let sm = Arc::new(StateManager::new(
-            cs,
-            chain_config,
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
             &sm,
             "test-snapshots/chain4.car",

@@ -14,8 +14,8 @@ use axum::{
 use crossbeam::atomic::AtomicCell;
 use futures::{stream::SplitSink, SinkExt, StreamExt};
 use http::{HeaderMap, HeaderValue};
-use log::{debug, error, info, warn};
 use tokio::sync::RwLock;
+use tracing::{debug, error, info, warn};
 
 use crate::rpc::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
 

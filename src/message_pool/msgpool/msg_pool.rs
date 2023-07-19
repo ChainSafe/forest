@@ -11,7 +11,7 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 #[cfg(test)]
-use crate::db::Store;
+use crate::db::SettingsStore;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use crate::message::{valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
@@ -27,12 +27,12 @@ use anyhow::Context;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
-use log::warn;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tracing::warn;
 
 use crate::message_pool::{
     config::MpoolConfig,
@@ -514,7 +514,11 @@ where
     }
 
     #[cfg(test)]
-    pub fn set_config<DB: Store>(&mut self, db: &DB, cfg: MpoolConfig) -> Result<(), Error> {
+    pub fn set_config<DB: SettingsStore>(
+        &mut self,
+        db: &DB,
+        cfg: MpoolConfig,
+    ) -> Result<(), Error> {
         cfg.save_config(db)
             .map_err(|e| Error::Other(e.to_string()))?;
         self.config = cfg;

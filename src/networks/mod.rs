@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr};
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
@@ -260,28 +260,21 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub fn get_beacon_schedule(
-        &self,
-        genesis_ts: u64,
-    ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule<DrandBeacon> {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
         };
 
-        let mut points = BeaconSchedule::with_capacity(ds_iter.len());
-        for dc in ds_iter {
-            points.0.push(BeaconPoint {
-                height: dc.height,
-                beacon: Arc::new(DrandBeacon::new(
-                    genesis_ts,
-                    self.block_delay_secs,
-                    dc.config,
-                )?),
-            });
-        }
-        Ok(points)
+        BeaconSchedule(
+            ds_iter
+                .map(|dc| BeaconPoint {
+                    height: dc.height,
+                    beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config),
+                })
+                .collect(),
+        )
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {

@@ -18,7 +18,7 @@ use crate::utils::{
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
-use log::error;
+use tracing::error;
 
 pub use self::{client::*, config::*};
 

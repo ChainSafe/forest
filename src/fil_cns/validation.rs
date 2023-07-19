@@ -71,7 +71,12 @@ pub(in crate::fil_cns) async fn validate_block<
 
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = state_manager
-        .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
+        .chain_store()
+        .get_lookback_tipset_for_round(
+            state_manager.chain_config(),
+            base_tipset.clone(),
+            block.header().epoch(),
+        )
         .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
@@ -149,7 +154,7 @@ pub(in crate::fil_cns) async fn validate_block<
             v_base_tipset.as_ref(),
             v_prev_beacon.as_ref(),
             &work_addr,
-            v_state_manager.chain_config(),
+            &v_state_manager.chain_config(),
         )
     }));
 
@@ -351,21 +356,6 @@ fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
     let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
         .with_label_values(&[metrics::values::VERIFY_WINNING_POST_PROOF])
         .start_timer();
-
-    if cfg!(feature = "insecure_post") {
-        let wpp = header.winning_post_proof();
-        if wpp.is_empty() {
-            return Err(FilecoinConsensusError::InsecurePostValidation(
-                String::from("No winning PoSt proof provided"),
-            ));
-        }
-        if wpp[0].proof_bytes == b"valid_proof" {
-            return Ok(());
-        }
-        return Err(FilecoinConsensusError::InsecurePostValidation(
-            String::from("Winning PoSt is invalid"),
-        ));
-    }
 
     let miner_addr_buf = to_vec(header.miner_address())?;
     let rand_base = header
