@@ -97,6 +97,7 @@ fn get_env_filter() -> EnvFilter {
 
 fn default_env_filter() -> EnvFilter {
     let default_directives = [
+        "info",
         "bellperson::groth16::aggregate::verify=warn",
         "axum=warn",
         "filecoin_proofs=warn",
