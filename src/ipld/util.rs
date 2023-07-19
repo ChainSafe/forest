@@ -259,7 +259,7 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
                         if cid.codec() == fvm_ipld_encoding::CBOR {
                             continue;
                         }
-                        if !this.seen.insert(cid) {
+                        if this.seen.insert(cid) {
                             let result = this.db.get(&cid);
                             return Poll::Ready(Some(result.and_then(|val| {
                                 let block = val.ok_or(anyhow::anyhow!("missing key"))?;
@@ -277,9 +277,6 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
             if let Some(tipset) = futures::ready!(this.tipset_stream.as_mut().poll_next(cx)) {
                 for block in tipset.into_blocks().into_iter() {
                     this.dfs.push_back(Pass(*block.cid()));
-                    if block.epoch() >= stateroot_limit {
-                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
-                    }
 
                     if block.epoch() == 0 || block.epoch() >= stateroot_limit {
                         this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
