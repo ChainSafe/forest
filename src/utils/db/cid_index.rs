@@ -4,11 +4,66 @@ use itertools::Itertools;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::hash::Hasher;
-use std::io::Write;
+use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
 fn hash_cid(cid: Cid) -> u64 {
     u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8]))
+}
+
+pub struct ProbingHashtable<ReaderT> {
+    reader: ReaderT,
+    // TODO(lemmih): Move offset and size into a separate seekable reader?
+    offset: u64,
+    len: u64, // length of table in elements. Each element is 128bit.
+}
+
+impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
+    fn new(reader: ReaderT, offset: u64, len: u64) -> Self {
+        ProbingHashtable {
+            reader,
+            offset,
+            len,
+        }
+    }
+
+    fn entries(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<Entry>> + '_> {
+        if index >= self.len {
+            return Err(Error::new(ErrorKind::InvalidInput, "out-of-bound index"));
+        }
+        let len = self.len;
+        self.reader.seek(SeekFrom::Start(
+            self.offset + index * std::mem::size_of::<[u8; 16]>() as u64,
+        ))?;
+        Ok(std::iter::from_fn(move || {
+            if index == self.len {
+                if let Err(err) = self.reader.seek(SeekFrom::Start(self.offset)) {
+                    return Some(Err(err));
+                }
+                index = 0;
+            }
+            let mut buffer = [0; 16];
+            if let Err(err) = self.reader.read_exact(&mut buffer) {
+                return Some(Err(err));
+            }
+            index += 1;
+            Some(Ok(Entry::from_le_bytes(buffer)))
+        })
+        .take(len as usize))
+    }
+
+    fn positions(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<(u64, Position)>> + '_> {
+        Ok(self.entries(index)?.filter_map(|result| {
+            result.map(|entry| match entry {
+                Entry::Empty => None,
+                Entry::Full { hash, value } => Some((hash, value)),
+            }).transpose()
+        }))
+    }
+
+    // fn lookup(&self, key: Cid) -> Vec<Position> {
+
+    // }
 }
 
 pub struct ProbingHashtableBuilder {
@@ -56,7 +111,7 @@ impl Entry {
 
 impl Position {
     fn new(zst_frame_offset: u64, decoded_offset: u16) -> Option<Self> {
-        let position =Position {
+        let position = Position {
             zst_frame_offset,
             decoded_offset,
         };
@@ -173,7 +228,11 @@ mod tests {
 
     impl Arbitrary for Position {
         fn arbitrary(g: &mut Gen) -> Position {
-            Position::new(u64::arbitrary(g).saturating_sub(1) >> u16::BITS, u16::arbitrary(g)).unwrap()
+            Position::new(
+                u64::arbitrary(g).saturating_sub(1) >> u16::BITS,
+                u16::arbitrary(g),
+            )
+            .unwrap()
         }
     }
 
