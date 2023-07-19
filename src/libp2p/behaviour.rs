@@ -5,13 +5,13 @@ use crate::libp2p_bitswap::BitswapBehaviour;
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use ahash::{HashMap, HashSet};
 use libp2p::{
-    allow_block_list, connection_limits,
+    core::identity::Keypair,
     gossipsub::{
         self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
         ValidationMode,
     },
     identify,
-    identity::{Keypair, PeerId},
+    identity::PeerId,
     kad::QueryId,
     metrics::{Metrics, Recorder},
     ping,
@@ -37,8 +37,6 @@ pub(in crate::libp2p) struct ForestBehaviour {
     ping: ping::Behaviour,
     identify: identify::Behaviour,
     keep_alive: keep_alive::Behaviour,
-    connection_limits: connection_limits::Behaviour,
-    pub(super) blocked_peers: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,
     pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
@@ -56,11 +54,7 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
 }
 
 impl ForestBehaviour {
-    pub fn new(
-        local_key: &Keypair,
-        config: &Libp2pConfig,
-        network_name: &str,
-    ) -> anyhow::Result<Self> {
+    pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let mut gs_config_builder = gossipsub::ConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
@@ -85,10 +79,10 @@ impl ForestBehaviour {
 
         let bitswap = BitswapBehaviour::new(
             &[
-                "/chain/ipfs/bitswap/1.2.0",
-                "/chain/ipfs/bitswap/1.1.0",
-                "/chain/ipfs/bitswap/1.0.0",
-                "/chain/ipfs/bitswap",
+                b"/chain/ipfs/bitswap/1.2.0",
+                b"/chain/ipfs/bitswap/1.1.0",
+                b"/chain/ipfs/bitswap/1.0.0",
+                b"/chain/ipfs/bitswap",
             ],
             Default::default(),
         );
@@ -103,31 +97,20 @@ impl ForestBehaviour {
             .with_user_defined(config.bootstrap_peers.clone())
             .target_peer_count(config.target_peer_count as u64);
 
-        let connection_limits = connection_limits::Behaviour::new(
-            connection_limits::ConnectionLimits::default()
-                .with_max_pending_incoming(Some(10))
-                .with_max_pending_outgoing(Some(30))
-                .with_max_established_incoming(Some(config.target_peer_count))
-                .with_max_established_outgoing(Some(config.target_peer_count))
-                .with_max_established_per_peer(Some(5)),
-        );
-
         warn!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
-        Ok(ForestBehaviour {
+        ForestBehaviour {
             gossipsub,
-            discovery: discovery_config.finish()?,
+            discovery: discovery_config.finish(),
             ping: Default::default(),
             identify: identify::Behaviour::new(
                 identify::Config::new("ipfs/0.1.0".into(), local_key.public())
                     .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str())),
             ),
             keep_alive: keep_alive::Behaviour,
-            connection_limits,
-            blocked_peers: Default::default(),
             bitswap,
             hello: HelloBehaviour::default(),
             chain_exchange: ChainExchangeBehaviour::default(),
-        })
+        }
     }
 
     /// Bootstrap Kademlia network
