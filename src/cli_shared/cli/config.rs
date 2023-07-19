@@ -5,35 +5,9 @@ use crate::chain_sync::SyncConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use super::client::Client;
-
-/// Structure that defines daemon configuration when process is detached
-#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
-pub struct DaemonConfig {
-    pub user: Option<String>,
-    pub group: Option<String>,
-    pub umask: u16,
-    pub stdout: PathBuf,
-    pub stderr: PathBuf,
-    pub work_dir: PathBuf,
-    pub pid_file: Option<PathBuf>,
-}
-
-impl Default for DaemonConfig {
-    fn default() -> Self {
-        Self {
-            user: None,
-            group: None,
-            umask: 0o027,
-            stdout: "forest.out".into(),
-            stderr: "forest.err".into(),
-            work_dir: ".".into(),
-            pid_file: None,
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[serde(default)]
@@ -42,7 +16,6 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
-    pub daemon: DaemonConfig,
 }
 
 #[cfg(test)]
@@ -77,7 +50,6 @@ mod test {
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
-                daemon: DaemonConfig::default(),
             }
         }
     }

@@ -3,7 +3,7 @@
 
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
 use crate::cli_shared::{
-    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
+    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath},
     logger,
 };
 use crate::daemon::ipc_shmem_conf;
@@ -11,7 +11,7 @@ use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context;
 use clap::Parser;
-use daemonize_me::{Daemon, Group, User};
+use daemonize_me::Daemon;
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
@@ -32,21 +32,11 @@ fn create_ipc_lock() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
+fn build_daemon<'a>() -> anyhow::Result<Daemon<'a>> {
     let mut daemon = Daemon::new()
-        .umask(config.umask)
-        .work_dir(&config.work_dir)
-        .stdout(File::create(&config.stdout)?)
-        .stderr(File::create(&config.stderr)?);
-    if let Some(user) = &config.user {
-        daemon = daemon.user(User::try_from(user)?)
-    }
-    if let Some(group) = &config.group {
-        daemon = daemon.group(Group::try_from(group)?)
-    }
-    if let Some(path) = &config.pid_file {
-        daemon = daemon.pid_file(path, Some(false))
-    }
+        .work_dir(".")
+        .stdout(File::create("forest.stdout")?)
+        .stderr(File::create("forest.stderr")?);
 
     daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
         let mut shmem = ipc_shmem_conf().open().expect("open must succeed");
@@ -119,12 +109,8 @@ where
         None => {
             if opts.detach {
                 create_ipc_lock()?;
-                info!(
-                    "Redirecting stdout and stderr to files {} and {}.",
-                    cfg.daemon.stdout.display(),
-                    cfg.daemon.stderr.display()
-                );
-                build_daemon(&cfg.daemon)?.start()?;
+                info!("daemon stdout and stderr will be saved to files in the current directory");
+                build_daemon()?.start()?;
             }
 
             let rt = tokio::runtime::Builder::new_multi_thread()
