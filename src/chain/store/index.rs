@@ -99,8 +99,8 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// ```
     /// If the requested epoch points to a null tipset, there are two options:
     /// Pick the nearest older tipset or pick the nearest younger tipset.
-    /// Requesting epoch 2 with `ResolveNullTipset::TakeYounger` will return
-    /// epoch 3. Requesting with `ResolveNullTipset::TakeOlder` will return
+    /// Requesting epoch 2 with [`ResolveNullTipset::TakeNewer`] will return
+    /// epoch 3. Requesting with [`ResolveNullTipset::TakeOlder`] will return
     /// epoch 1.
     pub fn tipset_by_height(
         &self,
