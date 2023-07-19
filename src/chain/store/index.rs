@@ -29,9 +29,9 @@ pub struct ChainIndex<DB> {
 }
 
 #[derive(Debug, Clone, Copy)]
-// Methods for resolving fetches of null tipsets.
-// Imagine epoch 10 is null but epoch 9 and 11 exist. If epoch we request epoch
-// 10, should 9 or 11 be returned?
+/// Methods for resolving fetches of null tipsets.
+/// Imagine epoch 10 is null but epoch 9 and 11 exist. If epoch we request epoch
+/// 10, should 9 or 11 be returned?
 pub enum ResolveNullTipset {
     TakeYounger,
     TakeOlder,
