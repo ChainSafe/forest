@@ -16,13 +16,13 @@ pub struct ProbingHashtableBuilder {
     collisions: u64,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Entry {
     Empty,
     Full { hash: u64, value: Position },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     zst_frame_offset: u64,
     decoded_offset: u16,
@@ -46,7 +46,6 @@ impl Entry {
         if value == u64::MAX {
             Entry::Empty
         } else {
-            let zst_frame_offset = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
             Entry::Full {
                 hash,
                 value: Position::decode(value),
@@ -57,13 +56,15 @@ impl Entry {
 
 impl Position {
     fn new(zst_frame_offset: u64, decoded_offset: u16) -> Option<Self> {
-        if zst_frame_offset >> (u64::BITS - u16::BITS) == 0 {
-            Some(Position {
-                zst_frame_offset,
-                decoded_offset,
-            })
-        } else {
+        let position =Position {
+            zst_frame_offset,
+            decoded_offset,
+        };
+        // Return None if the two offets cannot be stored in a single u64
+        if position.encode() == u64::MAX || Position::decode(position.encode()) != position {
             None
+        } else {
+            Some(position)
         }
     }
 
@@ -167,6 +168,19 @@ impl ProbingHashtableBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for Position {
+        fn arbitrary(g: &mut Gen) -> Position {
+            Position::new(u64::arbitrary(g).saturating_sub(1) >> u16::BITS, u16::arbitrary(g)).unwrap()
+        }
+    }
+
+    #[quickcheck]
+    fn position_roundtrip(p: Position) {
+        assert_eq!(p, Position::decode(p.encode()))
+    }
 
     #[test]
     fn basic_insert() {
