@@ -33,7 +33,7 @@ pub struct ChainIndex<DB> {
 /// Imagine epoch 10 is null but epoch 9 and 11 exist. If epoch we request epoch
 /// 10, should 9 or 11 be returned?
 pub enum ResolveNullTipset {
-    TakeYounger,
+    TakeNewer,
     TakeOlder,
 }
 
@@ -125,7 +125,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
                 // We're at a point where child.epoch() > x > parent.epoch().
                 match resolve {
                     ResolveNullTipset::TakeOlder => return Ok(parent),
-                    ResolveNullTipset::TakeYounger => return Ok(child),
+                    ResolveNullTipset::TakeNewer => return Ok(child),
                 }
             }
         }
@@ -204,7 +204,7 @@ mod tests {
 
         assert_eq!(
             index
-                .tipset_by_height(2, Arc::new(epoch4), ResolveNullTipset::TakeYounger)
+                .tipset_by_height(2, Arc::new(epoch4), ResolveNullTipset::TakeNewer)
                 .unwrap()
                 .as_ref(),
             &epoch3

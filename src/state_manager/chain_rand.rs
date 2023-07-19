@@ -73,7 +73,7 @@ where
         let resolve = if lookback {
             ResolveNullTipset::TakeOlder
         } else {
-            ResolveNullTipset::TakeYounger
+            ResolveNullTipset::TakeNewer
         };
         let rand_ts = self
             .cs
@@ -182,7 +182,7 @@ where
         let resolve = if lookback {
             ResolveNullTipset::TakeOlder
         } else {
-            ResolveNullTipset::TakeYounger
+            ResolveNullTipset::TakeNewer
         };
 
         self.cs

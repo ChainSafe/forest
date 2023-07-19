@@ -561,7 +561,7 @@ where
             .tipset_by_height(
                 lbr + 1,
                 heaviest_tipset.clone(),
-                ResolveNullTipset::TakeYounger,
+                ResolveNullTipset::TakeNewer,
             )
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
