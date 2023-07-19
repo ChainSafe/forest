@@ -22,7 +22,7 @@ pub fn global_http_client() -> reqwest::Client {
     CLIENT.clone()
 }
 
-/// Download a file via IPFS http gateway in trustless mode.
+/// Download a file via IPFS HTTP gateway in trustless mode.
 /// See <https://github.com/ipfs/specs/blob/main/http-gateways/TRUSTLESS_GATEWAY.md>
 pub async fn download_ipfs_file_trustlessly(
     cid: &Cid,
