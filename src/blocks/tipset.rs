@@ -283,14 +283,11 @@ impl Tipset {
             serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
         });
 
-        let calibnet_cid = *calibnet::GENESIS_CID;
-        let mainnet_cid = *mainnet::GENESIS_CID;
-
         for tipset in self.clone().chain(&store) {
             // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
-                (calibnet_cid, &headers.calibnet),
-                (mainnet_cid, &headers.mainnet),
+                (*calibnet::GENESIS_CID, &headers.calibnet),
+                (*mainnet::GENESIS_CID, &headers.mainnet),
             ] {
                 if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
                     if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
