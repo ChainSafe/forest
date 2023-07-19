@@ -6,7 +6,6 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
     self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
-use crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -365,16 +364,10 @@ where
         }
     }
 
-    for tipset in pb.wrap_iter(ts.chain(db)) {
-        if tipset.epoch() == 0 {
-            return match_genesis_block(*tipset.min_ticket_block().cid());
-        }
-
-        if let Some(genesis_keys) = genesis_from_checkpoint_tipset(tipset.key()) {
-            let genesis_cid = genesis_keys.cids[0];
-            return match_genesis_block(genesis_cid);
-        }
+    if let Ok(genesis_block) = ts.genesis(db) {
+        return match_genesis_block(*genesis_block.cid());
     }
+
     pb.finish_with_message("❌ No valid genesis block!");
     bail!("Snapshot does not contain a genesis block")
 }

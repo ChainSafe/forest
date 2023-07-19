@@ -7,114 +7,20 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-use tracing::info;
 
 use crate::chain::Error;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
 
-const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = nonzero!(32usize << 10);
-
-/// Configuration which sets the length of tipsets to skip in between each
-/// cached entry.
-const SKIP_LENGTH: ChainEpoch = 20;
-
-// This module helps speed up boot times for forest by checkpointing previously
-// seen tipsets from snapshots.
-pub mod checkpoint_tipsets {
-    use std::str::FromStr;
-
-    use crate::blocks::{Tipset, TipsetKeys};
-    use crate::networks::NetworkChain;
-    use ahash::HashSet;
-    use cid::Cid;
-    use serde::{Deserialize, Serialize};
-
-    // Represents a static map of validated tipset hashes which helps to remove the
-    // need to validate the tipset back to genesis if it has been validated
-    // before, thereby reducing boot times. NB: Add desired tipset checkpoints
-    // below this by using RPC command: forest-cli chain tipset-hash <cid keys>
-    // and one can use forest-cli chain validate-tipset-checkpoints to validate
-    // tipset hashes for entries that fall within the range of epochs in current
-    // downloaded snapshot file.
-    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    struct KnownCheckpoints {
-        calibnet: HashSet<String>,
-        mainnet: HashSet<String>,
-    }
-
-    lazy_static::lazy_static! {
-        static ref KNOWN_CHECKPOINTS: KnownCheckpoints = serde_yaml::from_str(include_str!("known_checkpoints.yaml")).unwrap();
-    }
-
-    type GenesisTipsetCids = TipsetKeys;
-
-    pub fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
-        let key = tipset_hash(tsk);
-        if KNOWN_CHECKPOINTS.mainnet.contains(&key) {
-            return Some(TipsetKeys::new(vec![Cid::from_str(
-                crate::networks::mainnet::GENESIS_CID,
-            )
-            .unwrap()]));
-        }
-        if KNOWN_CHECKPOINTS.calibnet.contains(&key) {
-            return Some(TipsetKeys::new(vec![Cid::from_str(
-                crate::networks::calibnet::GENESIS_CID,
-            )
-            .unwrap()]));
-        }
-        None
-    }
-
-    pub fn get_tipset_hashes(network: &NetworkChain) -> Option<HashSet<String>> {
-        match network {
-            NetworkChain::Mainnet => Some(KNOWN_CHECKPOINTS.mainnet.clone()),
-            NetworkChain::Calibnet => Some(KNOWN_CHECKPOINTS.calibnet.clone()),
-            NetworkChain::Devnet(_) => None, // skip and pass through if an unsupported network found
-        }
-    }
-
-    // Validate that the genesis tipset matches our hard-coded values
-    pub fn validate_genesis_cid(ts: &Tipset, network: &NetworkChain) -> bool {
-        match network {
-            NetworkChain::Mainnet => {
-                ts.min_ticket_block().cid().to_string() == crate::networks::mainnet::GENESIS_CID
-            }
-            NetworkChain::Calibnet => {
-                ts.min_ticket_block().cid().to_string() == crate::networks::calibnet::GENESIS_CID
-            }
-            NetworkChain::Devnet(_) => true, // skip and pass through if an unsupported network found
-        }
-    }
-
-    pub fn tipset_hash(tsk: &TipsetKeys) -> String {
-        let ts_bytes: Vec<_> = tsk.cids().iter().flat_map(|s| s.to_bytes()).collect();
-        let tipset_keys_hash = blake2b_simd::blake2b(&ts_bytes).to_hex();
-        tipset_keys_hash.to_string()
-    }
-}
-
-/// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
-/// doing `lookbacks`.
-#[derive(Clone, PartialEq, Debug)]
-struct LookbackEntry {
-    tipset: Arc<Tipset>,
-    parent_height: ChainEpoch,
-    target_height: ChainEpoch,
-    target: TipsetKeys,
-}
-
 type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
-pub(in crate::chain) struct ChainIndex<DB> {
-    /// Cache of look-back entries to speed up lookup.
-    skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
-
+pub struct ChainIndex<DB> {
     /// `Arc` reference tipset cache.
     ts_cache: TipsetCache,
 
@@ -122,17 +28,23 @@ pub(in crate::chain) struct ChainIndex<DB> {
     db: Arc<DB>,
 }
 
+#[derive(Debug, Clone, Copy)]
+/// Methods for resolving fetches of null tipsets.
+/// Imagine epoch 10 is null but epoch 9 and 11 exist. If epoch we request epoch
+/// 10, should 9 or 11 be returned?
+pub enum ResolveNullTipset {
+    TakeNewer,
+    TakeOlder,
+}
+
 impl<DB: Blockstore> ChainIndex<DB> {
     pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
-        Self {
-            skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
-            ts_cache,
-            db,
-        }
+        Self { ts_cache, db }
     }
 
-    /// Loads a tipset from memory given the tipset keys and cache.
+    /// Loads a tipset from memory given the tipset keys and cache. Semantically
+    /// identical to [`Tipset::load`] but the result is cached.
     pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if let Some(ts) = self.ts_cache.lock().get(tsk) {
             metrics::LRU_CACHE_HIT
@@ -151,139 +63,189 @@ impl<DB: Blockstore> ChainIndex<DB> {
         Ok(ts)
     }
 
-    /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or
-    /// loading parents from the `blockstore`.
-    pub(in crate::chain) fn get_tipset_by_height(
+    /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
+    /// If the tipset is _not_ in the chain of ancestors (i.e., if the `to`
+    /// epoch is higher than `from.epoch()`), an error will be returned.
+    ///
+    /// # Why pass in the `from` argument?
+    ///
+    /// Imagine the database contains five tipsets and a genesis block in this
+    /// configuration:
+    ///
+    /// ```text
+    ///           ┌───────┐  ┌────────┐  ┌────────┐
+    /// Genesis◄──┤Epoch 1◄──┤Epoch 2A◄──┤Epoch 3A│
+    ///           └───▲───┘  └────────┘  └────────┘
+    ///               │      ┌────────┐  ┌────────┐
+    ///               └──────┤Epoch 2B◄──┤Epoch 3B│
+    ///                      └────────┘  └────────┘
+    /// ```
+    ///
+    /// Here we have a fork in the chain and it is ambiguous which tipset to
+    /// load when epoch 2 is requested. The ambiguity is solved by passing in a
+    /// younger tipset (higher epoch) from which has the desired tipset as an
+    /// ancestor.
+    /// Calling `get_tipset_by_height(2, epoch_3a)` will return `Epoch 2A`.
+    /// Calling `get_tipset_by_height(2, epoch_3b)` will return `Epoch 2B`.
+    ///
+    /// # What happens when a null tipset is requested?
+    ///
+    /// ```text
+    ///           ┌───────┐          ┌───────┐  ┌───────┐
+    /// Genesis◄──┤Epoch 1│   Null   │Epoch 3◄──┤Epoch 4│
+    ///           └───▲───┘          └───┬───┘  └───────┘
+    ///               │                  │
+    ///               └──────────────────┘
+    /// ```
+    /// If the requested epoch points to a null tipset, there are two options:
+    /// Pick the nearest older tipset or pick the nearest younger tipset.
+    /// Requesting epoch 2 with [`ResolveNullTipset::TakeNewer`] will return
+    /// epoch 3. Requesting with [`ResolveNullTipset::TakeOlder`] will return
+    /// epoch 1.
+    pub fn tipset_by_height(
         &self,
-        from: Arc<Tipset>,
         to: ChainEpoch,
-    ) -> Result<Arc<Tipset>, Error> {
-        if from.epoch() - to <= SKIP_LENGTH {
-            return self.walk_back(from, to);
-        }
-        let rounded = self.round_down(from)?;
-
-        let mut cur = rounded.key().clone();
-
-        loop {
-            let entry = self.skip_cache.lock().get(&cur).cloned();
-            let lbe = if let Some(cached) = entry {
-                metrics::LRU_CACHE_HIT
-                    .with_label_values(&[metrics::values::SKIP])
-                    .inc();
-                cached
-            } else {
-                metrics::LRU_CACHE_MISS
-                    .with_label_values(&[metrics::values::SKIP])
-                    .inc();
-                self.fill_cache(std::mem::take(&mut cur))?
-            };
-
-            if to == 0 {
-                if let Some(genesis_tipset_keys) =
-                    checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
-                {
-                    let tipset = self.load_tipset(&genesis_tipset_keys)?;
-                    info!(
-                        "Resolving genesis using checkpoint tipset at height: {}",
-                        lbe.tipset.epoch()
-                    );
-                    return Ok(tipset);
-                }
-            }
-
-            if lbe.tipset.epoch() == to || lbe.parent_height < to {
-                return Ok(lbe.tipset.clone());
-            } else if to > lbe.target_height {
-                return self.walk_back(lbe.tipset.clone(), to);
-            }
-
-            cur = lbe.target.clone();
-        }
-    }
-
-    /// Walks back from the tipset, ignoring the cached entries.
-    /// This should only be used when the cache is checked to be invalidated.
-    pub(in crate::chain) fn get_tipset_by_height_without_cache(
-        &self,
         from: Arc<Tipset>,
-        to: ChainEpoch,
+        resolve: ResolveNullTipset,
     ) -> Result<Arc<Tipset>, Error> {
-        self.walk_back(from, to)
-    }
-
-    /// Fills cache with look-back entry, and returns inserted entry.
-    fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
-        let tipset = self.load_tipset(&tsk)?;
-
-        if tipset.epoch() == 0 {
-            return Ok(Arc::new(LookbackEntry {
-                tipset,
-                parent_height: 0,
-                target_height: Default::default(),
-                target: Default::default(),
-            }));
+        if to == 0 {
+            return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
         }
-
-        let parent = self.load_tipset(tipset.parents())?;
-        let r_height = self.round_height(tipset.epoch()) - SKIP_LENGTH;
-
-        let parent_epoch = parent.epoch();
-        let skip_target = if parent.epoch() < r_height {
-            parent
-        } else {
-            self.walk_back(parent, r_height)?
-        };
-
-        let lbe = Arc::new(LookbackEntry {
-            tipset,
-            parent_height: parent_epoch,
-            target_height: skip_target.epoch(),
-            target: skip_target.key().clone(),
-        });
-
-        self.skip_cache.lock().put(tsk, lbe.clone());
-        Ok(lbe)
-    }
-
-    /// Rounds height epoch to nearest sparse cache index epoch.
-    fn round_height(&self, height: ChainEpoch) -> ChainEpoch {
-        (height / SKIP_LENGTH) * SKIP_LENGTH
-    }
-
-    /// Gets the closest rounded sparse index and returns the loaded tipset at
-    /// that index.
-    fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
-        let target = self.round_height(ts.epoch());
-
-        self.walk_back(ts, target)
-    }
-
-    /// Load parent tipsets until the `to` [`ChainEpoch`].
-    fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
         if to > from.epoch() {
             return Err(Error::Other(
                 "Looking for tipset with height greater than start point".to_string(),
             ));
         }
 
-        if to == from.epoch() {
-            return Ok(from);
-        }
-
-        let mut ts = from;
-        loop {
-            let pts = self.load_tipset(ts.parents())?;
-
-            if to > pts.epoch() {
-                // Pts is lower than to epoch, return the tipset above that height
-                return Ok(ts);
+        for (child, parent) in self.chain(from).tuple_windows() {
+            if to == child.epoch() {
+                return Ok(child);
             }
-
-            if to == pts.epoch() {
-                return Ok(pts);
+            if to > parent.epoch() {
+                // We're at a point where child.epoch() > x > parent.epoch().
+                match resolve {
+                    ResolveNullTipset::TakeOlder => return Ok(parent),
+                    ResolveNullTipset::TakeNewer => return Ok(child),
+                }
             }
-            ts = pts;
         }
+        Err(Error::Other(
+            "Tipset with epoch={to} does not exist".to_string(),
+        ))
+    }
+
+    /// Iterate from the given tipset to genesis. Missing tipsets cut the chain
+    /// short. Semantically identical to [`Tipset::chain`] but the results are
+    /// cached.
+    pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
+        itertools::unfold(Some(from), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = self.load_tipset(child.parents()).ok();
+                child
+            })
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::*;
+    use crate::blocks::BlockHeader;
+    use crate::db::MemoryDB;
+    use crate::utils::db::CborStoreExt;
+
+    fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
+        for block in tipset.blocks() {
+            db.put_cbor_default(block).unwrap();
+        }
+    }
+
+    fn genesis_tipset() -> Tipset {
+        Tipset::from(BlockHeader::default())
+    }
+
+    fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
+        // Use a static counter to give all tipsets a unique timestamp
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        Tipset::from(
+            BlockHeader::builder()
+                .parents(parent.key().clone())
+                .epoch(epoch)
+                .timestamp(n)
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[test]
+    fn get_null_tipset() {
+        let db = Arc::new(MemoryDB::default());
+        let gen = genesis_tipset();
+        let epoch1 = tipset_child(&gen, 1);
+        let epoch3 = tipset_child(&epoch1, 3);
+        let epoch4 = tipset_child(&epoch3, 4);
+        persist_tipset(&gen, &db);
+        persist_tipset(&epoch1, &db);
+        persist_tipset(&epoch3, &db);
+        persist_tipset(&epoch4, &db);
+
+        let index = ChainIndex::new(db);
+        // epoch 2 is null. ResolveNullTipset decided whether to return epoch 1 or epoch 3
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch4.clone()), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .as_ref(),
+            &epoch1
+        );
+
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch4), ResolveNullTipset::TakeNewer)
+                .unwrap()
+                .as_ref(),
+            &epoch3
+        );
+    }
+
+    #[test]
+    fn get_different_branches() {
+        let db = Arc::new(MemoryDB::default());
+        let gen = genesis_tipset();
+        let epoch1 = tipset_child(&gen, 1);
+
+        let epoch2a = tipset_child(&epoch1, 2);
+        let epoch3a = tipset_child(&epoch2a, 3);
+
+        let epoch2b = tipset_child(&epoch1, 2);
+        let epoch3b = tipset_child(&epoch2b, 3);
+
+        persist_tipset(&gen, &db);
+        persist_tipset(&epoch1, &db);
+        persist_tipset(&epoch2a, &db);
+        persist_tipset(&epoch3a, &db);
+        persist_tipset(&epoch2b, &db);
+        persist_tipset(&epoch3b, &db);
+
+        let index = ChainIndex::new(db);
+        // The chain as forked, epoch 2 and 3 are ambiguous
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch3a), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .as_ref(),
+            &epoch2a
+        );
+
+        assert_eq!(
+            index
+                .tipset_by_height(2, Arc::new(epoch3b), ResolveNullTipset::TakeOlder)
+                .unwrap()
+                .as_ref(),
+            &epoch2b
+        );
     }
 }

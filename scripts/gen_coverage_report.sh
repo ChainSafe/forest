@@ -39,7 +39,6 @@ SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss --save-token "$TOKEN_PATH"
 cov forest-cli sync wait
 cov forest-cli sync status
-cov forest-cli chain validate-tipset-checkpoints
 cov forest-cli --chain calibnet db gc
 cov forest-cli --chain calibnet db stats
 cov forest-cli snapshot export

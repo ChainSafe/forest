@@ -9,7 +9,7 @@ use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -43,7 +43,7 @@ use tokio::sync::{
 use tracing::{debug, info, warn};
 
 use super::{
-    index::{checkpoint_tipsets, ChainIndex},
+    index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
     Error,
 };
@@ -74,7 +74,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    chain_index: ChainIndex<DB>,
+    pub chain_index: ChainIndex<DB>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -255,11 +255,6 @@ where
         self.chain_index.load_tipset(tsk)
     }
 
-    /// Returns Tipset key hash from key-value store from provided CIDs
-    pub fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
-        checkpoint_tipsets::tipset_hash(tsk)
-    }
-
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
     fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
@@ -298,92 +293,6 @@ where
     pub fn unmark_block_as_validated(&self, cid: &Cid) {
         let mut file = self.validated_blocks.lock();
         let _did_work = file.remove(cid);
-    }
-
-    /// Returns the tipset behind `tsk` at a given `height`.
-    /// If the given height is a null round:
-    /// - If `prev` is `true`, the tipset before the null round is returned.
-    /// - If `prev` is `false`, the tipset following the null round is returned.
-    #[tracing::instrument(skip(self, ts))]
-    pub fn tipset_by_height(
-        &self,
-        height: ChainEpoch,
-        ts: Arc<Tipset>,
-        prev: bool,
-    ) -> Result<Arc<Tipset>, Error> {
-        if height > ts.epoch() {
-            return Err(Error::Other(
-                "searching for tipset that has a height less than starting point".to_owned(),
-            ));
-        }
-        if height == ts.epoch() {
-            return Ok(ts);
-        }
-
-        let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
-
-        if lbts.epoch() < height {
-            warn!(
-                "chain index returned the wrong tipset at height {}, using slow retrieval",
-                height
-            );
-            lbts = self
-                .chain_index
-                .get_tipset_by_height_without_cache(ts, height)?;
-        }
-
-        if lbts.epoch() == height || !prev {
-            Ok(lbts)
-        } else {
-            self.chain_index.load_tipset(lbts.parents())
-        }
-    }
-
-    pub fn validate_tipset_checkpoints(
-        &self,
-        from: Arc<Tipset>,
-        network: &NetworkChain,
-    ) -> Result<(), Error> {
-        info!(
-            "Validating {network} tipset checkpoint hashes from: {}",
-            from.epoch()
-        );
-
-        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(network) else {
-            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
-            return Ok(());
-        };
-
-        let mut ts = from;
-        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-        hashes.remove(&tipset_hash);
-
-        loop {
-            let pts = self.chain_index.load_tipset(ts.parents())?;
-            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-            hashes.remove(&tipset_hash);
-
-            ts = pts;
-
-            if ts.epoch() == 0 {
-                break;
-            }
-        }
-
-        if !hashes.is_empty() {
-            return Err(Error::Other(format!(
-                "Found tipset hash(es) on {network} that are no longer valid: {hashes:?}"
-            )));
-        }
-
-        if !checkpoint_tipsets::validate_genesis_cid(&ts, network) {
-            return Err(Error::Other(format!(
-                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
-                ts.key().cid()
-            )));
-        }
-
-        Ok(())
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -594,7 +503,8 @@ where
         round: ChainEpoch,
     ) -> Result<TipsetKeys, Error> {
         let ts = self
-            .tipset_by_height(round, tipset, true)
+            .chain_index
+            .tipset_by_height(round, tipset, ResolveNullTipset::TakeOlder)
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         Ok(ts.key().clone())
     }
@@ -647,7 +557,12 @@ where
         }
 
         let next_ts = self
-            .tipset_by_height(lbr + 1, heaviest_tipset.clone(), false)
+            .chain_index
+            .tipset_by_height(
+                lbr + 1,
+                heaviest_tipset.clone(),
+                ResolveNullTipset::TakeNewer,
+            )
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(

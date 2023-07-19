@@ -36,9 +36,9 @@ pub mod json;
 /// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
-///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
-///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
-///     .miner_address(Address::new_id(0)) // required
+///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
+///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
+///     .miner_address(Address::new_id(0)) // optional
 ///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
@@ -54,7 +54,7 @@ pub mod json;
 ///     .build()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, Builder)]
+#[derive(Clone, Debug, Default, Builder)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -84,6 +84,7 @@ pub struct BlockHeader {
 
     // MINER INFO
     /// `miner_address` is the address of the miner actor that mined this block
+    #[builder(default)]
     miner_address: Address,
 
     // STATE

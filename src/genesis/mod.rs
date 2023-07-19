@@ -4,6 +4,7 @@
 use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
+use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::state_manager::StateManager;
 use anyhow::bail;
@@ -121,7 +122,11 @@ where
     let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
 
     if !skip_load {
-        let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
+        let gb = sm.chain_store().chain_index.tipset_by_height(
+            0,
+            ts.clone(),
+            ResolveNullTipset::TakeOlder,
+        )?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
         if sm.chain_config().genesis_cid.is_some()
             && !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
