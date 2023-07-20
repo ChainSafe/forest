@@ -93,7 +93,7 @@ let system_actor = state_tree
     .ok_or_else(|| anyhow!("system actor not found"))?;
 
 let system_actor_state = store
-    .get_obj::<SystemStateOld>(&system_actor.state)?
+    .get_cbor::<SystemStateOld>(&system_actor.state)?
     .ok_or_else(|| anyhow!("system actor state not found"))?;
 
 let current_manifest = Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
