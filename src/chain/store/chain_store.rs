@@ -393,7 +393,7 @@ where
     pub async fn streamed_export<W, D>(
         &self,
         tipset: &Tipset,
-        stateroot_lookup_limit: ChainEpoch,
+        lookup_depth: ChainEpochDelta,
         writer: W,
         compressed: bool,
         skip_checksum: bool,
@@ -409,6 +409,8 @@ where
         } else {
             Either::Right(writer)
         };
+
+        let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
 
         let mut stream = stream_chain(
             self.db.clone(),

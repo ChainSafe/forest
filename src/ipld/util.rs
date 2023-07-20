@@ -226,7 +226,7 @@ pin_project! {
 ///
 /// * `db` - A database that implmenets [`Blockstore`] interface.
 /// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
-/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect each tipset
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
 /// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
 /// `$depth` is the number of `[`Tipset`]` that needs inspection.
 pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
@@ -331,7 +331,12 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.as_mut().next() {
                 for block in tipset.into_blocks().into_iter() {
-                    // Make sure we always yield a block.
+                    // FIXME: Does not seem to make any difference on tested snapshots. Needs
+                    // mainnet snapshot investigation.
+                    if !should_save_block_to_snapshot(block.cid()) {
+                        continue;
+                    }
+                    // Make sure we always yield a block otherwise.
                     this.dfs.push_back(Pass(*block.cid()));
 
                     // Visit the block if it's within required depth. And a special case for `0`
