@@ -202,8 +202,10 @@ use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-enum Work {
+enum Task {
+    // Yield the block, don't visit it.
     Pass(Cid),
+    // Visit all the elements, recursively.
     Iterate(Ipld),
 }
 
@@ -212,9 +214,30 @@ pin_project! {
         #[pin]
         tipset_stream: T,
         db: DB,
-        dfs: VecDeque<Work>,
+        dfs: VecDeque<Task>, // Depth-first work queue.
         seen: CidHashSet,
         stateroot_limit: ChainEpoch,
+    }
+}
+
+impl<DB: Blockstore, T: Stream<Item = Tipset>> ChainStream<DB, T> {
+    /// Initializes a new [`ChainStream`].
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A database that implmenets [`Blockstore`] interface.
+    /// * `tipset_stream` - A stream of [`Tipset`], descending order.
+    /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect each tipset
+    /// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
+    /// `$depth` is the number of `[`Tipset`]` that needs inspection.
+    pub fn new(db: DB, tipset_stream: T, stateroot_limit: ChainEpoch) -> Self {
+        ChainStream {
+            tipset_stream,
+            db,
+            dfs: VecDeque::new(),
+            seen: CidHashSet::default(),
+            stateroot_limit,
+        }
     }
 }
 
@@ -222,8 +245,9 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
     type Item = anyhow::Result<(Cid, Vec<u8>)>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        use Work::*;
+        use Task::*;
         let mut this = self.project();
+
         let stateroot_limit = *this.stateroot_limit;
         // FIXME: yield after N items to avoid blocking the task runner
         // cx.waker().wake_by_ref();
@@ -259,6 +283,7 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
                         if cid.codec() == fvm_ipld_encoding::CBOR {
                             continue;
                         }
+                        // Don't revisit what's already been visited.
                         if this.seen.insert(cid) {
                             let result = this.db.get(&cid);
                             return Poll::Ready(Some(result.and_then(|val| {
@@ -274,15 +299,22 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
                 }
             }
 
+            // This consumes a [`Tipset`] from the stream one at a time. The next iteration of the
+            // enclosing loop is processing the queue. Once the desired depth has been reached -
+            // yield the block without walking the graph it represents.
             if let Some(tipset) = futures::ready!(this.tipset_stream.as_mut().poll_next(cx)) {
                 for block in tipset.into_blocks().into_iter() {
+                    // Make sure we always yield a block.
                     this.dfs.push_back(Pass(*block.cid()));
 
+                    // Visit the block if it's within required depth. And a special case for `0`
+                    // epoch to match Lotus' implementation.
                     if block.epoch() == 0 || block.epoch() >= stateroot_limit {
                         this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
                     }
                 }
             } else {
+                // That's it, nothing else to do. End of stream.
                 return Poll::Ready(None);
             }
         }
@@ -291,8 +323,8 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn stream_calibnet_genesis() {
-        todo!()
-    }
+    // #[test]
+    // fn stream_calibnet_genesis() {
+    //     todo!()
+    // }
 }
