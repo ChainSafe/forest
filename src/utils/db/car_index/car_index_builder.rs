@@ -36,7 +36,7 @@ impl CarIndexBuilder {
         let mut table = CarIndexBuilder {
             table: vec,
             collisions: 0,
-            capacity: size,
+            capacity: values.len(),
         };
         for (hash, value) in values.into_iter().cloned() {
             table.insert(KeyValuePair { hash, value })
