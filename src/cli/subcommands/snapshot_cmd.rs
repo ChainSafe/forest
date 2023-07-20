@@ -421,7 +421,7 @@ where
             chain: chain_config.clone(),
             ..Default::default()
         },
-        Arc::new(db.clone()),
+        &db,
     )
     .await?;
 
