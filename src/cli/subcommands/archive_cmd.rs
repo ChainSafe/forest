@@ -78,7 +78,7 @@ pub enum ArchiveCommands {
         // Potentially replace with dynamic default: https://github.com/ChainSafe/forest/issues/3182
         #[arg(short)]
         depth: Option<ChainEpochDelta>,
-        /// Epoch at which to discard any reacable links/items from the exported snapshot
+        /// Epoch at which to discard any reachable links/items from the exported snapshot
         #[arg(long)]
         diff: Option<ChainEpoch>,
     },
