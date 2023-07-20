@@ -44,7 +44,7 @@ pub async fn download_ipfs_file_trustlessly(
     // FIXME: When BufWriter is used, the digest of small files are wrong, likely a bug in `rs-car-ipfs`
     // let mut file = futures::io::BufWriter::new(async_fs::File::create(tmp.path()).await?);
     let mut file = async_fs::File::create(tmp.path()).await?;
-    rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut file, None).await?;
+    rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut file, Some(cid)).await?;
     tmp.persist(destination)?;
 
     Ok(())
