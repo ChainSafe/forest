@@ -29,10 +29,9 @@ pub async fn download_ipfs_file_trustlessly(
     gateway: Option<&str>,
     destination: &Path,
 ) -> anyhow::Result<()> {
-    // https://docs.ipfs.tech/concepts/ipfs-gateway/
-    const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
-
     let url = {
+        // https://docs.ipfs.tech/concepts/ipfs-gateway/
+        const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
         let mut url =
             Url::parse(gateway.unwrap_or(DEFAULT_IPFS_GATEWAY))?.join(&format!("{cid}"))?;
         url.set_query(Some("format=car"));
