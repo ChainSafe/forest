@@ -255,6 +255,11 @@ and attach debuggers when needed during development.
   }
   ```
 
+#### Exercise
+
+Implement Rust and Go unit tests for nv18 and nv19 state migrations with real
+calibnet data
+
 ### Future considerations
 
 - Grab the actor bundles from the IPFS. This would make Forest less dependent on
