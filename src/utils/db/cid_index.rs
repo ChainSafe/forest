@@ -25,9 +25,8 @@ impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
             return Err(Error::new(ErrorKind::InvalidInput, "out-of-bound index"));
         }
         let len = self.len;
-        self.reader.seek(SeekFrom::Start(
-            self.offset + index * std::mem::size_of::<[u8; 16]>() as u64,
-        ))?;
+        self.reader
+            .seek(SeekFrom::Start(self.offset + index * Slot::SIZE as u64))?;
         Ok(std::iter::from_fn(move || {
             if index == self.len {
                 if let Err(err) = self.reader.seek(SeekFrom::Start(self.offset)) {
@@ -55,9 +54,8 @@ impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
     fn lookup(&mut self, hash: Hash) -> Result<impl Iterator<Item = Result<Position>> + '_> {
         let len = self.len;
         let key = hash.optimal_position(len as usize) as u64;
-        self.reader.seek(SeekFrom::Start(
-            self.offset + key * std::mem::size_of::<[u8; 16]>() as u64,
-        ))?;
+        self.reader
+            .seek(SeekFrom::Start(self.offset + key * Slot::SIZE as u64))?;
         Ok(match Slot::read(&mut self.reader)? {
             Slot::Empty => itertools::Either::Left(std::iter::empty()),
             Slot::Full(first_entry) => {
@@ -177,7 +175,9 @@ pub struct Position {
 }
 
 impl Slot {
-    fn to_le_bytes(self) -> [u8; 16] {
+    const SIZE: usize = 16;
+
+    fn to_le_bytes(self) -> [u8; Self::SIZE] {
         let (key, value) = match self {
             Slot::Empty => (u64::MAX, u64::MAX),
             Slot::Full(entry) => (entry.hash.into(), entry.value.encode()),
@@ -188,7 +188,7 @@ impl Slot {
         output
     }
 
-    fn from_le_bytes(bytes: [u8; 16]) -> Self {
+    fn from_le_bytes(bytes: [u8; Self::SIZE]) -> Self {
         let hash = Hash::from_le_bytes(bytes[0..8].try_into().unwrap());
         let value = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
         if value == u64::MAX {
@@ -202,7 +202,7 @@ impl Slot {
     }
 
     fn read(reader: &mut impl Read) -> Result<Slot> {
-        let mut buffer = [0; 16];
+        let mut buffer = [0; Self::SIZE];
         reader.read_exact(&mut buffer)?;
         Ok(Slot::from_le_bytes(buffer))
     }

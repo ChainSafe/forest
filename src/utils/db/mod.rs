@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod file_backed_obj;
 pub mod cid_index;
+pub mod file_backed_obj;
 
 use async_trait::async_trait;
 use chrono::Utc;
