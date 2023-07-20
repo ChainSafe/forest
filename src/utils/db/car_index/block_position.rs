@@ -18,12 +18,25 @@ impl BlockPosition {
         }
     }
 
-    pub fn encode(self) -> u64 {
+    pub fn try_from_le_bytes(bytes: [u8; 8]) -> Option<BlockPosition> {
+        let n = u64::from_le_bytes(bytes);
+        if n == u64::MAX {
+            None
+        } else{
+            Some(Self::decode(u64::from_le_bytes(bytes)))
+        }
+    }
+
+    pub fn to_le_bytes(self) -> [u8; 8] {
+        self.encode().to_le_bytes()
+    }
+
+    fn encode(self) -> u64 {
         assert!(self.zst_frame_offset >> (u64::BITS - u16::BITS) == 0);
         self.zst_frame_offset << u16::BITS | self.decoded_offset as u64
     }
 
-    pub fn decode(value: u64) -> Self {
+    fn decode(value: u64) -> Self {
         BlockPosition {
             zst_frame_offset: value >> u16::BITS,
             decoded_offset: value as u16,
@@ -37,8 +50,6 @@ mod tests {
     use crate::utils::cid::CidCborExt;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
-    use std::collections::{HashMap, HashSet};
-    use std::io::{Cursor, Read, Seek};
 
     impl Arbitrary for BlockPosition {
         fn arbitrary(g: &mut Gen) -> BlockPosition {

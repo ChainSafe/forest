@@ -117,20 +117,3 @@ fn lookup_clash_many(mut entries: Vec<(Hash, BlockPosition)>) {
         assert_eq!(&HashSet::from_iter(query(&mut table, hash)), value_set);
     }
 }
-
-#[test]
-fn key_value_pair_distance_1() {
-    // Hash(0) is right where it wants to be
-    assert_eq!(Hash(0).distance(0, 1), 0);
-}
-
-#[test]
-fn key_value_pair_distance_2() {
-    // If Hash(0) is at position 4 then it is 4 places away from where it wants to be.
-    assert_eq!(Hash(0).distance(4, 10), 4);
-}
-#[test]
-fn key_value_pair_distance_3() {
-    assert_eq!(Hash(9).distance(9, 10), 0);
-    assert_eq!(Hash(9).distance(0, 10), 1);
-}

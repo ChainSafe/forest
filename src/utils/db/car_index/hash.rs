@@ -59,10 +59,39 @@ mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
+    use std::num::NonZeroUsize;
 
     impl Arbitrary for Hash {
         fn arbitrary(g: &mut Gen) -> Hash {
             Hash::from(u64::arbitrary(g))
         }
+    }
+
+    #[quickcheck]
+    fn hash_offset_range(hash: Hash, len: NonZeroUsize) {
+        // The optimal offset must be in 0..len
+        assert!(hash.optimal_offset(len.into()) < len.into())
+    }
+
+    #[quickcheck]
+    fn hash_roundtrip(hash: Hash) {
+        assert_eq!(hash, Hash::from_le_bytes(hash.to_le_bytes()))
+    }
+
+    #[test]
+    fn key_value_pair_distance_1() {
+        // Hash(0) is right where it wants to be
+        assert_eq!(Hash(0).distance(0, 1), 0);
+    }
+
+    #[test]
+    fn key_value_pair_distance_2() {
+        // If Hash(0) is at position 4 then it is 4 places away from where it wants to be.
+        assert_eq!(Hash(0).distance(4, 10), 4);
+    }
+    #[test]
+    fn key_value_pair_distance_3() {
+        assert_eq!(Hash(9).distance(9, 10), 0);
+        assert_eq!(Hash(9).distance(0, 10), 1);
     }
 }
