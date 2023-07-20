@@ -50,6 +50,8 @@
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
   lookup errors instead of silently ignoring them.
+- [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
+  flag to `forest-cli snapshot export` to allow export at a specific tipset.
 
 ### Removed
 
