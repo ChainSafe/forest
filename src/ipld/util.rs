@@ -342,7 +342,10 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                     // Visit the block if it's within required depth. And a special case for `0`
                     // epoch to match Lotus' implementation.
                     if block.epoch() == 0 || block.epoch() > stateroot_limit {
-                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
+                        // NOTE: In the original `walk_snapshot` implementation we walk the dag
+                        // immediately. Which is what we do here as well, but using a queue.
+                        this.dfs
+                            .push_front(Iterate(Ipld::Link(*block.state_root())));
                     }
                 }
             } else {
