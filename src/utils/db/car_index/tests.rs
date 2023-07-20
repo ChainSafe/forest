@@ -33,7 +33,7 @@ use std::io::{Cursor, Read, Seek};
 // }
 
 fn query(table: &mut CarIndex<impl Read + Seek>, key: Hash) -> Vec<BlockPosition> {
-    table.lookup(key).unwrap().into_vec()
+    table.lookup_hash(key).unwrap().into_vec()
 }
 
 fn mk_table(entries: &[(Hash, BlockPosition)]) -> CarIndex<Cursor<Vec<u8>>> {
