@@ -361,9 +361,9 @@ where
     );
 
     fn match_genesis_block(block_cid: Cid) -> Result<NetworkChain> {
-        if block_cid.to_string() == calibnet::GENESIS_CID {
+        if block_cid == *calibnet::GENESIS_CID {
             Ok(NetworkChain::Calibnet)
-        } else if block_cid.to_string() == mainnet::GENESIS_CID {
+        } else if block_cid == *mainnet::GENESIS_CID {
             Ok(NetworkChain::Mainnet)
         } else {
             bail!("Unrecognizable genesis block");
