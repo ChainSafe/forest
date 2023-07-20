@@ -5,7 +5,6 @@ use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
-use core::time::Duration;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
@@ -37,15 +36,6 @@ impl Default for DaemonConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default, Debug)]
-pub struct TokioConfig {
-    pub worker_threads: Option<usize>,
-    pub max_blocking_threads: Option<usize>,
-    pub thread_keep_alive: Option<Duration>,
-    pub thread_stack_size: Option<usize>,
-    pub global_queue_interval: Option<u32>,
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
@@ -55,7 +45,6 @@ pub struct Config {
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
-    pub tokio: TokioConfig,
 }
 
 impl Config {
@@ -99,7 +88,6 @@ mod test {
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
-                tokio: Default::default(),
             }
         }
     }
