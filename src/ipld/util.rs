@@ -336,6 +336,12 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                     if !should_save_block_to_snapshot(block.cid()) {
                         continue;
                     }
+
+                    // Process block messages.
+                    if block.epoch() > stateroot_limit {
+                        this.dfs.push_front(Iterate(Ipld::Link(*block.messages())));
+                    }
+
                     // Make sure we always yield a block otherwise.
                     this.dfs.push_back(Pass(*block.cid()));
 
