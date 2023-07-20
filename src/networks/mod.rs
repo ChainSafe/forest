@@ -10,6 +10,7 @@ use crate::shim::version::NetworkVersion;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
+use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use url::Url;
@@ -158,7 +159,7 @@ struct DrandPoint<'a> {
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
-    pub bootstrap_peers: Vec<String>,
+    pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u64,
     pub propagation_delay_secs: u64,
     pub height_infos: Vec<HeightInfo>,
@@ -177,7 +178,7 @@ impl ChainConfig {
         Self {
             network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
-            bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -193,7 +194,7 @@ impl ChainConfig {
         Self {
             network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
-            bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -307,4 +308,14 @@ impl Default for ChainConfig {
 // XXX: Dummy default. Will be overwritten later. Wish we could get rid of this.
 fn default_policy() -> Policy {
     Policy::mainnet()
+}
+
+pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr> {
+    bootstrap_peer_list
+        .split('\n')
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            Multiaddr::from_str(s).unwrap_or_else(|e| panic!("invalid bootstrap peer {s}: {e}"))
+        })
+        .collect()
 }
