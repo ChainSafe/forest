@@ -3,11 +3,15 @@
 
 use crate::utils::io::WithProgress;
 use async_compression::tokio::bufread::ZstdDecoder;
-use futures::TryStreamExt;
-use std::io::ErrorKind;
+use cid::Cid;
+use futures::{AsyncWriteExt, TryStreamExt};
+use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
 use tokio::io::{AsyncBufReadExt, AsyncRead};
-use tokio_util::either::Either::{Left, Right};
+use tokio_util::{
+    compat::TokioAsyncReadCompatExt,
+    either::Either::{Left, Right},
+};
 use tracing::info;
 use url::Url;
 
@@ -16,6 +20,39 @@ use once_cell::sync::Lazy;
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
     CLIENT.clone()
+}
+
+/// Download a file via IPFS HTTP gateway in trustless mode.
+/// See <https://github.com/ipfs/specs/blob/main/http-gateways/TRUSTLESS_GATEWAY.md>
+pub async fn download_ipfs_file_trustlessly(
+    cid: &Cid,
+    gateway: Option<&str>,
+    destination: &Path,
+) -> anyhow::Result<()> {
+    let url = {
+        // https://docs.ipfs.tech/concepts/ipfs-gateway/
+        const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
+        let mut url =
+            Url::parse(gateway.unwrap_or(DEFAULT_IPFS_GATEWAY))?.join(&format!("{cid}"))?;
+        url.set_query(Some("format=car"));
+        Ok::<_, anyhow::Error>(url)
+    }?;
+
+    let tmp =
+        tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?
+            .into_temp_path();
+    {
+        let mut reader = reader(url.as_str()).await?.compat();
+        let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
+        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid))
+            .await?;
+        writer.flush().await?;
+        writer.close().await?;
+    }
+
+    tmp.persist(destination)?;
+
+    Ok(())
 }
 
 /// `location` may be:

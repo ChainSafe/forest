@@ -11,6 +11,7 @@ use crate::blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
+use crate::chain::index::ResolveNullTipset;
 use crate::json::{cid::CidJson, message::json::MessageJson};
 use crate::rpc_api::{
     chain_api::*,
@@ -83,14 +84,17 @@ where
     })?;
     let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
-    let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
+    let start_ts =
+        data.chain_store
+            .chain_index
+            .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
     match if dry_run {
         data.chain_store
             .export::<_, Sha256>(
                 &start_ts,
                 recent_roots,
-                VoidAsyncWriter::default(),
+                VoidAsyncWriter,
                 true, // `compressed` is always on
                 skip_checksum,
                 None,
@@ -227,7 +231,8 @@ where
     let tss = data
         .state_manager
         .chain_store()
-        .tipset_by_height(height, ts, true)?;
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
     Ok(TipsetJson(tss))
 }
 
@@ -278,38 +283,6 @@ where
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok(TipsetJson(ts))
-}
-
-pub(in crate::rpc) async fn chain_get_tipset_hash<DB>(
-    data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetTipSetHashParams>,
-) -> Result<ChainGetTipSetHashResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let (TipsetKeysJson(tsk),) = params;
-    let ts = data.state_manager.chain_store().tipset_hash_from_keys(&tsk);
-    Ok(ts)
-}
-
-pub(in crate::rpc) async fn chain_validate_tipset_checkpoints<DB>(
-    data: Data<RPCState<DB>>,
-    Params(params): Params<ChainValidateTipSetCheckpointsParams>,
-) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let () = params;
-
-    let tipset = data.state_manager.chain_store().heaviest_tipset();
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(tipset.key())?;
-    data.state_manager
-        .chain_store()
-        .validate_tipset_checkpoints(ts, &data.state_manager.chain_config().network)?;
-    Ok("Ok".to_string())
 }
 
 pub(in crate::rpc) async fn chain_get_name<DB>(

@@ -61,7 +61,7 @@ mod tests {
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::SyncStage;
-    use crate::db::{MemoryDB, Store};
+    use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
@@ -88,7 +88,7 @@ mod tests {
 
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
@@ -109,14 +109,7 @@ mod tests {
         );
 
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let state_manager = Arc::new(
-            StateManager::new(
-                cs_arc.clone(),
-                chain_config,
-                Arc::new(crate::interpreter::RewardActorMessageCalc),
-            )
-            .unwrap(),
-        );
+        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let cs_for_chain = &cs_arc;
@@ -131,7 +124,7 @@ mod tests {
 
             for i in tsk {
                 let bz2 = bz.clone();
-                db.write(i.to_bytes(), bz2).unwrap();
+                db.put_keyed(&i, &bz2).unwrap();
             }
 
             let provider =
@@ -141,7 +134,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                Arc::clone(state_manager_for_thread.chain_config()),
+                state_manager_for_thread.chain_config(),
                 &mut services,
             )
             .unwrap()

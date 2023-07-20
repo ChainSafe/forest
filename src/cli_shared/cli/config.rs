@@ -5,89 +5,10 @@ use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
-use core::time::Duration;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
-use tracing::log::LevelFilter;
 
 use super::client::Client;
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Hash)]
-pub enum LogFilter {
-    /// A level lower than all log levels.
-    Off,
-    /// Corresponds to the `Error` log level.
-    Error,
-    /// Corresponds to the `Warn` log level.
-    Warn,
-    /// Corresponds to the `Info` log level.
-    Info,
-    /// Corresponds to the `Debug` log level.
-    Debug,
-    /// Corresponds to the `Trace` log level.
-    Trace,
-}
-
-impl From<LogFilter> for LevelFilter {
-    fn from(value: LogFilter) -> Self {
-        match value {
-            LogFilter::Debug => LevelFilter::Debug,
-            LogFilter::Off => LevelFilter::Off,
-            LogFilter::Error => LevelFilter::Error,
-            LogFilter::Warn => LevelFilter::Warn,
-            LogFilter::Info => LevelFilter::Info,
-            LogFilter::Trace => LevelFilter::Trace,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
-pub struct LogConfig {
-    pub filters: Vec<LogValue>,
-}
-
-impl LogConfig {
-    pub(in crate::cli_shared) fn to_filter_string(&self) -> String {
-        self.filters
-            .iter()
-            .map(|f| format!("{}={}", f.module, LevelFilter::from(f.level.clone())))
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-}
-
-impl Default for LogConfig {
-    fn default() -> Self {
-        Self {
-            filters: vec![
-                LogValue::new("axum", LogFilter::Warn),
-                LogValue::new("bellperson::groth16::aggregate::verify", LogFilter::Warn),
-                LogValue::new("filecoin_proofs", LogFilter::Warn),
-                LogValue::new("libp2p_bitswap", LogFilter::Off),
-                LogValue::new("libp2p_gossipsub", LogFilter::Error),
-                LogValue::new("libp2p_kad", LogFilter::Error),
-                LogValue::new("rpc", LogFilter::Error),
-                LogValue::new("storage_proofs_core", LogFilter::Warn),
-                LogValue::new("tracing_loki", LogFilter::Off),
-            ],
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
-pub struct LogValue {
-    pub module: String,
-    pub level: LogFilter,
-}
-
-impl LogValue {
-    pub fn new(module: &str, level: LogFilter) -> Self {
-        Self {
-            module: module.to_string(),
-            level,
-        }
-    }
-}
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
@@ -115,15 +36,6 @@ impl Default for DaemonConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default, Debug)]
-pub struct TokioConfig {
-    pub worker_threads: Option<usize>,
-    pub max_blocking_threads: Option<usize>,
-    pub thread_keep_alive: Option<Duration>,
-    pub thread_stack_size: Option<usize>,
-    pub global_queue_interval: Option<u32>,
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
@@ -133,8 +45,6 @@ pub struct Config {
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
-    pub log: LogConfig,
-    pub tokio: TokioConfig,
 }
 
 impl Config {
@@ -155,7 +65,6 @@ mod test {
     use chrono::Duration;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
-    use tracing_subscriber::EnvFilter;
 
     use super::*;
 
@@ -179,8 +88,6 @@ mod test {
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
-                log: Default::default(),
-                tokio: Default::default(),
             }
         }
     }
@@ -238,13 +145,5 @@ mod test {
                 .expect("configuration empty"),
             '['
         )
-    }
-
-    #[test]
-    fn test_default_log_filters() {
-        let config = LogConfig::default();
-        EnvFilter::builder()
-            .parse(config.to_filter_string())
-            .unwrap();
     }
 }

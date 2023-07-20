@@ -7,6 +7,7 @@
 # - validating 200 tipsets from the snapshot
 # - syncing to HEAD
 # - exporting a snapshot
+# - send command
 #
 # llvm-cov can be installed by running: cargo install cargo-llvm-cov
 #
@@ -39,7 +40,6 @@ SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss --save-token "$TOKEN_PATH"
 cov forest-cli sync wait
 cov forest-cli sync status
-cov forest-cli chain validate-tipset-checkpoints
 cov forest-cli --chain calibnet db gc
 cov forest-cli --chain calibnet db stats
 cov forest-cli snapshot export
@@ -73,6 +73,9 @@ cov forest-cli --token "$TOKEN" wallet verify -a "$NEW_ADDR" -m deadbeef -s "$SI
 
 # Check balance
 cov forest-cli --token "$TOKEN" wallet balance "$NEW_ADDR" | grep 0
+
+# Send funds
+cov forest-cli --token "$TOKEN" send --from "$DEFAULT_ADDR" "$NEW_ADDR" 10attoFIL
 
 # Create a read-only token
 READ_TOKEN=$(cov forest-cli --token "$TOKEN" auth create-token --perm read)

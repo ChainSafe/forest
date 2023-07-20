@@ -27,7 +27,7 @@ const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
-const DEFAULT_REQUEST_WINDOW: usize = 8;
+const DEFAULT_REQUEST_WINDOW: usize = 32;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -176,7 +176,7 @@ impl ChainConfig {
         use mainnet::*;
         Self {
             network: NetworkChain::Mainnet,
-            genesis_cid: Some(GENESIS_CID.to_owned()),
+            genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
@@ -192,7 +192,7 @@ impl ChainConfig {
         use calibnet::*;
         Self {
             network: NetworkChain::Calibnet,
-            genesis_cid: Some(GENESIS_CID.to_owned()),
+            genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,

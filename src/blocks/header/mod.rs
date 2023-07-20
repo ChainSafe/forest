@@ -36,10 +36,10 @@ pub mod json;
 /// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
-///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
-///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
-///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
+///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
 ///     .miner_address(Address::new_id(0)) // optional
+///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
 ///     .election_proof(None) // optional
@@ -54,7 +54,7 @@ pub mod json;
 ///     .build()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, Builder)]
+#[derive(Clone, Debug, Default, Builder)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -84,6 +84,7 @@ pub struct BlockHeader {
 
     // MINER INFO
     /// `miner_address` is the address of the miner actor that mined this block
+    #[builder(default)]
     miner_address: Address,
 
     // STATE
@@ -231,6 +232,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
+// <https://spec.filecoin.io/#example-blockheader>
 impl BlockHeader {
     /// Generates a `BlockHeader` builder as a constructor
     pub fn builder() -> BlockHeaderBuilder {
@@ -291,11 +293,11 @@ impl BlockHeader {
                 .expect("internal error - block serialization may not fail")
         })
     }
-    /// Get `BlockHeader.parent_base_fee`
+    /// Identical for all blocks in same tipset: the base fee after executing parent tipset.
     pub fn parent_base_fee(&self) -> &TokenAmount {
         &self.parent_base_fee
     }
-    /// Get `BlockHeader.fork_signal`
+    /// Currently unused/undefined
     pub fn fork_signal(&self) -> u64 {
         self.fork_signal
     }

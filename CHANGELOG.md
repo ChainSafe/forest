@@ -27,6 +27,12 @@
 
 ### Breaking
 
+- [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
+  organisation to use multiple columns. The database will need to be recreated.
+- [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
+  `forest-cli chain validate-tipset-checkpoints` and
+  `forest-cli chain tipset-hash` commands.
+
 ### Added
 
 - [#3167](https://github.com/ChainSafe/forest/pull/3167): Added a new option
@@ -35,6 +41,8 @@
   `forest-cli archive info` command for inspecting archives.
 - [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
   `forest-cli archive export -e=X` command for exporting archives.
+- [#3150](https://github.com/ChainSafe/forest/pull/3150):
+  `forest-cli car concat` subcommand for concatenating `.car` files.
 - [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
   option to `forest-cli state fetch` command.
 
@@ -42,6 +50,8 @@
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
   lookup errors instead of silently ignoring them.
+- [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
+  flag to `forest-cli snapshot export` to allow export at a specific tipset.
 
 ### Removed
 

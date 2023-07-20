@@ -4,6 +4,8 @@
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
+use std::str::FromStr;
 use url::Url;
 
 use super::{
@@ -17,7 +19,9 @@ const SMOKE_HEIGHT: ChainEpoch = 51000;
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
-pub const GENESIS_CID: &str = "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
+pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+    Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
+});
 
 /// Default bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] =

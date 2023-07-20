@@ -244,7 +244,7 @@ where
 
                 // adjust the effective performance for all subsequent chains
                 if let Some(next_key) = chains[i].next {
-                    let mut next_node = chains.get_mut(next_key).unwrap();
+                    let next_node = chains.get_mut(next_key).unwrap();
                     if next_node.eff_perf > 0.0 {
                         next_node.eff_perf += next_node.parent_offset;
                         let mut next_next_key = next_node.next;

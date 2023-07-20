@@ -75,11 +75,6 @@ where
             .with_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)
             .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB>)
             .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
-            .with_method(CHAIN_GET_TIPSET_HASH, chain_get_tipset_hash::<DB>)
-            .with_method(
-                CHAIN_VALIDATE_TIPSET_CHECKPOINTS,
-                chain_validate_tipset_checkpoints::<DB>,
-            )
             .with_method(CHAIN_HEAD, chain_head::<DB>)
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
             .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB>)
