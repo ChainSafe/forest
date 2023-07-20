@@ -2953,6 +2953,7 @@ dependencies = [
  "shared_memory",
  "similar",
  "slotmap",
+ "smallvec",
  "smart-default",
  "static_assertions",
  "statrs",
