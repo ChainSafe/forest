@@ -1,3 +1,6 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 mod block_position;
 mod car_index;
 mod car_index_builder;
