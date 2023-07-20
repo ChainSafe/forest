@@ -182,10 +182,11 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
     let result = retry(ExponentialBackoff::default(), || async {
         Ok(async {
             let tmp =
-                tempfile::NamedTempFile::new_in(path.parent().unwrap_or_else(|| Path::new(".")))?;
-            download_ipfs_file_trustlessly(&cid, Some(GATEWAY), tmp.path()).await?;
+                tempfile::NamedTempFile::new_in(path.parent().unwrap_or_else(|| Path::new(".")))?
+                    .into_temp_path();
+            download_ipfs_file_trustlessly(&cid, Some(GATEWAY), &tmp).await?;
             // The extra check is redundant, just making sure `download_ipfs_file_trustlessly` and `rs-car-ipfs` is bug free, consider removing it in the future.
-            check_file(tmp.path(), info).await?;
+            check_file(&tmp, info).await?;
             tmp.persist(path)?;
             Ok::<_, anyhow::Error>(())
         }
