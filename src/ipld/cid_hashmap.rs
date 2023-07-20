@@ -3,7 +3,11 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
-use cid::Cid;
+use cid::{
+    multihash::{Code::Blake2b256, MultihashDigest},
+    Cid,
+};
+use fvm_ipld_encoding::DAG_CBOR;
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -16,7 +20,7 @@ use cid::Cid;
 // However, we know that nearly all Filecoin CIDs have version=V1, codec=DAG_CBOR, code=Blake2b and
 // length=32. Taking advantage of this knowledge, we can store the vast majority of CIDs (+99.99%)
 // in one third of the usual space (32 bytes vs 96 bytes).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct CidHashMap<V> {
     v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
     fallback_hash_map: HashMap<Cid, V>,
@@ -78,6 +82,43 @@ impl<V> CidHashMap<V> {
     /// Returns the number of elements in the map.
     pub fn len(&self) -> usize {
         self.v1_dagcbor_blake2b_hash_map.len() + self.fallback_hash_map.len()
+    }
+}
+
+// impl<V> Iterator for CidHashMap<V>
+// where V: Copy, {
+//     type Item = (Cid, V);
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         loop {
+//             if let Some((cid, v)) = self.v1_dagcbor_blake2b_hash_map.iter().next() {
+//                 let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(cid));
+//                 return Some((cid, *v));
+//             }
+//         }
+//     }
+// }
+
+impl<V> From<HashMap<Cid, V>> for CidHashMap<V> {
+    fn from(hash_map: HashMap<Cid, V>) -> Self {
+        let cid_hash_map = CidHashMap::new();
+        hash_map.into_iter().fold(cid_hash_map, |mut acc, (k, v)| {
+            acc.insert(k, v);
+            acc
+        })
+    }
+}
+
+impl<V> From<CidHashMap<V>> for HashMap<Cid, V>
+where
+    CidHashMap<V>: IntoIterator<Item = (Cid, V)>,
+{
+    fn from(cid_hash_map: CidHashMap<V>) -> Self {
+        let hash_map = HashMap::new();
+        cid_hash_map.into_iter().fold(hash_map, |mut acc, (k, v)| {
+            acc.insert(k, v);
+            acc
+        })
     }
 }
 
@@ -149,4 +190,10 @@ mod tests {
         let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
         assert_eq!(cid_hash_map.len(), hash_map.len());
     }
+
+    // #[quickcheck]
+    // fn multiple_conversions(cid_vector: Vec<(Cid, u64)>) {
+    //     let (cid_hash_map, _) = generate_hash_maps(cid_vector);
+    //     assert_eq!(cid_hash_map.clone(), CidHashMap::from(HashMap::from(cid_hash_map)));
+    // }
 }
