@@ -6,10 +6,10 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
     self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
-use crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::daemon::bundle::load_bundles;
 use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
@@ -42,6 +42,9 @@ pub enum SnapshotCommands {
         /// Don't write the archive.
         #[arg(long)]
         dry_run: bool,
+        /// Tipset to start the export from, default is the chain head
+        #[arg(short, long)]
+        tipset: Option<i64>,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
@@ -88,13 +91,14 @@ impl SnapshotCommands {
                 output_path,
                 skip_checksum,
                 dry_run,
+                tipset,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
-                let epoch = chain_head.epoch();
+                let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let chain_name = chain_get_name((), &config.client.rpc_token)
                     .await
@@ -105,7 +109,7 @@ impl SnapshotCommands {
                         TrustedVendor::Forest,
                         chain_name,
                         Utc::now().date_naive(),
-                        chain_head.epoch(),
+                        epoch,
                     )),
                     false => output_path.clone(),
                 };
@@ -153,6 +157,7 @@ impl SnapshotCommands {
                     "Export completed. Snapshot located at {}",
                     out.display()
                 ));
+                println!("\n");
                 Ok(())
             }
             Self::Fetch { directory, vendor } => {
@@ -356,25 +361,19 @@ where
     );
 
     fn match_genesis_block(block_cid: Cid) -> Result<NetworkChain> {
-        if block_cid.to_string() == calibnet::GENESIS_CID {
+        if block_cid == *calibnet::GENESIS_CID {
             Ok(NetworkChain::Calibnet)
-        } else if block_cid.to_string() == mainnet::GENESIS_CID {
+        } else if block_cid == *mainnet::GENESIS_CID {
             Ok(NetworkChain::Mainnet)
         } else {
             bail!("Unrecognizable genesis block");
         }
     }
 
-    for tipset in pb.wrap_iter(ts.chain(db)) {
-        if tipset.epoch() == 0 {
-            return match_genesis_block(*tipset.min_ticket_block().cid());
-        }
-
-        if let Some(genesis_keys) = genesis_from_checkpoint_tipset(tipset.key()) {
-            let genesis_cid = genesis_keys.cids[0];
-            return match_genesis_block(genesis_cid);
-        }
+    if let Ok(genesis_block) = ts.genesis(db) {
+        return match_genesis_block(*genesis_block.cid());
     }
+
     pb.finish_with_message("❌ No valid genesis block!");
     bail!("Snapshot does not contain a genesis block")
 }
@@ -413,6 +412,18 @@ where
     );
 
     let last_epoch = ts.epoch() - epochs as i64;
+
+    // Bundles are required when doing state migrations. Download any bundles
+    // that may be necessary after `last_epoch`.
+    load_bundles(
+        last_epoch,
+        &Config {
+            chain: chain_config.clone(),
+            ..Default::default()
+        },
+        Arc::new(db.clone()),
+    )
+    .await?;
 
     // Set proof parameter data dir
     if cns::FETCH_PARAMS {

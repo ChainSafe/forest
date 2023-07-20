@@ -127,8 +127,6 @@ pub mod labels {
 pub mod values {
     /// `TipsetCache`.
     pub const TIPSET: &str = "tipset";
-    /// Cache of look-back entries to speed up lookup in `ChainIndex`.
-    pub const SKIP: &str = "skip";
     /// tipset cache in state manager
     pub const STATE_MANAGER_TIPSET: &str = "sm_tipset";
 }

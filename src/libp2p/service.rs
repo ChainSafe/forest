@@ -22,10 +22,12 @@ use futures::{channel::oneshot::Sender as OneShotSender, select};
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+// https://github.com/ChainSafe/forest/issues/2762
+#[allow(deprecated)]
+use libp2p::swarm::ConnectionLimits;
 use libp2p::{
-    core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
-    identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping,
@@ -199,17 +201,27 @@ where
         net_keypair: Keypair,
         network_name: &str,
         genesis_cid: Cid,
-    ) -> anyhow::Result<Self> {
+    ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
+        // https://github.com/ChainSafe/forest/issues/2762
+        #[allow(deprecated)]
+        let limits = ConnectionLimits::default()
+            .with_max_pending_incoming(Some(10))
+            .with_max_pending_outgoing(Some(30))
+            .with_max_established_incoming(Some(config.target_peer_count))
+            .with_max_established_outgoing(Some(config.target_peer_count))
+            .with_max_established_per_peer(Some(5));
+
         let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name)?,
+            ForestBehaviour::new(&net_keypair, &config, network_name),
             peer_id,
         )
+        .connection_limits(limits)
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .per_connection_event_buffer_size(64)
         .build();
@@ -223,7 +235,7 @@ where
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
-        Ok(Libp2pService {
+        Libp2pService {
             config,
             swarm,
             cs,
@@ -234,7 +246,7 @@ where
             network_sender_out,
             network_name: network_name.into(),
             genesis_cid,
-        })
+        }
     }
 
     /// Starts the libp2p service networking stack. This Future resolves when
@@ -348,11 +360,15 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
     match peer_ops {
         Ban(peer_id, reason) => {
             warn!("Banning {peer_id}, reason: {reason}");
-            swarm.behaviour_mut().blocked_peers.block_peer(peer_id);
+            // https://github.com/ChainSafe/forest/issues/2762
+            #[allow(deprecated)]
+            swarm.ban_peer_id(peer_id);
         }
         Unban(peer_id) => {
             info!("Unbanning {peer_id}");
-            swarm.behaviour_mut().blocked_peers.unblock_peer(peer_id);
+            // https://github.com/ChainSafe/forest/issues/2762
+            #[allow(deprecated)]
+            swarm.unban_peer_id(peer_id);
         }
     }
 }
@@ -427,7 +443,7 @@ async fn handle_network_message(
                 let mut success = false;
 
                 for mut multiaddr in addresses {
-                    multiaddr.push(Protocol::P2p(peer_id));
+                    multiaddr.push(Protocol::P2p(peer_id.into()));
 
                     if Swarm::dial(swarm, multiaddr.clone()).is_ok() {
                         success = true;
@@ -617,33 +633,36 @@ async fn handle_hello_event(
 
 async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManager>) {
     match ping_event.result {
-        Ok(rtt) => {
+        Ok(ping::Success::Ping { rtt }) => {
             trace!(
                 "PingSuccess::Ping rtt to {} is {} ms",
                 ping_event.peer.to_base58(),
                 rtt.as_millis()
             );
         }
-        Err(ping::Failure::Unsupported) => {
-            peer_manager
-                .ban_peer(
-                    ping_event.peer,
-                    format!("Ping protocol unsupported: {}", ping_event.peer),
-                    Some(BAN_PEER_DURATION),
-                )
-                .await;
-        }
-        Err(ping::Failure::Timeout) => {
-            warn!("Ping timeout: {}", ping_event.peer);
+        Ok(ping::Success::Pong) => {
+            trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
         }
         Err(ping::Failure::Other { error }) => {
-            peer_manager
-                .ban_peer(
-                    ping_event.peer,
-                    format!("PingFailure::Other {}: {error}", ping_event.peer),
-                    Some(BAN_PEER_DURATION),
-                )
-                .await;
+            warn!(
+                "PingFailure::Other {}: {}",
+                ping_event.peer.to_base58(),
+                error
+            );
+        }
+        Err(err) => {
+            let err = err.to_string();
+            let peer = ping_event.peer.to_base58();
+            warn!("{err}: {peer}",);
+            if err.contains("protocol not supported") {
+                peer_manager
+                    .ban_peer(
+                        ping_event.peer,
+                        format!("Ping protocol err: {err}"),
+                        Some(BAN_PEER_DURATION),
+                    )
+                    .await;
+            }
         }
     }
 }
@@ -776,8 +795,6 @@ async fn handle_forest_behaviour_event<DB>(
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
         ForestBehaviourEvent::Identify(_) => {}
         ForestBehaviourEvent::KeepAlive(_) => {}
-        ForestBehaviourEvent::ConnectionLimits(_) => {}
-        ForestBehaviourEvent::BlockedPeers(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {
             handle_chain_exchange_event(
                 &mut swarm.behaviour_mut().chain_exchange,

@@ -10,7 +10,6 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
-    error::ExitCode,
     executor::{ApplyRet, Receipt},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
@@ -365,17 +364,7 @@ where
         let exit_code = ret.msg_receipt().exit_code();
 
         if !exit_code.is_success() {
-            match exit_code.value() {
-                1..=ExitCode::FIRST_USER_EXIT_CODE => {
-                    tracing::debug!(
-                        "Internal message execution failure. Exit code was {}",
-                        exit_code
-                    )
-                }
-                _ => {
-                    tracing::warn!("Message execution failed with exit code {}", exit_code)
-                }
-            };
+            tracing::debug!(?exit_code, "VM message execution failure.")
         }
 
         Ok(ret)

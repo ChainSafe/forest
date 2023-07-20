@@ -14,7 +14,7 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::chain::{ChainStore, HeadChange};
+use crate::chain::{index::ResolveNullTipset, ChainStore, HeadChange};
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -1039,7 +1039,8 @@ where
         let heaviest_epoch = heaviest.epoch();
         let end = self
             .cs
-            .tipset_by_height(*epochs.end(), heaviest, false)
+            .chain_index
+            .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
             .context(format!(
             "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
             *epochs.end(),
