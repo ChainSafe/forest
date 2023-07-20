@@ -30,3 +30,28 @@ impl BlockPosition {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::cid::CidCborExt;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+    use std::collections::{HashMap, HashSet};
+    use std::io::{Cursor, Read, Seek};
+
+    impl Arbitrary for BlockPosition {
+        fn arbitrary(g: &mut Gen) -> BlockPosition {
+            BlockPosition::new(
+                (u64::arbitrary(g) >> u16::BITS).saturating_sub(1),
+                u16::arbitrary(g),
+            )
+            .unwrap()
+        }
+    }
+
+    #[quickcheck]
+    fn position_roundtrip(p: BlockPosition) {
+        assert_eq!(p, BlockPosition::decode(p.encode()))
+    }
+}

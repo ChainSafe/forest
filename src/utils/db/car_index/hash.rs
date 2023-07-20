@@ -30,10 +30,12 @@ impl From<Cid> for Hash {
 }
 
 impl Hash {
-    const MAX: Hash = Hash(u64::MAX);
-
     pub fn from_le_bytes(bytes: [u8; 8]) -> Hash {
         Hash(u64::from_le_bytes(bytes))
+    }
+
+    pub fn to_le_bytes(self) -> [u8; 8] {
+        self.0.to_le_bytes()
     }
 
     // Optimal offset for a hash with a given table length
@@ -48,6 +50,19 @@ impl Hash {
             (len - pos + at) % len
         } else {
             (at - pos) % len
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for Hash {
+        fn arbitrary(g: &mut Gen) -> Hash {
+            Hash::from(u64::arbitrary(g))
         }
     }
 }

@@ -5,27 +5,6 @@ use quickcheck_macros::quickcheck;
 use std::collections::{HashMap, HashSet};
 use std::io::{Cursor, Read, Seek};
 
-impl Arbitrary for BlockPosition {
-    fn arbitrary(g: &mut Gen) -> BlockPosition {
-        BlockPosition::new(
-            (u64::arbitrary(g) >> u16::BITS).saturating_sub(1),
-            u16::arbitrary(g),
-        )
-        .unwrap()
-    }
-}
-
-impl Arbitrary for Hash {
-    fn arbitrary(g: &mut Gen) -> Hash {
-        Hash::from(u64::arbitrary(g))
-    }
-}
-
-#[quickcheck]
-fn position_roundtrip(p: BlockPosition) {
-    assert_eq!(p, BlockPosition::decode(p.encode()))
-}
-
 // #[test]
 // fn show_misses_and_collisions() {
 //     let table = ProbingHashtableBuilder::new(
