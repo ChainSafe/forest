@@ -6,7 +6,7 @@ use std::{ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
-use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
+use crate::ipld::{stream_chain, walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
@@ -388,6 +388,49 @@ where
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = self.block_msgs_for_tipset(ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
+    }
+
+    pub async fn streamed_export<W, D>(
+        &self,
+        tipset: &Tipset,
+        stateroot_lookup_limit: ChainEpoch,
+        writer: W,
+        compressed: bool,
+        skip_checksum: bool,
+    ) -> Result<Option<digest::Output<D>>, Error>
+    where
+        DB: Send + Sync,
+        D: Digest + Send + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
+    {
+        let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
+        let mut writer = if compressed {
+            Either::Left(ZstdEncoder::new(writer))
+        } else {
+            Either::Right(writer)
+        };
+
+        let mut stream = stream_chain(
+            self.db.clone(),
+            tipset.clone().chain(self.db.clone()),
+            stateroot_lookup_limit,
+        );
+        let header = CarHeader::from(tipset.key().cids().to_vec());
+        header
+            .write_stream_async(&mut writer, &mut stream)
+            .await
+            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))?;
+
+        writer.flush().await.context("failed to flush")?;
+        writer.close().await.context("failed to close")?;
+
+        let digest = match &mut writer {
+            Either::Left(left) => left.get_mut().finalize().await,
+            Either::Right(right) => right.finalize().await,
+        }
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+        Ok(digest)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the

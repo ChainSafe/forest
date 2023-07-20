@@ -212,7 +212,7 @@ enum Task {
 pin_project! {
     struct ChainStream<DB, T> {
         #[pin]
-        tipset_stream: T,
+        tipset_iter: T,
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
         seen: CidHashSet,
@@ -220,31 +220,34 @@ pin_project! {
     }
 }
 
-impl<DB: Blockstore, T: Stream<Item = Tipset>> ChainStream<DB, T> {
-    /// Initializes a new [`ChainStream`].
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - A database that implmenets [`Blockstore`] interface.
-    /// * `tipset_stream` - A stream of [`Tipset`], descending order.
-    /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect each tipset
-    /// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
-    /// `$depth` is the number of `[`Tipset`]` that needs inspection.
-    pub fn new(db: DB, tipset_stream: T, stateroot_limit: ChainEpoch) -> Self {
-        ChainStream {
-            tipset_stream,
-            db,
-            dfs: VecDeque::new(),
-            seen: CidHashSet::default(),
-            stateroot_limit,
-        }
+/// Initializes a stream of blocks.
+///
+/// # Arguments
+///
+/// * `db` - A database that implmenets [`Blockstore`] interface.
+/// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect each tipset
+/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
+/// `$depth` is the number of `[`Tipset`]` that needs inspection.
+pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
+    db: DB,
+    tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+) -> impl Stream<Item = (Cid, Vec<u8>)> {
+    ChainStream {
+        tipset_iter,
+        db,
+        dfs: VecDeque::new(),
+        seen: CidHashSet::default(),
+        stateroot_limit,
     }
 }
 
-impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
-    type Item = anyhow::Result<(Cid, Vec<u8>)>;
+impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
+    // FIXME: Once we have our own writer - this should be `anyhow::Result<(Cid, Vec<u8>)>`
+    type Item = (Cid, Vec<u8>);
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
         let mut this = self.project();
 
@@ -256,10 +259,22 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
                 match ipld {
                     Pass(cid) => {
                         let result = this.db.get(&cid);
-                        return Poll::Ready(Some(result.and_then(|val| {
+
+                        let result = result.and_then(|val| {
                             let block = val.ok_or(anyhow::anyhow!("missing key"))?;
                             Ok((cid, block))
-                        })));
+                        });
+
+                        // FIXME: Get rid of this when we can use `Item = Result`.
+                        if result.is_err() {
+                            continue;
+                        }
+
+                        return Poll::Ready(Some(
+                            result
+                                // FIXME: Get rid of this when we can use `Item = Result`.
+                                .unwrap(),
+                        ));
                     }
                     Iterate(Ipld::Null) => {}
                     Iterate(Ipld::Bool(_)) => {}
@@ -286,23 +301,35 @@ impl<DB: Blockstore, T: Stream<Item = Tipset>> Stream for ChainStream<DB, T> {
                         // Don't revisit what's already been visited.
                         if this.seen.insert(cid) {
                             let result = this.db.get(&cid);
-                            return Poll::Ready(Some(result.and_then(|val| {
+
+                            let result = result.and_then(|val| {
                                 let block = val.ok_or(anyhow::anyhow!("missing key"))?;
                                 if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                     let ipld: Ipld = from_slice(&block).unwrap();
                                     this.dfs.push_front(Iterate(ipld));
                                 }
                                 Ok((cid, block))
-                            })));
+                            });
+
+                            // FIXME: Get rid of this when we can use `Item = Result`.
+                            if result.is_err() {
+                                continue;
+                            }
+
+                            return Poll::Ready(Some(
+                                result
+                                    // FIXME: Get rid of this when we can use `Item = Result`.
+                                    .unwrap(),
+                            ));
                         }
                     }
                 }
             }
 
-            // This consumes a [`Tipset`] from the stream one at a time. The next iteration of the
+            // This consumes a [`Tipset`] from the iterator one at a time. The next iteration of the
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
-            if let Some(tipset) = futures::ready!(this.tipset_stream.as_mut().poll_next(cx)) {
+            if let Some(tipset) = this.tipset_iter.as_mut().next() {
                 for block in tipset.into_blocks().into_iter() {
                     // Make sure we always yield a block.
                     this.dfs.push_back(Pass(*block.cid()));

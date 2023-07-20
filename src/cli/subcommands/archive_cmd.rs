@@ -185,7 +185,7 @@ async fn do_export(
     );
 
     chain_store
-        .export::<_, Sha256>(&ts, depth, writer.compat(), true, true)
+        .streamed_export::<_, Sha256>(&ts, depth, writer.compat(), true, true)
         .await?;
 
     Ok(())
