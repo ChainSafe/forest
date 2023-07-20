@@ -286,7 +286,7 @@ pub(super) async fn start(
 
     let epoch = chain_store.heaviest_tipset().epoch();
 
-    load_bundles(epoch, &config, db.clone()).await?;
+    load_bundles(epoch, &config, &db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
