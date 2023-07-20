@@ -21,7 +21,7 @@ use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_h
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
@@ -32,9 +32,8 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::{
-    io::write_to_file, monitoring::MemStatsTracker,
-    proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
-    RetryArgs,
+    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
+    version::FOREST_VERSION_STRING, RetryArgs,
 };
 use anyhow::{bail, Context};
 use bundle::load_bundles;
@@ -134,26 +133,7 @@ pub(super) async fn start(
 
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
-    let net_keypair = match get_keypair(&path.join("keypair")) {
-        Some(keypair) => Ok::<crate::libp2p::Keypair, std::io::Error>(keypair),
-        None => {
-            let gen_keypair = crate::libp2p::Keypair::generate_ed25519();
-            // Save Ed25519 keypair to file
-            // TODO rename old file to keypair.old(?)
-            let file = write_to_file(
-                &gen_keypair
-                    .clone()
-                    .try_into_ed25519()
-                    .context("couldn't convert keypair to ed25519")?
-                    .to_bytes(),
-                &path,
-                "keypair",
-            )?;
-            // Restrict permissions on files containing private keys
-            crate::utils::io::set_user_perm(&file)?;
-            Ok(gen_keypair)
-        }
-    }?;
+    let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
     // peer's multiaddress. Useful if others want to use this node to bootstrap

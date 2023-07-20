@@ -57,6 +57,10 @@
 
 ### Fixed
 
+- [#3248](https://github.com/ChainSafe/forest/issues/3248): Fixed Forest being
+  unable to re-create its libp2p keypair from file and always changing its
+  `PeerId`.
+
 ## Forest v0.11.1 "Dagny Taggart"
 
 ## Forest v0.11.0 "Hypersonic"
