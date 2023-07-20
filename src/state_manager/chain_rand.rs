@@ -5,6 +5,7 @@ use std::{io::Write, sync::Arc};
 
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::chain::ChainStore;
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -69,7 +70,15 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self.cs.tipset_by_height(search_height, ts, lookback)?;
+        let resolve = if lookback {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        };
+        let rand_ts = self
+            .cs
+            .chain_index
+            .tipset_by_height(search_height, ts, resolve)?;
 
         draw_randomness(
             rand_ts
@@ -170,8 +179,15 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
+        let resolve = if lookback {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        };
+
         self.cs
-            .tipset_by_height(search_height, ts, lookback)
+            .chain_index
+            .tipset_by_height(search_height, ts, resolve)
             .map_err(|e| e.into())
     }
 }

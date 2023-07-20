@@ -3,6 +3,8 @@
 
 use cid::Cid;
 use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
+use std::str::FromStr;
 use url::Url;
 
 use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
@@ -11,7 +13,9 @@ use crate::networks::ActorBundleInfo;
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
-pub const GENESIS_CID: &str = "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
+pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+    Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
+});
 
 /// Default bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] =

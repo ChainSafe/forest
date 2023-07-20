@@ -29,6 +29,9 @@
 
 - [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
   organisation to use multiple columns. The database will need to be recreated.
+- [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
+  `forest-cli chain validate-tipset-checkpoints` and
+  `forest-cli chain tipset-hash` commands.
 
 ### Added
 
@@ -47,6 +50,8 @@
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
   lookup errors instead of silently ignoring them.
+- [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
+  flag to `forest-cli snapshot export` to allow export at a specific tipset.
 
 ### Removed
 

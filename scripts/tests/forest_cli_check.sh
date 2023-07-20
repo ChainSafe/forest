@@ -55,6 +55,10 @@ pushd "$(mktemp --directory)"
     if "$FOREST_CLI_PATH" snapshot validate --check-network mainnet "$validate_me"; then
         exit 1
     fi
+
+    : : check that it contains at least one expected checkpoint
+    # If calibnet is reset or the checkpoint interval is changed, this check has to be updated
+    "$FOREST_CLI_PATH" archive checkpoints "$validate_me" | grep bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 rm -- *
 popd
 
