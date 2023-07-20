@@ -1,5 +1,5 @@
-use super::Hash;
 use super::BlockPosition;
+use super::Hash;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyValuePair {

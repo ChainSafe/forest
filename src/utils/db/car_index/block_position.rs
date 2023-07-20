@@ -22,7 +22,7 @@ impl BlockPosition {
         let n = u64::from_le_bytes(bytes);
         if n == u64::MAX {
             None
-        } else{
+        } else {
             Some(Self::decode(u64::from_le_bytes(bytes)))
         }
     }

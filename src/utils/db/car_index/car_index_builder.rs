@@ -1,9 +1,9 @@
+use super::{BlockPosition, Hash, KeyValuePair, Slot};
 use cid::Cid;
 use std::collections::BTreeMap;
-use std::io::{Write};
+use std::io::Write;
+use std::num::{NonZeroU64, NonZeroUsize};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
-use super::{Slot, BlockPosition, Hash, KeyValuePair};
-use std::num::{NonZeroUsize, NonZeroU64};
 
 #[derive(Debug)]
 pub struct CarIndexBuilder {

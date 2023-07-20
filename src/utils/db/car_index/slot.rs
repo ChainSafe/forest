@@ -25,12 +25,10 @@ impl Slot {
 
     pub fn from_le_bytes(bytes: [u8; Self::SIZE]) -> Self {
         let hash = Hash::from_le_bytes(bytes[0..8].try_into().expect("infallible"));
-        let mb_blockposition = BlockPosition::try_from_le_bytes(bytes[8..16].try_into().expect("infallible"));
+        let mb_blockposition =
+            BlockPosition::try_from_le_bytes(bytes[8..16].try_into().expect("infallible"));
         if let Some(value) = mb_blockposition {
-            Slot::Full(KeyValuePair {
-                hash,
-                value,
-            })
+            Slot::Full(KeyValuePair { hash, value })
         } else {
             Slot::Empty
         }

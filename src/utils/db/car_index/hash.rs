@@ -78,6 +78,12 @@ mod tests {
         assert_eq!(hash, Hash::from_le_bytes(hash.to_le_bytes()))
     }
 
+    #[quickcheck]
+    fn hash_distance_range(hash: Hash, at: usize, len: NonZeroUsize) {
+        // A hash can never be more than len-1 steps away from its optimal offset
+        assert!(hash.distance(at % usize::from(len), len.into()) < len.into())
+    }
+
     #[test]
     fn key_value_pair_distance_1() {
         // Hash(0) is right where it wants to be
