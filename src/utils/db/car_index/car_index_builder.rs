@@ -3,11 +3,13 @@ use std::collections::BTreeMap;
 use std::io::{Write};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 use super::{Slot, BlockPosition, Hash, KeyValuePair};
+use std::num::{NonZeroUsize, NonZeroU64};
 
 #[derive(Debug)]
 pub struct CarIndexBuilder {
     table: Vec<Slot>,
     collisions: u64,
+    capacity: usize,
 }
 
 impl CarIndexBuilder {
@@ -32,6 +34,7 @@ impl CarIndexBuilder {
         let mut table = CarIndexBuilder {
             table: vec,
             collisions: 0,
+            capacity: size,
         };
         for (hash, value) in values.into_iter().cloned() {
             table.insert(KeyValuePair { hash, value })
@@ -40,6 +43,11 @@ impl CarIndexBuilder {
     }
 
     fn insert(&mut self, mut new: KeyValuePair) {
+        if self.capacity == 0 {
+            panic!("cannot insert values into a full table");
+        }
+        self.capacity -= 1;
+
         let len = self.table.len();
         let mut at = new.optimal_offset(len);
         loop {
