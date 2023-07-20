@@ -10,6 +10,7 @@ use crate::shim::version::NetworkVersion;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
+use itertools::Itertools;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -308,4 +309,16 @@ impl Default for ChainConfig {
 // XXX: Dummy default. Will be overwritten later. Wish we could get rid of this.
 fn default_policy() -> Policy {
     Policy::mainnet()
+}
+
+pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr> {
+    let bootstrap_peers = bootstrap_peer_list
+        .split('\n')
+        .filter(|s| !s.is_empty())
+        .collect_vec();
+
+    bootstrap_peers
+        .iter()
+        .map(|s| Multiaddr::from_str(s).unwrap())
+        .collect()
 }

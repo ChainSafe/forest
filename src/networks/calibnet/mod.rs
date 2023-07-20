@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
 
-use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
+use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
 use crate::networks::ActorBundleInfo;
 
 /// Default genesis car file bytes.
@@ -20,17 +19,8 @@ pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
 });
 
 /// Default bootstrap peer ids.
-pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> = Lazy::new(|| {
-    let default_bootstrap = include_str!("../../../build/bootstrap/calibnet")
-        .split('\n')
-        .filter(|s| !s.is_empty())
-        .collect_vec();
-
-    default_bootstrap
-        .iter()
-        .map(|s| Multiaddr::from_str(s).unwrap())
-        .collect()
-});
+pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
+    Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet")));
 
 const LIGHTNING_EPOCH: i64 = 489_094;
 

@@ -3,7 +3,6 @@
 
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
@@ -12,7 +11,7 @@ use url::Url;
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
-    DrandPoint, Height, HeightInfo,
+    parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
 use crate::networks::ActorBundleInfo;
 
@@ -25,17 +24,8 @@ pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
 });
 
-pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> = Lazy::new(|| {
-    let default_bootstrap = include_str!("../../../build/bootstrap/mainnet")
-        .split('\n')
-        .filter(|s| !s.is_empty())
-        .collect_vec();
-
-    default_bootstrap
-        .iter()
-        .map(|s| Multiaddr::from_str(s).unwrap())
-        .collect()
-});
+pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
+    Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/mainnet")));
 
 // The rollover period is the duration between nv19 and nv20 which both old
 // proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
