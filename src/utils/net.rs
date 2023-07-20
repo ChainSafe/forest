@@ -4,7 +4,7 @@
 use crate::utils::io::WithProgress;
 use async_compression::tokio::bufread::ZstdDecoder;
 use cid::Cid;
-use futures::TryStreamExt;
+use futures::{AsyncWriteExt, TryStreamExt};
 use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
 use tokio::io::{AsyncBufReadExt, AsyncRead};
@@ -41,10 +41,9 @@ pub async fn download_ipfs_file_trustlessly(
         tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?;
 
     let mut reader = reader(&url).await?.compat();
-    // FIXME: When BufWriter is used, the digest of small files are wrong, likely a bug in `rs-car-ipfs`
-    // let mut file = futures::io::BufWriter::new(async_fs::File::create(tmp.path()).await?);
-    let mut file = async_fs::File::create(tmp.path()).await?;
-    rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut file, Some(cid)).await?;
+    let mut writer = futures::io::BufWriter::new(async_fs::File::create(tmp.path()).await?);
+    rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid)).await?;
+    writer.flush().await?;
     tmp.persist(destination)?;
 
     Ok(())
