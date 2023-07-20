@@ -4,8 +4,8 @@ use std::{pin::Pin, task::Poll};
 
 use async_trait::async_trait;
 use digest::{Digest, Output};
+use futures::AsyncWriteExt;
 use futures::{io::BufWriter, AsyncWrite};
-use futures_util::AsyncWriteExt;
 use pin_project_lite::pin_project;
 
 pin_project! {

@@ -49,30 +49,32 @@
 //! - Use an inner [`Blockstore`] for writes.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
 //! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
+//! - CARv2 support
+//! - A wrapper that abstracts over car formats for reading.
 
-use ahash::AHashMap;
+use ahash::HashMapExt as _;
 use bytes::{buf::Writer, BufMut as _, BytesMut};
 use cid::Cid;
-use futures::{StreamExt as _, TryStreamExt as _};
+use futures::{stream, Stream, StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use indexmap::IndexMap;
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
     any::Any,
     collections::hash_map::Entry::{Occupied, Vacant},
-    hash::BuildHasher,
+    future,
     io::{
         self, BufRead, BufReader,
         ErrorKind::{InvalidData, Other, UnexpectedEof, Unsupported},
         Read, Seek, SeekFrom, Write as _,
     },
+    iter,
     ops::ControlFlow,
 };
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{BytesCodec, FramedWrite};
-use tokio_util_06::codec::FramedRead;
+use tokio_util_06::codec::{FramedRead as FramedRead06, FramedWrite as FramedWrite06};
 use tracing::{debug, trace};
 
 use crate::utils::{try_collate, Collate};
@@ -117,8 +119,8 @@ where
 
         // now create the index
         let index =
-            std::iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
-                .collect::<Result<IndexMap<_, _, _>, _>>()?;
+            iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
+                .collect::<Result<ahash::HashMap<_, _>, _>>()?;
 
         match index.len() {
             0 => Err(io::Error::new(
@@ -133,7 +135,7 @@ where
                         reader: buf_reader.into_inner(),
                         index,
                         roots,
-                        write_cache: AHashMap::new(),
+                        write_cache: ahash::HashMap::new(),
                     }),
                 })
             }
@@ -144,7 +146,7 @@ where
         self.inner.lock().roots.clone()
     }
 
-    /// In the order seen in the file
+    /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
@@ -153,15 +155,15 @@ where
 
 struct UncompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
-    write_cache: AHashMap<Cid, Vec<u8>>,
-    index: IndexMap<Cid, UncompressedBlockDataLocation, ahash::RandomState>,
+    write_cache: ahash::HashMap<Cid, Vec<u8>>,
+    index: ahash::HashMap<Cid, UncompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
 /// you should get data that corresponds to a [`Cid`] (but NOT the [`Cid`] itself).
-#[derive(Debug)]
-struct UncompressedBlockDataLocation {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct UncompressedBlockDataLocation {
     offset: u64,
     length: u32,
 }
@@ -264,36 +266,33 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
             .ok_or(io::Error::new(InvalidData, "CAR must not be empty"))??;
 
         let roots = get_roots_from_v1_header(&mut first_zstd_frame)?;
-        let mut index = std::iter::from_fn(|| {
-            read_block_data_location_and_skip(&mut first_zstd_frame).transpose()
-        })
-        .map_ok(|(cid, location_in_frame)| {
-            (
-                cid,
-                CompressedBlockDataLocation {
-                    zstd_frame_offset: first_zstd_frame_offset,
-                    location_in_frame,
-                },
-            )
-        })
-        .collect::<Result<IndexMap<_, _, _>, _>>()?;
-
-        for maybe_frame in zstd_frames {
-            let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
-            index.extend(
-                std::iter::from_fn(|| {
-                    read_block_data_location_and_skip(&mut zstd_frame).transpose()
-                })
+        let mut index =
+            iter::from_fn(|| read_block_data_location_and_skip(&mut first_zstd_frame).transpose())
                 .map_ok(|(cid, location_in_frame)| {
                     (
                         cid,
                         CompressedBlockDataLocation {
-                            zstd_frame_offset,
+                            zstd_frame_offset: first_zstd_frame_offset,
                             location_in_frame,
                         },
                     )
                 })
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect::<Result<ahash::HashMap<_, _>, _>>()?;
+
+        for maybe_frame in zstd_frames {
+            let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
+            index.extend(
+                iter::from_fn(|| read_block_data_location_and_skip(&mut zstd_frame).transpose())
+                    .map_ok(|(cid, location_in_frame)| {
+                        (
+                            cid,
+                            CompressedBlockDataLocation {
+                                zstd_frame_offset,
+                                location_in_frame,
+                            },
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
             )
         }
 
@@ -307,7 +306,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
                 Ok(Self {
                     inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
                         reader,
-                        write_cache: AHashMap::new(),
+                        write_cache: ahash::HashMap::new(),
                         most_recent_zstd_frame: None,
                         index,
                         roots,
@@ -317,11 +316,31 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
         }
     }
 
+    /// `index` must correspond to the `reader`. [`Blockstore`] API calls may panic if this is not upheld
+    ///
+    ///  See also [`Self::new`]
+    // TODO(aatifsyed): do we want to check that `reader` contains e.g the `roots`? That `index` is non-empty?
+    pub fn new_with_trusted_index(
+        reader: ReaderT,
+        index: ahash::HashMap<Cid, CompressedBlockDataLocation>,
+        roots: Vec<Cid>,
+    ) -> Self {
+        Self {
+            inner: Mutex::new(CompressedCarV1BackedBlockstoreInner {
+                reader,
+                write_cache: ahash::HashMap::new(),
+                most_recent_zstd_frame: None,
+                index,
+                roots,
+            }),
+        }
+    }
+
     pub fn roots(&self) -> Vec<Cid> {
         self.inner.lock().roots.clone()
     }
 
-    /// In the order seen in the file
+    /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
@@ -330,17 +349,17 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
 
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
-    write_cache: AHashMap<Cid, Vec<u8>>,
+    write_cache: ahash::HashMap<Cid, Vec<u8>>,
     // zstd frame offset, zstd frame contents
     most_recent_zstd_frame: Option<(u64, std::io::Cursor<Vec<u8>>)>,
-    index: IndexMap<Cid, CompressedBlockDataLocation, ahash::RandomState>,
+    index: ahash::HashMap<Cid, CompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
 
-#[derive(Debug)]
-struct CompressedBlockDataLocation {
-    zstd_frame_offset: u64,
-    location_in_frame: UncompressedBlockDataLocation,
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct CompressedBlockDataLocation {
+    pub zstd_frame_offset: u64,
+    pub location_in_frame: UncompressedBlockDataLocation,
 }
 
 impl<ReaderT> Blockstore for CompressedCarV1BackedBlockstore<ReaderT>
@@ -419,8 +438,8 @@ where
 /// # Panics
 /// - If the write cache already contains different data with this CID
 fn handle_write_cache(
-    write_cache: &mut AHashMap<Cid, Vec<u8>>,
-    index: &mut IndexMap<Cid, impl Any, impl BuildHasher>,
+    write_cache: &mut ahash::HashMap<Cid, Vec<u8>>,
+    index: &mut ahash::HashMap<Cid, impl Any>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
@@ -639,6 +658,8 @@ where
     }
 }
 
+type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
+
 /// `reader` reads uncompressed [varint frames](index.html#varint-frames).
 ///
 /// This function repeatedly takes a group of successive varint frames from `reader`,
@@ -653,10 +674,9 @@ pub async fn zstd_compress_varint_manyframe(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> io::Result<usize> {
-    type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
     let mut count = 0;
     try_collate(
-        FramedRead::new(reader, VarintFrameCodec::default()),
+        FramedRead06::new(reader, VarintFrameCodec::default()),
         varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
         zstd_compress_finish,
     )
@@ -694,6 +714,15 @@ fn varint_to_zstd_frame_collator(
 }
 
 /// Encode `body` as a varint frame into `encoder` (writing the length and then the body itself)
+/// ```text
+///    ┌──────────────────────────────···
+///    │ zstd frame
+///    ├···┬───────────┬─────────────┬···
+///    │   │varint:    │             │
+///    │   │body length│frame body   │
+///    └···┼───────────┴─────────────┼···
+/// start ►│                    end ►│
+/// ```
 fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
@@ -701,16 +730,187 @@ fn zstd_compress_fold_varint_frame(
     let mut header = unsigned_varint::encode::usize_buffer();
     encoder
         .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
-        .expect("BytesMut has infallible IO");
-    encoder
-        .write_all(&body)
+        .and_then(|_| encoder.write_all(&body))
         .expect("BytesMut has infallible IO");
     encoder
 }
 
+/// Finish a zstd frame
 fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
     encoder
         .finish()
+        .expect("BytesMut has infallible IO")
+        .into_inner()
+}
+
+#[allow(clippy::enum_variant_names)] // V2 support soon
+pub enum CarFormat<'index_writer> {
+    V1Plain,
+    /// See [crate::car_backed_blockstore::CompressedCarV1BackedBlockstore]
+    V1ManyFrame {
+        zstd_frame_size_tripwire: usize,
+        zstd_compression_level: u16,
+    },
+    V1ManyFrameIndexedOutOfBand {
+        zstd_frame_size_tripwire: usize,
+        zstd_compression_level: u16,
+        index_writer: Box<dyn AsyncWrite + 'index_writer>,
+    },
+}
+
+pub async fn write_car(
+    format: CarFormat<'_>,
+    roots: Vec<Cid>,
+    // TODO(aatifsyed): can we be smarter about the serialization here?
+    // TODO(aatifsyed): should this accept (Cid, Ipld)?
+    blocks: impl Stream<Item = io::Result<(Cid, Vec<u8>)>>,
+    // TODO(aatifsyed): document that this should be uncompressed for manyframe formats
+    writer: impl AsyncWrite,
+) -> io::Result<()> {
+    match format {
+        CarFormat::V1Plain => {
+            stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
+                .chain(blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld)))
+                .forward(FramedWrite06::new(writer, VarintFrameCodec::default()))
+                .await
+        }
+        CarFormat::V1ManyFrame {
+            zstd_frame_size_tripwire,
+            zstd_compression_level,
+        } => {
+            try_collate(
+                stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
+                    .chain(blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld))),
+                varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
+                zstd_compress_finish,
+            )
+            .forward(FramedWrite::new(writer, BytesCodec::new()))
+            .await
+        }
+        CarFormat::V1ManyFrameIndexedOutOfBand {
+            zstd_frame_size_tripwire,
+            zstd_compression_level,
+            index_writer,
+        } => {
+            let index = write_manyframe_and_create_index(
+                roots,
+                blocks,
+                zstd_frame_size_tripwire,
+                zstd_compression_level,
+                writer,
+            )
+            .await?;
+
+            // TODO(aatifsyed): do we want a versioned index?
+            let mut serialized_index = BytesMut::new();
+            fvm_ipld_encoding::to_writer((&mut serialized_index).writer(), &index)
+                .expect("BytesMut has infallible IO");
+            Box::into_pin(index_writer)
+                .write_all_buf(&mut serialized_index)
+                .await
+        }
+    }
+}
+
+async fn write_manyframe_and_create_index(
+    roots: Vec<Cid>,
+    blocks: impl Stream<Item = io::Result<(Cid, Vec<u8>)>>,
+    zstd_frame_size_tripwire: usize,
+    zstd_compression_level: u16,
+    writer: impl AsyncWrite,
+) -> io::Result<ahash::HashMap<Cid, CompressedBlockDataLocation>> {
+    let header = compressed_v1_header_varint(roots, zstd_compression_level);
+    let mut zstd_frame_offset = u64::try_from(header.len()).unwrap();
+    let mut index = ahash::HashMap::default();
+    let zstd_frames = try_collate(
+        blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld)),
+        varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
+        zstd_compress_finish,
+    )
+    .inspect_ok(|zstd_frame| {
+        // TODO(aatifsyed): don't uncompress again
+        let mut cursor = std::io::Cursor::new(
+            zstd::decode_all(zstd_frame.as_ref()).expect("We've just compressed this frame"),
+        );
+        index.extend(
+            iter::from_fn(|| {
+                read_block_data_location_and_skip(&mut cursor)
+                    .expect("we've just serialized this correctly, and BytesMut has infallible IO")
+            })
+            .map(|(cid, location_in_frame)| {
+                (
+                    cid,
+                    CompressedBlockDataLocation {
+                        zstd_frame_offset,
+                        location_in_frame,
+                    },
+                )
+            }),
+        );
+        // the next frame starts after the current one
+        zstd_frame_offset += u64::try_from(zstd_frame.len()).unwrap();
+    });
+    stream::once(future::ready(Ok(header)))
+        .chain(zstd_frames)
+        .forward(FramedWrite::new(writer, BytesCodec::new()))
+        .await?;
+    Ok(index)
+}
+
+/// Suitable for placing into a varint frame
+///
+/// ```text
+///  ┌──────────┐
+///  │car header│
+///  └──────────┘
+/// ```
+fn uncompressed_v1_header(roots: Vec<Cid>) -> BytesMut {
+    let mut buffer = BytesMut::new();
+    let header = CarHeader { roots, version: 1 };
+    fvm_ipld_encoding::to_writer((&mut buffer).writer(), &header).expect(
+        "BytesMut has infallible IO, and CarHeader probably doesn't validate on serialization",
+    );
+    buffer
+}
+
+/// Suitable for placing into a varint frame
+///
+/// ```text
+///  ┌───┬──────────┐
+///  │cid│block data│
+///  └───┴──────────┘
+/// ```
+fn concat_cid_and_block_data(cid: Cid, ipld: Vec<u8>) -> BytesMut {
+    let mut buffer = BytesMut::new();
+    cid.write_bytes((&mut buffer).writer())
+        .expect("BytesMut has infallible IO");
+    buffer.extend(ipld);
+    buffer
+}
+
+/// Store the header in its own varint frame, and compress it in a zstd frame
+/// ```text
+/// ┌──────────────────────┐
+/// │ zstd frame           │
+/// ├───────────┬──────────┤
+/// │body length│car header│
+/// └───────────┴──────────┘
+/// ```
+fn compressed_v1_header_varint(roots: Vec<Cid>, zstd_compression_level: u16) -> BytesMut {
+    let mut compressor =
+        zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
+            .expect("We're not using a dictionary");
+    let header = CarHeader { roots, version: 1 };
+    // we need the header length first
+    let header = fvm_ipld_encoding::to_vec(&header).expect(
+        "BytesMut has infallible IO, and CarHeader probably doesn't validate on serialization",
+    );
+    let mut len_buffer = unsigned_varint::encode::usize_buffer();
+    let len = unsigned_varint::encode::usize(header.len(), &mut len_buffer);
+    compressor
+        .write_all(len)
+        .and_then(|_| compressor.write_all(&header))
+        .and_then(|_| compressor.finish())
         .expect("BytesMut has infallible IO")
         .into_inner()
 }
@@ -719,14 +919,51 @@ fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
 mod tests {
 
     use super::{
-        zstd_compress_varint_manyframe, CompressedCarV1BackedBlockstore,
-        UncompressedCarV1BackedBlockstore, ZstdFrames,
+        write_manyframe_and_create_index, zstd_compress_varint_manyframe,
+        CompressedCarV1BackedBlockstore, UncompressedCarV1BackedBlockstore, ZstdFrames,
     };
 
-    use futures::executor::block_on;
+    use cid::Cid;
+    use futures::{
+        executor::block_on,
+        stream::{self, StreamExt as _},
+    };
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
     use tap::Tap as _;
+
+    #[test]
+    fn written_index_can_be_used_as_a_blockstore_index() {
+        let (sample_roots, sample_data) = chain4_roots_and_contents();
+        let mut many_frame_zstd = std::io::Cursor::new(vec![]);
+        let index = block_on(write_manyframe_and_create_index(
+            sample_roots.clone(),
+            stream::iter(sample_data.clone()).map(Ok),
+            8_000_usize.next_power_of_two(),
+            3,
+            &mut many_frame_zstd,
+        ))
+        .unwrap();
+        many_frame_zstd.set_position(0);
+        let blockstore_with_preindex = CompressedCarV1BackedBlockstore::new_with_trusted_index(
+            many_frame_zstd.clone(),
+            index,
+            sample_roots,
+        );
+        let blockstore_without_preindex =
+            CompressedCarV1BackedBlockstore::new(many_frame_zstd).unwrap();
+        for cid in blockstore_without_preindex.cids() {
+            let expected = sample_data.get(&cid).unwrap();
+            assert_eq!(
+                expected,
+                &blockstore_with_preindex.get(&cid).unwrap().unwrap()
+            );
+            assert_eq!(
+                expected,
+                &blockstore_without_preindex.get(&cid).unwrap().unwrap()
+            );
+        }
+    }
 
     #[test]
     fn test_uncompressed() {
@@ -773,6 +1010,18 @@ mod tests {
             }
             blockstore
         })
+    }
+
+    fn chain4_roots_and_contents() -> (Vec<Cid>, ahash::HashMap<Cid, Vec<u8>>) {
+        let bs =
+            UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(chain4_car())).unwrap();
+        (
+            bs.roots(),
+            bs.cids()
+                .into_iter()
+                .map(|cid| (cid, bs.get(&cid).unwrap().unwrap()))
+                .collect(),
+        )
     }
 
     fn chain4_car() -> &'static [u8] {
