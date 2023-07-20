@@ -124,16 +124,16 @@ where
     let mut seen = CidHashSet::default();
     if let Some(diff_tipset) = &diff_tipset {
         for i in diff_tipset.cids() {
-            seen.insert(i.clone());
+            seen.insert(*i);
         }
         for i in diff_tipset.parents().cids() {
-            seen.insert(i.clone());
+            seen.insert(*i);
         }
         for i in diff_tipset.blocks().iter().map(|s| s.messages()) {
-            seen.insert(i.clone());
+            seen.insert(*i);
         }
         for i in diff_tipset.blocks().iter().map(|s| s.state_root()) {
-            seen.insert(i.clone());
+            seen.insert(*i);
         }
 
         tracing::info!(
