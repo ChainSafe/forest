@@ -89,67 +89,64 @@ mod tests {
         Cid,
     };
     use fvm_ipld_encoding::DAG_CBOR;
-    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
-    impl Arbitrary for CidHashMap<u64> {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let mut cid_hash_map = CidHashMap::new();
-            // Generate a random size between 1 and 100
-            let size = u64::arbitrary(g) % 100 + 1;
-            let mut count = 0;
-            while count < size {
-                let cid = Cid::arbitrary(g);
-                let payload = u64::arbitrary(g);
-                // Need to ensure we have some V1 CIDs in the map
-                let cid_v1 = Cid::new_v1(
-                    DAG_CBOR,
-                    multihash::Code::Blake2b256.digest(&payload.to_be_bytes()),
-                );
-                cid_hash_map.insert(cid, payload);
-                cid_hash_map.insert(cid_v1, payload);
-                count += 1;
-            }
-            cid_hash_map
+    fn generate_hash_maps(cid_vector: Vec<(Cid, u64)>) -> (CidHashMap<u64>, HashMap<Cid, u64>) {
+        let mut cid_hash_map = CidHashMap::new();
+        let mut hash_map = HashMap::new();
+        for item in cid_vector.iter() {
+            cid_hash_map.insert(item.0, item.1);
+            hash_map.insert(item.0, item.1);
+
+            // Quickcheck does not reliably generate V1 CIDs; need to ensure we have V1 CIDs in the map for testing, so generate V1 CIDs from the values in the key-value pairs.
+            let cid_v1 = Cid::new_v1(
+                DAG_CBOR,
+                multihash::Code::Blake2b256.digest(&item.1.to_be_bytes()),
+            );
+            cid_hash_map.insert(cid_v1, item.1);
+            hash_map.insert(cid_v1, item.1);
         }
+        (cid_hash_map, hash_map)
     }
 
     #[quickcheck]
-    fn insert_key(cid: Cid, payload: u64, mut cid_hash_map: CidHashMap<u64>) {
-        let mut hash_map = HashMap::new();
-        assert_eq!(
-            cid_hash_map.insert(cid, payload),
-            hash_map.insert(cid, payload)
-        );
+    fn insert_new_key_is_none(cid_vector: Vec<(Cid, u64)>, cid: Cid, payload: u64) {
+        let (mut cid_hash_map, _) = generate_hash_maps(cid_vector);
+        // Quickcheck occasionally generates a key that is already present in the map, so remove it if it is present.
+        if cid_hash_map.contains_key(cid) {
+            cid_hash_map.remove(cid);
+        }
+        assert!(cid_hash_map.insert(cid, payload).is_none());
     }
 
-    // #[quickcheck]
-    // fn contains_key(cid: Cid, payload: u64) {
-    //     let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
-    //     assert_eq!(cid_hash_map.contains_key(cid), hash_map.contains_key(&cid));
-    // }
+    #[quickcheck]
+    fn insert_existing_key_is_some(cid_vector: Vec<(Cid, u64)>, cid: Cid, payload: u64) {
+        let (mut cid_hash_map, _) = generate_hash_maps(cid_vector);
+        cid_hash_map.insert(cid, payload);
+        assert!(cid_hash_map.insert(cid, payload).is_some());
+    }
 
-    // #[quickcheck]
-    // fn remove_key(cid: Cid, payload: u64) {
-    //     let (mut cid_hash_map, mut hash_map) = quickcheck_constructor(cid, payload);
-    //     assert_eq!(cid_hash_map.remove(cid), hash_map.remove(&cid));
-    // }
+    #[quickcheck]
+    fn contains_key(cid_vector: Vec<(Cid, u64)>, cid: Cid) {
+        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+        assert_eq!(cid_hash_map.contains_key(cid), hash_map.contains_key(&cid));
+    }
 
-    // #[quickcheck]
-    // fn get_value_at_key(cid: Cid, payload: u64) {
-    //     let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
-    //     assert_eq!(cid_hash_map.get(cid), hash_map.get(&cid));
-    // }
+    #[quickcheck]
+    fn remove_key(cid_vector: Vec<(Cid, u64)>, cid: Cid) {
+        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+        assert_eq!(cid_hash_map.remove(cid), hash_map.remove(&cid));
+    }
 
-    // #[quickcheck]
-    // fn len(cid: Cid, payload: u64) {
-    //     let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
-    //     assert_eq!(cid_hash_map.len(), hash_map.len());
-    // }
+    #[quickcheck]
+    fn get_value_at_key(cid_vector: Vec<(Cid, u64)>, cid: Cid) {
+        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+        assert_eq!(cid_hash_map.get(cid), hash_map.get(&cid));
+    }
 
-    // #[quickcheck]
-    // fn capacity(cid: Cid, payload: u64) {
-    //     let (cid_hash_map, hash_map) = quickcheck_constructor(cid, payload);
-    //     assert_eq!(cid_hash_map.capacity(), hash_map.capacity());
-    // }
+    #[quickcheck]
+    fn len(cid_vector: Vec<(Cid, u64)>) {
+        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+        assert_eq!(cid_hash_map.len(), hash_map.len());
+    }
 }
