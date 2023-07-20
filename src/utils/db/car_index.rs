@@ -5,15 +5,15 @@ use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::ops::Not;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
-pub struct ProbingHashtable<ReaderT> {
+pub struct CarIndex<ReaderT> {
     reader: ReaderT,
     offset: u64,
     len: u64, // length of table in elements. Each element is 128bit.
 }
 
-impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
+impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     fn new(reader: ReaderT, offset: u64, len: u64) -> Self {
-        ProbingHashtable {
+        CarIndex {
             reader,
             offset,
             len,
@@ -88,7 +88,7 @@ impl<ReaderT: Read + Seek> ProbingHashtable<ReaderT> {
 }
 
 #[derive(Debug)]
-pub struct ProbingHashtableBuilder {
+pub struct CarIndexBuilder {
     table: Vec<Slot>,
     collisions: u64,
 }
@@ -235,12 +235,12 @@ impl Position {
     }
 }
 
-impl ProbingHashtableBuilder {
+impl CarIndexBuilder {
     pub fn capacity_at(len: usize) -> usize {
         len * 100 / 91
     }
 
-    pub fn new(values: &[(Cid, Position)]) -> ProbingHashtableBuilder {
+    pub fn new(values: &[(Cid, Position)]) -> CarIndexBuilder {
         Self::new_raw(
             &values
                 .into_iter()
@@ -250,7 +250,7 @@ impl ProbingHashtableBuilder {
         )
     }
 
-    pub fn new_raw(values: &[(Hash, Position)]) -> ProbingHashtableBuilder {
+    pub fn new_raw(values: &[(Hash, Position)]) -> CarIndexBuilder {
         let size = Self::capacity_at(values.len());
         // println!(
         //     "Entries: {}, size: {}, buffer: {}",
@@ -260,7 +260,7 @@ impl ProbingHashtableBuilder {
         // );
         let mut vec = Vec::with_capacity(size);
         vec.resize(size, Slot::Empty);
-        let mut table = ProbingHashtableBuilder {
+        let mut table = CarIndexBuilder {
             table: vec,
             collisions: 0,
         };
@@ -379,7 +379,7 @@ mod tests {
     //     dbg!(table);
     // }
 
-    fn query(table: &mut ProbingHashtable<impl Read + Seek>, key: Hash) -> Vec<Position> {
+    fn query(table: &mut CarIndex<impl Read + Seek>, key: Hash) -> Vec<Position> {
         table
             .lookup(key)
             .unwrap()
@@ -387,11 +387,11 @@ mod tests {
             .unwrap()
     }
 
-    fn mk_table(entries: &[(Hash, Position)]) -> ProbingHashtable<Cursor<Vec<u8>>> {
-        let table_builder = ProbingHashtableBuilder::new_raw(entries);
+    fn mk_table(entries: &[(Hash, Position)]) -> CarIndex<Cursor<Vec<u8>>> {
+        let table_builder = CarIndexBuilder::new_raw(entries);
         let mut store = Vec::new();
         table_builder.write(&mut store).unwrap();
-        ProbingHashtable::new(Cursor::new(store), 0, table_builder.len())
+        CarIndex::new(Cursor::new(store), 0, table_builder.len())
     }
 
     fn mk_map(entries: &[(Hash, Position)]) -> HashMap<Hash, HashSet<Position>> {
@@ -440,7 +440,7 @@ mod tests {
     // but all hash values map to optimal_position 0
     #[quickcheck]
     fn lookup_clash_all(mut entries: Vec<(Hash, Position)>) {
-        let table_len = ProbingHashtableBuilder::capacity_at(entries.len());
+        let table_len = CarIndexBuilder::capacity_at(entries.len());
         for (hash, _position) in entries.iter_mut() {
             let n = u64::from(*hash);
             *hash = Hash::from(n - n % table_len as u64);
@@ -457,7 +457,7 @@ mod tests {
     // but all hash values map to optimal_position 0..10
     #[quickcheck]
     fn lookup_clash_many(mut entries: Vec<(Hash, Position)>) {
-        let table_len = ProbingHashtableBuilder::capacity_at(entries.len());
+        let table_len = CarIndexBuilder::capacity_at(entries.len());
         for (hash, _position) in entries.iter_mut() {
             let n = u64::from(*hash);
             let i = n % 10.min(table_len as u64);
