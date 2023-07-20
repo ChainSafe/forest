@@ -337,14 +337,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         continue;
                     }
 
-                    // Process block messages.
-                    if block.epoch() > stateroot_limit {
-                        this.dfs.push_front(Iterate(Ipld::Link(*block.messages())));
-                    }
-
-                    // Make sure we always yield a block otherwise.
-                    this.dfs.push_back(Pass(*block.cid()));
-
                     // Visit the block if it's within required depth. And a special case for `0`
                     // epoch to match Lotus' implementation.
                     if block.epoch() == 0 || block.epoch() > stateroot_limit {
@@ -353,6 +345,14 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         this.dfs
                             .push_front(Iterate(Ipld::Link(*block.state_root())));
                     }
+
+                    // Process block messages.
+                    if block.epoch() > stateroot_limit {
+                        this.dfs.push_front(Iterate(Ipld::Link(*block.messages())));
+                    }
+
+                    // Make sure we always yield a block otherwise.
+                    this.dfs.push_front(Pass(*block.cid()));
                 }
             } else {
                 // That's it, nothing else to do. End of stream.
