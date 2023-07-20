@@ -180,17 +180,7 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching param file {:?} from {}", path, gw);
     let result = retry(ExponentialBackoff::default(), || async {
-        Ok(async {
-            let tmp =
-                tempfile::NamedTempFile::new_in(path.parent().unwrap_or_else(|| Path::new(".")))?
-                    .into_temp_path();
-            download_ipfs_file_trustlessly(&cid, Some(GATEWAY), &tmp).await?;
-            // The extra check is redundant, just making sure `download_ipfs_file_trustlessly` and `rs-car-ipfs` is bug free, consider removing it in the future.
-            check_file(&tmp, info).await?;
-            tmp.persist(path)?;
-            Ok::<_, anyhow::Error>(())
-        }
-        .await?)
+        Ok(download_ipfs_file_trustlessly(&cid, Some(GATEWAY), path).await?)
     })
     .await;
     debug!("Done fetching param file {:?} from {}", path, gw);

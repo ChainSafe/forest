@@ -41,11 +41,15 @@ pub async fn download_ipfs_file_trustlessly(
     let tmp =
         tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?
             .into_temp_path();
+    {
+        let mut reader = reader(url.as_str()).await?.compat();
+        let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
+        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid))
+            .await?;
+        writer.flush().await?;
+        writer.close().await?;
+    }
 
-    let mut reader = reader(url.as_str()).await?.compat();
-    let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
-    rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid)).await?;
-    writer.flush().await?;
     tmp.persist(destination)?;
 
     Ok(())
