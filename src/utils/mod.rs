@@ -76,6 +76,79 @@ pub enum RetryError {
     RetriesExceeded,
 }
 
+/// Bargain bucket derive macro because <https://github.com/panicbit/quickcheck_derive> doesn't work
+macro_rules! derive_arbitrary {
+    // named fields
+    (
+        // Capture struct definition
+        $(#[$struct_meta:meta])*
+        $struct_vis:vis struct $struct_name:ident {
+            $(
+                $(#[$field_meta:meta])*
+                $field_vis:vis $field_name:ident: $field_ty:ty
+            ),*
+            $(,)?
+        }
+    ) => {
+        // Passthrough the struct definition
+        $(#[$struct_meta])*
+        $struct_vis struct $struct_name {
+            $(
+                $(#[$field_meta])*
+                $field_vis $field_name: $field_ty,
+            )*
+        }
+
+        #[cfg(test)]
+        #[automatically_derived]
+        impl ::quickcheck::Arbitrary for $struct_name {
+            fn arbitrary(g: &mut ::quickcheck::Gen) -> Self {
+                Self {
+                    $(
+                        $field_name: ::quickcheck::Arbitrary::arbitrary(g),
+                    )*
+                }
+            }
+        }
+    };
+    // unnamed fields (tuple struct)
+    (
+        // Capture struct definition
+        $(#[$struct_meta:meta])*
+        $struct_vis:vis struct $struct_name:ident (
+            $(
+                $(#[$field_meta:meta])*
+                $field_vis:vis $field_ty:ty
+            ),*
+            $(,)?
+        );
+    ) => {
+        // Passthrough the struct definition
+        $(#[$struct_meta])*
+        $struct_vis struct $struct_name (
+            $(
+                $(#[$field_meta])*
+                $field_vis $field_ty,
+            )*
+        );
+
+        #[cfg(test)]
+        #[automatically_derived]
+        impl ::quickcheck::Arbitrary for $struct_name {
+            fn arbitrary(g: &mut ::quickcheck::Gen) -> Self {
+                Self(
+                    $(
+                        <$field_ty as ::quickcheck::Arbitrary>::arbitrary(g),
+                    )*
+                )
+            }
+        }
+    };
+}
+
+// macro paths are weird
+pub(crate) use derive_arbitrary;
+
 #[cfg(test)]
 mod tests {
     mod files;

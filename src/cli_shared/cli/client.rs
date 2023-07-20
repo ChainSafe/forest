@@ -8,24 +8,30 @@ use std::{
 };
 
 use crate::rpc_client::DEFAULT_PORT;
+use crate::utils::derive_arbitrary;
 use crate::utils::io::ProgressBarVisibility;
 use chrono::Duration;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 
+derive_arbitrary! {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct ChunkSize(pub u32);
+}
 impl Default for ChunkSize {
     fn default() -> Self {
         ChunkSize(500_000)
     }
 }
 
+derive_arbitrary! {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct BufferSize(pub u32);
+}
+
 impl Default for BufferSize {
     fn default() -> Self {
         BufferSize(1)
@@ -87,24 +93,6 @@ impl Default for Client {
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{BufferSize, ChunkSize};
-    use quickcheck::Arbitrary;
-
-    impl Arbitrary for ChunkSize {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ChunkSize(u32::arbitrary(g))
-        }
-    }
-
-    impl Arbitrary for BufferSize {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            BufferSize(u32::arbitrary(g))
         }
     }
 }

@@ -88,6 +88,7 @@ impl Drop for NetworkGuard {
     }
 }
 
+crate::utils::derive_arbitrary! {
 /// A Filecoin address is an identifier that refers to an actor in the Filecoin state. All actors
 /// (miner actors, the storage market actor, account actors) have an address. This address encodes
 /// information about the network to which an actor belongs, the specific type of address encoding,
@@ -103,6 +104,7 @@ impl Drop for NetworkGuard {
 )]
 #[serde(transparent)]
 pub struct Address(Address_v3);
+}
 
 impl Address {
     pub const SYSTEM_ACTOR: Address = Address::new_id(0);
@@ -148,13 +150,6 @@ impl Address {
 
     pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
         Address_v3::from_bytes(bz).map(Address)
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for Address {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Address(Address_v3::arbitrary(g))
     }
 }
 
