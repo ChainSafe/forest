@@ -5,18 +5,17 @@ use std::{
     fs::File as SyncFile,
     io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind},
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
 };
 
-use crate::shim::sector::SectorSize;
-use crate::utils::net::global_http_client;
+use crate::{shim::sector::SectorSize, utils::net::download_ipfs_file_trustlessly};
 use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
-use futures::TryStreamExt;
+use cid::Cid;
 use serde::{Deserialize, Serialize};
-use tap::Pipe as _;
-use tokio::fs::{self, File};
+use tokio::fs::{self};
 use tracing::{debug, error, info, warn};
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
@@ -158,9 +157,8 @@ async fn fetch_verify_params(
     info: Arc<ParameterData>,
 ) -> Result<(), anyhow::Error> {
     let path: PathBuf = param_dir(data_dir).join(name);
-    let path: Arc<Path> = Arc::from(path.as_path());
 
-    match check_file(path.clone(), info.clone()).await {
+    match check_file(&path, &info).await {
         Ok(()) => return Ok(()),
         Err(e) => {
             if e.kind() != ErrorKind::NotFound {
@@ -171,53 +169,38 @@ async fn fetch_verify_params(
 
     fetch_params(&path, &info).await?;
 
-    check_file(path, info).await.map_err(|e| {
+    check_file(&path, &info).await.map_err(|e| {
         // TODO remove invalid file
         e.into()
     })
 }
 
-async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::Error> {
+async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
+    let cid = Cid::from_str(&info.cid)?;
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching param file {:?} from {}", path, gw);
-    let url = format!("{}{}", gw, info.cid);
     let result = retry(ExponentialBackoff::default(), || async {
-        Ok(fetch_params_inner(&url, path).await?)
+        Ok(download_ipfs_file_trustlessly(&cid, Some(GATEWAY), path).await?)
     })
     .await;
     debug!("Done fetching param file {:?} from {}", path, gw);
     result
 }
 
-async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
-    let mut dst = File::create(path).await?;
-
-    let mut src = global_http_client()
-        .get(url.as_ref())
-        .send()
-        .await?
-        .error_for_status()?
-        .bytes_stream()
-        .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
-        .pipe(tokio_util::io::StreamReader::new);
-
-    tokio::io::copy(&mut src, &mut dst).await?;
-    Ok(())
-}
-
-async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io::Error> {
+async fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
         warn!("Assuming parameter files are okay. Do not use in production!");
         return Ok(());
     }
 
-    let cloned_path = path.clone();
-    let hash = tokio::task::spawn_blocking(move || -> Result<Hash, io::Error> {
-        let file = SyncFile::open(cloned_path.as_ref())?;
-        let mut reader = SyncBufReader::new(file);
-        let mut hasher = Blake2b::new();
-        sync_copy(&mut reader, &mut hasher)?;
-        Ok(hasher.finalize())
+    let hash = tokio::task::spawn_blocking({
+        let file = SyncFile::open(path)?;
+        move || -> Result<Hash, io::Error> {
+            let mut reader = SyncBufReader::new(file);
+            let mut hasher = Blake2b::new();
+            sync_copy(&mut reader, &mut hasher)?;
+            Ok(hasher.finalize())
+        }
     })
     .await??;
 
