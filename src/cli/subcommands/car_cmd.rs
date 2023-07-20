@@ -13,9 +13,13 @@ use clap::Subcommand;
 use futures::{try_join, AsyncRead, Stream, StreamExt as _, TryStreamExt as _};
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
+use indicatif::MultiProgress;
+use indicatif::ProgressBar;
+use indicatif::ProgressBarIter;
+use indicatif::ProgressFinish;
+use indicatif::ProgressStyle;
 use itertools::Itertools as _;
 use tokio_util_06::codec::FramedRead as FramedRead06;
-use tracing::error;
 
 use crate::car_backed_blockstore::cid_error_to_io_error;
 use crate::ipld::CidHashSet;
@@ -68,17 +72,31 @@ impl CarCommands {
             }
             Self::Diff { left, right } => {
                 type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
+                type CarStream = FramedRead06<ProgressBarIter<File>, VarintFrameCodec>;
                 use std::io::ErrorKind::{InvalidData, UnexpectedEof};
                 use tokio::fs::File;
 
-                async fn open(path: PathBuf) -> io::Result<FramedRead06<File, VarintFrameCodec>> {
+                let progress = MultiProgress::new();
+
+                async fn open(
+                    path: PathBuf,
+                    progress: &MultiProgress,
+                    message: &'static str,
+                ) -> io::Result<CarStream> {
                     let file = File::open(path).await?;
-                    Ok(FramedRead06::new(file, VarintFrameCodec::default()))
+                    let len = file.metadata().await?.len();
+                    let reader = progress
+                        .add(
+                            ProgressBar::new(len)
+                                .with_style(read_style())
+                                .with_message(message)
+                                .with_finish(ProgressFinish::AndLeave),
+                        )
+                        .wrap_async_read(file);
+                    Ok(FramedRead06::new(reader, VarintFrameCodec::default()))
                 }
 
-                async fn header(
-                    stream: &mut FramedRead06<File, VarintFrameCodec>,
-                ) -> io::Result<CarHeader> {
+                async fn header(stream: &mut CarStream) -> io::Result<CarHeader> {
                     match stream.next().await {
                         Some(Ok(bytes)) => fvm_ipld_encoding::from_reader(bytes.reader())
                             .map_err(|e| io::Error::new(InvalidData, e)),
@@ -93,13 +111,21 @@ impl CarCommands {
                     Ok((cid, bytes))
                 }
 
-                let (mut left, mut right) = try_join!(open(left), open(right))?; // blazing fast!
+                let (mut left, mut right) = try_join!(
+                    open(left, &progress, " left"), // pad to width
+                    open(right, &progress, "right")
+                )?; // blazing fast!
                 let (left_header, right_header) = try_join!(header(&mut left), header(&mut right))?;
 
                 if left_header != right_header {
-                    error!(left = ?left_header, right = ?right_header, "headers differ");
-                    bail!("headers differ")
+                    // we bail instead of using tracing::error to play nice with progress bars
+                    bail!("headers differ:\n\tleft: {left_header:?}\n\tright: {right_header:?}")
                 }
+
+                let frames = progress
+                    .add(ProgressBar::new_spinner().with_style(tick_style()))
+                    .with_message("frames")
+                    .with_finish(ProgressFinish::AndLeave);
 
                 let mut zipped = pin!(zip_longest(
                     left.and_then(car_frame),
@@ -110,17 +136,12 @@ impl CarCommands {
                 while let Some((ix, either_or_both)) = zipped.next().await {
                     use itertools::EitherOrBoth::{Both, Left, Right};
                     match either_or_both {
-                        Both(Ok(left), Ok(right)) if left == right => continue,
+                        Both(Ok(left), Ok(right)) if left == right => frames.inc(1),
                         Both(Ok((left_cid, left)), Ok((right_cid, right))) => {
-                            error!(
-                                left.cid = %left_cid,
-                                right.cid = %right_cid,
-                                left.body_len = left.len(),
-                                right.body_len = right.len(),
-                                frame_index = ix,
-                                "left and right contain different frames"
-                            );
-                            bail!("left and right contain different frames")
+                            bail!(
+                                "left and right contain different frames\n\tindex: {ix}\n\tcids: {left_cid}, {right_cid}\n\tlengths: {}, {}",
+                                left.len(), right.len()
+                            )
                         }
                         Both(Err(e), _) => {
                             bail!("left contains a malformed frame at index {ix}: {e}")
@@ -132,7 +153,6 @@ impl CarCommands {
                         Right(_) => bail!("left overruns"),
                     }
                 }
-                println!("car files match");
             }
         }
         Ok(())
@@ -163,6 +183,28 @@ fn dedup_block_stream(stream: impl Stream<Item = BlockPair>) -> impl Stream<Item
     let mut seen = CidHashSet::default();
     stream.filter(move |(cid, _data)| futures::future::ready(seen.insert(*cid)))
 }
+
+fn read_style() -> ProgressStyle {
+    ProgressStyle::with_template("{msg:.green} [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}")
+        .expect("invalid progress template")
+        .progress_chars("=>-")
+}
+
+fn tick_style() -> ProgressStyle {
+    ProgressStyle::with_template("{msg:.green} {spinner:.cyan} {human_pos}")
+        .expect("invalid progress template")
+        .tick_strings(TICK_STRINGS)
+}
+
+const TICK_STRINGS: &[&str] = &[
+    "▹▹▹▹▹",
+    "▸▹▹▹▹",
+    "▹▸▹▹▹",
+    "▹▹▸▹▹",
+    "▹▹▹▸▹",
+    "▹▹▹▹▸",
+    "▪▪▪▪▪",
+];
 
 #[cfg(test)]
 mod tests {
