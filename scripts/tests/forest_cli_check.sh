@@ -57,4 +57,3 @@ pushd "$(mktemp --directory)"
     fi
 rm -- *
 popd
-

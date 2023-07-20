@@ -20,3 +20,16 @@ zstd --test ./*.car.zst
 
 echo "Verifying snapshot checksum"
 sha256sum --check ./*.sha256sum
+
+: snapshot diff tests
+pushd "$(mktemp --directory)"
+    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest
+    imported_snapshot=$(find . -type f -name "*.car" | head -1)
+    : : generating diffed snapshot
+    "$FOREST_CLI_PATH" --chain calibnet archive export -e 650000 -d 1000 --diff 100000 imported_snapshot
+    rm "$imported_snapshot"
+    diffed_snapshot=$(find . -type f -name "*.car.zst" | head -1)
+    : : importing diffed snapshot
+    "$FOREST_PATH" --chain calibnet --encrypt-keystore false --halt-after-import --no-gc --import-snapshot "$diffed_snapshot"
+rm -- *
+popd

@@ -126,6 +126,16 @@ where
         for i in diff_tipset.cids() {
             seen.insert(i.clone());
         }
+        for i in diff_tipset.parents().cids() {
+            seen.insert(i.clone());
+        }
+        for i in diff_tipset.blocks().iter().map(|s| s.messages()) {
+            seen.insert(i.clone());
+        }
+        for i in diff_tipset.blocks().iter().map(|s| s.state_root()) {
+            seen.insert(i.clone());
+        }
+
         tracing::info!(
             "excluded {} cids using diff tipset at: {}",
             seen.len(),

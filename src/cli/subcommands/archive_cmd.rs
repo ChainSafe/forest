@@ -353,6 +353,7 @@ mod tests {
             output_path.path().into(),
             0,
             1,
+            None,
         )
         .await
         .unwrap();

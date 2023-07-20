@@ -505,9 +505,14 @@ where
         D: Digest + Send + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        let diff_tipset = self
-            .tipset_by_height(diff.unwrap(), Arc::new(tipset.clone()), true)
-            .context("unable to get a tipset at given height")?;
+        let diff_tipset = if let Some(diff) = diff {
+            Some(
+                self.tipset_by_height(diff, Arc::new(tipset.clone()), true)
+                    .context("unable to get a tipset at given height")?,
+            )
+        } else {
+            None
+        };
 
         let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
         let writer = if compressed {
@@ -561,7 +566,7 @@ where
             Some("Exporting snapshot | blocks"),
             Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
             estimated_reachable_records,
-            Some(diff_tipset),
+            diff_tipset,
         )
         .await?;
 
