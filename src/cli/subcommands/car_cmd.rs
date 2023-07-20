@@ -1,17 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::io;
 use std::path::PathBuf;
 use std::pin::pin;
 
+use anyhow::bail;
+use bytes::Buf as _;
+use bytes::BytesMut;
 use cid::Cid;
 use clap::Subcommand;
-use futures::{AsyncRead, Stream, StreamExt, TryStreamExt};
+use futures::{try_join, AsyncRead, Stream, StreamExt as _, TryStreamExt as _};
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
-use itertools::Itertools;
+use itertools::Itertools as _;
+use tokio_util_06::codec::FramedRead as FramedRead06;
+use tracing::error;
 
+use crate::car_backed_blockstore::cid_error_to_io_error;
 use crate::ipld::CidHashSet;
+use crate::utils::zip_longest;
 
 type BlockPair = (Cid, Vec<u8>);
 
@@ -24,6 +32,8 @@ pub enum CarCommands {
         #[arg(short, long)]
         output: PathBuf,
     },
+    /// Compare two CARv1 files, block by block
+    Diff { left: PathBuf, right: PathBuf },
 }
 
 impl CarCommands {
@@ -55,6 +65,74 @@ impl CarCommands {
                         &mut pin!(dedup_block_stream(merge_car_readers(readers))),
                     )
                     .await?;
+            }
+            Self::Diff { left, right } => {
+                type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
+                use std::io::ErrorKind::{InvalidData, UnexpectedEof};
+                use tokio::fs::File;
+
+                async fn open(path: PathBuf) -> io::Result<FramedRead06<File, VarintFrameCodec>> {
+                    let file = File::open(path).await?;
+                    Ok(FramedRead06::new(file, VarintFrameCodec::default()))
+                }
+
+                async fn header(
+                    stream: &mut FramedRead06<File, VarintFrameCodec>,
+                ) -> io::Result<CarHeader> {
+                    match stream.next().await {
+                        Some(Ok(bytes)) => fvm_ipld_encoding::from_reader(bytes.reader())
+                            .map_err(|e| io::Error::new(InvalidData, e)),
+                        Some(Err(e)) => Err(e),
+                        None => Err(io::Error::new(UnexpectedEof, "no header")),
+                    }
+                }
+
+                async fn car_frame(mut bytes: BytesMut) -> io::Result<(Cid, BytesMut)> {
+                    let cid =
+                        Cid::read_bytes((&mut bytes).reader()).map_err(cid_error_to_io_error)?;
+                    Ok((cid, bytes))
+                }
+
+                let (mut left, mut right) = try_join!(open(left), open(right))?; // blazing fast!
+                let (left_header, right_header) = try_join!(header(&mut left), header(&mut right))?;
+
+                if left_header != right_header {
+                    error!(left = ?left_header, right = ?right_header, "headers differ");
+                    bail!("headers differ")
+                }
+
+                let mut zipped = pin!(zip_longest(
+                    left.and_then(car_frame),
+                    right.and_then(car_frame)
+                )
+                .enumerate());
+
+                while let Some((ix, either_or_both)) = zipped.next().await {
+                    use itertools::EitherOrBoth::{Both, Left, Right};
+                    match either_or_both {
+                        Both(Ok(left), Ok(right)) if left == right => continue,
+                        Both(Ok((left_cid, left)), Ok((right_cid, right))) => {
+                            error!(
+                                left.cid = %left_cid,
+                                right.cid = %right_cid,
+                                left.body_len = left.len(),
+                                right.body_len = right.len(),
+                                frame_index = ix,
+                                "left and right contain different frames"
+                            );
+                            bail!("left and right contain different frames")
+                        }
+                        Both(Err(e), _) => {
+                            bail!("left contains a malformed frame at index {ix}: {e}")
+                        }
+                        Both(_, Err(e)) => {
+                            bail!("right contains a malformed frame at index {ix}: {e}")
+                        }
+                        Left(_) => bail!("right overruns"),
+                        Right(_) => bail!("left overruns"),
+                    }
+                }
+                println!("car files match");
             }
         }
         Ok(())
