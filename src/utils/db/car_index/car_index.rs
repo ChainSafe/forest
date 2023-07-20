@@ -22,8 +22,8 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         }
     }
 
-    // `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
-    // unless 2 or more cids have collided.
+    /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
+    /// unless 2 or more cids have collided.
     pub fn lookup(&mut self, key: Cid) -> Result<SmallVec<[BlockPosition; 1]>> {
         self.lookup_internal(Hash::from(key))
     }
@@ -67,16 +67,21 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         self.lookup_internal(hash)
     }
 
+    // The entry for `hash` will always be quite close to its bucket offset. Steps:
+    //  1. start iterating at the bucket offset,
+    //  2. end early if we find an empty slot,
+    //  3. skip any spill-over items from earlier buckets,
+    //  4. take all entries in our bucket,
+    //  5. filter out bucket entries that do not match our key.
     fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
         let len = self.len;
         let key = hash.optimal_offset(len as usize) as u64;
         let mut smallest_seen_distance = usize::MAX;
 
-        // Starting at the bucket for 'key', scan through entries, stopping at
+        // starting at the bucket for 'key', scan through entries, stopping at
         // empty slots.
         self.entries(key)?
-            // Skip entries as long as their desired distance to 'key' is
-            // decreasing.
+            // skip entries that have spilled over from earlier buckets
             .skip_while(move |result| match result {
                 Err(_) => false,
                 Ok(entry) => {
@@ -85,14 +90,12 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
                     dist == smallest_seen_distance && dist > 0
                 }
             })
-            // Take all entries with a distance of 0. These are the entries in
-            // the bucket we want.
+            // take all key-value-pairs in our bucket
             .take_while(move |result| match result {
                 Err(_) => true,
                 Ok(entry) => entry.hash.distance(key as usize, len as usize) == 0,
             })
-            // Filter out other keys that were put in our bucket but do not
-            // match our hash
+            // filter out key-value-pairs that do not match our key
             .filter_map(move |result| {
                 result
                     .map(|entry| {

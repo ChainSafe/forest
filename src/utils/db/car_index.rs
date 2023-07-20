@@ -16,10 +16,10 @@
 //!
 //! Dictionary words are not evenly distributed, though, as there are more words
 //! starting with 'c' than with 'a'. This makes it difficult to know exactly
-//! where in the dictionary to start looking for a word.
+//! where to start looking for a word in the dictionary.
 //!
 //! If we don't care about ordering, we can hash the words and thus be sure that
-//! the words are spread evenly across the dictionary. No hash key is more or
+//! they are spread evenly across the dictionary. No hash key is any more or
 //! less likely than any other.
 //!
 //! # Context: Hash tables and linear probing
@@ -69,12 +69,21 @@
 //!
 //! # Code layout
 //!
-//! A [`CarIndex`] maps from [`Cid`]s to possible [`BlockPosition`]s. The
+//! A [`CarIndex`] maps from [`cid::Cid`]s to possible [`BlockPosition`]s. The
 //! mapping is unique unless the hash of two cids collide (possible but
-//! extremely unlikely). The caller should always verify that the [`Cid`] in the
-//! CAR file at [`BlockPosition`] matches the requested [`Cid`].
+//! extremely unlikely). The caller should always verify that the [`cid::Cid`] in the
+//! CAR file at [`BlockPosition`] matches the requested [`cid::Cid`].
 //!
+//! [`CarIndexBuilder`] takes a collection of `(Cid, BlockPosition)` pairs and
+//! encodes them to a writer. The only guarantees about the format is that
+//! [`CarIndex`] can read it.
 //!
+//! ## Internal structures
+//!
+//! A [`Slot`] is a position in the table that may or may not be filled with a
+//! [`KeyValuePair`]. [`Hash`]es are key and are not required to be unique. The
+//! performance of the index depends entirely on the quality of the chosen hash
+//! function.
 //!
 
 mod block_position;
