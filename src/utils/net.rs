@@ -32,15 +32,17 @@ pub async fn download_ipfs_file_trustlessly(
     // https://docs.ipfs.tech/concepts/ipfs-gateway/
     const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
 
-    let url = format!(
-        "{}{cid}?format=car",
-        gateway.unwrap_or(DEFAULT_IPFS_GATEWAY)
-    );
+    let url = {
+        let mut url =
+            Url::parse(gateway.unwrap_or(DEFAULT_IPFS_GATEWAY))?.join(&format!("{cid}"))?;
+        url.set_query(Some("format=car"));
+        Ok::<_, anyhow::Error>(url)
+    }?;
 
     let tmp =
         tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?;
 
-    let mut reader = reader(&url).await?.compat();
+    let mut reader = reader(url.as_str()).await?.compat();
     let mut writer = futures::io::BufWriter::new(async_fs::File::create(tmp.path()).await?);
     rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid)).await?;
     writer.flush().await?;
