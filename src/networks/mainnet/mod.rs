@@ -3,7 +3,9 @@
 
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
+use itertools::Itertools;
 use lazy_static::lazy_static;
+use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
@@ -23,9 +25,17 @@ pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
 });
 
-/// Default bootstrap peer ids.
-pub const DEFAULT_BOOTSTRAP: &[&str] =
-    &const_str::split!(include_str!("../../../build/bootstrap/mainnet"), "\n");
+pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> = Lazy::new(|| {
+    let default_bootstrap = include_str!("../../../build/bootstrap/mainnet")
+        .split('\n')
+        .filter(|s| !s.is_empty())
+        .collect_vec();
+
+    default_bootstrap
+        .iter()
+        .map(|s| Multiaddr::from_str(s).unwrap())
+        .collect()
+});
 
 // The rollover period is the duration between nv19 and nv20 which both old
 // proofs (v1) and the new proofs (v1_1) proofs will be accepted by the
@@ -173,8 +183,5 @@ mod tests {
     #[test]
     fn default_boostrap_list_not_empty() {
         assert!(!DEFAULT_BOOTSTRAP.is_empty());
-        DEFAULT_BOOTSTRAP.iter().for_each(|addr| {
-            assert!(addr.parse::<libp2p::multiaddr::Multiaddr>().is_ok());
-        });
     }
 }

@@ -263,12 +263,8 @@ pub(super) async fn start(
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config
-            .chain
-            .bootstrap_peers
-            .iter()
-            .map(|node| node.parse())
-            .collect::<Result<_, _>>()?;
+        let bootstrap_peers = config.chain.bootstrap_peers.clone();
+
         Config {
             network: Libp2pConfig {
                 bootstrap_peers,
