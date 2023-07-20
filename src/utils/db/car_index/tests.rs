@@ -40,7 +40,7 @@ fn mk_table(entries: &[(Hash, BlockPosition)]) -> CarIndex<Cursor<Vec<u8>>> {
     let table_builder = CarIndexBuilder::new_raw(entries);
     let mut store = Vec::new();
     table_builder.write(&mut store).unwrap();
-    CarIndex::new(Cursor::new(store), 0, table_builder.len())
+    CarIndex::open(Cursor::new(store), 0, table_builder.len())
 }
 
 fn mk_map(entries: &[(Hash, BlockPosition)]) -> HashMap<Hash, HashSet<BlockPosition>> {

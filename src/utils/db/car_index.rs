@@ -69,6 +69,11 @@
 //!
 //! # Code layout
 //!
+//! A [`CarIndex`] maps from [`Cid`]s to possible [`BlockPosition`]s. The
+//! mapping is unique unless the hash of two cids collide (possible but
+//! extremely unlikely). The caller should always verify that the [`Cid`] in the
+//! CAR file at [`BlockPosition`] matches the requested [`Cid`].
+//!
 //!
 //!
 

@@ -12,7 +12,9 @@ pub struct CarIndex<ReaderT> {
 }
 
 impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
-    pub fn new(reader: ReaderT, offset: u64, len: u64) -> Self {
+    /// `O(1)` Open a reader as a mapping from cids to block positions in a
+    /// content-addressable archive.
+    pub fn open(reader: ReaderT, offset: u64, len: u64) -> Self {
         CarIndex {
             reader,
             offset,
@@ -20,8 +22,8 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         }
     }
 
-    // Look up possible `BlockPosition`s for a `Cid`. Does not allocate unless 2
-    // or more cids have collided.
+    // `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
+    // unless 2 or more cids have collided.
     pub fn lookup(&mut self, key: Cid) -> Result<SmallVec<[BlockPosition; 1]>> {
         self.lookup_internal(Hash::from(key))
     }
@@ -80,7 +82,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
                 Ok(entry) => {
                     let dist = entry.hash.distance(key as usize, len as usize);
                     smallest_seen_distance = smallest_seen_distance.min(dist);
-                    dist == smallest_seen_distance
+                    dist == smallest_seen_distance && dist > 0
                 }
             })
             // Take all entries with a distance of 0. These are the entries in
