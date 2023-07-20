@@ -10,7 +10,6 @@ use crate::shim::version::NetworkVersion;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
-use itertools::Itertools;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -312,13 +311,11 @@ fn default_policy() -> Policy {
 }
 
 pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr> {
-    let bootstrap_peers = bootstrap_peer_list
+    bootstrap_peer_list
         .split('\n')
         .filter(|s| !s.is_empty())
-        .collect_vec();
-
-    bootstrap_peers
-        .iter()
-        .map(|s| Multiaddr::from_str(s).unwrap())
+        .map(|s| {
+            Multiaddr::from_str(s).unwrap_or_else(|e| panic!("invalid bootstrap peer {s}: {e}"))
+        })
         .collect()
 }
