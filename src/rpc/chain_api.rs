@@ -25,7 +25,6 @@ use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::{digest::Output, Sha256};
-use tempfile::NamedTempFile;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -78,11 +77,6 @@ where
         ))?;
     }
 
-    let output_dir = output_path.parent().ok_or_else(|| JsonRpcError::Provided {
-        code: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
-        message: "Failed to determine snapshot export directory",
-    })?;
-    let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts =
         data.chain_store
@@ -100,15 +94,12 @@ where
             )
             .await
     } else {
-        let file = tokio::fs::File::create(&temp_path).await?;
+        let file = tokio::fs::File::create(&output_path).await?;
         data.chain_store
             .export::<_, Sha256>(&start_ts, recent_roots, file.compat(), true, skip_checksum)
             .await
     } {
         Ok(checksum_opt) if !dry_run => {
-            // `persist`is expected to succeed since we've made sure the temp-file is in the
-            // same folder as the final file.
-            temp_path.persist(&output_path)?;
             if let Some(checksum) = checksum_opt {
                 save_checksum(&output_path, checksum).await?;
             }
@@ -119,7 +110,7 @@ where
         }
     };
 
-    Ok(output_path)
+    Ok(())
 }
 
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file

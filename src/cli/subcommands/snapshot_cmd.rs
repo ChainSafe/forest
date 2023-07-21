@@ -14,17 +14,19 @@ use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
-use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
-use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
+use crate::rpc_api::chain_api::ChainExportParams;
+use crate::rpc_client::chain_ops::*;
 use crate::state_manager::StateManager;
-use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
+use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
+use human_repr::HumanCount;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tempfile::NamedTempFile;
 use tempfile::TempDir;
 use tracing::info;
 
@@ -114,50 +116,55 @@ impl SnapshotCommands {
                     false => output_path.clone(),
                 };
 
+                let output_dir = output_path.parent().context("invalid output path")?;
+                let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
+
                 let params = ChainExportParams {
                     epoch,
                     recent_roots: config.chain.recent_state_roots,
-                    output_path,
+                    output_path: temp_path.to_path_buf(),
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
                     skip_checksum,
                     dry_run,
                 };
 
-                let bar = Arc::new(tokio::sync::Mutex::new({
-                    let bar = ProgressBar::new(0);
-                    bar.message("Exporting snapshot | blocks ");
-                    bar
-                }));
-                tokio::spawn({
-                    let bar = bar.clone();
+                let handle = tokio::spawn({
+                    let tmp_file = temp_path.to_owned();
+                    let output_path = output_path.clone();
                     async move {
                         let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs(1));
+                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.25));
+                        println!("Getting ready to export...");
                         loop {
                             interval.tick().await;
-                            if let Ok((progress, total)) =
-                                get_progress((GetProgressType::SnapshotExport,), &None).await
-                            {
-                                let bar = bar.lock().await;
-                                if bar.is_finish() {
-                                    break;
-                                }
-                                bar.set_total(total);
-                                bar.set(progress);
-                            }
+                            let snapshot_size = std::fs::metadata(&tmp_file)
+                                .map(|meta| meta.len())
+                                .unwrap_or(0);
+                            print!(
+                                "{}{}",
+                                anes::MoveCursorToPreviousLine(1),
+                                anes::ClearLine::All
+                            );
+                            print!(
+                                "{}: {}\n",
+                                &output_path.to_string_lossy(),
+                                snapshot_size.human_count_bytes()
+                            );
+                            let _ = std::io::stdout().flush();
                         }
                     }
                 });
 
-                let out = chain_export(params, &config.client.rpc_token)
+                chain_export(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                bar.lock().await.finish_println(&format!(
-                    "Export completed. Snapshot located at {}",
-                    out.display()
-                ));
-                println!("\n");
+                handle.abort();
+                let _ = handle.await;
+
+                temp_path.persist(output_path)?;
+
+                println!("Export completed.");
                 Ok(())
             }
             Self::Fetch { directory, vendor } => {

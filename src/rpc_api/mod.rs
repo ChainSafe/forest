@@ -181,7 +181,7 @@ pub mod chain_api {
         pub dry_run: bool,
     }
 
-    pub type ChainExportResult = PathBuf;
+    pub type ChainExportResult = ();
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
