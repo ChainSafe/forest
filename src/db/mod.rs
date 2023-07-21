@@ -7,6 +7,7 @@ pub mod parity_db;
 pub mod parity_db_config;
 pub use memory::MemoryDB;
 
+pub mod migration;
 pub mod rolling;
 
 /// Interface used to store and retrieve settings from the database.
@@ -64,13 +65,12 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
 }
 
 pub mod db_engine {
-    use std::path::{Path, PathBuf};
-
     use crate::db::rolling::*;
+    use std::path::{Path, PathBuf};
 
     pub type Db = crate::db::parity_db::ParityDb;
     pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
-    const DIR_NAME: &str = "paritydb";
+    const DIR_NAME: &str = env!("CARGO_PKG_VERSION");
 
     pub fn db_root(chain_data_root: &Path) -> PathBuf {
         chain_data_root.join(DIR_NAME)

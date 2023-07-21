@@ -15,6 +15,7 @@ use crate::cli_shared::{
 };
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
+    migration::{migrate_db, DBVersion},
     rolling::DbGarbageCollector,
 };
 use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -287,6 +288,14 @@ pub(super) async fn start(
     let epoch = chain_store.heaviest_tipset().epoch();
 
     load_bundles(epoch, &config, db.clone()).await?;
+
+    migrate_db(
+        &config,
+        Arc::clone(&state_manager),
+        DBVersion::V0,
+        DBVersion::V11,
+    )
+    .await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
