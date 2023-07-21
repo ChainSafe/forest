@@ -71,7 +71,7 @@ use std::{
     ops::ControlFlow,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_util::codec::{BytesCodec, FramedWrite, FramedRead};
+use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tracing::{debug, trace};
 
 use crate::utils::{try_collate, Collate};
