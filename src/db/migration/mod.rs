@@ -10,7 +10,6 @@ use crate::state_manager::StateManager;
 use crate::utils::proofs_api::paramfetch::{
     ensure_params_downloaded, set_proofs_parameter_cache_dir_env,
 };
-use fvm_ipld_blockstore::Blockstore;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,12 +17,12 @@ use tracing::info;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum DBVersion {
-    V0,
+    V0, // Default DBVersion for any unknow db
     V11,
 }
 
-/// Check current db
-async fn pre_migration_check(
+/// Check migration
+async fn migration_check(
     config: &Config,
     existing_chain_data_root: &PathBuf,
 ) -> anyhow::Result<()> {
@@ -57,77 +56,45 @@ async fn pre_migration_check(
     Ok(())
 }
 
-/// Check new db
-async fn post_migration_check<DB>(
-    config: &Config,
-    state_manager: Arc<StateManager<DB>>,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    let dir = db_root(&chain_path(config));
-    info!("Running database migration checks for: {}", dir.display());
-
-    if cns::FETCH_PARAMS {
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-    }
-    ensure_params_downloaded().await?;
-
-    let ts = state_manager.chain_store().heaviest_tipset();
-    let height = ts.epoch();
-    assert!(height.is_positive());
-    state_manager.validate_range((height - 1)..=height)?;
-
-    Ok(())
-}
-
 /// Migrate to an targeted version
-pub async fn migrate_db<DB>(
+pub async fn migrate_db(
     config: &Config,
-    state_manager: Arc<StateManager<DB>>,
     db_path: PathBuf,
     target_version: DBVersion,
-) -> anyhow::Result<()>
-where
-    DB: Blockstore + Clone + Send + Sync + 'static,
-{
-    info!("Running Database Migrations...");
+) -> anyhow::Result<()> {
+    info!("Running database migrations...");
+
     let mut current_version = get_db_version(&db_path);
 
-    pre_migration_check(config, &db_path).await?;
+    migration_check(config, &db_path).await?;
 
     while current_version != target_version {
         let next_version = match current_version {
             DBVersion::V0 => DBVersion::V11,
-            _ => todo!(),
+            _ => break,
         };
         // Execute the migration steps for itermediate version
-        migrate(&next_version)?;
+        migrate(&db_path, &next_version)?;
         current_version = next_version;
     }
-    if post_migration_check(config, Arc::clone(&state_manager))
-        .await
-        .is_ok()
-    {
-        // Delete previous database
-        fs_extra::dir::remove(db_path.as_path())?;
-    }
+
+    migration_check(config, &db_path).await?;
+
+    // Rename db to latest versioned db
+    fs::rename(db_path.as_path(), &chain_path(config))?;
 
     info!("Database Migrated to {:?}", target_version);
     Ok(())
 }
 
 /// Migrate to an intermediate db version
-fn migrate(intermediate_version: &DBVersion) -> anyhow::Result<()> {
+fn migrate(_existing_db_path: &PathBuf, intermediate_version: &DBVersion) -> anyhow::Result<()> {
     match intermediate_version {
         DBVersion::V11 => {
             // TODO: Add Steps required for migrating to V11
             Ok(())
         }
-        _ => {
-            // TODO: Error handling
-            Ok(())
-        }
+        _ => Ok(()),
     }
 }
 
@@ -136,10 +103,7 @@ pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     let paths = fs::read_dir(&dir).unwrap();
     for path in paths {
         if let Ok(entry) = path {
-            let path_str = entry.file_name();
-            if path_str != env!("CARGO_PKG_VERSION") {
-                return Some(entry.path());
-            }
+            return Some(entry.path());
         }
     }
 

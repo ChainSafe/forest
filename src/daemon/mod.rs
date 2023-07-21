@@ -171,6 +171,10 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
+    if let Some(db_path) = check_if_another_db_exist(&config) {
+        migrate_db(&config, db_path, DBVersion::V11).await?;
+    }
+
     let chain_data_path = chain_path(&config);
     let db = Arc::new(open_proxy_db(
         db_root(&chain_data_path),
@@ -288,10 +292,6 @@ pub(super) async fn start(
     let epoch = chain_store.heaviest_tipset().epoch();
 
     load_bundles(epoch, &config, db.clone()).await?;
-
-    if let Some(db_path) = check_if_another_db_exist(&config) {
-        migrate_db(&config, Arc::clone(&state_manager), db_path, DBVersion::V11).await?;
-    }
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
