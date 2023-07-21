@@ -15,13 +15,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::info;
 
+/// Database version for each forest version which supports db migration
 #[derive(Debug, Eq, PartialEq)]
 pub enum DBVersion {
     V0, // Default DBVersion for any unknow db
     V11,
 }
 
-/// Check migration
+/// Check database validaity
 async fn migration_check(
     config: &Config,
     existing_chain_data_root: &PathBuf,
@@ -30,12 +31,13 @@ async fn migration_check(
         "Running database migration checks for: {}",
         existing_chain_data_root.display()
     );
-
-    if ensure_params_downloaded().await.is_err() || cns::FETCH_PARAMS {
+    // Set proof param dir env path, required for running validations
+    if cns::FETCH_PARAMS {
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
     }
     ensure_params_downloaded().await?;
 
+    // Open existing db
     let db = Arc::new(open_proxy_db(
         db_root(&existing_chain_data_root),
         config.db_config().clone(),
@@ -52,22 +54,25 @@ async fn migration_check(
     let ts = state_manager.chain_store().heaviest_tipset();
     let height = ts.epoch();
     assert!(height.is_positive());
+    // re-compute 100 tipsets only
     state_manager.validate_range((height - 1)..=height)?;
     Ok(())
 }
 
-/// Migrate to an targeted version
+/// Migrate database to lastest version
 pub async fn migrate_db(
     config: &Config,
     db_path: PathBuf,
     target_version: DBVersion,
 ) -> anyhow::Result<()> {
     info!("Running database migrations...");
-
+    // Get DBVersion from existing db path
     let mut current_version = get_db_version(&db_path);
-
+    // Run pre-migration checks, which includes:
+    // - re-compute 100 tipsets
     migration_check(config, &db_path).await?;
 
+    // Iterate over all DBVersion's until database is migrated to lastest version
     while current_version != target_version {
         let next_version = match current_version {
             DBVersion::V0 => DBVersion::V11,
@@ -77,27 +82,29 @@ pub async fn migrate_db(
         migrate(&db_path, &next_version)?;
         current_version = next_version;
     }
-
+    // Run post-migration checks, which includes:
+    // - re-compute 100 tipsets
     migration_check(config, &db_path).await?;
 
     // Rename db to latest versioned db
     fs::rename(db_path.as_path(), &chain_path(config))?;
 
-    info!("Database Migrated to {:?}", target_version);
+    info!("Database Successfully Migrated to {:?}", target_version);
     Ok(())
 }
 
+// TODO: Add Steps required for migration
 /// Migrate to an intermediate db version
-fn migrate(_existing_db_path: &PathBuf, intermediate_version: &DBVersion) -> anyhow::Result<()> {
-    match intermediate_version {
+fn migrate(_existing_db_path: &PathBuf, next_version: &DBVersion) -> anyhow::Result<()> {
+    match next_version {
         DBVersion::V11 => {
-            // TODO: Add Steps required for migrating to V11
             Ok(())
         }
         _ => Ok(()),
     }
 }
 
+/// Checks if another db already exist
 pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     let dir = PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string());
     let paths = fs::read_dir(&dir).unwrap();
@@ -110,15 +117,16 @@ pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     None
 }
 
+/// Returns respective `DBVersion` from db dir name 
 fn get_db_version(db_path: &PathBuf) -> DBVersion {
     match db_path
         .parent()
         .and_then(|parent_path| parent_path.file_name())
     {
         Some(dir_name) => match dir_name.to_str() {
-            Some("0.11.1") => DBVersion::V11,
-            _ => DBVersion::V0,
+            Some(name) if name.starts_with("0.11") => DBVersion::V11,
+            _ => DBVersion::V0, // Defaults to V0
         },
-        None => DBVersion::V0,
+        None => DBVersion::V0, // Defaults to V0
     }
 }
