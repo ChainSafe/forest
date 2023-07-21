@@ -183,7 +183,7 @@ pub struct Trace {
     pub msg: TraceMessage,
     pub msg_ret: TraceReturn,
     // pub gas_charges: Vec<TraceGasCharge>,
-    // pub subcalls: Vec<Trace>,
+    pub subcalls: Vec<Trace>,
 }
 
 //
