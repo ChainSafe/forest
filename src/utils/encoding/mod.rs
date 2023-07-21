@@ -3,9 +3,13 @@
 
 use crate::shim::address::Address;
 use blake2b_simd::Params;
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
+use integer_encoding::VarInt;
 pub use serde::{de, ser, Deserializer, Serializer};
+use std::io;
+use tokio_util::codec::{Decoder, Encoder};
 
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {
@@ -182,6 +186,68 @@ mod tests {
 
         ensure!(serde_json::to_string_pretty(&a)? == serde_json::to_string_pretty(&b)?);
 
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+// Unsigned VarInt (Uvi) Bytes
+pub struct UviBytes {
+    // cache for varint frame size
+    len: Option<usize>,
+}
+
+impl UviBytes {
+    // TODO: Make this a parameter in `UviBytes`
+    const SIZE_LIMIT: usize = 128 * 1024 * 1024;
+}
+
+impl Decoder for UviBytes {
+    type Item = BytesMut;
+    type Error = io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        if self.len.is_none() {
+            if let Some((n, size)) = usize::decode_var(src) {
+                src.advance(size);
+                self.len = Some(n);
+            } else if src.len() >= std::mem::size_of::<usize>() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid uvi frame",
+                ));
+            }
+        }
+        if let Some(n) = self.len.take() {
+            if n > UviBytes::SIZE_LIMIT {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("uvi frame size limit exceeded, decode {}", n),
+                ));
+            }
+            if n <= src.len() {
+                return Ok(Some(src.split_to(n)));
+            }
+            src.reserve(n - src.len());
+            self.len = Some(n);
+        }
+        Ok(None)
+    }
+}
+
+impl Encoder<Bytes> for UviBytes {
+    type Error = io::Error;
+
+    fn encode(&mut self, item: Bytes, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        if item.remaining() > UviBytes::SIZE_LIMIT {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!("uvi frame size limit exceeded, encode {}", item.remaining()),
+            ));
+        }
+        item.remaining().encode_var(dst);
+        dst.reserve(item.remaining());
+        dst.put(item);
         Ok(())
     }
 }

@@ -156,6 +156,7 @@ tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
 ticker = "0.1"
+integer-encoding = "4.0"
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }

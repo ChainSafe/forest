@@ -71,8 +71,7 @@ use std::{
     ops::ControlFlow,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_util::codec::{BytesCodec, FramedWrite};
-use tokio_util_06::codec::FramedRead;
+use tokio_util::codec::{BytesCodec, FramedWrite, FramedRead};
 use tracing::{debug, trace};
 
 use crate::utils::{try_collate, Collate};
@@ -653,7 +652,7 @@ pub async fn zstd_compress_varint_manyframe(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> io::Result<usize> {
-    type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
+    type VarintFrameCodec = crate::utils::encoding::UviBytes;
     let mut count = 0;
     try_collate(
         FramedRead::new(reader, VarintFrameCodec::default()),
