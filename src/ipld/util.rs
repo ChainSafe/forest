@@ -337,11 +337,3 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    // #[test]
-    // fn stream_calibnet_genesis() {
-    //     todo!()
-    // }
-}
