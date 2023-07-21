@@ -75,7 +75,7 @@ async fn test_state_migration(
         let tmp: tempfile::TempPath = tempfile::NamedTempFile::new()?.into_temp_path();
         {
             let mut reader = crate::utils::net::reader(&format!(
-                " https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/state/{old_state}.car"
+                "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/state_migration/state/{old_state}.car"
             ))
             .await?;
             let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&tmp).await?);
