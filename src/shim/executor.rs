@@ -152,8 +152,8 @@ impl From<Receipt_v3> for Receipt {
 // TODO: use this https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L35
 // to create the equivalent ExecutionTrace structure that we could serialize/deserialize
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct LotusGasCharge {
+#[derive(Clone, Debug)]
+struct TraceGasCharge {
     pub name: Cow<'static, str>,
     pub total_gas: u64,
     pub compute_gas: u64,
@@ -161,31 +161,29 @@ struct LotusGasCharge {
     pub duration_nanos: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct TraceMessage {
     pub from: Address,
     pub to: Address,
     pub value: TokenAmount,
     pub method_num: MethodNum,
-    #[serde(with = "strict_bytes")]
     pub params: Vec<u8>,
     pub codec: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct TraceReturn {
-    exit_code: ExitCode,
-    #[serde(with = "strict_bytes")]
-    return_data: Vec<u8>,
-    codec: u64,
+    pub exit_code: ExitCode,
+    pub return_data: Vec<u8>,
+    pub return_codec: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Trace {
-    msg: TraceMessage,
-    msg_ret: TraceReturn,
-    gas_charges: Vec<LotusGasCharge>,
-    subcalls: Vec<Trace>,
+    pub msg: TraceMessage,
+    // pub msg_ret: TraceReturn,
+    // pub gas_charges: Vec<TraceGasCharge>,
+    // pub subcalls: Vec<Trace>,
 }
 
 //
@@ -197,6 +195,7 @@ pub fn build_lotus_trace(
     value: TokenAmount,
     trace_iter: &mut impl Iterator<Item = ExecutionEvent_v3>,
 ) -> anyhow::Result<Trace> {
+    /*
     let params = params.unwrap_or_default();
     let mut new_trace = Trace {
         msg: TraceMessage {
@@ -210,7 +209,7 @@ pub fn build_lotus_trace(
         msg_ret: TraceReturn {
             exit_code: ExitCode::OK,
             return_data: Vec::new(),
-            codec: 0,
+            return_codec: 0,
         },
         gas_charges: vec![],
         subcalls: vec![],
@@ -239,7 +238,7 @@ pub fn build_lotus_trace(
                 new_trace.msg_ret = TraceReturn {
                     exit_code,
                     return_data: return_data.data,
-                    codec: return_data.codec,
+                    return_codec: return_data.codec,
                 };
                 return Ok(new_trace);
             }
@@ -256,7 +255,7 @@ pub fn build_lotus_trace(
                 new_trace.msg_ret = TraceReturn {
                     exit_code,
                     return_data: Default::default(),
-                    codec: 0,
+                    return_codec: 0,
                 };
                 return Ok(new_trace);
             }
@@ -266,7 +265,7 @@ pub fn build_lotus_trace(
                 other_gas,
                 elapsed,
             }) => {
-                new_trace.gas_charges.push(LotusGasCharge {
+                new_trace.gas_charges.push(TraceGasCharge {
                     name,
                     total_gas: (compute_gas + other_gas).round_up(),
                     compute_gas: compute_gas.round_up(),
@@ -283,6 +282,7 @@ pub fn build_lotus_trace(
             _ => (), // ignore unknown events.
         };
     }
+    */
 
     Err(anyhow!("should have returned on an ExecutionEvent:Return"))
 }

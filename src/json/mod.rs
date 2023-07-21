@@ -13,6 +13,9 @@ pub mod signature;
 pub mod signed_message;
 pub mod token_amount;
 pub mod vrf;
+pub mod trace;
+pub mod trace_message;
+pub mod trace_return;
 #[cfg(test)]
 mod tests {
     mod address_test;
