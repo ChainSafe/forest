@@ -275,9 +275,9 @@ impl ArchiveInfo {
             }
 
             if tipset.epoch() == 0 {
-                if tipset.min_ticket_block().cid().to_string() == calibnet::GENESIS_CID {
+                if tipset.min_ticket_block().cid() == &*calibnet::GENESIS_CID {
                     network = "calibnet".into();
-                } else if tipset.min_ticket_block().cid().to_string() == mainnet::GENESIS_CID {
+                } else if tipset.min_ticket_block().cid() == &*mainnet::GENESIS_CID {
                     network = "mainnet".into();
                 }
             }
@@ -290,9 +290,9 @@ impl ArchiveInfo {
             if may_skip {
                 match tipset.genesis(&store).ok() {
                     Some(genesis_block) => {
-                        if genesis_block.cid().to_string() == calibnet::GENESIS_CID {
+                        if genesis_block.cid() == &*calibnet::GENESIS_CID {
                             network = "calibnet".into();
-                        } else if genesis_block.cid().to_string() == mainnet::GENESIS_CID {
+                        } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
                             network = "mainnet".into();
                         }
                     }
@@ -322,9 +322,9 @@ fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
     let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
 
     let genesis = root.genesis(&store)?;
-    let chain_name = if genesis.cid().to_string() == calibnet::GENESIS_CID {
+    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
         NetworkChain::Calibnet
-    } else if genesis.cid().to_string() == mainnet::GENESIS_CID {
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
         NetworkChain::Mainnet
     } else {
         bail!("Unrecognizable genesis block");

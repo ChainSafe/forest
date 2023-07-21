@@ -14,7 +14,6 @@ use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
@@ -284,14 +283,11 @@ impl Tipset {
             serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
         });
 
-        let calibnet_cid = Cid::from_str(calibnet::GENESIS_CID).unwrap();
-        let mainnet_cid = Cid::from_str(mainnet::GENESIS_CID).unwrap();
-
         for tipset in self.clone().chain(&store) {
             // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
-                (calibnet_cid, &headers.calibnet),
-                (mainnet_cid, &headers.mainnet),
+                (*calibnet::GENESIS_CID, &headers.calibnet),
+                (*mainnet::GENESIS_CID, &headers.mainnet),
             ] {
                 if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
                     if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
