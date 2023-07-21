@@ -31,9 +31,8 @@ use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::networks::{calibnet, mainnet, NetworkChain};
+use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
-use crate::Config;
 use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
@@ -79,7 +78,7 @@ pub enum ArchiveCommands {
 }
 
 impl ArchiveCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
                 println!("{}", ArchiveInfo::from_file(snapshot)?);
@@ -91,11 +90,6 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => {
-                let chain_finality = config.chain.policy.chain_finality;
-                if depth < chain_finality {
-                    bail!("depth has to be at least {}", chain_finality);
-                }
-
                 let reader = std::fs::File::open(&input_path)?;
 
                 info!(
@@ -103,7 +97,7 @@ impl ArchiveCommands {
                     input_path.to_str().unwrap_or_default()
                 );
 
-                do_export(config, reader, output_path, epoch, depth).await
+                do_export(reader, output_path, epoch, depth).await
             }
             Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
         }
@@ -125,7 +119,6 @@ fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> 
 }
 
 async fn do_export(
-    config: Config,
     reader: impl Read + Seek + Send + Sync,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -139,6 +132,20 @@ async fn do_export(
     let index = ChainIndex::new(store.clone());
     let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
 
+    let genesis = ts.genesis(&store)?;
+    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        NetworkChain::Devnet("devnet".to_string())
+    };
+
+    let finality = ChainConfig::from_chain(&network).policy.chain_finality;
+    if depth < finality {
+        bail!("For {}, depth has to be at least {}.", network, finality);
+    }
+
     let epoch = epoch_option.unwrap_or(ts.epoch());
     info!("looking up a tipset by epoch: {}", epoch);
 
@@ -146,7 +153,7 @@ async fn do_export(
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
-    let output_path = build_output_path(config.chain.network.to_string(), epoch, output_path);
+    let output_path = build_output_path(network.to_string(), epoch, output_path);
 
     let writer = tokio::fs::File::create(&output_path)
         .await
@@ -355,10 +362,8 @@ mod tests {
 
     #[tokio::test]
     async fn export() {
-        let config = Config::default();
         let output_path = TempDir::new().unwrap();
         do_export(
-            config.clone(),
             std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
             output_path.path().into(),
             Some(0),
@@ -367,7 +372,7 @@ mod tests {
         .await
         .unwrap();
         let file = tokio::fs::File::open(build_output_path(
-            config.chain.network.to_string(),
+            NetworkChain::Calibnet.to_string(),
             0,
             output_path.path().into(),
         ))
