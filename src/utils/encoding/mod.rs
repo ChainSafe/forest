@@ -190,16 +190,21 @@ mod tests {
     }
 }
 
-#[derive(Debug, Default)]
 // Unsigned VarInt (Uvi) Bytes
 pub struct UviBytes {
     // cache for varint frame size
     len: Option<usize>,
+    // content size limit, defaults to 128MiB
+    limit: usize,
 }
 
-impl UviBytes {
-    // TODO: Make this a parameter in `UviBytes`
-    const SIZE_LIMIT: usize = 128 * 1024 * 1024;
+impl Default for UviBytes {
+    fn default() -> Self {
+        UviBytes {
+            len: None,
+            limit: 128 * 1024 * 1024,
+        }
+    }
 }
 
 impl Decoder for UviBytes {
@@ -219,7 +224,7 @@ impl Decoder for UviBytes {
             }
         }
         if let Some(n) = self.len.take() {
-            if n > UviBytes::SIZE_LIMIT {
+            if n > self.limit {
                 return Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     format!("uvi frame size limit exceeded, decode {}", n),
@@ -239,7 +244,7 @@ impl Encoder<Bytes> for UviBytes {
     type Error = io::Error;
 
     fn encode(&mut self, item: Bytes, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        if item.remaining() > UviBytes::SIZE_LIMIT {
+        if item.remaining() > self.limit {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 format!("uvi frame size limit exceeded, encode {}", item.remaining()),
