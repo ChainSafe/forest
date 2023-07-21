@@ -195,7 +195,6 @@ pub fn build_lotus_trace(
     value: TokenAmount,
     trace_iter: &mut impl Iterator<Item = ExecutionEvent_v3>,
 ) -> anyhow::Result<Trace> {
-    /*
     let params = params.unwrap_or_default();
     let mut new_trace = Trace {
         msg: TraceMessage {
@@ -282,7 +281,6 @@ pub fn build_lotus_trace(
             _ => (), // ignore unknown events.
         };
     }
-    */
 
     Err(anyhow!("should have returned on an ExecutionEvent:Return"))
 }
