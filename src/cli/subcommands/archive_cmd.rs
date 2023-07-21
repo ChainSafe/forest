@@ -141,12 +141,16 @@ async fn do_export(
         NetworkChain::Devnet("devnet".to_string())
     };
 
-    let finality = ChainConfig::from_chain(&network).policy.chain_finality;
+    let epoch = epoch_option.unwrap_or(ts.epoch());
+
+    let finality = ChainConfig::from_chain(&network)
+        .policy
+        .chain_finality
+        .min(epoch);
     if depth < finality {
         bail!("For {}, depth has to be at least {}.", network, finality);
     }
 
-    let epoch = epoch_option.unwrap_or(ts.epoch());
     info!("looking up a tipset by epoch: {}", epoch);
 
     let ts = index
