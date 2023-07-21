@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod store;
 mod weight;
-use crate::blocks::{Tipset};
+use crate::blocks::Tipset;
 use crate::ipld::stream_chain;
+use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
+use anyhow::{Context, Result};
+use async_compression::futures::write::ZstdEncoder;
 use digest::Digest;
 use futures::{io::BufWriter, AsyncWrite};
 use futures_util::future::Either;
 use futures_util::AsyncWriteExt;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
-use crate::utils::{
-    io::{AsyncWriterWithChecksum, Checksum},
-};
-use async_compression::futures::write::ZstdEncoder;
 use fvm_ipld_car::CarHeader;
-use anyhow::{Context, Result};
+use std::sync::Arc;
 
 pub use self::{store::*, weight::*};
 
