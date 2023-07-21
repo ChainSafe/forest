@@ -38,7 +38,7 @@ pub enum ResolveNullTipset {
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
+    pub fn new(db: Arc<DB>) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self { ts_cache, db }
     }

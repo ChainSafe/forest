@@ -28,10 +28,9 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
-use crate::chain::index::ResolveNullTipset;
-use crate::chain::{ChainEpochDelta, ChainStore};
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::genesis::read_genesis_header;
 use crate::networks::{calibnet, mainnet, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use crate::Config;
@@ -45,7 +44,6 @@ use sha2::Sha256;
 use std::io::{Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tempfile::TempDir;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::info;
 
@@ -145,28 +143,12 @@ async fn do_export(
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
     );
 
-    let genesis = read_genesis_header(
-        config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
-        &store,
-    )
-    .await?;
-
-    let tmp_chain_dir = TempDir::new()?;
-
-    let chain_store = Arc::new(ChainStore::new(
-        store,
-        config.chain.clone(),
-        &genesis,
-        tmp_chain_dir.path(),
-    )?);
-
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+    let index = ChainIndex::new(store.clone());
+    let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let ts = chain_store
-        .chain_index
+    let ts = index
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
@@ -184,7 +166,7 @@ async fn do_export(
         output_path.to_str().unwrap_or_default()
     );
 
-    crate::chain::export::<_, Sha256>(&chain_store.db, &ts, depth, writer.compat(), true, true).await?;
+    crate::chain::export::<_, Sha256>(store, &ts, depth, writer.compat(), true, true).await?;
 
     Ok(())
 }
@@ -356,6 +338,7 @@ mod tests {
     use super::*;
     use async_compression::tokio::bufread::ZstdDecoder;
     use fvm_ipld_car::CarReader;
+    use tempfile::TempDir;
     use tokio::io::BufReader;
 
     #[test]
