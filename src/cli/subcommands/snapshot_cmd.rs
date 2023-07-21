@@ -23,7 +23,7 @@ use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use serde::__private::de;
-use std::io::{Cursor, BufReader, SeekFrom, Seek};
+use std::io::{BufReader, Cursor, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -226,48 +226,40 @@ impl SnapshotCommands {
                 // so the best thing to do is to just try compressed and then uncompressed.
                 use car_backed_blockstore::zstd_compress_varint_manyframe;
                 use tokio::fs::File;
-                match zstd_compress_varint_manyframe(
-                    async_compression::tokio::bufread::ZstdDecoder::new(tokio::io::BufReader::new(
-                        File::open(&source).await?,
-                    )),
+
+                zstd_compress_varint_manyframe(
+                    File::open(&source).await?,
                     File::create(&destination).await?,
                     frame_size,
                     compression_level,
                 )
-                .await
-                {
-                    Ok(_num_frames) => Ok(()),
-                    Err(error) => {
-                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
-                        zstd_compress_varint_manyframe(
-                            File::open(&source).await?,
-                            File::create(&destination).await?,
-                            frame_size,
-                            compression_level,
-                        )
-                        .await?;
-                        // let idx = crate::car_backed_blockstore::keys_from_compressed_car(
-                        //     std::io::BufReader::new(std::fs::File::open(&destination)?),
-                        // )?;
-                        // eprintln!("Index elements: {}", idx.len());
-                        // let mut file = std::io::BufWriter::new(std::fs::OpenOptions::new().append(true).open(&destination)?);
-                        // let eof = file.seek(SeekFrom::End(0))?;
-                        // let mut index = Vec::new();
-                        // crate::utils::db::car_index::CarIndexBuilder::new(&idx).write(std::io::Cursor::new(&mut index))?;
-                        // crate::car_backed_blockstore::write_skip_frame(&mut file, &index)?;
+                .await?;
+                let idx = crate::car_backed_blockstore::keys_from_compressed_car(
+                    std::io::BufReader::new(std::fs::File::open(&destination)?),
+                )?;
+                eprintln!("Index elements: {}", idx.len());
+                let mut file = std::io::BufWriter::new(
+                    std::fs::OpenOptions::new()
+                        .append(true)
+                        .open(&destination)?,
+                );
+                let eof = file.seek(SeekFrom::End(0))?;
+                let mut index = Vec::new();
+                crate::utils::db::car_index::CarIndexBuilder::new(&idx)
+                    .write(std::io::Cursor::new(&mut index))?;
+                crate::car_backed_blockstore::write_skip_frame(&mut file, &index)?;
 
-                        // let mut ident_frame = vec![];
-                        // let mut ident_frame_writer = Cursor::new(&mut ident_frame);
-                        // let index_len = crate::utils::db::car_index::CarIndexBuilder::capacity_at(idx.len());
-                        // ident_frame_writer.write_all(&index_len.to_le_bytes())?;
-                        // ident_frame_writer.write_all(&eof.to_le_bytes())?;
-                        // ident_frame_writer.flush()?;
-                        // crate::car_backed_blockstore::write_skip_frame(&mut file, &ident_frame)?;
+                let mut ident_frame = vec![];
+                let mut ident_frame_writer = Cursor::new(&mut ident_frame);
+                let index_len =
+                    crate::utils::db::car_index::CarIndexBuilder::capacity_at(idx.len());
+                ident_frame_writer.write_all(&index_len.to_le_bytes())?;
+                ident_frame_writer.write_all(&eof.to_le_bytes())?;
+                ident_frame_writer.flush()?;
+                crate::car_backed_blockstore::write_skip_frame(&mut file, &ident_frame)?;
 
-                        // file.flush()?;
-                        Ok(())
-                    }
-                }
+                file.flush()?;
+                Ok(())
             }
         }
     }
