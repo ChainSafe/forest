@@ -289,7 +289,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                             let result = result.and_then(|val| {
                                 let block = val.ok_or(anyhow::anyhow!("missing key"))?;
                                 if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                    let ipld: Ipld = from_slice(&block).unwrap();
+                                    let ipld: Ipld = from_slice(&block)?;
                                     this.dfs.push_front(Iterate(ipld));
                                 }
                                 Ok((cid, block))
