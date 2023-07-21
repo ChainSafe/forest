@@ -24,10 +24,10 @@ use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use std::io::BufReader;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tempfile::NamedTempFile;
-use tempfile::TempDir;
+use tempfile::{NamedTempFile, TempDir};
+use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 #[derive(Debug, Subcommand)]
@@ -155,17 +155,16 @@ impl SnapshotCommands {
                     }
                 });
 
-                chain_export(params, &config.client.rpc_token)
+                let hash_result = chain_export(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
                 handle.abort();
                 let _ = handle.await;
 
-                std::fs::rename(
-                    temp_path.with_extension("sha256sum"),
-                    output_path.with_extension("sha256sum"),
-                )?;
+                if let Some(hash) = hash_result {
+                    save_checksum(&output_path, hash).await?;
+                }
                 temp_path.persist(output_path)?;
 
                 println!("Export completed.");
@@ -262,6 +261,27 @@ impl SnapshotCommands {
             }
         }
     }
+}
+
+/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
+/// with the same name but with a `.sha256sum` extension.
+async fn save_checksum(source: &Path, encoded_hash: String) -> Result<()> {
+    let checksum_file_content = format!(
+        "{encoded_hash} {}\n",
+        source
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .context("Failed to retrieve file name while saving checksum")?
+    );
+
+    let checksum_path = PathBuf::from(source).with_extension("sha256sum");
+
+    let mut checksum_file = tokio::fs::File::create(&checksum_path).await?;
+    checksum_file
+        .write_all(checksum_file_content.as_bytes())
+        .await?;
+    checksum_file.flush().await?;
+    Ok(())
 }
 
 // Check the validity of a snapshot by looking at IPLD links, the genesis block,
