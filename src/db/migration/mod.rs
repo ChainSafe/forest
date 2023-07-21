@@ -14,12 +14,7 @@ use fvm_ipld_blockstore::Blockstore;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{error, info};
-// migration error types
-pub enum MigrationError {
-    E1,
-    E2,
-}
+use tracing::info;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum DBVersion {
@@ -28,30 +23,37 @@ pub enum DBVersion {
 }
 
 /// Check current db
-async fn pre_migration_check(config: &Config) -> anyhow::Result<()> {
-    let chain_data_root = chain_path(config);
-    let db_path = db_root(&chain_data_root);
-    info!("Running database migration checks for: {}", db_path.display());
+async fn pre_migration_check(
+    config: &Config,
+    existing_chain_data_root: &PathBuf,
+) -> anyhow::Result<()> {
+    info!(
+        "Running database migration checks for: {}",
+        existing_chain_data_root.display()
+    );
 
-    if cns::FETCH_PARAMS {
+    if ensure_params_downloaded().await.is_err() || cns::FETCH_PARAMS {
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
     }
     ensure_params_downloaded().await?;
 
-    let db = Arc::new(open_proxy_db(db_path, config.db_config().clone())?);
+    let db = Arc::new(open_proxy_db(
+        db_root(&existing_chain_data_root),
+        config.db_config().clone(),
+    )?);
     let genesis = read_genesis_header(None, config.chain.genesis_bytes(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
         db,
         Arc::clone(&config.chain),
         &genesis,
-        chain_data_root.as_path(),
+        existing_chain_data_root.as_path(),
     )?);
-    // Initialize StateManager
     let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&config.chain))?);
 
-    let ts = state_manager.chain_store().heaviest_tipset().epoch();
-    println!("TS: {}", ts);
-
+    let ts = state_manager.chain_store().heaviest_tipset();
+    let height = ts.epoch();
+    assert!(height.is_positive());
+    state_manager.validate_range((height - 1)..=height)?;
     Ok(())
 }
 
@@ -73,8 +75,8 @@ where
 
     let ts = state_manager.chain_store().heaviest_tipset();
     let height = ts.epoch();
-    let validate_from = height - 100;
-    state_manager.validate_range(validate_from..=height)?;
+    assert!(height.is_positive());
+    state_manager.validate_range((height - 1)..=height)?;
 
     Ok(())
 }
@@ -83,27 +85,35 @@ where
 pub async fn migrate_db<DB>(
     config: &Config,
     state_manager: Arc<StateManager<DB>>,
-    current_version: DBVersion,
+    db_path: PathBuf,
     target_version: DBVersion,
 ) -> anyhow::Result<()>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
     info!("Running Database Migrations...");
-    pre_migration_check(config).await?;
-    // init intermediate with current version
-    let mut intermediate_version = current_version;
-    while intermediate_version != target_version {
-        // Execute the migration steps for itermediate version
-        migrate(&intermediate_version)?;
-        post_migration_check(config, Arc::clone(&state_manager)).await?;
-        // Update the itermediate version
-        intermediate_version = match intermediate_version {
+    let mut current_version = get_db_version(&db_path);
+
+    pre_migration_check(config, &db_path).await?;
+
+    while current_version != target_version {
+        let next_version = match current_version {
             DBVersion::V0 => DBVersion::V11,
             _ => todo!(),
         };
+        // Execute the migration steps for itermediate version
+        migrate(&next_version)?;
+        current_version = next_version;
     }
-    info!("Database Migrated to {:?}", intermediate_version);
+    if post_migration_check(config, Arc::clone(&state_manager))
+        .await
+        .is_ok()
+    {
+        // Delete previous database
+        fs_extra::dir::remove(db_path.as_path())?;
+    }
+
+    info!("Database Migrated to {:?}", target_version);
     Ok(())
 }
 
@@ -111,12 +121,40 @@ where
 fn migrate(intermediate_version: &DBVersion) -> anyhow::Result<()> {
     match intermediate_version {
         DBVersion::V11 => {
-            // Steps required for migrating to V11
+            // TODO: Add Steps required for migrating to V11
             Ok(())
         }
         _ => {
-            // Error handling
+            // TODO: Error handling
             Ok(())
         }
+    }
+}
+
+pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
+    let dir = PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string());
+    let paths = fs::read_dir(&dir).unwrap();
+    for path in paths {
+        if let Ok(entry) = path {
+            let path_str = entry.file_name();
+            if path_str != env!("CARGO_PKG_VERSION") {
+                return Some(entry.path());
+            }
+        }
+    }
+
+    None
+}
+
+fn get_db_version(db_path: &PathBuf) -> DBVersion {
+    match db_path
+        .parent()
+        .and_then(|parent_path| parent_path.file_name())
+    {
+        Some(dir_name) => match dir_name.to_str() {
+            Some("0.11.1") => DBVersion::V11,
+            _ => DBVersion::V0,
+        },
+        None => DBVersion::V0,
     }
 }

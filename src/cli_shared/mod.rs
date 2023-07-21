@@ -13,7 +13,9 @@ pub use tikv_jemallocator;
 
 /// Gets chain data directory
 pub fn chain_path(config: &crate::cli_shared::cli::Config) -> PathBuf {
-    PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string()).join(env!("CARGO_PKG_VERSION"))
+    PathBuf::from(&config.client.data_dir)
+        .join(config.chain.network.to_string())
+        .join(env!("CARGO_PKG_VERSION"))
 }
 
 pub mod snapshot;
