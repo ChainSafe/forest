@@ -57,7 +57,7 @@ use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use indexmap::IndexMap;
-use integer_encoding::VarInt;
+use integer_encoding::{VarInt, VarIntReader};
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
@@ -533,22 +533,10 @@ fn read_block_data_location_and_skip(
 ///        reader end ►│
 /// ```
 fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
-    use unsigned_varint::io::{
-        read_u32,
-        ReadError::{Decode, Io},
-    };
-
-    let mut byte = [0u8; 1]; // detect EOF
-    match reader.read(&mut byte)? {
-        0 => Ok(None),
-        1 => read_u32(byte.chain(reader))
-            .map_err(|varint_error| match varint_error {
-                Io(e) => e,
-                Decode(e) => io::Error::new(InvalidData, e),
-                other => io::Error::new(Other, other),
-            })
-            .map(Some),
-        _ => unreachable!(),
+    match reader.read_varint() {
+        Ok(n) => Ok(Some(n)),
+        Err(e) if matches!(e.kind(), std::io::ErrorKind::UnexpectedEof) => Ok(None),
+        Err(e) => Err(e)
     }
 }
 
