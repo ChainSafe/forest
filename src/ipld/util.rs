@@ -223,7 +223,7 @@ pin_project! {
 ///
 /// # Arguments
 ///
-/// * `db` - A database that implmenets [`Blockstore`] interface.
+/// * `db` - A database that implements [`Blockstore`] interface.
 /// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
 /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
 /// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
