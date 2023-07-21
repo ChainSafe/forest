@@ -204,7 +204,7 @@ use std::task::{Context, Poll};
 
 enum Task {
     // Yield the block, don't visit it.
-    Pass(Cid),
+    Emit(Cid),
     // Visit all the elements, recursively.
     Iterate(Ipld),
 }
@@ -233,7 +233,7 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
-) -> impl Stream<Item = (Cid, Vec<u8>)> {
+) -> impl Stream<Item = anyhow::Result<(Cid, Vec<u8>)>> {
     ChainStream {
         tipset_iter,
         db,
@@ -244,8 +244,7 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 }
 
 impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
-    // FIXME: Once we have our own writer - this should be `anyhow::Result<(Cid, Vec<u8>)>`
-    type Item = (Cid, Vec<u8>);
+    type Item = anyhow::Result<(Cid, Vec<u8>)>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
@@ -257,7 +256,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
         loop {
             while let Some(ipld) = this.dfs.pop_front() {
                 match ipld {
-                    Pass(cid) => {
+                    Emit(cid) => {
                         let result = this.db.get(&cid);
 
                         let result = result.and_then(|val| {
@@ -265,16 +264,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                             Ok((cid, block))
                         });
 
-                        // FIXME: Get rid of this when we can use `Item = Result`.
-                        if result.is_err() {
-                            continue;
-                        }
-
-                        return Poll::Ready(Some(
-                            result
-                                // FIXME: Get rid of this when we can use `Item = Result`.
-                                .unwrap(),
-                        ));
+                        return Poll::Ready(Some(result));
                     }
                     Iterate(Ipld::Null) => {}
                     Iterate(Ipld::Bool(_)) => {}
@@ -291,15 +281,16 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         .rev()
                         .for_each(|elt| this.dfs.push_front(Iterate(elt))),
                     // The link traversal implementation assumes there are three types of encoding:
-                    // 1. CBOR: needs to be neither reachable nor traversed, ignore it.
-                    // 2. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
-                    // 3. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
+                    // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
+                    // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
+                    // 3. _: ignore all other links
                     Iterate(Ipld::Link(cid)) => {
-                        if cid.codec() == fvm_ipld_encoding::CBOR {
-                            continue;
-                        }
                         // Don't revisit what's already been visited.
-                        if this.seen.insert(cid) {
+                        if matches!(
+                            cid.codec(),
+                            crate::shim::crypto::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
+                        ) && this.seen.insert(cid)
+                        {
                             let result = this.db.get(&cid);
 
                             let result = result.and_then(|val| {
@@ -311,16 +302,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                 Ok((cid, block))
                             });
 
-                            // FIXME: Get rid of this when we can use `Item = Result`.
-                            if result.is_err() {
-                                continue;
-                            }
-
-                            return Poll::Ready(Some(
-                                result
-                                    // FIXME: Get rid of this when we can use `Item = Result`.
-                                    .unwrap(),
-                            ));
+                            return Poll::Ready(Some(result));
                         }
                     }
                 }
@@ -337,22 +319,28 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         continue;
                     }
 
+                    // Make sure we always yield a block otherwise.
+                    this.dfs.push_back(Emit(*block.cid()));
+
+                    if block.epoch() == 0 {
+                        // The genesis block has some kind of dummy parent that needs to be emitted.
+                        for p in block.parents().cids() {
+                            this.dfs.push_back(Emit(*p));
+                        }
+                    }
+
+                    // Process block messages.
+                    if block.epoch() > stateroot_limit {
+                        this.dfs.push_back(Iterate(Ipld::Link(*block.messages())));
+                    }
+
                     // Visit the block if it's within required depth. And a special case for `0`
                     // epoch to match Lotus' implementation.
                     if block.epoch() == 0 || block.epoch() > stateroot_limit {
                         // NOTE: In the original `walk_snapshot` implementation we walk the dag
                         // immediately. Which is what we do here as well, but using a queue.
-                        this.dfs
-                            .push_front(Iterate(Ipld::Link(*block.state_root())));
+                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
                     }
-
-                    // Process block messages.
-                    if block.epoch() > stateroot_limit {
-                        this.dfs.push_front(Iterate(Ipld::Link(*block.messages())));
-                    }
-
-                    // Make sure we always yield a block otherwise.
-                    this.dfs.push_front(Pass(*block.cid()));
                 }
             } else {
                 // That's it, nothing else to do. End of stream.

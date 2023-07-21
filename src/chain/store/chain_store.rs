@@ -403,6 +403,7 @@ where
         D: Digest + Send + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
+        use futures::StreamExt;
         let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
         let mut writer = if compressed {
             Either::Left(ZstdEncoder::new(writer))
@@ -416,7 +417,8 @@ where
             self.db.clone(),
             tipset.clone().chain(self.db.clone()),
             stateroot_lookup_limit,
-        );
+        )
+        .map(|result| result.unwrap()); // FIXME: use a sink that supports TryStream.
         let header = CarHeader::from(tipset.key().cids().to_vec());
         header
             .write_stream_async(&mut writer, &mut stream)
