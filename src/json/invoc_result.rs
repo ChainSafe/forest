@@ -47,9 +47,8 @@ pub mod json {
         msg_receipt: Receipt,
         #[serde(with = "crate::json::message_gas_cost::json")]
         gas_cost: MessageGasCost,
-        #[serde(with = "crate::json::trace::json")]
-        // TODO: restore the option
-        execution_trace: Trace,
+        #[serde(with = "crate::json::trace::json::opt")]
+        execution_trace: Option<Trace>,
         error: String,
     }
 

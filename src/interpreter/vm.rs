@@ -95,7 +95,7 @@ pub struct InvocResult {
     pub msg: Message,
     pub msg_receipt: Receipt,
     pub gas_cost: MessageGasCost,
-    pub execution_trace: Trace,
+    pub execution_trace: Option<Trace>,
     pub error: String,
 }
 
@@ -345,7 +345,7 @@ where
                         msg: msg.message().clone(),
                         msg_receipt,
                         gas_cost: MessageGasCost::new(msg.message(), ret),
-                        execution_trace: trace.unwrap(),
+                        execution_trace: trace,
                         error,
                     });
                 }

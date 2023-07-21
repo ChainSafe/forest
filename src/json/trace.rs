@@ -7,7 +7,7 @@ pub mod json {
     use crate::shim::executor::TraceReturn;
     use crate::shim::executor::TraceGasCharge;
 
-    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a Trace from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -91,6 +91,27 @@ pub mod json {
             D: Deserializer<'de>,
         {
             deserializer.deserialize_any(GoVecVisitor::<Trace, TraceJson>::new())
+        }
+    }
+
+    pub mod opt {
+        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::{Trace, TraceJson, TraceJsonRef};
+
+        pub fn serialize<S>(v: &Option<Trace>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref().map(TraceJsonRef).serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Trace>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<TraceJson> = Deserialize::deserialize(deserializer)?;
+            Ok(s.map(|v| v.0))
         }
     }
 }
