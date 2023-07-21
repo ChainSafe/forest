@@ -97,9 +97,7 @@ pub async fn migrate_db(
 /// Migrate to an intermediate db version
 fn migrate(_existing_db_path: &PathBuf, next_version: &DBVersion) -> anyhow::Result<()> {
     match next_version {
-        DBVersion::V11 => {
-            Ok(())
-        }
+        DBVersion::V11 => Ok(()),
         _ => Ok(()),
     }
 }
@@ -117,7 +115,7 @@ pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     None
 }
 
-/// Returns respective `DBVersion` from db dir name 
+/// Returns respective `DBVersion` from db dir name
 fn get_db_version(db_path: &PathBuf) -> DBVersion {
     match db_path
         .parent()
