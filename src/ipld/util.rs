@@ -148,7 +148,7 @@ where
         };
         on_inserted(seen.len());
 
-        if !should_save_block_to_snapshot(&next) {
+        if !should_save_block_to_snapshot(next) {
             continue;
         }
 
@@ -181,7 +181,7 @@ where
     Ok(seen.len())
 }
 
-fn should_save_block_to_snapshot(cid: &Cid) -> bool {
+fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.
@@ -251,8 +251,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
         let mut this = self.project();
 
         let stateroot_limit = *this.stateroot_limit;
-        // FIXME: yield after N items to avoid blocking the task runner
-        // cx.waker().wake_by_ref();
         loop {
             while let Some(ipld) = this.dfs.pop_front() {
                 match ipld {
@@ -286,11 +284,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                     // 3. _: ignore all other links
                     Iterate(Ipld::Link(cid)) => {
                         // Don't revisit what's already been visited.
-                        if matches!(
-                            cid.codec(),
-                            crate::shim::crypto::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
-                        ) && this.seen.insert(cid)
-                        {
+                        if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
                             let result = this.db.get(&cid);
 
                             let result = result.and_then(|val| {
@@ -313,12 +307,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.as_mut().next() {
                 for block in tipset.into_blocks().into_iter() {
-                    // FIXME: Does not seem to make any difference on tested snapshots. Needs
-                    // mainnet snapshot investigation.
-                    if !should_save_block_to_snapshot(block.cid()) {
-                        continue;
-                    }
-
                     // Make sure we always yield a block otherwise.
                     this.dfs.push_back(Emit(*block.cid()));
 
