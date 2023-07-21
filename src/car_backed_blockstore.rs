@@ -347,6 +347,73 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
     }
 }
 
+use crate::utils::db::car_index;
+
+pub fn keys_from_compressed_car<ReaderT>(
+    mut reader: ReaderT,
+) -> io::Result<Vec<(Cid, car_index::BlockPosition)>>
+where
+    ReaderT: BufRead + Seek,
+{
+    let mut zstd_frames = ZstdFrames::new(&mut reader, 1_000_000_u64.next_power_of_two());
+    let (first_zstd_frame_offset, mut first_zstd_frame) = zstd_frames
+        .next()
+        .ok_or(io::Error::new(InvalidData, "CAR must not be empty"))??;
+
+    let roots = get_roots_from_v1_header(&mut first_zstd_frame)?;
+    let mut index =
+        iter::from_fn(|| read_block_frame_location_and_skip(&mut first_zstd_frame).transpose())
+            .map_ok(|(cid, location_in_frame)| {
+                (
+                    cid,
+                    car_index::BlockPosition::new(
+                        first_zstd_frame_offset,
+                        u16::try_from(location_in_frame)
+                            .expect(&format!("offset too large {location_in_frame}")),
+                    )
+                    .unwrap(),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+    for maybe_frame in zstd_frames {
+        let (zstd_frame_offset, mut zstd_frame) = maybe_frame?;
+        index.extend(
+            iter::from_fn(|| read_block_frame_location_and_skip(&mut zstd_frame).transpose())
+                .map_ok(|(cid, location_in_frame)| {
+                    (
+                        cid,
+                        car_index::BlockPosition::new(
+                            zstd_frame_offset,
+                            u16::try_from(location_in_frame)
+                                .expect(&format!("offset too large {location_in_frame}")),
+                        )
+                        .unwrap(),
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        )
+    }
+    match index.len() {
+        0 => Err(io::Error::new(
+            InvalidData,
+            "CARv1 files must contain at least one block",
+        )),
+        num_blocks => {
+            debug!(num_blocks, "indexed CAR");
+            Ok(index)
+        }
+    }
+}
+
+pub fn write_skip_frame(mut writer: impl std::io::Write, frame: &[u8]) -> std::io::Result<()> {
+    // writer.write_all(&[0x18,0x4D,0x2A,0x50])?;
+    writer.write_all(&[0x50, 0x2A, 0x4D, 0x18])?;
+    let len: u32 = frame.len() as u32;
+    writer.write_all(&len.to_le_bytes())?;
+    writer.write_all(frame)
+}
+
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {
     reader: ReaderT,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
@@ -541,6 +608,26 @@ fn read_block_data_location_and_skip(
     )))
 }
 
+fn read_block_frame_location_and_skip(
+    mut reader: (impl Read + Seek),
+) -> io::Result<Option<(Cid, u64)>> {
+    let Some(body_length) = read_varint_body_length_or_eof(&mut reader)? else {
+        return Ok(None);
+    };
+    let frame_body_offset = reader.stream_position()?;
+    // eprintln!("Reading entry at: {frame_body_offset}");
+    let mut reader = CountRead::new(&mut reader);
+    let cid = Cid::read_bytes(&mut reader).map_err(cid_error_to_io_error)?;
+
+    // counting the read bytes saves us a syscall for finding block data offset
+    // let cid_length = reader.bytes_read();
+    let next_frame_offset = frame_body_offset + u64::from(body_length);
+    reader
+        .into_inner()
+        .seek(SeekFrom::Start(next_frame_offset))?;
+    Ok(Some((cid, frame_body_offset)))
+}
+
 /// Reads `body length`, leaving the reader at the start of a varint frame,
 /// or returns [`Ok(None)`] if we've reached EOF
 /// ```text
@@ -645,7 +732,11 @@ where
                 .read_to_end(&mut v)
                 .map(|_num_bytes| offset)
         }) {
-            Ok(offset) => Some(Ok((offset, std::io::Cursor::new(v)))),
+            Ok(offset) => {
+                // let new_pos = self.inner.stream_position().unwrap();
+                // eprintln!("Uncompressed: {}, compressed: {}", v.len(), new_pos-offset);
+                Some(Ok((offset, std::io::Cursor::new(v))))
+            }
             Err(e) if e.kind() == UnexpectedEof && v.is_empty() => None,
             Err(e)
                 if e.kind() == UnexpectedEof
@@ -694,7 +785,7 @@ fn varint_to_zstd_frame_collator(
     Collate<zstd::Encoder<'_, Writer<BytesMut>>, BytesMut>,
 ) -> ControlFlow<BytesMut, zstd::Encoder<'_, Writer<BytesMut>>> {
     move |collate| {
-        let encoder = match collate {
+        let mut encoder = match collate {
             Collate::Started(body) => zstd_compress_fold_varint_frame(
                 zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
                     .expect("BytesMut has infallible IO"),
@@ -702,7 +793,10 @@ fn varint_to_zstd_frame_collator(
             ),
             Collate::Continued(encoder, body) => zstd_compress_fold_varint_frame(encoder, body),
         };
+        encoder.flush().unwrap();
         let compressed_len = encoder.get_ref().get_ref().len();
+
+        // eprintln!("Compressed length: {compressed_len}");
 
         match compressed_len >= zstd_frame_size_tripwire {
             // finish this zstd frame
@@ -727,6 +821,7 @@ fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
 ) -> zstd::Encoder<Writer<BytesMut>> {
+    // eprintln!("Adding varint block: {}", body.len());
     let mut header = unsigned_varint::encode::usize_buffer();
     encoder
         .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
@@ -737,10 +832,12 @@ fn zstd_compress_fold_varint_frame(
 
 /// Finish a zstd frame
 fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
-    encoder
+    let frame = encoder
         .finish()
         .expect("BytesMut has infallible IO")
-        .into_inner()
+        .into_inner();
+    // eprintln!("Finished frame: {}", frame.len());
+    frame
 }
 
 #[allow(clippy::enum_variant_names)] // V2 support soon

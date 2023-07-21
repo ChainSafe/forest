@@ -93,7 +93,7 @@ mod hash;
 mod key_value_pair;
 mod slot;
 
-use block_position::BlockPosition;
+pub use block_position::BlockPosition;
 pub use car_index::CarIndex;
 pub use car_index_builder::CarIndexBuilder;
 use hash::Hash;

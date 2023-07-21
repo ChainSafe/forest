@@ -10,7 +10,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 #[derive(Debug)]
 pub struct CarIndexBuilder {
     table: Vec<Slot>,
-    collisions: u64,
+    pub collisions: u64,
     capacity: usize,
 }
 
