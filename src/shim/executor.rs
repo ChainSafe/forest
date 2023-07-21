@@ -168,7 +168,7 @@ pub struct TraceMessage {
     pub value: TokenAmount,
     pub method_num: MethodNum,
     pub params: Vec<u8>,
-    pub codec: u64,
+    pub params_codec: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -203,7 +203,7 @@ pub fn build_lotus_trace(
             value,
             method_num: method,
             params: params.data,
-            codec: params.codec,
+            params_codec: params.codec,
         },
         msg_ret: TraceReturn {
             exit_code: ExitCode::OK,

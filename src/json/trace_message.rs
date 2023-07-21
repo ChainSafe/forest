@@ -10,6 +10,7 @@ pub mod json {
     use fvm_ipld_encoding::strict_bytes;
 
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+    use base64::{prelude::BASE64_STANDARD, Engine};
 
     //use crate::json::address::json::AddressJson;
 
@@ -33,6 +34,7 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
+        #[serde(with = "crate::json::address::json")]
         pub from: Address,
         #[serde(with = "crate::json::address::json")]
         pub to: Address,
@@ -40,10 +42,9 @@ pub mod json {
         pub value: TokenAmount,
         #[serde(rename = "Method")]
         pub method_num: MethodNum,
-        // TODO: convert bytes to BASE64_STANDARD
-        #[serde(with = "strict_bytes")]
-        pub params: Vec<u8>,
-        pub codec: u64,
+        //#[serde(with = "strict_bytes")]
+        pub params: String,
+        pub params_codec: u64,
     }
 
     pub fn serialize<S>(m: &TraceMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -55,8 +56,8 @@ pub mod json {
             to: m.to,
             value: m.value.clone(),
             method_num: m.method_num,
-            params: m.params.clone(),
-            codec: m.codec,
+            params: BASE64_STANDARD.encode(&m.params),
+            params_codec: m.params_codec,
         }.serialize(serializer)
     }
 
@@ -70,8 +71,8 @@ pub mod json {
             to: m.to,
             value: m.value,
             method_num: m.method_num,
-            params: m.params,
-            codec: m.codec,
+            params: m.params.into(),
+            params_codec: m.params_codec,
         })
     }
 }
