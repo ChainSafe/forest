@@ -33,8 +33,9 @@ pushd "$(mktemp --directory)"
 # this will fail if they happen to have the same height - we should change the format of our filenames
 test "$(num-files-here)" -eq 2
 # verify that we are byte-for-byte identical with filops
-"$FOREST_CLI_PATH" archive export filops_*.car.zst -o exported_snapshot.car.zst
-zstd -d filops_*.car.zst exported_snapshot.car.zst
+zstd -d filops_*.car.zst
+"$FOREST_CLI_PATH" archive export filops_*.car -o exported_snapshot.car.zst
+zstd -d exported_snapshot.car.zst
 cmp --silent filops_*.car exported_snapshot.car
 rm -- *
 popd
