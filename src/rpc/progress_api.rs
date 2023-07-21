@@ -5,9 +5,7 @@
 
 use std::sync::atomic;
 
-use crate::ipld::{
-    ProgressBarCurrentTotalPair, WALK_SNAPSHOT_PROGRESS_DB_GC,
-};
+use crate::ipld::{ProgressBarCurrentTotalPair, WALK_SNAPSHOT_PROGRESS_DB_GC};
 use crate::rpc_api::progress_api::{GetProgressParams, GetProgressResult, GetProgressType};
 
 use crate::rpc::*;

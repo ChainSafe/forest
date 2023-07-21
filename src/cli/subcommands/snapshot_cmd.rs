@@ -145,8 +145,8 @@ impl SnapshotCommands {
                                 anes::MoveCursorToPreviousLine(1),
                                 anes::ClearLine::All
                             );
-                            print!(
-                                "{}: {}\n",
+                            println!(
+                                "{}: {}",
                                 &output_path.to_string_lossy(),
                                 snapshot_size.human_count_bytes()
                             );
