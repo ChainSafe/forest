@@ -70,7 +70,7 @@ pub mod db_engine {
 
     pub type Db = crate::db::parity_db::ParityDb;
     pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
-    const DIR_NAME: &str = env!("CARGO_PKG_VERSION");
+    const DIR_NAME: &str = "paritydb";
 
     pub fn db_root(chain_data_root: &Path) -> PathBuf {
         chain_data_root.join(DIR_NAME)

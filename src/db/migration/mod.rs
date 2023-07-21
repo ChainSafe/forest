@@ -1,9 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::db_engine::db_root;
+use super::db_engine::{db_root, open_proxy_db};
+use crate::chain::ChainStore;
 use crate::cli_shared::{chain_path, cli::Config};
 use crate::fil_cns::composition as cns;
+use crate::genesis::read_genesis_header;
 use crate::state_manager::StateManager;
 use crate::utils::proofs_api::paramfetch::{
     ensure_params_downloaded, set_proofs_parameter_cache_dir_env,
@@ -13,7 +15,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{error, info};
-
 // migration error types
 pub enum MigrationError {
     E1,
@@ -28,29 +29,30 @@ pub enum DBVersion {
 
 /// Check current db
 async fn pre_migration_check(config: &Config) -> anyhow::Result<()> {
-    let dir = get_existing_db_root(config)?;
-    info!("Running database migration checks for: {}", dir.display());
+    let chain_data_root = chain_path(config);
+    let db_path = db_root(&chain_data_root);
+    info!("Running database migration checks for: {}", db_path.display());
 
     if cns::FETCH_PARAMS {
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
     }
     ensure_params_downloaded().await?;
 
+    let db = Arc::new(open_proxy_db(db_path, config.db_config().clone())?);
+    let genesis = read_genesis_header(None, config.chain.genesis_bytes(), &db).await?;
+    let chain_store = Arc::new(ChainStore::new(
+        db,
+        Arc::clone(&config.chain),
+        &genesis,
+        chain_data_root.as_path(),
+    )?);
+    // Initialize StateManager
+    let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&config.chain))?);
+
+    let ts = state_manager.chain_store().heaviest_tipset().epoch();
+    println!("TS: {}", ts);
+
     Ok(())
-}
-
-fn get_existing_db_root(config: &Config) -> anyhow::Result<PathBuf> {
-    let path = chain_path(config);
-
-    for entry in fs::read_dir(&path)? {
-        if let Ok(entry) = entry {
-            if entry.file_type()?.is_dir() {
-                return Ok(entry.path());
-            }
-        }
-    }
-
-    anyhow::bail!("No Database found.")
 }
 
 /// Check new db
