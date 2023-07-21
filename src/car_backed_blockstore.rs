@@ -57,6 +57,7 @@ use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use indexmap::IndexMap;
+use integer_encoding::VarInt;
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
@@ -697,9 +698,8 @@ fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
 ) -> zstd::Encoder<Writer<BytesMut>> {
-    let mut header = unsigned_varint::encode::usize_buffer();
     encoder
-        .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
+        .write_all(&body.len().encode_var_vec())
         .expect("BytesMut has infallible IO");
     encoder
         .write_all(&body)
