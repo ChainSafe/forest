@@ -453,7 +453,6 @@ pub mod progress_api {
 
     #[derive(Serialize, Deserialize)]
     pub enum GetProgressType {
-        SnapshotExport,
         DatabaseGarbageCollection,
     }
 }

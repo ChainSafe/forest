@@ -97,7 +97,6 @@ where
 pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
 lazy_static! {
-    pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: ProgressBarCurrentTotalPair = Default::default();
     pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: ProgressBarCurrentTotalPair = Default::default();
 }
 
