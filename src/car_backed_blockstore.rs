@@ -535,10 +535,11 @@ fn read_block_data_location_and_skip(
 ///        reader end ►│
 /// ```
 fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
-    match reader.read_varint() {
-        Ok(n) => Ok(Some(n)),
-        Err(e) if matches!(e.kind(), std::io::ErrorKind::UnexpectedEof) => Ok(None),
-        Err(e) => Err(e),
+    let mut byte = [0u8; 1]; // detect EOF
+    match reader.read(&mut byte)? {
+        0 => Ok(None),
+        1 => (byte.chain(reader)).read_varint().map(Some),
+        _ => unreachable!(),
     }
 }
 
