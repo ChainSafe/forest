@@ -61,21 +61,15 @@ pub enum ArchiveCommands {
         input_path: PathBuf,
         /// Snapshot output filename or directory. Defaults to
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
-        #[arg(short, default_value = ".", verbatim_doc_comment)]
+        #[arg(short, long, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
         /// Latest epoch that has to be exported for this snapshot, the upper bound. This value
         /// cannot be greater than the latest epoch available in the input snapshot.
-        #[arg(short)]
-        epoch: ChainEpoch,
-        /// How far back we want to go. Think of it as `$epoch - $depth`, the lower bound of this
-        /// snapshot. This value cannot be less than `chain finality`, which is currently assumed
-        /// to be `900`. If this ever changes - the actual value is specified in the error message
-        /// that is thrown in case `depth` value is too low.
-        /// This parameter is optional due to the fact that we need to fetch the exact default
-        /// dynamically from configuration.
-        // Potentially replace with dynamic default: https://github.com/ChainSafe/forest/issues/3182
-        #[arg(short)]
-        depth: Option<ChainEpochDelta>,
+        #[arg(short, long)]
+        epoch: Option<ChainEpoch>,
+        /// How many state-roots to include. Lower limit is 900 for calibnet and mainnet.
+        #[arg(short, long, default_value_t = 2000)]
+        depth: ChainEpochDelta,
     },
     /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
@@ -98,7 +92,6 @@ impl ArchiveCommands {
                 depth,
             } => {
                 let chain_finality = config.chain.policy.chain_finality;
-                let depth = depth.unwrap_or(chain_finality);
                 if depth < chain_finality {
                     bail!("depth has to be at least {}", chain_finality);
                 }
@@ -135,7 +128,7 @@ async fn do_export(
     config: Config,
     reader: impl Read + Seek + Send + Sync,
     output_path: PathBuf,
-    epoch: ChainEpoch,
+    epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
@@ -146,6 +139,7 @@ async fn do_export(
     let index = ChainIndex::new(store.clone());
     let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
 
+    let epoch = epoch_option.unwrap_or(ts.epoch());
     info!("looking up a tipset by epoch: {}", epoch);
 
     let ts = index
@@ -367,7 +361,7 @@ mod tests {
             config.clone(),
             std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
             output_path.path().into(),
-            0,
+            Some(0),
             1,
         )
         .await
