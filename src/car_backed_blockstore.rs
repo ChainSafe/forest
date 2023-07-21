@@ -3,9 +3,11 @@
 
 //! # Varint frames
 //!
-//! CARs are made of concatenations of _varint frames_.
-//! Each varint frame is a concatenation of the _body length_ as an [`unsigned_varint`], and the _frame body_ itself.
-//! [`unsigned_varint::codec`] can be used to read frames piecewise into memory.
+//! CARs are made of concatenations of _varint frames_. Each varint frame is a
+//! concatenation of the _body length_ as an
+//! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html),
+//! and the _frame body_ itself. [`crate::utils::encoding::UviBytes`] can be
+//! used to read frames piecewise into memory.
 //!
 //! ```text
 //!        varint frame
@@ -536,7 +538,7 @@ fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u3
     match reader.read_varint() {
         Ok(n) => Ok(Some(n)),
         Err(e) if matches!(e.kind(), std::io::ErrorKind::UnexpectedEof) => Ok(None),
-        Err(e) => Err(e)
+        Err(e) => Err(e),
     }
 }
 

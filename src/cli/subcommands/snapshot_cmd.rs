@@ -216,12 +216,12 @@ impl SnapshotCommands {
                 compression_level,
                 frame_size,
             } => {
-                // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
-                // For example, the zstsd magic bytes are a valid varint frame prefix:
-                assert_eq!(
-                    unsigned_varint::io::read_usize(&[0xFD, 0x2F, 0xB5, 0x28][..]).unwrap(),
-                    6141,
-                );
+                // // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
+                // // For example, the zstsd magic bytes are a valid varint frame prefix:
+                // assert_eq!(
+                //     unsigned_varint::io::read_usize(&[0xFD, 0x2F, 0xB5, 0x28][..]).unwrap(),
+                //     6141,
+                // );
                 // so the best thing to do is to just try compressed and then uncompressed.
                 use car_backed_blockstore::zstd_compress_varint_manyframe;
                 use tokio::fs::File;
