@@ -30,8 +30,8 @@ pub mod json {
     struct JsonHelper {
         #[serde(with = "crate::json::trace_message::json")]
         msg: TraceMessage,
-        // #[serde(with = "crate::json::trace_return::json")]
-        // msg_ret: TraceReturn,
+        #[serde(with = "crate::json::trace_return::json")]
+        msg_ret: TraceReturn,
         // gas_charges: Vec<TraceGasCharge>,
         // subcalls: Vec<Trace>,
     }
@@ -42,7 +42,7 @@ pub mod json {
     {
         JsonHelper {
             msg: t.msg.clone(),
-            //msg_ret: t.msg_ret.clone(),
+            msg_ret: t.msg_ret.clone(),
         }.serialize(serializer)
     }
 
@@ -53,7 +53,7 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(Trace {
             msg: m.msg,
-            //msg_ret: m.msg_ret,
+            msg_ret: m.msg_ret,
             // gas_charges: m.gas_charges,
             // subcalls: m.subcalls,
         })

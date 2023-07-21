@@ -181,7 +181,7 @@ pub struct TraceReturn {
 #[derive(Clone, Debug)]
 pub struct Trace {
     pub msg: TraceMessage,
-    // pub msg_ret: TraceReturn,
+    pub msg_ret: TraceReturn,
     // pub gas_charges: Vec<TraceGasCharge>,
     // pub subcalls: Vec<Trace>,
 }
