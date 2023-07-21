@@ -66,7 +66,7 @@ pub enum ArchiveCommands {
         /// cannot be greater than the latest epoch available in the input snapshot.
         #[arg(short, long)]
         epoch: Option<ChainEpoch>,
-        /// How many state-roots to include. Lower limit is 900 for calibnet and mainnet.
+        /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
     },
