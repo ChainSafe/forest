@@ -55,7 +55,7 @@ async fn migration_check(
     let height = ts.epoch();
     assert!(height.is_positive());
     // re-compute 100 tipsets only
-    state_manager.validate_range((height - 1)..=height)?;
+    state_manager.validate_range((height - 100)..=height)?;
     Ok(())
 }
 
