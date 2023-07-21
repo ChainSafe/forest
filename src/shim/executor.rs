@@ -153,7 +153,7 @@ impl From<Receipt_v3> for Receipt {
 // to create the equivalent ExecutionTrace structure that we could serialize/deserialize
 
 #[derive(Clone, Debug)]
-struct TraceGasCharge {
+pub struct TraceGasCharge {
     pub name: Cow<'static, str>,
     pub total_gas: u64,
     pub compute_gas: u64,
@@ -182,7 +182,7 @@ pub struct TraceReturn {
 pub struct Trace {
     pub msg: TraceMessage,
     pub msg_ret: TraceReturn,
-    // pub gas_charges: Vec<TraceGasCharge>,
+    pub gas_charges: Vec<TraceGasCharge>,
     pub subcalls: Vec<Trace>,
 }
 

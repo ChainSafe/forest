@@ -16,6 +16,7 @@ pub mod vrf;
 pub mod trace;
 pub mod trace_message;
 pub mod trace_return;
+pub mod trace_gas_charge;
 #[cfg(test)]
 mod tests {
     mod address_test;

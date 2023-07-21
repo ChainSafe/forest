@@ -5,6 +5,7 @@ pub mod json {
     use crate::shim::executor::Trace;
     use crate::shim::executor::TraceMessage;
     use crate::shim::executor::TraceReturn;
+    use crate::shim::executor::TraceGasCharge;
 
     use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -37,7 +38,8 @@ pub mod json {
         msg: TraceMessage,
         #[serde(with = "crate::json::trace_return::json")]
         msg_ret: TraceReturn,
-        // gas_charges: Vec<TraceGasCharge>,
+        #[serde(with = "crate::json::trace_gas_charge::json::vec")]
+        gas_charges: Vec<TraceGasCharge>,
         #[serde(with = "crate::json::trace::json::vec")]
         subcalls: Vec<Trace>,
     }
@@ -49,6 +51,7 @@ pub mod json {
         JsonHelper {
             msg: t.msg.clone(),
             msg_ret: t.msg_ret.clone(),
+            gas_charges: t.gas_charges.clone(),
             subcalls: t.subcalls.clone(),
         }.serialize(serializer)
     }
@@ -61,7 +64,7 @@ pub mod json {
         Ok(Trace {
             msg: m.msg,
             msg_ret: m.msg_ret,
-            // gas_charges: m.gas_charges,
+            gas_charges: m.gas_charges,
             subcalls: m.subcalls,
         })
     }
