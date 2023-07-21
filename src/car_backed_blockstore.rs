@@ -674,7 +674,7 @@ fn varint_to_zstd_frame_collator(
     Collate<zstd::Encoder<'_, Writer<BytesMut>>, BytesMut>,
 ) -> ControlFlow<BytesMut, zstd::Encoder<'_, Writer<BytesMut>>> {
     move |collate| {
-        let encoder = match collate {
+        let mut encoder = match collate {
             Collate::Started(body) => zstd_compress_fold_varint_frame(
                 zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
                     .expect("BytesMut has infallible IO"),
@@ -682,6 +682,7 @@ fn varint_to_zstd_frame_collator(
             ),
             Collate::Continued(encoder, body) => zstd_compress_fold_varint_frame(encoder, body),
         };
+        encoder.flush().expect("BytesMut has infallible IO");
         let compressed_len = encoder.get_ref().get_ref().len();
 
         match compressed_len >= zstd_frame_size_tripwire {
