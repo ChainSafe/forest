@@ -162,6 +162,10 @@ impl SnapshotCommands {
                 handle.abort();
                 let _ = handle.await;
 
+                std::fs::rename(
+                    &temp_path.with_extension("sha256sum"),
+                    &output_path.with_extension("sha256sum"),
+                )?;
                 temp_path.persist(output_path)?;
 
                 println!("Export completed.");
