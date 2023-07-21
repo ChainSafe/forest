@@ -33,7 +33,6 @@ cid = { version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
-const-str = "0.5.6"
 convert_case = "0.6.0"
 crossbeam = "0.8"
 crossbeam-channel = "0.5"
