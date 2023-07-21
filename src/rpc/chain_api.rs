@@ -84,20 +84,26 @@ where
             .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
     match if dry_run {
-        data.chain_store
-            .export::<_, Sha256>(
-                &start_ts,
-                recent_roots,
-                VoidAsyncWriter,
-                true, // `compressed` is always on
-                skip_checksum,
-            )
-            .await
+        crate::chain::export::<_, Sha256>(
+            &data.chain_store.db,
+            &start_ts,
+            recent_roots,
+            VoidAsyncWriter,
+            true, // `compressed` is always on
+            skip_checksum,
+        )
+        .await
     } else {
         let file = tokio::fs::File::create(&output_path).await?;
-        data.chain_store
-            .export::<_, Sha256>(&start_ts, recent_roots, file.compat(), true, skip_checksum)
-            .await
+        crate::chain::export::<_, Sha256>(
+            &data.chain_store.db,
+            &start_ts,
+            recent_roots,
+            file.compat(),
+            true,
+            skip_checksum,
+        )
+        .await
     } {
         Ok(checksum_opt) if !dry_run => {
             if let Some(checksum) = checksum_opt {

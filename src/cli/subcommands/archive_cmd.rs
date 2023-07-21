@@ -184,9 +184,7 @@ async fn do_export(
         output_path.to_str().unwrap_or_default()
     );
 
-    chain_store
-        .export::<_, Sha256>(&ts, depth, writer.compat(), true, true)
-        .await?;
+    crate::chain::export::<_, Sha256>(&chain_store.db, &ts, depth, writer.compat(), true, true).await?;
 
     Ok(())
 }
