@@ -12,7 +12,7 @@ How to compute a new checkpoint for calibnet:
 1. Install `forest-cli`
 2. Download calibnet snapshot: `forest-cli --chain calibnet snapshot fetch`
 3. Decompress snapshot: `zstd -d forest_snapshot_calibnet_*.car.zst`
-4. Extract checkpoints: `forest-cli archive checkpoints forest_snapshot_calibnet_*.car.zst`
+4. Extract checkpoints: `forest-cli archive checkpoints forest_snapshot_calibnet_*.car`
 5. Put checkpoints in `build/known_blocks.yaml`
 
 For mainnet, run the same commands but use `--chain mainnet` instead of `--chain calibnet`.
