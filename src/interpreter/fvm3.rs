@@ -130,7 +130,7 @@ impl<DB: Blockstore + Send + Sync + 'static> Externs for ForestExterns<DB> {}
 impl<DB: Blockstore> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
         self.chain_store
-            .get_epoch_tsk(Arc::clone(&self.heaviest_tipset), epoch)?
+            .chain_index.get_epoch_tsk(Arc::clone(&self.heaviest_tipset), epoch)?
             .cid()
     }
 }

@@ -455,19 +455,6 @@ where
         Ok(digest)
     }
 
-    /// Get the [`TipsetKeys`] for a given epoch. The returned key will never be null.
-    pub fn get_epoch_tsk(
-        &self,
-        tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<TipsetKeys, Error> {
-        let ts = self
-            .chain_index
-            .tipset_by_height(round, tipset, ResolveNullTipset::TakeOlder)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        Ok(ts.key().clone())
-    }
-
     /// Gets look-back tipset (and state-root of that tipset) for block
     /// validations.
     ///
@@ -533,7 +520,7 @@ where
             )));
         }
         let lbts = self
-            .tipset_from_keys(next_ts.parents())
+            .chain_index.load_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
