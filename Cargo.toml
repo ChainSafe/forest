@@ -232,3 +232,8 @@ mimalloc = ["dep:mimalloc"]
 name = "example-benchmark"
 harness = false
 required-features = ["benchmark-private"]
+
+[[bench]]
+name = "car-index"
+harness = false
+required-features = ["benchmark-private"]
