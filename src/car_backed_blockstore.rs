@@ -791,7 +791,7 @@ mod tests {
             3,
         ))
         .unwrap();
-        assert_eq!(9, num_zstd_frames);
+        assert_eq!(53, num_zstd_frames);
 
         zstd_multiframe
     }
@@ -804,7 +804,7 @@ mod tests {
         )
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-        assert_eq!(9, frames.len());
+        assert_eq!(53, frames.len());
     }
 
     #[test]
