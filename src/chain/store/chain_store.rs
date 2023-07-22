@@ -3,7 +3,6 @@
 
 use std::{ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
 
-use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
 use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
@@ -74,7 +73,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    pub chain_index: ChainIndex<DB>,
+    pub chain_index: Arc<ChainIndex<DB>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -127,7 +126,7 @@ where
         chain_data_root: &Path,
     ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let chain_index = ChainIndex::new(Arc::clone(&db));
+        let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let file_backed_genesis = Mutex::new(FileBacked::new(
             *genesis_block_header.cid(),
             chain_data_root.join("GENESIS"),
@@ -293,46 +292,6 @@ where
     pub fn unmark_block_as_validated(&self, cid: &Cid) {
         let mut file = self.validated_blocks.lock();
         let _did_work = file.remove(cid);
-    }
-
-    /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
-        let check_for_beacon_entry = |ts: &Tipset| {
-            let cbe = ts.min_ticket_block().beacon_entries();
-            if let Some(entry) = cbe.last() {
-                return Ok(Some(entry.clone()));
-            }
-            if ts.epoch() == 0 {
-                return Err(Error::Other(
-                    "made it back to genesis block without finding beacon entry".to_owned(),
-                ));
-            }
-            Ok(None)
-        };
-
-        if let Some(entry) = check_for_beacon_entry(ts)? {
-            return Ok(entry);
-        }
-        let mut cur = self.tipset_from_keys(ts.parents())?;
-        for i in 1..20 {
-            if i != 1 {
-                cur = self.tipset_from_keys(cur.parents())?;
-            }
-            if let Some(entry) = check_for_beacon_entry(&cur)? {
-                return Ok(entry);
-            }
-        }
-
-        if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
-            return Ok(BeaconEntry::new(
-                0,
-                vec![9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-            ));
-        }
-
-        Err(Error::Other(
-            "Found no beacon entries in the 20 latest tipsets".to_owned(),
-        ))
     }
 
     // FIXME: This function doesn't use the chain store at all.

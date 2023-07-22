@@ -82,6 +82,7 @@ pub(in crate::fil_cns) async fn validate_block<
     let lookback_state = Arc::new(lookback_state);
 
     let prev_beacon = chain_store
+        .chain_index
         .latest_beacon_entry(&base_tipset)
         .map(Arc::new)
         .map_err(to_errs)?;

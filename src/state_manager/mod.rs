@@ -1104,7 +1104,7 @@ where
         ChainRand::new(
             self.chain_config.clone(),
             tipset,
-            self.cs.clone(),
+            self.cs.chain_index.clone(),
             self.beacon.clone(),
         )
     }
@@ -1225,7 +1225,7 @@ where
     let rand = ChainRand::new(
         Arc::clone(&chain_config),
         Arc::clone(&tipset),
-        Arc::clone(&chain_store),
+        Arc::clone(&chain_store.chain_index),
         beacon,
     );
 
