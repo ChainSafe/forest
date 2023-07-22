@@ -624,6 +624,7 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         Ok(apply_block_messages(
+            self.chain_store().genesis().map_err(anyhow::Error::from)?.timestamp(),
             Arc::clone(self.chain_store()),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -1187,6 +1188,7 @@ where
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 pub fn apply_block_messages<DB, CB>(
+    genesis_timestamp: u64,
     chain_store: Arc<ChainStore<DB>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
@@ -1216,11 +1218,6 @@ where
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
-
-    let genesis_timestamp = chain_store
-        .genesis()
-        .map_err(anyhow::Error::from)?
-        .timestamp();
 
     let rand = ChainRand::new(
         Arc::clone(&chain_config),
@@ -1275,8 +1272,7 @@ where
         }
     }
 
-    let block_messages = chain_store
-        .block_msgs_for_tipset(&tipset)
+    let block_messages = ChainStore::block_msgs_for_tipset(&chain_store.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;

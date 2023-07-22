@@ -299,7 +299,7 @@ where
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.
-    pub fn block_msgs_for_tipset(&self, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
+    pub fn block_msgs_for_tipset(db: DB, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
@@ -317,7 +317,7 @@ where
         ts.blocks()
             .iter()
             .map(|b| {
-                let (usm, sm) = block_messages(self.blockstore(), b)?;
+                let (usm, sm) = block_messages(&db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
@@ -345,7 +345,7 @@ where
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
     /// messages that will be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let bmsgs = self.block_msgs_for_tipset(ts)?;
+        let bmsgs = ChainStore::block_msgs_for_tipset(&self.db, ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
     }
 
@@ -487,6 +487,7 @@ where
             let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let (state, _) = crate::state_manager::apply_block_messages(
+                genesis_timestamp,
                 Arc::clone(self),
                 Arc::clone(&chain_config),
                 beacon,
