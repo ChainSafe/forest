@@ -147,18 +147,6 @@ impl<DB: Blockstore> ChainIndex<DB> {
         })
     }
 
-    /// Get the [`TipsetKeys`] for a given epoch. The returned key will never be null.
-    pub fn get_epoch_tsk(
-        &self,
-        tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<TipsetKeys, Error> {
-        let ts = self
-            .tipset_by_height(round, tipset, ResolveNullTipset::TakeOlder)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        Ok(ts.key().clone())
-    }
-
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
