@@ -6,7 +6,6 @@ mod errors;
 mod metrics;
 mod utils;
 use crate::state_migration::run_state_migrations;
-use crate::statediff::print_state_diff;
 use anyhow::{bail, Context as _};
 use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
@@ -1069,42 +1068,19 @@ where
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
-        use rayon::iter::ParallelIterator as _;
-        tipsets
-            .tuple_windows()
-            .par_bridge()
-            .try_for_each(|(child, parent)| {
-                info!(height = parent.epoch(), "compute parent state");
-                let (actual_state, actual_receipt) = self
-                    .compute_tipset_state_blocking(parent, NO_CALLBACK)
-                    .context("couldn't compute tipset state")?;
-                let expected_receipt = child.min_ticket_block().message_receipts();
-                let expected_state = child.parent_state();
-                match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
-                    true => Ok(()),
-                    false => {
-                        error!(
-                            height = child.epoch(),
-                            ?expected_state,
-                            ?expected_receipt,
-                            ?actual_state,
-                            ?actual_receipt,
-                            "state mismatch"
-                        );
-
-                        if let Err(err) = print_state_diff(
-                            self.blockstore(),
-                            &actual_state,
-                            expected_state,
-                            Some(1), // To not make the log too verbose
-                        ) {
-                            warn!("Failed to print state diff: {err}");
-                        }
-
-                        bail!("state mismatch");
-                    }
-                }
-            })
+        let genesis_timestamp = self
+            .chain_store()
+            .genesis()
+            .map_err(anyhow::Error::from)?
+            .timestamp();
+        validate_tipsets(
+            genesis_timestamp,
+            self.chain_store().chain_index.clone(),
+            self.chain_config(),
+            self.beacon_schedule(),
+            &self.engine,
+            tipsets,
+        )
     }
 
     fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
@@ -1115,6 +1091,53 @@ where
             self.beacon.clone(),
         )
     }
+}
+
+pub fn validate_tipsets<DB, T>(
+    genesis_timestamp: u64,
+    chain_index: Arc<ChainIndex<DB>>,
+    chain_config: Arc<ChainConfig>,
+    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    engine: &crate::shim::machine::MultiEngine,
+    tipsets: T,
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + Send + Sync + 'static,
+    T: Iterator<Item = Arc<Tipset>> + Send,
+{
+    use rayon::iter::ParallelIterator as _;
+    tipsets
+        .tuple_windows()
+        .par_bridge()
+        .try_for_each(|(child, parent)| {
+            info!(height = parent.epoch(), "compute parent state");
+            let (actual_state, actual_receipt) = apply_block_messages(
+                genesis_timestamp,
+                chain_index.clone(),
+                chain_config.clone(),
+                beacon.clone(),
+                engine,
+                parent,
+                NO_CALLBACK,
+            )
+            .context("couldn't compute tipset state")?;
+            let expected_receipt = child.min_ticket_block().message_receipts();
+            let expected_state = child.parent_state();
+            match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
+                true => Ok(()),
+                false => {
+                    error!(
+                        height = child.epoch(),
+                        ?expected_state,
+                        ?expected_receipt,
+                        ?actual_state,
+                        ?actual_receipt,
+                        "state mismatch"
+                    );
+                    bail!("state mismatch");
+                }
+            }
+        })
 }
 
 /// Messages are transactions that produce new states. The state (usually
