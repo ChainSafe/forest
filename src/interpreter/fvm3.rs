@@ -4,8 +4,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
-use crate::blocks::BlockHeader;
-use crate::blocks::Tipset;
+use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
@@ -13,7 +12,7 @@ use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
     version::NetworkVersion,
 };
-use anyhow::{Context as _, bail};
+use anyhow::{bail, Context as _};
 use cid::Cid;
 use fvm3::{
     externs::{Chain, Consensus, Externs, Rand},
@@ -132,7 +131,11 @@ impl<DB: Blockstore> Chain for ForestExterns<DB> {
         let ts = self
             .chain_store
             .chain_index
-            .tipset_by_height(epoch, self.heaviest_tipset.clone(), ResolveNullTipset::TakeOlder)
+            .tipset_by_height(
+                epoch,
+                self.heaviest_tipset.clone(),
+                ResolveNullTipset::TakeOlder,
+            )
             .context("Failed to get tipset cid")?;
         ts.key().cid()
     }
