@@ -1,7 +1,9 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
+use crate::shim::clock::ChainEpoch;
 use crate::shim::{address::Address, version::NetworkVersion};
 use fvm_ipld_encoding::{from_slice, to_vec};
-use crate::shim::clock::ChainEpoch;
 
 use crate::blocks::{errors::Error, BlockHeader};
 
