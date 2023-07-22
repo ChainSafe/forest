@@ -401,7 +401,7 @@ where
     let chain_store = Arc::new(ChainStore::new(
         Arc::new(db.clone()),
         Arc::clone(&chain_config),
-        &genesis,
+        genesis.clone(),
         chain_data_root.path(),
     )?);
 

@@ -198,11 +198,10 @@ pub(super) async fn start(
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
         config.chain.clone(),
-        &genesis_header,
+        genesis_header.clone(),
         chain_data_path.as_path(),
     )?);
 
-    chain_store.set_genesis(&genesis_header)?;
     let db_garbage_collector = {
         let db = db.clone();
         let file_backed_chain_meta = chain_store.file_backed_chain_meta().clone();
@@ -338,7 +337,7 @@ pub(super) async fn start(
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
-                    .get_beacon_schedule(chain_store.genesis()?.timestamp())
+                    .get_beacon_schedule(chain_store.genesis().timestamp())
                     .into_dyn(),
             );
             start_rpc(
@@ -744,7 +743,7 @@ mod test {
         let cs = Arc::new(ChainStore::new(
             db,
             chain_config.clone(),
-            &genesis_header,
+            genesis_header,
             chain_data_root.path(),
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
@@ -772,7 +771,7 @@ mod test {
         let cs = Arc::new(ChainStore::new(
             db,
             chain_config.clone(),
-            &genesis_header,
+            genesis_header,
             chain_data_root.path(),
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);

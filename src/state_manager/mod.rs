@@ -214,7 +214,7 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis()?;
+        let genesis = cs.genesis();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
 
         Ok(Self {
@@ -1217,10 +1217,7 @@ where
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
-    let genesis_timestamp = chain_store
-        .genesis()
-        .map_err(anyhow::Error::from)?
-        .timestamp();
+    let genesis_timestamp = chain_store.genesis().timestamp();
 
     let rand = ChainRand::new(
         Arc::clone(&chain_config),
