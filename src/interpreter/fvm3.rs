@@ -5,7 +5,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
 use crate::blocks::{BlockHeader, Tipset};
-use crate::chain::{index::ResolveNullTipset, ChainStore};
+use crate::chain::{
+    index::{ChainIndex, ResolveNullTipset},
+    ChainStore,
+};
 use crate::interpreter::errors::Error;
 use crate::networks::ChainConfig;
 use crate::shim::{
@@ -36,7 +39,7 @@ pub struct ForestExterns<DB> {
     heaviest_tipset: Arc<Tipset>,
     epoch: ChainEpoch,
     root: Cid,
-    chain_store: Arc<ChainStore<DB>>,
+    chain_index: Arc<ChainIndex<DB>>,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
 }
@@ -47,7 +50,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         heaviest_tipset: Arc<Tipset>,
         epoch: ChainEpoch,
         root: Cid,
-        chain_store: Arc<ChainStore<DB>>,
+        chain_index: Arc<ChainIndex<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExterns {
@@ -55,14 +58,15 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
             heaviest_tipset,
             epoch,
             root,
-            chain_store,
+            chain_index,
             chain_config,
             bail: AtomicBool::new(false),
         }
     }
 
     fn get_lookback_tipset_state_root_for_round(&self, height: ChainEpoch) -> anyhow::Result<Cid> {
-        let (_, st) = self.chain_store.get_lookback_tipset_for_round(
+        let (_, st) = ChainStore::get_lookback_tipset_for_round(
+            self.chain_index.clone(),
             Arc::clone(&self.chain_config),
             Arc::clone(&self.heaviest_tipset),
             height,
@@ -84,19 +88,19 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         }
 
         let prev_root = self.get_lookback_tipset_state_root_for_round(height)?;
-        let lb_state = StateTree::new_from_root(&self.chain_store.db, &prev_root)?;
+        let lb_state = StateTree::new_from_root(&self.chain_index.db, &prev_root)?;
 
         let actor = lb_state
             .get_actor(miner_addr)?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
-        let tbs = TrackingBlockstore::new(&self.chain_store.db);
+        let tbs = TrackingBlockstore::new(&self.chain_index.db);
 
         let ms = fil_actor_interface::miner::State::load(&tbs, actor.code, actor.state)?;
 
         let worker = ms.info(&tbs)?.worker.into();
 
-        let state = StateTree::new_from_root(&self.chain_store.db, &self.root)?;
+        let state = StateTree::new_from_root(&self.chain_index.db, &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
@@ -129,7 +133,6 @@ impl<DB: Blockstore + Send + Sync + 'static> Externs for ForestExterns<DB> {}
 impl<DB: Blockstore> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
         let ts = self
-            .chain_store
             .chain_index
             .tipset_by_height(
                 epoch,

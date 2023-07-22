@@ -3,6 +3,7 @@
 
 use std::{num::NonZeroUsize, sync::Arc};
 
+use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
@@ -11,7 +12,6 @@ use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 
 use crate::chain::Error;
 
@@ -26,7 +26,7 @@ pub struct ChainIndex<DB> {
     ts_cache: TipsetCache,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: Arc<DB>,
+    pub db: Arc<DB>,
 }
 
 #[derive(Debug, Clone, Copy)]

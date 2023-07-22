@@ -14,7 +14,10 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconSchedule, DrandBeacon};
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::chain::{index::ResolveNullTipset, ChainStore, HeadChange};
+use crate::chain::{
+    index::{ChainIndex, ResolveNullTipset},
+    ChainStore, HeadChange,
+};
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -381,7 +384,7 @@ where
                     bstate,
                 )?,
                 chain_config: self.chain_config(),
-                chain_store: Arc::clone(self.chain_store()),
+                chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
@@ -457,7 +460,7 @@ where
                     &st,
                 )?,
                 chain_config: self.chain_config(),
-                chain_store: Arc::clone(self.chain_store()),
+                chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: ts.min_timestamp(),
             },
             &self.engine,
@@ -624,8 +627,11 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         Ok(apply_block_messages(
-            self.chain_store().genesis().map_err(anyhow::Error::from)?.timestamp(),
-            Arc::clone(self.chain_store()),
+            self.chain_store()
+                .genesis()
+                .map_err(anyhow::Error::from)?
+                .timestamp(),
+            Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
             &self.engine,
@@ -1189,7 +1195,7 @@ where
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 pub fn apply_block_messages<DB, CB>(
     genesis_timestamp: u64,
-    chain_store: Arc<ChainStore<DB>>,
+    chain_index: Arc<ChainIndex<DB>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
     engine: &crate::shim::machine::MultiEngine,
@@ -1222,14 +1228,14 @@ where
     let rand = ChainRand::new(
         Arc::clone(&chain_config),
         Arc::clone(&tipset),
-        Arc::clone(&chain_store.chain_index),
+        Arc::clone(&chain_index),
         beacon,
     );
 
     let genesis_info = GenesisInfo::from_chain_config(&chain_config);
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
-            genesis_info.get_circulating_supply(epoch, &chain_store.db, &state_root)?;
+            genesis_info.get_circulating_supply(epoch, &chain_index.db, &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),
@@ -1239,7 +1245,7 @@ where
                 base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
                 circ_supply: circulating_supply,
                 chain_config: Arc::clone(&chain_config),
-                chain_store: Arc::clone(&chain_store),
+                chain_index: Arc::clone(&chain_index),
                 timestamp,
             },
             engine,
@@ -1248,7 +1254,7 @@ where
 
     let mut parent_state = *tipset.parent_state();
 
-    let parent_epoch = Tipset::load_required(&chain_store.db, tipset.parents())?.epoch();
+    let parent_epoch = Tipset::load_required(&chain_index.db, tipset.parents())?.epoch();
     let epoch = tipset.epoch();
 
     for epoch_i in parent_epoch..epoch {
@@ -1266,13 +1272,13 @@ where
 
         // step 3: run migrations
         if let Some(new_state) =
-            run_state_migrations(epoch_i, &chain_config, &chain_store.db, &parent_state)?
+            run_state_migrations(epoch_i, &chain_config, &chain_index.db, &parent_state)?
         {
             parent_state = new_state;
         }
     }
 
-    let block_messages = ChainStore::block_msgs_for_tipset(&chain_store.db, &tipset)
+    let block_messages = ChainStore::block_msgs_for_tipset(&chain_index.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
@@ -1281,7 +1287,7 @@ where
     let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
     // step 5: construct receipt root from receipts and flush the state-tree
-    let receipt_root = Amt::new_from_iter(&chain_store.db, receipts)?;
+    let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
     let state_root = vm.flush()?;
 
     Ok((state_root, receipt_root))

@@ -464,7 +464,7 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        self: &Arc<Self>,
+        chain_index: Arc<ChainIndex<DB>>,
         chain_config: Arc<ChainConfig>,
         heaviest_tipset: Arc<Tipset>,
         round: ChainEpoch,
@@ -484,11 +484,11 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
+            let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp();
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let (state, _) = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
-                Arc::clone(self),
+                Arc::clone(&chain_index),
                 Arc::clone(&chain_config),
                 beacon,
                 // Creating new WASM engines is expensive (takes seconds to
@@ -503,8 +503,7 @@ where
             return Ok((heaviest_tipset, state));
         }
 
-        let next_ts = self
-            .chain_index
+        let next_ts = chain_index
             .tipset_by_height(
                 lbr + 1,
                 heaviest_tipset.clone(),
@@ -520,8 +519,8 @@ where
                 next_ts.epoch()
             )));
         }
-        let lbts = self
-            .chain_index.load_tipset(next_ts.parents())
+        let lbts = chain_index
+            .load_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
