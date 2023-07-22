@@ -3,26 +3,25 @@
 
 use std::fmt;
 
+use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
-    address::Address,
-    bigint::{BigIntDe, BigIntSer},
-    crypto::Signature,
-    econ::TokenAmount,
-    sector::PoStProof,
+    address::Address, crypto::Signature, econ::TokenAmount, sector::PoStProof,
     version::NetworkVersion,
 };
 use crate::utils::{cid::CidCborExt, encoding::blake2b_256};
 use cid::Cid;
 use derive_builder::Builder;
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use num::BigInt;
 use once_cell::sync::OnceCell;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{ElectionProof, Error, Ticket, TipsetKeys};
-
+mod encoding;
 pub mod json;
+#[cfg(test)]
+mod tests;
 
 /// Header of a block
 ///
@@ -140,95 +139,6 @@ pub struct BlockHeader {
 impl PartialEq for BlockHeader {
     fn eq(&self, other: &Self) -> bool {
         self.cid().eq(other.cid())
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for BlockHeader {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        // XXX: More fields can be randomly generated.
-        let block_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .epoch(ChainEpoch::arbitrary(g))
-            .build()
-            .unwrap();
-        block_header
-    }
-}
-
-impl Serialize for BlockHeader {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (
-            &self.miner_address,
-            &self.ticket,
-            &self.election_proof,
-            &self.beacon_entries,
-            &self.winning_post_proof,
-            &self.parents,
-            BigIntSer(&self.weight),
-            &self.epoch,
-            &self.state_root,
-            &self.message_receipts,
-            &self.messages,
-            &self.bls_aggregate,
-            &self.timestamp,
-            &self.signature,
-            &self.fork_signal,
-            &self.parent_base_fee,
-        )
-            .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for BlockHeader {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (
-            miner_address,
-            ticket,
-            election_proof,
-            beacon_entries,
-            winning_post_proof,
-            parents,
-            BigIntDe(weight),
-            epoch,
-            state_root,
-            message_receipts,
-            messages,
-            bls_aggregate,
-            timestamp,
-            signature,
-            fork_signal,
-            parent_base_fee,
-        ) = Deserialize::deserialize(deserializer)?;
-
-        let header = BlockHeader {
-            parents,
-            weight,
-            epoch,
-            beacon_entries,
-            winning_post_proof,
-            miner_address,
-            messages,
-            message_receipts,
-            state_root,
-            fork_signal,
-            signature,
-            election_proof,
-            timestamp,
-            ticket,
-            bls_aggregate,
-            parent_base_fee,
-            cached_cid: Default::default(),
-            is_validated: Default::default(),
-        };
-
-        Ok(header)
     }
 }
 
@@ -424,71 +334,22 @@ impl BlockHeader {
         //   signature encoded.
         fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
+
+    /// Fetch a block header from the blockstore. This call fails if the header
+    /// is present but invalid. If the header is missing, None is returned.
+    pub fn load(store: impl Blockstore, key: Cid) -> anyhow::Result<Option<BlockHeader>> {
+        if let Some(header) = store.get_cbor::<BlockHeader>(&key)? {
+            let _ = header.cached_cid.set(key);
+            Ok(Some(header))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 /// human-readable string representation of a block CID
 impl fmt::Display for BlockHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BlockHeader: {:?}", self.cid())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::beacon::{mock_beacon::MockBeacon, BeaconEntry, BeaconPoint, BeaconSchedule};
-    use crate::shim::{address::Address, version::NetworkVersion};
-    use fvm_ipld_encoding::{from_slice, to_vec};
-
-    use crate::blocks::{errors::Error, BlockHeader};
-
-    #[test]
-    fn symmetric_header_encoding() {
-        // This test vector is pulled from space race, and contains a valid signature
-        let bz = hex::decode("904300e8078158608798de4e49e02ee129920224ea767650aa6e693857431cc95b5a092a57d80ef4d841ebedbf09f7680a5e286cd297f40100b496648e1fa0fd55f899a45d51404a339564e7d4809741ba41d9fcc8ac0261bf521cd5f718389e81354eff2aa52b338201586084d8929eeedc654d6bec8bb750fcc8a1ebf2775d8167d3418825d9e989905a8b7656d906d23dc83e0dad6e7f7a193df70a82d37da0565ce69b776d995eefd50354c85ec896a2173a5efed53a27275e001ad72a3317b2190b98cceb0f01c46b7b81821a00013cbe5860ae1102b76dea635b2f07b7d06e1671d695c4011a73dc33cace159509eac7edc305fa74495505f0cd0046ee0d3b17fabc0fc0560d44d296c6d91bcc94df76266a8e9d5312c617ca72a2e186cadee560477f6d120f6614e21fb07c2390a166a25981820358c0b965705cec77b46200af8fb2e47c0eca175564075061132949f00473dcbe74529c623eb510081e8b8bd34418d21c646485d893f040dcfb7a7e7af9ae4ed7bd06772c24fb0cc5b8915300ab5904fbd90269d523018fbf074620fd3060d55dd6c6057b4195950ac4155a735e8fec79767f659c30ea6ccf0813a4ab2b4e60f36c04c71fb6c58efc123f60c6ea8797ab3706a80a4ccc1c249989934a391803789ab7d04f514ee0401d0f87a1f5262399c451dcf5f7ec3bb307fc6f1a41f5ff3a5ddb81d82a5827000171a0e402209a0640d0620af5d1c458effce4cbb8969779c9072b164d3fe6f5179d6378d8cd4300310001d82a5827000171a0e402208fbc07f7587e2efebab9ff1ab27c928881abf9d1b7e5ad5206781415615867aed82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e402209967f10c4c0e336b3517d3a972f701dadea5b41ce33defb126b88e650cf884545861028ec8b64e2d93272f97edcab1f56bcad4a2b145ea88c232bfae228e4adbbd807e6a41740cc8cb569197dae6b2cbf8c1a4035e81fd7805ccbe88a5ec476bcfa438db4bd677de06b45e94310533513e9d17c635940ba8fa2650cdb34d445724c5971a5f44387e5861028a45c70a39fe8e526cbb6ba2a850e9063460873d6329f26cc2fc91972256c40249dba289830cc99619109c18e695d78012f760e7fda1b68bc3f1fe20ff8a017044753da38ca6384de652f3ee13aae5b64e6f88f85fd50d5c862fed3c1f594ace004500053724e0").unwrap();
-        let header = from_slice::<BlockHeader>(&bz).unwrap();
-        assert_eq!(to_vec(&header).unwrap(), bz);
-
-        // Verify the signature of this block header using the resolved address used to
-        // sign. This is a valid signature, but if the block header vector
-        // changes, the address should need to as well.
-        header
-            .check_block_signature(
-                &"f3vfs6f7tagrcpnwv65wq3leznbajqyg77bmijrpvoyjv3zjyi3urq25vigfbs3ob6ug5xdihajumtgsxnz2pa"
-                .parse()
-                .unwrap())
-            .unwrap();
-    }
-
-    #[test]
-    fn beacon_entry_exists() {
-        // Setup
-        let block_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .beacon_entries(Vec::new())
-            .build()
-            .unwrap();
-        let beacon_schedule = BeaconSchedule(vec![BeaconPoint {
-            height: 0,
-            beacon: MockBeacon::default(),
-        }]);
-        let chain_epoch = 0;
-        let beacon_entry = BeaconEntry::new(1, vec![]);
-        // Validate_block_drand
-        if let Err(e) = block_header.validate_block_drand(
-            NetworkVersion::V16,
-            &beacon_schedule,
-            chain_epoch,
-            &beacon_entry,
-        ) {
-            // Assert error is for not including a beacon entry in the block
-            match e {
-                Error::Validation(why) => {
-                    assert_eq!(why, "Block must include at least 1 beacon entry");
-                }
-                _ => {
-                    panic!("validate block drand must detect a beacon entry in the block header");
-                }
-            }
-        }
     }
 }
