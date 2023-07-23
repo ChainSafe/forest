@@ -44,7 +44,7 @@ fn bench_fibs(c: &mut Criterion) {
     let mut index_vec = vec![];
     builder.write(&mut index_vec).unwrap();
     dbg!(index_vec.len().human_count_bytes());
-    let mut car_index = CarIndex::open(Cursor::new(index_vec), 0, builder.len());
+    let mut car_index = CarIndex::open(Cursor::new(index_vec), 0).unwrap();
 
     assert!(map.contains_key(&live_key));
     assert!(!map.contains_key(&dead_key));
