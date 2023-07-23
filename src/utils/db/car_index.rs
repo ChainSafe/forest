@@ -34,11 +34,10 @@
 //! are empty and leave unfilled slots, other buckets have multiple entries and
 //! spill into slots meant for someone else.
 //!
-//! To look up a value in this array, we go to the expected offset of the bucket
-//! and then skip all keys that have spilled buckets with a smaller offset. The
-//! number of keys to skip will always be small and it is fast to linearly scan
-//! an array. The scan is halted when we find either an empty slot or a hash
-//! with a bucket index higher than the key we're looking for.
+//! To look up a value in this array, we go to the bucket offset and scan
+//! towards the end of the array. The scan ends once we've found the key or an
+//! empty slot. The maximum number of elements to scan is guaranteed to be
+//! small.
 //!
 //! This technique is called [linear
 //! probing](https://en.wikipedia.org/wiki/Linear_probing).
