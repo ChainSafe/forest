@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(dead_code)]
 use super::BlockPosition;
 use super::Hash;
 use super::KeyValuePair;
@@ -46,7 +47,9 @@ impl Slot {
         reader.read_exact(&mut buffer)?;
         let disk_hash = Hash::from_le_bytes(buffer[0..8].try_into().expect("infallible"));
         if disk_hash == hash {
-            Ok(Some(BlockPosition::from_le_bytes(buffer[8..16].try_into().expect("infallible"))))
+            Ok(Some(BlockPosition::from_le_bytes(
+                buffer[8..16].try_into().expect("infallible"),
+            )))
         } else {
             Ok(None)
         }

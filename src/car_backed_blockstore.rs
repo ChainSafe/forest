@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(dead_code)]
 
 //! # Varint frames
 //!
@@ -316,6 +317,7 @@ impl<ReaderT> CompressedCarV1BackedBlockstore<ReaderT> {
         }
     }
 
+    #[cfg(test)]
     /// `index` must correspond to the `reader`. [`Blockstore`] API calls may panic if this is not upheld
     ///
     ///  See also [`Self::new`]
@@ -360,7 +362,6 @@ where
         .next()
         .ok_or(io::Error::new(InvalidData, "CAR must not be empty"))??;
 
-    let roots = get_roots_from_v1_header(&mut first_zstd_frame)?;
     let mut index =
         iter::from_fn(|| read_block_frame_location_and_skip(&mut first_zstd_frame).transpose())
             .map_ok(|(cid, location_in_frame)| {

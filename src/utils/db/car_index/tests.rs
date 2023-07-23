@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::*;
-use crate::utils::cid::CidCborExt;
-use quickcheck::{Arbitrary, Gen};
 use quickcheck_macros::quickcheck;
 use std::collections::{HashMap, HashSet};
 use std::io::{Cursor, Read, Seek};

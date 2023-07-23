@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(dead_code)]
 use super::{BlockPosition, Hash, KeyValuePair, Slot};
 use cid::Cid;
 use smallvec::{smallvec, SmallVec};
@@ -33,20 +34,24 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     }
 
     // Iterate through each slot in the table starting at the nth slot.
-    fn bucket_entries(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<KeyValuePair>> + '_> {
+    fn bucket_entries(
+        &mut self,
+        index: u64,
+    ) -> Result<impl Iterator<Item = Result<KeyValuePair>> + '_> {
         let len = self.len;
         if index >= len {
             return Err(Error::new(ErrorKind::InvalidInput, "out-of-bound index"));
         }
         self.reader
             .seek(SeekFrom::Start(self.offset + index * Slot::SIZE as u64))?;
-        Ok(std::iter::from_fn(move || {
-            match Slot::read(&mut self.reader) {
+        Ok(
+            std::iter::from_fn(move || match Slot::read(&mut self.reader) {
                 Err(e) => Some(Err(e)),
                 Ok(Slot::Empty) => None,
-                Ok(Slot::Full(entry)) => Some(Ok(entry))
-            }
-        }).take(len as usize))
+                Ok(Slot::Full(entry)) => Some(Ok(entry)),
+            })
+            .take(len as usize),
+        )
     }
     // 19.5ns with take, same without
 
@@ -125,7 +130,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
                         while let Some(value) = Slot::read_with_hash(&mut self.reader, hash)? {
                             ret.push(value);
                         }
-                        return Ok(ret)
+                        return Ok(ret);
                     }
                 }
             }

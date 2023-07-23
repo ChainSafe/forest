@@ -1,20 +1,23 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(dead_code)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct BlockPosition (u64);
+pub struct BlockPosition(u64);
 
 impl BlockPosition {
     // Returns None if the two offets cannot be stored in a single u64
     pub fn new(zst_frame_offset: u64, decoded_offset: u16) -> Option<Self> {
-        if zst_frame_offset >> (64-16) != 0 {
+        if zst_frame_offset >> (64 - 16) != 0 {
             None
         } else {
-            Some(BlockPosition(zst_frame_offset<<16 | decoded_offset as u64))
+            Some(BlockPosition(
+                zst_frame_offset << 16 | decoded_offset as u64,
+            ))
         }
     }
 
     pub fn zst_frame_offset(self) -> u64 {
-        self.0>>16
+        self.0 >> 16
     }
     pub fn decoded_offset(self) -> u16 {
         self.0 as u16
@@ -40,7 +43,6 @@ impl BlockPosition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::cid::CidCborExt;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
 

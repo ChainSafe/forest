@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(dead_code)]
 use super::{BlockPosition, Hash, KeyValuePair, Slot};
 use cid::Cid;
 use std::collections::BTreeMap;
 use std::io::Write;
-use std::num::{NonZeroU64, NonZeroUsize};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
 #[derive(Debug)]
@@ -21,13 +21,12 @@ impl CarIndexBuilder {
     }
 
     pub fn new(values: impl ExactSizeIterator<Item = (Cid, BlockPosition)>) -> CarIndexBuilder {
-        Self::new_raw(
-            values
-                .map(|(cid, value)| (Hash::from(cid), value)),
-        )
+        Self::new_raw(values.map(|(cid, value)| (Hash::from(cid), value)))
     }
 
-    pub fn new_raw(values: impl ExactSizeIterator<Item = (Hash, BlockPosition)>) -> CarIndexBuilder {
+    pub fn new_raw(
+        values: impl ExactSizeIterator<Item = (Hash, BlockPosition)>,
+    ) -> CarIndexBuilder {
         let size = Self::capacity_at(values.len());
         let mut vec = Vec::with_capacity(size);
         vec.resize(size, Slot::Empty);
@@ -111,7 +110,6 @@ impl CarIndexBuilder {
                     self.longest_distance = self.longest_distance.max(new_dist);
 
                     if found_dist < new_dist || (found_dist == new_dist && new.hash < found.hash) {
-                        
                         self.table[at as usize] = Slot::Full(new);
                         new = found;
                     }
@@ -149,7 +147,9 @@ impl CarIndexBuilder {
             writer.write_all(&entry.to_le_bytes()).await?;
         }
         for i in 0..self.longest_distance {
-            writer.write_all(&self.table[i as usize].to_le_bytes()).await?;
+            writer
+                .write_all(&self.table[i as usize].to_le_bytes())
+                .await?;
         }
         writer.write_all(&Slot::Empty.to_le_bytes()).await?;
         Ok(())

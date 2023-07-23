@@ -45,7 +45,6 @@ impl Hash {
         self.0.to_le_bytes()
     }
 
-
     // See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // Desired bucket for a hash with a given table length
     pub fn bucket(&self, len: u64) -> u64 {
