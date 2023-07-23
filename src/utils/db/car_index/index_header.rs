@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::io::{Read, Result};
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct IndexHeader {
     // Version number
     pub magic_number: u64,
@@ -39,5 +40,28 @@ impl IndexHeader {
             collisions: u64::from_le_bytes(bytes[16..24].try_into().expect("infallible")),
             buckets: u64::from_le_bytes(bytes[24..32].try_into().expect("infallible")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for IndexHeader {
+        fn arbitrary(g: &mut Gen) -> IndexHeader {
+            IndexHeader {
+                magic_number: u64::arbitrary(g),
+                longest_distance: u64::arbitrary(g),
+                collisions: u64::arbitrary(g),
+                buckets: u64::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn index_header_roundtrip(header: IndexHeader) {
+        assert_eq!(header, IndexHeader::from_le_bytes(header.to_le_bytes()))
     }
 }
