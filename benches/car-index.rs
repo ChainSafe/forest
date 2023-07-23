@@ -65,18 +65,6 @@ fn bench_fibs(c: &mut Criterion) {
 
     group.bench_function("miss", |b| b.iter(|| car_index.lookup(black_box(dead_key))));
 
-    for i in [0, 1, 2, 3, 4, 5, 100_u64] {
-        let (hash_key, distance) = builder.hash_at_distance(i);
-
-        group.bench_function(BenchmarkId::new("hit-fast", distance), |b| {
-            b.iter(|| car_index.lookup_hash_fast(black_box(hash_key)))
-        });
-    }
-
-    group.bench_function("miss-fast", |b| {
-        b.iter(|| car_index.lookup_fast(black_box(dead_key)))
-    });
-
     group.finish();
 }
 
