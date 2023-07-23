@@ -27,12 +27,11 @@ impl Slot {
 
     pub fn from_le_bytes(bytes: [u8; Self::SIZE]) -> Self {
         let hash = Hash::from_le_bytes(bytes[0..8].try_into().expect("infallible"));
-        let mb_blockposition =
-            BlockPosition::try_from_le_bytes(bytes[8..16].try_into().expect("infallible"));
-        if let Some(value) = mb_blockposition {
-            Slot::Full(KeyValuePair { hash, value })
-        } else {
+        if hash == Hash::INVALID {
             Slot::Empty
+        } else {
+            let value = BlockPosition::from_le_bytes(bytes[8..16].try_into().expect("infallible"));
+            Slot::Full(KeyValuePair { hash, value })
         }
     }
 
@@ -40,5 +39,16 @@ impl Slot {
         let mut buffer = [0; Self::SIZE];
         reader.read_exact(&mut buffer)?;
         Ok(Slot::from_le_bytes(buffer))
+    }
+
+    pub fn read_with_hash(reader: &mut impl Read, hash: Hash) -> Result<Option<BlockPosition>> {
+        let mut buffer = [0; Self::SIZE];
+        reader.read_exact(&mut buffer)?;
+        let disk_hash = Hash::from_le_bytes(buffer[0..8].try_into().expect("infallible"));
+        if disk_hash == hash {
+            Ok(Some(BlockPosition::from_le_bytes(buffer[8..16].try_into().expect("infallible"))))
+        } else {
+            Ok(None)
+        }
     }
 }

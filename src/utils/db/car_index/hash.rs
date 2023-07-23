@@ -4,7 +4,11 @@ use cid::Cid;
 use std::ops::Not;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Hash(pub u64);
+pub struct Hash(u64);
+
+impl Hash {
+    pub const INVALID: Hash = Hash(u64::MAX);
+}
 
 impl Not for Hash {
     type Output = Hash;
@@ -21,7 +25,8 @@ impl From<Hash> for u64 {
 
 impl From<u64> for Hash {
     fn from(hash: u64) -> Hash {
-        Hash(hash)
+        // Clear top bit. It is used to indicate empty slots.
+        Hash(hash & (u64::MAX >> 1))
     }
 }
 
@@ -40,18 +45,35 @@ impl Hash {
         self.0.to_le_bytes()
     }
 
+    // Before
+    //   lookup/car/hit          time:   [74.395 ns 74.590 ns 74.751 ns]
+    //   lookup/car/hit-fast     time:   [39.605 ns 39.757 ns 39.925 ns]
+
+    // See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // Optimal offset for a hash with a given table length
-    pub fn optimal_offset(&self, len: usize) -> usize {
-        self.0 as usize % len
+    pub fn optimal_offset(&self, len: u64) -> u64 {
+        // self.0 as usize % len
+        ((self.0 as u128 * len as u128) >> 64) as u64
+    }
+
+    // hash.set_offset(x, len).optimal_offset(len) = x
+    pub fn set_offset(self, offset: u64, len: u64) -> Self {
+        fn div_ceil(a: u128, b: u128) -> u64 {
+            (a / b + (if a % b == 0 { 0 } else { 1 })) as u64
+        }
+        // min with offset
+        let min_with_offset = div_ceil((1_u128 << u64::BITS) * offset as u128, len as u128);
+        let offset_height = u64::MAX / len;
+        Hash(min_with_offset + self.0 % offset_height)
     }
 
     // Walking distance between `at` and the optimal location of `hash`
-    pub fn distance(&self, at: usize, len: usize) -> usize {
+    pub fn distance(&self, at: u64, len: u64) -> u64 {
         let pos = self.optimal_offset(len);
         if pos > at {
-            (len - pos + at) % len
+            len - pos + at
         } else {
-            (at - pos) % len
+            at - pos
         }
     }
 }
@@ -72,7 +94,7 @@ mod tests {
     #[quickcheck]
     fn hash_offset_range(hash: Hash, len: NonZeroUsize) {
         // The optimal offset must be in 0..len
-        assert!(hash.optimal_offset(len.into()) < len.into())
+        assert!(hash.optimal_offset(usize::from(len) as u64) < usize::from(len) as u64)
     }
 
     #[quickcheck]
@@ -81,25 +103,42 @@ mod tests {
     }
 
     #[quickcheck]
-    fn hash_distance_range(hash: Hash, at: usize, len: NonZeroUsize) {
+    fn hash_set_offset(hash: Hash, mut offset: u64, mut len: u64) {
+        len = len.saturating_add(1); // len is non-zero
+        offset %= len; // offset is smaller than len
+        assert_eq!(offset, hash.set_offset(offset, len).optimal_offset(len))
+    }
+
+    // small offsets and lengths can be tested exhaustively
+    #[quickcheck]
+    fn hash_set_offset_small(hash: Hash) {
+        for len in 1..u8::MAX {
+            for offset in 0..len {
+                assert_eq!(
+                    offset as u64,
+                    hash.set_offset(offset as u64, len as u64)
+                        .optimal_offset(len as u64),
+                    "failed to set offset with len={len} and offset={offset}"
+                )
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn hash_distance_range(hash: Hash, at: u64, len: NonZeroUsize) {
         // A hash can never be more than len-1 steps away from its optimal offset
-        assert!(hash.distance(at % usize::from(len), len.into()) < len.into())
+        assert!(hash.distance(at % len.get() as u64, len.get() as u64) < len.get() as u64)
     }
 
     #[test]
-    fn key_value_pair_distance_1() {
+    fn hash_distance_1() {
         // Hash(0) is right where it wants to be
         assert_eq!(Hash(0).distance(0, 1), 0);
     }
 
     #[test]
-    fn key_value_pair_distance_2() {
+    fn hash_distance_2() {
         // If Hash(0) is at position 4 then it is 4 places away from where it wants to be.
         assert_eq!(Hash(0).distance(4, 10), 4);
-    }
-    #[test]
-    fn key_value_pair_distance_3() {
-        assert_eq!(Hash(9).distance(9, 10), 0);
-        assert_eq!(Hash(9).distance(0, 10), 1);
     }
 }

@@ -37,7 +37,7 @@ fn query(table: &mut CarIndex<impl Read + Seek>, key: Hash) -> Vec<BlockPosition
 }
 
 fn mk_table(entries: &[(Hash, BlockPosition)]) -> CarIndex<Cursor<Vec<u8>>> {
-    let table_builder = CarIndexBuilder::new_raw(entries);
+    let table_builder = CarIndexBuilder::new_raw(entries.clone().into_iter().copied());
     let mut store = Vec::new();
     table_builder.write(&mut store).unwrap();
     CarIndex::open(Cursor::new(store), 0, table_builder.len())
@@ -89,10 +89,9 @@ fn lookup_narrow(mut entries: Vec<(Hash, BlockPosition)>) {
 // but all hash values map to optimal_position 0
 #[quickcheck]
 fn lookup_clash_all(mut entries: Vec<(Hash, BlockPosition)>) {
-    let table_len = CarIndexBuilder::capacity_at(entries.len());
+    let table_len = CarIndexBuilder::capacity_at(entries.len()) as u64;
     for (hash, _position) in entries.iter_mut() {
-        let n = u64::from(*hash);
-        *hash = Hash::from(n - n % table_len as u64);
+        *hash = hash.set_offset(0, table_len);
         assert_eq!(hash.optimal_offset(table_len), 0);
     }
     let map = mk_map(&entries);
@@ -106,12 +105,11 @@ fn lookup_clash_all(mut entries: Vec<(Hash, BlockPosition)>) {
 // but all hash values map to optimal_position 0..10
 #[quickcheck]
 fn lookup_clash_many(mut entries: Vec<(Hash, BlockPosition)>) {
-    let table_len = CarIndexBuilder::capacity_at(entries.len());
+    let table_len = CarIndexBuilder::capacity_at(entries.len()) as u64;
     for (hash, _position) in entries.iter_mut() {
-        let n = u64::from(*hash);
-        let i = n % 10.min(table_len as u64);
-        *hash = Hash::from((n - n % table_len as u64).checked_add(i).unwrap_or(i));
-        assert_eq!(hash.optimal_offset(table_len), i as usize);
+        let i = u64::from(*hash) % 10.min(table_len as u64);
+        *hash = hash.set_offset(i, table_len);
+        assert_eq!(hash.optimal_offset(table_len), i);
     }
     let map = mk_map(&entries);
     let mut table = mk_table(&entries);

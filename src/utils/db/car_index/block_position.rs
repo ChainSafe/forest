@@ -1,32 +1,27 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct BlockPosition {
-    zst_frame_offset: u64,
-    decoded_offset: u16,
-}
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct BlockPosition (u64);
 
 impl BlockPosition {
     // Returns None if the two offets cannot be stored in a single u64
     pub fn new(zst_frame_offset: u64, decoded_offset: u16) -> Option<Self> {
-        let position = BlockPosition {
-            zst_frame_offset,
-            decoded_offset,
-        };
-        if position.encode() == u64::MAX || BlockPosition::decode(position.encode()) != position {
+        if zst_frame_offset >> (64-16) != 0 {
             None
         } else {
-            Some(position)
+            Some(BlockPosition(zst_frame_offset<<16 | decoded_offset as u64))
         }
     }
 
-    pub fn try_from_le_bytes(bytes: [u8; 8]) -> Option<BlockPosition> {
-        let n = u64::from_le_bytes(bytes);
-        if n == u64::MAX {
-            None
-        } else {
-            Some(Self::decode(u64::from_le_bytes(bytes)))
-        }
+    pub fn zst_frame_offset(self) -> u64 {
+        self.0>>16
+    }
+    pub fn decoded_offset(self) -> u16 {
+        self.0 as u16
+    }
+
+    pub fn from_le_bytes(bytes: [u8; 8]) -> BlockPosition {
+        Self::decode(u64::from_le_bytes(bytes))
     }
 
     pub fn to_le_bytes(self) -> [u8; 8] {
@@ -34,15 +29,11 @@ impl BlockPosition {
     }
 
     fn encode(self) -> u64 {
-        assert!(self.zst_frame_offset >> (u64::BITS - u16::BITS) == 0);
-        self.zst_frame_offset << u16::BITS | self.decoded_offset as u64
+        self.0
     }
 
-    fn decode(value: u64) -> Self {
-        BlockPosition {
-            zst_frame_offset: value >> u16::BITS,
-            decoded_offset: value as u16,
-        }
+    pub fn decode(value: u64) -> Self {
+        BlockPosition(value)
     }
 }
 
