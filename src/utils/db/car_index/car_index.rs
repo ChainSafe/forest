@@ -60,15 +60,12 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     // Jump to bucket offset and scan downstream. All key-value pairs with the
     // right key are guaranteed to appear before we encounter an empty slot.
     fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
-        let len = self.len;
-        let key = hash.bucket(len);
-        let mut ret = smallvec![];
-
-        self.reader
-            .seek(SeekFrom::Start(self.offset + key * Slot::SIZE as u64))?;
+        self.reader.seek(SeekFrom::Start(
+            self.offset + hash.bucket(self.len) * Slot::SIZE as u64,
+        ))?;
         while let Slot::Full(entry) = Slot::read(&mut self.reader)? {
             if entry.hash == hash {
-                ret.push(entry.value);
+                let mut ret = smallvec![entry.value];
                 // The entries are sorted. Once we've found a matching
                 // key, all duplicate hash keys will be right next to
                 // it. Note that it's extremely rare for hashes to
