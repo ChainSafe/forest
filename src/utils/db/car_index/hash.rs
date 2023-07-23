@@ -48,30 +48,30 @@ impl Hash {
     // See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // Desired bucket for a hash with a given table length
     pub fn bucket(&self, buckets: u64) -> u64 {
-        // self.0 as usize % len
-        // break 0..=u64::MAX into 'len' chunks and map each chunk to 0..len.
-        // if len=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
+        // self.0 as usize % buckets
+        // break 0..=u64::MAX into 'buckets' chunks and map each chunk to 0..len.
+        // if buckets=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
         ((self.0 as u128 * buckets as u128) >> 64) as u64
     }
 
-    // hash.set_offset(x, len).optimal_offset(len) = x
-    pub fn set_offset(self, offset: u64, len: u64) -> Self {
+    // hash.set_bucket(x, len).bucket(len) = x
+    pub fn set_bucket(self, bucket: u64, buckets: u64) -> Self {
         fn div_ceil(a: u128, b: u128) -> u64 {
             (a / b + (if a % b == 0 { 0 } else { 1 })) as u64
         }
-        // min with offset
-        let min_with_offset = div_ceil((1_u128 << u64::BITS) * offset as u128, len as u128);
-        let offset_height = u64::MAX / len;
-        Hash(min_with_offset + self.0 % offset_height)
+        // min with bucket
+        let min_with_bucket = div_ceil((1_u128 << u64::BITS) * bucket as u128, buckets as u128);
+        let bucket_height = u64::MAX / buckets;
+        Hash(min_with_bucket + self.0 % bucket_height)
     }
 
-    // Walking distance between `at` and the optimal location of `hash`
-    pub fn distance(&self, at: u64, len: u64) -> u64 {
-        let pos = self.bucket(len);
-        if pos > at {
-            len - pos + at
+    // Walking distance between `actual_bucket` and `hash.bucket()`
+    pub fn distance(&self, actual_bucket: u64, buckets: u64) -> u64 {
+        let bucket = self.bucket(buckets);
+        if bucket > actual_bucket {
+            buckets - bucket + actual_bucket
         } else {
-            at - pos
+            actual_bucket - bucket
         }
     }
 }
@@ -90,9 +90,9 @@ mod tests {
     }
 
     #[quickcheck]
-    fn hash_offset_range(hash: Hash, len: NonZeroUsize) {
-        // The optimal offset must be in 0..len
-        assert!(hash.bucket(usize::from(len) as u64) < usize::from(len) as u64)
+    fn hash_offset_range(hash: Hash, buckets: NonZeroUsize) {
+        // The optimal offset must be in 0..buckets
+        assert!(hash.bucket(buckets.get() as u64) < buckets.get() as u64)
     }
 
     #[quickcheck]
@@ -101,31 +101,34 @@ mod tests {
     }
 
     #[quickcheck]
-    fn hash_set_offset(hash: Hash, mut offset: u64, mut len: u64) {
-        len = len.saturating_add(1); // len is non-zero
-        offset %= len; // offset is smaller than len
-        assert_eq!(offset, hash.set_offset(offset, len).bucket(len))
+    fn hash_set_bucket(hash: Hash, mut bucket: u64, mut buckets: u64) {
+        buckets = buckets.saturating_add(1); // len is non-zero
+        bucket %= buckets; // offset is smaller than len
+        assert_eq!(bucket, hash.set_bucket(bucket, buckets).bucket(buckets))
     }
 
     // small offsets and lengths can be tested exhaustively
     #[quickcheck]
-    fn hash_set_offset_small(hash: Hash) {
-        for len in 1..u8::MAX {
-            for offset in 0..len {
+    fn hash_set_bucket_small(hash: Hash) {
+        for buckets in 1..u8::MAX {
+            for bucket in 0..buckets {
                 assert_eq!(
-                    offset as u64,
-                    hash.set_offset(offset as u64, len as u64)
-                        .bucket(len as u64),
-                    "failed to set offset with len={len} and offset={offset}"
+                    bucket as u64,
+                    hash.set_bucket(bucket as u64, buckets as u64)
+                        .bucket(buckets as u64),
+                    "failed to set offset with buckets={buckets} and bucket={bucket}"
                 )
             }
         }
     }
 
     #[quickcheck]
-    fn hash_distance_range(hash: Hash, at: u64, len: NonZeroUsize) {
-        // A hash can never be more than len-1 steps away from its optimal offset
-        assert!(hash.distance(at % len.get() as u64, len.get() as u64) < len.get() as u64)
+    fn hash_distance_range(hash: Hash, bucket: u64, buckets: NonZeroUsize) {
+        // A hash can never be more than buckets-1 steps away from its optimal offset
+        assert!(
+            hash.distance(bucket % buckets.get() as u64, buckets.get() as u64)
+                < buckets.get() as u64
+        )
     }
 
     #[test]

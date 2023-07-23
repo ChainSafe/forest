@@ -89,17 +89,17 @@ mod block_position;
 mod car_index;
 mod car_index_builder;
 mod hash;
+mod index_header;
 mod key_value_pair;
 mod slot;
-mod index_header;
 
 pub use block_position::BlockPosition;
 pub use car_index::CarIndex;
 pub use car_index_builder::CarIndexBuilder;
 use hash::Hash;
+use index_header::IndexHeader;
 use key_value_pair::KeyValuePair;
 use slot::Slot;
-use index_header::IndexHeader;
 
 #[cfg(test)]
 mod tests;

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(dead_code)]
-use super::{BlockPosition, Hash, KeyValuePair, Slot, IndexHeader};
+use super::{BlockPosition, Hash, IndexHeader, KeyValuePair, Slot};
 use cid::Cid;
 use std::collections::BTreeMap;
 use std::io::Write;

@@ -89,7 +89,7 @@ fn lookup_narrow(mut entries: Vec<(Hash, BlockPosition)>) {
 fn lookup_clash_all(mut entries: Vec<(Hash, BlockPosition)>) {
     let table_len = CarIndexBuilder::capacity_at(entries.len()) as u64;
     for (hash, _position) in entries.iter_mut() {
-        *hash = hash.set_offset(0, table_len);
+        *hash = hash.set_bucket(0, table_len);
         assert_eq!(hash.bucket(table_len), 0);
     }
     let map = mk_map(&entries);
@@ -106,7 +106,7 @@ fn lookup_clash_many(mut entries: Vec<(Hash, BlockPosition)>) {
     let table_len = CarIndexBuilder::capacity_at(entries.len()) as u64;
     for (hash, _position) in entries.iter_mut() {
         let i = u64::from(*hash) % 10.min(table_len as u64);
-        *hash = hash.set_offset(i, table_len);
+        *hash = hash.set_bucket(i, table_len);
         assert_eq!(hash.bucket(table_len), i);
     }
     let map = mk_map(&entries);
