@@ -66,30 +66,19 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
 
         self.reader
             .seek(SeekFrom::Start(self.offset + key * Slot::SIZE as u64))?;
-        loop {
-            let slot = Slot::read(&mut self.reader)?;
-            match slot {
-                Slot::Empty => return Ok(smallvec![]),
-                Slot::Full(entry) => {
-                    if entry.hash == hash {
-                        ret.push(entry.value);
-                        // The entries are sorted. Once we've found a matching
-                        // key, all duplicate hash keys will be right next to
-                        // it. Note that it's extremely rare for hashes to
-                        // collide.
-                        while let Some(value) = Slot::read_with_hash(&mut self.reader, hash)? {
-                            ret.push(value);
-                        }
-                        return Ok(ret);
-                    }
+        while let Slot::Full(entry) = Slot::read(&mut self.reader)? {
+            if entry.hash == hash {
+                ret.push(entry.value);
+                // The entries are sorted. Once we've found a matching
+                // key, all duplicate hash keys will be right next to
+                // it. Note that it's extremely rare for hashes to
+                // collide.
+                while let Some(value) = Slot::read_with_hash(&mut self.reader, hash)? {
+                    ret.push(value);
                 }
+                return Ok(ret);
             }
         }
+        Ok(smallvec![])
     }
-}
-
-pub fn read_u64(reader: &mut impl Read) -> Result<u64> {
-    let mut buffer = [0; 8];
-    reader.read_exact(&mut buffer)?;
-    Ok(u64::from_le_bytes(buffer))
 }
