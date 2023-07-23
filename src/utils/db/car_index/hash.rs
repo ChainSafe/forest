@@ -45,14 +45,13 @@ impl Hash {
         self.0.to_le_bytes()
     }
 
-    // Before
-    //   lookup/car/hit          time:   [74.395 ns 74.590 ns 74.751 ns]
-    //   lookup/car/hit-fast     time:   [39.605 ns 39.757 ns 39.925 ns]
 
     // See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
-    // Optimal offset for a hash with a given table length
-    pub fn optimal_offset(&self, len: u64) -> u64 {
+    // Desired bucket for a hash with a given table length
+    pub fn bucket(&self, len: u64) -> u64 {
         // self.0 as usize % len
+        // break 0..=u64::MAX into 'len' chunks and map each chunk to 0..len.
+        // if len=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
         ((self.0 as u128 * len as u128) >> 64) as u64
     }
 
@@ -69,7 +68,7 @@ impl Hash {
 
     // Walking distance between `at` and the optimal location of `hash`
     pub fn distance(&self, at: u64, len: u64) -> u64 {
-        let pos = self.optimal_offset(len);
+        let pos = self.bucket(len);
         if pos > at {
             len - pos + at
         } else {
@@ -94,7 +93,7 @@ mod tests {
     #[quickcheck]
     fn hash_offset_range(hash: Hash, len: NonZeroUsize) {
         // The optimal offset must be in 0..len
-        assert!(hash.optimal_offset(usize::from(len) as u64) < usize::from(len) as u64)
+        assert!(hash.bucket(usize::from(len) as u64) < usize::from(len) as u64)
     }
 
     #[quickcheck]
@@ -106,7 +105,7 @@ mod tests {
     fn hash_set_offset(hash: Hash, mut offset: u64, mut len: u64) {
         len = len.saturating_add(1); // len is non-zero
         offset %= len; // offset is smaller than len
-        assert_eq!(offset, hash.set_offset(offset, len).optimal_offset(len))
+        assert_eq!(offset, hash.set_offset(offset, len).bucket(len))
     }
 
     // small offsets and lengths can be tested exhaustively
@@ -117,7 +116,7 @@ mod tests {
                 assert_eq!(
                     offset as u64,
                     hash.set_offset(offset as u64, len as u64)
-                        .optimal_offset(len as u64),
+                        .bucket(len as u64),
                     "failed to set offset with len={len} and offset={offset}"
                 )
             }

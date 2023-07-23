@@ -12,7 +12,7 @@ pub struct KeyValuePair {
 impl KeyValuePair {
     // Optimal offset for a hash with a given table length
     pub fn optimal_offset(&self, len: u64) -> u64 {
-        self.hash.optimal_offset(len)
+        self.hash.bucket(len)
     }
 
     // Walking distance between `at` and the optimal location of `hash`

@@ -33,7 +33,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     }
 
     // Iterate through each slot in the table starting at the nth slot.
-    fn slots(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<Slot>> + '_> {
+    fn bucket_entries(&mut self, mut index: u64) -> Result<impl Iterator<Item = Result<KeyValuePair>> + '_> {
         let len = self.len;
         if index >= len {
             return Err(Error::new(ErrorKind::InvalidInput, "out-of-bound index"));
@@ -41,23 +41,14 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         self.reader
             .seek(SeekFrom::Start(self.offset + index * Slot::SIZE as u64))?;
         Ok(std::iter::from_fn(move || {
-            Some(Slot::read(&mut self.reader))
+            match Slot::read(&mut self.reader) {
+                Err(e) => Some(Err(e)),
+                Ok(Slot::Empty) => None,
+                Ok(Slot::Full(entry)) => Some(Ok(entry))
+            }
         }).take(len as usize))
     }
     // 19.5ns with take, same without
-
-    // Iterate through fill key-value-pairs starting at the nth slot. Iteration
-    // stops when an empty slot is found or all slots have been traversed.
-    fn entries(&mut self, index: u64) -> Result<impl Iterator<Item = Result<KeyValuePair>> + '_> {
-        Ok(self.slots(index)?.map_while(|result| {
-            result
-                .map(|entry| match entry {
-                    Slot::Empty => None,
-                    Slot::Full(entry) => Some(entry),
-                })
-                .transpose()
-        }))
-    }
 
     #[cfg(any(test, feature = "benchmark-private"))]
     pub fn lookup_hash(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
@@ -77,12 +68,12 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     //  5. filter out bucket entries that do not match our key.
     fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
         let len = self.len;
-        let key = hash.optimal_offset(len);
+        let key = hash.bucket(len);
         let mut smallest_seen_distance = u64::MAX;
 
         // starting at the bucket for 'key', scan through entries, stopping at
         // empty slots.
-        self.entries(key)?
+        self.bucket_entries(key)?
             // skip entries that have spilled over from earlier buckets
             .skip_while(move |result| match result {
                 Err(_) => false,
@@ -119,7 +110,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
 
     fn lookup_internal_fast(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
         let len = self.len;
-        let key = hash.optimal_offset(len);
+        let key = hash.bucket(len);
         let mut ret = smallvec![];
 
         self.reader
