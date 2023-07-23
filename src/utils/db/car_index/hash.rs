@@ -47,11 +47,11 @@ impl Hash {
 
     // See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // Desired bucket for a hash with a given table length
-    pub fn bucket(&self, len: u64) -> u64 {
+    pub fn bucket(&self, buckets: u64) -> u64 {
         // self.0 as usize % len
         // break 0..=u64::MAX into 'len' chunks and map each chunk to 0..len.
         // if len=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
-        ((self.0 as u128 * len as u128) >> 64) as u64
+        ((self.0 as u128 * buckets as u128) >> 64) as u64
     }
 
     // hash.set_offset(x, len).optimal_offset(len) = x

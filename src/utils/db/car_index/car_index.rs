@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(dead_code)]
-use super::{BlockPosition, Hash, KeyValuePair, Slot};
+use super::{BlockPosition, Hash, KeyValuePair, Slot, IndexHeader};
 use cid::Cid;
 use smallvec::{smallvec, SmallVec};
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
@@ -9,18 +9,20 @@ use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
 pub struct CarIndex<ReaderT> {
     reader: ReaderT,
     offset: u64,
-    len: u64, // length of table in elements. Each element is 128bit.
+    header: IndexHeader,
 }
 
 impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     /// `O(1)` Open a reader as a mapping from cids to block positions in a
     /// content-addressable archive.
-    pub fn open(reader: ReaderT, offset: u64, len: u64) -> Self {
-        CarIndex {
+    pub fn open(mut reader: ReaderT, offset: u64) -> Result<Self> {
+        reader.seek(SeekFrom::Start(offset))?;
+        let header = IndexHeader::read(&mut reader)?;
+        Ok(CarIndex {
             reader,
-            offset,
-            len,
-        }
+            offset: offset + IndexHeader::SIZE as u64,
+            header,
+        })
     }
 
     /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
@@ -35,8 +37,8 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         &mut self,
         bucket: u64,
     ) -> Result<impl Iterator<Item = Result<KeyValuePair>> + '_> {
-        let len = self.len;
-        if bucket >= len {
+        let buckets = self.header.buckets;
+        if bucket >= buckets {
             return Err(Error::new(ErrorKind::InvalidInput, "out-of-bound index"));
         }
 
@@ -48,7 +50,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
                 Ok(Slot::Empty) => None,
                 Ok(Slot::Full(entry)) => Some(Ok(entry)),
             })
-            .take(len as usize),
+            .take(buckets as usize),
         )
     }
 
@@ -61,7 +63,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     // right key are guaranteed to appear before we encounter an empty slot.
     fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
         self.reader.seek(SeekFrom::Start(
-            self.offset + hash.bucket(self.len) * Slot::SIZE as u64,
+            self.offset + hash.bucket(self.header.buckets) * Slot::SIZE as u64,
         ))?;
         while let Slot::Full(entry) = Slot::read(&mut self.reader)? {
             if entry.hash == hash {

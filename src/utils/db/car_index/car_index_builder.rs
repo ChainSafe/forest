@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(dead_code)]
-use super::{BlockPosition, Hash, KeyValuePair, Slot};
+use super::{BlockPosition, Hash, KeyValuePair, Slot, IndexHeader};
 use cid::Cid;
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -131,7 +131,17 @@ impl CarIndexBuilder {
         map
     }
 
+    fn header(&self) -> IndexHeader {
+        IndexHeader {
+            magic_number: 0xdeadbeef,
+            longest_distance: self.longest_distance,
+            collisions: self.collisions,
+            buckets: self.len(),
+        }
+    }
+
     pub fn write(&self, mut writer: impl Write) -> std::io::Result<()> {
+        writer.write_all(&self.header().to_le_bytes())?;
         for slot in self.table.iter() {
             writer.write_all(&slot.to_le_bytes())?;
         }
@@ -143,6 +153,7 @@ impl CarIndexBuilder {
     }
 
     pub async fn write_async(&self, mut writer: impl AsyncWrite + Unpin) -> std::io::Result<()> {
+        writer.write_all(&self.header().to_le_bytes()).await?;
         for entry in self.table.iter() {
             writer.write_all(&entry.to_le_bytes()).await?;
         }
