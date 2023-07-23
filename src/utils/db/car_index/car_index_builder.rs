@@ -98,6 +98,7 @@ impl CarIndexBuilder {
         loop {
             match self.table[at as usize] {
                 Slot::Empty => {
+                    self.longest_distance = self.longest_distance.max(new.distance(at, len));
                     self.table[at as usize] = Slot::Full(new);
                     break;
                 }
@@ -107,7 +108,7 @@ impl CarIndexBuilder {
                     }
                     let found_dist = found.distance(at, len);
                     let new_dist = new.distance(at, len);
-                    self.longest_distance = self.longest_distance.max(new_dist as u64);
+                    self.longest_distance = self.longest_distance.max(new_dist);
 
                     if found_dist < new_dist || (found_dist == new_dist && new.hash < found.hash) {
                         
@@ -133,9 +134,13 @@ impl CarIndexBuilder {
     }
 
     pub fn write(&self, mut writer: impl Write) -> std::io::Result<()> {
-        for entry in self.table.iter() {
-            writer.write_all(&entry.to_le_bytes())?;
+        for slot in self.table.iter() {
+            writer.write_all(&slot.to_le_bytes())?;
         }
+        for i in 0..self.longest_distance {
+            writer.write_all(&self.table[i as usize].to_le_bytes())?;
+        }
+        writer.write_all(&Slot::Empty.to_le_bytes())?;
         Ok(())
     }
 
@@ -143,6 +148,10 @@ impl CarIndexBuilder {
         for entry in self.table.iter() {
             writer.write_all(&entry.to_le_bytes()).await?;
         }
+        for i in 0..self.longest_distance {
+            writer.write_all(&self.table[i as usize].to_le_bytes()).await?;
+        }
+        writer.write_all(&Slot::Empty.to_le_bytes()).await?;
         Ok(())
     }
 

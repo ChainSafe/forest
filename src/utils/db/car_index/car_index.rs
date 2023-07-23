@@ -41,13 +41,6 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         self.reader
             .seek(SeekFrom::Start(self.offset + index * Slot::SIZE as u64))?;
         Ok(std::iter::from_fn(move || {
-            if index == len {
-                if let Err(err) = self.reader.seek(SeekFrom::Start(self.offset)) {
-                    return Some(Err(err));
-                }
-                index = 0;
-            }
-            index += 1;
             Some(Slot::read(&mut self.reader))
         }).take(len as usize))
     }
