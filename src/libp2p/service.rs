@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    path::Path,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -13,7 +12,6 @@ use crate::libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
-use crate::utils::io::read_file_to_vec;
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
@@ -834,26 +832,4 @@ pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, Stre
         .multiplex(yamux::Config::default())
         .timeout(Duration::from_secs(20))
         .boxed())
-}
-
-/// Fetch key-pair from disk, returning none if it cannot be decoded.
-pub fn get_keypair(path: &Path) -> Option<Keypair> {
-    match read_file_to_vec(path) {
-        Err(e) => {
-            info!("Networking keystore not found!");
-            trace!("Error {:?}", e);
-            None
-        }
-        Ok(mut vec) => match Keypair::ed25519_from_bytes(&mut vec) {
-            Ok(kp) => {
-                info!("Recovered libp2p keypair from {:?}", &path);
-                Some(kp)
-            }
-            Err(e) => {
-                info!("Could not decode networking keystore!");
-                trace!("Error {:?}", e);
-                None
-            }
-        },
-    }
 }

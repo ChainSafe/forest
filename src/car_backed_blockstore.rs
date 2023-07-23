@@ -4,9 +4,11 @@
 
 //! # Varint frames
 //!
-//! CARs are made of concatenations of _varint frames_.
-//! Each varint frame is a concatenation of the _body length_ as an [`unsigned_varint`], and the _frame body_ itself.
-//! [`unsigned_varint::codec`] can be used to read frames piecewise into memory.
+//! CARs are made of concatenations of _varint frames_. Each varint frame is a
+//! concatenation of the _body length_ as an
+//! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html),
+//! and the _frame body_ itself. [`crate::utils::encoding::UviBytes`] can be
+//! used to read frames piecewise into memory.
 //!
 //! ```text
 //!        varint frame
@@ -59,6 +61,7 @@ use cid::Cid;
 use futures::{stream, Stream, StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
+use integer_encoding::{VarInt, VarIntReader};
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
@@ -73,9 +76,8 @@ use std::{
     iter,
     ops::ControlFlow,
 };
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio_util::codec::{BytesCodec, FramedWrite};
-use tokio_util_06::codec::{FramedRead as FramedRead06, FramedWrite as FramedWrite06};
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tracing::{debug, trace};
 
 use crate::utils::{try_collate, Collate};
@@ -640,21 +642,10 @@ fn read_block_frame_location_and_skip(
 ///        reader end ►│
 /// ```
 fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
-    use unsigned_varint::io::{
-        read_u32,
-        ReadError::{Decode, Io},
-    };
-
     let mut byte = [0u8; 1]; // detect EOF
     match reader.read(&mut byte)? {
         0 => Ok(None),
-        1 => read_u32(byte.chain(reader))
-            .map_err(|varint_error| match varint_error {
-                Io(e) => e,
-                Decode(e) => io::Error::new(InvalidData, e),
-                other => io::Error::new(Other, other),
-            })
-            .map(Some),
+        1 => (byte.chain(reader)).read_varint().map(Some),
         _ => unreachable!(),
     }
 }
@@ -766,9 +757,10 @@ pub async fn zstd_compress_varint_manyframe(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> io::Result<usize> {
+    type VarintFrameCodec = crate::utils::encoding::UviBytes;
     let mut count = 0;
     try_collate(
-        FramedRead06::new(reader, VarintFrameCodec::default()),
+        FramedRead::new(reader, VarintFrameCodec::default()),
         varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
         zstd_compress_finish,
     )
@@ -822,11 +814,11 @@ fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
 ) -> zstd::Encoder<Writer<BytesMut>> {
-    // eprintln!("Adding varint block: {}", body.len());
-    let mut header = unsigned_varint::encode::usize_buffer();
     encoder
-        .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
-        .and_then(|_| encoder.write_all(&body))
+        .write_all(&body.len().encode_var_vec())
+        .expect("BytesMut has infallible IO");
+    encoder
+        .write_all(&body)
         .expect("BytesMut has infallible IO");
     encoder
 }
@@ -841,74 +833,74 @@ fn zstd_compress_finish(encoder: zstd::Encoder<Writer<BytesMut>>) -> BytesMut {
     frame
 }
 
-#[allow(clippy::enum_variant_names)] // V2 support soon
-pub enum CarFormat<'index_writer> {
-    V1Plain,
-    /// See [crate::car_backed_blockstore::CompressedCarV1BackedBlockstore]
-    V1ManyFrame {
-        zstd_frame_size_tripwire: usize,
-        zstd_compression_level: u16,
-    },
-    V1ManyFrameIndexedOutOfBand {
-        zstd_frame_size_tripwire: usize,
-        zstd_compression_level: u16,
-        index_writer: Box<dyn AsyncWrite + 'index_writer>,
-    },
-}
+// #[allow(clippy::enum_variant_names)] // V2 support soon
+// pub enum CarFormat<'index_writer> {
+//     V1Plain,
+//     /// See [crate::car_backed_blockstore::CompressedCarV1BackedBlockstore]
+//     V1ManyFrame {
+//         zstd_frame_size_tripwire: usize,
+//         zstd_compression_level: u16,
+//     },
+//     V1ManyFrameIndexedOutOfBand {
+//         zstd_frame_size_tripwire: usize,
+//         zstd_compression_level: u16,
+//         index_writer: Box<dyn AsyncWrite + 'index_writer>,
+//     },
+// }
 
-pub async fn write_car(
-    format: CarFormat<'_>,
-    roots: Vec<Cid>,
-    // TODO(aatifsyed): can we be smarter about the serialization here?
-    // TODO(aatifsyed): should this accept (Cid, Ipld)?
-    blocks: impl Stream<Item = io::Result<(Cid, Vec<u8>)>>,
-    // TODO(aatifsyed): document that this should be uncompressed for manyframe formats
-    writer: impl AsyncWrite,
-) -> io::Result<()> {
-    match format {
-        CarFormat::V1Plain => {
-            stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
-                .chain(blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld)))
-                .forward(FramedWrite06::new(writer, VarintFrameCodec::default()))
-                .await
-        }
-        CarFormat::V1ManyFrame {
-            zstd_frame_size_tripwire,
-            zstd_compression_level,
-        } => {
-            try_collate(
-                stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
-                    .chain(blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld))),
-                varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
-                zstd_compress_finish,
-            )
-            .forward(FramedWrite::new(writer, BytesCodec::new()))
-            .await
-        }
-        CarFormat::V1ManyFrameIndexedOutOfBand {
-            zstd_frame_size_tripwire,
-            zstd_compression_level,
-            index_writer,
-        } => {
-            let index = write_manyframe_and_create_index(
-                roots,
-                blocks,
-                zstd_frame_size_tripwire,
-                zstd_compression_level,
-                writer,
-            )
-            .await?;
+// pub async fn write_car(
+//     format: CarFormat<'_>,
+//     roots: Vec<Cid>,
+//     // TODO(aatifsyed): can we be smarter about the serialization here?
+//     // TODO(aatifsyed): should this accept (Cid, Ipld)?
+//     blocks: impl Stream<Item = io::Result<(Cid, Vec<u8>)>>,
+//     // TODO(aatifsyed): document that this should be uncompressed for manyframe formats
+//     writer: impl AsyncWrite,
+// ) -> io::Result<()> {
+//     match format {
+//         CarFormat::V1Plain => {
+//             stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
+//                 .chain(blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld)))
+//                 .forward(FramedWrite::new(writer, VarintFrameCodec::default()))
+//                 .await
+//         }
+//         CarFormat::V1ManyFrame {
+//             zstd_frame_size_tripwire,
+//             zstd_compression_level,
+//         } => {
+//             try_collate(
+//                 stream::once(future::ready(Ok(uncompressed_v1_header(roots))))
+//                     .chain(blocks.map_ok(|(cid, ipld)| concat_cid_and_block_data(cid, ipld))),
+//                 varint_to_zstd_frame_collator(zstd_frame_size_tripwire, zstd_compression_level),
+//                 zstd_compress_finish,
+//             )
+//             .forward(FramedWrite::new(writer, BytesCodec::new()))
+//             .await
+//         }
+//         CarFormat::V1ManyFrameIndexedOutOfBand {
+//             zstd_frame_size_tripwire,
+//             zstd_compression_level,
+//             index_writer,
+//         } => {
+//             let index = write_manyframe_and_create_index(
+//                 roots,
+//                 blocks,
+//                 zstd_frame_size_tripwire,
+//                 zstd_compression_level,
+//                 writer,
+//             )
+//             .await?;
 
-            // TODO(aatifsyed): do we want a versioned index?
-            let mut serialized_index = BytesMut::new();
-            fvm_ipld_encoding::to_writer((&mut serialized_index).writer(), &index)
-                .expect("BytesMut has infallible IO");
-            Box::into_pin(index_writer)
-                .write_all_buf(&mut serialized_index)
-                .await
-        }
-    }
-}
+//             // TODO(aatifsyed): do we want a versioned index?
+//             let mut serialized_index = BytesMut::new();
+//             fvm_ipld_encoding::to_writer((&mut serialized_index).writer(), &index)
+//                 .expect("BytesMut has infallible IO");
+//             Box::into_pin(index_writer)
+//                 .write_all_buf(&mut serialized_index)
+//                 .await
+//         }
+//     }
+// }
 
 async fn write_manyframe_and_create_index(
     roots: Vec<Cid>,
