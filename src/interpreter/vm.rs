@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use crate::blocks::Tipset;
-use crate::chain::store::ChainStore;
+use crate::chain::index::ChainIndex;
 use crate::message::ChainMessage;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
@@ -88,7 +88,7 @@ pub struct ExecutionContext<DB> {
     // The chain config is used to determine which consensus rules to use.
     pub chain_config: Arc<ChainConfig>,
     // Caching interface to the DB
-    pub chain_store: Arc<ChainStore<DB>>,
+    pub chain_index: Arc<ChainIndex<Arc<DB>>>,
     // UNIX timestamp for epoch
     pub timestamp: u64,
 }
@@ -106,7 +106,7 @@ where
             base_fee,
             circ_supply,
             chain_config,
-            chain_store,
+            chain_index,
             timestamp,
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
@@ -126,13 +126,13 @@ where
             context.set_circulating_supply(circ_supply.into());
             let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
                 &context,
-                Arc::clone(&chain_store.db),
+                Arc::clone(&chain_index.db),
                 ForestExternsV3::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
                     epoch,
                     state_tree_root,
-                    chain_store,
+                    chain_index,
                     chain_config,
                 ),
             )?;
@@ -147,13 +147,13 @@ where
             let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
                 &engine,
                 &context,
-                Arc::clone(&chain_store.db),
+                Arc::clone(&chain_index.db),
                 ForestExternsV2::new(
                     RandWrapper::from(rand),
                     heaviest_tipset,
                     epoch,
                     state_tree_root,
-                    chain_store,
+                    chain_index,
                     chain_config,
                 ),
             )?;

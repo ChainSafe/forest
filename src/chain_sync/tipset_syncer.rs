@@ -1256,15 +1256,14 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
         })?;
 
     // Retrieve lookback tipset for validation
-    let lookback_state = state_manager
-        .chain_store()
-        .get_lookback_tipset_for_round(
-            state_manager.chain_config(),
-            base_tipset.clone(),
-            block.header().epoch(),
-        )
-        .map_err(|e| (*block_cid, e.into()))
-        .map(|(_, s)| Arc::new(s))?;
+    let lookback_state = ChainStore::get_lookback_tipset_for_round(
+        state_manager.chain_store().chain_index.clone(),
+        state_manager.chain_config(),
+        base_tipset.clone(),
+        block.header().epoch(),
+    )
+    .map_err(|e| (*block_cid, e.into()))
+    .map(|(_, s)| Arc::new(s))?;
 
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
