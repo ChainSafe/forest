@@ -171,28 +171,6 @@ where
     }
 }
 
-// Adds `true` to the last element in the stream and `false` to all other elements.
-pub fn finite_stream<V>(stream: impl Stream<Item = V>) -> impl Stream<Item = (bool, V)> {
-    let mut peekable = Box::pin(stream.peekable());
-    futures::stream::poll_fn(move |cx| {
-        let ret = futures::ready!(peekable.as_mut().poll_next(cx));
-        match ret {
-            None => Poll::Ready(None),
-            Some(val) => {
-                let last_element = futures::ready!(peekable.as_mut().poll_peek(cx)).is_some();
-                Poll::Ready(Some((last_element, val)))
-            }
-        }
-    })
-}
-
-pub fn try_finite_stream<V, E>(
-    stream: impl TryStream<Ok = V, Error = E>,
-) -> impl TryStream<Ok = (bool, V), Error = E> {
-    finite_stream(stream.into_stream())
-        .map(|(last_element, ret_val)| ret_val.map(|val| (last_element, val)))
-}
-
 #[cfg(test)]
 mod tests {
     mod files;
