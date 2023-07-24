@@ -7,12 +7,8 @@ pub mod json {
     use crate::shim::executor::TraceMessage;
     use crate::shim::message::MethodNum;
 
-    use fvm_ipld_encoding::strict_bytes;
-
     use base64::{prelude::BASE64_STANDARD, Engine};
-    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
-
-    //use crate::json::address::json::AddressJson;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a TraceMessage from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -42,7 +38,6 @@ pub mod json {
         pub value: TokenAmount,
         #[serde(rename = "Method")]
         pub method_num: MethodNum,
-        //#[serde(with = "strict_bytes")]
         pub params: String,
         pub params_codec: u64,
     }

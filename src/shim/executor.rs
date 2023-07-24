@@ -15,7 +15,7 @@ use fvm_shared3::error::ErrorNumber;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 
-use fvm_ipld_encoding::{ipld_block::IpldBlock, strict_bytes, RawBytes};
+use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
 
 use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
