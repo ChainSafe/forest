@@ -157,7 +157,7 @@ async fn do_export(
     let chain_store = Arc::new(ChainStore::new(
         store,
         config.chain.clone(),
-        &genesis,
+        genesis.clone(),
         tmp_chain_dir.path(),
     )?);
 

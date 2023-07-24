@@ -126,7 +126,6 @@ where
             ts.clone(),
             ResolveNullTipset::TakeOlder,
         )?;
-        sm.chain_store().set_genesis(&gb.blocks()[0])?;
         if sm.chain_config().genesis_cid.is_some()
             && !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {

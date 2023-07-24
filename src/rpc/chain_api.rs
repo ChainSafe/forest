@@ -234,7 +234,7 @@ pub(in crate::rpc) async fn chain_get_genesis<DB>(
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
 {
-    let genesis = data.state_manager.chain_store().genesis()?;
+    let genesis = data.state_manager.chain_store().genesis();
     let gen_ts = Arc::new(Tipset::from(genesis));
     Ok(Some(TipsetJson(gen_ts)))
 }

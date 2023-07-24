@@ -216,7 +216,7 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis()?;
+        let genesis = cs.genesis();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
 
         Ok(Self {
@@ -628,7 +628,6 @@ where
         Ok(apply_block_messages(
             self.chain_store()
                 .genesis()
-                .map_err(anyhow::Error::from)?
                 .timestamp(),
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
@@ -1071,7 +1070,6 @@ where
         let genesis_timestamp = self
             .chain_store()
             .genesis()
-            .map_err(anyhow::Error::from)?
             .timestamp();
         validate_tipsets(
             genesis_timestamp,
