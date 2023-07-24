@@ -136,13 +136,13 @@ impl Tipset {
         })
     }
 
-    /// Fetch a tipset from the blockstore. This call fails if the tipset
+    /// Fetch a tipset from the blockstore. This call fails if the tipset is
     /// present but invalid. If the tipset is missing, None is returned.
     pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids()
             .iter()
-            .map(|c| store.get_cbor(c))
+            .map(|key| BlockHeader::load(&store, *key))
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)

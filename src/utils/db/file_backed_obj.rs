@@ -47,16 +47,6 @@ impl<T: FileBackedObject> FileBacked<T> {
         self.try_sync()
     }
 
-    /// Creates a new file backed object
-    pub fn new(inner: T, path: PathBuf) -> Self {
-        Self {
-            inner,
-            path,
-            last_sync: None,
-            sync_period: None,
-        }
-    }
-
     /// Loads an object from a file and creates a new instance
     pub fn load_from_file_or_create<F: Fn() -> T>(
         path: PathBuf,
