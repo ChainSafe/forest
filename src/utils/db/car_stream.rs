@@ -83,7 +83,7 @@ pin_project! {
     pub struct CarStream<ReaderT> {
         #[pin]
         reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
-        header: CarHeader,
+        pub header: CarHeader,
     }
 }
 
@@ -91,16 +91,24 @@ impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
     pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
         let start_position = reader.stream_position().await?;
         if let Some(header) = read_header(&mut reader).await {
+            reader.seek(SeekFrom::Start(start_position)).await?;
+            let mut framed_reader = FramedRead::new(Either::Left(reader), UviBytes::default());
+            let _ = framed_reader.next().await;
             Ok(CarStream {
-                reader: FramedRead::new(Either::Left(reader), UviBytes::default()),
+                reader: framed_reader,
                 header,
             })
         } else {
             reader.seek(SeekFrom::Start(start_position)).await?;
             let mut zstd = ZstdDecoder::new(reader);
             if let Some(header) = read_header(&mut zstd).await {
+                let mut reader = zstd.into_inner();
+                reader.seek(SeekFrom::Start(start_position)).await?;
+                let zstd = ZstdDecoder::new(reader);
+                let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
+                let _ = framed_reader.next().await;
                 Ok(CarStream {
-                    reader: FramedRead::new(Either::Right(zstd), UviBytes::default()),
+                    reader: framed_reader,
                     header,
                 })
             } else {
@@ -147,5 +155,6 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option
     if !first_block.valid() {
         return None;
     }
+
     Some(header)
 }

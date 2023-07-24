@@ -80,7 +80,7 @@ use std::{
     iter,
     ops::ControlFlow,
 };
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tracing::{debug, trace};
 
@@ -414,11 +414,20 @@ where
 }
 
 pub fn write_skip_frame(mut writer: impl std::io::Write, frame: &[u8]) -> std::io::Result<()> {
-    // writer.write_all(&[0x18,0x4D,0x2A,0x50])?;
     writer.write_all(&[0x50, 0x2A, 0x4D, 0x18])?;
     let len: u32 = frame.len() as u32;
     writer.write_all(&len.to_le_bytes())?;
     writer.write_all(frame)
+}
+
+pub async fn write_skip_frame_async(
+    writer: &mut (impl AsyncWrite + Unpin),
+    frame: &[u8],
+) -> std::io::Result<()> {
+    writer.write_all(&[0x50, 0x2A, 0x4D, 0x18]).await?;
+    let len: u32 = frame.len() as u32;
+    writer.write_all(&len.to_le_bytes()).await?;
+    writer.write_all(frame).await
 }
 
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {

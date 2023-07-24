@@ -3,46 +3,69 @@
 
 // encode CAR-stream into ForestCAR.zst
 
-use crate::utils::db::car_index::BlockPosition;
+use crate::car_backed_blockstore::write_skip_frame_async;
+use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::try_finite_stream;
+use ahash::HashMapExt;
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
 use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
+use fvm_ipld_encoding::to_vec;
+use num_traits::ToBytes;
+use std::pin::{pin, Pin};
 use std::task::Poll;
-use std::{io, io::Write};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use std::pin::{Pin, pin};
-use ahash::HashMapExt;
+use std::{
+    io,
+    io::{Cursor, Write},
+};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 
 // Input: stream of blocks
 // Output: (BlockPosition, Option<zst_frame>)
 
-struct ForestCAR {}
+pub struct ForestCAR {}
 
 impl ForestCAR {
     pub async fn write(
-        sink: &mut (impl AsyncWrite + Unpin),
+        sink: &mut (impl AsyncWrite + AsyncSeek + Unpin),
+        roots: Vec<Cid>,
         mut stream: impl TryStream<Ok = Either<(Cid, BlockPosition), Bytes>, Error = io::Error> + Unpin,
     ) -> io::Result<()> {
-        let mut cid_map = ahash::HashMap::new();
+        // Write CARv1 header
+        let header = CarHeader { roots, version: 1 };
+        sink.write_all(&to_vec(&header)?).await?;
+
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
+        let mut cid_map = ahash::HashMap::new();
         while let Some(either) = stream.try_next().await? {
             match either {
                 Either::Left((cid, position)) => {
                     cid_map.insert(cid, position);
-                },
+                }
                 Either::Right(zstd_frame) => {
                     sink.write_all(&zstd_frame).await?;
                 }
             }
         }
+
         // Create index
-        // crate::car_backed_blockstore::write_skip_frame(&mut file, &index)?;
+        let index_offset = sink.stream_position().await?;
+        let mut index = Vec::new();
+        CarIndexBuilder::new(cid_map.into_iter()).write(Cursor::new(&mut index))?;
+        write_skip_frame_async(sink, &index).await?;
+
+        // Write ForestCAR.zst footer
+        let footer = ForestCARFooter {
+            index: index_offset,
+        };
+        write_skip_frame_async(sink, &footer.to_le_bytes()).await?;
         Ok(())
     }
 
+    // Consume stream of blocks, emit a new position of each block and a stream
+    // of zstd frames.
     pub fn compress_stream(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
@@ -115,4 +138,32 @@ fn new_encoder(
     zstd_compression_level: u16,
 ) -> io::Result<zstd::Encoder<'static, Writer<BytesMut>>> {
     zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
+}
+
+struct ForestCARFooter {
+    index: u64,
+}
+
+impl ForestCARFooter {
+    pub const SIZE: usize = 16;
+
+    pub fn to_le_bytes(&self) -> [u8; Self::SIZE] {
+        let footer_data_len: u32 = 8;
+
+        let mut buffer = [0; 16];
+        buffer[0..4].copy_from_slice(&[0x50, 0x2A, 0x4D, 0x18]);
+        buffer[4..8].copy_from_slice(&footer_data_len.to_le_bytes());
+        buffer[8..16].copy_from_slice(&self.index.to_le_bytes());
+        buffer
+    }
+
+    pub fn try_from_le_bytes(bytes: [u8; Self::SIZE]) -> Option<ForestCARFooter> {
+        let index = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        let footer = ForestCARFooter { index };
+        if bytes == footer.to_le_bytes() {
+            Some(footer)
+        } else {
+            None
+        }
+    }
 }

@@ -6,7 +6,6 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
     self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
-use crate::utils::db::car_stream::CarStream;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -18,11 +17,13 @@ use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
 use crate::state_manager::StateManager;
+use crate::utils::db::car_stream::CarStream;
 use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
+use human_repr::HumanDuration;
 use std::io::{BufReader, Cursor, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -217,51 +218,81 @@ impl SnapshotCommands {
                 compression_level,
                 frame_size,
             } => {
-                // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
-                // For example, the zstsd magic bytes are a valid varint frame prefix:
-                assert_eq!(
-                    <usize as integer_encoding::VarInt>::decode_var(&[0xFD, 0x2F, 0xB5, 0x28])
-                        .unwrap()
-                        .1,
-                    6141,
-                );
-                // so the best thing to do is to just try compressed and then uncompressed.
-                use car_backed_blockstore::zstd_compress_varint_manyframe;
+                use crate::db::car::forest::ForestCAR;
+                use futures::stream::{StreamExt, TryStreamExt};
+                use fvm_ipld_car::CarReader;
+                use human_repr;
                 use tokio::fs::File;
+                use tokio_util::compat::TokioAsyncReadCompatExt;
 
-                zstd_compress_varint_manyframe(
-                    // CarStream::new(tokio::io::BufReader::new(File::open(&source).await?)).await?,
-                    File::open(&source).await?,
-                    File::create(&destination).await?,
-                    frame_size,
-                    compression_level,
-                )
-                .await?;
-                let idx = crate::car_backed_blockstore::keys_from_compressed_car(
-                    std::io::BufReader::new(std::fs::File::open(&destination)?),
-                )?;
-                let idx_len = idx.len();
-                eprintln!("Index elements: {}", idx.len());
-                let mut file = std::io::BufWriter::new(
-                    std::fs::OpenOptions::new()
-                        .append(true)
-                        .open(&destination)?,
-                );
-                let eof = file.seek(SeekFrom::End(0))?;
-                let mut index = Vec::new();
-                crate::utils::db::car_index::CarIndexBuilder::new(idx.into_iter())
-                    .write(std::io::Cursor::new(&mut index))?;
-                crate::car_backed_blockstore::write_skip_frame(&mut file, &index)?;
+                {
+                    let file = tokio::io::BufReader::with_capacity(
+                        1024 * 1024,
+                        File::open(&source).await?,
+                    );
+                    let mut block_stream = CarStream::new(file).await?;
+                    let roots = std::mem::take(&mut block_stream.header.roots);
 
-                let mut ident_frame = vec![];
-                let mut ident_frame_writer = Cursor::new(&mut ident_frame);
-                let index_len = crate::utils::db::car_index::CarIndexBuilder::capacity_at(idx_len);
-                ident_frame_writer.write_all(&index_len.to_le_bytes())?;
-                ident_frame_writer.write_all(&eof.to_le_bytes())?;
-                ident_frame_writer.flush()?;
-                crate::car_backed_blockstore::write_skip_frame(&mut file, &ident_frame)?;
+                    // let now = std::time::Instant::now();
+                    // println!("Counting blocks...");
+                    // let mut count = 0;
+                    // while let Some(block) = block_stream.try_next().await? {
+                    //     count += 1;
+                    // }
+                    // println!("Count: {}, {}", count, now.elapsed().human_duration());
 
-                file.flush()?;
+                    let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
+
+                    let frames =
+                        ForestCAR::compress_stream(frame_size, compression_level, block_stream);
+                    ForestCAR::write(&mut dest, roots, frames).await?;
+                }
+
+                // // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
+                // // For example, the zstsd magic bytes are a valid varint frame prefix:
+                // assert_eq!(
+                //     <usize as integer_encoding::VarInt>::decode_var(&[0xFD, 0x2F, 0xB5, 0x28])
+                //         .unwrap()
+                //         .1,
+                //     6141,
+                // );
+                // // so the best thing to do is to just try compressed and then uncompressed.
+                // use car_backed_blockstore::zstd_compress_varint_manyframe;
+                // use tokio::fs::File;
+
+                // zstd_compress_varint_manyframe(
+                //     // CarStream::new(tokio::io::BufReader::new(File::open(&source).await?)).await?,
+                //     File::open(&source).await?,
+                //     File::create(&destination).await?,
+                //     frame_size,
+                //     compression_level,
+                // )
+                // .await?;
+                // let idx = crate::car_backed_blockstore::keys_from_compressed_car(
+                //     std::io::BufReader::new(std::fs::File::open(&destination)?),
+                // )?;
+                // let idx_len = idx.len();
+                // eprintln!("Index elements: {}", idx.len());
+                // let mut file = std::io::BufWriter::new(
+                //     std::fs::OpenOptions::new()
+                //         .append(true)
+                //         .open(&destination)?,
+                // );
+                // let eof = file.seek(SeekFrom::End(0))?;
+                // let mut index = Vec::new();
+                // crate::utils::db::car_index::CarIndexBuilder::new(idx.into_iter())
+                //     .write(std::io::Cursor::new(&mut index))?;
+                // crate::car_backed_blockstore::write_skip_frame(&mut file, &index)?;
+
+                // let mut ident_frame = vec![];
+                // let mut ident_frame_writer = Cursor::new(&mut ident_frame);
+                // let index_len = crate::utils::db::car_index::CarIndexBuilder::capacity_at(idx_len);
+                // ident_frame_writer.write_all(&index_len.to_le_bytes())?;
+                // ident_frame_writer.write_all(&eof.to_le_bytes())?;
+                // ident_frame_writer.flush()?;
+                // crate::car_backed_blockstore::write_skip_frame(&mut file, &ident_frame)?;
+
+                // file.flush()?;
                 Ok(())
             }
         }
