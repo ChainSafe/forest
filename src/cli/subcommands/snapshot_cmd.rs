@@ -218,13 +218,13 @@ impl SnapshotCommands {
                 compression_level,
                 frame_size,
             } => {
+                use crate::db::car;
                 use crate::db::car::forest::ForestCAR;
                 use futures::stream::{StreamExt, TryStreamExt};
                 use fvm_ipld_car::CarReader;
                 use human_repr;
                 use tokio::fs::File;
                 use tokio_util::compat::TokioAsyncReadCompatExt;
-                use crate::db::car;
 
                 {
                     let file = tokio::io::BufReader::with_capacity(
@@ -244,9 +244,12 @@ impl SnapshotCommands {
 
                     let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
 
-                    let frames =
-                        car::forest::Encoder::compress_stream(frame_size, compression_level, block_stream);
-                        car::forest::Encoder::write(&mut dest, roots, frames).await?;
+                    let frames = car::forest::Encoder::compress_stream(
+                        frame_size,
+                        compression_level,
+                        block_stream,
+                    );
+                    car::forest::Encoder::write(&mut dest, roots, frames).await?;
                 }
 
                 // // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:

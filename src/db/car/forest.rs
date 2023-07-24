@@ -8,7 +8,7 @@ use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::try_finite_stream;
 use ahash::HashMapExt;
-use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut, Buf};
+use bytes::{buf::Writer, Buf, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
 use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
@@ -79,7 +79,7 @@ where
             ..
         } = &mut *self.inner.lock();
         if let Some(value) = write_cache.get(k) {
-            return Ok(Some(value.clone()))
+            return Ok(Some(value.clone()));
         }
 
         let stored = index.lookup(*k)?;
@@ -94,11 +94,11 @@ where
             bytes.advance(position.decoded_offset() as usize);
             if let Some(block) = Block::from_bytes(bytes) {
                 if block.cid == *k {
-                    return Ok(Some(block.data))
+                    return Ok(Some(block.data));
                 }
             }
         }
-        return Ok(None)
+        return Ok(None);
     }
 
     /// # Panics
@@ -160,15 +160,24 @@ impl Encoder {
         zstd_compression_level: u16,
         stream: impl TryStream<Ok = Block, Error = io::Error>,
     ) -> impl TryStream<Ok = Either<(Cid, BlockPosition), Bytes>, Error = io::Error> {
-        let mut encoder = new_encoder(zstd_compression_level).unwrap();
+        let mut encoder_store = new_encoder(zstd_compression_level);
         let mut emitted_bytes: usize = 0;
         let mut frame_offset: usize = 0;
 
         let mut stream = Box::pin(stream.into_stream());
         futures::stream::poll_fn(move |cx| {
+            let encoder = match encoder_store.as_mut() {
+                Err(e) => {
+                    let dummy_error =
+                        io::Error::new(io::ErrorKind::Other, "Error already consumed.");
+                    return Poll::Ready(Some(Err(std::mem::replace(e, dummy_error))));
+                }
+                Ok(encoder) => encoder,
+            };
+
             // Emit frame if compressed_len >= zstd_frame_size_tripwire OR uncompressed_len >= 2^16
-            if compressed_len(&encoder) >= zstd_frame_size_tripwire || frame_offset >= 1 << 16 {
-                let frame = finalize_frame(zstd_compression_level, &mut encoder)?;
+            if compressed_len(encoder) >= zstd_frame_size_tripwire || frame_offset >= 1 << 16 {
+                let frame = finalize_frame(zstd_compression_level, encoder)?;
                 emitted_bytes += frame.len();
                 frame_offset = 0;
                 return Poll::Ready(Some(Ok(Either::Right(frame))));
@@ -180,7 +189,7 @@ impl Encoder {
                 None => {
                     // If there's anything in the zstd buffer, emit it.
                     if compressed_len(&encoder) > 0 {
-                        let frame = finalize_frame(zstd_compression_level, &mut encoder)?;
+                        let frame = finalize_frame(zstd_compression_level, encoder)?;
                         Poll::Ready(Some(Ok(Either::Right(frame))))
                     } else {
                         // Otherwise we're all done.
@@ -203,7 +212,7 @@ impl Encoder {
                             io::ErrorKind::InvalidInput,
                             "zstd archive size of 256TiB exceeded",
                         ))?;
-                    block.write(&mut encoder)?;
+                    block.write(encoder)?;
                     encoder.flush()?;
                     Poll::Ready(Some(Ok(Either::Left((cid, position)))))
                 }
@@ -248,7 +257,7 @@ impl ForestCARFooter {
     }
 
     pub fn try_from_le_bytes(bytes: [u8; Self::SIZE]) -> Option<ForestCARFooter> {
-        let index = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        let index = u64::from_le_bytes(bytes[8..16].try_into().expect("infallible"));
         let footer = ForestCARFooter { index };
         if bytes == footer.to_le_bytes() {
             Some(footer)
