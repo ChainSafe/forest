@@ -644,7 +644,7 @@ pub async fn zstd_compress_varint_manyframe(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> io::Result<usize> {
-    type VarintFrameCodec = crate::utils::encoding::UviBytes;
+    type VarintFrameCodec = crate::utils::encoding::uvibytes::UviBytes;
     let mut count = 0;
     try_collate(
         FramedRead::new(reader, VarintFrameCodec::default()),
