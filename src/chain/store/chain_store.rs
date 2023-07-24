@@ -74,7 +74,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    pub chain_index: ChainIndex<DB>,
+    pub chain_index: ChainIndex<Arc<DB>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,

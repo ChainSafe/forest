@@ -25,7 +25,7 @@ pub struct ChainIndex<DB> {
     ts_cache: TipsetCache,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: Arc<DB>,
+    db: DB,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,7 +38,7 @@ pub enum ResolveNullTipset {
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub(in crate::chain) fn new(db: Arc<DB>) -> Self {
+    pub(in crate::chain) fn new(db: DB) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self { ts_cache, db }
     }
