@@ -47,6 +47,8 @@ pub mod json {
         pub miner_tip: TokenAmount,
         #[serde(with = "crate::json::token_amount::json")]
         pub refund: TokenAmount,
+        #[serde(with = "crate::json::token_amount::json")]
+        pub total_cost: TokenAmount,
     }
 
     pub fn serialize<S>(gc: &MessageGasCost, serializer: S) -> Result<S::Ok, S::Error>
@@ -61,6 +63,7 @@ pub mod json {
             miner_penalty: gc.miner_penalty.clone(),
             miner_tip: gc.miner_tip.clone(),
             refund: gc.refund.clone(),
+            total_cost: gc.total_cost.clone(),
         }
         .serialize(serializer)
     }
@@ -78,6 +81,7 @@ pub mod json {
             miner_penalty: gc.miner_penalty,
             miner_tip: gc.miner_tip,
             refund: gc.refund,
+            total_cost: gc.total_cost,
         })
     }
 }

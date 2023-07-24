@@ -84,11 +84,12 @@ pub struct MessageGasCost {
     pub miner_penalty: TokenAmount,
     pub miner_tip: TokenAmount,
     pub refund: TokenAmount,
-    // pub total_cost: TokenAmount,
+    pub total_cost: TokenAmount,
 }
 
 impl MessageGasCost {
-    pub fn new(msg: &Message, ret: ApplyRet) -> Self {
+    pub fn new(msg: &ChainMessage, ret: ApplyRet) -> Self {
+        use crate::message::Message;
         Self {
             message: msg.cid().unwrap(),
             gas_used: BigInt::from(ret.gas_used()),
@@ -97,6 +98,7 @@ impl MessageGasCost {
             miner_penalty: ret.miner_penalty(),
             miner_tip: ret.miner_tip(),
             refund: ret.gas_refund(),
+            total_cost: msg.required_funds() - &ret.gas_refund(),
         }
     }
 }
@@ -356,7 +358,7 @@ where
                         msg_cid: cid,
                         msg: msg.message().clone(),
                         msg_receipt,
-                        gas_cost: MessageGasCost::new(msg.message(), ret),
+                        gas_cost: MessageGasCost::new(msg, ret),
                         execution_trace: trace,
                         error,
                     });
