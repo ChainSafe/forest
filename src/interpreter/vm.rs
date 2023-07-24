@@ -35,6 +35,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT, METHOD_SEND};
 use num::Zero;
+use num_bigint::BigInt;
 //use serde::{Deserialize, Serialize};
 
 use crate::interpreter::{fvm::ForestExternsV2, fvm3::ForestExterns as ForestExterns_v3};
@@ -77,14 +78,25 @@ pub trait RewardCalc: Send + Sync + 'static {
 #[derive(PartialEq, Clone, Debug)]
 pub struct MessageGasCost {
     pub message: Cid,
-    pub gas_used: u64,
+    pub gas_used: BigInt,
+    pub base_fee_burn: TokenAmount,
+    pub over_estimation_burn: TokenAmount,
+    pub miner_penalty: TokenAmount,
+    pub miner_tip: TokenAmount,
+    pub refund: TokenAmount,
+    // pub total_cost: TokenAmount,
 }
 
 impl MessageGasCost {
     pub fn new(msg: &Message, ret: ApplyRet) -> Self {
         Self {
             message: msg.cid().unwrap(),
-            gas_used: ret.gas_used(),
+            gas_used: BigInt::from(ret.gas_used()),
+            base_fee_burn: ret.base_fee_burn(),
+            over_estimation_burn: ret.over_estimation_burn(),
+            miner_penalty: ret.miner_penalty(),
+            miner_tip: ret.miner_tip(),
+            refund: ret.gas_refund(),
         }
     }
 }

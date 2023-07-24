@@ -75,6 +75,34 @@ impl ApplyRet {
         }
     }
 
+    pub fn gas_refund(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => v2.refund.borrow().into(),
+            ApplyRet::V3(v3) => v3.refund.borrow().into(),
+        }
+    }
+
+    pub fn miner_penalty(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => v2.penalty.borrow().into(),
+            ApplyRet::V3(v3) => v3.penalty.borrow().into(),
+        }
+    }
+
+    pub fn base_fee_burn(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => v2.base_fee_burn.borrow().into(),
+            ApplyRet::V3(v3) => v3.base_fee_burn.borrow().into(),
+        }
+    }
+
+    pub fn over_estimation_burn(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => v2.over_estimation_burn.borrow().into(),
+            ApplyRet::V3(v3) => v3.over_estimation_burn.borrow().into(),
+        }
+    }
+
     pub fn exec_events(&self) -> Vec<ExecutionEvent_v3> {
         match self {
             ApplyRet::V2(_v2) => todo!(),

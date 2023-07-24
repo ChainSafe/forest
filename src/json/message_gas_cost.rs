@@ -5,8 +5,12 @@ use crate::interpreter::MessageGasCost;
 
 pub mod json {
     use cid::Cid;
+    use num_bigint::BigInt;
+    use std::str::FromStr;
 
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use crate::shim::econ::TokenAmount;
 
     use super::*;
 
@@ -32,7 +36,17 @@ pub mod json {
     struct JsonHelper {
         #[serde(default, with = "crate::json::cid")]
         pub message: Cid,
-        pub gas_used: u64,
+        pub gas_used: String,
+        #[serde(with = "crate::json::token_amount::json")]
+        pub base_fee_burn: TokenAmount,
+        #[serde(with = "crate::json::token_amount::json")]
+        pub over_estimation_burn: TokenAmount,
+        #[serde(with = "crate::json::token_amount::json")]
+        pub miner_penalty: TokenAmount,
+        #[serde(with = "crate::json::token_amount::json")]
+        pub miner_tip: TokenAmount,
+        #[serde(with = "crate::json::token_amount::json")]
+        pub refund: TokenAmount,
     }
 
     pub fn serialize<S>(gc: &MessageGasCost, serializer: S) -> Result<S::Ok, S::Error>
@@ -41,7 +55,12 @@ pub mod json {
     {
         JsonHelper {
             message: gc.message,
-            gas_used: gc.gas_used,
+            gas_used: gc.gas_used.to_str_radix(10),
+            base_fee_burn: gc.base_fee_burn.clone(),
+            over_estimation_burn: gc.over_estimation_burn.clone(),
+            miner_penalty: gc.miner_penalty.clone(),
+            miner_tip: gc.miner_tip.clone(),
+            refund: gc.refund.clone(),
         }
         .serialize(serializer)
     }
@@ -53,7 +72,12 @@ pub mod json {
         let gc: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(MessageGasCost {
             message: gc.message,
-            gas_used: gc.gas_used,
+            gas_used: BigInt::from_str(&gc.gas_used).map_err(de::Error::custom)?,
+            base_fee_burn: gc.base_fee_burn,
+            over_estimation_burn: gc.over_estimation_burn,
+            miner_penalty: gc.miner_penalty,
+            miner_tip: gc.miner_tip,
+            refund: gc.refund,
         })
     }
 }
