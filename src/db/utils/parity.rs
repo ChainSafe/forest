@@ -7,8 +7,8 @@ use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {
-    pub db: ParityDb,
-    pub dir: tempfile::TempDir, // kept for cleaning up during Drop
+    db: Option<ParityDb>,
+    _dir: tempfile::TempDir, // kept for cleaning up during Drop
 }
 
 impl TempParityDB {
@@ -22,8 +22,8 @@ impl TempParityDB {
         let config = ParityDbConfig::default();
 
         TempParityDB {
-            db: ParityDb::open(path, &config).unwrap(),
-            dir,
+            db: Some(ParityDb::open(path, &config).unwrap()),
+            _dir: dir,
         }
     }
 }
@@ -32,6 +32,12 @@ impl Deref for TempParityDB {
     type Target = ParityDb;
 
     fn deref(&self) -> &Self::Target {
-        &self.db
+        self.db.as_ref().unwrap()
+    }
+}
+
+impl AsRef<ParityDb> for TempParityDB {
+    fn as_ref(&self) -> &ParityDb {
+        self.db.as_ref().unwrap()
     }
 }

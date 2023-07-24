@@ -7,13 +7,13 @@ use crate::db::utils::parity::TempParityDB;
 #[test]
 fn db_write() {
     let db = TempParityDB::new();
-    subtests::write(&*db);
+    subtests::write_bin(&*db);
 }
 
 #[test]
 fn db_read() {
     let db = TempParityDB::new();
-    subtests::read(&*db);
+    subtests::read_bin(&*db);
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn db_does_not_exist() {
 }
 
 #[test]
-fn db_bulk_write() {
+fn db_write_read_obj() {
     let db = TempParityDB::new();
-    subtests::bulk_write(&*db);
+    subtests::write_read_obj(&*db);
 }

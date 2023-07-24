@@ -1,12 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt;
+use std::{fmt, sync::OnceLock};
 
-use crate::shim::address::Address;
-use crate::shim::clock::ChainEpoch;
+use crate::networks::{calibnet, mainnet};
+use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
-use ahash::{HashSet, HashSetExt};
+use ahash::{HashMap, HashSet, HashSetExt};
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -100,40 +101,6 @@ impl quickcheck::Arbitrary for Tipset {
     }
 }
 
-#[cfg(test)]
-mod property_tests {
-    use quickcheck_macros::quickcheck;
-    use serde_json;
-
-    use super::{
-        tipset_json::{TipsetJson, TipsetJsonRef},
-        tipset_keys_json::TipsetKeysJson,
-        Tipset, TipsetKeys,
-    };
-
-    impl quickcheck::Arbitrary for TipsetKeys {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                cids: Vec::arbitrary(g),
-            }
-        }
-    }
-
-    #[quickcheck]
-    fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
-        let serialized = serde_json::to_string(&TipsetKeysJson(tipset_keys.clone())).unwrap();
-        let parsed: TipsetKeysJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(tipset_keys, parsed.0);
-    }
-
-    #[quickcheck]
-    fn tipset_roundtrip(tipset: Tipset) {
-        let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
-        let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(&tipset, parsed.0.as_ref());
-    }
-}
-
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
@@ -169,15 +136,47 @@ impl Tipset {
         })
     }
 
-    /// Loads a tipset from memory given the tipset keys.
+    /// Fetch a tipset from the blockstore. This call fails if the tipset is
+    /// present but invalid. If the tipset is missing, None is returned.
     pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids()
             .iter()
-            .map(|c| store.get_cbor(c))
+            .map(|key| BlockHeader::load(&store, *key))
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
+    }
+
+    /// Fetch a tipset from the blockstore. This calls fails if the tipset is
+    /// missing or invalid.
+    pub fn load_required(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Tipset> {
+        Tipset::load(store, tsk)?.context("Required tipset missing from database")
+    }
+
+    /// Constructs and returns a full tipset if messages from storage exists
+    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
+        // Find tipset messages. If any are missing, return `None`.
+        let blocks = self
+            .blocks()
+            .iter()
+            .cloned()
+            .map(|header| {
+                let (bls_messages, secp_messages) =
+                    crate::chain::store::block_messages(&store, &header).ok()?;
+                Some(Block {
+                    header,
+                    bls_messages,
+                    secp_messages,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+
+        // the given tipset has already been verified, so this cannot fail
+        Some(
+            FullTipset::new(blocks)
+                .expect("block headers have already been verified so this check cannot fail"),
+        )
     }
 
     /// Returns epoch of the tipset.
@@ -257,6 +256,55 @@ impl Tipset {
         }
         broken
     }
+    /// Returns an iterator of all tipsets
+    pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
+        itertools::unfold(Some(self), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
+                child
+            })
+        })
+    }
+
+    /// Fetch the genesis block header for a given tipset.
+    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<BlockHeader> {
+        // Scanning through millions of epochs to find the genesis is quite
+        // slow. Let's use a list of known blocks to short-circuit the search.
+        // The blocks are hash-chained together and known blocks are guaranteed
+        // to have a known genesis.
+        #[derive(Serialize, Deserialize)]
+        struct KnownHeaders {
+            calibnet: HashMap<ChainEpoch, String>,
+            mainnet: HashMap<ChainEpoch, String>,
+        }
+
+        static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
+        let headers = KNOWN_HEADERS.get_or_init(|| {
+            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
+        });
+
+        for tipset in self.clone().chain(&store) {
+            // Search for known calibnet and mainnet blocks
+            for (genesis_cid, known_blocks) in [
+                (*calibnet::GENESIS_CID, &headers.calibnet),
+                (*mainnet::GENESIS_CID, &headers.mainnet),
+            ] {
+                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch()) {
+                    if known_block_cid == &tipset.min_ticket_block().cid().to_string() {
+                        return store
+                            .get_cbor(&genesis_cid)?
+                            .ok_or_else(|| anyhow::anyhow!("Genesis block missing from database"));
+                    }
+                }
+            }
+
+            // If no known blocks are found, we'll eventually hit the genesis tipset.
+            if tipset.epoch() == 0 {
+                return Ok(tipset.min_ticket_block().clone());
+            }
+        }
+        anyhow::bail!("Genesis block not found")
+    }
 }
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
@@ -265,6 +313,16 @@ impl Tipset {
 pub struct FullTipset {
     blocks: Vec<Block>,
     key: OnceCell<TipsetKeys>,
+}
+
+// Constructing a FullTipset from a single Block is infallible.
+impl From<Block> for FullTipset {
+    fn from(block: Block) -> Self {
+        FullTipset {
+            blocks: vec![block],
+            key: OnceCell::new(),
+        }
+    }
 }
 
 impl PartialEq for FullTipset {
@@ -472,6 +530,40 @@ pub mod tipset_json {
         }
         let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
         Tipset::new(blocks).map(Arc::new).map_err(de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    use super::{
+        tipset_json::{TipsetJson, TipsetJsonRef},
+        tipset_keys_json::TipsetKeysJson,
+        Tipset, TipsetKeys,
+    };
+
+    impl quickcheck::Arbitrary for TipsetKeys {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self {
+                cids: Vec::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
+        let serialized = serde_json::to_string(&TipsetKeysJson(tipset_keys.clone())).unwrap();
+        let parsed: TipsetKeysJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tipset_keys, parsed.0);
+    }
+
+    #[quickcheck]
+    fn tipset_roundtrip(tipset: Tipset) {
+        let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
+        let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(&tipset, parsed.0.as_ref());
     }
 }
 

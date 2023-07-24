@@ -24,18 +24,16 @@
 //! running Forest-daemon or a separate database. Operations are carried out
 //! directly on CAR files.
 //!
-//! Additional reading:
-//!     <https://github.com/ChainSafe/forest/blob/main/documentation/src/developer_documentation/filecoin_archive.md>
-//!     [`CarBackedBlockstore`]
+//! Additional reading: [`crate::car_backed_blockstore`]
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::car_backed_blockstore::CarBackedBlockstore;
+use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
+use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
-use crate::cli_shared::snapshot;
-use crate::cli_shared::snapshot::TrustedVendor;
+use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::genesis::read_genesis_header;
-use crate::networks::{calibnet, mainnet};
-use crate::shim::clock::ChainEpoch;
+use crate::networks::{calibnet, mainnet, NetworkChain};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use crate::Config;
 use anyhow::{bail, Context as _};
 use chrono::Utc;
@@ -81,6 +79,11 @@ pub enum ArchiveCommands {
         #[arg(short)]
         depth: Option<ChainEpochDelta>,
     },
+    /// Print block headers at 30 day interval for a snapshot file
+    Checkpoints {
+        /// Path to snapshot file.
+        snapshot: PathBuf,
+    },
 }
 
 impl ArchiveCommands {
@@ -111,6 +114,7 @@ impl ArchiveCommands {
 
                 do_export(config, reader, output_path, epoch, depth).await
             }
+            Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
         }
     }
 }
@@ -137,7 +141,7 @@ async fn do_export(
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
-        CarBackedBlockstore::new(reader)
+        UncompressedCarV1BackedBlockstore::new(reader)
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
     );
 
@@ -153,7 +157,7 @@ async fn do_export(
     let chain_store = Arc::new(ChainStore::new(
         store,
         config.chain.clone(),
-        &genesis,
+        genesis.clone(),
         tmp_chain_dir.path(),
     )?);
 
@@ -162,7 +166,8 @@ async fn do_export(
     info!("looking up a tipset by epoch: {}", epoch);
 
     let ts = chain_store
-        .tipset_by_height(epoch, ts, true)
+        .chain_index
+        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
     let output_path = build_output_path(config.chain.network.to_string(), epoch, output_path);
@@ -223,7 +228,7 @@ impl ArchiveInfo {
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
-        let store = CarBackedBlockstore::new(reader)
+        let store = UncompressedCarV1BackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
 
         let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
@@ -270,9 +275,9 @@ impl ArchiveInfo {
             }
 
             if tipset.epoch() == 0 {
-                if tipset.min_ticket_block().cid().to_string() == calibnet::GENESIS_CID {
+                if tipset.min_ticket_block().cid() == &*calibnet::GENESIS_CID {
                     network = "calibnet".into();
-                } else if tipset.min_ticket_block().cid().to_string() == mainnet::GENESIS_CID {
+                } else if tipset.min_ticket_block().cid() == &*mainnet::GENESIS_CID {
                     network = "mainnet".into();
                 }
             }
@@ -283,18 +288,17 @@ impl ArchiveInfo {
             let may_skip =
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
-                if let Some(genesis_keys) =
-                    crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset(
-                        tipset.key(),
-                    )
-                {
-                    let genesis_cid = genesis_keys.cids[0];
-                    if genesis_cid.to_string() == calibnet::GENESIS_CID {
-                        network = "calibnet".into();
-                    } else if genesis_cid.to_string() == mainnet::GENESIS_CID {
-                        network = "mainnet".into();
+                match tipset.genesis(&store).ok() {
+                    Some(genesis_block) => {
+                        if genesis_block.cid() == &*calibnet::GENESIS_CID {
+                            network = "calibnet".into();
+                        } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
+                            network = "mainnet".into();
+                        }
                     }
-                    break;
+                    None => {
+                        break;
+                    }
                 }
             }
         }
@@ -307,6 +311,46 @@ impl ArchiveInfo {
             messages: lowest_message_epoch,
         })
     }
+}
+
+// Print a mapping of epochs to block headers in yaml format. This mapping can
+// be used by Forest to quickly identify tipsets.
+fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
+    let file = std::fs::File::open(snapshot)?;
+    let store = UncompressedCarV1BackedBlockstore::new(file)
+        .context("couldn't read input CAR file - is it compressed?")?;
+    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+
+    let genesis = root.genesis(&store)?;
+    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        bail!("Unrecognizable genesis block");
+    };
+
+    println!("{}:", chain_name);
+    for (epoch, cid) in list_checkpoints(store, root) {
+        println!("  {}: {}", epoch, cid);
+    }
+    Ok(())
+}
+
+fn list_checkpoints(
+    db: impl Blockstore,
+    root: Tipset,
+) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> {
+    let interval = EPOCHS_IN_DAY * 30;
+    let mut target_epoch = root.epoch() - root.epoch() % interval;
+    root.chain(db).filter_map(move |tipset| {
+        if tipset.epoch() <= target_epoch && tipset.epoch() != 0 {
+            target_epoch -= interval;
+            Some((tipset.epoch(), *tipset.min_ticket_block().cid()))
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(test)]

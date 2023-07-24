@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKeys;
-use crate::car_backed_blockstore::CarBackedBlockstore;
+use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::ChainStore;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
@@ -39,6 +39,9 @@ struct VestingScheduleEntry {
 pub enum StateCommands {
     Fetch {
         root: Cid,
+        /// The `.car` file path to save the state root
+        #[arg(short, long)]
+        save_to_file: Option<PathBuf>,
     },
     Diff {
         /// The previous CID state root
@@ -75,11 +78,11 @@ async fn print_computed_state(
     let temp_dir = TempDir::new()?;
     println!("Using temp dir: {:?}", temp_dir.path());
 
-    // Initialize CarBackedBlockstore
+    // Initialize UncompressedCarV1BackedBlockstore
     println!("Loading snapshot...");
     let reader = std::fs::File::open(snapshot)?;
     let store = Arc::new(
-        CarBackedBlockstore::new(reader)
+        UncompressedCarV1BackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?,
     );
 
@@ -104,7 +107,6 @@ async fn print_computed_state(
     let sm = Arc::new(StateManager::new(
         cs.clone(),
         config.chain,
-        Arc::new(crate::interpreter::RewardActorMessageCalc),
     )?);
 
     let ts = sm.chain_store().tipset_from_keys(&tsk)?;
@@ -129,10 +131,10 @@ async fn print_computed_state(
 impl StateCommands {
     pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
-            Self::Fetch { root } => {
+            Self::Fetch { root, save_to_file } => {
                 println!(
                     "{}",
-                    state_fetch_root((CidJson(root),), &config.client.rpc_token)
+                    state_fetch_root((CidJson(root), save_to_file), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                 );

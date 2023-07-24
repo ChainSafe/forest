@@ -90,17 +90,21 @@ release:
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
-test:
+test: go-mod
 	cargo nextest run
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
-test-release:
+test-release: go-mod
 	cargo nextest run --release
 
 test-all: test test-release
+
+go-mod:
+	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor) || \
+	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
 
 smoke-test:
 	./scripts/smoke_test.sh

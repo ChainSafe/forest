@@ -21,7 +21,7 @@ use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_h
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
@@ -32,9 +32,8 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::{
-    io::write_to_file, monitoring::MemStatsTracker,
-    proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
-    RetryArgs,
+    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
+    version::FOREST_VERSION_STRING, RetryArgs,
 };
 use anyhow::{bail, Context};
 use bundle::load_bundles;
@@ -134,26 +133,7 @@ pub(super) async fn start(
 
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
-    let net_keypair = match get_keypair(&path.join("keypair")) {
-        Some(keypair) => Ok::<crate::libp2p::Keypair, std::io::Error>(keypair),
-        None => {
-            let gen_keypair = crate::libp2p::Keypair::generate_ed25519();
-            // Save Ed25519 keypair to file
-            // TODO rename old file to keypair.old(?)
-            let file = write_to_file(
-                &gen_keypair
-                    .clone()
-                    .try_into_ed25519()
-                    .context("couldn't convert keypair to ed25519")?
-                    .to_bytes(),
-                &path,
-                "keypair",
-            )?;
-            // Restrict permissions on files containing private keys
-            crate::utils::io::set_user_perm(&file)?;
-            Ok(gen_keypair)
-        }
-    }?;
+    let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
     // peer's multiaddress. Useful if others want to use this node to bootstrap
@@ -171,7 +151,10 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db = open_proxy_db(db_root(&chain_data_path), config.db_config().clone())?;
+    let db = Arc::new(open_proxy_db(
+        db_root(&chain_data_path),
+        config.db_config().clone(),
+    )?);
 
     let mut services = JoinSet::new();
 
@@ -213,20 +196,19 @@ pub(super) async fn start(
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
-        db.clone(),
+        Arc::clone(&db),
         config.chain.clone(),
-        &genesis_header,
+        genesis_header.clone(),
         chain_data_path.as_path(),
     )?);
 
-    chain_store.set_genesis(&genesis_header)?;
     let db_garbage_collector = {
         let db = db.clone();
         let file_backed_chain_meta = chain_store.file_backed_chain_meta().clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
-            db,
+            db.as_ref().clone(),
             file_backed_chain_meta,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
@@ -247,18 +229,8 @@ pub(super) async fn start(
 
     let publisher = chain_store.publisher();
 
-    // Reward calculation is needed by the VM to calculate state, which can happen
-    // essentially anywhere the `StateManager` is called. It is consensus
-    // specific, but threading it through the type system would be a nightmare,
-    // which is why dynamic dispatch is used.
-    let reward_calc = cns::reward_calc();
-
     // Initialize StateManager
-    let sm = StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&config.chain),
-        reward_calc,
-    )?;
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))?;
 
     let state_manager = Arc::new(sm);
 
@@ -270,12 +242,8 @@ pub(super) async fn start(
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config
-            .chain
-            .bootstrap_peers
-            .iter()
-            .map(|node| node.parse())
-            .collect::<Result<_, _>>()?;
+        let bootstrap_peers = config.chain.bootstrap_peers.clone();
+
         Config {
             network: Libp2pConfig {
                 bootstrap_peers,
@@ -293,7 +261,7 @@ pub(super) async fn start(
 
     let epoch = chain_store.heaviest_tipset().epoch();
 
-    load_bundles(epoch, &config, db.clone()).await?;
+    load_bundles(epoch, &config, &db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -306,7 +274,7 @@ pub(super) async fn start(
         net_keypair,
         &network_name,
         genesis_cid,
-    )?;
+    );
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -317,8 +285,8 @@ pub(super) async fn start(
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(&db)?,
-        Arc::clone(state_manager.chain_config()),
+        MpoolConfig::load_config(db.as_ref())?,
+        state_manager.chain_config(),
         &mut services,
     )?;
 
@@ -366,7 +334,13 @@ pub(super) async fn start(
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            start_rpc::<_, _, cns::FullConsensus>(
+            let beacon = Arc::new(
+                rpc_state_manager
+                    .chain_config()
+                    .get_beacon_schedule(chain_store.genesis().timestamp())
+                    .into_dyn(),
+            );
+            start_rpc(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -377,7 +351,7 @@ pub(super) async fn start(
                     network_name,
                     start_time,
                     // TODO: the RPCState can fetch this itself from the StateManager
-                    beacon: rpc_state_manager.beacon_schedule(),
+                    beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                     gc_event_tx,
@@ -432,8 +406,10 @@ pub(super) async fn start(
         assert!(current_height.is_positive());
         match validate_from.is_negative() {
             // allow --height=-1000 to scroll back from the current head
-            true => state_manager.validate((current_height + validate_from)..=current_height)?,
-            false => state_manager.validate(validate_from..=current_height)?,
+            true => {
+                state_manager.validate_range((current_height + validate_from)..=current_height)?
+            }
+            false => state_manager.validate_range(validate_from..=current_height)?,
         }
     }
 
@@ -506,14 +482,12 @@ async fn fetch_snapshot_if_required(
                 crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
                     .await
                     .context("couldn't get snapshot size")?;
-            let num_bytes = byte_unit::Byte::from(num_bytes)
-                .get_appropriate_unit(true)
-                .format(2);
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
             let message = format!(
-                "Fetch a {num_bytes} snapshot to the current directory? (denying will exit the program). "
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
             );
             let have_permission = asyncify(|| {
                 dialoguer::Confirm::with_theme(&ColorfulTheme::default())
@@ -757,7 +731,7 @@ mod test {
     }
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
@@ -769,14 +743,10 @@ mod test {
         let cs = Arc::new(ChainStore::new(
             db,
             chain_config.clone(),
-            &genesis_header,
+            genesis_header,
             chain_data_root.path(),
         )?);
-        let sm = Arc::new(StateManager::new(
-            cs,
-            chain_config,
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
             &sm,
             file_path,
@@ -790,7 +760,7 @@ mod test {
 
     #[tokio::test]
     async fn import_chain_from_file() -> anyhow::Result<()> {
-        let db = MemoryDB::default();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -801,14 +771,10 @@ mod test {
         let cs = Arc::new(ChainStore::new(
             db,
             chain_config.clone(),
-            &genesis_header,
+            genesis_header,
             chain_data_root.path(),
         )?);
-        let sm = Arc::new(StateManager::new(
-            cs,
-            chain_config,
-            Arc::new(crate::interpreter::RewardActorMessageCalc),
-        )?);
+        let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
             &sm,
             "test-snapshots/chain4.car",

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::beacon::Beacon;
 use crate::rpc_api::{
     common_api::*,
     data_types::{APIVersion, RPCState, Version},
@@ -35,11 +34,8 @@ pub(in crate::rpc) async fn shutdown(
 }
 
 /// gets start time from network
-pub(in crate::rpc) async fn start_time<
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn start_time<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
 ) -> Result<StartTimeResult, JsonRpcError> {
     Ok(data.start_time)
 }

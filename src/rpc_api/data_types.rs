@@ -28,10 +28,9 @@ use tokio::sync::RwLock;
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
-pub struct RPCState<DB, B>
+pub struct RPCState<DB>
 where
     DB: Blockstore,
-    B: Beacon,
 {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub chain_store: Arc<ChainStore<DB>>,
@@ -43,7 +42,7 @@ where
     pub network_name: String,
     pub start_time: chrono::DateTime<Utc>,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
-    pub beacon: Arc<BeaconSchedule<B>>,
+    pub beacon: Arc<BeaconSchedule<Box<dyn Beacon>>>,
     pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 

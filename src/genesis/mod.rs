@@ -4,6 +4,7 @@
 use std::{sync::Arc, time};
 
 use crate::blocks::{BlockHeader, TipsetKeys};
+use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::state_manager::StateManager;
 use anyhow::bail;
@@ -11,7 +12,6 @@ use cid::Cid;
 use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
-use fvm_ipld_encoding::CborStore;
 
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -74,7 +74,7 @@ where
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block: BlockHeader = db.get_cbor(&genesis_cids[0])?.ok_or_else(|| {
+    let genesis_block = BlockHeader::load(db, genesis_cids[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 
@@ -121,8 +121,11 @@ where
     let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
 
     if !skip_load {
-        let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
-        sm.chain_store().set_genesis(&gb.blocks()[0])?;
+        let gb = sm.chain_store().chain_index.tipset_by_height(
+            0,
+            ts.clone(),
+            ResolveNullTipset::TakeOlder,
+        )?;
         if sm.chain_config().genesis_cid.is_some()
             && !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {
