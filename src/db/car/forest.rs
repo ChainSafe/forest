@@ -8,26 +8,115 @@ use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::try_finite_stream;
 use ahash::HashMapExt;
-use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
+use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut, Buf};
 use cid::Cid;
 use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use num_traits::ToBytes;
+use parking_lot::Mutex;
 use std::pin::{pin, Pin};
+use std::sync::Arc;
 use std::task::Poll;
 use std::{
     io,
-    io::{Cursor, Write},
+    io::{Cursor, Read, Seek, SeekFrom, Write},
 };
 use tokio::io::{AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 
 // Input: stream of blocks
 // Output: (BlockPosition, Option<zst_frame>)
 
-pub struct ForestCAR {}
+pub struct ForestCAR<ReaderT> {
+    inner: Arc<Mutex<ForestCARInner<ReaderT>>>,
+}
 
-impl ForestCAR {
+struct ForestCARInner<ReaderT> {
+    new_reader: Box<dyn Fn() -> ReaderT>,
+    reader: ReaderT,
+    write_cache: ahash::HashMap<Cid, Vec<u8>>,
+    index: CarIndex<ReaderT>,
+    roots: Vec<Cid>,
+}
+
+impl<ReaderT: Read + Seek> ForestCAR<ReaderT> {
+    pub fn open(mk_reader: impl Fn() -> ReaderT + 'static) -> io::Result<Self> {
+        let mut reader = mk_reader();
+
+        reader.seek(SeekFrom::End(-(ForestCARFooter::SIZE as i64)))?;
+        let mut footer_buffer = [0; ForestCARFooter::SIZE];
+        reader.read_exact(&mut footer_buffer);
+        let footer = ForestCARFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Data not recognized as ForestCAR.zst",
+        ))?;
+
+        let index = CarIndex::open(mk_reader(), footer.index)?;
+        let inner = ForestCARInner {
+            new_reader: Box::new(mk_reader),
+            reader,
+            write_cache: ahash::HashMap::default(),
+            index,
+            roots: Vec::default(),
+        };
+        Ok(ForestCAR {
+            inner: Arc::new(Mutex::new(inner)),
+        })
+    }
+}
+
+impl<ReaderT> Blockstore for ForestCAR<ReaderT>
+where
+    ReaderT: Read + Seek,
+{
+    #[tracing::instrument(level = "trace", skip(self))]
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let ForestCARInner {
+            reader,
+            write_cache,
+            index,
+            ..
+        } = &mut *self.inner.lock();
+        if let Some(value) = write_cache.get(k) {
+            return Ok(Some(value.clone()))
+        }
+
+        let stored = index.lookup(*k)?;
+        for position in stored.into_iter() {
+            reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
+            let mut zstd_frame = std::io::Cursor::new(vec![]);
+            zstd::Decoder::new(reader.by_ref())
+                .expect("we're not using a custom dictionary")
+                .single_frame()
+                .read_to_end(zstd_frame.get_mut())?;
+            let mut bytes = Bytes::from(zstd_frame.into_inner());
+            bytes.advance(position.decoded_offset() as usize);
+            if let Some(block) = Block::from_bytes(bytes) {
+                if block.cid == *k {
+                    return Ok(Some(block.data))
+                }
+            }
+        }
+        return Ok(None)
+    }
+
+    /// # Panics
+    /// - If the write cache contains different data with this CID
+    /// - See also [`Self::new`].
+    #[tracing::instrument(level = "trace", skip(self, block))]
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        let ForestCARInner {
+            write_cache, index, ..
+        } = &mut *self.inner.lock();
+        write_cache.insert(*k, Vec::from(block));
+        Ok(())
+    }
+}
+
+pub struct Encoder {}
+
+impl Encoder {
     pub async fn write(
         sink: &mut (impl AsyncWrite + AsyncSeek + Unpin),
         roots: Vec<Cid>,
@@ -108,6 +197,7 @@ impl ForestCAR {
                             io::ErrorKind::InvalidInput,
                             "frame_offset should fit in 16 bits",
                         ))?;
+                    frame_offset += block.encoded_len();
                     let position = BlockPosition::new(emitted_bytes as u64, frame_offset_u16)
                         .ok_or(io::Error::new(
                             io::ErrorKind::InvalidInput,
