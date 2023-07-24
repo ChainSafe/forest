@@ -626,9 +626,7 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         Ok(apply_block_messages(
-            self.chain_store()
-                .genesis()
-                .timestamp(),
+            self.chain_store().genesis().timestamp(),
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -1067,10 +1065,7 @@ where
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
-        let genesis_timestamp = self
-            .chain_store()
-            .genesis()
-            .timestamp();
+        let genesis_timestamp = self.chain_store().genesis().timestamp();
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
