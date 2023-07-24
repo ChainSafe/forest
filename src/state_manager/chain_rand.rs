@@ -19,7 +19,7 @@ use fvm_ipld_blockstore::Blockstore;
 pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     tipset: Arc<Tipset>,
-    chain_index: Arc<ChainIndex<DB>>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
 }
 
@@ -41,7 +41,7 @@ where
     pub fn new(
         chain_config: Arc<ChainConfig>,
         tipset: Arc<Tipset>,
-        chain_index: Arc<ChainIndex<DB>>,
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
     ) -> Self {
         Self {

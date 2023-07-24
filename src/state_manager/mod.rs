@@ -1095,7 +1095,7 @@ where
 
 pub fn validate_tipsets<DB, T>(
     genesis_timestamp: u64,
-    chain_index: Arc<ChainIndex<DB>>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
     engine: &crate::shim::machine::MultiEngine,
@@ -1218,7 +1218,7 @@ where
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 pub fn apply_block_messages<DB, CB>(
     genesis_timestamp: u64,
-    chain_index: Arc<ChainIndex<DB>>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
     engine: &crate::shim::machine::MultiEngine,

@@ -73,7 +73,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    pub chain_index: Arc<ChainIndex<DB>>,
+    pub chain_index: Arc<ChainIndex<Arc<DB>>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -224,8 +224,7 @@ where
 
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        self.blockstore()
-            .get_cbor::<BlockHeader>(self.file_backed_genesis.lock().inner())?
+        BlockHeader::load(self.blockstore(), *self.file_backed_genesis.lock().inner())?
             .ok_or_else(|| Error::Other("Genesis block not set".into()))
     }
 
@@ -464,7 +463,7 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        chain_index: Arc<ChainIndex<DB>>,
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
         chain_config: Arc<ChainConfig>,
         heaviest_tipset: Arc<Tipset>,
         round: ChainEpoch,

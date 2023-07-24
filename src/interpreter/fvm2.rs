@@ -36,7 +36,7 @@ pub struct ForestExternsV2<DB> {
     heaviest_tipset: Arc<Tipset>,
     epoch: ChainEpoch,
     root: Cid,
-    chain_index: Arc<ChainIndex<DB>>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     bail: AtomicBool,
 }
@@ -47,7 +47,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
         heaviest_tipset: Arc<Tipset>,
         epoch: ChainEpoch,
         root: Cid,
-        chain_index: Arc<ChainIndex<DB>>,
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExternsV2 {
