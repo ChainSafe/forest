@@ -91,7 +91,7 @@ impl MessageGasCost {
     pub fn new(msg: &ChainMessage, ret: ApplyRet) -> Self {
         use crate::message::Message;
         Self {
-            message: msg.cid().unwrap(),
+            message: msg.message().cid().unwrap(),
             gas_used: BigInt::from(ret.gas_used()),
             base_fee_burn: ret.base_fee_burn(),
             over_estimation_burn: ret.over_estimation_burn(),
