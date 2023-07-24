@@ -92,7 +92,7 @@ impl MessageGasCost {
         use crate::message::Message;
         Self {
             message: msg.message().cid().unwrap(),
-            gas_used: BigInt::from(ret.gas_used()),
+            gas_used: BigInt::from(ret.msg_receipt().gas_used()),
             base_fee_burn: ret.base_fee_burn(),
             over_estimation_burn: ret.over_estimation_burn(),
             miner_penalty: ret.miner_penalty(),

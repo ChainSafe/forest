@@ -68,13 +68,6 @@ impl ApplyRet {
         }
     }
 
-    pub fn gas_used(&self) -> u64 {
-        match self {
-            ApplyRet::V2(v2) => v2.gas_burned as u64,
-            ApplyRet::V3(v3) => v3.gas_burned,
-        }
-    }
-
     pub fn gas_refund(&self) -> TokenAmount {
         match self {
             ApplyRet::V2(v2) => v2.refund.borrow().into(),
