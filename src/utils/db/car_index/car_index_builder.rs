@@ -97,6 +97,9 @@ impl CarIndexBuilder {
         loop {
             match self.table[at as usize] {
                 Slot::Empty => {
+                    // if self.longest_distance < new.distance(at, len) {
+                    //     println!("New longest distance: {}",new.distance(at, len));
+                    // }
                     self.longest_distance = self.longest_distance.max(new.distance(at, len));
                     self.table[at as usize] = Slot::Full(new);
                     break;
@@ -107,6 +110,9 @@ impl CarIndexBuilder {
                     }
                     let found_dist = found.distance(at, len);
                     let new_dist = new.distance(at, len);
+                    // if self.longest_distance < new_dist {
+                    //     println!("New longest distance: {}",new_dist);
+                    // }
                     self.longest_distance = self.longest_distance.max(new_dist);
 
                     if found_dist < new_dist || (found_dist == new_dist && new.hash < found.hash) {

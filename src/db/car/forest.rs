@@ -160,12 +160,12 @@ impl Encoder {
                 Either::Right(zstd_frame) => {
                     position += zstd_frame.len();
                     sink.write_all(&zstd_frame).await?;
+                    // println!("Written: {}, CIDs={}", position, cid_map.len());
                 }
             }
         }
 
         // Create index
-        let n_cids = cid_map.len();
         let index_offset = position as u64 + 8;
         let mut index = Vec::new();
         CarIndexBuilder::new(cid_map.into_iter()).write(Cursor::new(&mut index))?;

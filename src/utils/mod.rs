@@ -24,7 +24,7 @@ use futures::{
     future::{pending, FusedFuture},
     select, Future, FutureExt,
 };
-use futures::{Stream, StreamExt, TryStream, TryStreamExt};
+use futures::{Stream, TryStream};
 use pin_project_lite::pin_project;
 use tokio::time::sleep;
 use tracing::error;

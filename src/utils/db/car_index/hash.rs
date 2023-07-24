@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use cid::Cid;
-use std::ops::Not;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Hash(u64);
@@ -10,10 +9,11 @@ impl Hash {
     pub const INVALID: Hash = Hash(u64::MAX);
 }
 
-impl Not for Hash {
+#[cfg(test)]
+impl std::ops::Not for Hash {
     type Output = Hash;
     fn not(self) -> Hash {
-        Hash(self.0.not())
+        Hash::from(self.0.not())
     }
 }
 
@@ -25,14 +25,19 @@ impl From<Hash> for u64 {
 
 impl From<u64> for Hash {
     fn from(hash: u64) -> Hash {
-        // Clear top bit. It is used to indicate empty slots.
-        Hash(hash & (u64::MAX >> 1))
+        // reserve u64::MAX for empty slots.
+        Hash(hash.saturating_sub(1))
     }
 }
 
 impl From<Cid> for Hash {
     fn from(cid: Cid) -> Hash {
-        Hash::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8]))
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::Hasher;
+        let mut hasher = DefaultHasher::new();
+        std::hash::Hash::hash(&cid, &mut hasher);
+        Hash::from(hasher.finish())
+        // Hash::from(u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8])))
     }
 }
 

@@ -24,7 +24,7 @@ use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanDuration;
-use std::io::{BufReader};
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -220,7 +220,7 @@ impl SnapshotCommands {
             } => {
                 use crate::db::car;
                 use crate::db::car::forest::ForestCAR;
-                use futures::stream::{TryStreamExt};
+                use futures::stream::TryStreamExt;
                 use tokio::fs::File;
                 use tokio::io::AsyncWriteExt;
 
@@ -257,25 +257,28 @@ impl SnapshotCommands {
                         File::open(&source).await?,
                     );
                     let mut block_stream = CarStream::new(file).await?;
-                    
-                    let forest_car = ForestCAR::open(move || std::fs::File::open(&destination).unwrap())?;
+
+                    let forest_car =
+                        ForestCAR::open(move || std::fs::File::open(&destination).unwrap())?;
 
                     let now = std::time::Instant::now();
                     println!("Counting blocks...");
                     let mut count = 0;
                     while let Some(block) = block_stream.try_next().await? {
                         // println!("Looking at block: {}", block.cid);
-                        let expected = block.data.len();
-                        let got = forest_car.get(&block.cid)?.unwrap().len();
-                        // println!("  Expected len: {}", expected);
-                        // println!("  Forest.CAR:   {}", got);
+                        if count > 2_800_000 {
+                            // println!("Count: {}", count);
+                            let expected = block.data.len();
+                            let got = forest_car.get(&block.cid)?.unwrap().len();
+                            if expected != got {
+                                break;
+                            }
+                        } else {
+                            if count % 10_000 == 0 {
+                                println!("Count: {}", count);
+                            }
+                        }
                         count += 1;
-                        if count % 10_000 == 0 {
-                            println!("Count: {}", count);
-                        }
-                        if expected != got {
-                            break;
-                        }
                     }
                     println!("Count: {}, {}", count, now.elapsed().human_duration());
                 }

@@ -19,7 +19,14 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
         reader.seek(SeekFrom::Start(offset))?;
         let header = IndexHeader::read(&mut reader)?;
         if header.magic_number != IndexHeader::MAGIC_NUMBER {
-            Err(Error::new(ErrorKind::InvalidData, format!("Invalid magic number: {:x}. Expected: {:x}", header.magic_number, IndexHeader::MAGIC_NUMBER)))
+            Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "Invalid magic number: {:x}. Expected: {:x}",
+                    header.magic_number,
+                    IndexHeader::MAGIC_NUMBER
+                ),
+            ))
         } else {
             Ok(CarIndex {
                 reader,
