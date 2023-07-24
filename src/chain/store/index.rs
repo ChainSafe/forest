@@ -113,9 +113,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
             return Ok(Arc::new(Tipset::from(from.genesis(&self.db)?)));
         }
         if to > from.epoch() {
-            return Err(Error::Other(
-                "Looking for tipset with height greater than start point".to_string(),
-            ));
+            return Err(Error::Other(format!(
+                "Looking for tipset {to} with height greater than start point {from}",
+                from = from.epoch()
+            )));
         }
 
         for (child, parent) in self.chain(from).tuple_windows() {
@@ -130,9 +131,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
                 }
             }
         }
-        Err(Error::Other(
-            "Tipset with epoch={to} does not exist".to_string(),
-        ))
+        Err(Error::Other(format!(
+            "Tipset with epoch={to} does not exist"
+        )))
     }
 
     /// Iterate from the given tipset to genesis. Missing tipsets cut the chain
