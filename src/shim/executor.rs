@@ -102,16 +102,6 @@ impl ApplyRet {
             ApplyRet::V3(v3) => v3.exec_trace.clone(),
         }
     }
-
-    pub fn actor_error(&self) -> String {
-        match self {
-            ApplyRet::V2(_v2) => todo!(),
-            ApplyRet::V3(v3) => v3
-                .failure_info
-                .clone()
-                .map_or("".into(), |af| af.to_string()),
-        }
-    }
 }
 
 #[derive(PartialEq, Clone, Debug)]

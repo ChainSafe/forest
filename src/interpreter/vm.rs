@@ -88,10 +88,10 @@ pub struct MessageGasCost {
 }
 
 impl MessageGasCost {
-    pub fn new(msg: &ChainMessage, ret: ApplyRet) -> Self {
-        use crate::message::Message;
+    pub fn new(msg: &Message, ret: ApplyRet) -> Self {
+        use crate::message::Message as MessageTrait;
         Self {
-            message: msg.message().cid().unwrap(),
+            message: msg.cid().unwrap(),
             gas_used: BigInt::from(ret.msg_receipt().gas_used()),
             base_fee_burn: ret.base_fee_burn(),
             over_estimation_burn: ret.over_estimation_burn(),
@@ -356,7 +356,7 @@ where
                         msg_cid: cid,
                         msg: msg.message().clone(),
                         msg_receipt,
-                        gas_cost: MessageGasCost::new(msg, ret.clone()),
+                        gas_cost: MessageGasCost::new(msg.message(), ret.clone()),
                         execution_trace: trace,
                         error: ret.failure_info().unwrap_or_default(),
                     });
@@ -390,6 +390,21 @@ where
                         ret.msg_receipt().exit_code()
                     );
                 }
+                
+                // Push InvocResult
+                if enable_tracing {
+                    let trace = build_exec_trace(ret.exec_events());
+
+                    invoc_results.push(InvocResult {
+                        msg_cid: rew_msg.cid()?,
+                        msg: rew_msg.clone(),
+                        msg_receipt: ret.msg_receipt(),
+                        gas_cost: MessageGasCost::new(&rew_msg, ret.clone()),
+                        execution_trace: trace,
+                        error: ret.failure_info().unwrap_or_default(),
+                    });
+                }
+
                 if let Some(callback) = &mut callback {
                     callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
                 }
