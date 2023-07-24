@@ -4,7 +4,7 @@
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
-    self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
+    CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
@@ -24,7 +24,7 @@ use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanDuration;
-use std::io::{BufReader, Cursor, Seek, SeekFrom};
+use std::io::{BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -220,11 +220,10 @@ impl SnapshotCommands {
             } => {
                 use crate::db::car;
                 use crate::db::car::forest::ForestCAR;
-                use futures::stream::{StreamExt, TryStreamExt};
-                use fvm_ipld_car::CarReader;
+                use futures::stream::{TryStreamExt};
                 use human_repr;
                 use tokio::fs::File;
-                use tokio_util::compat::TokioAsyncReadCompatExt;
+                use tokio::io::AsyncWriteExt;
 
                 {
                     let file = tokio::io::BufReader::with_capacity(
@@ -250,6 +249,28 @@ impl SnapshotCommands {
                         block_stream,
                     );
                     car::forest::Encoder::write(&mut dest, roots, frames).await?;
+                    dest.flush().await?;
+                }
+
+                {
+                    let file = tokio::io::BufReader::with_capacity(
+                        1024 * 1024,
+                        File::open(&source).await?,
+                    );
+                    let mut block_stream = CarStream::new(file).await?;
+                    
+                    let forest_car = ForestCAR::open(move || std::fs::File::open(&destination).unwrap())?;
+
+                    let now = std::time::Instant::now();
+                    println!("Counting blocks...");
+                    let mut count = 0;
+                    while let Some(block) = block_stream.try_next().await? {
+                        println!("Looking at block: {}", block.cid);
+                        println!("  Expected len: {}", block.data.len());
+                        println!("  Forest.CAR:   {:?}", forest_car.get(&block.cid)?.map(|val| val.len()));
+                        count += 1;
+                    }
+                    println!("Count: {}, {}", count, now.elapsed().human_duration());
                 }
 
                 // // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:

@@ -6,7 +6,6 @@
 use crate::car_backed_blockstore::write_skip_frame_async;
 use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
-use crate::utils::try_finite_stream;
 use ahash::HashMapExt;
 use bytes::{buf::Writer, Buf, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
@@ -46,7 +45,7 @@ impl<ReaderT: Read + Seek> ForestCAR<ReaderT> {
 
         reader.seek(SeekFrom::End(-(ForestCARFooter::SIZE as i64)))?;
         let mut footer_buffer = [0; ForestCARFooter::SIZE];
-        reader.read_exact(&mut footer_buffer);
+        reader.read_exact(&mut footer_buffer)?;
         let footer = ForestCARFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
             io::ErrorKind::InvalidData,
             "Data not recognized as ForestCAR.zst",
@@ -83,6 +82,9 @@ where
         }
 
         let stored = index.lookup(*k)?;
+
+        println!("Positions for key: {:?}", &stored);
+
         for position in stored.into_iter() {
             reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
             let mut zstd_frame = std::io::Cursor::new(vec![]);
@@ -140,16 +142,18 @@ impl Encoder {
         }
 
         // Create index
+        let n_cids = cid_map.len();
         let index_offset = sink.stream_position().await?;
         let mut index = Vec::new();
         CarIndexBuilder::new(cid_map.into_iter()).write(Cursor::new(&mut index))?;
+        // println!("Writing index: {} {}", n_cids, index.len());
         write_skip_frame_async(sink, &index).await?;
 
         // Write ForestCAR.zst footer
         let footer = ForestCARFooter {
             index: index_offset,
         };
-        write_skip_frame_async(sink, &footer.to_le_bytes()).await?;
+        sink.write_all(&footer.to_le_bytes()).await?;
         Ok(())
     }
 
