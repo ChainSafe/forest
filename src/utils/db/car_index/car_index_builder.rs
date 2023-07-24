@@ -1,9 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(dead_code)]
 use super::{BlockPosition, Hash, IndexHeader, KeyValuePair, Slot};
 use cid::Cid;
-use std::collections::BTreeMap;
 use std::io::Write;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
@@ -42,6 +40,7 @@ impl CarIndexBuilder {
         table
     }
 
+    #[cfg(feature = "benchmark-private")]
     pub fn hash_at_distance(&self, wanted_dist: u64) -> (Hash, u64) {
         let mut best_diff = u64::MAX;
         let mut best_distance = u64::MAX;
@@ -62,6 +61,7 @@ impl CarIndexBuilder {
         (best_hash, best_distance)
     }
 
+    #[cfg(feature = "benchmark-private")]
     pub fn avg_distance(&self) -> f64 {
         let mut distances = vec![];
         for (nth, slot) in self.table.iter().enumerate() {
@@ -73,6 +73,7 @@ impl CarIndexBuilder {
         distances.iter().sum::<f64>() / distances.len() as f64
     }
 
+    #[cfg(feature = "benchmark-private")]
     pub fn avg_steps_to_empty(&self) -> f64 {
         let mut distances = vec![];
         for nth in 0..self.table.len() {
@@ -97,9 +98,6 @@ impl CarIndexBuilder {
         loop {
             match self.table[at as usize] {
                 Slot::Empty => {
-                    // if self.longest_distance < new.distance(at, len) {
-                    //     println!("New longest distance: {}",new.distance(at, len));
-                    // }
                     self.longest_distance = self.longest_distance.max(new.distance(at, len));
                     self.table[at as usize] = Slot::Full(new);
                     break;
@@ -110,9 +108,6 @@ impl CarIndexBuilder {
                     }
                     let found_dist = found.distance(at, len);
                     let new_dist = new.distance(at, len);
-                    // if self.longest_distance < new_dist {
-                    //     println!("New longest distance: {}",new_dist);
-                    // }
                     self.longest_distance = self.longest_distance.max(new_dist);
 
                     if found_dist < new_dist || (found_dist == new_dist && new.hash < found.hash) {
@@ -123,18 +118,6 @@ impl CarIndexBuilder {
                 }
             }
         }
-    }
-
-    pub fn read_misses(&self) -> BTreeMap<u64, u64> {
-        let mut map = BTreeMap::new();
-        for (n, elt) in self.table.iter().enumerate() {
-            if let Slot::Full(KeyValuePair { hash, .. }) = elt {
-                let dist = hash.distance(n as u64, self.table.len() as u64);
-
-                map.entry(dist).and_modify(|n| *n += 1).or_insert(1);
-            }
-        }
-        map
     }
 
     fn header(&self) -> IndexHeader {
@@ -170,6 +153,13 @@ impl CarIndexBuilder {
         }
         writer.write_all(&Slot::Empty.to_le_bytes()).await?;
         Ok(())
+    }
+
+    pub fn encoded_len(&self) -> u64 {
+        let mut len = 0;
+        len += IndexHeader::SIZE;
+        len += Slot::SIZE * (self.table.len() + self.longest_distance as usize + 1);
+        len as u64
     }
 
     pub fn len(&self) -> u64 {
