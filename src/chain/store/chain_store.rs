@@ -79,8 +79,7 @@ pub struct ChainStore<DB> {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    /// File backed genesis block CID
-    file_backed_genesis: Mutex<FileBacked<Cid>>,
+    genesis_block_header: BlockHeader,
 
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
@@ -123,15 +122,11 @@ where
     pub fn new(
         db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
-        genesis_block_header: &BlockHeader,
+        genesis_block_header: BlockHeader,
         chain_data_root: &Path,
     ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = ChainIndex::new(Arc::clone(&db));
-        let file_backed_genesis = Mutex::new(FileBacked::new(
-            *genesis_block_header.cid(),
-            chain_data_root.join("GENESIS"),
-        ));
         let file_backed_heaviest_tipset_keys = Mutex::new({
             let mut head_store = FileBacked::load_from_file_or_create(
                 chain_data_root.join("HEAD"),
@@ -157,13 +152,11 @@ where
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
-            file_backed_genesis,
+            genesis_block_header,
             file_backed_heaviest_tipset_keys,
             validated_blocks,
             file_backed_chain_meta,
         };
-
-        cs.set_genesis(genesis_block_header)?;
 
         Ok(cs)
     }
@@ -183,15 +176,6 @@ where
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
-    }
-
-    /// Writes genesis to `blockstore`.
-    pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        self.file_backed_genesis.lock().set_inner(*header.cid())?;
-
-        self.blockstore()
-            .put_cbor_default(&header)
-            .map_err(Error::from)
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
@@ -223,10 +207,9 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Returns genesis [`BlockHeader`] from the store based on a static key.
-    pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        BlockHeader::load(self.blockstore(), *self.file_backed_genesis.lock().inner())?
-            .ok_or_else(|| Error::Other("Genesis block not set".into()))
+    /// Returns genesis [`BlockHeader`].
+    pub fn genesis(&self) -> &BlockHeader {
+        &self.genesis_block_header
     }
 
     /// Returns the currently tracked heaviest tipset.
@@ -537,7 +520,7 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
+            let genesis_timestamp = self.genesis().timestamp();
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let (state, _) = crate::state_manager::apply_block_messages(
                 Arc::clone(self),
@@ -805,9 +788,10 @@ mod tests {
             .build()
             .unwrap();
         let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
+        let cs =
+            ChainStore::new(db, chain_config, gen_block.clone(), chain_data_root.path()).unwrap();
 
-        assert_eq!(cs.genesis().unwrap(), gen_block);
+        assert_eq!(cs.genesis(), &gen_block);
     }
 
     #[test]
@@ -820,7 +804,7 @@ mod tests {
             .unwrap();
 
         let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
+        let cs = ChainStore::new(db, chain_config, gen_block, chain_data_root.path()).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

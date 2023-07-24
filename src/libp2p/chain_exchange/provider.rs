@@ -186,7 +186,7 @@ mod tests {
             &ChainStore::new(
                 db,
                 Arc::new(ChainConfig::default()),
-                &gen_block,
+                gen_block,
                 chain_store_root.path(),
             )
             .unwrap(),
