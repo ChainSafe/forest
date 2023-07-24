@@ -40,6 +40,8 @@ pub mod json {
         #[serde(rename = "Return")]
         return_data: String,
         gas_used: u64,
+        #[serde(default, with = "crate::json::cid::opt")]
+        events_root: Option<cid::Cid>,
     }
 
     pub fn serialize<S>(m: &Receipt, serializer: S) -> Result<S::Ok, S::Error>
@@ -50,6 +52,7 @@ pub mod json {
             exit_code: m.exit_code().value() as u64,
             return_data: BASE64_STANDARD.encode(m.return_data().bytes()),
             gas_used: m.gas_used(),
+            events_root: m.events_root(),
         }
         .serialize(serializer)
     }
@@ -62,6 +65,7 @@ pub mod json {
             exit_code,
             return_data,
             gas_used,
+            events_root,
         } = Deserialize::deserialize(deserializer)?;
         Ok(Receipt_v3 {
             exit_code: ExitCode::from(exit_code as u32).into(),
@@ -71,7 +75,7 @@ pub mod json {
                     .map_err(de::Error::custom)?,
             ),
             gas_used,
-            events_root: None,
+            events_root,
         }
         .into())
     }

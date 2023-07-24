@@ -162,6 +162,13 @@ impl Receipt {
             Receipt::V3(v3) => v3.gas_used,
         }
     }
+
+    pub fn events_root(&self) -> Option<cid::Cid> {
+        match self {
+            Receipt::V2(_v2) => None,
+            Receipt::V3(v3) => v3.events_root,
+        }
+    }
 }
 
 impl From<Receipt_v3> for Receipt {
