@@ -7,7 +7,6 @@ pub use serde::{de, ser, Deserializer, Serializer};
 use std::io;
 use tokio_util::codec::{Decoder, Encoder};
 
-
 // Unsigned VarInt (Uvi) Bytes
 pub struct UviBytes {
     // cache for varint frame size
@@ -120,5 +119,4 @@ mod tests {
         let out = UviBytes::default().decode(&mut buffer).unwrap().unwrap();
         assert_eq!(data, out.to_vec());
     }
-
 }

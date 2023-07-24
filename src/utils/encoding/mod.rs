@@ -81,8 +81,6 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
     prover_id
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use anyhow::{ensure, Result};
@@ -91,7 +89,6 @@ mod tests {
 
     use super::*;
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
-
 
     #[test]
     fn vector_hashing() {
