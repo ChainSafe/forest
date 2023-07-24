@@ -24,19 +24,19 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::Decoder;
 
-pub struct ForestCAR<ReaderT> {
-    inner: Arc<Mutex<ForestCARInner<ReaderT>>>,
+pub struct ForestCar<ReaderT> {
+    inner: Arc<Mutex<ForestCarInner<ReaderT>>>,
 }
 
-struct ForestCARInner<ReaderT> {
-    new_reader: Box<dyn Fn() -> ReaderT>,
+struct ForestCarInner<ReaderT> {
+    // new_reader: Box<dyn Fn() -> ReaderT>,
     reader: ReaderT,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
-    roots: Vec<Cid>,
+    // roots: Vec<Cid>,
 }
 
-impl<ReaderT: Read + Seek> ForestCAR<ReaderT> {
+impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
     pub fn open(mk_reader: impl Fn() -> ReaderT + 'static) -> io::Result<Self> {
         let mut reader = mk_reader();
 
@@ -49,26 +49,26 @@ impl<ReaderT: Read + Seek> ForestCAR<ReaderT> {
         ))?;
 
         let index = CarIndex::open(mk_reader(), footer.index)?;
-        let inner = ForestCARInner {
-            new_reader: Box::new(mk_reader),
+        let inner = ForestCarInner {
+            // new_reader: Box::new(mk_reader),
             reader,
             write_cache: ahash::HashMap::default(),
             index,
-            roots: Vec::default(),
+            // roots: Vec::default(),
         };
-        Ok(ForestCAR {
+        Ok(ForestCar {
             inner: Arc::new(Mutex::new(inner)),
         })
     }
 }
 
-impl<ReaderT> Blockstore for ForestCAR<ReaderT>
+impl<ReaderT> Blockstore for ForestCar<ReaderT>
 where
     ReaderT: Read + Seek,
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let ForestCARInner {
+        let ForestCarInner {
             reader,
             write_cache,
             index,
@@ -111,8 +111,8 @@ where
     /// - See also [`Self::new`].
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let ForestCARInner {
-            write_cache, index, ..
+        let ForestCarInner {
+            write_cache, ..
         } = &mut *self.inner.lock();
         write_cache.insert(*k, Vec::from(block));
         Ok(())

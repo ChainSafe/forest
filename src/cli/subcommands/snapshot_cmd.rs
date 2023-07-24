@@ -219,7 +219,7 @@ impl SnapshotCommands {
                 frame_size,
             } => {
                 use crate::db::car;
-                use crate::db::car::forest::ForestCAR;
+                use crate::db::car::forest::ForestCar;
                 use futures::stream::TryStreamExt;
                 use tokio::fs::File;
                 use tokio::io::AsyncWriteExt;
@@ -259,7 +259,7 @@ impl SnapshotCommands {
                     let mut block_stream = CarStream::new(file).await?;
 
                     let forest_car =
-                        ForestCAR::open(move || std::fs::File::open(&destination).unwrap())?;
+                        ForestCar::open(move || std::fs::File::open(&destination).unwrap())?;
 
                     let now = std::time::Instant::now();
                     println!("Counting blocks...");
