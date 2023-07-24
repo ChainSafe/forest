@@ -3,6 +3,7 @@
 
 use std::{num::NonZeroUsize, sync::Arc};
 
+use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
@@ -25,7 +26,7 @@ pub struct ChainIndex<DB> {
     ts_cache: TipsetCache,
 
     /// `Blockstore` pointer needed to load tipsets from cold storage.
-    db: DB,
+    pub db: DB,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,7 +39,7 @@ pub enum ResolveNullTipset {
 }
 
 impl<DB: Blockstore> ChainIndex<DB> {
-    pub(in crate::chain) fn new(db: DB) -> Self {
+    pub fn new(db: DB) -> Self {
         let ts_cache = Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE));
         Self { ts_cache, db }
     }
@@ -144,6 +145,43 @@ impl<DB: Blockstore> ChainIndex<DB> {
                 child
             })
         })
+    }
+
+    /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
+    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
+        let check_for_beacon_entry = |ts: &Tipset| {
+            let cbe = ts.min_ticket_block().beacon_entries();
+            if let Some(entry) = cbe.last() {
+                return Ok(Some(entry.clone()));
+            }
+            if ts.epoch() == 0 {
+                return Err(Error::Other(
+                    "made it back to genesis block without finding beacon entry".to_owned(),
+                ));
+            }
+            Ok(None)
+        };
+
+        if let Some(entry) = check_for_beacon_entry(ts)? {
+            return Ok(entry);
+        }
+        let mut cur = self.load_tipset(ts.parents())?;
+        for i in 1..20 {
+            if i != 1 {
+                cur = self.load_tipset(cur.parents())?;
+            }
+            if let Some(entry) = check_for_beacon_entry(&cur)? {
+                return Ok(entry);
+            }
+        }
+
+        if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
+            return Ok(BeaconEntry::new(0, vec![9; 16]));
+        }
+
+        Err(Error::Other(
+            "Found no beacon entries in the 20 latest tipsets".to_owned(),
+        ))
     }
 }
 

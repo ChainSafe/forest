@@ -6,17 +6,16 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
     self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
-use crate::chain::ChainStore;
+use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
 use crate::fil_cns::composition as cns;
-use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
 use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
-use crate::state_manager::StateManager;
+use crate::shim::machine::MultiEngine;
 use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
@@ -25,7 +24,6 @@ use fvm_ipld_blockstore::Blockstore;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tempfile::TempDir;
 use tracing::info;
 
 #[derive(Debug, Subcommand)]
@@ -395,15 +393,7 @@ where
     DB: Blockstore + Send + Sync + Clone + 'static,
 {
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
-    let genesis = read_genesis_header(None, chain_config.genesis_bytes(), db).await?;
-
-    let chain_data_root = TempDir::new()?;
-    let chain_store = Arc::new(ChainStore::new(
-        Arc::new(db.clone()),
-        Arc::clone(&chain_config),
-        genesis.clone(),
-        chain_data_root.path(),
-    )?);
+    let genesis = ts.genesis(db)?;
 
     let pb = validation_spinner("Running tipset transactions:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage(
@@ -425,28 +415,36 @@ where
     )
     .await?;
 
-    // Set proof parameter data dir
+    // Set proof parameter data dir and make sure the proofs are available
     if cns::FETCH_PARAMS {
         crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
             &Config::default().client.data_dir,
         );
     }
-    // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&chain_config))?);
     ensure_params_downloaded().await?;
 
+    let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
+
     // Prepare tipsets for validation
-    let tipsets = ts
-        .chain(db)
-        .map(|ts| Arc::clone(&Arc::new(ts)))
+    let tipsets = chain_index
+        .chain(Arc::new(ts))
         .take_while(|tipset| tipset.epoch() >= last_epoch)
         .inspect(|tipset| {
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
         });
 
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
+
     // ProgressBar::wrap_iter believes the progress has been abandoned once the
     // iterator is consumed.
-    state_manager.validate_tipsets(tipsets)?;
+    crate::state_manager::validate_tipsets(
+        genesis.timestamp(),
+        chain_index.clone(),
+        chain_config,
+        beacon,
+        &MultiEngine::default(),
+        tipsets,
+    )?;
 
     pb.finish_with_message("✅ verified!");
     drop(pb);
