@@ -34,9 +34,13 @@ pub mod json {
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
         pub name: Cow<'static, str>,
+        #[serde(rename = "tg")]
         pub total_gas: u64,
+        #[serde(rename = "cg")]
         pub compute_gas: u64,
+        #[serde(rename = "sg")]
         pub other_gas: u64,
+        #[serde(rename = "tt")]
         pub duration_nanos: u64,
     }
 

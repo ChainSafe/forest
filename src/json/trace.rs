@@ -37,6 +37,7 @@ pub mod json {
         #[serde(with = "crate::json::trace_message::json")]
         msg: TraceMessage,
         #[serde(with = "crate::json::trace_return::json")]
+        #[serde(rename = "MsgRct")]
         msg_ret: TraceReturn,
         #[serde(with = "crate::json::trace_gas_charge::json::vec")]
         gas_charges: Vec<TraceGasCharge>,
