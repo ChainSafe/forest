@@ -6,6 +6,7 @@ use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use crate::car_backed_blockstore::{
     self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
 };
+use crate::utils::db::car_stream::CarStream;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -229,6 +230,7 @@ impl SnapshotCommands {
                 use tokio::fs::File;
 
                 zstd_compress_varint_manyframe(
+                    // CarStream::new(tokio::io::BufReader::new(File::open(&source).await?)).await?,
                     File::open(&source).await?,
                     File::create(&destination).await?,
                     frame_size,

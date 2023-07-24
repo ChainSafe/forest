@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod car_index;
+pub mod car_stream;
 pub mod file_backed_obj;
 
 use async_trait::async_trait;

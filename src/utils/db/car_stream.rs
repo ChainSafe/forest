@@ -1,0 +1,151 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+use async_compression::tokio::bufread::ZstdDecoder;
+use bytes::{Buf, Bytes};
+use cid::{
+    multihash::{Code, MultihashDigest},
+    Cid,
+};
+use futures::{Stream, StreamExt};
+use fvm_ipld_encoding::from_slice;
+use integer_encoding::VarInt;
+use pin_project_lite::pin_project;
+use serde::{Deserialize, Serialize};
+use std::io::{self, Cursor, SeekFrom};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
+use tokio_util::codec::FramedRead;
+use tokio_util::either::Either;
+
+use crate::utils::encoding::UviBytes;
+
+// Easy way to stream compressed and uncompressed CAR files
+// Easy way to encode compressed and uncompressed CAR files
+
+// stream of uvibytes -> stream of blocks + roots
+
+// stream of blocks + roots ->
+
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CarHeader {
+    pub roots: Vec<Cid>,
+    pub version: u64,
+}
+
+pub struct Block {
+    pub cid: Cid,
+    pub data: Vec<u8>,
+}
+
+impl Block {
+    // Length of a varint encoded block frame
+    pub fn encoded_len(&self) -> usize {
+        let frame_length = self.cid.encoded_len() + self.data.len();
+        let varint_length = frame_length.required_space();
+        varint_length + frame_length
+    }
+
+    // Write a varint frame containing the cid and the data
+    pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
+        let frame_length = self.cid.encoded_len() + self.data.len();
+        writer.write_all(&frame_length.encode_var_vec())?;
+        self.cid
+            .write_bytes(&mut writer)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        writer.write_all(&self.data)?;
+        Ok(())
+    }
+
+    pub fn from_bytes(bytes: Bytes) -> Option<Block> {
+        let mut cursor = Cursor::new(bytes);
+        let cid = Cid::read_bytes(&mut cursor).ok()?;
+        let data_offset = cursor.position();
+        let mut bytes = cursor.into_inner();
+        bytes.advance(data_offset as usize);
+        Some(Block {
+            cid,
+            data: bytes.to_vec(),
+        })
+    }
+
+    fn valid(&self) -> bool {
+        if let Ok(code) = Code::try_from(self.cid.hash().code()) {
+            let actual = Cid::new_v1(self.cid.codec(), code.digest(&self.data));
+            actual == self.cid
+        } else {
+            false
+        }
+    }
+}
+
+pin_project! {
+    pub struct CarStream<ReaderT> {
+        #[pin]
+        reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
+        header: CarHeader,
+    }
+}
+
+impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
+    pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
+        let start_position = reader.stream_position().await?;
+        if let Some(header) = read_header(&mut reader).await {
+            Ok(CarStream {
+                reader: FramedRead::new(Either::Left(reader), UviBytes::default()),
+                header,
+            })
+        } else {
+            reader.seek(SeekFrom::Start(start_position)).await?;
+            let mut zstd = ZstdDecoder::new(reader);
+            if let Some(header) = read_header(&mut zstd).await {
+                Ok(CarStream {
+                    reader: FramedRead::new(Either::Right(zstd), UviBytes::default()),
+                    header,
+                })
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "CAR data not recognized",
+                ))
+            }
+        }
+    }
+}
+
+impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
+    type Item = io::Result<Block>;
+
+    // Required method
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        let item = futures::ready!(this.reader.poll_next(cx));
+        Poll::Ready(item.map(|ret| {
+            ret.and_then(|bytes| {
+                let mut cursor = Cursor::new(bytes);
+                let cid = Cid::read_bytes(&mut cursor)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                let data_offset = cursor.position();
+                let mut bytes = cursor.into_inner();
+                bytes.advance(data_offset as usize);
+                Ok(Block {
+                    cid,
+                    data: bytes.to_vec(),
+                })
+            })
+        }))
+    }
+}
+
+async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option<CarHeader> {
+    let mut framed_reader = FramedRead::new(reader, UviBytes::default());
+    let header = from_slice::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
+    if header.version != 1 {
+        return None;
+    }
+    let first_block = Block::from_bytes(framed_reader.next().await?.ok()?.freeze())?;
+    if !first_block.valid() {
+        return None;
+    }
+    Some(header)
+}

@@ -55,15 +55,19 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
+use crate::utils::db::car_stream::Block;
 use ahash::HashMapExt as _;
-use bytes::{buf::Writer, BufMut as _, BytesMut};
+use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
-use futures::{stream, Stream, StreamExt as _, TryStreamExt as _};
+use futures::{stream, Stream, StreamExt as _, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use integer_encoding::{VarInt, VarIntReader};
 use itertools::Itertools as _;
 use parking_lot::Mutex;
+use pin_project_lite::pin_project;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::{
     any::Any,
     collections::hash_map::Entry::{Occupied, Vacant},
@@ -739,6 +743,101 @@ where
             Err(e) => Some(Err(e)),
         }
     }
+}
+
+pin_project! {
+    struct ZstdCompressBlock<Inner> {
+        #[pin]
+        inner: Inner,
+        zstd_frame_size_tripwire: usize,
+        zstd_compression_level: u16,
+        encoder: zstd::Encoder<'static, Writer<BytesMut>>,
+    }
+}
+
+impl<Inner: TryStream<Ok = Block, Error = io::Error>> ZstdCompressBlock<Inner> {
+    fn new(
+        inner: Inner,
+        zstd_frame_size_tripwire: usize,
+        zstd_compression_level: u16,
+    ) -> io::Result<Self> {
+        let encoder =
+            zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))?;
+        Ok(ZstdCompressBlock {
+            inner,
+            zstd_frame_size_tripwire,
+            zstd_compression_level,
+            encoder,
+        })
+    }
+}
+
+impl<Inner: TryStream<Ok = Block, Error = io::Error>> Stream for ZstdCompressBlock<Inner> {
+    type Item = io::Result<(Bytes, ahash::HashMap<Cid, u64>)>;
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        if let Some(item) = futures::ready!(this.inner.try_poll_next(cx)) {
+            match item {
+                Err(e) => Poll::Ready(Some(Err(e))),
+                Ok(block) => {
+                    block.write(this.encoder).unwrap();
+                    this.encoder.flush().unwrap();
+                    let compressed_len = this.encoder.get_ref().get_ref().len();
+                    if compressed_len >= *this.zstd_frame_size_tripwire {
+                        let new_encoder = zstd::Encoder::new(
+                            BytesMut::new().writer(),
+                            i32::from(*this.zstd_compression_level),
+                        )
+                        .unwrap();
+                        let encoder = std::mem::replace(this.encoder, new_encoder);
+                        let frame = encoder
+                            .finish()
+                            .expect("BytesMut has infallible IO")
+                            .into_inner()
+                            .freeze();
+                        Poll::Ready(Some(Ok((frame, ahash::HashMap::default()))))
+                    } else {
+                        Poll::Pending
+                    }
+                }
+            }
+        } else {
+            Poll::Ready(None)
+        }
+    }
+}
+
+fn append_block_to_zstd_encoder(
+    encoder: &mut zstd::Encoder<'static, Writer<BytesMut>>,
+    block: Block,
+    zstd_frame_size_tripwire: usize,
+    zstd_compression_level: u16,
+) -> io::Result<Option<Bytes>> {
+    block.write(encoder)?;
+    encoder.flush()?;
+    let compressed_len = encoder.get_ref().get_ref().len();
+    if compressed_len >= zstd_frame_size_tripwire {
+        let new_encoder =
+            zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
+                .unwrap();
+        let encoder = std::mem::replace(encoder, new_encoder);
+        let frame = encoder
+            .finish()
+            .expect("BytesMut has infallible IO")
+            .into_inner()
+            .freeze();
+        Ok(Some(frame))
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn zstd_compress_blocks(
+    reader: impl TryStream<Ok = Block, Error = io::Error>,
+    zstd_frame_size_tripwire: usize,
+    zstd_compression_level: u16,
+) -> io::Result<impl Stream<Item = io::Result<(Bytes, ahash::HashMap<Cid, u64>)>>> {
+    ZstdCompressBlock::new(reader, zstd_frame_size_tripwire, zstd_compression_level)
 }
 
 type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
