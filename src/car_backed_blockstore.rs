@@ -7,7 +7,7 @@
 //! CARs are made of concatenations of _varint frames_. Each varint frame is a
 //! concatenation of the _body length_ as an
 //! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html),
-//! and the _frame body_ itself. [`crate::utils::encoding::UviBytes`] can be
+//! and the _frame body_ itself. [`crate::utils::encoding::uvibytes::UviBytes`] can be
 //! used to read frames piecewise into memory.
 //!
 //! ```text
@@ -865,7 +865,7 @@ pub async fn zstd_compress_varint_manyframe(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> io::Result<usize> {
-    type VarintFrameCodec = crate::utils::encoding::UviBytes;
+    type VarintFrameCodec = crate::utils::encoding::uvibytes::UviBytes;
     let mut count = 0;
     try_collate(
         FramedRead::new(reader, VarintFrameCodec::default()),
