@@ -40,7 +40,7 @@ func runStateMigration(
 	t.Logf("outRoot: %s", outRoot)
 }
 
-func loadCompressedCar(t *testing.T, ctx context.Context, store *migration9Test.SyncBlockStoreInMemory, carFilePath string) {
+func LoadCompressedCar(t *testing.T, ctx context.Context, store *migration9Test.SyncBlockStoreInMemory, carFilePath string) {
 	file, err := os.Open(carFilePath)
 	if err != nil {
 		t.Error(err)
@@ -50,7 +50,7 @@ func loadCompressedCar(t *testing.T, ctx context.Context, store *migration9Test.
 	loadCarWithReader(t, ctx, store, reader)
 }
 
-func loadCar(t *testing.T, ctx context.Context, store *migration9Test.SyncBlockStoreInMemory, carFilePath string) {
+func LoadCar(t *testing.T, ctx context.Context, store *migration9Test.SyncBlockStoreInMemory, carFilePath string) {
 	file, err := os.Open(carFilePath)
 	if err != nil {
 		t.Error(err)

@@ -74,7 +74,7 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    pub chain_index: ChainIndex<DB>,
+    pub chain_index: ChainIndex<Arc<DB>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
@@ -207,7 +207,7 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Returns genesis [`BlockHeader`] from the store based on a static key.
+    /// Returns genesis [`BlockHeader`].
     pub fn genesis(&self) -> &BlockHeader {
         &self.genesis_block_header
     }

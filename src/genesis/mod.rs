@@ -12,7 +12,6 @@ use cid::Cid;
 use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
-use fvm_ipld_encoding::CborStore;
 
 use tokio::{fs::File, io::BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -75,7 +74,7 @@ where
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block: BlockHeader = db.get_cbor(&genesis_cids[0])?.ok_or_else(|| {
+    let genesis_block = BlockHeader::load(db, genesis_cids[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 

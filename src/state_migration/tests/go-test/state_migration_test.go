@@ -20,8 +20,10 @@ func TestStateMigrationNV17(t *testing.T) {
 	bs := migration9Test.NewSyncBlockStoreInMemory()
 	ctx := context.Background()
 
-	loadCar(t, ctx, bs, fmt.Sprintf("%s/.local/share/forest/bundles/calibnet/bundle_Shark.car", os.Getenv("HOME")))
-	loadCompressedCar(t, ctx, bs, fmt.Sprintf("../data/%s.car.zst", startRoot))
+	LoadCar(t, ctx, bs, fmt.Sprintf("%s/.local/share/forest/bundles/calibnet/bundle_Shark.car", os.Getenv("HOME")))
+	LoadCar(t, ctx, bs, fmt.Sprintf("../data/%s.car", startRoot))
+	// Or LoadCompressedCar for .car.zst
+	// LoadCompressedCar(t, ctx, bs, fmt.Sprintf("../data/%s.car.zst", startRoot))
 
 	runStateMigration(t, ctx, cbor.NewCborStore(bs), startRoot, newManifestCid, epoch)
 }

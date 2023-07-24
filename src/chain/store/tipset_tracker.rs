@@ -8,7 +8,6 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
 
@@ -57,7 +56,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         for cid in cids.iter() {
             // TODO: maybe cache the miner address to avoid having to do a `blockstore`
             // lookup here
-            if let Ok(Some(block)) = self.db.get_cbor::<BlockHeader>(cid) {
+            if let Ok(Some(block)) = BlockHeader::load(&self.db, *cid) {
                 if header.miner_address() == block.miner_address() {
                     warn!(
                         "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
@@ -99,9 +98,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
                 // TODO: maybe cache the parents tipset keys to avoid having to do a
                 // `blockstore` lookup here
-                let h = self
-                    .db
-                    .get_cbor::<BlockHeader>(&cid)
+                let h = BlockHeader::load(&self.db, cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {

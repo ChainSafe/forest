@@ -1,13 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::beacon::beacon_entries;
+use super::BlockHeader;
+use crate::beacon::{beacon_entries, BeaconEntry};
+use crate::blocks::{
+    election_proof, ticket, tipset::tipset_keys_json, ElectionProof, Ticket, TipsetKeys,
+};
 use crate::json::{sector, signature};
-use crate::shim::sector::PoStProof;
-use serde::{de, Deserialize, Serialize};
-
-use super::*;
-use crate::blocks::{election_proof, ticket, tipset::tipset_keys_json};
+use crate::shim::{crypto::Signature, econ::TokenAmount, sector::PoStProof};
+use cid::Cid;
+use num::BigInt;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.
 #[derive(Deserialize, Serialize)]
