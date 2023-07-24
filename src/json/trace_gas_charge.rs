@@ -54,7 +54,8 @@ pub mod json {
             compute_gas: gc.compute_gas,
             other_gas: gc.other_gas,
             duration_nanos: gc.duration_nanos,
-        }.serialize(serializer)
+        }
+        .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TraceGasCharge, D::Error>
@@ -98,5 +99,4 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {
-}
+pub mod tests {}

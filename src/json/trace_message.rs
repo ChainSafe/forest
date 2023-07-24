@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use crate::shim::executor::TraceMessage;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
+    use crate::shim::executor::TraceMessage;
     use crate::shim::message::MethodNum;
 
     use fvm_ipld_encoding::strict_bytes;
 
-    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
     use base64::{prelude::BASE64_STANDARD, Engine};
+    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
     //use crate::json::address::json::AddressJson;
 
@@ -58,7 +58,8 @@ pub mod json {
             method_num: m.method_num,
             params: BASE64_STANDARD.encode(&m.params),
             params_codec: m.params_codec,
-        }.serialize(serializer)
+        }
+        .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TraceMessage, D::Error>
@@ -78,5 +79,4 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {
-}
+pub mod tests {}

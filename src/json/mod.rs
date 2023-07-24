@@ -12,11 +12,11 @@ pub mod sector;
 pub mod signature;
 pub mod signed_message;
 pub mod token_amount;
-pub mod vrf;
 pub mod trace;
+pub mod trace_gas_charge;
 pub mod trace_message;
 pub mod trace_return;
-pub mod trace_gas_charge;
+pub mod vrf;
 #[cfg(test)]
 mod tests {
     mod address_test;

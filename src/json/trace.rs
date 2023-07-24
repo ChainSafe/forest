@@ -3,9 +3,9 @@
 
 pub mod json {
     use crate::shim::executor::Trace;
+    use crate::shim::executor::TraceGasCharge;
     use crate::shim::executor::TraceMessage;
     use crate::shim::executor::TraceReturn;
-    use crate::shim::executor::TraceGasCharge;
 
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -54,7 +54,8 @@ pub mod json {
             msg_ret: t.msg_ret.clone(),
             gas_charges: t.gas_charges.clone(),
             subcalls: t.subcalls.clone(),
-        }.serialize(serializer)
+        }
+        .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Trace, D::Error>
@@ -118,5 +119,4 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {
-}
+pub mod tests {}
