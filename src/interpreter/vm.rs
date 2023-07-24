@@ -283,7 +283,7 @@ where
         callback: Option<
             &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(Message, ApplyRet), anyhow::Error> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
             to: Address::CRON_ACTOR.into(),
@@ -306,9 +306,9 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
+            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg.clone()), &ret)?;
         }
-        Ok(())
+        Ok((cron_msg, ret))
     }
 
     /// Apply block messages from a Tipset.
@@ -411,9 +411,27 @@ where
             }
         }
 
-        if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
-            tracing::error!("End of epoch cron failed to run: {}", e);
+        match self.run_cron(epoch, callback.as_mut()) { 
+            Ok((cron_msg, ret)) => {
+                // Push InvocResult
+                if enable_tracing {
+                    let trace = build_exec_trace(ret.exec_events());
+
+                    invoc_results.push(InvocResult {
+                        msg_cid: cron_msg.cid()?,
+                        msg: cron_msg.clone(),
+                        msg_receipt: ret.msg_receipt(),
+                        gas_cost: MessageGasCost::new(&cron_msg, ret.clone()),
+                        execution_trace: trace,
+                        error: ret.failure_info().unwrap_or_default(),
+                    });
+                }
+            },
+            Err(e) => {
+                tracing::error!("End of epoch cron failed to run: {}", e);
+            }
         }
+
         Ok((receipts, invoc_results))
     }
 
