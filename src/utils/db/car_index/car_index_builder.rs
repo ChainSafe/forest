@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::{BlockPosition, Hash, IndexHeader, KeyValuePair, Slot};
 use cid::Cid;
-use std::io::Write;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
 #[derive(Debug)]
@@ -129,7 +128,8 @@ impl CarIndexBuilder {
         }
     }
 
-    pub fn write(&self, mut writer: impl Write) -> std::io::Result<()> {
+    #[cfg(test)]
+    pub fn write(&self, mut writer: impl std::io::Write) -> std::io::Result<()> {
         writer.write_all(&self.header().to_le_bytes())?;
         for slot in self.table.iter() {
             writer.write_all(&slot.to_le_bytes())?;
@@ -141,7 +141,7 @@ impl CarIndexBuilder {
         Ok(())
     }
 
-    pub async fn write_async(&self, mut writer: impl AsyncWrite + Unpin) -> std::io::Result<()> {
+    pub async fn write_async(&self, writer: &mut (impl AsyncWrite + Unpin)) -> std::io::Result<()> {
         writer.write_all(&self.header().to_le_bytes()).await?;
         for entry in self.table.iter() {
             writer.write_all(&entry.to_le_bytes()).await?;
@@ -155,11 +155,11 @@ impl CarIndexBuilder {
         Ok(())
     }
 
-    pub fn encoded_len(&self) -> u64 {
+    pub fn encoded_len(&self) -> u32 {
         let mut len = 0;
         len += IndexHeader::SIZE;
         len += Slot::SIZE * (self.table.len() + self.longest_distance as usize + 1);
-        len as u64
+        len as u32
     }
 
     pub fn len(&self) -> u64 {

@@ -266,17 +266,14 @@ impl SnapshotCommands {
                     let mut count = 0;
                     while let Some(block) = block_stream.try_next().await? {
                         // println!("Looking at block: {}", block.cid);
-                        if count > 2_800_000 {
-                            // println!("Count: {}", count);
-                            let expected = block.data.len();
-                            let got = forest_car.get(&block.cid)?.unwrap().len();
-                            if expected != got {
-                                break;
-                            }
-                        } else {
-                            if count % 10_000 == 0 {
-                                println!("Count: {}", count);
-                            }
+                        // println!("Count: {}", count);
+                        let expected = block.data.len();
+                        let got = forest_car.get(&block.cid)?.unwrap().len();
+                        if expected != got {
+                            break;
+                        }
+                        if count % 10_000 == 0 {
+                            println!("Count: {}", count);
                         }
                         count += 1;
                     }

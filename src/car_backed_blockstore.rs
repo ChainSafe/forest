@@ -424,10 +424,17 @@ pub async fn write_skip_frame_async(
     writer: &mut (impl AsyncWrite + Unpin),
     frame: &[u8],
 ) -> std::io::Result<()> {
-    writer.write_all(&[0x50, 0x2A, 0x4D, 0x18]).await?;
-    let len: u32 = frame.len() as u32;
-    writer.write_all(&len.to_le_bytes()).await?;
+    write_skip_frame_header_async(writer, frame.len() as u32).await?;
     writer.write_all(frame).await
+}
+
+pub async fn write_skip_frame_header_async(
+    writer: &mut (impl AsyncWrite + Unpin),
+    data_len: u32,
+) -> std::io::Result<()> {
+    writer.write_all(&[0x50, 0x2A, 0x4D, 0x18]).await?;
+    writer.write_all(&data_len.to_le_bytes()).await?;
+    Ok(())
 }
 
 struct CompressedCarV1BackedBlockstoreInner<ReaderT> {

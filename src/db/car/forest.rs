@@ -3,7 +3,7 @@
 
 // encode CAR-stream into ForestCAR.zst
 
-use crate::car_backed_blockstore::write_skip_frame_async;
+use crate::car_backed_blockstore::write_skip_frame_header_async;
 use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::uvibytes::UviBytes;
@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::{
     io,
-    io::{Cursor, Read, Seek, SeekFrom, Write},
+    io::{Read, Seek, SeekFrom, Write},
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::Decoder;
@@ -167,10 +167,10 @@ impl Encoder {
 
         // Create index
         let index_offset = position as u64 + 8;
-        let mut index = Vec::new();
-        CarIndexBuilder::new(cid_map.into_iter()).write(Cursor::new(&mut index))?;
+        let builder = CarIndexBuilder::new(cid_map.into_iter());
         // println!("Writing index: {} {}", n_cids, index.len());
-        write_skip_frame_async(sink, &index).await?;
+        write_skip_frame_header_async(sink, builder.encoded_len()).await?;
+        builder.write_async(sink).await?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCARFooter {
