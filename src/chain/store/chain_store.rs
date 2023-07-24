@@ -225,8 +225,7 @@ where
 
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        self.blockstore()
-            .get_cbor::<BlockHeader>(self.file_backed_genesis.lock().inner())?
+        BlockHeader::load(self.blockstore(), *self.file_backed_genesis.lock().inner())?
             .ok_or_else(|| Error::Other("Genesis block not set".into()))
     }
 
