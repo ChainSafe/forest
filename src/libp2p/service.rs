@@ -433,9 +433,15 @@ async fn handle_network_message(
                 for mut multiaddr in addresses {
                     multiaddr.push(Protocol::P2p(peer_id));
 
-                    if Swarm::dial(swarm, multiaddr.clone()).is_ok() {
-                        success = true;
-                        break;
+                    match Swarm::dial(swarm, multiaddr.clone()) {
+                        Ok(_) => {
+                            info!("Dialed {multiaddr}");
+                            success = true;
+                            break;
+                        }
+                        Err(e) => {
+                            error!("Failed to dial {multiaddr}: {e}");
+                        }
                     };
                 }
 
