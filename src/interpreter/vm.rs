@@ -352,15 +352,13 @@ where
                 if enable_tracing {
                     let trace = build_exec_trace(ret.exec_events());
 
-                    // TODO: replace actor error by failure_info
-                    let error = ret.actor_error();
                     invoc_results.push(InvocResult {
                         msg_cid: cid,
                         msg: msg.message().clone(),
                         msg_receipt,
-                        gas_cost: MessageGasCost::new(msg, ret),
+                        gas_cost: MessageGasCost::new(msg, ret.clone()),
                         execution_trace: trace,
-                        error,
+                        error: ret.failure_info().unwrap_or_default(),
                     });
                 }
 
