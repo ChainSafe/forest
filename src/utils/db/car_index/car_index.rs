@@ -18,11 +18,15 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     pub fn open(mut reader: ReaderT, offset: u64) -> Result<Self> {
         reader.seek(SeekFrom::Start(offset))?;
         let header = IndexHeader::read(&mut reader)?;
-        Ok(CarIndex {
-            reader,
-            offset: offset + IndexHeader::SIZE as u64,
-            header,
-        })
+        if header.magic_number != IndexHeader::MAGIC_NUMBER {
+            Err(Error::new(ErrorKind::InvalidData, format!("Invalid magic number: {:x}. Expected: {:x}", header.magic_number, IndexHeader::MAGIC_NUMBER)))
+        } else {
+            Ok(CarIndex {
+                reader,
+                offset: offset + IndexHeader::SIZE as u64,
+                header,
+            })
+        }
     }
 
     /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate

@@ -6,6 +6,7 @@
 use crate::car_backed_blockstore::write_skip_frame_async;
 use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
+use crate::utils::encoding::uvibytes::UviBytes;
 use ahash::HashMapExt;
 use bytes::{buf::Writer, Buf, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
@@ -13,19 +14,15 @@ use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use num_traits::ToBytes;
 use parking_lot::Mutex;
-use std::pin::{pin, Pin};
 use std::sync::Arc;
 use std::task::Poll;
 use std::{
     io,
     io::{Cursor, Read, Seek, SeekFrom, Write},
 };
-use tokio::io::{AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
-
-// Input: stream of blocks
-// Output: (BlockPosition, Option<zst_frame>)
+use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio_util::codec::Decoder;
 
 pub struct ForestCAR<ReaderT> {
     inner: Arc<Mutex<ForestCARInner<ReaderT>>>,
@@ -83,21 +80,27 @@ where
 
         let stored = index.lookup(*k)?;
 
-        println!("Positions for key: {:?}", &stored);
-
         for position in stored.into_iter() {
             reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
             let mut zstd_frame = std::io::Cursor::new(vec![]);
-            zstd::Decoder::new(reader.by_ref())
-                .expect("we're not using a custom dictionary")
+            zstd::Decoder::new(reader.by_ref())?
                 .single_frame()
                 .read_to_end(zstd_frame.get_mut())?;
-            let mut bytes = Bytes::from(zstd_frame.into_inner());
+            let mut bytes = BytesMut::from(zstd_frame.into_inner().as_slice());
             bytes.advance(position.decoded_offset() as usize);
-            if let Some(block) = Block::from_bytes(bytes) {
+            let frame = UviBytes::default()
+                .decode(&mut bytes)?
+                .ok_or(invalid_data("malformed uvibytes"))?
+                .freeze();
+            if let Some(block) = Block::from_bytes(frame) {
+                // This is almost always true. Hash collisions do happen with
+                // identity-encoded CIDs, though.
                 if block.cid == *k {
                     return Ok(Some(block.data));
                 }
+                println!("Looking for: {}, found: {}", *k, block.cid);
+            } else {
+                return Err(invalid_data("corrupted key-value block"))?;
             }
         }
         return Ok(None);
@@ -120,22 +123,42 @@ pub struct Encoder {}
 
 impl Encoder {
     pub async fn write(
-        sink: &mut (impl AsyncWrite + AsyncSeek + Unpin),
+        sink: &mut (impl AsyncWrite + Unpin),
         roots: Vec<Cid>,
         mut stream: impl TryStream<Ok = Either<(Cid, BlockPosition), Bytes>, Error = io::Error> + Unpin,
     ) -> io::Result<()> {
+        let mut position = 0;
+
         // Write CARv1 header
+        let mut header_encoder = new_encoder(3)?;
+
         let header = CarHeader { roots, version: 1 };
-        sink.write_all(&to_vec(&header)?).await?;
+        header_encoder.write_all(&to_vec(&header)?)?;
+        let header_bytes = header_encoder.finish()?.into_inner().freeze();
+        sink.write_all(&header_bytes).await?;
+        let header_len = header_bytes.len();
+
+        position += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
         let mut cid_map = ahash::HashMap::new();
         while let Some(either) = stream.try_next().await? {
             match either {
                 Either::Left((cid, position)) => {
-                    cid_map.insert(cid, position);
+                    cid_map.insert(
+                        cid,
+                        BlockPosition::new(
+                            header_len as u64 + position.zst_frame_offset(),
+                            position.decoded_offset(),
+                        )
+                        .ok_or(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "zstd archive size of 256TiB exceeded",
+                        ))?,
+                    );
                 }
                 Either::Right(zstd_frame) => {
+                    position += zstd_frame.len();
                     sink.write_all(&zstd_frame).await?;
                 }
             }
@@ -143,13 +166,13 @@ impl Encoder {
 
         // Create index
         let n_cids = cid_map.len();
-        let index_offset = sink.stream_position().await?;
+        let index_offset = position as u64 + 8;
         let mut index = Vec::new();
         CarIndexBuilder::new(cid_map.into_iter()).write(Cursor::new(&mut index))?;
         // println!("Writing index: {} {}", n_cids, index.len());
         write_skip_frame_async(sink, &index).await?;
 
-        // Write ForestCAR.zst footer
+        // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCARFooter {
             index: index_offset,
         };
@@ -223,6 +246,10 @@ impl Encoder {
             }
         })
     }
+}
+
+fn invalid_data(msg: &'static str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, msg)
 }
 
 fn compressed_len(encoder: &zstd::Encoder<'static, Writer<BytesMut>>) -> usize {

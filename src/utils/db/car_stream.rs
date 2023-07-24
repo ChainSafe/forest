@@ -18,7 +18,7 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
 
-use crate::utils::encoding::UviBytes;
+use crate::utils::encoding::uvibytes::UviBytes;
 
 // Easy way to stream compressed and uncompressed CAR files
 // Easy way to encode compressed and uncompressed CAR files
@@ -69,7 +69,7 @@ impl Block {
         })
     }
 
-    fn valid(&self) -> bool {
+    pub fn valid(&self) -> bool {
         if let Ok(code) = Code::try_from(self.cid.hash().code()) {
             let actual = Cid::new_v1(self.cid.codec(), code.digest(&self.data));
             actual == self.cid

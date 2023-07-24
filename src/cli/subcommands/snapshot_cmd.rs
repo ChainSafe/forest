@@ -221,7 +221,6 @@ impl SnapshotCommands {
                 use crate::db::car;
                 use crate::db::car::forest::ForestCAR;
                 use futures::stream::{TryStreamExt};
-                use human_repr;
                 use tokio::fs::File;
                 use tokio::io::AsyncWriteExt;
 
@@ -265,10 +264,18 @@ impl SnapshotCommands {
                     println!("Counting blocks...");
                     let mut count = 0;
                     while let Some(block) = block_stream.try_next().await? {
-                        println!("Looking at block: {}", block.cid);
-                        println!("  Expected len: {}", block.data.len());
-                        println!("  Forest.CAR:   {:?}", forest_car.get(&block.cid)?.map(|val| val.len()));
+                        // println!("Looking at block: {}", block.cid);
+                        let expected = block.data.len();
+                        let got = forest_car.get(&block.cid)?.unwrap().len();
+                        // println!("  Expected len: {}", expected);
+                        // println!("  Forest.CAR:   {}", got);
                         count += 1;
+                        if count % 10_000 == 0 {
+                            println!("Count: {}", count);
+                        }
+                        if expected != got {
+                            break;
+                        }
                     }
                     println!("Count: {}, {}", count, now.elapsed().human_duration());
                 }

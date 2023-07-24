@@ -133,7 +133,7 @@ impl CarIndexBuilder {
 
     fn header(&self) -> IndexHeader {
         IndexHeader {
-            magic_number: 0xdeadbeef,
+            magic_number: IndexHeader::MAGIC_NUMBER,
             longest_distance: self.longest_distance,
             collisions: self.collisions,
             buckets: self.len(),
