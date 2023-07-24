@@ -103,7 +103,8 @@ test-release: go-mod
 test-all: test test-release
 
 go-mod:
-	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor) || echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/"
+	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor) || \
+	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
 
 smoke-test:
 	./scripts/smoke_test.sh
