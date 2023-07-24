@@ -176,10 +176,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
-            return Ok(BeaconEntry::new(
-                0,
-                vec![9; 16],
-            ));
+            return Ok(BeaconEntry::new(0, vec![9; 16]));
         }
 
         Err(Error::Other(
