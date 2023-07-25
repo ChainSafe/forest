@@ -37,8 +37,8 @@ struct ForestCarInner<ReaderT> {
 }
 
 impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
-    pub fn new(mk_reader: impl Fn() -> ReaderT + 'static) -> io::Result<Self> {
-        let mut reader = mk_reader();
+    pub fn new(mk_reader: impl Fn() -> io::Result<ReaderT> + 'static) -> io::Result<Self> {
+        let mut reader = mk_reader()?;
 
         reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
@@ -55,7 +55,7 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
             .ok_or(invalid_data("malformed uvibytes"))?;
         let header = from_slice::<CarHeader>(&block_frame)?;
 
-        let index = CarIndex::open(mk_reader(), footer.index)?;
+        let index = CarIndex::open(mk_reader()?, footer.index)?;
         let inner = ForestCarInner {
             // new_reader: Box::new(mk_reader),
             reader,

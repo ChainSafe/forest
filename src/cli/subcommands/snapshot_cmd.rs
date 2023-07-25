@@ -181,7 +181,7 @@ impl SnapshotCommands {
                 check_stateroots,
                 snapshot,
             } => {
-                let store = AnyCar::new(move || std::fs::File::open(&snapshot).unwrap())?;
+                let store = AnyCar::new(move || std::fs::File::open(&snapshot))?;
                 validate_with_blockstore(
                     store.roots(),
                     Arc::new(store),

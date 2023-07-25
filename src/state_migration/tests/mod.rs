@@ -85,11 +85,9 @@ async fn test_state_migration(
         tmp.persist(&car_path)?;
     }
 
-    let store = Arc::new(
-        crate::db::car::plain::PlainCar::new(
-            std::io::BufReader::new(std::fs::File::open(&car_path)?),
-        )?,
-    );
+    let store = Arc::new(crate::db::car::plain::PlainCar::new(
+        std::io::BufReader::new(std::fs::File::open(&car_path)?),
+    )?);
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
 

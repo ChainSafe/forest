@@ -420,4 +420,3 @@ mod tests {
         include_bytes!("../../../test-snapshots/chain4.car")
     }
 }
-

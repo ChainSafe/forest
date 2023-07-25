@@ -11,14 +11,14 @@ pub enum AnyCar<ReaderT> {
 }
 
 impl<ReaderT: Read + Seek> AnyCar<ReaderT> {
-    pub fn new(mk_reader: impl Fn() -> ReaderT + Clone + 'static) -> Result<Self> {
+    pub fn new(mk_reader: impl Fn() -> Result<ReaderT> + Clone + 'static) -> Result<Self> {
         if let Ok(forest_car) = super::ForestCar::new(mk_reader.clone()) {
             return Ok(AnyCar::Forest(forest_car));
         }
-        if let Ok(plain_car) = super::PlainCar::new(mk_reader()) {
+        if let Ok(plain_car) = super::PlainCar::new(mk_reader()?) {
             return Ok(AnyCar::Plain(plain_car));
         }
-        if let Ok(decompressed) = zstd::stream::decode_all(mk_reader()) {
+        if let Ok(decompressed) = zstd::stream::decode_all(mk_reader()?) {
             let mem_reader = Cursor::new(decompressed);
             if let Ok(mem_car) = super::PlainCar::new(mem_reader) {
                 return Ok(AnyCar::Memory(mem_car));
