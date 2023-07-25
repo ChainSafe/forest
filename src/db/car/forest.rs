@@ -145,7 +145,7 @@ impl Encoder {
     pub async fn write(
         sink: &mut (impl AsyncWrite + Unpin),
         roots: Vec<Cid>,
-        mut stream: impl TryStream<Ok = Either<(Cid, BlockPosition), Bytes>, Error = io::Error> + Unpin,
+        mut stream: impl TryStream<Ok = Either<(Cid, u16), Bytes>, Error = io::Error> + Unpin,
     ) -> io::Result<()> {
         let mut position = 0;
 
@@ -167,14 +167,10 @@ impl Encoder {
         let mut cid_map = ahash::HashMap::new();
         while let Some(either) = stream.try_next().await? {
             match either {
-                Either::Left((cid, position)) => {
+                Either::Left((cid, offset)) => {
                     cid_map.insert(
                         cid,
-                        BlockPosition::new(
-                            header_len as u64 + position.zst_frame_offset(),
-                            position.decoded_offset(),
-                        )
-                        .ok_or(io::Error::new(
+                        BlockPosition::new(position as u64, offset).ok_or(io::Error::new(
                             io::ErrorKind::InvalidInput,
                             "zstd archive size of 256TiB exceeded",
                         ))?,
@@ -183,7 +179,6 @@ impl Encoder {
                 Either::Right(zstd_frame) => {
                     position += zstd_frame.len();
                     sink.write_all(&zstd_frame).await?;
-                    // println!("Written: {}, CIDs={}", position, cid_map.len());
                 }
             }
         }
@@ -191,7 +186,6 @@ impl Encoder {
         // Create index
         let index_offset = position as u64 + 8;
         let builder = CarIndexBuilder::new(cid_map.into_iter());
-        // println!("Writing index: {} {}", n_cids, index.len());
         write_skip_frame_header_async(sink, builder.encoded_len()).await?;
         builder.write_async(sink).await?;
 
@@ -209,9 +203,8 @@ impl Encoder {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         stream: impl TryStream<Ok = Block, Error = io::Error>,
-    ) -> impl TryStream<Ok = Either<(Cid, BlockPosition), Bytes>, Error = io::Error> {
+    ) -> impl TryStream<Ok = Either<(Cid, u16), Bytes>, Error = io::Error> {
         let mut encoder_store = new_encoder(zstd_compression_level);
-        let mut emitted_bytes: usize = 0;
         let mut frame_offset: usize = 0;
 
         let mut stream = Box::pin(stream.into_stream());
@@ -228,7 +221,6 @@ impl Encoder {
             // Emit frame if compressed_len >= zstd_frame_size_tripwire OR uncompressed_len >= 2^16
             if compressed_len(encoder) >= zstd_frame_size_tripwire || frame_offset >= 1 << 16 {
                 let frame = finalize_frame(zstd_compression_level, encoder)?;
-                emitted_bytes += frame.len();
                 frame_offset = 0;
                 return Poll::Ready(Some(Ok(Either::Right(frame))));
             }
@@ -257,14 +249,9 @@ impl Encoder {
                             "frame_offset should fit in 16 bits",
                         ))?;
                     frame_offset += block.encoded_len();
-                    let position = BlockPosition::new(emitted_bytes as u64, frame_offset_u16)
-                        .ok_or(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "zstd archive size of 256TiB exceeded",
-                        ))?;
                     block.write(encoder)?;
                     encoder.flush()?;
-                    Poll::Ready(Some(Ok(Either::Left((cid, position)))))
+                    Poll::Ready(Some(Ok(Either::Left((cid, frame_offset_u16)))))
                 }
             }
         })
