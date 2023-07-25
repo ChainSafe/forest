@@ -415,7 +415,6 @@ where
 
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
-                
                 // Push InvocResult
                 if enable_tracing {
                     let trace = build_exec_trace(ret.exec_trace());

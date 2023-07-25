@@ -111,7 +111,7 @@ async fn print_computed_state(
 
     let tipset = cs
         .chain_index
-        .tipset_by_height(vm_height.into(), ts, ResolveNullTipset::TakeOlder)
+        .tipset_by_height(vm_height, ts, ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
     if json {
