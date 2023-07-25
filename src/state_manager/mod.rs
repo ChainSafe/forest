@@ -632,8 +632,10 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         let this = Arc::clone(self);
-        tokio::task::spawn_blocking(move || this.compute_tipset_state_blocking(tipset, callback, enable_tracing))
-            .await?
+        tokio::task::spawn_blocking(move || {
+            this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
+        })
+        .await?
     }
 
     /// Blocking version of `compute_tipset_state`
@@ -655,7 +657,7 @@ where
             &self.engine,
             tipset,
             callback,
-            enable_tracing
+            enable_tracing,
         )?)
     }
 
@@ -1261,7 +1263,10 @@ where
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts();
-        return Ok(((*tipset.parent_state(), *message_receipts), TraceInfo::default()));
+        return Ok((
+            (*tipset.parent_state(), *message_receipts),
+            TraceInfo::default(),
+        ));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1326,11 +1331,15 @@ where
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
     // step 4: apply tipset messages
-    let (receipts, trace) = vm.apply_block_messages(&block_messages, epoch, callback, enable_tracing)?;
+    let (receipts, trace) =
+        vm.apply_block_messages(&block_messages, epoch, callback, enable_tracing)?;
 
     // step 5: construct receipt root from receipts and flush the state-tree
     let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
     let state_root = vm.flush()?;
 
-    Ok(((state_root, receipt_root), TraceInfo::new(state_root, trace)))
+    Ok((
+        (state_root, receipt_root),
+        TraceInfo::new(state_root, trace),
+    ))
 }

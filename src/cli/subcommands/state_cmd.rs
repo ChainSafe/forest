@@ -3,6 +3,7 @@
 
 use crate::blocks::TipsetKeys;
 use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
+use crate::chain::index::ResolveNullTipset;
 use crate::chain::ChainStore;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
@@ -20,7 +21,6 @@ use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use std::{path::Path, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
-use crate::chain::index::ResolveNullTipset;
 
 use super::handle_rpc_err;
 use super::Config;
@@ -105,10 +105,7 @@ async fn print_computed_state(
     )?);
 
     // Initialize StateManager
-    let sm = Arc::new(StateManager::new(
-        cs.clone(),
-        config.chain,
-    )?);
+    let sm = Arc::new(StateManager::new(cs.clone(), config.chain)?);
 
     let ts = sm.chain_store().tipset_from_keys(&tsk)?;
 

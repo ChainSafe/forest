@@ -10,7 +10,6 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
-    error::ExitCode,
     executor::{build_lotus_trace, ApplyRet, ExecutionEvent_v3, Receipt, Trace},
     externs::{Rand, RandWrapper},
     machine::MultiEngine,
@@ -323,7 +322,11 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg.clone()), &ret)?;
+            callback(
+                &(cron_msg.cid()?),
+                &ChainMessage::Unsigned(cron_msg.clone()),
+                &ret,
+            )?;
         }
         Ok((cron_msg, ret))
     }
@@ -407,7 +410,7 @@ where
                         ret.msg_receipt().exit_code()
                     );
                 }
-                
+
                 // Push InvocResult
                 if enable_tracing {
                     let trace = build_exec_trace(ret.exec_events());
@@ -428,7 +431,7 @@ where
             }
         }
 
-        match self.run_cron(epoch, callback.as_mut()) { 
+        match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
                 // Push InvocResult
                 if enable_tracing {
@@ -443,7 +446,7 @@ where
                         error: ret.failure_info().unwrap_or_default(),
                     });
                 }
-            },
+            }
             Err(e) => {
                 tracing::error!("End of epoch cron failed to run: {}", e);
             }
