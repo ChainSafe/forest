@@ -37,7 +37,7 @@ struct ForestCarInner<ReaderT> {
 }
 
 impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
-    pub fn open(mk_reader: impl Fn() -> ReaderT + 'static) -> io::Result<Self> {
+    pub fn new(mk_reader: impl Fn() -> ReaderT + 'static) -> io::Result<Self> {
         let mut reader = mk_reader();
 
         reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;

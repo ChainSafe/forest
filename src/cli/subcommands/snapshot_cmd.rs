@@ -3,12 +3,11 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::db::car::plain::PlainCar;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
-use crate::db::car::forest::ForestCar;
+use crate::db::car::AnyCar;
 use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
@@ -173,35 +172,17 @@ impl SnapshotCommands {
                 check_stateroots,
                 snapshot,
             } => {
-                // this is all blocking...
-                use std::fs::File;
-                let snapshot_clone = snapshot.clone();
-                match ForestCar::open(move || std::fs::File::open(&snapshot_clone).unwrap()) {
-                    Ok(store) => {
-                        validate_with_blockstore(
-                            store.roots(),
-                            Arc::new(store),
-                            check_links,
-                            check_network,
-                            check_stateroots,
-                        )
-                        .await
-                    }
-                    Err(e) => {
-                        println!("Failed to open as ForestCar: {}", e.to_string());
-
-                        let store = PlainCar::new(File::open(&snapshot)?)?;
-                        validate_with_blockstore(
-                            store.roots(),
-                            Arc::new(store),
-                            check_links,
-                            check_network,
-                            check_stateroots,
-                        )
-                        .await
-                    }
-                }
+                let store = AnyCar::new(move || std::fs::File::open(&snapshot).unwrap())?;
+                validate_with_blockstore(
+                    store.roots(),
+                    Arc::new(store),
+                    check_links,
+                    check_network,
+                    check_stateroots,
+                )
+                .await
             }
+
             Self::Compress {
                 source,
                 destination,
