@@ -27,7 +27,7 @@
 //! Additional reading: [`crate::car_backed_blockstore`]
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::db::car::plain::UncompressedCarV1BackedBlockstore;
+use crate::db::car::plain::PlainCar;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
@@ -141,7 +141,7 @@ async fn do_export(
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
-        UncompressedCarV1BackedBlockstore::new(reader)
+        PlainCar::new(reader)
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
     );
 
@@ -228,7 +228,7 @@ impl ArchiveInfo {
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
     fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
-        let store = UncompressedCarV1BackedBlockstore::new(reader)
+        let store = PlainCar::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
 
         let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
@@ -317,7 +317,7 @@ impl ArchiveInfo {
 // be used by Forest to quickly identify tipsets.
 fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
     let file = std::fs::File::open(snapshot)?;
-    let store = UncompressedCarV1BackedBlockstore::new(file)
+    let store = PlainCar::new(file)
         .context("couldn't read input CAR file - is it compressed?")?;
     let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
 

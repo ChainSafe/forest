@@ -4,3 +4,4 @@ pub mod forest;
 pub mod plain;
 
 pub use forest::ForestCar;
+pub use plain::PlainCar;

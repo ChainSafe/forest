@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::db::car::plain::UncompressedCarV1BackedBlockstore;
+use crate::db::car::plain::PlainCar;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -190,7 +190,7 @@ impl SnapshotCommands {
                     Err(e) => {
                         println!("Failed to open as ForestCar: {}", e.to_string());
 
-                        let store = UncompressedCarV1BackedBlockstore::new(File::open(&snapshot)?)?;
+                        let store = PlainCar::new(File::open(&snapshot)?)?;
                         validate_with_blockstore(
                             store.roots(),
                             Arc::new(store),

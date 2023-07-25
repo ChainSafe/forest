@@ -91,12 +91,12 @@ use tracing::{debug, trace};
 /// However, (near) linear access should be pretty good, as file chunks will be pre-fetched.
 ///
 /// See [module documentation](mod@self) for more.
-pub struct UncompressedCarV1BackedBlockstore<ReaderT> {
+pub struct PlainCar<ReaderT> {
     // https://github.com/ChainSafe/forest/issues/3096
-    inner: Mutex<UncompressedCarV1BackedBlockstoreInner<ReaderT>>,
+    inner: Mutex<PlainCarInner<ReaderT>>,
 }
 
-impl<ReaderT> UncompressedCarV1BackedBlockstore<ReaderT>
+impl<ReaderT> PlainCar<ReaderT>
 where
     ReaderT: Read + Seek,
 {
@@ -124,7 +124,7 @@ where
             num_blocks => {
                 debug!(num_blocks, "indexed CAR");
                 Ok(Self {
-                    inner: Mutex::new(UncompressedCarV1BackedBlockstoreInner {
+                    inner: Mutex::new(PlainCarInner {
                         // discarding the buffer is ok - we only seek within this now
                         reader: buf_reader.into_inner(),
                         index,
@@ -147,7 +147,7 @@ where
     }
 }
 
-struct UncompressedCarV1BackedBlockstoreInner<ReaderT> {
+struct PlainCarInner<ReaderT> {
     reader: ReaderT,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: ahash::HashMap<Cid, UncompressedBlockDataLocation>,
@@ -162,13 +162,13 @@ pub struct UncompressedBlockDataLocation {
     length: u32,
 }
 
-impl<ReaderT> Blockstore for UncompressedCarV1BackedBlockstore<ReaderT>
+impl<ReaderT> Blockstore for PlainCar<ReaderT>
 where
     ReaderT: Read + Seek,
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let UncompressedCarV1BackedBlockstoreInner {
+        let PlainCarInner {
             reader,
             write_cache,
             index,
@@ -202,7 +202,7 @@ where
     /// - See also [`Self::new`].
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let UncompressedCarV1BackedBlockstoreInner {
+        let PlainCarInner {
             write_cache, index, ..
         } = &mut *self.inner.lock();
         handle_write_cache(write_cache, index, k, block)
@@ -383,7 +383,7 @@ where
 #[cfg(test)]
 mod tests {
 
-    use super::UncompressedCarV1BackedBlockstore;
+    use super::PlainCar;
 
     use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
@@ -393,7 +393,7 @@ mod tests {
     fn test_uncompressed() {
         let car = chain4_car();
         let reference = reference(futures::io::Cursor::new(car));
-        let car_backed = UncompressedCarV1BackedBlockstore::new(std::io::Cursor::new(car)).unwrap();
+        let car_backed = PlainCar::new(std::io::Cursor::new(car)).unwrap();
 
         assert_eq!(car_backed.cids().len(), 1222);
         assert_eq!(car_backed.roots().len(), 1);
