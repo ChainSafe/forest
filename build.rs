@@ -167,12 +167,7 @@ async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathB
         .await?;
         writer.flush().await?;
     }
-    if is_bundle_valid(
-        &root,
-        BufReader::new(async_fs::File::open(&cached_path).await?),
-    )
-    .await?
-    {
+    if is_bundle_valid(&root, BufReader::new(async_fs::File::open(&tmp).await?)).await? {
         tmp.persist(&cached_path)?;
         Ok(cached_path)
     } else {
