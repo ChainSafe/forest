@@ -14,6 +14,8 @@ use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec};
+use lru::LruCache;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::task::Poll;
@@ -31,6 +33,7 @@ pub struct ForestCar<ReaderT> {
 struct ForestCarInner<ReaderT> {
     // new_reader: Box<dyn Fn() -> ReaderT>,
     reader: ReaderT,
+    frame_cache: LruCache<u64, BytesMut>,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
     roots: Vec<Cid>,
@@ -59,6 +62,7 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
         let inner = ForestCarInner {
             // new_reader: Box::new(mk_reader),
             reader,
+            frame_cache: LruCache::new(nonzero!(1024_usize)),
             write_cache: ahash::HashMap::default(),
             index,
             roots: header.roots,
@@ -81,6 +85,7 @@ where
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let ForestCarInner {
             reader,
+            frame_cache,
             write_cache,
             index,
             ..
@@ -93,10 +98,19 @@ where
         let stored = index.lookup(*k)?;
 
         for position in stored.into_iter() {
-            // Seek to the start of the zstd frame
-            reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
-            // Decode entire frame into memory
-            let mut zstd_frame = decode_zstd_single_frame(reader)?;
+            let mut zstd_frame = if let Some(cache) = frame_cache.get(&position.zst_frame_offset())
+            {
+                // Clone frame from cache
+                cache.clone()
+            } else {
+                // Seek to the start of the zstd frame
+                reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
+                // Decode entire frame into memory
+                let frame = decode_zstd_single_frame(reader)?;
+                frame_cache.put(position.zst_frame_offset(), frame.clone());
+                frame
+            };
+
             // Seek to the start of the block frame
             zstd_frame.advance(position.decoded_offset() as usize);
             // Read block data into memory
