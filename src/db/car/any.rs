@@ -37,6 +37,14 @@ impl<ReaderT: Read + Seek> AnyCar<ReaderT> {
             AnyCar::Memory(mem) => mem.roots(),
         }
     }
+
+    pub fn variant(&self) -> &'static str {
+        match self {
+            AnyCar::Forest(_) => "ForestCARv1.zst",
+            AnyCar::Plain(_) => "CARv1",
+            AnyCar::Memory(_) => "CARv1.zst",
+        }
+    }
 }
 
 impl<ReaderT> Blockstore for AnyCar<ReaderT>

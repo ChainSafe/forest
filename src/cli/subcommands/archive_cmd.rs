@@ -27,7 +27,7 @@
 //! Additional reading: [`crate::car_backed_blockstore`]
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::db::car::plain::PlainCar;
+use crate::db::car::{PlainCar, AnyCar};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
@@ -215,31 +215,25 @@ impl ArchiveInfo {
     // Scan a CAR file to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
     fn from_file(path: PathBuf) -> anyhow::Result<Self> {
-        Self::from_reader(std::fs::File::open(path)?)
+        Self::from_reader(move || std::fs::File::open(&path).unwrap())
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_reader(reader: impl Read + Seek) -> anyhow::Result<Self> {
+    fn from_reader<ReaderT: Read + Seek>(reader: impl Fn() -> ReaderT + Clone + 'static) -> anyhow::Result<Self> {
         Self::from_reader_with(reader, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
-        let store = PlainCar::new(reader)
-            .context("couldn't read input CAR file - is it compressed?")?;
+    fn from_reader_with<ReaderT: Read + Seek>(reader: impl Fn() -> ReaderT + Clone + 'static, progress: bool) -> anyhow::Result<Self> {
+        let store = AnyCar::new(reader)?;
 
-        let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
-            .context("Missing root tipset")?;
+        let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
         let root_epoch = root.epoch();
 
-        let tipsets = itertools::unfold(Some(root.clone()), |tipset| {
-            let child = tipset.take()?;
-            *tipset = Tipset::load(&store, child.parents()).ok().flatten();
-            Some(child)
-        });
+        let tipsets = root.clone().chain(&store);
 
         let windowed = (std::iter::once(root).chain(tipsets)).tuple_windows();
 
@@ -295,6 +289,7 @@ impl ArchiveInfo {
                         } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
                             network = "mainnet".into();
                         }
+                        break;
                     }
                     None => {
                         break;
@@ -304,7 +299,7 @@ impl ArchiveInfo {
         }
 
         Ok(ArchiveInfo {
-            variant: "CARv1".into(),
+            variant: store.variant().to_string(),
             network,
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
@@ -363,7 +358,7 @@ mod tests {
     #[test]
     fn archive_info_calibnet() {
         let info =
-            ArchiveInfo::from_reader_with(std::io::Cursor::new(calibnet::DEFAULT_GENESIS), false)
+            ArchiveInfo::from_reader_with(|| std::io::Cursor::new(calibnet::DEFAULT_GENESIS), false)
                 .unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
@@ -372,7 +367,7 @@ mod tests {
     #[test]
     fn archive_info_mainnet() {
         let info =
-            ArchiveInfo::from_reader_with(std::io::Cursor::new(mainnet::DEFAULT_GENESIS), false)
+            ArchiveInfo::from_reader_with(|| std::io::Cursor::new(mainnet::DEFAULT_GENESIS), false)
                 .unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
