@@ -9,7 +9,7 @@ use crate::car_backed_blockstore::{
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::daemon::bundle::load_bundles;
+use crate::daemon::bundle::load_actor_bundles;
 use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
@@ -435,17 +435,8 @@ where
 
     let last_epoch = ts.epoch() - epochs as i64;
 
-    // Bundles are required when doing state migrations. Download any bundles
-    // that may be necessary after `last_epoch`.
-    load_bundles(
-        last_epoch,
-        &Config {
-            chain: chain_config.clone(),
-            ..Default::default()
-        },
-        &db,
-    )
-    .await?;
+    // Bundles are required when doing state migrations.
+    load_actor_bundles(&db).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
     if cns::FETCH_PARAMS {

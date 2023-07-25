@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::state_tree::StateRoot;
 use crate::{
-    daemon::bundle::get_actors_bundle,
+    daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},
+    shim::state_tree::StateRoot,
     state_migration::run_state_migrations,
 };
 use anyhow::*;
@@ -93,18 +93,7 @@ async fn test_state_migration(
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
 
-    fvm_ipld_car::load_car(
-        &store,
-        get_actors_bundle(
-            &crate::Config {
-                chain: chain_config.clone(),
-                ..Default::default()
-            },
-            height,
-        )
-        .await?,
-    )
-    .await?;
+    load_actor_bundles(&store).await?;
 
     let state_root: StateRoot = store.get_cbor(&old_state)?.unwrap();
     println!("Actor root (for Go test): {}", state_root.actors);
