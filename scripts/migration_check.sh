@@ -9,13 +9,15 @@ function sync_with_tag() {
     # Write build and sync logic here
     git checkout $tag
     make clean
-    make build
+    make install
 
-    ./target/debug/forest --chain calibnet --encrypt-keystore false --auto-download-snapshot --detach
-    ./target/debug/forest-cli --chain calibnet sync wait
+    forest --chain calibnet --encrypt-keystore false --auto-download-snapshot --detach
+    forest-cli --chain calibnet sync wait
     # Check if the sync succeeded for the tag
     if [ $? -eq 0 ]; then
         echo "Sync successful for tag: $tag"
+        pkill -9 forest
+        sleep 5s
     else
         echo "Sync failed for tag: $tag"
         exit 1
@@ -53,10 +55,7 @@ done
 echo "Testing db migration from "V0.11.1" to latest, at once"
 # Get latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0)
-# Clean DB before testing db migration from "V0.11.1" to latest
-/target/debug/forest-cli --chain calibnet db clean --force
 
-# Sync all migrations, from "`V0.11.1`" to latest
 # Sync calibnet with Forest `V0.11.1`
 sync_with_tag $START_TAG
 # Sync calibnet with latest version of Forest

@@ -15,7 +15,7 @@ use crate::cli_shared::{
 };
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
-    migration::{check_if_another_db_exist, migrate_db, DBVersion},
+    migration::{check_if_another_db_exist, migrate_db, LATEST_DB_VERSION},
     rolling::DbGarbageCollector,
 };
 use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -178,7 +178,7 @@ pub(super) async fn start(
     )?);
 
     if let Some(db_path) = check_if_another_db_exist(&config) {
-        migrate_db(&config, db_path, DBVersion::V11).await?;
+        migrate_db(&config, db_path, LATEST_DB_VERSION).await?;
     }
 
     let mut services = JoinSet::new();

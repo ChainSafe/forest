@@ -11,14 +11,17 @@ use crate::utils::proofs_api::paramfetch::{
     ensure_params_downloaded, set_proofs_parameter_cache_dir_env,
 };
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::info;
 
+pub const LATEST_DB_VERSION: DBVersion = DBVersion::V11;
+
+// TODO: Add a new enum variant for every new database version
 /// Database version for each forest version which supports db migration
 #[derive(Debug, Eq, PartialEq)]
 pub enum DBVersion {
-    V0, // Default DBVersion for any unknow db
+    V0, // Default DBVersion for any unknown db
     V11,
 }
 
@@ -75,6 +78,7 @@ pub async fn migrate_db(
     // Iterate over all DBVersion's until database is migrated to lastest version
     while current_version != target_version {
         let next_version = match current_version {
+            // TODO: Add version transition for each DBVersion
             DBVersion::V0 => DBVersion::V11,
             _ => break,
         };
@@ -86,16 +90,14 @@ pub async fn migrate_db(
     // - re-compute 100 tipsets
     migration_check(config, &db_path).await?;
 
-    // Rename db to latest versioned db, if its not dev db
-    if !is_dev(&chain_path(config)) {
-        fs::rename(db_path.as_path(), &chain_path(config))?;
-    }
+    // Rename db to latest versioned db
+    fs::rename(db_path.as_path(), &chain_path(config))?;
 
     info!("Database Successfully Migrated to {:?}", target_version);
     Ok(())
 }
 
-// TODO: Add Steps required for migration
+// TODO: Add Steps required for new migration
 /// Migrate to an intermediate db version
 fn migrate(_existing_db_path: &PathBuf, next_version: &DBVersion) -> anyhow::Result<()> {
     match next_version {
@@ -133,9 +135,4 @@ fn get_db_version(db_path: &PathBuf) -> DBVersion {
         },
         None => DBVersion::V0, // Defaults to V0
     }
-}
-
-fn is_dev(path: &Path) -> bool {
-    path.components()
-        .any(|component| matches!(component, std::path::Component::Normal(name) if name == "dev"))
 }
