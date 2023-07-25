@@ -114,7 +114,7 @@ where
                 return Err(invalid_data("corrupted key-value block"))?;
             }
         }
-        return Ok(None);
+        Ok(None)
     }
 
     #[tracing::instrument(level = "trace", skip(self, block))]
@@ -230,7 +230,7 @@ impl Encoder {
                 // End-of-stream
                 None => {
                     // If there's anything in the zstd buffer, emit it.
-                    if compressed_len(&encoder) > 0 {
+                    if compressed_len(encoder) > 0 {
                         let frame = finalize_frame(zstd_compression_level, encoder)?;
                         Poll::Ready(Some(Ok(Either::Right(frame))))
                     } else {
