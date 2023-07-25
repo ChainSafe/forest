@@ -3,33 +3,34 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::chain::ChainStore;
+use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
 use crate::db::car::AnyCar;
 use crate::fil_cns::composition as cns;
-use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
-use crate::rpc_api::{chain_api::ChainExportParams, progress_api::GetProgressType};
-use crate::rpc_client::{chain_ops::*, progress_ops::get_progress};
-use crate::state_manager::StateManager;
+use crate::rpc_api::chain_api::ChainExportParams;
+use crate::rpc_client::chain_ops::*;
+use crate::shim::machine::MultiEngine;
 use crate::utils::db::car_stream::CarStream;
-use crate::utils::{io::ProgressBar, proofs_api::paramfetch::ensure_params_downloaded};
+use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
-use std::path::PathBuf;
+use human_repr::HumanCount;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tempfile::TempDir;
+use tempfile::NamedTempFile;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
-        /// Snapshot output filename or directory. Defaults to
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
@@ -111,50 +112,58 @@ impl SnapshotCommands {
                     false => output_path.clone(),
                 };
 
+                let output_dir = output_path.parent().context("invalid output path")?;
+                let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
+
                 let params = ChainExportParams {
                     epoch,
                     recent_roots: config.chain.recent_state_roots,
-                    output_path,
+                    output_path: temp_path.to_path_buf(),
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
                     skip_checksum,
                     dry_run,
                 };
 
-                let bar = Arc::new(tokio::sync::Mutex::new({
-                    let bar = ProgressBar::new(0);
-                    bar.message("Exporting snapshot | blocks ");
-                    bar
-                }));
-                tokio::spawn({
-                    let bar = bar.clone();
+                let handle = tokio::spawn({
+                    let tmp_file = temp_path.to_owned();
+                    let output_path = output_path.clone();
                     async move {
                         let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs(1));
+                            tokio::time::interval(tokio::time::Duration::from_secs_f32(0.25));
+                        println!("Getting ready to export...");
                         loop {
                             interval.tick().await;
-                            if let Ok((progress, total)) =
-                                get_progress((GetProgressType::SnapshotExport,), &None).await
-                            {
-                                let bar = bar.lock().await;
-                                if bar.is_finish() {
-                                    break;
-                                }
-                                bar.set_total(total);
-                                bar.set(progress);
-                            }
+                            let snapshot_size = std::fs::metadata(&tmp_file)
+                                .map(|meta| meta.len())
+                                .unwrap_or(0);
+                            print!(
+                                "{}{}",
+                                anes::MoveCursorToPreviousLine(1),
+                                anes::ClearLine::All
+                            );
+                            println!(
+                                "{}: {}",
+                                &output_path.to_string_lossy(),
+                                snapshot_size.human_count_bytes()
+                            );
+                            let _ = std::io::stdout().flush();
                         }
                     }
                 });
 
-                let out = chain_export(params, &config.client.rpc_token)
+                let hash_result = chain_export(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
-                bar.lock().await.finish_println(&format!(
-                    "Export completed. Snapshot located at {}",
-                    out.display()
-                ));
-                println!("\n");
+                handle.abort();
+                let _ = handle.await;
+
+                if let Some(hash) = hash_result {
+                    save_checksum(&output_path, hash).await?;
+                }
+                temp_path.persist(output_path)?;
+
+                println!("Export completed.");
                 Ok(())
             }
             Self::Fetch { directory, vendor } => {
@@ -189,10 +198,6 @@ impl SnapshotCommands {
                 compression_level,
                 frame_size,
             } => {
-                use crate::db::car;
-                use tokio::fs::File;
-                use tokio::io::AsyncWriteExt;
-
                 {
                     let file = tokio::io::BufReader::new(File::open(&source).await?);
                     let mut block_stream = CarStream::new(file).await?;
@@ -200,12 +205,12 @@ impl SnapshotCommands {
 
                     let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
 
-                    let frames = car::forest::Encoder::compress_stream(
+                    let frames = crate::db::car::forest::Encoder::compress_stream(
                         frame_size,
                         compression_level,
                         block_stream,
                     );
-                    car::forest::Encoder::write(&mut dest, roots, frames).await?;
+                    crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
                     dest.flush().await?;
                 }
 
@@ -281,6 +286,27 @@ impl SnapshotCommands {
             }
         }
     }
+}
+
+/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
+/// with the same name but with a `.sha256sum` extension.
+async fn save_checksum(source: &Path, encoded_hash: String) -> Result<()> {
+    let checksum_file_content = format!(
+        "{encoded_hash} {}\n",
+        source
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .context("Failed to retrieve file name while saving checksum")?
+    );
+
+    let checksum_path = PathBuf::from(source).with_extension("sha256sum");
+
+    let mut checksum_file = tokio::fs::File::create(&checksum_path).await?;
+    checksum_file
+        .write_all(checksum_file_content.as_bytes())
+        .await?;
+    checksum_file.flush().await?;
+    Ok(())
 }
 
 // Check the validity of a snapshot by looking at IPLD links, the genesis block,
@@ -425,15 +451,7 @@ where
     DB: Blockstore + Send + Sync + Clone + 'static,
 {
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
-    let genesis = read_genesis_header(None, chain_config.genesis_bytes(), db).await?;
-
-    let chain_data_root = TempDir::new()?;
-    let chain_store = Arc::new(ChainStore::new(
-        Arc::new(db.clone()),
-        Arc::clone(&chain_config),
-        genesis.clone(),
-        chain_data_root.path(),
-    )?);
+    let genesis = ts.genesis(db)?;
 
     let pb = validation_spinner("Running tipset transactions:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage(
@@ -455,28 +473,36 @@ where
     )
     .await?;
 
-    // Set proof parameter data dir
+    // Set proof parameter data dir and make sure the proofs are available
     if cns::FETCH_PARAMS {
         crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
             &Config::default().client.data_dir,
         );
     }
-    // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&chain_config))?);
     ensure_params_downloaded().await?;
 
+    let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));
+
     // Prepare tipsets for validation
-    let tipsets = ts
-        .chain(db)
-        .map(|ts| Arc::clone(&Arc::new(ts)))
+    let tipsets = chain_index
+        .chain(Arc::new(ts))
         .take_while(|tipset| tipset.epoch() >= last_epoch)
         .inspect(|tipset| {
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
         });
 
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
+
     // ProgressBar::wrap_iter believes the progress has been abandoned once the
     // iterator is consumed.
-    state_manager.validate_tipsets(tipsets)?;
+    crate::state_manager::validate_tipsets(
+        genesis.timestamp(),
+        chain_index.clone(),
+        chain_config,
+        beacon,
+        &MultiEngine::default(),
+        tipsets,
+    )?;
 
     pb.finish_with_message("✅ verified!");
     drop(pb);

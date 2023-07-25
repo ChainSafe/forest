@@ -5,8 +5,7 @@ use std::{io::Write, sync::Arc};
 
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use crate::blocks::Tipset;
-use crate::chain::index::ResolveNullTipset;
-use crate::chain::ChainStore;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
@@ -20,7 +19,7 @@ use fvm_ipld_blockstore::Blockstore;
 pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     tipset: Arc<Tipset>,
-    cs: Arc<ChainStore<DB>>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
 }
 
@@ -29,7 +28,7 @@ impl<DB> Clone for ChainRand<DB> {
         ChainRand {
             chain_config: self.chain_config.clone(),
             tipset: Arc::clone(&self.tipset),
-            cs: self.cs.clone(),
+            chain_index: self.chain_index.clone(),
             beacon: self.beacon.clone(),
         }
     }
@@ -42,13 +41,13 @@ where
     pub fn new(
         chain_config: Arc<ChainConfig>,
         tipset: Arc<Tipset>,
-        cs: Arc<ChainStore<DB>>,
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
     ) -> Self {
         Self {
             chain_config,
             tipset,
-            cs,
+            chain_index,
             beacon,
         }
     }
@@ -76,7 +75,6 @@ where
             ResolveNullTipset::TakeNewer
         };
         let rand_ts = self
-            .cs
             .chain_index
             .tipset_by_height(search_height, ts, resolve)?;
 
@@ -138,7 +136,7 @@ where
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
         let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(round, lookback)?;
-        let be = self.cs.latest_beacon_entry(&rand_ts)?;
+        let be = self.chain_index.latest_beacon_entry(&rand_ts)?;
         draw_randomness(be.data(), pers, round, entropy)
     }
 
@@ -156,7 +154,7 @@ where
                 }
             }
 
-            rand_ts = self.cs.tipset_from_keys(rand_ts.parents())?;
+            rand_ts = self.chain_index.load_tipset(rand_ts.parents())?;
         }
 
         bail!(
@@ -185,8 +183,7 @@ where
             ResolveNullTipset::TakeNewer
         };
 
-        self.cs
-            .chain_index
+        self.chain_index
             .tipset_by_height(search_height, ts, resolve)
             .map_err(|e| e.into())
     }
