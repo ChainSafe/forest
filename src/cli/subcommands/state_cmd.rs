@@ -20,6 +20,7 @@ use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use std::{path::Path, path::PathBuf, sync::Arc};
 use tempfile::TempDir;
+use crate::chain::index::ResolveNullTipset;
 
 use super::handle_rpc_err;
 use super::Config;
@@ -99,7 +100,7 @@ async fn print_computed_state(
     let cs = Arc::new(ChainStore::new(
         store,
         config.chain.clone(),
-        &genesis_header,
+        genesis_header,
         TempDir::new()?.path(),
     )?);
 
@@ -112,7 +113,8 @@ async fn print_computed_state(
     let ts = sm.chain_store().tipset_from_keys(&tsk)?;
 
     let tipset = cs
-        .tipset_by_height(vm_height.into(), ts, false)
+        .chain_index
+        .tipset_by_height(vm_height.into(), ts, ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
     if json {
