@@ -97,7 +97,6 @@ where
 pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
 lazy_static! {
-    pub static ref WALK_SNAPSHOT_PROGRESS_EXPORT: ProgressBarCurrentTotalPair = Default::default();
     pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: ProgressBarCurrentTotalPair = Default::default();
 }
 
@@ -148,7 +147,7 @@ where
         };
         on_inserted(seen.len());
 
-        if !should_save_block_to_snapshot(&next) {
+        if !should_save_block_to_snapshot(next) {
             continue;
         }
 
@@ -181,7 +180,7 @@ where
     Ok(seen.len())
 }
 
-fn should_save_block_to_snapshot(cid: &Cid) -> bool {
+fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.
@@ -192,5 +191,148 @@ fn should_save_block_to_snapshot(cid: &Cid) -> bool {
             cid.codec(),
             crate::shim::crypto::IPLD_RAW | fvm_ipld_encoding::DAG_CBOR
         )
+    }
+}
+
+use crate::shim::clock::ChainEpoch;
+use futures::Stream;
+use fvm_ipld_blockstore::Blockstore;
+use pin_project_lite::pin_project;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+enum Task {
+    // Yield the block, don't visit it.
+    Emit(Cid),
+    // Visit all the elements, recursively.
+    Iterate(Ipld),
+}
+
+pin_project! {
+    struct ChainStream<DB, T> {
+        #[pin]
+        tipset_iter: T,
+        db: DB,
+        dfs: VecDeque<Task>, // Depth-first work queue.
+        seen: CidHashSet,
+        stateroot_limit: ChainEpoch,
+    }
+}
+
+/// Initializes a stream of blocks.
+///
+/// # Arguments
+///
+/// * `db` - A database that implements [`Blockstore`] interface.
+/// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
+/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
+/// `$depth` is the number of `[`Tipset`]` that needs inspection.
+pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
+    db: DB,
+    tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+) -> impl Stream<Item = anyhow::Result<(Cid, Vec<u8>)>> {
+    ChainStream {
+        tipset_iter,
+        db,
+        dfs: VecDeque::new(),
+        seen: CidHashSet::default(),
+        stateroot_limit,
+    }
+}
+
+impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
+    type Item = anyhow::Result<(Cid, Vec<u8>)>;
+
+    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        use Task::*;
+        let mut this = self.project();
+
+        let stateroot_limit = *this.stateroot_limit;
+        loop {
+            while let Some(ipld) = this.dfs.pop_front() {
+                match ipld {
+                    Emit(cid) => {
+                        let result = this.db.get(&cid);
+
+                        let result = result.and_then(|val| {
+                            let block = val.ok_or(anyhow::anyhow!("missing key"))?;
+                            Ok((cid, block))
+                        });
+
+                        return Poll::Ready(Some(result));
+                    }
+                    Iterate(Ipld::Null) => {}
+                    Iterate(Ipld::Bool(_)) => {}
+                    Iterate(Ipld::Integer(_)) => {}
+                    Iterate(Ipld::Float(_)) => {}
+                    Iterate(Ipld::String(_)) => {}
+                    Iterate(Ipld::Bytes(_)) => {}
+                    Iterate(Ipld::List(list)) => list
+                        .into_iter()
+                        .rev()
+                        .for_each(|elt| this.dfs.push_front(Iterate(elt))),
+                    Iterate(Ipld::Map(map)) => map
+                        .into_values()
+                        .rev()
+                        .for_each(|elt| this.dfs.push_front(Iterate(elt))),
+                    // The link traversal implementation assumes there are three types of encoding:
+                    // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
+                    // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
+                    // 3. _: ignore all other links
+                    Iterate(Ipld::Link(cid)) => {
+                        // Don't revisit what's already been visited.
+                        if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                            let result = this.db.get(&cid);
+
+                            let result = result.and_then(|val| {
+                                let block = val.ok_or(anyhow::anyhow!("missing key"))?;
+                                if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                    let ipld: Ipld = from_slice(&block)?;
+                                    this.dfs.push_front(Iterate(ipld));
+                                }
+                                Ok((cid, block))
+                            });
+
+                            return Poll::Ready(Some(result));
+                        }
+                    }
+                }
+            }
+
+            // This consumes a [`Tipset`] from the iterator one at a time. The next iteration of the
+            // enclosing loop is processing the queue. Once the desired depth has been reached -
+            // yield the block without walking the graph it represents.
+            if let Some(tipset) = this.tipset_iter.as_mut().next() {
+                for block in tipset.into_blocks().into_iter() {
+                    // Make sure we always yield a block otherwise.
+                    this.dfs.push_back(Emit(*block.cid()));
+
+                    if block.epoch() == 0 {
+                        // The genesis block has some kind of dummy parent that needs to be emitted.
+                        for p in block.parents().cids() {
+                            this.dfs.push_back(Emit(*p));
+                        }
+                    }
+
+                    // Process block messages.
+                    if block.epoch() > stateroot_limit {
+                        this.dfs.push_back(Iterate(Ipld::Link(*block.messages())));
+                    }
+
+                    // Visit the block if it's within required depth. And a special case for `0`
+                    // epoch to match Lotus' implementation.
+                    if block.epoch() == 0 || block.epoch() > stateroot_limit {
+                        // NOTE: In the original `walk_snapshot` implementation we walk the dag
+                        // immediately. Which is what we do here as well, but using a queue.
+                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
+                    }
+                }
+            } else {
+                // That's it, nothing else to do. End of stream.
+                return Poll::Ready(None);
+            }
+        }
     }
 }

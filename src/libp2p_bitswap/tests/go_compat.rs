@@ -141,7 +141,7 @@ mod tests {
     }
 
     fn prepare_go_bitswap() -> Result<()> {
-        const ERROR_CONTEXT: &str = "Fail to compile `go-bitswap` test app, make sure you have `Go1.19.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>";
+        const ERROR_CONTEXT: &str = "Fail to compile `go-bitswap` test app, make sure you have `Go1.20.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>";
         Command::new("go")
             .args(["mod", "vendor"])
             .current_dir(GO_APP_DIR)

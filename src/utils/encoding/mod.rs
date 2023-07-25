@@ -7,6 +7,8 @@ use filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
+pub mod uvibytes;
+
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {
     use super::*;
