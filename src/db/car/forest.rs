@@ -52,8 +52,7 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
         let mut header_zstd_frame = decode_zstd_single_frame(&mut reader)?;
         let block_frame = UviBytes::default()
             .decode(&mut header_zstd_frame)?
-            .ok_or(invalid_data("malformed uvibytes"))?
-            .freeze();
+            .ok_or(invalid_data("malformed uvibytes"))?;
         let header = from_slice::<CarHeader>(&block_frame)?;
 
         let index = CarIndex::open(mk_reader(), footer.index)?;
@@ -103,8 +102,7 @@ where
             // Read block data into memory
             let block_frame = UviBytes::default()
                 .decode(&mut zstd_frame)?
-                .ok_or(invalid_data("malformed uvibytes"))?
-                .freeze();
+                .ok_or(invalid_data("malformed uvibytes"))?;
             // Parse block data as CID+Value pair
             if let Some(block) = Block::from_bytes(block_frame) {
                 // This is almost always true. Hash collisions do happen with

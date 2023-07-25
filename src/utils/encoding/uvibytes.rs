@@ -28,7 +28,7 @@ impl Default for UviBytes {
 }
 
 impl Decoder for UviBytes {
-    type Item = BytesMut;
+    type Item = Bytes;
     type Error = io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -51,7 +51,7 @@ impl Decoder for UviBytes {
                 ));
             }
             if n <= src.len() {
-                return Ok(Some(src.split_to(n)));
+                return Ok(Some(src.split_to(n).freeze()));
             }
             src.reserve(n - src.len());
             self.len = Some(n);

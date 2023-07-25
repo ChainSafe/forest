@@ -385,9 +385,7 @@ mod tests {
 
     use super::UncompressedCarV1BackedBlockstore;
 
-    use futures::{
-        executor::block_on,
-    };
+    use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
     use fvm_ipld_car::{Block, CarReader};
 
