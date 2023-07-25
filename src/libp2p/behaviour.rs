@@ -105,10 +105,10 @@ impl ForestBehaviour {
 
         let connection_limits = connection_limits::Behaviour::new(
             connection_limits::ConnectionLimits::default()
-                .with_max_pending_incoming(Some(10))
-                .with_max_pending_outgoing(Some(30))
-                .with_max_established_incoming(Some(config.target_peer_count))
-                .with_max_established_outgoing(Some(config.target_peer_count))
+                .with_max_pending_incoming(Some(64))
+                .with_max_pending_outgoing(Some(128))
+                .with_max_established_incoming(Some(128))
+                .with_max_established_outgoing(Some(128))
                 .with_max_established_per_peer(Some(5)),
         );
 
