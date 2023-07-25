@@ -5,7 +5,7 @@ pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{Deserialize, Serialize};
 
-    /// Serializes `Vec<u8>` as Option<String>
+    /// Serializes `Vec<u8>` as Option<String>.
     pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -18,7 +18,7 @@ pub mod json {
         <Option<String>>::serialize(&base64, serializer)
     }
 
-    /// De-serializes Option<String> into `Vec<u8>`
+    /// De-serializes Option<String> into `Vec<u8>`.
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
     where
         D: serde::Deserializer<'de>,

@@ -4,10 +4,8 @@
 pub mod json {
     use crate::message::Message as MessageTrait;
     use crate::shim::{address::Address, econ::TokenAmount, message::Message};
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_ipld_encoding::RawBytes;
-    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::json::address::json::AddressJson;
 
@@ -50,7 +48,8 @@ pub mod json {
         gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,
-        params: Option<String>,
+        #[serde(with = "crate::json::bytes::json")]
+        params: Vec<u8>,
         #[serde(default, rename = "CID", with = "crate::json::cid::opt")]
         cid: Option<Cid>,
     }
@@ -69,7 +68,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap(),
             gas_premium: m.gas_premium(),
             method_num: m.method_num,
-            params: Some(BASE64_STANDARD.encode(m.params.bytes())),
+            params: m.params.bytes().to_vec(),
             cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
@@ -90,11 +89,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap,
             gas_premium: m.gas_premium,
             method_num: m.method_num,
-            params: RawBytes::new(
-                BASE64_STANDARD
-                    .decode(m.params.unwrap_or_default())
-                    .map_err(de::Error::custom)?,
-            ),
+            params: m.params.into(),
         })
     }
 

@@ -7,7 +7,6 @@ pub mod json {
     use crate::shim::executor::TraceMessage;
     use crate::shim::message::MethodNum;
 
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a TraceMessage from JSON.
@@ -38,7 +37,8 @@ pub mod json {
         pub value: TokenAmount,
         #[serde(rename = "Method")]
         pub method_num: MethodNum,
-        pub params: String,
+        #[serde(with = "crate::json::bytes::json")]
+        pub params: Vec<u8>,
         pub params_codec: u64,
     }
 
@@ -51,7 +51,7 @@ pub mod json {
             to: m.to,
             value: m.value.clone(),
             method_num: m.method_num,
-            params: BASE64_STANDARD.encode(&m.params),
+            params: m.params.clone(),
             params_codec: m.params_codec,
         }
         .serialize(serializer)
@@ -67,7 +67,7 @@ pub mod json {
             to: m.to,
             value: m.value,
             method_num: m.method_num,
-            params: m.params.into(),
+            params: m.params,
             params_codec: m.params_codec,
         })
     }
