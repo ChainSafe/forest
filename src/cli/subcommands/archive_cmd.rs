@@ -124,10 +124,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
-    let store = Arc::new(
-        AnyCar::new(reader)
-            .context("couldn't read input CAR file")?,
-    );
+    let store = Arc::new(AnyCar::new(reader).context("couldn't read input CAR file")?);
 
     let index = ChainIndex::new(store.clone());
     let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
