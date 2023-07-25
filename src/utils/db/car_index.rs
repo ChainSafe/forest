@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! # TLDR;
+//! # TL;DR
 //!
 //! [`CarIndex`] is equivalent to `HashMap<Cid, Vec<BlockPosition>>`. It can be
 //! built in `O(n)` time, loaded from a reader in `O(1)` time, has `O(1)`
-//! lookups, and uses no caches by default.
+//! queries, and uses no caches by default.
 //!
 //! # Context: Binary search
 //!
@@ -15,7 +15,7 @@
 //! closer to the beginning of the dictionary rather than the end.
 //!
 //! Dictionary words are not evenly distributed, though, as there are more words
-//! starting with 'c' than with 'a'. This makes it difficult to know exactly
+//! starting with `c` than with `a`. This makes it difficult to know exactly
 //! where to start looking for a word in the dictionary.
 //!
 //! If we don't care about ordering, we can hash the words and thus be sure that
@@ -42,34 +42,38 @@
 //! This technique is called [linear
 //! probing](https://en.wikipedia.org/wiki/Linear_probing).
 //!
-//! ## Hash collions and bucket collions
+//! ## Hash collisions and bucket collisions
 //!
 //! It may happen that two keys have the same hash. In this (extremely rare)
 //! case, looking up the key will return two values.
 //!
-//! Bucket collions are common and happen when two distinct hashes are assigned
+//! Bucket collisions are common and happen when two distinct hashes are assigned
 //! the same bucket.
 //!
 //! ## Examples of linear probing
 //!
 //! In a perfect world, keys map uniquely to bucket. Imagine three keys assigned
 //! to distinct buckets:
+//! ```text
 //!   Keys:   1, 2, 3
 //!   Table: [1, 2, 3]
-//! To look up key '2', we go directly to the second bucket and scan right until
-//! we hit '3'.
+//! ```
+//! To look up key `2`, we go directly to the second bucket and scan right until
+//! we hit `3`.
 //!
 //! In a less perfect world, we may have to skip keys that were spilled from a
 //! bucket further to the left in the table. Consider:
+//! ```text
 //!   Keys:   1, 1, 2
 //!   Table: [1, 1, 2]
-//! To look up key '2', we go to the second bucket. This bucket contains a
+//! ```
+//! To look up key `2`, we go to the second bucket. This bucket contains a
 //! spill-over key which is skipped.
 //!
 //! # Code layout
 //!
 //! A [`CarIndex`] maps from [`cid::Cid`]s to possible [`BlockPosition`]s. The
-//! mapping is unique unless the hash of two cids collide (possible but
+//! mapping is unique unless the hash of two CIDs collide (possible but
 //! extremely unlikely). The caller should always verify that the [`cid::Cid`] in the
 //! CAR file at [`BlockPosition`] matches the requested [`cid::Cid`].
 //!
@@ -110,7 +114,7 @@ pub struct CarIndex<ReaderT> {
 }
 
 impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
-    /// `O(1)` Open a reader as a mapping from cids to block positions in a
+    /// `O(1)` Open a reader as a mapping from CIDs to block positions in a
     /// content-addressable archive.
     pub fn open(mut reader: ReaderT, offset: u64) -> Result<Self> {
         reader.seek(SeekFrom::Start(offset))?;
@@ -134,7 +138,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     }
 
     /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
-    /// unless 2 or more cids have collided.
+    /// unless 2 or more CIDs have collided.
     pub fn lookup(&mut self, key: Cid) -> Result<SmallVec<[BlockPosition; 1]>> {
         self.lookup_internal(Hash::from(key))
     }
