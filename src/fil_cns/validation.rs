@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, Tipset};
+use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::crypto::{
@@ -70,18 +71,18 @@ pub(in crate::fil_cns) async fn validate_block<
     let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
 
     // Retrieve lookback tipset for validation
-    let (lookback_tipset, lookback_state) = state_manager
-        .chain_store()
-        .get_lookback_tipset_for_round(
-            state_manager.chain_config(),
-            base_tipset.clone(),
-            block.header().epoch(),
-        )
-        .map_err(to_errs)?;
+    let (lookback_tipset, lookback_state) = ChainStore::get_lookback_tipset_for_round(
+        state_manager.chain_store().chain_index.clone(),
+        state_manager.chain_config(),
+        base_tipset.clone(),
+        block.header().epoch(),
+    )
+    .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
 
     let prev_beacon = chain_store
+        .chain_index
         .latest_beacon_entry(&base_tipset)
         .map(Arc::new)
         .map_err(to_errs)?;

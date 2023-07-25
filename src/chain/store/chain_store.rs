@@ -3,7 +3,6 @@
 
 use std::{path::Path, sync::Arc};
 
-use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -61,13 +60,12 @@ pub struct ChainStore<DB> {
     pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    pub chain_index: ChainIndex<DB>,
+    pub chain_index: Arc<ChainIndex<Arc<DB>>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    /// File backed genesis block CID
-    file_backed_genesis: Mutex<FileBacked<Cid>>,
+    genesis_block_header: BlockHeader,
 
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
@@ -110,15 +108,11 @@ where
     pub fn new(
         db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
-        genesis_block_header: &BlockHeader,
+        genesis_block_header: BlockHeader,
         chain_data_root: &Path,
     ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let chain_index = ChainIndex::new(Arc::clone(&db));
-        let file_backed_genesis = Mutex::new(FileBacked::new(
-            *genesis_block_header.cid(),
-            chain_data_root.join("GENESIS"),
-        ));
+        let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let file_backed_heaviest_tipset_keys = Mutex::new({
             let mut head_store = FileBacked::load_from_file_or_create(
                 chain_data_root.join("HEAD"),
@@ -144,13 +138,11 @@ where
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
-            file_backed_genesis,
+            genesis_block_header,
             file_backed_heaviest_tipset_keys,
             validated_blocks,
             file_backed_chain_meta,
         };
-
-        cs.set_genesis(genesis_block_header)?;
 
         Ok(cs)
     }
@@ -170,15 +162,6 @@ where
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
-    }
-
-    /// Writes genesis to `blockstore`.
-    pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        self.file_backed_genesis.lock().set_inner(*header.cid())?;
-
-        self.blockstore()
-            .put_cbor_default(&header)
-            .map_err(Error::from)
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
@@ -210,11 +193,9 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Returns genesis [`BlockHeader`] from the store based on a static key.
-    pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        self.blockstore()
-            .get_cbor::<BlockHeader>(self.file_backed_genesis.lock().inner())?
-            .ok_or_else(|| Error::Other("Genesis block not set".into()))
+    /// Returns genesis [`BlockHeader`].
+    pub fn genesis(&self) -> &BlockHeader {
+        &self.genesis_block_header
     }
 
     /// Returns the currently tracked heaviest tipset.
@@ -282,52 +263,12 @@ where
         let _did_work = file.remove(cid);
     }
 
-    /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
-        let check_for_beacon_entry = |ts: &Tipset| {
-            let cbe = ts.min_ticket_block().beacon_entries();
-            if let Some(entry) = cbe.last() {
-                return Ok(Some(entry.clone()));
-            }
-            if ts.epoch() == 0 {
-                return Err(Error::Other(
-                    "made it back to genesis block without finding beacon entry".to_owned(),
-                ));
-            }
-            Ok(None)
-        };
-
-        if let Some(entry) = check_for_beacon_entry(ts)? {
-            return Ok(entry);
-        }
-        let mut cur = self.tipset_from_keys(ts.parents())?;
-        for i in 1..20 {
-            if i != 1 {
-                cur = self.tipset_from_keys(cur.parents())?;
-            }
-            if let Some(entry) = check_for_beacon_entry(&cur)? {
-                return Ok(entry);
-            }
-        }
-
-        if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
-            return Ok(BeaconEntry::new(
-                0,
-                vec![9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-            ));
-        }
-
-        Err(Error::Other(
-            "Found no beacon entries in the 20 latest tipsets".to_owned(),
-        ))
-    }
-
     // FIXME: This function doesn't use the chain store at all.
     //        Tracking issue: https://github.com/ChainSafe/forest/issues/3208
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.
-    pub fn block_msgs_for_tipset(&self, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
+    pub fn block_msgs_for_tipset(db: DB, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
@@ -345,7 +286,7 @@ where
         ts.blocks()
             .iter()
             .map(|b| {
-                let (usm, sm) = block_messages(self.blockstore(), b)?;
+                let (usm, sm) = block_messages(&db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
@@ -373,21 +314,8 @@ where
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
     /// messages that will be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let bmsgs = self.block_msgs_for_tipset(ts)?;
+        let bmsgs = ChainStore::block_msgs_for_tipset(&self.db, ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
-    }
-
-    /// Get the [`TipsetKeys`] for a given epoch. The returned key will never be null.
-    pub fn get_epoch_tsk(
-        &self,
-        tipset: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<TipsetKeys, Error> {
-        let ts = self
-            .chain_index
-            .tipset_by_height(round, tipset, ResolveNullTipset::TakeOlder)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
-        Ok(ts.key().clone())
     }
 
     /// Gets look-back tipset (and state-root of that tipset) for block
@@ -399,7 +327,7 @@ where
     /// is usually 900. The `heaviest_tipset` is a reference point in the
     /// blockchain. It must be a child of the look-back tipset.
     pub fn get_lookback_tipset_for_round(
-        self: &Arc<Self>,
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
         chain_config: Arc<ChainConfig>,
         heaviest_tipset: Arc<Tipset>,
         round: ChainEpoch,
@@ -419,10 +347,11 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let genesis_timestamp = self.genesis().map_err(anyhow::Error::from)?.timestamp();
+            let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp();
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let (state, _) = crate::state_manager::apply_block_messages(
-                Arc::clone(self),
+                genesis_timestamp,
+                Arc::clone(&chain_index),
                 Arc::clone(&chain_config),
                 beacon,
                 // Creating new WASM engines is expensive (takes seconds to
@@ -437,8 +366,7 @@ where
             return Ok((heaviest_tipset, state));
         }
 
-        let next_ts = self
-            .chain_index
+        let next_ts = chain_index
             .tipset_by_height(
                 lbr + 1,
                 heaviest_tipset.clone(),
@@ -454,8 +382,8 @@ where
                 next_ts.epoch()
             )));
         }
-        let lbts = self
-            .tipset_from_keys(next_ts.parents())
+        let lbts = chain_index
+            .load_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
@@ -687,9 +615,10 @@ mod tests {
             .build()
             .unwrap();
         let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
+        let cs =
+            ChainStore::new(db, chain_config, gen_block.clone(), chain_data_root.path()).unwrap();
 
-        assert_eq!(cs.genesis().unwrap(), gen_block);
+        assert_eq!(cs.genesis(), &gen_block);
     }
 
     #[test]
@@ -702,7 +631,7 @@ mod tests {
             .unwrap();
 
         let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
+        let cs = ChainStore::new(db, chain_config, gen_block, chain_data_root.path()).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

@@ -102,13 +102,12 @@ mod tests {
             ChainStore::new(
                 db,
                 chain_config.clone(),
-                &genesis_header,
+                genesis_header.clone(),
                 chain_data_root.path(),
             )
             .unwrap(),
         );
 
-        cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
