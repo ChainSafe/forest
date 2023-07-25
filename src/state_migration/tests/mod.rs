@@ -15,6 +15,7 @@ use std::path::Path;
 use std::{str::FromStr, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
+#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv17_state_migration_calibnet() -> Result<()> {
     // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
@@ -31,6 +32,7 @@ async fn test_nv17_state_migration_calibnet() -> Result<()> {
     .await
 }
 
+#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv18_state_migration_calibnet() -> Result<()> {
     // State migration at height Hygge(epoch 322354) was successful,
@@ -47,6 +49,7 @@ async fn test_nv18_state_migration_calibnet() -> Result<()> {
     .await
 }
 
+#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv19_state_migration_calibnet() -> Result<()> {
     // State migration at height Lightning(epoch 489094) was successful,

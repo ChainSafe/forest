@@ -228,7 +228,9 @@ impl SnapshotCommands {
                 // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
                 // For example, the zstsd magic bytes are a valid varint frame prefix:
                 assert_eq!(
-                    unsigned_varint::io::read_usize(&[0xFD, 0x2F, 0xB5, 0x28][..]).unwrap(),
+                    <usize as integer_encoding::VarInt>::decode_var(&[0xFD, 0x2F, 0xB5, 0x28])
+                        .unwrap()
+                        .1,
                     6141,
                 );
                 // so the best thing to do is to just try compressed and then uncompressed.
