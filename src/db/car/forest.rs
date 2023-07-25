@@ -13,7 +13,7 @@ use cid::Cid;
 use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::to_vec;
+use fvm_ipld_encoding::{from_slice, to_vec};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::task::Poll;
@@ -22,7 +22,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
-use tokio_util::codec::Decoder;
+use tokio_util::codec::{Decoder, Encoder as _};
 
 pub struct ForestCar<ReaderT> {
     inner: Arc<Mutex<ForestCarInner<ReaderT>>>,
@@ -33,20 +33,28 @@ struct ForestCarInner<ReaderT> {
     reader: ReaderT,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
-    // roots: Vec<Cid>,
+    roots: Vec<Cid>,
 }
 
 impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
     pub fn open(mk_reader: impl Fn() -> ReaderT + 'static) -> io::Result<Self> {
         let mut reader = mk_reader();
 
-        reader.seek(SeekFrom::End(-(ForestCARFooter::SIZE as i64)))?;
-        let mut footer_buffer = [0; ForestCARFooter::SIZE];
+        reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
+        let mut footer_buffer = [0; ForestCarFooter::SIZE];
         reader.read_exact(&mut footer_buffer)?;
-        let footer = ForestCARFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
+        let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
             io::ErrorKind::InvalidData,
             "Data not recognized as ForestCAR.zst",
         ))?;
+
+        reader.seek(SeekFrom::Start(0))?;
+        let mut header_zstd_frame = decode_zstd_single_frame(&mut reader)?;
+        let block_frame = UviBytes::default()
+            .decode(&mut header_zstd_frame)?
+            .ok_or(invalid_data("malformed uvibytes"))?
+            .freeze();
+        let header = from_slice::<CarHeader>(&block_frame)?;
 
         let index = CarIndex::open(mk_reader(), footer.index)?;
         let inner = ForestCarInner {
@@ -54,11 +62,15 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
             reader,
             write_cache: ahash::HashMap::default(),
             index,
-            // roots: Vec::default(),
+            roots: header.roots,
         };
         Ok(ForestCar {
             inner: Arc::new(Mutex::new(inner)),
         })
+    }
+
+    pub fn roots(&self) -> Vec<Cid> {
+        self.inner.lock().roots.clone()
     }
 }
 
@@ -74,6 +86,7 @@ where
             index,
             ..
         } = &mut *self.inner.lock();
+        // Return immediately if the value is cached.
         if let Some(value) = write_cache.get(k) {
             return Ok(Some(value.clone()));
         }
@@ -81,24 +94,24 @@ where
         let stored = index.lookup(*k)?;
 
         for position in stored.into_iter() {
+            // Seek to the start of the zstd frame
             reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
-            let mut zstd_frame = std::io::Cursor::new(vec![]);
-            zstd::Decoder::new(reader.by_ref())?
-                .single_frame()
-                .read_to_end(zstd_frame.get_mut())?;
-            let mut bytes = BytesMut::from(zstd_frame.into_inner().as_slice());
-            bytes.advance(position.decoded_offset() as usize);
-            let frame = UviBytes::default()
-                .decode(&mut bytes)?
+            // Decode entire frame into memory
+            let mut zstd_frame = decode_zstd_single_frame(reader)?;
+            // Seek to the start of the block frame
+            zstd_frame.advance(position.decoded_offset() as usize);
+            // Read block data into memory
+            let block_frame = UviBytes::default()
+                .decode(&mut zstd_frame)?
                 .ok_or(invalid_data("malformed uvibytes"))?
                 .freeze();
-            if let Some(block) = Block::from_bytes(frame) {
+            // Parse block data as CID+Value pair
+            if let Some(block) = Block::from_bytes(block_frame) {
                 // This is almost always true. Hash collisions do happen with
                 // identity-encoded CIDs, though.
                 if block.cid == *k {
                     return Ok(Some(block.data));
                 }
-                println!("Looking for: {}, found: {}", *k, block.cid);
             } else {
                 return Err(invalid_data("corrupted key-value block"))?;
             }
@@ -106,17 +119,25 @@ where
         return Ok(None);
     }
 
-    /// # Panics
-    /// - If the write cache contains different data with this CID
-    /// - See also [`Self::new`].
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let ForestCarInner {
-            write_cache, ..
-        } = &mut *self.inner.lock();
+        let ForestCarInner { write_cache, .. } = &mut *self.inner.lock();
+        debug_assert!(Block {
+            cid: *k,
+            data: block.to_vec()
+        }
+        .valid());
         write_cache.insert(*k, Vec::from(block));
         Ok(())
     }
+}
+
+fn decode_zstd_single_frame<ReaderT: Read>(reader: &mut ReaderT) -> io::Result<BytesMut> {
+    let mut zstd_frame = vec![];
+    zstd::Decoder::new(reader)?
+        .single_frame()
+        .read_to_end(&mut zstd_frame)?;
+    Ok(BytesMut::from(zstd_frame.as_slice()))
 }
 
 pub struct Encoder {}
@@ -133,8 +154,11 @@ impl Encoder {
         let mut header_encoder = new_encoder(3)?;
 
         let header = CarHeader { roots, version: 1 };
-        header_encoder.write_all(&to_vec(&header)?)?;
+        let mut header_uvi_frame = BytesMut::new();
+        UviBytes::default().encode(Bytes::from(to_vec(&header)?), &mut header_uvi_frame)?;
+        header_encoder.write_all(&header_uvi_frame)?;
         let header_bytes = header_encoder.finish()?.into_inner().freeze();
+
         sink.write_all(&header_bytes).await?;
         let header_len = header_bytes.len();
 
@@ -173,7 +197,7 @@ impl Encoder {
         builder.write_async(sink).await?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
-        let footer = ForestCARFooter {
+        let footer = ForestCarFooter {
             index: index_offset,
         };
         sink.write_all(&footer.to_le_bytes()).await?;
@@ -270,11 +294,11 @@ fn new_encoder(
     zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
 }
 
-struct ForestCARFooter {
+struct ForestCarFooter {
     index: u64,
 }
 
-impl ForestCARFooter {
+impl ForestCarFooter {
     pub const SIZE: usize = 16;
 
     pub fn to_le_bytes(&self) -> [u8; Self::SIZE] {
@@ -287,9 +311,9 @@ impl ForestCARFooter {
         buffer
     }
 
-    pub fn try_from_le_bytes(bytes: [u8; Self::SIZE]) -> Option<ForestCARFooter> {
+    pub fn try_from_le_bytes(bytes: [u8; Self::SIZE]) -> Option<ForestCarFooter> {
         let index = u64::from_le_bytes(bytes[8..16].try_into().expect("infallible"));
-        let footer = ForestCARFooter { index };
+        let footer = ForestCarFooter { index };
         if bytes == footer.to_le_bytes() {
             Some(footer)
         } else {

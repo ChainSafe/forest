@@ -10,6 +10,7 @@ use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
+use crate::db::car::forest::ForestCar;
 use crate::fil_cns::composition as cns;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{recurse_links_hash, CidHashSet};
@@ -178,7 +179,8 @@ impl SnapshotCommands {
             } => {
                 // this is all blocking...
                 use std::fs::File;
-                match CompressedCarV1BackedBlockstore::new(BufReader::new(File::open(&snapshot)?)) {
+                let snapshot_clone = snapshot.clone();
+                match ForestCar::open(move || std::fs::File::open(&snapshot_clone).unwrap()) {
                     Ok(store) => {
                         validate_with_blockstore(
                             store.roots(),
@@ -189,25 +191,43 @@ impl SnapshotCommands {
                         )
                         .await
                     }
-                    Err(error)
-                        if error.kind() == std::io::ErrorKind::Other
-                            && error.get_ref().is_some_and(|inner| {
-                                inner.downcast_ref::<MaxFrameSizeExceeded>().is_some()
-                            }) =>
-                    {
-                        bail!("The provided compressed car file cannot be used as a blockstore. Prepare it using `forest snapshot compress ...`")
-                    }
-                    Err(error) => {
-                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
-                        let store = UncompressedCarV1BackedBlockstore::new(File::open(&snapshot)?)?;
-                        validate_with_blockstore(
-                            store.roots(),
-                            Arc::new(store),
-                            check_links,
-                            check_network,
-                            check_stateroots,
-                        )
-                        .await
+                    Err(e) => {
+                        println!("Failed to open as ForestCar: {}", e.to_string());
+                        match CompressedCarV1BackedBlockstore::new(BufReader::new(File::open(
+                            &snapshot,
+                        )?)) {
+                            Ok(store) => {
+                                validate_with_blockstore(
+                                    store.roots(),
+                                    Arc::new(store),
+                                    check_links,
+                                    check_network,
+                                    check_stateroots,
+                                )
+                                .await
+                            }
+                            Err(error)
+                                if error.kind() == std::io::ErrorKind::Other
+                                    && error.get_ref().is_some_and(|inner| {
+                                        inner.downcast_ref::<MaxFrameSizeExceeded>().is_some()
+                                    }) =>
+                            {
+                                bail!("The provided compressed car file cannot be used as a blockstore. Prepare it using `forest snapshot compress ...`")
+                            }
+                            Err(error) => {
+                                info!(%error, "file may be uncompressed, retrying as a plain CAR...");
+                                let store =
+                                    UncompressedCarV1BackedBlockstore::new(File::open(&snapshot)?)?;
+                                validate_with_blockstore(
+                                    store.roots(),
+                                    Arc::new(store),
+                                    check_links,
+                                    check_network,
+                                    check_stateroots,
+                                )
+                                .await
+                            }
+                        }
                     }
                 }
             }
@@ -222,9 +242,7 @@ impl SnapshotCommands {
                 use tokio::io::AsyncWriteExt;
 
                 {
-                    let file = tokio::io::BufReader::new(
-                        File::open(&source).await?,
-                    );
+                    let file = tokio::io::BufReader::new(File::open(&source).await?);
                     let mut block_stream = CarStream::new(file).await?;
                     let roots = std::mem::take(&mut block_stream.header.roots);
 

@@ -20,13 +20,6 @@ use tokio_util::either::Either;
 
 use crate::utils::encoding::uvibytes::UviBytes;
 
-// Easy way to stream compressed and uncompressed CAR files
-// Easy way to encode compressed and uncompressed CAR files
-
-// stream of uvibytes -> stream of blocks + roots
-
-// stream of blocks + roots ->
-
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
     pub roots: Vec<Cid>,
