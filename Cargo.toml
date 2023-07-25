@@ -78,6 +78,7 @@ human-repr = "1.0"
 humantime = "2.1.0"
 indexmap = { version = "1.9", features = ["serde-1"] }
 indicatif = { version = "0.17.3", features = ["tokio"] }
+integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.11.0"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
@@ -160,9 +161,6 @@ tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-util = { version = "0.7.0", features = ["compat"] }
-tokio-util-06 = { package = "tokio-util", version = "0.6.0", features = [
-  "codec",
-] } # https://github.com/paritytech/unsigned-varint/pull/59
 toml = "0.7"
 tracing = "0.1"
 tracing-appender = "0.2"

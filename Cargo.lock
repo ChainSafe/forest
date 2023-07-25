@@ -2612,7 +2612,7 @@ dependencies = [
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "indexmap 1.9.3",
- "integer-encoding",
+ "integer-encoding 3.0.4",
  "num-derive 0.3.3",
  "num-traits",
  "serde",
@@ -2633,7 +2633,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
- "integer-encoding",
+ "integer-encoding 3.0.4",
  "lazy_static",
  "num-derive 0.3.3",
  "num-traits",
@@ -2906,6 +2906,7 @@ dependencies = [
  "humantime",
  "indexmap 1.9.3",
  "indicatif",
+ "integer-encoding 4.0.0",
  "is-terminal",
  "itertools 0.11.0",
  "jsonrpc-v2",
@@ -2973,7 +2974,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-test",
- "tokio-util 0.6.10",
  "tokio-util 0.7.8",
  "toml 0.7.6",
  "tracing",
@@ -3345,7 +3345,7 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "integer-encoding",
+ "integer-encoding 3.0.4",
  "serde",
  "thiserror",
 ]
@@ -4025,6 +4025,12 @@ dependencies = [
  "async-trait",
  "futures-util",
 ]
+
+[[package]]
+name = "integer-encoding"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "924df4f0e24e2e7f9cdd90babb0b96f93b20f3ecfa949ea9e6613756b8c8e1bf"
 
 [[package]]
 name = "interceptor"
