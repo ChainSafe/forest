@@ -50,6 +50,7 @@ pub mod json {
         #[serde(with = "crate::json::trace::json::opt")]
         execution_trace: Option<Trace>,
         error: String,
+        duration: u64,
     }
 
     pub fn serialize<S>(ir: &InvocResult, serializer: S) -> Result<S::Ok, S::Error>
@@ -63,6 +64,7 @@ pub mod json {
             gas_cost: ir.gas_cost.clone(),
             execution_trace: ir.execution_trace.clone(),
             error: ir.error.clone(),
+            duration: ir.duration,
         }
         .serialize(serializer)
     }
@@ -79,6 +81,7 @@ pub mod json {
             gas_cost: ir.gas_cost,
             execution_trace: ir.execution_trace,
             error: ir.error,
+            duration: ir.duration,
         })
     }
 

@@ -100,6 +100,7 @@ pub struct InvocResult {
     pub gas_cost: MessageGasCost,
     pub execution_trace: Option<Trace>,
     pub error: String,
+    pub duration: u64,
 }
 
 fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
@@ -361,6 +362,7 @@ where
                         gas_cost: MessageGasCost::new(msg.message(), ret.clone()),
                         execution_trace: trace,
                         error: ret.failure_info().unwrap_or_default(),
+                        duration: 0,
                     });
                 }
 
@@ -404,6 +406,7 @@ where
                         gas_cost: MessageGasCost::new(&rew_msg, ret.clone()),
                         execution_trace: trace,
                         error: ret.failure_info().unwrap_or_default(),
+                        duration: 0,
                     });
                 }
 
@@ -426,6 +429,7 @@ where
                         gas_cost: MessageGasCost::new(&cron_msg, ret.clone()),
                         execution_trace: trace,
                         error: ret.failure_info().unwrap_or_default(),
+                        duration: 0,
                     });
                 }
             }
