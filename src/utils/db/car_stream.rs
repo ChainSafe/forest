@@ -87,7 +87,7 @@ pin_project! {
     }
 }
 
-impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
+impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
     pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
         let start_position = reader.stream_position().await?;
         if let Some(header) = read_header(&mut reader).await {
@@ -103,6 +103,9 @@ impl<ReaderT: AsyncBufRead + AsyncSeek + Unpin> CarStream<ReaderT> {
             let mut zstd = ZstdDecoder::new(reader);
             if let Some(header) = read_header(&mut zstd).await {
                 let mut reader = zstd.into_inner();
+
+                reset_bufread(&mut reader).await?;
+
                 reader.seek(SeekFrom::Start(start_position)).await?;
                 let zstd = ZstdDecoder::new(reader);
                 let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
@@ -157,4 +160,16 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option
     }
 
     Some(header)
+}
+
+// Seeking fails after we've used the Reader for zstd decoding. Flushing the
+// buffer "fixes" the problem.
+async fn reset_bufread<ReaderT: AsyncBufRead + Unpin>(mut reader: &mut ReaderT) -> io::Result<()> {
+    let size = futures::future::poll_fn(|cx| {
+        let buf = futures::ready!(Pin::new(&mut reader).poll_fill_buf(cx))?;
+        Poll::Ready(Ok::<usize, io::Error>(buf.len()))
+    })
+    .await?;
+    Pin::new(&mut reader).consume(size);
+    Ok(())
 }

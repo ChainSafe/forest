@@ -23,7 +23,6 @@ use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
-use human_repr::HumanDuration;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -219,26 +218,15 @@ impl SnapshotCommands {
                 frame_size,
             } => {
                 use crate::db::car;
-                use crate::db::car::forest::ForestCar;
-                use futures::stream::TryStreamExt;
                 use tokio::fs::File;
                 use tokio::io::AsyncWriteExt;
 
                 {
-                    let file = tokio::io::BufReader::with_capacity(
-                        1024 * 1024,
+                    let file = tokio::io::BufReader::new(
                         File::open(&source).await?,
                     );
                     let mut block_stream = CarStream::new(file).await?;
                     let roots = std::mem::take(&mut block_stream.header.roots);
-
-                    // let now = std::time::Instant::now();
-                    // println!("Counting blocks...");
-                    // let mut count = 0;
-                    // while let Some(block) = block_stream.try_next().await? {
-                    //     count += 1;
-                    // }
-                    // println!("Count: {}, {}", count, now.elapsed().human_duration());
 
                     let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
 
@@ -251,80 +239,74 @@ impl SnapshotCommands {
                     dest.flush().await?;
                 }
 
-                {
-                    let file = tokio::io::BufReader::with_capacity(
-                        1024 * 1024,
-                        File::open(&source).await?,
-                    );
-                    let mut block_stream = CarStream::new(file).await?;
+                // {
+                //     let file = tokio::io::BufReader::with_capacity(
+                //         1024 * 1024,
+                //         File::open(&source).await?,
+                //     );
+                //     let mut block_stream = CarStream::new(file).await?;
 
-                    let forest_car =
-                        ForestCar::open(move || std::fs::File::open(&destination).unwrap())?;
+                //     let forest_car =
+                //         ForestCar::open(move || std::fs::File::open(&destination).unwrap())?;
 
-                    let now = std::time::Instant::now();
-                    println!("Counting blocks...");
-                    let mut count = 0;
-                    while let Some(block) = block_stream.try_next().await? {
-                        // println!("Looking at block: {}", block.cid);
-                        // println!("Count: {}", count);
-                        let expected = block.data.len();
-                        let got = forest_car.get(&block.cid)?.unwrap().len();
-                        if expected != got {
-                            break;
-                        }
-                        if count % 10_000 == 0 {
-                            println!("Count: {}", count);
-                        }
-                        count += 1;
-                    }
-                    println!("Count: {}, {}", count, now.elapsed().human_duration());
-                }
+                //     let now = std::time::Instant::now();
+                //     println!("Counting blocks...");
+                //     let mut count = 0;
+                //     while let Some(block) = block_stream.try_next().await? {
+                //         // println!("Looking at block: {}", block.cid);
+                //         // println!("Count: {}", count);
+                //         // let expected = block.data.len();
+                //         // let got = forest_car.get(&block.cid)?.unwrap().len();
+                //         // if expected != got {
+                //         //     break;
+                //         // }
+                //         if count % 10_000 == 0 {
+                //             println!("Count: {}", count);
+                //         }
+                //         count += 1;
+                //     }
+                //     println!("Count: {}, {}", count, now.elapsed().human_duration());
+                // }
 
-                // // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
-                // // For example, the zstsd magic bytes are a valid varint frame prefix:
-                // assert_eq!(
-                //     <usize as integer_encoding::VarInt>::decode_var(&[0xFD, 0x2F, 0xB5, 0x28])
-                //         .unwrap()
-                //         .1,
-                //     6141,
-                // );
-                // // so the best thing to do is to just try compressed and then uncompressed.
-                // use car_backed_blockstore::zstd_compress_varint_manyframe;
-                // use tokio::fs::File;
+                // {
+                //     let file = tokio::io::BufReader::new(
+                //         File::open(&source).await?,
+                //     );
+                //     let mut block_stream = CarStream::new(file).await?;
 
-                // zstd_compress_varint_manyframe(
-                //     // CarStream::new(tokio::io::BufReader::new(File::open(&source).await?)).await?,
-                //     File::open(&source).await?,
-                //     File::create(&destination).await?,
-                //     frame_size,
-                //     compression_level,
-                // )
-                // .await?;
-                // let idx = crate::car_backed_blockstore::keys_from_compressed_car(
-                //     std::io::BufReader::new(std::fs::File::open(&destination)?),
-                // )?;
-                // let idx_len = idx.len();
-                // eprintln!("Index elements: {}", idx.len());
-                // let mut file = std::io::BufWriter::new(
-                //     std::fs::OpenOptions::new()
-                //         .append(true)
-                //         .open(&destination)?,
-                // );
-                // let eof = file.seek(SeekFrom::End(0))?;
-                // let mut index = Vec::new();
-                // crate::utils::db::car_index::CarIndexBuilder::new(idx.into_iter())
-                //     .write(std::io::Cursor::new(&mut index))?;
-                // crate::car_backed_blockstore::write_skip_frame(&mut file, &index)?;
+                //     let now = std::time::Instant::now();
+                //     println!("Counting blocks...");
+                //     let mut count = 0;
+                //     while let Some(block) = block_stream.try_next().await? {
+                //         count += 1;
+                //         if count % 100_000 == 0 {
+                //             println!("Count: {}", count);
+                //         }
+                //     }
+                //     println!("Count: {}, {}", count, now.elapsed().human_duration());
+                // }
 
-                // let mut ident_frame = vec![];
-                // let mut ident_frame_writer = Cursor::new(&mut ident_frame);
-                // let index_len = crate::utils::db::car_index::CarIndexBuilder::capacity_at(idx_len);
-                // ident_frame_writer.write_all(&index_len.to_le_bytes())?;
-                // ident_frame_writer.write_all(&eof.to_le_bytes())?;
-                // ident_frame_writer.flush()?;
-                // crate::car_backed_blockstore::write_skip_frame(&mut file, &ident_frame)?;
+                // {
+                //     use fvm_ipld_car::CarReader;
+                //     use tokio_util::compat::TokioAsyncReadCompatExt;
 
-                // file.flush()?;
+                //     let file = tokio::io::BufReader::with_capacity(
+                //         1024 * 1024,
+                //         File::open(&source).await?,
+                //     );
+                //     let mut car_reader = CarReader::new(file.compat()).await?;
+                //     car_reader.validate = false;
+                //     let now = std::time::Instant::now();
+                //     let mut count = 0;
+                //     while let Some(_block) = car_reader.next_block().await? {
+                //         count += 1;
+                //         if count % 100_000 == 0 {
+                //             println!("Count: {}", count);
+                //         }
+                //     }
+                //     println!("Count: {}, {}", count, now.elapsed().human_duration());
+                // }
+
                 Ok(())
             }
         }
