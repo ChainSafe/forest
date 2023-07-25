@@ -61,15 +61,15 @@ type Trace = Vec<crate::interpreter::InvocResult>;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct TraceInfo {
+pub struct ComputeStateOutput {
     #[serde(with = "crate::json::cid")]
     root: Cid,
     #[serde(with = "crate::json::invoc_result::json::vec")]
-    trace: Vec<crate::interpreter::InvocResult>,
+    trace: Trace
 }
 
-impl TraceInfo {
-    pub fn new(root: Cid, trace: Vec<crate::interpreter::InvocResult>) -> Self {
+impl ComputeStateOutput {
+    pub fn new(root: Cid, trace: Trace) -> Self {
         Self { root, trace }
     }
 }
@@ -627,7 +627,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: bool,
-    ) -> Result<(CidPair, TraceInfo), Error>
+    ) -> Result<(CidPair, ComputeStateOutput), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -645,7 +645,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: bool,
-    ) -> Result<(CidPair, TraceInfo), Error>
+    ) -> Result<(CidPair, ComputeStateOutput), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -1244,7 +1244,7 @@ pub fn apply_block_messages<DB, CB>(
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
     enable_tracing: bool,
-) -> Result<(CidPair, TraceInfo), anyhow::Error>
+) -> Result<(CidPair, ComputeStateOutput), anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
@@ -1265,7 +1265,7 @@ where
         let message_receipts = tipset.min_ticket_block().message_receipts();
         return Ok((
             (*tipset.parent_state(), *message_receipts),
-            TraceInfo::default(),
+            ComputeStateOutput::default(),
         ));
     }
 
@@ -1340,6 +1340,6 @@ where
 
     Ok((
         (state_root, receipt_root),
-        TraceInfo::new(state_root, trace),
+        ComputeStateOutput::new(state_root, trace),
     ))
 }
