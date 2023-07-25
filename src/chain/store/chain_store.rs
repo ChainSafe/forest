@@ -274,9 +274,9 @@ where
         file.insert(*cid);
     }
 
-    pub fn unmark_block_as_validated(&self, cid: &Cid) {
+    pub fn unmark_block_as_validated(&self, cid: Cid) {
         let mut file = self.validated_blocks.lock();
-        let _did_work = file.remove(cid);
+        let _did_work = file.remove(&cid);
     }
 
     // FIXME: This function doesn't use the chain store at all.

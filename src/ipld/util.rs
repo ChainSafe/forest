@@ -165,11 +165,11 @@ where
 
         if h.epoch() > 0 {
             for p in h.parents().cids() {
-                blocks_to_walk.push_back(*p);
+                blocks_to_walk.push_back(p);
             }
         } else {
             for p in h.parents().cids() {
-                load_block(*p).await?;
+                load_block(p).await?;
             }
         }
 

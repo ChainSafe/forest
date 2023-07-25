@@ -35,8 +35,8 @@ impl TipsetKeys {
     }
 
     /// Returns tipset header `cids`
-    pub fn cids(&self) -> &[Cid] {
-        &self.cids.cids()
+    pub fn cids(&self) -> Vec<Cid> {
+        self.cids.cids()
     }
 
     // Special encoding to match Lotus.
@@ -143,7 +143,7 @@ impl Tipset {
         Ok(tsk
             .cids()
             .into_iter()
-            .map(|key| BlockHeader::load(&store, *key))
+            .map(|key| BlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
@@ -220,7 +220,7 @@ impl Tipset {
         })
     }
     /// Returns slice of `CIDs` for the current tipset
-    pub fn cids(&self) -> &[Cid] {
+    pub fn cids(&self) -> Vec<Cid> {
         self.key().cids.cids()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
@@ -447,7 +447,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        crate::json::cid::vec::serialize(m.cids().into(), serializer)
+        crate::json::cid::vec::serialize(&m.cids(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
