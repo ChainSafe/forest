@@ -234,7 +234,6 @@ where
                     chain_config,
                 ),
             )?;
-
             let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
             Ok(VM::VM3(exec))
         } else {

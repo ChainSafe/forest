@@ -91,7 +91,7 @@ impl ApplyRet {
 
     pub fn exec_trace(&self) -> Vec<ExecutionEvent_v3> {
         match self {
-            ApplyRet::V2(_v2) => todo!(),
+            ApplyRet::V2(_v2) => vec![], // We don't support fvm2 execution trace at the moment
             ApplyRet::V3(v3) => v3.exec_trace.clone(),
         }
     }

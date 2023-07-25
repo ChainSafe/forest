@@ -119,6 +119,4 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {
-    // todo!
-}
+pub mod tests {}
