@@ -13,9 +13,14 @@ pub use tikv_jemallocator;
 
 /// Gets chain data directory
 pub fn chain_path(config: &crate::cli_shared::cli::Config) -> PathBuf {
-    PathBuf::from(&config.client.data_dir)
-        .join(config.chain.network.to_string())
-        .join(env!("CARGO_PKG_VERSION"))
+    let chain_path = PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string());
+    // Use the dev database if it exists, else use versioned database
+    let dev_path = chain_path.join("dev");
+    if dev_path.exists() {
+        dev_path
+    } else {
+        chain_path.join(env!("CARGO_PKG_VERSION"))
+    }
 }
 
 pub mod snapshot;

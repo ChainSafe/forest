@@ -11,7 +11,7 @@ use crate::utils::proofs_api::paramfetch::{
     ensure_params_downloaded, set_proofs_parameter_cache_dir_env,
 };
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
 
@@ -86,8 +86,10 @@ pub async fn migrate_db(
     // - re-compute 100 tipsets
     migration_check(config, &db_path).await?;
 
-    // Rename db to latest versioned db
-    fs::rename(db_path.as_path(), &chain_path(config))?;
+    // Rename db to latest versioned db, if its not dev db
+    if !is_dev(&chain_path(config)) {
+        fs::rename(db_path.as_path(), &chain_path(config))?;
+    }
 
     info!("Database Successfully Migrated to {:?}", target_version);
     Ok(())
@@ -108,10 +110,14 @@ pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     let paths = fs::read_dir(&dir).unwrap();
     for path in paths {
         if let Ok(entry) = path {
-            return Some(entry.path());
+            let path = entry.path();
+            if path.is_dir() {
+                if path != chain_path(&config) {
+                    return Some(path);
+                }
+            }
         }
     }
-
     None
 }
 
@@ -127,4 +133,9 @@ fn get_db_version(db_path: &PathBuf) -> DBVersion {
         },
         None => DBVersion::V0, // Defaults to V0
     }
+}
+
+fn is_dev(path: &Path) -> bool {
+    path.components()
+        .any(|component| matches!(component, std::path::Component::Normal(name) if name == "dev"))
 }
