@@ -7,6 +7,7 @@ use std::{
     pin::pin,
 };
 
+use anyhow::Context;
 use async_compression::futures::write::ZstdEncoder;
 use cid::Cid;
 use futures::{
@@ -38,6 +39,8 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed=actor_bundles/*.car");
+
     let mut tasks = JoinSet::new();
     for (root, url) in [
         // calibnet
@@ -76,7 +79,9 @@ async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
             "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/mainnet/Lightning.car",
         ),
     ] {
-        tasks.spawn(download_bundle_if_needed(root, url));
+        tasks.spawn(async move {
+            download_bundle_if_needed(root, url).await.with_context(|| format!("Failed to get {root}.car from {url}"))
+        });
     }
 
     let mut car_roots = vec![];
@@ -137,19 +142,18 @@ where
 }
 
 async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathBuf> {
-    const ACTOR_BUNDLE_CACHE_PATH: &str = "./actor_bundles/";
+    const ACTOR_BUNDLE_CACHE_DIR: &str = "./actor_bundles/";
     // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
-    let cached_path = format!("{ACTOR_BUNDLE_CACHE_PATH}{root}.car");
-    let cached_path = Path::new(&cached_path);
+    let cached_path = Path::new(ACTOR_BUNDLE_CACHE_DIR).join(format!("{root}.car"));
     if cached_path.is_file() {
-        if let Ok(file) = async_fs::File::open(cached_path).await {
+        if let Ok(file) = async_fs::File::open(&cached_path).await {
             if let Ok(true) = is_bundle_valid(&root, BufReader::new(file)).await {
-                return Ok(cached_path.to_owned());
+                return Ok(cached_path);
             }
         }
     }
 
-    let tmp = tempfile::NamedTempFile::new_in(ACTOR_BUNDLE_CACHE_PATH)?.into_temp_path();
+    let tmp = tempfile::NamedTempFile::new_in(ACTOR_BUNDLE_CACHE_DIR)?.into_temp_path();
     {
         let response = global_http_client().get(url).send().await?;
         let mut writer = BufWriter::new(async_fs::File::create(&tmp).await?);
@@ -165,12 +169,12 @@ async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathB
     }
     if is_bundle_valid(
         &root,
-        BufReader::new(async_fs::File::open(cached_path).await?),
+        BufReader::new(async_fs::File::open(&cached_path).await?),
     )
     .await?
     {
-        tmp.persist(cached_path)?;
-        Ok(cached_path.to_owned())
+        tmp.persist(&cached_path)?;
+        Ok(cached_path)
     } else {
         anyhow::bail!("Invalid bundle: {url}");
     }
