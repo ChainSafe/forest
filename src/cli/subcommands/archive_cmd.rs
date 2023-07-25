@@ -30,7 +30,7 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::{AnyCar, PlainCar};
+use crate::db::car::AnyCar;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::{bail, Context as _};
@@ -298,8 +298,8 @@ impl ArchiveInfo {
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
 fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
-    let file = std::fs::File::open(snapshot)?;
-    let store = PlainCar::new(file).context("couldn't read input CAR file - is it compressed?")?;
+    let store = AnyCar::new(move || std::fs::File::open(&snapshot))
+        .context("couldn't read input CAR file")?;
     let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
 
     let genesis = root.genesis(&store)?;
