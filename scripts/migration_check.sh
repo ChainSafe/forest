@@ -22,44 +22,35 @@ function sync_with_tag() {
     fi
 }
 
-# Get the repository URL
-repo_url="https://github.com/ChainSafe/forest.git"
+# Change to forest dir
+cd forest || exit
 
 # DB Migration are supported v0.11.1 onwards
 START_TAG="v0.11.1"
 
-# Clone the repository
-echo "Cloning the repository..."
-git clone $repo_url --recursive
-cd forest || exit
-
 # Fetch the latest tags from the remote repository
 git fetch --tags
-
-# Check if the start tag exists
-if ! git rev-parse "$START_TAG" &>/dev/null; then
-  echo "Start tag $START_TAG does not exist."
-  exit 1
-fi
 
 # Get a list of all tags sorted chronologically
 tags=$(git tag --sort=creatordate)
 
-# Flag to indicate if we should start building
-start_building=false
+# Database migration are not supported for forest version below `v0.11.1`
+is_tag_valid=false
 
+echo "Testing db migrations from "V0.11.1" to latest, one by one"
 # Loop through each tag and sync with corresponding version
 for tag in $tags; do
   # Check if the current tag matches the start tag
   if [ "$tag" = "$START_TAG" ]; then
-    start_building=true
+    is_tag_valid=true
   fi
-  if $start_building; then
+  if $is_tag_valid; then
     # Run sync check with the current tag
     sync_with_tag "$tag"
   fi
 done
 
+echo "Testing db migration from "V0.11.1" to latest, at once"
 # Get latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0)
 # Clean DB before testing db migration from "V0.11.1" to latest
@@ -71,4 +62,4 @@ sync_with_tag $START_TAG
 # Sync calibnet with latest version of Forest
 sync_with_tag $LATEST_TAG
 
-
+echo "Migration check completed successfully."
