@@ -90,12 +90,12 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => {
-                let reader = std::fs::File::open(&input_path)?;
-
                 info!(
                     "indexing a car-backed store using snapshot: {}",
                     input_path.to_str().unwrap_or_default()
                 );
+
+                let reader = move || std::fs::File::open(&input_path);
 
                 do_export(reader, output_path, epoch, depth).await
             }
@@ -118,15 +118,15 @@ fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> 
     }
 }
 
-async fn do_export(
-    reader: impl Read + Seek + Send + Sync,
+async fn do_export<ReaderT: Read + Seek + Send + Sync>(
+    reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
-        PlainCar::new(reader)
-            .context("couldn't read input CAR file - it's either compressed or corrupt")?,
+        AnyCar::new(reader)
+            .context("couldn't read input CAR file")?,
     );
 
     let index = ChainIndex::new(store.clone());
@@ -371,7 +371,7 @@ mod tests {
     async fn export() {
         let output_path = TempDir::new().unwrap();
         do_export(
-            std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
+            || Ok(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
             output_path.path().into(),
             Some(0),
             1,
