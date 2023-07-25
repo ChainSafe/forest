@@ -10,7 +10,7 @@ fn query(table: &mut CarIndex<impl Read + Seek>, key: Hash) -> Vec<BlockPosition
 }
 
 fn mk_table(entries: &[(Hash, BlockPosition)]) -> CarIndex<Cursor<Vec<u8>>> {
-    let table_builder = CarIndexBuilder::new_raw(entries.clone().into_iter().copied());
+    let table_builder = CarIndexBuilder::new_raw(entries.iter().copied());
     let mut store = Vec::new();
     table_builder.write(&mut store).unwrap();
     CarIndex::open(Cursor::new(store), 0).unwrap()
@@ -80,7 +80,7 @@ fn lookup_clash_all(mut entries: Vec<(Hash, BlockPosition)>) {
 fn lookup_clash_many(mut entries: Vec<(Hash, BlockPosition)>) {
     let table_len = CarIndexBuilder::capacity_at(entries.len()) as u64;
     for (hash, _position) in entries.iter_mut() {
-        let i = u64::from(*hash) % 10.min(table_len as u64);
+        let i = u64::from(*hash) % 10.min(table_len);
         *hash = hash.set_bucket(i, table_len);
         assert_eq!(hash.bucket(table_len), i);
     }
