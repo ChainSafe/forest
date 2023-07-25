@@ -183,9 +183,7 @@ mod tests {
                     fvm_ipld_encoding::IPLD_RAW,
                 ])
                 .unwrap();
-            let code = g
-                .choose(&[Code::Blake2b256, Code::Sha2_256])
-                .unwrap();
+            let code = g.choose(&[Code::Blake2b256, Code::Sha2_256]).unwrap();
             let cid = Cid::new_v1(*encoding, code.digest(&data));
             Block { cid, data }
         }

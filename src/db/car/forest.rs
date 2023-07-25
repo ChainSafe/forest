@@ -380,8 +380,12 @@ mod tests {
     ) {
         compression_level %= 15;
         tail.push(head);
-        let forest_car_data =
-            mk_encoded_car(frame_size, compression_level.max(1), roots.clone(), tail.clone());
+        let forest_car_data = mk_encoded_car(
+            frame_size,
+            compression_level.max(1),
+            roots.clone(),
+            tail.clone(),
+        );
         let forest_car = ForestCar::new(move || Ok(Cursor::new(forest_car_data.clone()))).unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
