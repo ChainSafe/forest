@@ -31,10 +31,9 @@ impl From<Vec<Cid>> for CidVec {
     }
 }
 
-impl From<CidVec> for &[Cid] {
-    fn from(vec: CidVec) -> Self {
-        //TODO: Add v1_dagcbor_blake2b_vec
-        &vec.fallback_vec.as_slice()
+impl From<&[Cid]> for CidVec {
+    fn from(vec: &[Cid]) -> Self {
+        vec.iter().cloned().collect()
     }
 }
 

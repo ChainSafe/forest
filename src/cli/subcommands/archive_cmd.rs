@@ -161,7 +161,7 @@ async fn do_export(
         tmp_chain_dir.path(),
     )?);
 
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots().into()))?;
 
     info!("looking up a tipset by epoch: {}", epoch);
 
@@ -231,7 +231,7 @@ impl ArchiveInfo {
         let store = UncompressedCarV1BackedBlockstore::new(reader)
             .context("couldn't read input CAR file - is it compressed?")?;
 
-        let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
+        let root = Tipset::load(&store, &TipsetKeys::new(store.roots().into()))?
             .context("Missing root tipset")?;
         let root_epoch = root.epoch();
 
@@ -319,7 +319,7 @@ fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
     let file = std::fs::File::open(snapshot)?;
     let store = UncompressedCarV1BackedBlockstore::new(file)
         .context("couldn't read input CAR file - is it compressed?")?;
-    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots().into()))?;
 
     let genesis = root.genesis(&store)?;
     let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {

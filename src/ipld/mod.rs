@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod cid_hashset;
-pub mod cid_vec;
+mod cid_vec;
 pub mod json;
 pub mod selector;
 pub mod util;
@@ -12,6 +12,7 @@ pub use libipld_core::ipld::Ipld;
 pub use util::*;
 
 pub use self::cid_hashset::CidHashSet;
+pub use self::cid_vec::CidVec;
 
 pub use libipld_core::serde::{from_ipld, to_ipld};
 #[cfg(test)]

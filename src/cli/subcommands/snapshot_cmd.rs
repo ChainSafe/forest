@@ -277,7 +277,7 @@ async fn validate_with_blockstore<BlockstoreT>(
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
 {
-    let tipset_key = TipsetKeys::new(roots);
+    let tipset_key = TipsetKeys::new(roots.into());
     let store_clone = Arc::clone(&store);
     let ts = Tipset::load(&store_clone, &tipset_key)?.context("missing root tipset")?;
 

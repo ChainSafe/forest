@@ -373,7 +373,7 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
-                let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
+                let tipset_keys = TipsetKeys::new(request.heaviest_tip_set.into());
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),

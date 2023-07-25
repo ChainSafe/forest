@@ -3,7 +3,7 @@
 
 use std::{fmt, sync::OnceLock};
 
-use crate::ipld::cid_vec::CidVec;
+use crate::ipld::CidVec;
 use crate::networks::{calibnet, mainnet};
 use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
@@ -35,8 +35,8 @@ impl TipsetKeys {
     }
 
     /// Returns tipset header `cids`
-    pub fn cids(self) -> CidVec {
-        self.cids
+    pub fn cids(&self) -> &[Cid] {
+        &self.cids.cids()
     }
 
     // Special encoding to match Lotus.
@@ -143,7 +143,7 @@ impl Tipset {
         Ok(tsk
             .cids()
             .into_iter()
-            .map(|key| BlockHeader::load(&store, key))
+            .map(|key| BlockHeader::load(&store, *key))
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
@@ -536,7 +536,7 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod property_tests {
-    use crate::ipld::cid_vec::CidVec;
+    use crate::ipld::CidVec;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -571,7 +571,7 @@ mod property_tests {
 
 #[cfg(test)]
 mod test {
-    use crate::ipld::cid_vec::CidVec;
+    use crate::ipld::CidVec;
     use crate::json::vrf::VRFProof;
     use crate::shim::address::Address;
     use cid::{

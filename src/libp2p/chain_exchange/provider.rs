@@ -27,7 +27,7 @@ where
 
     loop {
         let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids)) {
+        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids.into())) {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);

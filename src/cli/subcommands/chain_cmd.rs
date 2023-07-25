@@ -92,7 +92,9 @@ impl ChainCommands {
             } => {
                 maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 chain_set_head(
-                    (TipsetKeys { cids: cids.clone() },),
+                    (TipsetKeys {
+                        cids: cids.clone().into(),
+                    },),
                     &config.client.rpc_token,
                 )
                 .await
