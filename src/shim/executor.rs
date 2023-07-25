@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Borrow;
 use std::borrow::Cow;
 
 use anyhow::anyhow;
@@ -69,35 +68,28 @@ impl ApplyRet {
         }
     }
 
-    pub fn gas_refund(&self) -> TokenAmount {
+    pub fn refund(&self) -> TokenAmount {
         match self {
-            ApplyRet::V2(v2) => v2.refund.borrow().into(),
-            ApplyRet::V3(v3) => v3.refund.borrow().into(),
-        }
-    }
-
-    pub fn miner_penalty(&self) -> TokenAmount {
-        match self {
-            ApplyRet::V2(v2) => v2.penalty.borrow().into(),
-            ApplyRet::V3(v3) => v3.penalty.borrow().into(),
+            ApplyRet::V2(v2) => (&v2.refund).into(),
+            ApplyRet::V3(v3) => (&v3.refund).into(),
         }
     }
 
     pub fn base_fee_burn(&self) -> TokenAmount {
         match self {
-            ApplyRet::V2(v2) => v2.base_fee_burn.borrow().into(),
-            ApplyRet::V3(v3) => v3.base_fee_burn.borrow().into(),
+            ApplyRet::V2(v2) => (&v2.base_fee_burn).into(),
+            ApplyRet::V3(v3) => (&v3.base_fee_burn).into(),
         }
     }
 
     pub fn over_estimation_burn(&self) -> TokenAmount {
         match self {
-            ApplyRet::V2(v2) => v2.over_estimation_burn.borrow().into(),
-            ApplyRet::V3(v3) => v3.over_estimation_burn.borrow().into(),
+            ApplyRet::V2(v2) => (&v2.over_estimation_burn).into(),
+            ApplyRet::V3(v3) => (&v3.over_estimation_burn).into(),
         }
     }
 
-    pub fn exec_events(&self) -> Vec<ExecutionEvent_v3> {
+    pub fn exec_trace(&self) -> Vec<ExecutionEvent_v3> {
         match self {
             ApplyRet::V2(_v2) => todo!(),
             ApplyRet::V3(v3) => v3.exec_trace.clone(),

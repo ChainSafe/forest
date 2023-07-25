@@ -101,10 +101,10 @@ impl MessageGasCost {
             gas_used: BigInt::from(ret.msg_receipt().gas_used()),
             base_fee_burn: ret.base_fee_burn(),
             over_estimation_burn: ret.over_estimation_burn(),
-            miner_penalty: ret.miner_penalty(),
+            miner_penalty: ret.penalty(),
             miner_tip: ret.miner_tip(),
-            refund: ret.gas_refund(),
-            total_cost: msg.required_funds() - &ret.gas_refund(),
+            refund: ret.refund(),
+            total_cost: msg.required_funds() - &ret.refund(),
         }
     }
 }
@@ -370,7 +370,7 @@ where
 
                 // Push InvocResult
                 if enable_tracing {
-                    let trace = build_exec_trace(ret.exec_events());
+                    let trace = build_exec_trace(ret.exec_trace());
 
                     invoc_results.push(InvocResult {
                         msg_cid: cid,
@@ -413,7 +413,7 @@ where
 
                 // Push InvocResult
                 if enable_tracing {
-                    let trace = build_exec_trace(ret.exec_events());
+                    let trace = build_exec_trace(ret.exec_trace());
 
                     invoc_results.push(InvocResult {
                         msg_cid: rew_msg.cid()?,
@@ -435,7 +435,7 @@ where
             Ok((cron_msg, ret)) => {
                 // Push InvocResult
                 if enable_tracing {
-                    let trace = build_exec_trace(ret.exec_events());
+                    let trace = build_exec_trace(ret.exec_trace());
 
                     invoc_results.push(InvocResult {
                         msg_cid: cron_msg.cid()?,
