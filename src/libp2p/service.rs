@@ -19,7 +19,9 @@ use flume::Sender;
 use futures::stream::StreamExt;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use fvm_ipld_blockstore::Blockstore;
+use libp2p::connection_limits::Exceeded;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+use libp2p::swarm::DialError;
 use libp2p::{
     core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
@@ -407,55 +409,69 @@ async fn handle_network_message(
         } => {
             bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, Some(response_channel));
         }
-        NetworkMessage::JSONRPCRequest { method } => match method {
-            NetRPCMethods::AddrsListen(response_channel) => {
-                let listeners = Swarm::listeners(swarm).cloned().collect();
-                let peer_id = Swarm::local_peer_id(swarm);
+        NetworkMessage::JSONRPCRequest { method } => {
+            match method {
+                NetRPCMethods::AddrsListen(response_channel) => {
+                    let listeners = Swarm::listeners(swarm).cloned().collect();
+                    let peer_id = Swarm::local_peer_id(swarm);
 
-                if response_channel.send((*peer_id, listeners)).is_err() {
-                    warn!("Failed to get Libp2p listeners");
+                    if response_channel.send((*peer_id, listeners)).is_err() {
+                        warn!("Failed to get Libp2p listeners");
+                    }
                 }
-            }
-            NetRPCMethods::Peers(response_channel) => {
-                let peer_addresses = swarm.behaviour_mut().peer_addresses();
-                if response_channel.send(peer_addresses.clone()).is_err() {
-                    warn!("Failed to get Libp2p peers");
+                NetRPCMethods::Peers(response_channel) => {
+                    let peer_addresses = swarm.behaviour_mut().peer_addresses();
+                    if response_channel.send(peer_addresses.clone()).is_err() {
+                        warn!("Failed to get Libp2p peers");
+                    }
                 }
-            }
-            NetRPCMethods::Info(response_channel) => {
-                if response_channel.send(swarm.network_info().into()).is_err() {
-                    warn!("Failed to get Libp2p peers");
+                NetRPCMethods::Info(response_channel) => {
+                    if response_channel.send(swarm.network_info().into()).is_err() {
+                        warn!("Failed to get Libp2p peers");
+                    }
                 }
-            }
-            NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
-                let mut success = false;
+                NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
+                    let mut success = false;
 
-                for mut multiaddr in addresses {
-                    multiaddr.push(Protocol::P2p(peer_id));
+                    for mut multiaddr in addresses {
+                        multiaddr.push(Protocol::P2p(peer_id));
 
-                    match Swarm::dial(swarm, multiaddr.clone()) {
-                        Ok(_) => {
-                            info!("Dialed {multiaddr}");
-                            success = true;
-                            break;
-                        }
-                        Err(e) => {
-                            error!("Failed to dial {multiaddr}: {e}");
-                        }
-                    };
+                        match Swarm::dial(swarm, multiaddr.clone()) {
+                            Ok(_) => {
+                                info!("Dialed {multiaddr}");
+                                success = true;
+                                break;
+                            }
+                            Err(e) => {
+                                match e {
+                                    DialError::Denied { cause } => {
+                                        // try to get a more specific error cause
+                                        if let Some(cause) = cause.downcast_ref::<Exceeded>() {
+                                            error!("Denied dialing (limits exceeded) {multiaddr}: {cause}");
+                                        } else {
+                                            error!("Denied dialing {multiaddr}: {cause}")
+                                        }
+                                    }
+                                    e => {
+                                        error!("Failed to dial {multiaddr}: {e}");
+                                    }
+                                };
+                            }
+                        };
+                    }
+
+                    if response_channel.send(success).is_err() {
+                        warn!("Failed to connect to a peer");
+                    }
                 }
-
-                if response_channel.send(success).is_err() {
-                    warn!("Failed to connect to a peer");
+                NetRPCMethods::Disconnect(response_channel, peer_id) => {
+                    let _ = Swarm::disconnect_peer_id(swarm, peer_id);
+                    if response_channel.send(()).is_err() {
+                        warn!("Failed to disconnect from a peer");
+                    }
                 }
             }
-            NetRPCMethods::Disconnect(response_channel, peer_id) => {
-                let _ = Swarm::disconnect_peer_id(swarm, peer_id);
-                if response_channel.send(()).is_err() {
-                    warn!("Failed to disconnect from a peer");
-                }
-            }
-        },
+        }
     }
 }
 
