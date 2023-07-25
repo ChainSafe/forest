@@ -1,11 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
+use std::{path::Path, sync::Arc};
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
-use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
@@ -14,31 +13,19 @@ use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::StateTree, version::NetworkVersion,
 };
-use crate::utils::{
-    db::{
-        file_backed_obj::{ChainMeta, FileBacked},
-        BlockstoreExt, CborStoreExt,
-    },
-    io::{AsyncWriterWithChecksum, Checksum},
+use crate::utils::db::{
+    file_backed_obj::{ChainMeta, FileBacked},
+    BlockstoreExt, CborStoreExt,
 };
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::{Context, Result};
-use async_compression::futures::write::ZstdEncoder;
+use anyhow::Result;
 use cid::Cid;
-use digest::Digest;
-use futures::{io::BufWriter, AsyncWrite};
-use futures_util::future::Either;
-use futures_util::AsyncWriteExt;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::sync::{
-    broadcast::{self, Sender as Publisher},
-    Mutex as TokioMutex,
-};
+use tokio::sync::broadcast::{self, Sender as Publisher};
 use tracing::{debug, info, warn};
 
 use super::{
@@ -329,112 +316,6 @@ where
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = ChainStore::block_msgs_for_tipset(&self.db, ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
-    }
-
-    /// Exports a range of tipsets, as well as the state roots based on the
-    /// `recent_roots`.
-    pub async fn export<W, D>(
-        &self,
-        tipset: &Tipset,
-        recent_roots: ChainEpoch,
-        writer: W,
-        compressed: bool,
-        skip_checksum: bool,
-    ) -> Result<Option<digest::Output<D>>, Error>
-    where
-        DB: Send + Sync,
-        D: Digest + Send + 'static,
-        W: AsyncWrite + Send + Unpin + 'static,
-    {
-        let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
-        let writer = if compressed {
-            Either::Left(ZstdEncoder::new(writer))
-        } else {
-            Either::Right(writer)
-        };
-        // Channel cap is equal to buffered write size
-        const CHANNEL_CAP: usize = 1000;
-        let (tx, rx) = flume::bounded(CHANNEL_CAP);
-        let header = CarHeader::from(tipset.key().cids().to_vec());
-
-        let writer = Arc::new(TokioMutex::new(writer));
-        let writer_clone = writer.clone();
-
-        // Spawns task which receives blocks to write to the car writer.
-        let write_task = tokio::task::spawn(async move {
-            let mut writer = writer_clone.lock().await;
-            let mut stream = rx.stream();
-            match writer.deref_mut() {
-                Either::Left(left) => header.write_stream_async(left, &mut stream).await,
-                Either::Right(right) => header.write_stream_async(right, &mut stream).await,
-            }
-            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
-        });
-
-        let global_pre_time = SystemTime::now();
-        info!("chain export started");
-
-        let estimated_reachable_records = Some(
-            self.file_backed_chain_meta()
-                .lock()
-                .inner()
-                .estimated_reachable_records as u64,
-        );
-        // Walks over tipset and historical data, sending all blocks visited into the
-        // car writer.
-        let n_records = walk_snapshot(
-            tipset,
-            recent_roots,
-            |cid| {
-                let tx_clone = tx.clone();
-                async move {
-                    let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                        Error::Other(format!("Cid {cid} not found in blockstore"))
-                    })?;
-                    tx_clone.send_async((cid, block.clone())).await?;
-                    Ok(block)
-                }
-            },
-            Some("Exporting snapshot | blocks"),
-            Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
-            estimated_reachable_records,
-        )
-        .await?;
-
-        {
-            let mut meta = self.file_backed_chain_meta().lock();
-            meta.inner_mut().estimated_reachable_records = n_records;
-            meta.sync()?;
-        }
-
-        // Drop sender, to close the channel to write task, which will end when finished
-        // writing
-        drop(tx);
-
-        // Await on values being written.
-        write_task
-            .await
-            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))??;
-
-        info!(
-            "export finished, took {} seconds",
-            global_pre_time
-                .elapsed()
-                .expect("time cannot go backwards")
-                .as_secs()
-        );
-
-        let mut writer = writer.lock().await;
-        writer.flush().await.context("failed to flush")?;
-        writer.close().await.context("failed to close")?;
-
-        let digest = match &mut *writer {
-            Either::Left(left) => left.get_mut().finalize().await,
-            Either::Right(right) => right.finalize().await,
-        }
-        .map_err(|e| Error::Other(e.to_string()))?;
-
-        Ok(digest)
     }
 
     /// Gets look-back tipset (and state-root of that tipset) for block

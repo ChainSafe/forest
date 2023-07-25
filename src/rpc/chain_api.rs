@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -19,14 +16,13 @@ use crate::rpc_api::{
 };
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use sha2::{digest::Output, Sha256};
-use tempfile::NamedTempFile;
-use tokio::{io::AsyncWriteExt, sync::Mutex};
+use sha2::Sha256;
+use tokio::sync::Mutex;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub(in crate::rpc) async fn chain_get_message<DB>(
@@ -78,11 +74,6 @@ where
         ))?;
     }
 
-    let output_dir = output_path.parent().ok_or_else(|| JsonRpcError::Provided {
-        code: http::StatusCode::INTERNAL_SERVER_ERROR.as_u16() as _,
-        message: "Failed to determine snapshot export directory",
-    })?;
-    let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
     let head = data.chain_store.tipset_from_keys(&tsk)?;
     let start_ts =
         data.chain_store
@@ -90,64 +81,30 @@ where
             .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
     match if dry_run {
-        data.chain_store
-            .export::<_, Sha256>(
-                &start_ts,
-                recent_roots,
-                VoidAsyncWriter,
-                true, // `compressed` is always on
-                skip_checksum,
-            )
-            .await
+        crate::chain::export::<_, Sha256>(
+            &data.chain_store.db,
+            &start_ts,
+            recent_roots,
+            VoidAsyncWriter,
+            true, // `compressed` is always on
+            skip_checksum,
+        )
+        .await
     } else {
-        let file = tokio::fs::File::create(&temp_path).await?;
-        data.chain_store
-            .export::<_, Sha256>(&start_ts, recent_roots, file.compat(), true, skip_checksum)
-            .await
+        let file = tokio::fs::File::create(&output_path).await?;
+        crate::chain::export::<_, Sha256>(
+            &data.chain_store.db,
+            &start_ts,
+            recent_roots,
+            file.compat(),
+            true,
+            skip_checksum,
+        )
+        .await
     } {
-        Ok(checksum_opt) if !dry_run => {
-            // `persist`is expected to succeed since we've made sure the temp-file is in the
-            // same folder as the final file.
-            temp_path.persist(&output_path)?;
-            if let Some(checksum) = checksum_opt {
-                save_checksum(&output_path, checksum).await?;
-            }
-        }
-        Ok(_) => {}
-        Err(e) => {
-            return Err(JsonRpcError::from(e));
-        }
-    };
-
-    Ok(output_path)
-}
-
-/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
-/// with the same name but with a `.sha256sum` extension.
-async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
-    let encoded_hash = hash.encode_hex::<String>();
-    let checksum_file_content = format!(
-        "{encoded_hash} {}\n",
-        source
-            .file_name()
-            .and_then(std::ffi::OsStr::to_str)
-            .context("Failed to retrieve file name while saving checksum")?
-    );
-
-    let mut checksum_path = PathBuf::from(source);
-    checksum_path.set_extension("sha256sum");
-
-    let mut checksum_file = tokio::fs::File::create(&checksum_path).await?;
-    checksum_file
-        .write_all(checksum_file_content.as_bytes())
-        .await?;
-    checksum_file.flush().await?;
-    tracing::info!(
-        "Snapshot checksum: {encoded_hash} saved to {}",
-        checksum_path.display()
-    );
-
-    Ok(())
+        Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+        Err(e) => Err(JsonRpcError::from(e)),
+    }
 }
 
 pub(in crate::rpc) async fn chain_read_obj<DB>(

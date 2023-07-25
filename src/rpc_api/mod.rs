@@ -181,7 +181,7 @@ pub mod chain_api {
         pub dry_run: bool,
     }
 
-    pub type ChainExportResult = PathBuf;
+    pub type ChainExportResult = Option<String>;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
@@ -453,7 +453,6 @@ pub mod progress_api {
 
     #[derive(Serialize, Deserialize)]
     pub enum GetProgressType {
-        SnapshotExport,
         DatabaseGarbageCollection,
     }
 }
