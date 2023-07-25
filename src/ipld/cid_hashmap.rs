@@ -98,7 +98,7 @@ mod tests {
             cid_hash_map.insert(item.0, item.1);
             hash_map.insert(item.0, item.1);
 
-            // Quickcheck does not reliably generate V1 CIDs; need to ensure we have V1 CIDs in the map for testing, so generate V1 CIDs from the values in the key-value pairs.
+            // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs; need to ensure we have enough samples of this variant in the map for testing, so generate this variant from the values in the key-value pairs.
             let cid_v1 = Cid::new_v1(
                 DAG_CBOR,
                 multihash::Code::Blake2b256.digest(&item.1.to_be_bytes()),
@@ -127,20 +127,35 @@ mod tests {
     }
 
     #[quickcheck]
-    fn contains_key(cid_vector: Vec<(Cid, u64)>, cid: Cid) {
-        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+    fn contains_key(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
+        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+        // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `contains_key` with an equal distribution of results.
+        if insert {
+            cid_hash_map.insert(cid, 0);
+            hash_map.insert(cid, 0);
+        }
         assert_eq!(cid_hash_map.contains_key(cid), hash_map.contains_key(&cid));
     }
 
     #[quickcheck]
-    fn remove_key(cid_vector: Vec<(Cid, u64)>, cid: Cid) {
+    fn remove_key(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
         let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+        // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `remove` with an equal distribution of results.
+        if insert {
+            cid_hash_map.insert(cid, 0);
+            hash_map.insert(cid, 0);
+        }
         assert_eq!(cid_hash_map.remove(cid), hash_map.remove(&cid));
     }
 
     #[quickcheck]
-    fn get_value_at_key(cid_vector: Vec<(Cid, u64)>, cid: Cid) {
-        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+    fn get_value_at_key(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
+        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+        // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `get` with an equal distribution of results.
+        if insert {
+            cid_hash_map.insert(cid, 0);
+            hash_map.insert(cid, 0);
+        }
         assert_eq!(cid_hash_map.get(cid), hash_map.get(&cid));
     }
 
