@@ -135,6 +135,7 @@ fn decode_zstd_single_frame<ReaderT: Read>(reader: &mut ReaderT) -> io::Result<B
     zstd::Decoder::new(reader)?
         .single_frame()
         .read_to_end(&mut zstd_frame)?;
+    // This unnecessarily copies the zstd frame. :(
     Ok(BytesMut::from(zstd_frame.as_slice()))
 }
 

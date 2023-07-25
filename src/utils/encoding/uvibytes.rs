@@ -36,7 +36,7 @@ impl Decoder for UviBytes {
             if let Some((n, size)) = usize::decode_var(src) {
                 src.advance(size);
                 self.len = Some(n);
-            } else if src.len() >= std::mem::size_of::<usize>() {
+            } else if src.len() >= usize::MAX.required_space() {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "invalid uvi frame",
