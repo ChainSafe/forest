@@ -278,7 +278,7 @@ fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
 ///        │body length│car header│
 ///        └───────────┴──────────┘
 /// ```
-#[tracing::instrument(level = "trace", skip_all, ret, err)]
+#[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
     let header_len =
         read_varint_body_length_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
