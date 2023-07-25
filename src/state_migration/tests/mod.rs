@@ -86,7 +86,7 @@ async fn test_state_migration(
     }
 
     let store = Arc::new(
-        crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore::new(
+        crate::db::car::plain::UncompressedCarV1BackedBlockstore::new(
             std::io::BufReader::new(std::fs::File::open(&car_path)?),
         )?,
     );

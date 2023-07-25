@@ -19,7 +19,6 @@ cfg_if::cfg_if! {
 mod auth;
 mod beacon;
 mod blocks;
-mod car_backed_blockstore;
 mod chain;
 mod chain_sync;
 mod cli;

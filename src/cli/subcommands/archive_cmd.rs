@@ -27,7 +27,7 @@
 //! Additional reading: [`crate::car_backed_blockstore`]
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
+use crate::db::car::plain::UncompressedCarV1BackedBlockstore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};

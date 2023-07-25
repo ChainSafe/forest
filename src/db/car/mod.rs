@@ -2,3 +2,5 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod forest;
 pub mod plain;
+
+pub use forest::ForestCar;

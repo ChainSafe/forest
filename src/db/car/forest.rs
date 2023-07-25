@@ -3,7 +3,7 @@
 
 // encode CAR-stream into ForestCAR.zst
 
-use crate::car_backed_blockstore::write_skip_frame_header_async;
+use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::uvibytes::UviBytes;
