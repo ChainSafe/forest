@@ -232,8 +232,8 @@ impl Encoder {
                 Ok(encoder) => encoder,
             };
 
-            // Emit frame if compressed_len >= zstd_frame_size_tripwire OR uncompressed_len >= 2^16
-            if compressed_len(encoder) >= zstd_frame_size_tripwire || frame_offset >= 1 << 16 {
+            // Emit frame if compressed_len > zstd_frame_size_tripwire OR uncompressed_len >= 2^16
+            if compressed_len(encoder) > zstd_frame_size_tripwire || frame_offset >= 1 << 16 {
                 let frame = finalize_frame(zstd_compression_level, encoder)?;
                 frame_offset = 0;
                 return Poll::Ready(Some(Ok(Either::Right(frame))));
@@ -294,6 +294,7 @@ fn new_encoder(
     zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 struct ForestCarFooter {
     index: u64,
 }
@@ -319,5 +320,84 @@ impl ForestCarFooter {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::executor::block_on;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+    use std::io::Cursor;
+
+    impl Arbitrary for ForestCarFooter {
+        fn arbitrary(g: &mut Gen) -> Self {
+            ForestCarFooter {
+                index: u64::arbitrary(g),
+            }
+        }
+    }
+
+    fn mk_encoded_car(
+        zstd_frame_size_tripwire: usize,
+        zstd_compression_level: u16,
+        roots: Vec<Cid>,
+        block: Vec<Block>,
+    ) -> Vec<u8> {
+        block_on(async {
+            let frame_stream = Encoder::compress_stream(
+                zstd_frame_size_tripwire,
+                zstd_compression_level,
+                futures::stream::iter(block.into_iter().map(Ok)),
+            );
+            let mut encoded = vec![];
+            Encoder::write(&mut encoded, roots, frame_stream)
+                .await
+                .unwrap();
+            encoded
+        })
+    }
+
+    #[quickcheck]
+    fn forest_car_create_basic(head: Block, mut tail: Vec<Block>, roots: Vec<Cid>) {
+        tail.push(head);
+        let forest_car_data = mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone());
+        let forest_car = ForestCar::new(move || Ok(Cursor::new(forest_car_data.clone()))).unwrap();
+        assert_eq!(forest_car.roots(), roots);
+        for block in tail {
+            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+        }
+    }
+
+    #[quickcheck]
+    fn forest_car_create_options(
+        head: Block,
+        mut tail: Vec<Block>,
+        roots: Vec<Cid>,
+        frame_size: usize,
+        mut compression_level: u16,
+    ) {
+        compression_level %= 15;
+        tail.push(head);
+        let forest_car_data =
+            mk_encoded_car(frame_size, compression_level.max(1), roots.clone(), tail.clone());
+        let forest_car = ForestCar::new(move || Ok(Cursor::new(forest_car_data.clone()))).unwrap();
+        assert_eq!(forest_car.roots(), roots);
+        for block in tail {
+            assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
+        }
+    }
+
+    #[quickcheck]
+    fn forest_car_open_invalid(junk: Vec<u8>) {
+        // The chance of thinking random data is a valid ForestCar should be practically zero.
+        assert!(ForestCar::new(move || Ok(Cursor::new(junk.clone()))).is_err());
+    }
+
+    #[quickcheck]
+    fn forest_footer_roundtrip(footer: ForestCarFooter) {
+        let footer_recoded = ForestCarFooter::try_from_le_bytes(footer.to_le_bytes());
+        assert_eq!(footer_recoded, Some(footer));
     }
 }

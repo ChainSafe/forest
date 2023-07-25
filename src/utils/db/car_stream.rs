@@ -26,6 +26,7 @@ pub struct CarHeader {
     pub version: u64,
 }
 
+#[derive(Debug, Clone)]
 pub struct Block {
     pub cid: Cid,
     pub data: Vec<u8>,
@@ -120,7 +121,6 @@ impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
 impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
     type Item = io::Result<Block>;
 
-    // Required method
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
         let item = futures::ready!(this.reader.poll_next(cx));
@@ -165,4 +165,29 @@ async fn reset_bufread<ReaderT: AsyncBufRead + Unpin>(mut reader: &mut ReaderT) 
     .await?;
     Pin::new(&mut reader).consume(size);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    // use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for Block {
+        fn arbitrary(g: &mut Gen) -> Block {
+            let data = Vec::<u8>::arbitrary(g);
+            let encoding = g
+                .choose(&[
+                    fvm_ipld_encoding::DAG_CBOR,
+                    fvm_ipld_encoding::CBOR,
+                    fvm_ipld_encoding::IPLD_RAW,
+                ])
+                .unwrap();
+            let code = g
+                .choose(&[Code::Blake2b256, Code::Sha2_256])
+                .unwrap();
+            let cid = Cid::new_v1(*encoding, code.digest(&data));
+            Block { cid, data }
+        }
+    }
 }
