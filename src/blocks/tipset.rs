@@ -3,6 +3,7 @@
 
 use std::{fmt, sync::OnceLock};
 
+use crate::ipld::cid_vec::CidVec;
 use crate::networks::{calibnet, mainnet};
 use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
@@ -25,17 +26,17 @@ use super::{Block, BlockHeader, Error, Ticket};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TipsetKeys {
-    pub cids: Vec<Cid>,
+    pub cids: CidVec,
 }
 
 impl TipsetKeys {
-    pub fn new(cids: Vec<Cid>) -> Self {
+    pub fn new(cids: CidVec) -> Self {
         Self { cids }
     }
 
     /// Returns tipset header `cids`
-    pub fn cids(&self) -> &[Cid] {
-        &self.cids
+    pub fn cids(self) -> CidVec {
+        self.cids
     }
 
     // Special encoding to match Lotus.
@@ -53,7 +54,7 @@ impl fmt::Display for TipsetKeys {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
             .cids()
-            .iter()
+            .into_iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
             .join(", ");
@@ -141,8 +142,8 @@ impl Tipset {
     pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids()
-            .iter()
-            .map(|key| BlockHeader::load(&store, *key))
+            .into_iter()
+            .map(|key| BlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
@@ -220,7 +221,7 @@ impl Tipset {
     }
     /// Returns slice of `CIDs` for the current tipset
     pub fn cids(&self) -> &[Cid] {
-        self.key().cids()
+        self.key().cids.cids()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKeys {
@@ -446,7 +447,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        crate::json::cid::vec::serialize(m.cids(), serializer)
+        crate::json::cid::vec::serialize(m.cids().into(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
@@ -454,7 +455,7 @@ pub mod tipset_keys_json {
         D: Deserializer<'de>,
     {
         Ok(TipsetKeys {
-            cids: crate::json::cid::vec::deserialize(deserializer)?,
+            cids: crate::json::cid::vec::deserialize(deserializer)?.into(),
         })
     }
 }
@@ -509,7 +510,7 @@ pub mod tipset_json {
         }
         TipsetSer {
             blocks: &m.headers,
-            cids: m.key(),
+            cids: &m.key(),
             height: m.epoch(),
         }
         .serialize(serializer)
@@ -535,6 +536,7 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod property_tests {
+    use crate::ipld::cid_vec::CidVec;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -547,7 +549,7 @@ mod property_tests {
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             Self {
-                cids: Vec::arbitrary(g),
+                cids: CidVec::arbitrary(g),
             }
         }
     }
@@ -569,6 +571,7 @@ mod property_tests {
 
 #[cfg(test)]
 mod test {
+    use crate::ipld::cid_vec::CidVec;
     use crate::json::vrf::VRFProof;
     use crate::shim::address::Address;
     use cid::{
@@ -719,10 +722,10 @@ mod test {
             .unwrap();
         let h1 = BlockHeader::builder()
             .miner_address(Address::new_id(1))
-            .parents(TipsetKeys::new(vec![Cid::new_v1(
+            .parents(TipsetKeys::new(CidVec::new_from_cid(Cid::new_v1(
                 DAG_CBOR,
                 Identity.digest(&[]),
-            )]))
+            ))))
             .build()
             .unwrap();
         assert_eq!(

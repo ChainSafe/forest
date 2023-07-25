@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod cid_hashset;
+pub mod cid_vec;
 pub mod json;
 pub mod selector;
 pub mod util;
