@@ -64,23 +64,7 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-/// Allows the generation of a reward message based on gas fees and penalties.
-///
-/// This should facilitate custom consensus protocols using their own economic
-/// incentives.
-pub trait RewardCalc: Send + Sync + 'static {
-    /// Construct a reward message, if rewards are applicable.
-    fn reward_message(
-        &self,
-        epoch: ChainEpoch,
-        miner: Address,
-        win_count: i64,
-        penalty: TokenAmount,
-        gas_reward: TokenAmount,
-    ) -> Result<Option<Message>, anyhow::Error>;
-}
-
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct MessageGasCost {
     pub message: Cid,
     pub gas_used: BigInt,
@@ -431,6 +415,7 @@ where
 
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
+                
                 // Push InvocResult
                 if enable_tracing {
                     let trace = build_exec_trace(ret.exec_trace());
