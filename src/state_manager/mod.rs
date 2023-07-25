@@ -65,7 +65,7 @@ pub struct ComputeStateOutput {
     #[serde(with = "crate::json::cid")]
     root: Cid,
     #[serde(with = "crate::json::invoc_result::json::vec")]
-    trace: Trace
+    trace: Trace,
 }
 
 impl ComputeStateOutput {

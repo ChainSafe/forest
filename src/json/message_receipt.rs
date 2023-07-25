@@ -5,9 +5,7 @@ use crate::shim::executor::{Receipt, Receipt_v3};
 
 pub mod json {
     use crate::shim::error::ExitCode;
-    use base64::{prelude::BASE64_STANDARD, Engine};
-    use fvm_ipld_encoding::RawBytes;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
 
@@ -38,7 +36,8 @@ pub mod json {
     struct JsonHelper {
         exit_code: u64,
         #[serde(rename = "Return")]
-        return_data: String,
+        #[serde(with = "crate::json::bytes::json")]
+        return_data: Vec<u8>,
         gas_used: u64,
         #[serde(default, with = "crate::json::cid::opt")]
         events_root: Option<cid::Cid>,
@@ -50,7 +49,7 @@ pub mod json {
     {
         JsonHelper {
             exit_code: m.exit_code().value() as u64,
-            return_data: BASE64_STANDARD.encode(m.return_data().bytes()),
+            return_data: m.return_data().bytes().to_vec(),
             gas_used: m.gas_used(),
             events_root: m.events_root(),
         }
@@ -69,11 +68,7 @@ pub mod json {
         } = Deserialize::deserialize(deserializer)?;
         Ok(Receipt_v3 {
             exit_code: ExitCode::from(exit_code as u32).into(),
-            return_data: RawBytes::new(
-                BASE64_STANDARD
-                    .decode(return_data)
-                    .map_err(de::Error::custom)?,
-            ),
+            return_data: return_data.into(),
             gas_used,
             events_root,
         }

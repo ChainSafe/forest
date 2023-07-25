@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::shim::executor::TraceReturn;
@@ -30,7 +29,8 @@ pub mod json {
     struct JsonHelper {
         exit_code: ExitCode,
         #[serde(rename = "Return")]
-        return_data: String,
+        #[serde(with = "crate::json::bytes::json")]
+        return_data: Vec<u8>,
         return_codec: u64,
     }
 
@@ -40,7 +40,7 @@ pub mod json {
     {
         JsonHelper {
             exit_code: t.exit_code,
-            return_data: BASE64_STANDARD.encode(&t.return_data),
+            return_data: t.return_data.clone(),
             return_codec: t.return_codec,
         }
         .serialize(serializer)
@@ -53,7 +53,7 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(TraceReturn {
             exit_code: m.exit_code,
-            return_data: m.return_data.into(),
+            return_data: m.return_data,
             return_codec: m.return_codec,
         })
     }

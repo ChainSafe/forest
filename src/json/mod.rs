@@ -3,6 +3,7 @@
 
 pub mod actor_state;
 pub mod address;
+pub mod bytes;
 pub mod cid;
 pub mod invoc_result;
 pub mod message;
