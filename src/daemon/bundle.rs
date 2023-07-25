@@ -15,3 +15,14 @@ pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<()> {
     .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_load_actor_bundles() {
+        let db = fvm_ipld_blockstore::MemoryBlockstore::new();
+        load_actor_bundles(&db).await.unwrap();
+    }
+}

@@ -90,10 +90,10 @@ async fn test_state_migration(
             std::io::BufReader::new(std::fs::File::open(&car_path)?),
         )?,
     );
+    load_actor_bundles(&store).await?;
+
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
-
-    load_actor_bundles(&store).await?;
 
     let state_root: StateRoot = store.get_cbor(&old_state)?.unwrap();
     println!("Actor root (for Go test): {}", state_root.actors);
