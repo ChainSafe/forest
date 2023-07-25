@@ -40,7 +40,6 @@ use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
 use num::Zero;
 use num_bigint::BigInt;
-//use serde::{Deserialize, Serialize};
 
 use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
 
