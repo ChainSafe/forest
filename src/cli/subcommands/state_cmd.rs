@@ -72,15 +72,7 @@ async fn print_computed_state(
     vm_height: ChainEpoch,
     json: bool,
 ) -> anyhow::Result<()> {
-    println!("Computing state @{}", vm_height);
-
-    println!("Network: {}", config.chain.network);
-
-    let temp_dir = TempDir::new()?;
-    println!("Using temp dir: {:?}", temp_dir.path());
-
     // Initialize UncompressedCarV1BackedBlockstore
-    println!("Loading snapshot...");
     let reader = std::fs::File::open(snapshot)?;
     let store = Arc::new(
         UncompressedCarV1BackedBlockstore::new(reader)
