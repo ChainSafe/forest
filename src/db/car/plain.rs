@@ -79,11 +79,11 @@ use tracing::{debug, trace};
 ///
 /// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [CARv1 file](https://ipld.io/specs/transport/car/carv1).
 ///
-/// On creation, [`UncompressedCarV1BackedBlockstore`] builds an in-memory index of the [`Cid`]s in the file,
+/// On creation, [`PlainCar`] builds an in-memory index of the [`Cid`]s in the file,
 /// and their offsets into that file.
 /// Note that it prepares its own buffer for doing so.
 ///
-/// When a block is requested, [`UncompressedCarV1BackedBlockstore`] scrolls to that offset, and reads the block, on-demand.
+/// When a block is requested, [`PlainCar`] scrolls to that offset, and reads the block, on-demand.
 ///
 /// Writes for new blocks (which don't exist in the CAR already) are currently cached in-memory.
 ///

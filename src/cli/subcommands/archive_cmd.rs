@@ -24,7 +24,7 @@
 //! running Forest-daemon or a separate database. Operations are carried out
 //! directly on CAR files.
 //!
-//! Additional reading: [`crate::car_backed_blockstore`]
+//! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};

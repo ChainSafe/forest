@@ -80,7 +80,7 @@
 //! ## Internal structures
 //!
 //! A [`Slot`] is a position in the table that may or may not be filled with a
-//! [`KeyValuePair`]. [`Hash`]es are key and are not required to be unique. The
+//! [`KeyValuePair`]. [`struct@Hash`]es are key and are not required to be unique. The
 //! performance of the index depends entirely on the quality of the chosen hash
 //! function.
 //!
