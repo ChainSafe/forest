@@ -3,9 +3,7 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::car_backed_blockstore::{
-    CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
-};
+use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::ChainStore;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -24,11 +22,9 @@ use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
-use tracing::info;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -193,41 +189,16 @@ impl SnapshotCommands {
                     }
                     Err(e) => {
                         println!("Failed to open as ForestCar: {}", e.to_string());
-                        match CompressedCarV1BackedBlockstore::new(BufReader::new(File::open(
-                            &snapshot,
-                        )?)) {
-                            Ok(store) => {
-                                validate_with_blockstore(
-                                    store.roots(),
-                                    Arc::new(store),
-                                    check_links,
-                                    check_network,
-                                    check_stateroots,
-                                )
-                                .await
-                            }
-                            Err(error)
-                                if error.kind() == std::io::ErrorKind::Other
-                                    && error.get_ref().is_some_and(|inner| {
-                                        inner.downcast_ref::<MaxFrameSizeExceeded>().is_some()
-                                    }) =>
-                            {
-                                bail!("The provided compressed car file cannot be used as a blockstore. Prepare it using `forest snapshot compress ...`")
-                            }
-                            Err(error) => {
-                                info!(%error, "file may be uncompressed, retrying as a plain CAR...");
-                                let store =
-                                    UncompressedCarV1BackedBlockstore::new(File::open(&snapshot)?)?;
-                                validate_with_blockstore(
-                                    store.roots(),
-                                    Arc::new(store),
-                                    check_links,
-                                    check_network,
-                                    check_stateroots,
-                                )
-                                .await
-                            }
-                        }
+
+                        let store = UncompressedCarV1BackedBlockstore::new(File::open(&snapshot)?)?;
+                        validate_with_blockstore(
+                            store.roots(),
+                            Arc::new(store),
+                            check_links,
+                            check_network,
+                            check_stateroots,
+                        )
+                        .await
                     }
                 }
             }
