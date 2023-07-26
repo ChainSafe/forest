@@ -6,10 +6,14 @@ function sync_with_tag() {
     local tag=$1
     echo "Syncing using tag ($tag)..."
 
-    # Write build and sync logic here
-    git checkout "$tag"
-    make clean
-    make install
+    # Create the download URL for the binary
+    URL="https://github.com/ChainSafe/forest/releases/download/${tag}/forest-${tag}-linux-amd64.zip"
+    # Download the binary using wget
+    curl -LJO "${URL}"
+    
+    # Unzip the downloaded file
+    unzip "forest-${tag}-linux-amd64.zip"
+    cd "forest-${tag}"
 
     forest --chain calibnet --encrypt-keystore false --auto-download-snapshot --detach
     forest-cli --chain calibnet sync wait
@@ -17,15 +21,15 @@ function sync_with_tag() {
     if forest-cli --chain calibnet sync wait; then
         echo "Sync successful for tag: $tag"
         pkill -9 forest
+        # clean up
+        cd ..
+        rm "forest-${tag}-linux-amd64.zip" "forest-${tag}" -rf
         sleep 5s
     else
         echo "Sync failed for tag: $tag"
         exit 1
     fi
 }
-
-# Change to forest dir
-cd forest || exit
 
 # DB Migration are supported v0.11.1 onwards
 START_TAG="v0.11.1"
