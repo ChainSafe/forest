@@ -45,6 +45,8 @@
   `forest-cli car concat` subcommand for concatenating `.car` files.
 - [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
   option to `forest-cli state fetch` command.
+- [#3213](https://github.com/ChainSafe/forest/pull/3213): Add support for
+  loading forest.car.zst files.
 
 ### Changed
 
