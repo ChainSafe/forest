@@ -321,28 +321,23 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                     }
                     Iterate(dfs_iter) => {
                         while let Some(ipld) = dfs_iter.next() {
-                            match ipld {
+                            if let Ipld::Link(cid) = ipld {
                                 // The link traversal implementation assumes there are three types of encoding:
                                 // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
                                 // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
                                 // 3. _: ignore all other links
-                                Ipld::Link(cid) => {
-                                    // Don't revisit what's already been visited.
-                                    if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
-                                        let data = this
-                                            .db
-                                            .get(&cid)?
-                                            .ok_or(anyhow::anyhow!("missing key"))?;
+                                // Don't revisit what's already been visited.
+                                if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                                    let data =
+                                        this.db.get(&cid)?.ok_or(anyhow::anyhow!("missing key"))?;
 
-                                        if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                            let ipld: Ipld = from_slice(&data)?;
-                                            dfs_iter.walk_next(ipld);
-                                        }
-
-                                        return Poll::Ready(Some(Ok((cid, data))));
+                                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                        let ipld: Ipld = from_slice(&data)?;
+                                        dfs_iter.walk_next(ipld);
                                     }
+
+                                    return Poll::Ready(Some(Ok((cid, data))));
                                 }
-                                _ => {}
                             }
                         }
                         this.dfs.pop_front();
