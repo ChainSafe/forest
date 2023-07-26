@@ -27,6 +27,7 @@
 
 ### Breaking
 
+- [#3203](https://github.com/ChainSafe/forest/issues/3203): Implemented database versioning and migration
 - [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
   organisation to use multiple columns. The database will need to be recreated.
 - [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
