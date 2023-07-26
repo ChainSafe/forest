@@ -60,4 +60,26 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {}
+mod tests {
+    use crate::shim::executor::TraceReturn;
+    use quickcheck_macros::quickcheck;
+
+    use super::*;
+
+    impl quickcheck::Arbitrary for TraceReturn {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self {
+                exit_code: u32::arbitrary(g).into(),
+                return_data: Vec::arbitrary(g),
+                return_codec: u64::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn trace_return_roundtrip(tr: TraceReturn) {
+        let serialized = crate::to_string_with!(&tr, json::serialize);
+        let parsed: TraceReturn = crate::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(tr, parsed);
+    }
+}

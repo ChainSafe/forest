@@ -30,3 +30,17 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use quickcheck_macros::quickcheck;
+
+    use super::*;
+
+    #[quickcheck]
+    fn bytes_roundtrip(bytes: Vec<u8>) {
+        let serialized = crate::to_string_with!(&bytes, json::serialize);
+        let parsed: Vec<u8> = crate::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(bytes, parsed);
+    }
+}

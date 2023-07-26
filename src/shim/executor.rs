@@ -182,7 +182,7 @@ pub struct TraceMessage {
     pub params_codec: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct TraceReturn {
     pub exit_code: ExitCode,
     pub return_data: Vec<u8>,
