@@ -15,10 +15,10 @@ function sync_with_tag() {
     unzip "forest-${tag}-linux-amd64.zip"
     cd "forest-${tag}"
 
-    forest --chain calibnet --encrypt-keystore false --auto-download-snapshot --detach
-    forest-cli --chain calibnet sync wait
+    ./forest --chain calibnet --encrypt-keystore false --auto-download-snapshot --detach
+    ./forest-cli --chain calibnet sync wait
     # Check if the sync succeeded for the tag
-    if forest-cli --chain calibnet sync wait; then
+    if ./forest-cli --chain calibnet sync wait; then
         echo "Sync successful for tag: $tag"
         pkill -9 forest
         # clean up
