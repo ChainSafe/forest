@@ -26,8 +26,8 @@ pub mod json {
     }
 
     impl From<TraceMessage> for TraceMessageJson {
-        fn from(wrapper: TraceMessage) -> Self {
-            TraceMessageJson(wrapper)
+        fn from(tm: TraceMessage) -> Self {
+            TraceMessageJson(tm)
         }
     }
 
@@ -47,17 +47,17 @@ pub mod json {
         pub params_codec: u64,
     }
 
-    pub fn serialize<S>(m: &TraceMessage, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(tm: &TraceMessage, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         JsonHelper {
-            from: m.from,
-            to: m.to,
-            value: m.value.clone(),
-            method_num: m.method_num,
-            params: m.params.clone(),
-            params_codec: m.params_codec,
+            from: tm.from,
+            to: tm.to,
+            value: tm.value.clone(),
+            method_num: tm.method_num,
+            params: tm.params.clone(),
+            params_codec: tm.params_codec,
         }
         .serialize(serializer)
     }
@@ -66,14 +66,14 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let h: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(TraceMessage {
-            from: m.from,
-            to: m.to,
-            value: m.value,
-            method_num: m.method_num,
-            params: m.params,
-            params_codec: m.params_codec,
+            from: h.from,
+            to: h.to,
+            value: h.value,
+            method_num: h.method_num,
+            params: h.params,
+            params_codec: h.params_codec,
         })
     }
 }
@@ -86,9 +86,9 @@ pub mod tests {
     use super::json::{TraceMessageJson, TraceMessageJsonRef};
 
     #[quickcheck]
-    fn trace_message_roundtrip(message: TraceMessage) {
-        let serialized = serde_json::to_string(&TraceMessageJsonRef(&message)).unwrap();
+    fn trace_message_roundtrip(tm: TraceMessage) {
+        let serialized = serde_json::to_string(&TraceMessageJsonRef(&tm)).unwrap();
         let parsed: TraceMessageJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(message, parsed.0);
+        assert_eq!(tm, parsed.0);
     }
 }

@@ -25,8 +25,8 @@ pub mod json {
     }
 
     impl From<TraceGasCharge> for TraceGasChargeJson {
-        fn from(wrapper: TraceGasCharge) -> Self {
-            TraceGasChargeJson(wrapper)
+        fn from(tgc: TraceGasCharge) -> Self {
+            TraceGasChargeJson(tgc)
         }
     }
 
@@ -44,16 +44,16 @@ pub mod json {
         pub duration_nanos: u64,
     }
 
-    pub fn serialize<S>(gc: &TraceGasCharge, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(tgc: &TraceGasCharge, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         JsonHelper {
-            name: gc.name.clone(),
-            total_gas: gc.total_gas,
-            compute_gas: gc.compute_gas,
-            other_gas: gc.other_gas,
-            duration_nanos: gc.duration_nanos,
+            name: tgc.name.clone(),
+            total_gas: tgc.total_gas,
+            compute_gas: tgc.compute_gas,
+            other_gas: tgc.other_gas,
+            duration_nanos: tgc.duration_nanos,
         }
         .serialize(serializer)
     }
@@ -62,13 +62,13 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let gc: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let h: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(TraceGasCharge {
-            name: gc.name.clone(),
-            total_gas: gc.total_gas,
-            compute_gas: gc.compute_gas,
-            other_gas: gc.other_gas,
-            duration_nanos: gc.duration_nanos,
+            name: h.name.clone(),
+            total_gas: h.total_gas,
+            compute_gas: h.compute_gas,
+            other_gas: h.other_gas,
+            duration_nanos: h.duration_nanos,
         })
     }
 
@@ -118,9 +118,9 @@ mod tests {
     }
 
     #[quickcheck]
-    fn trace_gas_charge_roundtrip(gc: TraceGasCharge) {
-        let serialized = crate::to_string_with!(&gc, json::serialize);
+    fn trace_gas_charge_roundtrip(tgc: TraceGasCharge) {
+        let serialized = crate::to_string_with!(&tgc, json::serialize);
         let parsed: TraceGasCharge = crate::from_str_with!(&serialized, json::deserialize);
-        assert_eq!(gc, parsed);
+        assert_eq!(tgc, parsed);
     }
 }

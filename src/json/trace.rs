@@ -26,8 +26,8 @@ pub mod json {
     }
 
     impl From<Trace> for TraceJson {
-        fn from(wrapper: Trace) -> Self {
-            TraceJson(wrapper)
+        fn from(t: Trace) -> Self {
+            TraceJson(t)
         }
     }
 
@@ -62,12 +62,12 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let h: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(Trace {
-            msg: m.msg,
-            msg_ret: m.msg_ret,
-            gas_charges: m.gas_charges,
-            subcalls: m.subcalls,
+            msg: h.msg,
+            msg_ret: h.msg_ret,
+            gas_charges: h.gas_charges,
+            subcalls: h.subcalls,
         })
     }
 
@@ -161,9 +161,9 @@ mod tests {
     }
 
     #[quickcheck]
-    fn trace_roundtrip(trace: Trace) {
-        let serialized = crate::to_string_with!(&trace, json::serialize);
+    fn trace_roundtrip(t: Trace) {
+        let serialized = crate::to_string_with!(&t, json::serialize);
         let parsed: Trace = crate::from_str_with!(&serialized, json::deserialize);
-        assert_eq!(trace, parsed);
+        assert_eq!(t, parsed);
     }
 }

@@ -26,8 +26,8 @@ pub mod json {
     }
 
     impl From<MessageGasCost> for MessageGasCostJson {
-        fn from(ir: MessageGasCost) -> Self {
-            MessageGasCostJson(ir)
+        fn from(mgc: MessageGasCost) -> Self {
+            MessageGasCostJson(mgc)
         }
     }
 
@@ -51,19 +51,19 @@ pub mod json {
         pub total_cost: TokenAmount,
     }
 
-    pub fn serialize<S>(gc: &MessageGasCost, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(mgc: &MessageGasCost, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         JsonHelper {
-            message: gc.message,
-            gas_used: gc.gas_used.to_str_radix(10),
-            base_fee_burn: gc.base_fee_burn.clone(),
-            over_estimation_burn: gc.over_estimation_burn.clone(),
-            miner_penalty: gc.miner_penalty.clone(),
-            miner_tip: gc.miner_tip.clone(),
-            refund: gc.refund.clone(),
-            total_cost: gc.total_cost.clone(),
+            message: mgc.message,
+            gas_used: mgc.gas_used.to_str_radix(10),
+            base_fee_burn: mgc.base_fee_burn.clone(),
+            over_estimation_burn: mgc.over_estimation_burn.clone(),
+            miner_penalty: mgc.miner_penalty.clone(),
+            miner_tip: mgc.miner_tip.clone(),
+            refund: mgc.refund.clone(),
+            total_cost: mgc.total_cost.clone(),
         }
         .serialize(serializer)
     }
@@ -72,16 +72,16 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let gc: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let h: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(MessageGasCost {
-            message: gc.message,
-            gas_used: BigInt::from_str(&gc.gas_used).map_err(de::Error::custom)?,
-            base_fee_burn: gc.base_fee_burn,
-            over_estimation_burn: gc.over_estimation_burn,
-            miner_penalty: gc.miner_penalty,
-            miner_tip: gc.miner_tip,
-            refund: gc.refund,
-            total_cost: gc.total_cost,
+            message: h.message,
+            gas_used: BigInt::from_str(&h.gas_used).map_err(de::Error::custom)?,
+            base_fee_burn: h.base_fee_burn,
+            over_estimation_burn: h.over_estimation_burn,
+            miner_penalty: h.miner_penalty,
+            miner_tip: h.miner_tip,
+            refund: h.refund,
+            total_cost: h.total_cost,
         })
     }
 }

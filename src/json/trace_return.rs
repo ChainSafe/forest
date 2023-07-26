@@ -19,8 +19,8 @@ pub mod json {
     }
 
     impl From<TraceReturn> for TraceReturnJson {
-        fn from(wrapper: TraceReturn) -> Self {
-            TraceReturnJson(wrapper)
+        fn from(tr: TraceReturn) -> Self {
+            TraceReturnJson(tr)
         }
     }
 
@@ -34,14 +34,14 @@ pub mod json {
         return_codec: u64,
     }
 
-    pub fn serialize<S>(t: &TraceReturn, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(tr: &TraceReturn, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         JsonHelper {
-            exit_code: t.exit_code,
-            return_data: t.return_data.clone(),
-            return_codec: t.return_codec,
+            exit_code: tr.exit_code,
+            return_data: tr.return_data.clone(),
+            return_codec: tr.return_codec,
         }
         .serialize(serializer)
     }
@@ -50,11 +50,11 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+        let h: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(TraceReturn {
-            exit_code: m.exit_code,
-            return_data: m.return_data,
-            return_codec: m.return_codec,
+            exit_code: h.exit_code,
+            return_data: h.return_data,
+            return_codec: h.return_codec,
         })
     }
 }
