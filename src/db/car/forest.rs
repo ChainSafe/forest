@@ -34,6 +34,11 @@
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
 //! a lru-cache for faster repeat retrievals.
 //!
+//! `forest.car.zst` files are backward compatible with Lotus (and all other
+//! tools that consume compressed CAR files). All Forest-specifc information is
+//! encoded as skippable frames that are (as the name suggests) skipped by tools
+//! that don't understand them.
+//!
 //! # Additional reading
 //!
 //! `zstd` frame format: <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md>
