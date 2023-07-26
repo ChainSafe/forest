@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed=actor_bundles/*.car");
+    println!("cargo:rerun-if-changed=actor_bundles");
 
     let mut tasks = JoinSet::new();
     for (root, url) in [
@@ -190,6 +190,8 @@ where
 }
 
 fn generate_protobuf_code() -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed=proto");
+
     protobuf_codegen::Codegen::new()
         .pure()
         .cargo_out_dir(CARGO_OUT_DIR)
