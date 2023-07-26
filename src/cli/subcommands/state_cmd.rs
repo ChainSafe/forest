@@ -72,7 +72,7 @@ async fn print_computed_state(
     vm_height: ChainEpoch,
     json: bool,
 ) -> anyhow::Result<()> {
-    // Initialize UncompressedCarV1BackedBlockstore
+    // Initialize Blockstore
     let reader = std::fs::File::open(snapshot)?;
     let store = Arc::new(
         UncompressedCarV1BackedBlockstore::new(reader)
@@ -81,6 +81,7 @@ async fn print_computed_state(
 
     let tsk = TipsetKeys::new(store.roots());
 
+    // Initialize ChainStore
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -88,7 +89,6 @@ async fn print_computed_state(
     )
     .await?;
 
-    // Initialize ChainStore
     let cs = Arc::new(ChainStore::new(
         store,
         config.chain.clone(),
@@ -107,10 +107,9 @@ async fn print_computed_state(
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
     if json {
-        // call version with traces enabled
-        let (_, trace_info) = sm.compute_tipset_state(tipset, NO_CALLBACK, true).await?;
-        let json_trace = serde_json::to_string_pretty(&trace_info)?;
-        println!("{}", json_trace);
+        // Call with trace enabled
+        let (_, output) = sm.compute_tipset_state(tipset, NO_CALLBACK, true).await?;
+        println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         let ((st, _), _) = sm.compute_tipset_state(tipset, NO_CALLBACK, false).await?;
         println!("computed state cid: {}", st);
