@@ -33,7 +33,7 @@ pub struct ForestCar<ReaderT> {
 struct ForestCarInner<ReaderT> {
     // new_reader: Box<dyn Fn() -> ReaderT>,
     reader: ReaderT,
-    frame_cache: LruCache<u64, HashMap<Cid, Vec<u8>>>,
+    frame_cache: LruCache<BlockPosition, HashMap<Cid, Vec<u8>>>,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
     roots: Vec<Cid>,
@@ -96,9 +96,9 @@ where
         }
 
         for position in index.lookup(*k)?.into_iter() {
-            let block_map = frame_cache.try_get_or_insert(position.zst_frame_offset(), || {
+            let block_map = frame_cache.try_get_or_insert(position, || {
                 // Seek to the start of the zstd frame
-                reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
+                reader.seek(SeekFrom::Start(position))?;
                 // Decode entire frame into memory
                 let mut zstd_frame = decode_zstd_single_frame(reader)?;
                 // Parse all key-value pairs and insert them into a map
@@ -172,10 +172,7 @@ impl Encoder {
         while let Some(either) = stream.try_next().await? {
             match either {
                 Either::Left(cid) => {
-                    cid_map.insert(
-                        cid,
-                        BlockPosition::new(position as u64),
-                    );
+                    cid_map.insert(cid, position as BlockPosition);
                 }
                 Either::Right(zstd_frame) => {
                     position += zstd_frame.len();

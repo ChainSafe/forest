@@ -32,7 +32,7 @@ fn mk_map(entries: &[(Hash, BlockPosition)]) -> AHashMap<Hash, AHashSet<BlockPos
 fn lookup_singleton(key: Hash, value: BlockPosition) {
     let mut table = mk_table(&[(key, value)]);
     assert_eq!(query(&mut table, key), vec![value]);
-    assert_eq!(query(&mut table, !key), vec![]);
+    assert_eq!(query(&mut table, !key), Vec::<BlockPosition>::new());
 }
 
 // Identical to HashMap<Hash, HashSet<Position>> with almost no collision
