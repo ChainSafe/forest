@@ -14,6 +14,11 @@ pub mod json {
     #[serde(transparent)]
     pub struct TraceMessageJson(#[serde(with = "self")] pub TraceMessage);
 
+    /// Wrapper for serializing a TraceMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct TraceMessageJsonRef<'a>(#[serde(with = "self")] pub &'a TraceMessage);
+
     impl From<TraceMessageJson> for TraceMessage {
         fn from(wrapper: TraceMessageJson) -> Self {
             wrapper.0
@@ -74,4 +79,16 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {}
+pub mod tests {
+    use crate::shim::executor::TraceMessage;
+    use quickcheck_macros::quickcheck;
+
+    use super::json::{TraceMessageJson, TraceMessageJsonRef};
+
+    #[quickcheck]
+    fn trace_message_roundtrip(message: TraceMessage) {
+        let serialized = serde_json::to_string(&TraceMessageJsonRef(&message)).unwrap();
+        let parsed: TraceMessageJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message, parsed.0);
+    }
+}
