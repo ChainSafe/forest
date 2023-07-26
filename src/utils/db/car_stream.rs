@@ -66,9 +66,9 @@ impl Block {
     }
 }
 
-/// Stream of CAR blocks. If the input data is compressed with zstd, it will
-/// automatically be decompressed.
 pin_project! {
+    /// Stream of CAR blocks. If the input data is compressed with zstd, it will
+    /// automatically be decompressed.
     pub struct CarStream<ReaderT> {
         #[pin]
         reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
