@@ -72,10 +72,10 @@
 //!
 //! # Code layout
 //!
-//! A [`CarIndex`] maps from [`cid::Cid`]s to possible [`BlockPosition`]s. The
+//! A [`CarIndex`] maps from [`cid::Cid`]s to possible [`FrameOffset`]s. The
 //! mapping is unique unless the hash of two CIDs collide (possible but
 //! extremely unlikely). The caller should always verify that the [`cid::Cid`] in the
-//! CAR file at [`BlockPosition`] matches the requested [`cid::Cid`].
+//! CAR file at [`FrameOffset`] matches the requested [`cid::Cid`].
 //!
 //! [`CarIndexBuilder`] takes a collection of `(Cid, BlockPosition)` pairs and
 //! encodes them to a writer. The only guarantees about the format is that
