@@ -200,13 +200,13 @@ fn should_save_block_to_snapshot(cid: Cid) -> bool {
     }
 }
 
-/// Depth-first-search iterator for Ipld leaf nodes.
+/// Depth-first-search iterator for `ipld` leaf nodes.
 ///
-/// This iterator consumes the given Ipld structure and returns leaf nodes (i.e.,
+/// This iterator consumes the given `ipld` structure and returns leaf nodes (i.e.,
 /// no list or map) in depth-first order. The iterator can be extended at any
 /// point by the caller.
 ///
-/// Consider walking this Ipld graph:
+/// Consider walking this `ipld` graph:
 /// ```text
 /// List
 ///  ├ Integer(5)
@@ -219,7 +219,7 @@ fn should_save_block_to_snapshot(cid: Cid) -> bool {
 ///  └ "key2" => Float(3.14)
 /// ```
 ///
-/// If we walk the above ipld graph (replacing `Link(Y)` when it is encounted), the leaf nodes will be seen in this order:
+/// If we walk the above `ipld` graph (replacing `Link(Y)` when it is encountered), the leaf nodes will be seen in this order:
 /// 1. `Integer(5)`
 /// 2. `Bool(true)`
 /// 3. `Float(3.14)`
