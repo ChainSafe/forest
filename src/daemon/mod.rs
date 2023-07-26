@@ -151,15 +151,15 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
+    if let Some(db_path) = check_if_another_db_exist(&config) {
+        migrate_db(&config, db_path, LATEST_DB_VERSION).await?;
+    }
+
     let chain_data_path = chain_path(&config);
     let db = Arc::new(open_proxy_db(
         db_root(&chain_data_path),
         config.db_config().clone(),
     )?);
-
-    if let Some(db_path) = check_if_another_db_exist(&config) {
-        migrate_db(&config, db_path, LATEST_DB_VERSION).await?;
-    }
 
     let mut services = JoinSet::new();
 
