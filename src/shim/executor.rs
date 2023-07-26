@@ -171,7 +171,7 @@ pub struct TraceGasCharge {
     pub duration_nanos: u64,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Default, PartialEq, Clone, Debug)]
 pub struct Trace {
     pub msg: TraceMessage,
     pub msg_ret: TraceReturn,
@@ -179,7 +179,7 @@ pub struct Trace {
     pub subcalls: Vec<Trace>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Default, PartialEq, Clone, Debug)]
 pub struct TraceMessage {
     pub from: Address,
     pub to: Address,
@@ -208,6 +208,16 @@ pub struct TraceReturn {
     pub exit_code: ExitCode,
     pub return_data: Vec<u8>,
     pub return_codec: u64,
+}
+
+impl Default for TraceReturn {
+    fn default() -> Self {
+        Self {
+            exit_code: ExitCode::OK,
+            return_data: vec![],
+            return_codec: 0,
+        }
+    }
 }
 
 pub fn build_lotus_trace(

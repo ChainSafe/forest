@@ -118,30 +118,51 @@ pub mod json {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::shim::executor::Trace;
-//     use crate::shim::executor::TraceMessage;
-//     use crate::shim::executor::TraceReturn;
-//     use quickcheck_macros::quickcheck;
+#[cfg(test)]
+mod tests {
+    use crate::shim::executor::Trace;
+    use crate::shim::executor::TraceMessage;
+    use crate::shim::executor::TraceReturn;
+    use quickcheck::Arbitrary;
+    use quickcheck_macros::quickcheck;
 
-//     use super::*;
+    use super::*;
 
-//     impl quickcheck::Arbitrary for Trace {
-//         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-//             Self {
-//                 msg: TraceMessage::arbitrary(g),
-//                 msg_ret: TraceReturn::arbitrary(g),
-//                 gas_charges: Vec::arbitrary(g),
-//                 subcalls: Vec::arbitrary(g),
-//             }
-//         }
-//     }
+    impl quickcheck::Arbitrary for Trace {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self::arbitrary_trace(g, &mut g.size())
+        }
+    }
 
-//     #[quickcheck]
-//     fn trace_roundtrip(trace: Trace) {
-//         let serialized = crate::to_string_with!(&trace, json::serialize);
-//         let parsed: Trace = crate::from_str_with!(&serialized, json::deserialize);
-//         assert_eq!(trace, parsed);
-//     }
-// }
+    impl Trace {
+        /// Special version on `arbitrary` to battle possible recursion
+        fn arbitrary_trace(g: &mut quickcheck::Gen, size: &mut usize) -> Self {
+            if *size == 0 {
+                return Trace::default();
+            }
+            *size -= 1;
+            Self {
+                msg: TraceMessage::arbitrary(g),
+                msg_ret: TraceReturn::arbitrary(g),
+                gas_charges: Vec::arbitrary(g),
+                subcalls: (0..Self::arbitrary_size(g, size))
+                    .map(|_| Self::arbitrary_trace(g, size))
+                    .collect(),
+            }
+        }
+
+        fn arbitrary_size(g: &mut quickcheck::Gen, size: &mut usize) -> usize {
+            if *size == 0 {
+                return 0;
+            }
+            usize::arbitrary(g) % *size
+        }
+    }
+
+    #[quickcheck]
+    fn trace_roundtrip(trace: Trace) {
+        let serialized = crate::to_string_with!(&trace, json::serialize);
+        let parsed: Trace = crate::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(trace, parsed);
+    }
+}
