@@ -55,3 +55,25 @@ impl Slot {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for Slot {
+        fn arbitrary(g: &mut Gen) -> Self {
+            if bool::arbitrary(g) {
+                Slot::Empty
+            } else {
+                Slot::Full(KeyValuePair::arbitrary(g))
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn forest_footer_roundtrip(slot: Slot) {
+        assert_eq!(slot, Slot::from_le_bytes(slot.to_le_bytes()));
+    }
+}

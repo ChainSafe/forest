@@ -20,3 +20,13 @@ impl KeyValuePair {
         self.hash.distance(at, len)
     }
 }
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for KeyValuePair {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        KeyValuePair {
+            hash: Hash::from(u64::arbitrary(g)),
+            value: BlockPosition::arbitrary(g),
+        }
+    }
+}
