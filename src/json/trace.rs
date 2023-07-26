@@ -118,5 +118,30 @@ pub mod json {
     }
 }
 
-#[cfg(test)]
-pub mod tests {}
+// #[cfg(test)]
+// mod tests {
+//     use crate::shim::executor::Trace;
+//     use crate::shim::executor::TraceMessage;
+//     use crate::shim::executor::TraceReturn;
+//     use quickcheck_macros::quickcheck;
+
+//     use super::*;
+
+//     impl quickcheck::Arbitrary for Trace {
+//         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+//             Self {
+//                 msg: TraceMessage::arbitrary(g),
+//                 msg_ret: TraceReturn::arbitrary(g),
+//                 gas_charges: Vec::arbitrary(g),
+//                 subcalls: Vec::arbitrary(g),
+//             }
+//         }
+//     }
+
+//     #[quickcheck]
+//     fn trace_roundtrip(trace: Trace) {
+//         let serialized = crate::to_string_with!(&trace, json::serialize);
+//         let parsed: Trace = crate::from_str_with!(&serialized, json::deserialize);
+//         assert_eq!(trace, parsed);
+//     }
+// }

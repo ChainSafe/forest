@@ -171,7 +171,7 @@ pub struct TraceGasCharge {
     pub duration_nanos: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Trace {
     pub msg: TraceMessage,
     pub msg_ret: TraceReturn,
