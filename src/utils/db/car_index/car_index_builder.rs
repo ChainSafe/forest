@@ -13,15 +13,17 @@ pub struct CarIndexBuilder {
 }
 
 impl CarIndexBuilder {
+    // Number of buckets given `len` number of elements
     pub fn capacity_at(len: usize) -> usize {
         len * 100 / 81
     }
 
+    // Construct a new index builder that maps `Cid` to `FrameOffset`.
     pub fn new(values: impl ExactSizeIterator<Item = (Cid, FrameOffset)>) -> CarIndexBuilder {
         Self::new_raw(values.map(|(cid, value)| (Hash::from(cid), value)))
     }
 
-    pub fn new_raw(values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>) -> CarIndexBuilder {
+    pub(super) fn new_raw(values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>) -> CarIndexBuilder {
         let size = Self::capacity_at(values.len());
         let mut vec = Vec::with_capacity(size);
         vec.resize(size, Slot::Empty);
