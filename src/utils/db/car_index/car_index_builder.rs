@@ -126,7 +126,7 @@ impl CarIndexBuilder {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "benchmark-private"))]
     pub fn write(&self, mut writer: impl std::io::Write) -> std::io::Result<()> {
         writer.write_all(&self.header().to_le_bytes())?;
         for slot in self.table.iter() {

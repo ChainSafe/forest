@@ -7,7 +7,7 @@ use std::hint::black_box;
 use std::io::Cursor;
 
 use forest_filecoin::benchmark_private::{
-    car_index::{BlockPosition, CarIndex, CarIndexBuilder},
+    car_index::{FrameOffset, CarIndex, CarIndexBuilder},
     cid::CidCborExt,
 };
 
@@ -24,7 +24,7 @@ fn bench_fibs(c: &mut Criterion) {
     for i in 0..map_size as u64 {
         map.insert(
             Cid::from_cbor_blake2b256(&i).unwrap(),
-            BlockPosition::new(i, 0).unwrap(),
+            i as FrameOffset,
         );
     }
     let live_key = Cid::from_cbor_blake2b256(&0xbeef_u64).unwrap();
@@ -34,7 +34,7 @@ fn bench_fibs(c: &mut Criterion) {
         let i = i as u64;
         (
             Cid::from_cbor_blake2b256(&i).unwrap(),
-            BlockPosition::new(i, 0).unwrap(),
+            i as FrameOffset,
         )
     }));
 
