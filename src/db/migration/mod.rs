@@ -106,7 +106,7 @@ fn migrate(_existing_db_path: &Path, next_version: &DBVersion) -> anyhow::Result
 /// Checks if another database already exist
 pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     let dir = PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string());
-    let paths = fs::read_dir(&dir).unwrap();
+    let paths = fs::read_dir(&dir).ok()?;
     for dir in paths.flatten() {
         let path = dir.path();
         if path.is_dir() && path != chain_path(config) {
