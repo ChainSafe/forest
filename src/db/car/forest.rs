@@ -5,13 +5,13 @@
 //!
 //! See [`crate::db::car::plain`] for details on the CAR format.
 //!
-//! The forest.car.zst format wraps multiple CAR blocks in small (usually 8KiB)
+//! The `forest.car.zst` format wraps multiple CAR blocks in small (usually 8 KiB)
 //! zstd frames, and has an index in a skippable zstd frame. At the end of the
 //! data, there has to be a fixed-size skippable frame containing magic numbers
 //! and meta information about the archive. CAR blocks may not span multiple
 //! z-frames and the CAR header is kept it a separate z-frame.
 //!
-//! Imagine a forest.car.zst archive with 5 blocks. They could be arranged in
+//! Imagine a `forest.car.zst` archive with 5 blocks. They could be arranged in
 //! z-frames as drawn below:
 //!
 //! ```text
@@ -33,6 +33,12 @@
 //! the right z-frame. The frame is then decoded and each block is linearly
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
 //! a lru-cache for faster repeat retrievals.
+//!
+//! # Additional reading
+//!
+//! `zstd` frame format: <https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md>
+//!
+//! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
 use crate::db::car::plain::write_skip_frame_header_async;

@@ -62,6 +62,7 @@ RPC
 SECP
 SECP256k1
 seekable
+skippable
 serializable
 serializer/SM
 statediff
