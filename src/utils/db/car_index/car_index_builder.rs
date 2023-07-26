@@ -93,7 +93,7 @@ impl CarIndexBuilder {
         self.capacity -= 1;
 
         let len = self.table.len() as u64;
-        let mut at = new.optimal_offset(len);
+        let mut at = new.bucket(len);
         loop {
             match self.table[at as usize] {
                 Slot::Empty => {

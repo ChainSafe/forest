@@ -11,7 +11,7 @@ pub struct KeyValuePair {
 
 impl KeyValuePair {
     // Optimal offset for a hash with a given table length
-    pub fn optimal_offset(&self, len: u64) -> u64 {
+    pub fn bucket(&self, len: u64) -> u64 {
         self.hash.bucket(len)
     }
 

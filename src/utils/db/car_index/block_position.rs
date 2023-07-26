@@ -6,21 +6,12 @@ pub struct BlockPosition(u64);
 
 impl BlockPosition {
     // Returns None if the two offets cannot be stored in a single u64
-    pub fn new(zst_frame_offset: u64, decoded_offset: u16) -> Option<Self> {
-        if zst_frame_offset >> (64 - 16) != 0 {
-            None
-        } else {
-            Some(BlockPosition(
-                zst_frame_offset << 16 | decoded_offset as u64,
-            ))
-        }
+    pub fn new(zst_frame_offset: u64) -> Self {
+        BlockPosition(zst_frame_offset)
     }
 
     pub fn zst_frame_offset(self) -> u64 {
-        self.0 >> 16
-    }
-    pub fn decoded_offset(self) -> u16 {
-        self.0 as u16
+        self.0
     }
 
     pub fn from_le_bytes(bytes: [u8; 8]) -> BlockPosition {
@@ -44,20 +35,10 @@ impl BlockPosition {
 mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
-    use quickcheck_macros::quickcheck;
 
     impl Arbitrary for BlockPosition {
         fn arbitrary(g: &mut Gen) -> BlockPosition {
-            BlockPosition::new(
-                (u64::arbitrary(g) >> u16::BITS).saturating_sub(1),
-                u16::arbitrary(g),
-            )
-            .unwrap()
+            BlockPosition::new(u64::arbitrary(g))
         }
-    }
-
-    #[quickcheck]
-    fn position_roundtrip(p: BlockPosition) {
-        assert_eq!(p, BlockPosition::decode(p.encode()))
     }
 }

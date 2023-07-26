@@ -33,13 +33,6 @@ pub struct Block {
 }
 
 impl Block {
-    // Length of a varint encoded block frame
-    pub fn encoded_len(&self) -> usize {
-        let frame_length = self.cid.encoded_len() + self.data.len();
-        let varint_length = frame_length.required_space();
-        varint_length + frame_length
-    }
-
     // Write a varint frame containing the cid and the data
     pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
         let frame_length = self.cid.encoded_len() + self.data.len();

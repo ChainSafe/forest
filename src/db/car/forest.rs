@@ -149,7 +149,7 @@ impl Encoder {
     pub async fn write(
         sink: &mut (impl AsyncWrite + Unpin),
         roots: Vec<Cid>,
-        mut stream: impl TryStream<Ok = Either<(Cid, u16), Bytes>, Error = io::Error> + Unpin,
+        mut stream: impl TryStream<Ok = Either<Cid, Bytes>, Error = io::Error> + Unpin,
     ) -> io::Result<()> {
         let mut position = 0;
 
@@ -171,13 +171,10 @@ impl Encoder {
         let mut cid_map = ahash::HashMap::new();
         while let Some(either) = stream.try_next().await? {
             match either {
-                Either::Left((cid, offset)) => {
+                Either::Left(cid) => {
                     cid_map.insert(
                         cid,
-                        BlockPosition::new(position as u64, offset).ok_or(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "zstd archive size of 256TiB exceeded",
-                        ))?,
+                        BlockPosition::new(position as u64),
                     );
                 }
                 Either::Right(zstd_frame) => {
@@ -207,9 +204,8 @@ impl Encoder {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         stream: impl TryStream<Ok = Block, Error = io::Error>,
-    ) -> impl TryStream<Ok = Either<(Cid, u16), Bytes>, Error = io::Error> {
+    ) -> impl TryStream<Ok = Either<Cid, Bytes>, Error = io::Error> {
         let mut encoder_store = new_encoder(zstd_compression_level);
-        let mut frame_offset: usize = 0;
 
         let mut stream = Box::pin(stream.into_stream());
         futures::stream::poll_fn(move |cx| {
@@ -222,10 +218,9 @@ impl Encoder {
                 Ok(encoder) => encoder,
             };
 
-            // Emit frame if compressed_len > zstd_frame_size_tripwire OR uncompressed_len >= 2^16
-            if compressed_len(encoder) > zstd_frame_size_tripwire || frame_offset >= 1 << 16 {
+            // Emit frame if compressed_len > zstd_frame_size_tripwire
+            if compressed_len(encoder) > zstd_frame_size_tripwire {
                 let frame = finalize_frame(zstd_compression_level, encoder)?;
-                frame_offset = 0;
                 return Poll::Ready(Some(Ok(Either::Right(frame))));
             }
             // No frame to emit, let's get another block
@@ -247,15 +242,9 @@ impl Encoder {
                 // Got element, add to encoder and emit block position
                 Some(Ok(block)) => {
                     let cid = block.cid;
-                    let frame_offset_u16 =
-                        u16::try_from(frame_offset).ok().ok_or(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "frame_offset should fit in 16 bits",
-                        ))?;
-                    frame_offset += block.encoded_len();
                     block.write(encoder)?;
                     encoder.flush()?;
-                    Poll::Ready(Some(Ok(Either::Left((cid, frame_offset_u16)))))
+                    Poll::Ready(Some(Ok(Either::Left(cid))))
                 }
             }
         })
