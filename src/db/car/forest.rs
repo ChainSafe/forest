@@ -7,8 +7,8 @@ use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::uvibytes::UviBytes;
-use ahash::HashMapExt;
-use bytes::{buf::Writer, Buf, BufMut as _, Bytes, BytesMut};
+use ahash::{HashMap, HashMapExt};
+use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
 use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
@@ -33,7 +33,7 @@ pub struct ForestCar<ReaderT> {
 struct ForestCarInner<ReaderT> {
     // new_reader: Box<dyn Fn() -> ReaderT>,
     reader: ReaderT,
-    frame_cache: LruCache<u64, BytesMut>,
+    frame_cache: LruCache<u64, HashMap<Cid, Vec<u8>>>,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
     roots: Vec<Cid>,
@@ -95,37 +95,27 @@ where
             return Ok(Some(value.clone()));
         }
 
-        let stored = index.lookup(*k)?;
-
-        for position in stored.into_iter() {
-            let mut zstd_frame = if let Some(cache) = frame_cache.get(&position.zst_frame_offset())
-            {
-                // Clone frame from cache
-                cache.clone()
-            } else {
+        for position in index.lookup(*k)?.into_iter() {
+            let block_map = frame_cache.try_get_or_insert(position.zst_frame_offset(), || {
                 // Seek to the start of the zstd frame
                 reader.seek(SeekFrom::Start(position.zst_frame_offset()))?;
                 // Decode entire frame into memory
-                let frame = decode_zstd_single_frame(reader)?;
-                frame_cache.put(position.zst_frame_offset(), frame.clone());
-                frame
-            };
-
-            // Seek to the start of the block frame
-            zstd_frame.advance(position.decoded_offset() as usize);
-            // Read block data into memory
-            let block_frame = UviBytes::default()
-                .decode(&mut zstd_frame)?
-                .ok_or(invalid_data("malformed uvibytes"))?;
-            // Parse block data as CID+Value pair
-            if let Some(block) = Block::from_bytes(block_frame) {
-                // This is almost always true. Hash collisions do happen with
-                // identity-encoded CIDs, though.
-                if block.cid == *k {
-                    return Ok(Some(block.data));
+                let mut zstd_frame = decode_zstd_single_frame(reader)?;
+                // Parse all key-value pairs and insert them into a map
+                let mut block_map = HashMap::new();
+                while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
+                    if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
+                        block_map.insert(cid, data);
+                    } else {
+                        return Err(invalid_data("corrupted key-value block"));
+                    }
                 }
-            } else {
-                return Err(invalid_data("corrupted key-value block"))?;
+                Ok(block_map)
+            })?;
+
+            // This lookup only fails in case of a hash collision
+            if let Some(value) = block_map.get(k) {
+                return Ok(Some(value.clone()));
             }
         }
         Ok(None)
