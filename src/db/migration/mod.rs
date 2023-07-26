@@ -37,7 +37,7 @@ async fn migration_check(config: &Config, existing_chain_data_root: &Path) -> an
     }
     ensure_params_downloaded().await?;
 
-    // Open existing db
+    // Open db
     let db = Arc::new(open_proxy_db(
         db_root(existing_chain_data_root),
         config.db_config().clone(),
@@ -103,7 +103,7 @@ fn migrate(_existing_db_path: &Path, next_version: &DBVersion) -> anyhow::Result
     }
 }
 
-/// Checks if another db already exist
+/// Checks if another database already exist
 pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     let dir = PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string());
     let paths = fs::read_dir(&dir).unwrap();
@@ -116,7 +116,7 @@ pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     None
 }
 
-/// Returns respective `DBVersion` from db dir name
+/// Returns `DBVersion` for the given database path.
 fn get_db_version(db_path: &Path) -> DBVersion {
     match db_path
         .parent()
