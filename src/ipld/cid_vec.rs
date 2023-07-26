@@ -2,17 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
-use cid::{
-    multihash::{self, MultihashDigest},
-    Cid,
-};
+use cid::{multihash, Cid};
 use fvm_ipld_encoding::DAG_CBOR;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct CidVec {
-    pub v1_dagcbor_blake2b_vec: Vec<[u8; BLAKE2B256_SIZE]>,
-    pub fallback_vec: Vec<Cid>,
+// CidVec takes advantage of the fact that the V1 DAG-CBOR Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid` type) is +99.99% of all CIDs. CidVec defaults to the `Vec<[u8; BLAKE2B256_SIZE]>` type, only using the more expensive `Vec<Cid>` type when necessary.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CidVec {
+    V1Cids(Vec<[u8; BLAKE2B256_SIZE]>),
+    AllCids(Vec<Cid>),
+}
+
+impl Default for CidVec {
+    fn default() -> Self {
+        Self::V1Cids(Vec::new())
+    }
 }
 
 impl FromIterator<Cid> for CidVec {
@@ -27,6 +31,7 @@ impl FromIterator<Cid> for CidVec {
 
 impl From<Vec<Cid>> for CidVec {
     fn from(vec: Vec<Cid>) -> Self {
+        // TODO: add logic to convert to V1Cids if possible
         vec.into_iter().collect()
     }
 }
@@ -45,73 +50,89 @@ impl From<CidVec> for Vec<Cid> {
 
 impl CidVec {
     pub fn new() -> Self {
-        Self {
-            v1_dagcbor_blake2b_vec: Vec::new(),
-            fallback_vec: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn new_from_cid(cid: Cid) -> Self {
-        let mut vec = Self::new();
-        vec.push(cid);
-        vec
-    }
-
-    pub fn push(&mut self, cid: Cid) {
         match cid.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => self.v1_dagcbor_blake2b_vec.push(bytes),
-            Err(()) => self.fallback_vec.push(cid),
+            Ok(CidVariant::V1DagCborBlake2b(bytes)) => Self::V1Cids(vec![bytes]),
+            _ => Self::AllCids(vec![cid]),
         }
     }
 
     pub fn cids(&self) -> Vec<Cid> {
-        self.v1_dagcbor_blake2b_vec
-            .iter()
-            .map(|bytes| Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(bytes)))
-            .into_iter()
-            .chain(self.fallback_vec.clone())
-            .collect()
+        match self {
+            Self::V1Cids(cids) => cids
+                .iter()
+                .map(|c| {
+                    Cid::new_v1(
+                        DAG_CBOR,
+                        multihash::Multihash::wrap(DAG_CBOR, c)
+                            .expect("failed to convert digest to CID"),
+                    )
+                })
+                .collect(),
+            Self::AllCids(cids) => cids.clone(),
+        }
     }
-}
 
-impl Iterator for CidVec {
-    type Item = Cid;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(bytes) = self.v1_dagcbor_blake2b_vec.pop() {
-            Some(Cid::new_v1(
-                DAG_CBOR,
-                multihash::Code::Blake2b256.digest(&bytes),
-            ))
-        } else {
-            self.fallback_vec.pop()
+    pub fn push(&mut self, cid: Cid) {
+        match self {
+            Self::V1Cids(cids) => {
+                if let Ok(CidVariant::V1DagCborBlake2b(bytes)) = cid.try_into() {
+                    cids.push(bytes);
+                } else {
+                    let mut cids: Vec<Cid> = std::mem::take(cids)
+                        .into_iter()
+                        .map(|c| {
+                            Cid::new_v1(
+                                DAG_CBOR,
+                                multihash::Multihash::wrap(DAG_CBOR, &c)
+                                    .expect("failed to convert digest to CID"),
+                            )
+                        })
+                        .collect();
+                    cids.push(cid);
+                    *self = Self::AllCids(cids);
+                }
+            }
+            Self::AllCids(cids) => cids.push(cid),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::utils::encoding::blake2b_256;
-
     use super::*;
+    use cid::multihash::MultihashDigest;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
     impl Arbitrary for CidVec {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let arbitrary_vec: Vec<u64> = Vec::arbitrary(g);
-            Self {
-                v1_dagcbor_blake2b_vec: arbitrary_vec
-                    .iter()
-                    .map(|i| blake2b_256(&i.to_be_bytes()))
-                    .collect(),
-                fallback_vec: Vec::arbitrary(g),
+            // Although the vast majority of CIDs are V1DagCborBlake2b, we want to generate the variants of CidVec with equal probability.
+            if bool::arbitrary(g) {
+                Vec::arbitrary(g).into_iter().collect()
+            } else {
+                // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs, but we can manually create them from an arbitrary Vec<u32>.
+                let vec: Vec<u32> = Vec::arbitrary(g);
+                vec.into_iter()
+                    .map(|bytes| {
+                        Cid::new_v1(
+                            DAG_CBOR,
+                            multihash::Code::Blake2b256.digest(&bytes.to_be_bytes()),
+                        )
+                    })
+                    .collect()
             }
         }
     }
 
     #[quickcheck]
     fn cidvec_to_vec_of_cids_to_cidvec(cidvec: CidVec) {
+        // TODO: remove println statements after resolving failing case (i.e., conversion from Vec<Cid> back to V1Cids)
+        println!("cidvec: {:?}", cidvec);
+        println!("vec_cid: {:?}", Vec::<Cid>::from(cidvec.clone()));
         assert_eq!(cidvec, CidVec::from(Vec::<Cid>::from(cidvec.clone())));
     }
 }

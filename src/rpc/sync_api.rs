@@ -118,7 +118,7 @@ mod tests {
             let header = from_slice::<BlockHeader>(&bz).unwrap();
             let ts = Tipset::from(header);
             let db = cs_for_test.blockstore();
-            let tsk = ts.key().cids.clone();
+            let tsk = ts.key().cids.cids().clone();
             cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
 
             for i in tsk {
