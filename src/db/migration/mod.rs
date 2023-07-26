@@ -17,7 +17,6 @@ use tracing::info;
 
 pub const LATEST_DB_VERSION: DBVersion = DBVersion::V11;
 
-// TODO: Add a new enum variant for every new database version
 /// Database version for each forest version which supports db migration
 #[derive(Debug, Eq, PartialEq)]
 pub enum DBVersion {
@@ -75,7 +74,6 @@ pub async fn migrate_db(
     // Iterate over all DBVersion's until database is migrated to lastest version
     while current_version != target_version {
         let next_version = match current_version {
-            // TODO: Add version transition for each DBVersion
             DBVersion::V0 => DBVersion::V11,
             _ => break,
         };

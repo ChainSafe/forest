@@ -6,9 +6,9 @@ function sync_with_tag() {
     local tag=$1
     echo "Syncing using tag ($tag)..."
 
-    # Create the download URL for the binary
+    # Create the download URL for the forest release
     URL="https://github.com/ChainSafe/forest/releases/download/${tag}/forest-${tag}-linux-amd64.zip"
-    # Download the binary using wget
+    # Download the release using curl
     curl -LJO "${URL}"
     
     # Unzip the downloaded file
