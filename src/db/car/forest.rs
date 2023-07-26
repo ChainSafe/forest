@@ -319,8 +319,11 @@ impl ForestCarFooter {
         let footer_data_len: u32 = 8;
 
         let mut buffer = [0; 16];
+        // Skippable frames start with 50 2A 4D 18
         buffer[0..4].copy_from_slice(&[0x50, 0x2A, 0x4D, 0x18]);
+        // Then a u32 containing the length of the data in the frame
         buffer[4..8].copy_from_slice(&footer_data_len.to_le_bytes());
+        // And finally the metadata we want to store
         buffer[8..16].copy_from_slice(&self.index.to_le_bytes());
         buffer
     }
