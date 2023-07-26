@@ -19,7 +19,7 @@ func TestStateMigrationNV17(t *testing.T) {
 	bs := migration9Test.NewSyncBlockStoreInMemory()
 	ctx := context.Background()
 
-	LoadCar(t, ctx, bs, fmt.Sprintf("../../../../actor_bundles/%s.car", newManifestCid))
+	LoadCar(t, ctx, bs, fmt.Sprintf("../../../../target/actor_bundles/%s.car", newManifestCid))
 	LoadCar(t, ctx, bs, fmt.Sprintf("../data/%s.car", startRoot))
 	// Or LoadCompressedCar for .car.zst
 	// LoadCompressedCar(t, ctx, bs, fmt.Sprintf("../data/%s.car.zst", startRoot))

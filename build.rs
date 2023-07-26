@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    env, io,
+    env, fs, io,
     path::{Path, PathBuf},
     pin::pin,
 };
@@ -24,6 +24,8 @@ use walkdir::WalkDir;
 const PROTO_DIR: &str = "proto";
 const CARGO_OUT_DIR: &str = "proto";
 
+const ACTOR_BUNDLE_CACHE_DIR: &str = "target/actor_bundles/";
+
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
     CLIENT.clone()
@@ -39,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed=actor_bundles");
+    println!("cargo:rerun-if-changed={ACTOR_BUNDLE_CACHE_DIR}");
 
     let mut tasks = JoinSet::new();
     for (root, url) in [
@@ -142,13 +144,16 @@ where
 }
 
 async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathBuf> {
-    const ACTOR_BUNDLE_CACHE_DIR: &str = "./actor_bundles/";
     // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
-    let cached_path = Path::new(ACTOR_BUNDLE_CACHE_DIR).join(format!("{root}.car"));
-    if cached_path.is_file() {
-        if let Ok(file) = async_fs::File::open(&cached_path).await {
+    let cached_car_dir = Path::new(ACTOR_BUNDLE_CACHE_DIR);
+    if !cached_car_dir.is_dir() {
+        fs::create_dir_all(cached_car_dir)?;
+    }
+    let cached_car_path = cached_car_dir.join(format!("{root}.car"));
+    if cached_car_path.is_file() {
+        if let Ok(file) = async_fs::File::open(&cached_car_path).await {
             if let Ok(true) = is_bundle_valid(&root, BufReader::new(file)).await {
-                return Ok(cached_path);
+                return Ok(cached_car_path);
             }
         }
     }
@@ -168,8 +173,8 @@ async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathB
         writer.flush().await?;
     }
     if is_bundle_valid(&root, BufReader::new(async_fs::File::open(&tmp).await?)).await? {
-        tmp.persist(&cached_path)?;
-        Ok(cached_path)
+        tmp.persist(&cached_car_path)?;
+        Ok(cached_car_path)
     } else {
         anyhow::bail!("Invalid bundle: {url}");
     }
