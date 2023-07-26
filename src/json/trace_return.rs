@@ -7,7 +7,7 @@ pub mod json {
     use crate::shim::executor::TraceReturn;
     use fvm_shared3::error::ExitCode;
 
-    /// Wrapper for serializing and de-serializing a TraceReturn from JSON.
+    /// Wrapper for serializing and de-serializing a `TraceReturn` from JSON.
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(transparent)]
     pub struct TraceReturnJson(#[serde(with = "self")] pub TraceReturn);
