@@ -198,90 +198,19 @@ impl SnapshotCommands {
                 compression_level,
                 frame_size,
             } => {
-                {
-                    let file = tokio::io::BufReader::new(File::open(&source).await?);
-                    let mut block_stream = CarStream::new(file).await?;
-                    let roots = std::mem::take(&mut block_stream.header.roots);
+                let file = tokio::io::BufReader::new(File::open(&source).await?);
+                let mut block_stream = CarStream::new(file).await?;
+                let roots = std::mem::take(&mut block_stream.header.roots);
 
-                    let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
+                let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
 
-                    let frames = crate::db::car::forest::Encoder::compress_stream(
-                        frame_size,
-                        compression_level,
-                        block_stream,
-                    );
-                    crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
-                    dest.flush().await?;
-                }
-
-                // {
-                //     let file = tokio::io::BufReader::with_capacity(
-                //         1024 * 1024,
-                //         File::open(&source).await?,
-                //     );
-                //     let mut block_stream = CarStream::new(file).await?;
-
-                //     let forest_car =
-                //         ForestCar::open(move || std::fs::File::open(&destination).unwrap())?;
-
-                //     let now = std::time::Instant::now();
-                //     println!("Counting blocks...");
-                //     let mut count = 0;
-                //     while let Some(block) = block_stream.try_next().await? {
-                //         // println!("Looking at block: {}", block.cid);
-                //         // println!("Count: {}", count);
-                //         // let expected = block.data.len();
-                //         // let got = forest_car.get(&block.cid)?.unwrap().len();
-                //         // if expected != got {
-                //         //     break;
-                //         // }
-                //         if count % 10_000 == 0 {
-                //             println!("Count: {}", count);
-                //         }
-                //         count += 1;
-                //     }
-                //     println!("Count: {}, {}", count, now.elapsed().human_duration());
-                // }
-
-                // {
-                //     let file = tokio::io::BufReader::new(
-                //         File::open(&source).await?,
-                //     );
-                //     let mut block_stream = CarStream::new(file).await?;
-
-                //     let now = std::time::Instant::now();
-                //     println!("Counting blocks...");
-                //     let mut count = 0;
-                //     while let Some(block) = block_stream.try_next().await? {
-                //         count += 1;
-                //         if count % 100_000 == 0 {
-                //             println!("Count: {}", count);
-                //         }
-                //     }
-                //     println!("Count: {}, {}", count, now.elapsed().human_duration());
-                // }
-
-                // {
-                //     use fvm_ipld_car::CarReader;
-                //     use tokio_util::compat::TokioAsyncReadCompatExt;
-
-                //     let file = tokio::io::BufReader::with_capacity(
-                //         1024 * 1024,
-                //         File::open(&source).await?,
-                //     );
-                //     let mut car_reader = CarReader::new(file.compat()).await?;
-                //     car_reader.validate = false;
-                //     let now = std::time::Instant::now();
-                //     let mut count = 0;
-                //     while let Some(_block) = car_reader.next_block().await? {
-                //         count += 1;
-                //         if count % 100_000 == 0 {
-                //             println!("Count: {}", count);
-                //         }
-                //     }
-                //     println!("Count: {}, {}", count, now.elapsed().human_duration());
-                // }
-
+                let frames = crate::db::car::forest::Encoder::compress_stream(
+                    frame_size,
+                    compression_level,
+                    block_stream,
+                );
+                crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
+                dest.flush().await?;
                 Ok(())
             }
         }
