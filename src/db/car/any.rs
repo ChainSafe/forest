@@ -18,6 +18,7 @@ impl<ReaderT: Read + Seek> AnyCar<ReaderT> {
         if let Ok(plain_car) = super::PlainCar::new(mk_reader()?) {
             return Ok(AnyCar::Plain(plain_car));
         }
+        // Maybe use a tempfile for this in the future.
         if let Ok(decompressed) = zstd::stream::decode_all(mk_reader()?) {
             let mem_reader = Cursor::new(decompressed);
             if let Ok(mem_car) = super::PlainCar::new(mem_reader) {
