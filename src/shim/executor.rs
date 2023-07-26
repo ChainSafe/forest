@@ -162,7 +162,7 @@ impl From<Receipt_v3> for Receipt {
 
 // We match Lotus structures and code to have similar json trace and an easier diff:
 // https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L391
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct TraceGasCharge {
     pub name: Cow<'static, str>,
     pub total_gas: u64,

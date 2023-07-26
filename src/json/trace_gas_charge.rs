@@ -99,4 +99,28 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {}
+mod tests {
+    use crate::shim::executor::TraceGasCharge;
+    use quickcheck_macros::quickcheck;
+
+    use super::*;
+
+    impl quickcheck::Arbitrary for TraceGasCharge {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self {
+                name: String::arbitrary(g).into(),
+                total_gas: u64::arbitrary(g),
+                compute_gas: u64::arbitrary(g),
+                other_gas: u64::arbitrary(g),
+                duration_nanos: u64::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn trace_gas_charge_roundtrip(gc: TraceGasCharge) {
+        let serialized = crate::to_string_with!(&gc, json::serialize);
+        let parsed: TraceGasCharge = crate::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(gc, parsed);
+    }
+}
