@@ -7,7 +7,6 @@ concurrency:
 
 on:
   workflow_dispatch:
-  merge_group:
   pull_request:
     branches:
       - main
@@ -16,25 +15,15 @@ on:
       - main
 
 jobs:
-  build-ubuntu:
-    name: Build Ubuntu
+  migration-check:
+    name: Forest database migration checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Sources
+      - name: Checkout sources
         uses: actions/checkout@v3
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Install Apt Dependencies
-        run: |
-          sudo make install-deps
-
-  migration-check:
-    needs:
-      - build-ubuntu
-    name: Forest migration checks
-    runs-on: ubuntu-latest
-    steps:
       - name: migration check
         run: ./scripts/migration_check.sh
