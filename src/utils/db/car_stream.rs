@@ -66,6 +66,8 @@ impl Block {
     }
 }
 
+/// Stream of CAR blocks. If the input data is compressed with zstd, it will
+/// automatically be decompressed.
 pin_project! {
     pub struct CarStream<ReaderT> {
         #[pin]
