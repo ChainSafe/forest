@@ -19,7 +19,6 @@ cfg_if::cfg_if! {
 mod auth;
 mod beacon;
 mod blocks;
-mod car_backed_blockstore;
 mod chain;
 mod chain_sync;
 mod cli;
@@ -76,7 +75,10 @@ pub mod doctest_private {
 // Allow benchmarks of forest internals
 #[cfg(feature = "benchmark-private")]
 #[doc(hidden)]
-pub mod benchmark_private {}
+pub mod benchmark_private {
+    pub use crate::utils::cid;
+    pub use crate::utils::db::car_index;
+}
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};

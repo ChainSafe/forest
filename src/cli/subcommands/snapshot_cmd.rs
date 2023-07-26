@@ -3,37 +3,34 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::car_backed_blockstore::{
-    self, CompressedCarV1BackedBlockstore, MaxFrameSizeExceeded, UncompressedCarV1BackedBlockstore,
-};
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
+use crate::db::car::AnyCar;
 use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
 use crate::shim::machine::MultiEngine;
+use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tempfile::NamedTempFile;
+use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tracing::info;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
-        /// Snapshot output filename or directory. Defaults to
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
@@ -184,81 +181,37 @@ impl SnapshotCommands {
                 check_stateroots,
                 snapshot,
             } => {
-                // this is all blocking...
-                use std::fs::File;
-                match CompressedCarV1BackedBlockstore::new(BufReader::new(File::open(&snapshot)?)) {
-                    Ok(store) => {
-                        validate_with_blockstore(
-                            store.roots(),
-                            Arc::new(store),
-                            check_links,
-                            check_network,
-                            check_stateroots,
-                        )
-                        .await
-                    }
-                    Err(error)
-                        if error.kind() == std::io::ErrorKind::Other
-                            && error.get_ref().is_some_and(|inner| {
-                                inner.downcast_ref::<MaxFrameSizeExceeded>().is_some()
-                            }) =>
-                    {
-                        bail!("The provided compressed car file cannot be used as a blockstore. Prepare it using `forest snapshot compress ...`")
-                    }
-                    Err(error) => {
-                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
-                        let store = UncompressedCarV1BackedBlockstore::new(File::open(&snapshot)?)?;
-                        validate_with_blockstore(
-                            store.roots(),
-                            Arc::new(store),
-                            check_links,
-                            check_network,
-                            check_stateroots,
-                        )
-                        .await
-                    }
-                }
+                let store = AnyCar::new(move || std::fs::File::open(&snapshot))?;
+                validate_with_blockstore(
+                    store.roots(),
+                    Arc::new(store),
+                    check_links,
+                    check_network,
+                    check_stateroots,
+                )
+                .await
             }
+
             Self::Compress {
                 source,
                 destination,
                 compression_level,
                 frame_size,
             } => {
-                // We've got a binary blob, and we're not exactly sure if it's compressed, and we can't just peek the header:
-                // For example, the zstsd magic bytes are a valid varint frame prefix:
-                assert_eq!(
-                    <usize as integer_encoding::VarInt>::decode_var(&[0xFD, 0x2F, 0xB5, 0x28])
-                        .unwrap()
-                        .1,
-                    6141,
-                );
-                // so the best thing to do is to just try compressed and then uncompressed.
-                use car_backed_blockstore::zstd_compress_varint_manyframe;
-                use tokio::fs::File;
-                match zstd_compress_varint_manyframe(
-                    async_compression::tokio::bufread::ZstdDecoder::new(tokio::io::BufReader::new(
-                        File::open(&source).await?,
-                    )),
-                    File::create(&destination).await?,
+                let file = tokio::io::BufReader::new(File::open(&source).await?);
+                let mut block_stream = CarStream::new(file).await?;
+                let roots = std::mem::take(&mut block_stream.header.roots);
+
+                let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
+
+                let frames = crate::db::car::forest::Encoder::compress_stream(
                     frame_size,
                     compression_level,
-                )
-                .await
-                {
-                    Ok(_num_frames) => Ok(()),
-                    Err(error) => {
-                        info!(%error, "file may be uncompressed, retrying as a plain CAR...");
-                        zstd_compress_varint_manyframe(
-                            File::open(&source).await?,
-                            File::create(&destination).await?,
-                            frame_size,
-                            compression_level,
-                        )
-                        .await?;
-                        Ok(())
-                    }
-                }
+                    block_stream,
+                );
+                crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
+                dest.flush().await?;
+                Ok(())
             }
         }
     }
