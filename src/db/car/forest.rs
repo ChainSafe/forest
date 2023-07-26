@@ -48,7 +48,6 @@ use crate::utils::encoding::uvibytes::UviBytes;
 use ahash::{HashMap, HashMapExt};
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
-use futures::future::Either;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec};
@@ -187,7 +186,7 @@ impl Encoder {
     pub async fn write(
         sink: &mut (impl AsyncWrite + Unpin),
         roots: Vec<Cid>,
-        mut stream: impl TryStream<Ok = Either<Cid, Bytes>, Error = io::Error> + Unpin,
+        mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = io::Error> + Unpin,
     ) -> io::Result<()> {
         let mut offset = 0;
 
@@ -207,16 +206,12 @@ impl Encoder {
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
         let mut cid_map = ahash::HashMap::new();
-        while let Some(either) = stream.try_next().await? {
-            match either {
-                Either::Left(cid) => {
-                    cid_map.insert(cid, offset as FrameOffset);
-                }
-                Either::Right(zstd_frame) => {
-                    offset += zstd_frame.len();
-                    sink.write_all(&zstd_frame).await?;
-                }
+        while let Some((cids, zstd_frame)) = stream.try_next().await? {
+            for cid in cids {
+                cid_map.insert(cid, offset as FrameOffset);
             }
+            sink.write_all(&zstd_frame).await?;
+            offset += zstd_frame.len();
         }
 
         // Create index
@@ -239,8 +234,9 @@ impl Encoder {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         stream: impl TryStream<Ok = Block, Error = io::Error>,
-    ) -> impl TryStream<Ok = Either<Cid, Bytes>, Error = io::Error> {
+    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = io::Error> {
         let mut encoder_store = new_encoder(zstd_compression_level);
+        let mut frame_cids = vec![];
 
         let mut stream = Box::pin(stream.into_stream());
         futures::stream::poll_fn(move |cx| {
@@ -252,34 +248,36 @@ impl Encoder {
                 }
                 Ok(encoder) => encoder,
             };
-
-            // Emit frame if compressed_len > zstd_frame_size_tripwire
-            if compressed_len(encoder) > zstd_frame_size_tripwire {
-                let frame = finalize_frame(zstd_compression_level, encoder)?;
-                return Poll::Ready(Some(Ok(Either::Right(frame))));
-            }
-            // No frame to emit, let's get another block
-            let ret = futures::ready!(stream.as_mut().poll_next(cx));
-            match ret {
-                // End-of-stream
-                None => {
-                    // If there's anything in the zstd buffer, emit it.
-                    if compressed_len(encoder) > 0 {
-                        let frame = finalize_frame(zstd_compression_level, encoder)?;
-                        Poll::Ready(Some(Ok(Either::Right(frame))))
-                    } else {
-                        // Otherwise we're all done.
-                        Poll::Ready(None)
-                    }
+            loop {
+                // Emit frame if compressed_len > zstd_frame_size_tripwire
+                if compressed_len(encoder) > zstd_frame_size_tripwire {
+                    let cids = std::mem::take(&mut frame_cids);
+                    let frame = finalize_frame(zstd_compression_level, encoder)?;
+                    return Poll::Ready(Some(Ok((cids, frame))));
                 }
-                // Pass errors through
-                Some(Err(e)) => Poll::Ready(Some(Err(e))),
-                // Got element, add to encoder and emit block position
-                Some(Ok(block)) => {
-                    let cid = block.cid;
-                    block.write(encoder)?;
-                    encoder.flush()?;
-                    Poll::Ready(Some(Ok(Either::Left(cid))))
+                // No frame to emit, let's get another block
+                let ret = futures::ready!(stream.as_mut().poll_next(cx));
+                match ret {
+                    // End-of-stream
+                    None => {
+                        // If there's anything in the zstd buffer, emit it.
+                        if compressed_len(encoder) > 0 {
+                            let cids = std::mem::take(&mut frame_cids);
+                            let frame = finalize_frame(zstd_compression_level, encoder)?;
+                            return Poll::Ready(Some(Ok((cids, frame))));
+                        } else {
+                            // Otherwise we're all done.
+                            return Poll::Ready(None);
+                        }
+                    }
+                    // Pass errors through
+                    Some(Err(e)) => return Poll::Ready(Some(Err(e))),
+                    // Got element, add to encoder and emit block position
+                    Some(Ok(block)) => {
+                        frame_cids.push(block.cid);
+                        block.write(encoder)?;
+                        encoder.flush()?;
+                    }
                 }
             }
         })
