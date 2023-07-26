@@ -257,7 +257,7 @@ impl Iterator for DfsIter {
                 other => return Some(other),
             }
         }
-        return None;
+        None
     }
 }
 
