@@ -39,7 +39,7 @@ tags=$(git tag --sort=creatordate)
 # Database migration are not supported for forest version below `v0.11.1`
 is_tag_valid=false
 
-echo "Testing db migrations from "v0.11.1" to latest, one by one"
+echo "Testing db migrations from v0.11.1 to latest, one by one"
 # Loop through each tag and sync with corresponding version
 for tag in $tags; do
   # Check if the current tag matches the start tag
@@ -52,7 +52,7 @@ for tag in $tags; do
   fi
 done
 
-echo "Testing db migration from "v0.11.1" to latest, at once"
+echo "Testing db migration from v0.11.1 to latest, at once"
 # Get latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0)
 
