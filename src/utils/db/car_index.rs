@@ -150,6 +150,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     // Jump to bucket offset and scan downstream. All key-value pairs with the
     // right key are guaranteed to appear before we encounter an empty slot.
     fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
+        let mut limit = self.header.longest_distance;
         self.reader.seek(SeekFrom::Start(
             self.offset + hash.bucket(self.header.buckets) * Slot::SIZE as u64,
         ))?;
@@ -165,6 +166,12 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
                 }
                 return Ok(ret);
             }
+            if limit == 0 {
+                // Even the biggest bucket does not have this many entries. We
+                // can safely return an empty result now.
+                return Ok(smallvec![])
+            }
+            limit -= 1;
         }
         Ok(smallvec![])
     }
