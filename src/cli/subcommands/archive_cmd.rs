@@ -273,12 +273,11 @@ impl ArchiveInfo {
             let may_skip =
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
-                if let Some(genesis_block) = tipset.genesis(&store).ok() {
-                    if genesis_block.cid() == &*calibnet::GENESIS_CID {
-                        network = "calibnet".into();
-                    } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
-                        network = "mainnet".into();
-                    }
+                let genesis_block = tipset.genesis(&store)?;
+                if genesis_block.cid() == &*calibnet::GENESIS_CID {
+                    network = "calibnet".into();
+                } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
+                    network = "mainnet".into();
                 }
                 break;
             }
