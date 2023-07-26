@@ -15,7 +15,14 @@ pub struct CarIndexBuilder {
 impl CarIndexBuilder {
     // Number of buckets given `len` number of elements
     pub fn capacity_at(len: usize) -> usize {
-        len * 100 / 81
+        // The load-factor determines the average number of bucket a lookup has
+        // to scan. The formula, with 'a' being the load factor, is:
+        // (1+1/(1-a))/2 A load-factor of 0.8 means lookup has to scan through 3
+        // slots on average. A load-factor of 0.9 means we have to scan through
+        // 5.5 slots on average. See the car_index benchmark for measurements of
+        // scans at different lengths.
+        let load_factor = 0.8_f64;
+        (len as f64 / load_factor) as usize
     }
 
     // Construct a new index builder that maps `Cid` to `FrameOffset`.
