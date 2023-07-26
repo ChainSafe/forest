@@ -36,7 +36,7 @@ fn lookup_singleton(key: Hash, value: FrameOffset) {
     assert_eq!(query(&mut table, !key), Vec::<FrameOffset>::new());
 }
 
-// Identical to HashMap<Hash, HashSet<Position>> with almost no collision
+// Identical to HashMap<Hash, HashSet<FrameOffset>> with almost no collision
 #[quickcheck]
 fn lookup_wide(entries: Vec<(Hash, FrameOffset)>) {
     let map = mk_map(&entries);
@@ -46,7 +46,7 @@ fn lookup_wide(entries: Vec<(Hash, FrameOffset)>) {
     }
 }
 
-// Identical to HashMap<Hash, HashSet<Position>> with many collision
+// Identical to HashMap<Hash, HashSet<FrameOffset>> with many collision
 #[quickcheck]
 fn lookup_narrow(mut entries: Vec<(Hash, FrameOffset)>) {
     for (hash, _position) in entries.iter_mut() {
@@ -59,7 +59,7 @@ fn lookup_narrow(mut entries: Vec<(Hash, FrameOffset)>) {
     }
 }
 
-// Identical to HashMap<Hash, HashSet<Position>> with few hash collisions
+// Identical to HashMap<Hash, HashSet<FrameOffset>> with few hash collisions
 // but all hash values map to optimal_position 0
 #[quickcheck]
 fn lookup_clash_all(mut entries: Vec<(Hash, FrameOffset)>) {
@@ -75,7 +75,7 @@ fn lookup_clash_all(mut entries: Vec<(Hash, FrameOffset)>) {
     }
 }
 
-// Identical to HashMap<Hash, HashSet<Position>> with few hash collisions
+// Identical to HashMap<Hash, HashSet<FrameOffset>> with few hash collisions
 // but all hash values map to optimal_position 0..10
 #[quickcheck]
 fn lookup_clash_many(mut entries: Vec<(Hash, FrameOffset)>) {

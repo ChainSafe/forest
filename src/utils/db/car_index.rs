@@ -3,7 +3,7 @@
 
 //! # TL;DR
 //!
-//! [`CarIndex`] is equivalent to `HashMap<Cid, Vec<BlockPosition>>`. It can be
+//! [`CarIndex`] is equivalent to `HashMap<Cid, Vec<FrameOffset>>`. It can be
 //! built in `O(n)` time, loaded from a reader in `O(1)` time, has `O(1)`
 //! queries, and uses no caches by default.
 //!
@@ -113,8 +113,8 @@ pub struct CarIndex<ReaderT> {
 }
 
 impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
-    /// `O(1)` Open a reader as a mapping from CIDs to block positions in a
-    /// content-addressable archive.
+    /// `O(1)` Open a reader as a mapping from CIDs to frame positions in a
+    /// compressed content-addressable archive.
     pub fn open(mut reader: ReaderT, offset: u64) -> Result<Self> {
         reader.seek(SeekFrom::Start(offset))?;
         let header = IndexHeader::read(&mut reader)?;
