@@ -17,7 +17,7 @@ use cid::Cid;
 // For car-index, lookups speed depends on bucket size. Bucket sizes from 0..=5
 // are benchmarked, as well as max_bucket_size (worst case scenario). Average
 // bucket size is ~5 for 90% load-factor and ~2 for 80% load-factor.
-fn bench_fibs(c: &mut Criterion) {
+fn bench_car_index(c: &mut Criterion) {
     let mut group = c.benchmark_group("lookup");
 
     // 2^20 =   1 million
@@ -62,5 +62,5 @@ fn bench_fibs(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_fibs);
+criterion_group!(benches, bench_car_index);
 criterion_main!(benches);
