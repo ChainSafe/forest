@@ -1235,6 +1235,7 @@ where
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_block_messages<DB, CB>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
