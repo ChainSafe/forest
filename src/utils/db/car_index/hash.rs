@@ -54,7 +54,12 @@ impl Hash {
     // See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // Desired bucket for a hash with a given table length
     pub fn bucket(&self, buckets: u64) -> u64 {
-        // self.0 as usize % buckets
+        // One could simply write `self.0 as usize % buckets` but that involves
+        // a division is slow (as seen in criterion benchmarks). Splitting the
+        // hash into chunks and mapping them linearly to buckets is much faster.
+        // On modern computers, this mapping can be done with a single
+        // multiplication (the right shift is optimized away).
+
         // break 0..=u64::MAX into 'buckets' chunks and map each chunk to 0..len.
         // if buckets=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
         ((self.0 as u128 * buckets as u128) >> 64) as u64

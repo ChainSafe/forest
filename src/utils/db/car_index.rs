@@ -169,7 +169,7 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
             if limit == 0 {
                 // Even the biggest bucket does not have this many entries. We
                 // can safely return an empty result now.
-                return Ok(smallvec![])
+                return Ok(smallvec![]);
             }
             limit -= 1;
         }
