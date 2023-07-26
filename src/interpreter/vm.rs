@@ -77,7 +77,7 @@ pub struct MessageGasCost {
 }
 
 impl MessageGasCost {
-    pub fn new(msg: &Message, ret: ApplyRet) -> Self {
+    pub fn new(msg: &Message, ret: &ApplyRet) -> Self {
         use crate::message::Message as MessageTrait;
         Self {
             message: msg.cid().unwrap(),
@@ -101,6 +101,21 @@ pub struct InvocResult {
     pub execution_trace: Option<Trace>,
     pub error: String,
     pub duration: u64,
+}
+
+impl InvocResult {
+    pub fn new(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
+        let trace = build_exec_trace(ret.exec_trace());
+        Self {
+            msg_cid,
+            msg: msg.clone(),
+            msg_receipt: ret.msg_receipt(),
+            gas_cost: MessageGasCost::new(msg, ret),
+            execution_trace: trace,
+            error: ret.failure_info().unwrap_or_default(),
+            duration: 0,
+        }
+    }
 }
 
 fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
@@ -351,19 +366,8 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                // Push InvocResult
                 if enable_tracing {
-                    let trace = build_exec_trace(ret.exec_trace());
-
-                    invoc_results.push(InvocResult {
-                        msg_cid: cid,
-                        msg: msg.message().clone(),
-                        msg_receipt,
-                        gas_cost: MessageGasCost::new(msg.message(), ret.clone()),
-                        execution_trace: trace,
-                        error: ret.failure_info().unwrap_or_default(),
-                        duration: 0,
-                    });
+                    invoc_results.push(InvocResult::new(cid, msg.message(), &ret));
                 }
 
                 // Add processed Cid to set of processed messages
@@ -395,19 +399,8 @@ where
                     );
                 }
 
-                // Push InvocResult
                 if enable_tracing {
-                    let trace = build_exec_trace(ret.exec_trace());
-
-                    invoc_results.push(InvocResult {
-                        msg_cid: rew_msg.cid()?,
-                        msg: rew_msg.clone(),
-                        msg_receipt: ret.msg_receipt(),
-                        gas_cost: MessageGasCost::new(&rew_msg, ret.clone()),
-                        execution_trace: trace,
-                        error: ret.failure_info().unwrap_or_default(),
-                        duration: 0,
-                    });
+                    invoc_results.push(InvocResult::new(rew_msg.cid()?, &rew_msg, &ret));
                 }
 
                 if let Some(callback) = &mut callback {
@@ -418,19 +411,8 @@ where
 
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
-                // Push InvocResult
                 if enable_tracing {
-                    let trace = build_exec_trace(ret.exec_trace());
-
-                    invoc_results.push(InvocResult {
-                        msg_cid: cron_msg.cid()?,
-                        msg: cron_msg.clone(),
-                        msg_receipt: ret.msg_receipt(),
-                        gas_cost: MessageGasCost::new(&cron_msg, ret.clone()),
-                        execution_trace: trace,
-                        error: ret.failure_info().unwrap_or_default(),
-                        duration: 0,
-                    });
+                    invoc_results.push(InvocResult::new(cron_msg.cid()?, &cron_msg, &ret));
                 }
             }
             Err(e) => {
