@@ -140,7 +140,8 @@ mod tests {
             if *size == 0 {
                 return Trace::default();
             }
-            *size -= 1;
+            // Just decrementing size produced a recursion limit exceeded error
+            *size = size.saturating_sub(10);
             Self {
                 msg: TraceMessage::arbitrary(g),
                 msg_ret: TraceReturn::arbitrary(g),
@@ -159,7 +160,6 @@ mod tests {
         }
     }
 
-    #[ignore]
     #[quickcheck]
     fn trace_roundtrip(trace: Trace) {
         let serialized = crate::to_string_with!(&trace, json::serialize);
