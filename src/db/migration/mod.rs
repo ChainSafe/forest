@@ -25,7 +25,7 @@ pub enum DBVersion {
     V11,
 }
 
-/// Check database validaity
+/// Check to verify database migrations
 async fn migration_check(config: &Config, existing_chain_data_root: &Path) -> anyhow::Result<()> {
     info!(
         "Running database migration checks for: {}",
@@ -59,7 +59,7 @@ async fn migration_check(config: &Config, existing_chain_data_root: &Path) -> an
     Ok(())
 }
 
-/// Migrate database to lastest version
+/// Migrate database to latest version
 pub async fn migrate_db(
     config: &Config,
     db_path: PathBuf,
