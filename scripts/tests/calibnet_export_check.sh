@@ -21,16 +21,15 @@ zstd --test ./*.car.zst
 echo "Verifying snapshot checksum"
 sha256sum --check ./*.sha256sum
 
-echo "Running snapshot diff tests"
+echo "Running snapshot diff test"
 pushd "$(mktemp --directory)"
-    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest
+    imported_snapshot=$("$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest | tail -1)
+    zstd -d "$imported_snapshot"
     imported_snapshot=$(find . -type f -name "*.car" | head -1)
+    imported_snapshot_without_ext=$(basename ./forest_snapshot_calibnet_2023-07-26_height_768225.car .car)
+    height=$(echo "$imported_snapshot_without_ext" | grep -Eo '[0-9]+$')
     : : generating diffed snapshot
-    "$FOREST_CLI_PATH" --chain calibnet archive export -e 650000 -d 1000 --diff 100000 imported_snapshot
-    rm "$imported_snapshot"
-    diffed_snapshot=$(find . -type f -name "*.car.zst" | head -1)
-    : : importing diffed snapshot
-    "$FOREST_PATH" --chain calibnet --encrypt-keystore false --halt-after-import --no-gc --import-snapshot "$diffed_snapshot"
+    "$FOREST_CLI_PATH" --chain calibnet archive export -e "$height" -d 1500 --diff 1000 imported_snapshot
 rm -- *
 popd
 
