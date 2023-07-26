@@ -68,6 +68,7 @@ pub struct ForestCar<ReaderT> {
 }
 
 struct ForestCarInner<ReaderT> {
+    // the reader fn will be used for parallel queries
     // new_reader: Box<dyn Fn() -> ReaderT>,
     reader: ReaderT,
     frame_cache: LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>,

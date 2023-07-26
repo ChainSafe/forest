@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use human_repr::HumanCount;
 use std::hint::black_box;
 use std::io::Cursor;
 
