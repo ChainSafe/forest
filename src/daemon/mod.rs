@@ -22,7 +22,7 @@ use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_h
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
@@ -33,9 +33,8 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::{
-    io::write_to_file, monitoring::MemStatsTracker,
-    proofs_api::paramfetch::ensure_params_downloaded, retry, version::FOREST_VERSION_STRING,
-    RetryArgs,
+    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
+    version::FOREST_VERSION_STRING, RetryArgs,
 };
 use anyhow::{bail, Context};
 use bundle::load_bundles;
@@ -135,26 +134,7 @@ pub(super) async fn start(
 
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
-    let net_keypair = match get_keypair(&path.join("keypair")) {
-        Some(keypair) => Ok::<crate::libp2p::Keypair, std::io::Error>(keypair),
-        None => {
-            let gen_keypair = crate::libp2p::Keypair::generate_ed25519();
-            // Save Ed25519 keypair to file
-            // TODO rename old file to keypair.old(?)
-            let file = write_to_file(
-                &gen_keypair
-                    .clone()
-                    .try_into_ed25519()
-                    .context("couldn't convert keypair to ed25519")?
-                    .to_bytes(),
-                &path,
-                "keypair",
-            )?;
-            // Restrict permissions on files containing private keys
-            crate::utils::io::set_user_perm(&file)?;
-            Ok(gen_keypair)
-        }
-    }?;
+    let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
     // peer's multiaddress. Useful if others want to use this node to bootstrap
@@ -223,11 +203,10 @@ pub(super) async fn start(
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
         config.chain.clone(),
-        &genesis_header,
+        genesis_header.clone(),
         chain_data_path.as_path(),
     )?);
 
-    chain_store.set_genesis(&genesis_header)?;
     let db_garbage_collector = {
         let db = db.clone();
         let file_backed_chain_meta = chain_store.file_backed_chain_meta().clone();
@@ -268,12 +247,8 @@ pub(super) async fn start(
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config
-            .chain
-            .bootstrap_peers
-            .iter()
-            .map(|node| node.parse())
-            .collect::<Result<_, _>>()?;
+        let bootstrap_peers = config.chain.bootstrap_peers.clone();
+
         Config {
             network: Libp2pConfig {
                 bootstrap_peers,
@@ -291,7 +266,7 @@ pub(super) async fn start(
 
     let epoch = chain_store.heaviest_tipset().epoch();
 
-    load_bundles(epoch, &config, db.clone()).await?;
+    load_bundles(epoch, &config, &db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -367,7 +342,7 @@ pub(super) async fn start(
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
-                    .get_beacon_schedule(chain_store.genesis()?.timestamp())
+                    .get_beacon_schedule(chain_store.genesis().timestamp())
                     .into_dyn(),
             );
             start_rpc(
@@ -773,7 +748,7 @@ mod test {
         let cs = Arc::new(ChainStore::new(
             db,
             chain_config.clone(),
-            &genesis_header,
+            genesis_header,
             chain_data_root.path(),
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
@@ -801,7 +776,7 @@ mod test {
         let cs = Arc::new(ChainStore::new(
             db,
             chain_config.clone(),
-            &genesis_header,
+            genesis_header,
             chain_data_root.path(),
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);

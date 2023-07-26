@@ -5,9 +5,7 @@
 
 use std::sync::atomic;
 
-use crate::ipld::{
-    ProgressBarCurrentTotalPair, WALK_SNAPSHOT_PROGRESS_DB_GC, WALK_SNAPSHOT_PROGRESS_EXPORT,
-};
+use crate::ipld::{ProgressBarCurrentTotalPair, WALK_SNAPSHOT_PROGRESS_DB_GC};
 use crate::rpc_api::progress_api::{GetProgressParams, GetProgressResult, GetProgressType};
 
 use crate::rpc::*;
@@ -16,7 +14,6 @@ pub(in crate::rpc) async fn get_progress(
     Params((typ,)): Params<GetProgressParams>,
 ) -> RpcResult<GetProgressResult> {
     let tracker: &ProgressBarCurrentTotalPair = match typ {
-        GetProgressType::SnapshotExport => &WALK_SNAPSHOT_PROGRESS_EXPORT,
         GetProgressType::DatabaseGarbageCollection => &WALK_SNAPSHOT_PROGRESS_DB_GC,
     };
 
