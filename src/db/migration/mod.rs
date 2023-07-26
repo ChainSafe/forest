@@ -11,7 +11,7 @@ use crate::utils::proofs_api::paramfetch::{
     ensure_params_downloaded, set_proofs_parameter_cache_dir_env,
 };
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
 
@@ -26,10 +26,7 @@ pub enum DBVersion {
 }
 
 /// Check database validaity
-async fn migration_check(
-    config: &Config,
-    existing_chain_data_root: &PathBuf,
-) -> anyhow::Result<()> {
+async fn migration_check(config: &Config, existing_chain_data_root: &Path) -> anyhow::Result<()> {
     info!(
         "Running database migration checks for: {}",
         existing_chain_data_root.display()
@@ -42,15 +39,15 @@ async fn migration_check(
 
     // Open existing db
     let db = Arc::new(open_proxy_db(
-        db_root(&existing_chain_data_root),
+        db_root(existing_chain_data_root),
         config.db_config().clone(),
     )?);
     let genesis = read_genesis_header(None, config.chain.genesis_bytes(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
         db,
         Arc::clone(&config.chain),
-        &genesis,
-        existing_chain_data_root.as_path(),
+        genesis,
+        existing_chain_data_root,
     )?);
     let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&config.chain))?);
 
@@ -91,7 +88,7 @@ pub async fn migrate_db(
     migration_check(config, &db_path).await?;
 
     // Rename db to latest versioned db
-    fs::rename(db_path.as_path(), &chain_path(config))?;
+    fs::rename(db_path.as_path(), chain_path(config))?;
 
     info!("Database Successfully Migrated to {:?}", target_version);
     Ok(())
@@ -99,7 +96,7 @@ pub async fn migrate_db(
 
 // TODO: Add Steps required for new migration
 /// Migrate to an intermediate db version
-fn migrate(_existing_db_path: &PathBuf, next_version: &DBVersion) -> anyhow::Result<()> {
+fn migrate(_existing_db_path: &Path, next_version: &DBVersion) -> anyhow::Result<()> {
     match next_version {
         DBVersion::V11 => Ok(()),
         _ => Ok(()),
@@ -110,21 +107,17 @@ fn migrate(_existing_db_path: &PathBuf, next_version: &DBVersion) -> anyhow::Res
 pub fn check_if_another_db_exist(config: &Config) -> Option<PathBuf> {
     let dir = PathBuf::from(&config.client.data_dir).join(config.chain.network.to_string());
     let paths = fs::read_dir(&dir).unwrap();
-    for path in paths {
-        if let Ok(entry) = path {
-            let path = entry.path();
-            if path.is_dir() {
-                if path != chain_path(&config) {
-                    return Some(path);
-                }
-            }
+    for dir in paths.flatten() {
+        let path = dir.path();
+        if path.is_dir() && path != chain_path(config) {
+            return Some(path);
         }
     }
     None
 }
 
 /// Returns respective `DBVersion` from db dir name
-fn get_db_version(db_path: &PathBuf) -> DBVersion {
+fn get_db_version(db_path: &Path) -> DBVersion {
     match db_path
         .parent()
         .and_then(|parent_path| parent_path.file_name())
