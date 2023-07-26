@@ -60,7 +60,7 @@ pub enum StateCommands {
         /// Set the height that the VM will see
         #[arg(long)]
         vm_height: ChainEpoch,
-        /// Generate json output
+        /// Generate JSON output
         #[arg(long)]
         json: bool,
     },

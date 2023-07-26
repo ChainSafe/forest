@@ -8,12 +8,12 @@ pub mod json {
 
     use std::borrow::Cow;
 
-    /// Wrapper for serializing and de-serializing a TraceGasCharge from JSON.
+    /// Wrapper for serializing and de-serializing a `TraceGasCharge` from JSON.
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(transparent)]
     pub struct TraceGasChargeJson(#[serde(with = "self")] pub TraceGasCharge);
 
-    /// Wrapper for serializing a TraceGasCharge reference to JSON.
+    /// Wrapper for serializing a `TraceGasCharge` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TraceGasChargeJsonRef<'a>(#[serde(with = "self")] pub &'a TraceGasCharge);

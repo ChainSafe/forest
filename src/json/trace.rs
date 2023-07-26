@@ -9,12 +9,12 @@ pub mod json {
 
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and de-serializing a Trace from JSON.
+    /// Wrapper for serializing and de-serializing a `Trace` from JSON.
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(transparent)]
     pub struct TraceJson(#[serde(with = "self")] pub Trace);
 
-    /// Wrapper for serializing a Trace reference to JSON.
+    /// Wrapper for serializing a `Trace` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TraceJsonRef<'a>(#[serde(with = "self")] pub &'a Trace);
