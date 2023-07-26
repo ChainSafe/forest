@@ -1,22 +1,18 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli_shared::cli::{BufferSize, ChunkSize, Config};
-use crate::genesis::forest_load_car;
+use crate::cli_shared::cli::Config;
 use crate::networks::Height;
 use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
-use tokio::{
-    fs::File,
-    io::{BufReader, BufWriter},
-};
-use tokio_util::compat::TokioAsyncReadCompatExt;
+use tokio::{fs::File, io::BufWriter};
 use tracing::info;
 
-pub async fn load_bundles<DB>(epoch: ChainEpoch, config: &Config, db: DB) -> anyhow::Result<()>
-where
-    DB: Blockstore + Send + Sync + Clone + 'static,
-{
+pub async fn load_bundles(
+    epoch: ChainEpoch,
+    config: &Config,
+    db: &impl Blockstore,
+) -> anyhow::Result<()> {
     // collect bundles to load into the database.
     let mut bundles = Vec::new();
     for info in &config.chain.height_infos {
@@ -31,23 +27,17 @@ where
     }
 
     for (manifest_cid, reader) in bundles {
-        let (result, _) = forest_load_car(
-            db.clone(),
-            reader.compat(),
-            ChunkSize::default(),
-            BufferSize::default(),
-        )
-        .await?;
+        let roots = fvm_ipld_car::load_car(db, reader).await?;
         assert_eq!(
-            result.len(),
+            roots.len(),
             1,
             "expected one root when loading actors bundle"
         );
-        info!("Loaded actors bundle with CID: {}", result[0]);
+        info!("Loaded actors bundle with CID: {}", roots[0]);
         anyhow::ensure!(
-            manifest_cid == result[0],
+            manifest_cid == roots[0],
             "manifest cid in config '{manifest_cid}' does not match manifest cid from bundle '{}'",
-            result[0]
+            roots[0]
         );
     }
     Ok(())
@@ -56,7 +46,10 @@ where
 /// Downloads the actors bundle (if not already downloaded) and returns a reader
 /// to it.
 // TODO Get it from IPFS instead of GitHub.
-pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Result<BufReader<File>> {
+pub async fn get_actors_bundle(
+    config: &Config,
+    height: Height,
+) -> anyhow::Result<futures::io::BufReader<async_fs::File>> {
     let bundle_info = config.chain.height_infos[height as usize]
         .bundle
         .as_ref()
@@ -74,8 +67,8 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
 
     // If the bundle already exists, return a reader to it.
     if bundle_path.exists() {
-        let file = tokio::fs::File::open(bundle_path).await?;
-        return Ok(BufReader::new(file));
+        let file = async_fs::File::open(bundle_path).await?;
+        return Ok(futures::io::BufReader::new(file));
     }
 
     // Otherwise, download it.
@@ -86,6 +79,6 @@ pub async fn get_actors_bundle(config: &Config, height: Height) -> anyhow::Resul
     let mut writer = BufWriter::new(file);
     tokio::io::copy(&mut reader, &mut writer).await?;
 
-    let file = tokio::fs::File::open(bundle_path).await?;
-    Ok(BufReader::new(file))
+    let file = async_fs::File::open(bundle_path).await?;
+    Ok(futures::io::BufReader::new(file))
 }

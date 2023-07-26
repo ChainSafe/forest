@@ -12,6 +12,7 @@ use data_encoding_macro::new_encoding;
 use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use integer_encoding::VarInt;
 use lazy_static::lazy_static;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -224,10 +225,7 @@ impl Display for Address {
                 write_payload(
                     f,
                     protocol,
-                    Some(unsigned_varint::encode::u64(
-                        addr.namespace(),
-                        &mut unsigned_varint::encode::u64_buffer(),
-                    )),
+                    Some(&addr.namespace().encode_var_vec()),
                     addr.subaddress(),
                 )
             }

@@ -3,9 +3,11 @@
 
 //! # Varint frames
 //!
-//! CARs are made of concatenations of _varint frames_.
-//! Each varint frame is a concatenation of the _body length_ as an [`unsigned_varint`], and the _frame body_ itself.
-//! [`unsigned_varint::codec`] can be used to read frames piecewise into memory.
+//! CARs are made of concatenations of _varint frames_. Each varint frame is a
+//! concatenation of the _body length_ as an
+//! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html),
+//! and the _frame body_ itself. [`crate::utils::encoding::uvibytes::UviBytes`] can be
+//! used to read frames piecewise into memory.
 //!
 //! ```text
 //!        varint frame
@@ -57,6 +59,7 @@ use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use indexmap::IndexMap;
+use integer_encoding::{VarInt, VarIntReader};
 use itertools::Itertools as _;
 use parking_lot::Mutex;
 use std::{
@@ -71,8 +74,7 @@ use std::{
     ops::ControlFlow,
 };
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_util::codec::{BytesCodec, FramedWrite};
-use tokio_util_06::codec::FramedRead;
+use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tracing::{debug, trace};
 
 use crate::utils::{try_collate, Collate};
@@ -533,21 +535,10 @@ fn read_block_data_location_and_skip(
 ///        reader end ►│
 /// ```
 fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u32>> {
-    use unsigned_varint::io::{
-        read_u32,
-        ReadError::{Decode, Io},
-    };
-
     let mut byte = [0u8; 1]; // detect EOF
     match reader.read(&mut byte)? {
         0 => Ok(None),
-        1 => read_u32(byte.chain(reader))
-            .map_err(|varint_error| match varint_error {
-                Io(e) => e,
-                Decode(e) => io::Error::new(InvalidData, e),
-                other => io::Error::new(Other, other),
-            })
-            .map(Some),
+        1 => (byte.chain(reader)).read_varint().map(Some),
         _ => unreachable!(),
     }
 }
@@ -630,7 +621,7 @@ where
             Err(e) if e.kind() == UnexpectedEof && v.is_empty() => None,
             Err(e)
                 if e.kind() == UnexpectedEof
-                    && u64::try_from(v.len()).unwrap() == self.max_frame_size =>
+                    && u64::try_from(v.len()).unwrap() >= self.max_frame_size =>
             {
                 Some(Err(io::Error::new(Other, MaxFrameSizeExceeded)))
             }
@@ -653,7 +644,7 @@ pub async fn zstd_compress_varint_manyframe(
     zstd_frame_size_tripwire: usize,
     zstd_compression_level: u16,
 ) -> io::Result<usize> {
-    type VarintFrameCodec = unsigned_varint::codec::UviBytes<BytesMut>;
+    type VarintFrameCodec = crate::utils::encoding::uvibytes::UviBytes;
     let mut count = 0;
     try_collate(
         FramedRead::new(reader, VarintFrameCodec::default()),
@@ -674,7 +665,7 @@ fn varint_to_zstd_frame_collator(
     Collate<zstd::Encoder<'_, Writer<BytesMut>>, BytesMut>,
 ) -> ControlFlow<BytesMut, zstd::Encoder<'_, Writer<BytesMut>>> {
     move |collate| {
-        let encoder = match collate {
+        let mut encoder = match collate {
             Collate::Started(body) => zstd_compress_fold_varint_frame(
                 zstd::Encoder::new(BytesMut::new().writer(), i32::from(zstd_compression_level))
                     .expect("BytesMut has infallible IO"),
@@ -682,6 +673,7 @@ fn varint_to_zstd_frame_collator(
             ),
             Collate::Continued(encoder, body) => zstd_compress_fold_varint_frame(encoder, body),
         };
+        encoder.flush().expect("BytesMut has infallible IO");
         let compressed_len = encoder.get_ref().get_ref().len();
 
         match compressed_len >= zstd_frame_size_tripwire {
@@ -698,9 +690,8 @@ fn zstd_compress_fold_varint_frame(
     mut encoder: zstd::Encoder<Writer<BytesMut>>,
     body: BytesMut,
 ) -> zstd::Encoder<Writer<BytesMut>> {
-    let mut header = unsigned_varint::encode::usize_buffer();
     encoder
-        .write_all(unsigned_varint::encode::usize(body.len(), &mut header))
+        .write_all(&body.len().encode_var_vec())
         .expect("BytesMut has infallible IO");
     encoder
         .write_all(&body)
@@ -790,7 +781,7 @@ mod tests {
             3,
         ))
         .unwrap();
-        assert_eq!(9, num_zstd_frames);
+        assert_eq!(53, num_zstd_frames);
 
         zstd_multiframe
     }
@@ -803,7 +794,7 @@ mod tests {
         )
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-        assert_eq!(9, frames.len());
+        assert_eq!(53, frames.len());
     }
 
     #[test]

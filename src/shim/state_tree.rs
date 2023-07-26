@@ -9,6 +9,7 @@ pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3}
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
+pub use fvm_shared3::state::StateRoot;
 use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
 pub use fvm_shared3::ActorID;
 use num::FromPrimitive;

@@ -7,6 +7,7 @@ mod config;
 mod discovery;
 mod gossip_params;
 pub mod hello;
+pub mod keypair;
 mod metrics;
 mod peer_manager;
 pub mod rpc;

@@ -43,8 +43,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_HEAD, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
-    access.insert(chain_api::CHAIN_GET_TIPSET_HASH, Access::Read);
-    access.insert(chain_api::CHAIN_VALIDATE_TIPSET_CHECKPOINTS, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
 
@@ -183,7 +181,7 @@ pub mod chain_api {
         pub dry_run: bool,
     }
 
-    pub type ChainExportResult = PathBuf;
+    pub type ChainExportResult = Option<String>;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
@@ -218,14 +216,6 @@ pub mod chain_api {
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
     pub type ChainGetTipSetParams = (TipsetKeysJson,);
     pub type ChainGetTipSetResult = TipsetJson;
-
-    pub const CHAIN_GET_TIPSET_HASH: &str = "Filecoin.ChainGetTipSetHash";
-    pub type ChainGetTipSetHashParams = (TipsetKeysJson,);
-    pub type ChainGetTipSetHashResult = String;
-
-    pub const CHAIN_VALIDATE_TIPSET_CHECKPOINTS: &str = "Filecoin.ChainValidateTipSetCheckpoints";
-    pub type ChainValidateTipSetCheckpointsParams = ();
-    pub type ChainValidateTipSetCheckpointsResult = String;
 
     pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
     pub type ChainGetNameParams = ();
@@ -463,7 +453,6 @@ pub mod progress_api {
 
     #[derive(Serialize, Deserialize)]
     pub enum GetProgressType {
-        SnapshotExport,
         DatabaseGarbageCollection,
     }
 }

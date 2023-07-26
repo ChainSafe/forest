@@ -28,13 +28,11 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
-use crate::chain::{ChainEpochDelta, ChainStore};
-use crate::cli_shared::snapshot;
-use crate::cli_shared::snapshot::TrustedVendor;
-use crate::genesis::read_genesis_header;
-use crate::networks::{calibnet, mainnet};
-use crate::shim::clock::ChainEpoch;
-use crate::Config;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::chain::ChainEpochDelta;
+use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
+use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
@@ -45,7 +43,6 @@ use sha2::Sha256;
 use std::io::{Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tempfile::TempDir;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::info;
 
@@ -63,26 +60,25 @@ pub enum ArchiveCommands {
         input_path: PathBuf,
         /// Snapshot output filename or directory. Defaults to
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
-        #[arg(short, default_value = ".", verbatim_doc_comment)]
+        #[arg(short, long, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
         /// Latest epoch that has to be exported for this snapshot, the upper bound. This value
         /// cannot be greater than the latest epoch available in the input snapshot.
-        #[arg(short)]
-        epoch: ChainEpoch,
-        /// How far back we want to go. Think of it as `$epoch - $depth`, the lower bound of this
-        /// snapshot. This value cannot be less than `chain finality`, which is currently assumed
-        /// to be `900`. If this ever changes - the actual value is specified in the error message
-        /// that is thrown in case `depth` value is too low.
-        /// This parameter is optional due to the fact that we need to fetch the exact default
-        /// dynamically from configuration.
-        // Potentially replace with dynamic default: https://github.com/ChainSafe/forest/issues/3182
-        #[arg(short)]
-        depth: Option<ChainEpochDelta>,
+        #[arg(short, long)]
+        epoch: Option<ChainEpoch>,
+        /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
+        #[arg(short, long, default_value_t = 2000)]
+        depth: ChainEpochDelta,
+    },
+    /// Print block headers at 30 day interval for a snapshot file
+    Checkpoints {
+        /// Path to snapshot file.
+        snapshot: PathBuf,
     },
 }
 
 impl ArchiveCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
                 println!("{}", ArchiveInfo::from_file(snapshot)?);
@@ -94,12 +90,6 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => {
-                let chain_finality = config.chain.policy.chain_finality;
-                let depth = depth.unwrap_or(chain_finality);
-                if depth < chain_finality {
-                    bail!("depth has to be at least {}", chain_finality);
-                }
-
                 let reader = std::fs::File::open(&input_path)?;
 
                 info!(
@@ -107,8 +97,9 @@ impl ArchiveCommands {
                     input_path.to_str().unwrap_or_default()
                 );
 
-                do_export(config, reader, output_path, epoch, depth).await
+                do_export(reader, output_path, epoch, depth).await
             }
+            Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
         }
     }
 }
@@ -128,10 +119,9 @@ fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> 
 }
 
 async fn do_export(
-    config: Config,
     reader: impl Read + Seek + Send + Sync,
     output_path: PathBuf,
-    epoch: ChainEpoch,
+    epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
     let store = Arc::new(
@@ -139,31 +129,35 @@ async fn do_export(
             .context("couldn't read input CAR file - it's either compressed or corrupt")?,
     );
 
-    let genesis = read_genesis_header(
-        config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
-        &store,
-    )
-    .await?;
+    let index = ChainIndex::new(store.clone());
+    let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
 
-    let tmp_chain_dir = TempDir::new()?;
+    let genesis = ts.genesis(&store)?;
+    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        NetworkChain::Devnet("devnet".to_string())
+    };
 
-    let chain_store = Arc::new(ChainStore::new(
-        store,
-        config.chain.clone(),
-        &genesis,
-        tmp_chain_dir.path(),
-    )?);
+    let epoch = epoch_option.unwrap_or(ts.epoch());
 
-    let ts = chain_store.tipset_from_keys(&TipsetKeys::new(chain_store.db.roots()))?;
+    let finality = ChainConfig::from_chain(&network)
+        .policy
+        .chain_finality
+        .min(epoch);
+    if depth < finality {
+        bail!("For {}, depth has to be at least {}.", network, finality);
+    }
 
     info!("looking up a tipset by epoch: {}", epoch);
 
-    let ts = chain_store
-        .tipset_by_height(epoch, ts, true)
+    let ts = index
+        .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
-    let output_path = build_output_path(config.chain.network.to_string(), epoch, output_path);
+    let output_path = build_output_path(network.to_string(), epoch, output_path);
 
     let writer = tokio::fs::File::create(&output_path)
         .await
@@ -177,9 +171,7 @@ async fn do_export(
         output_path.to_str().unwrap_or_default()
     );
 
-    chain_store
-        .export::<_, Sha256>(&ts, depth, writer.compat(), true, true)
-        .await?;
+    crate::chain::export::<_, Sha256>(store, &ts, depth, writer.compat(), true, true).await?;
 
     Ok(())
 }
@@ -268,9 +260,9 @@ impl ArchiveInfo {
             }
 
             if tipset.epoch() == 0 {
-                if tipset.min_ticket_block().cid().to_string() == calibnet::GENESIS_CID {
+                if tipset.min_ticket_block().cid() == &*calibnet::GENESIS_CID {
                     network = "calibnet".into();
-                } else if tipset.min_ticket_block().cid().to_string() == mainnet::GENESIS_CID {
+                } else if tipset.min_ticket_block().cid() == &*mainnet::GENESIS_CID {
                     network = "mainnet".into();
                 }
             }
@@ -281,18 +273,17 @@ impl ArchiveInfo {
             let may_skip =
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
-                if let Some(genesis_keys) =
-                    crate::chain::store::index::checkpoint_tipsets::genesis_from_checkpoint_tipset(
-                        tipset.key(),
-                    )
-                {
-                    let genesis_cid = genesis_keys.cids[0];
-                    if genesis_cid.to_string() == calibnet::GENESIS_CID {
-                        network = "calibnet".into();
-                    } else if genesis_cid.to_string() == mainnet::GENESIS_CID {
-                        network = "mainnet".into();
+                match tipset.genesis(&store).ok() {
+                    Some(genesis_block) => {
+                        if genesis_block.cid() == &*calibnet::GENESIS_CID {
+                            network = "calibnet".into();
+                        } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
+                            network = "mainnet".into();
+                        }
                     }
-                    break;
+                    None => {
+                        break;
+                    }
                 }
             }
         }
@@ -307,11 +298,52 @@ impl ArchiveInfo {
     }
 }
 
+// Print a mapping of epochs to block headers in yaml format. This mapping can
+// be used by Forest to quickly identify tipsets.
+fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
+    let file = std::fs::File::open(snapshot)?;
+    let store = UncompressedCarV1BackedBlockstore::new(file)
+        .context("couldn't read input CAR file - is it compressed?")?;
+    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+
+    let genesis = root.genesis(&store)?;
+    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        bail!("Unrecognizable genesis block");
+    };
+
+    println!("{}:", chain_name);
+    for (epoch, cid) in list_checkpoints(store, root) {
+        println!("  {}: {}", epoch, cid);
+    }
+    Ok(())
+}
+
+fn list_checkpoints(
+    db: impl Blockstore,
+    root: Tipset,
+) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> {
+    let interval = EPOCHS_IN_DAY * 30;
+    let mut target_epoch = root.epoch() - root.epoch() % interval;
+    root.chain(db).filter_map(move |tipset| {
+        if tipset.epoch() <= target_epoch && tipset.epoch() != 0 {
+            target_epoch -= interval;
+            Some((tipset.epoch(), *tipset.min_ticket_block().cid()))
+        } else {
+            None
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use async_compression::tokio::bufread::ZstdDecoder;
     use fvm_ipld_car::CarReader;
+    use tempfile::TempDir;
     use tokio::io::BufReader;
 
     #[test]
@@ -334,19 +366,17 @@ mod tests {
 
     #[tokio::test]
     async fn export() {
-        let config = Config::default();
         let output_path = TempDir::new().unwrap();
         do_export(
-            config.clone(),
             std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
             output_path.path().into(),
-            0,
+            Some(0),
             1,
         )
         .await
         .unwrap();
         let file = tokio::fs::File::open(build_output_path(
-            config.chain.network.to_string(),
+            NetworkChain::Calibnet.to_string(),
             0,
             output_path.path().into(),
         ))

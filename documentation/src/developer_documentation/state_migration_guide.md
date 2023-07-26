@@ -26,7 +26,7 @@ The first step is to import the actor bundle into Forest. This is done by:
 
 - adding the bundle to the `HeightInfos` struct in the network definitions files
   (e.g.,
-  [calibnet](https://github.com/ChainSafe/forest/blob/main/networks/src/calibnet/mod.rs)).
+  [calibnet](https://github.com/ChainSafe/forest/blob/main/src/networks/calibnet/mod.rs)).
 
 ```rust
 HeightInfo {
@@ -36,16 +36,6 @@ HeightInfo {
         manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
         url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap()
 })
-```
-
-- Adding the download at the proper height to the `load_bundles` function in the
-  [daemon](https://github.com/ChainSafe/forest/blob/main/forest/daemon/src/bundle/mod.rs).
-  This step could be potentially done automatically in the future.
-
-```rust
-if epoch < config.chain.epoch(Height::Hygge) {
-    bundles.push(get_actors_bundle(config, Height::Hygge).await?);
-}
 ```
 
 ### Implement the migration
@@ -58,20 +48,18 @@ careful when translating the code.
 
 #### Create the migration module
 
-Create the migration module in the
-[state migration crate](https://github.com/ChainSafe/forest/tree/main/vm/state_migration/src).
+Create the nvXX migration module in the
+[state migration module](https://github.com/ChainSafe/forest/tree/main/src/state_migration).
 A valid approach is just to copy-paste the previous migration module and modify
 it accordingly. The files that will most likely be present:
 
 - `mod.rs`: here we bundle our migration modules and export the final migration
-  function,
-- `system.rs`: here we define the system actor migration logic which (so far)
-  seems to not change between upgrades,
+  function, defining the state types before and after migration, implementing
+  the common system migrator and the verifier
 - `migration.rs`: the heart of the migration. Here we add the migration logic
   for each actor. Its Go equivalent is the
   [top.go](https://github.com/filecoin-project/go-state-types/blob/master/builtin/v10/migration/top.go),
   in case of NV18,
-- `verifier.rs`: checks for the migration definition.
 
 We will most likely need as many custom migrators as there are in the Go
 implementation. In other terms, if you see that the Go
@@ -105,15 +93,12 @@ let system_actor = state_tree
     .ok_or_else(|| anyhow!("system actor not found"))?;
 
 let system_actor_state = store
-    .get_obj::<SystemStateV10>(&system_actor.state)?
+    .get_cbor::<SystemStateOld>(&system_actor.state)?
     .ok_or_else(|| anyhow!("system actor state not found"))?;
-let current_manifest_data = system_actor_state.builtin_actors;
-let current_manifest = Manifest::load(&store, &current_manifest_data, 1)?;
 
-let (version, new_manifest_data): (u32, Cid) = store
-    .get_cbor(new_manifest)?
-    .ok_or_else(|| anyhow!("new manifest not found"))?;
-let new_manifest = Manifest::load(&store, &new_manifest_data, version)?;
+let current_manifest = Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
+
+let new_manifest = Manifest::load(&store, &new_manifest, version)?;
 
 ```
 
@@ -130,20 +115,22 @@ actor versioning. At the time of writing, the following holds:
 
 For actors that don't need any state migration, we can use the `nil_migrator`.
 
-````rust
-current_manifest.builtin_actor_codes().for_each(|code| {
-let id = current_manifest.id_by_code(code);
-let new_code = new_manifest.code_by_id(id).unwrap();
-self.add_migrator(*code, nil_migrator(*new_code));
-});
+```rust
+for (name, code) in current_manifest.builtin_actors() {
+    let new_code = new_manifest.code_by_name(name)?;
+    self.add_migrator(*code, nil_migrator(*new_code));
+}
+```
 
-For each actor with non-trivial migration logic, we add the migration function. For example, for the `init` actor, we have:
+For each actor with non-trivial migration logic, we add the migration function.
+For example, for the `init` actor, we have:
+
 ```rust
 self.add_migrator(
-*current_manifest.get_init_code(),
-init::init_migrator(*new_manifest.get_init_code()),
+  *current_manifest.get_init_code(),
+  init::init_migrator(*new_manifest.get_init_code()),
 );
-````
+```
 
 and we define the `init_migrator` in a separate module. This logic may include
 setting some defaults on the new fields, changing the current ones to an
@@ -166,10 +153,9 @@ and Ethereum Account actors), needs to be executed post-migration. This is done
 in the post-migration actions.
 
 ```rust
-let post_migration_actions = [create_eam_actor, create_eth_account_actor]
-    .into_iter()
-    .map(|action| Arc::new(action) as PostMigrationAction<DB>)
-    .collect();
+self.add_post_migrator(Arc::new(EamPostMigrator));
+
+self.add_post_migrator(Arc::new(EthAccountPostMigrator));
 ```
 
 #### Creating the migration object and running it
@@ -211,11 +197,71 @@ upgrade height.
 forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot <SNAPSHOT>
 ```
 
+### Test first development
+
+When the Go migration code to translate from is large(e.g. nv17), it makes
+development much easier to be able to attach debuggers. Follow below steps to
+create simple unit tests for both Rust and Go with real calibnet or mainnet data
+and attach debuggers when needed during development.
+
+- Get input state cid. Run
+  `forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot <SNAPSHOT>`,
+  the input state cid will be in the failure messages `Previous state: <CID>`.
+  And the expected output state cid can be found in state mismatch error
+  messages.
+- Export input state by running
+  `forest-cli state fetch <PREVIOUS_STATE_CID> <PREVIOUS_STATE_CID>.car`
+- Compress the car file by running `zstd <PREVIOUS_STATE_CID>.car`
+- Move the compressed car file to data folder `src/state_migration/tests/data`
+- Create a Rust test in `src/state_migration/tests/mod.rs`. Note: the output CID
+  does not need to be correct to attach a debugger during development.
+
+  Example test for nv17 on calibnet:
+
+  ```rust
+  #[tokio::test]
+  async fn test_nv17_state_migration_calibnet() -> Result<()> {
+      test_state_migration(
+          Height::Shark,
+          NetworkChain::Calibnet,
+          Cid::from_str("bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg")?,
+          Cid::from_str("bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4")?,
+      )
+      .await
+  }
+  ```
+
+- Create a Go test in `src/state_migration/go-test/state_migration_test.go`.
+  Note: `newManifestCid` is the bundle CID, epoch is the height that migration
+  happens.
+  [Instruction](https://code.visualstudio.com/docs/languages/go#_debugging) on
+  debugging Go code in VS Code.
+
+  Example test for nv17 on calibnet:
+
+  ```go
+  func TestStateMigrationNV17(t *testing.T) {
+    startRoot := cid.MustParse("bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg")
+    newManifestCid := cid.MustParse("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy")
+    epoch := abi.ChainEpoch(16800)
+
+    bs := migration9Test.NewSyncBlockStoreInMemory()
+    ctx := context.Background()
+
+    loadCar(t, ctx, bs, fmt.Sprintf("%s/.local/share/forest/bundles/calibnet/bundle_Shark.car", os.Getenv("HOME")))
+    loadCompressedCar(t, ctx, bs, fmt.Sprintf("../data/%s.car.zst", startRoot))
+
+    runStateMigration(t, ctx, cbor.NewCborStore(bs), startRoot, newManifestCid, epoch)
+  }
+  ```
+
+#### Exercise
+
+Implement Rust and Go unit tests for nv18 and nv19 state migrations with real
+calibnet data
+
 ### Future considerations
 
-- Testing without the need for a snapshot or a running node. This would allow us
-  to test the network upgrade in a more isolated way. See how it is done in the
-  [Go library](https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/test/migration_test.go).
 - Grab the actor bundles from the IPFS. This would make Forest less dependent on
   the Github infrastructure.
   [Issue #2765](https://github.com/ChainSafe/forest/issues/2765)
