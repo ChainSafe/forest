@@ -3,7 +3,7 @@
 use cid::Cid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Hash(u64);
+pub struct Hash(pub(super) u64);
 
 impl Hash {
     pub const INVALID: Hash = Hash(u64::MAX);
@@ -64,10 +64,12 @@ impl Hash {
         fn div_ceil(a: u128, b: u128) -> u64 {
             (a / b + (if a % b == 0 { 0 } else { 1 })) as u64
         }
-        // min with bucket
+        // Smallest number in 'bucket'
         let min_with_bucket = div_ceil((1_u128 << u64::BITS) * bucket as u128, buckets as u128);
         let bucket_height = u64::MAX / buckets;
-        Hash(min_with_bucket + self.0 % bucket_height)
+        // Pick pseudo-random number between the smallest number in the bucket
+        // and the highest
+        Hash((min_with_bucket + self.0 % bucket_height).min(u64::MAX - 1))
     }
 
     // Walking distance between `actual_bucket` and `hash.bucket()`

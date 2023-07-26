@@ -4,7 +4,7 @@
 // encode CAR-stream into ForestCAR.zst
 
 use crate::db::car::plain::write_skip_frame_header_async;
-use crate::utils::db::car_index::{BlockPosition, CarIndex, CarIndexBuilder};
+use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::uvibytes::UviBytes;
 use ahash::{HashMap, HashMapExt};
@@ -33,7 +33,7 @@ pub struct ForestCar<ReaderT> {
 struct ForestCarInner<ReaderT> {
     // new_reader: Box<dyn Fn() -> ReaderT>,
     reader: ReaderT,
-    frame_cache: LruCache<BlockPosition, HashMap<Cid, Vec<u8>>>,
+    frame_cache: LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
     roots: Vec<Cid>,
@@ -151,7 +151,7 @@ impl Encoder {
         roots: Vec<Cid>,
         mut stream: impl TryStream<Ok = Either<Cid, Bytes>, Error = io::Error> + Unpin,
     ) -> io::Result<()> {
-        let mut position = 0;
+        let mut offset = 0;
 
         // Write CARv1 header
         let mut header_encoder = new_encoder(3)?;
@@ -165,24 +165,24 @@ impl Encoder {
         sink.write_all(&header_bytes).await?;
         let header_len = header_bytes.len();
 
-        position += header_len;
+        offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
         let mut cid_map = ahash::HashMap::new();
         while let Some(either) = stream.try_next().await? {
             match either {
                 Either::Left(cid) => {
-                    cid_map.insert(cid, position as BlockPosition);
+                    cid_map.insert(cid, offset as FrameOffset);
                 }
                 Either::Right(zstd_frame) => {
-                    position += zstd_frame.len();
+                    offset += zstd_frame.len();
                     sink.write_all(&zstd_frame).await?;
                 }
             }
         }
 
         // Create index
-        let index_offset = position as u64 + 8;
+        let index_offset = offset as u64 + 8;
         let builder = CarIndexBuilder::new(cid_map.into_iter());
         write_skip_frame_header_async(sink, builder.encoded_len()).await?;
         builder.write_async(sink).await?;

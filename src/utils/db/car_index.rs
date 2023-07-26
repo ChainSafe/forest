@@ -89,17 +89,16 @@
 //! function.
 //!
 
-mod block_position;
 mod car_index_builder;
 mod hash;
 mod index_header;
 mod key_value_pair;
 mod slot;
 
-pub use block_position::BlockPosition;
 pub use car_index_builder::CarIndexBuilder;
 use hash::Hash;
 use index_header::IndexHeader;
+pub use key_value_pair::FrameOffset;
 use key_value_pair::KeyValuePair;
 use slot::Slot;
 
@@ -139,18 +138,18 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
 
     /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
     /// unless 2 or more CIDs have collided.
-    pub fn lookup(&mut self, key: Cid) -> Result<SmallVec<[BlockPosition; 1]>> {
+    pub fn lookup(&mut self, key: Cid) -> Result<SmallVec<[FrameOffset; 1]>> {
         self.lookup_internal(Hash::from(key))
     }
 
     #[cfg(any(test, feature = "benchmark-private"))]
-    pub fn lookup_hash(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
+    pub fn lookup_hash(&mut self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
         self.lookup_internal(hash)
     }
 
     // Jump to bucket offset and scan downstream. All key-value pairs with the
     // right key are guaranteed to appear before we encounter an empty slot.
-    fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[BlockPosition; 1]>> {
+    fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
         self.reader.seek(SeekFrom::Start(
             self.offset + hash.bucket(self.header.buckets) * Slot::SIZE as u64,
         ))?;

@@ -1,12 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::BlockPosition;
 use super::Hash;
+
+pub type FrameOffset = u64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyValuePair {
     pub hash: Hash,
-    pub value: BlockPosition,
+    pub value: FrameOffset,
 }
 
 impl KeyValuePair {
@@ -26,7 +27,7 @@ impl quickcheck::Arbitrary for KeyValuePair {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         KeyValuePair {
             hash: Hash::from(u64::arbitrary(g)),
-            value: BlockPosition::arbitrary(g),
+            value: FrameOffset::arbitrary(g),
         }
     }
 }
