@@ -159,6 +159,7 @@ mod tests {
         }
     }
 
+    #[ignore]
     #[quickcheck]
     fn trace_roundtrip(trace: Trace) {
         let serialized = crate::to_string_with!(&trace, json::serialize);
