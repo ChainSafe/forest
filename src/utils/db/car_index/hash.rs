@@ -37,6 +37,7 @@ impl From<Cid> for Hash {
         let mut hasher = DefaultHasher::new();
         std::hash::Hash::hash(&cid, &mut hasher);
         Hash::from(hasher.finish())
+        // It's tempting to directly reuse the hash value in `Cid` but it actually affect performance.
         // Hash::from(u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8])))
     }
 }
