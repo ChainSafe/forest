@@ -40,6 +40,8 @@ git fetch --tags
 
 # Get a list of all tags sorted chronologically
 tags=$(git tag --sort=creatordate)
+# Get latest tag
+LATEST_TAG=""
 
 # Database migration are not supported for forest version below `v0.11.1`
 is_tag_valid=false
@@ -55,12 +57,10 @@ for tag in $tags; do
     # Run sync check with the current tag
     sync_with_tag "$tag"
   fi
+  LATEST_TAG="$tag"
 done
 
 echo "Testing db migration from v0.11.1 to latest, at once"
-# Get latest tag
-LATEST_TAG=$(git describe --tags --abbrev=0)
-
 # Sync calibnet with Forest `V0.11.1`
 sync_with_tag "$START_TAG"
 # Sync calibnet with latest version of Forest
