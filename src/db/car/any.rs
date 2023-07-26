@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn forest_any_load_calibnet() {
         let forest_car = AnyCar::new(move || Ok(Cursor::new(calibnet::DEFAULT_GENESIS))).unwrap();
-        assert!(forest_car.has(&*calibnet::GENESIS_CID).unwrap());
+        assert!(forest_car.has(&calibnet::GENESIS_CID).unwrap());
     }
 
     #[test]
@@ -86,13 +86,13 @@ mod tests {
         let forest_car =
             AnyCar::new(move || Ok(Cursor::new(zstd::encode_all(calibnet::DEFAULT_GENESIS, 3)?)))
                 .unwrap();
-        assert!(forest_car.has(&*calibnet::GENESIS_CID).unwrap());
+        assert!(forest_car.has(&calibnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_mainnet() {
         let forest_car = AnyCar::new(move || Ok(Cursor::new(mainnet::DEFAULT_GENESIS))).unwrap();
-        assert!(forest_car.has(&*mainnet::GENESIS_CID).unwrap());
+        assert!(forest_car.has(&mainnet::GENESIS_CID).unwrap());
     }
 
     #[test]
@@ -100,6 +100,6 @@ mod tests {
         let forest_car =
             AnyCar::new(move || Ok(Cursor::new(zstd::encode_all(mainnet::DEFAULT_GENESIS, 3)?)))
                 .unwrap();
-        assert!(forest_car.has(&*mainnet::GENESIS_CID).unwrap());
+        assert!(forest_car.has(&mainnet::GENESIS_CID).unwrap());
     }
 }
