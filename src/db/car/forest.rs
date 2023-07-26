@@ -1,7 +1,39 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// encode CAR-stream into ForestCAR.zst
+//! # Forest CAR format
+//!
+//! See [`crate::db::car::plain`] for details on the CAR format.
+//!
+//! The forest.car.zst format wraps multiple CAR blocks in small (usually 8KiB)
+//! zstd frames, and has an index in a skippable zstd frame. At the end of the
+//! data, there has to be a fixed-size skippable frame containing magic numbers
+//! and meta information about the archive. CAR blocks may not span multiple
+//! z-frames and the CAR header is kept it a separate z-frame.
+//!
+//! Imagine a forest.car.zst archive with 5 blocks. They could be arranged in
+//! z-frames as drawn below:
+//!
+//! ```text
+//!  Z-Frame 1   Z-Frame 2   Z-Frame 3   Skip Frame    Skip Frame
+//! ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐ ┌────────────┐
+//! │┌──────┐ │ │┌───────┐│ │┌───────┐│ │Offsets    │ │Index offset│
+//! ││Header│ │ ││Block 1││ ││Block 4││ │ Z-Frame 2 │ │Magic number│
+//! │└──────┘ │ │└───────┘│ │└───────┘│ │ Z-Frame 2 │ │Version info|
+//! └─────────┘ │┌───────┐│ │┌───────┐│ │ Z-Frame 2 │ └────────────┘
+//!             ││Block 2││ ││Block 5││ │ Z-Frame 3 │
+//!             │└───────┘│ │└───────┘│ │ Z-Frame 3 │
+//!             │┌───────┐│ └─────────┘ └───────────┘
+//!             ││Block 3││
+//!             │└───────┘│
+//!             └─────────┘
+//! ```
+//!
+//! Looking up a block uses a [`crate::utils::db::car_index::CarIndex`] to find
+//! the right z-frame. The frame is then decoded and each block is linearly
+//! scanned until a match is found. Decoded (and scanned) z-frames are stored in
+//! a lru-cache for faster repeat retrievals.
+//!
 
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
