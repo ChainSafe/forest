@@ -58,32 +58,6 @@ impl CarIndexBuilder {
         (best_hash, best_distance)
     }
 
-    #[cfg(feature = "benchmark-private")]
-    pub fn avg_distance(&self) -> f64 {
-        let mut distances = vec![];
-        for (nth, slot) in self.table.iter().enumerate() {
-            if let Slot::Full(entry) = slot {
-                let dist = entry.hash.distance(nth as u64, self.len());
-                distances.push(dist as f64);
-            }
-        }
-        distances.iter().sum::<f64>() / distances.len() as f64
-    }
-
-    #[cfg(feature = "benchmark-private")]
-    pub fn avg_steps_to_empty(&self) -> f64 {
-        let mut distances = vec![];
-        for nth in 0..self.table.len() {
-            let mut steps = 0;
-            let mut iter = self.table.iter().cycle().skip(nth);
-            while let Some(Slot::Full(_)) = iter.next() {
-                steps += 1;
-            }
-            distances.push(steps as f64);
-        }
-        distances.iter().sum::<f64>() / distances.len() as f64
-    }
-
     fn insert(&mut self, mut new: KeyValuePair) {
         if self.capacity == 0 {
             panic!("cannot insert values into a full table");
