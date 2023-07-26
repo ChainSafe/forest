@@ -160,9 +160,8 @@ impl From<Receipt_v3> for Receipt {
     }
 }
 
-// TODO: use this https://github.com/filecoin-project/lotus/blob/master/chain/types/execresult.go#L35
-// to create the equivalent ExecutionTrace structure that we could serialize/deserialize
-
+// We match Lotus structures and code to have similar json trace and an easier diff:
+// https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L391
 #[derive(Clone, Debug)]
 pub struct TraceGasCharge {
     pub name: Cow<'static, str>,
@@ -170,6 +169,14 @@ pub struct TraceGasCharge {
     pub compute_gas: u64,
     pub other_gas: u64,
     pub duration_nanos: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct Trace {
+    pub msg: TraceMessage,
+    pub msg_ret: TraceReturn,
+    pub gas_charges: Vec<TraceGasCharge>,
+    pub subcalls: Vec<Trace>,
 }
 
 #[derive(Clone, Debug)]
@@ -189,15 +196,6 @@ pub struct TraceReturn {
     pub return_codec: u64,
 }
 
-#[derive(Clone, Debug)]
-pub struct Trace {
-    pub msg: TraceMessage,
-    pub msg_ret: TraceReturn,
-    pub gas_charges: Vec<TraceGasCharge>,
-    pub subcalls: Vec<Trace>,
-}
-
-//
 pub fn build_lotus_trace(
     from: u64,
     to: Address,
