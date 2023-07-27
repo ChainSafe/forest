@@ -9,10 +9,12 @@ use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
 use crate::genesis::read_genesis_header;
 use crate::json::cid::CidJson;
+use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
-use crate::state_manager::StateManager;
+use crate::shim::machine::MultiEngine;
+use crate::state_manager::apply_block_messages;
 use crate::state_manager::NO_CALLBACK;
 use crate::statediff::print_state_diff;
 use anyhow::Context;
@@ -86,28 +88,47 @@ async fn print_computed_state(
     .await?;
 
     let cs = Arc::new(ChainStore::new(
-        store,
+        store.clone(),
         config.chain.clone(),
         genesis_header,
         TempDir::new()?.path(),
     )?);
 
-    // Initialize StateManager
-    let sm = Arc::new(StateManager::new(cs.clone(), config.chain)?);
+    // Prepare call to apply_block_messages
+    let ts = cs.tipset_from_keys(&tsk)?;
 
-    let ts = sm.chain_store().tipset_from_keys(&tsk)?;
+    let genesis = ts.genesis(&store)?;
+    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        NetworkChain::Devnet("devnet".to_string())
+    };
 
+    let chain_config = ChainConfig::from_chain(&network);
+
+    let timestamp = cs.genesis().timestamp();
+    let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = cs
         .chain_index
         .tipset_by_height(vm_height, ts, ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
+    let ((st, _), output) = apply_block_messages(
+        timestamp,
+        Arc::clone(&cs.chain_index),
+        Arc::clone(&Arc::new(chain_config)),
+        beacon,
+        &MultiEngine::default(),
+        tipset,
+        NO_CALLBACK,
+        json, // enable traces if json flag is used
+    )?;
+
     if json {
-        // Call with trace enabled
-        let (_, output) = sm.compute_tipset_state(tipset, NO_CALLBACK, true).await?;
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        let ((st, _), _) = sm.compute_tipset_state(tipset, NO_CALLBACK, false).await?;
         println!("computed state cid: {}", st);
     }
 
