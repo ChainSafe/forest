@@ -73,10 +73,12 @@ pub enum SnapshotCommands {
     },
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
     Compress {
-        /// Input CAR file, in .car, .car.zst, or .forest.car.zst format.
+        /// Input CAR file, in `.car`, `.car.zst`, or `.forest.car.zst` format.
         source: PathBuf,
-        // Output file, will be in .forest.car.zst format. Will reuse the source
-        // basename if pointed to a directory.
+        /// Output file, will be in `.forest.car.zst` format.
+        ///
+        /// Will reuse the source name (with new extension) if pointed to a
+        /// directory.
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
         #[arg(long, default_value_t = 3)]
