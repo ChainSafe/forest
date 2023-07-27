@@ -17,7 +17,8 @@ pub struct IndexHeader {
 
 impl IndexHeader {
     pub const SIZE: usize = 32;
-    pub const MAGIC_NUMBER: u64 = 0xdeadbeef;
+    // 0xdeadbeef + 0 used a different hash algorithm
+    pub const MAGIC_NUMBER: u64 = 0xdeadbeef + 1;
 
     pub fn read(reader: &mut impl Read) -> Result<IndexHeader> {
         let mut buffer = [0; Self::SIZE];
