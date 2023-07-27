@@ -19,7 +19,6 @@ use futures::{
 };
 use fvm_ipld_car::{CarHeader, CarReader};
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
 use protobuf_codegen::Customize;
 use reqwest::Url;
@@ -29,10 +28,9 @@ use walkdir::WalkDir;
 const PROTO_DIR: &str = "proto";
 const CARGO_OUT_DIR: &str = "proto";
 
-lazy_static! {
-    // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
-    static ref ACTOR_BUNDLE_CACHE_DIR: PathBuf = Path::new("target/actor_bundles/").to_owned();
-}
+// Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
+static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> =
+    Lazy::new(|| Path::new("target/actor_bundles/").to_owned());
 
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);

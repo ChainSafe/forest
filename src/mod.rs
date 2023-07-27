@@ -4,7 +4,7 @@
 //! This module contains code that is shared between the library and the build script
 
 use cid::Cid;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use reqwest::Url;
 
 #[derive(Debug)]
@@ -13,8 +13,8 @@ pub struct ActorBundleInfo {
     pub url: Url,
 }
 
-lazy_static! {
-    pub static ref ACTOR_BUNDLES: [ActorBundleInfo; 8] = [
+pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 8]> = Lazy::new(|| {
+    [
         // calibnet
         ActorBundleInfo{
             manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
@@ -50,5 +50,5 @@ lazy_static! {
             manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
             url: Url::parse("https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/mainnet/Lightning.car").unwrap(),
         },
-    ];
-}
+    ]
+});

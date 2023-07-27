@@ -49,7 +49,7 @@ mod statediff;
 mod test_utils;
 mod utils;
 
-mod build {
+pub mod build {
     pub use super::r#mod::*;
 }
 
