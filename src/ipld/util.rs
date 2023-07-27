@@ -11,10 +11,16 @@ use std::{
 };
 
 use crate::blocks::{BlockHeader, Tipset};
+use crate::shim::clock::ChainEpoch;
 use crate::utils::io::progress_log::WithProgressRaw;
 use cid::Cid;
+use futures::Stream;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
+use pin_project_lite::pin_project;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use crate::ipld::{CidHashSet, Ipld};
 
@@ -194,18 +200,72 @@ fn should_save_block_to_snapshot(cid: Cid) -> bool {
     }
 }
 
-use crate::shim::clock::ChainEpoch;
-use futures::Stream;
-use fvm_ipld_blockstore::Blockstore;
-use pin_project_lite::pin_project;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+/// Depth-first-search iterator for `ipld` leaf nodes.
+///
+/// This iterator consumes the given `ipld` structure and returns leaf nodes (i.e.,
+/// no list or map) in depth-first order. The iterator can be extended at any
+/// point by the caller.
+///
+/// Consider walking this `ipld` graph:
+/// ```text
+/// List
+///  ├ Integer(5)
+///  ├ Link(Y)
+///  └ String("string")
+///
+/// Link(Y):
+/// Map
+///  ├ "key1" => Bool(true)
+///  └ "key2" => Float(3.14)
+/// ```
+///
+/// If we walk the above `ipld` graph (replacing `Link(Y)` when it is encountered), the leaf nodes will be seen in this order:
+/// 1. `Integer(5)`
+/// 2. `Bool(true)`
+/// 3. `Float(3.14)`
+/// 4. `String("string")`
+pub struct DfsIter {
+    dfs: VecDeque<Ipld>,
+}
+
+impl DfsIter {
+    pub fn new(root: Ipld) -> Self {
+        DfsIter {
+            dfs: VecDeque::from([root]),
+        }
+    }
+
+    pub fn walk_next(&mut self, ipld: Ipld) {
+        self.dfs.push_front(ipld)
+    }
+}
+
+impl From<Cid> for DfsIter {
+    fn from(cid: Cid) -> Self {
+        DfsIter::new(Ipld::Link(cid))
+    }
+}
+
+impl Iterator for DfsIter {
+    type Item = Ipld;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(ipld) = self.dfs.pop_front() {
+            match ipld {
+                Ipld::List(list) => list.into_iter().rev().for_each(|elt| self.walk_next(elt)),
+                Ipld::Map(map) => map.into_values().rev().for_each(|elt| self.walk_next(elt)),
+                other => return Some(other),
+            }
+        }
+        None
+    }
+}
 
 enum Task {
     // Yield the block, don't visit it.
     Emit(Cid),
     // Visit all the elements, recursively.
-    Iterate(Ipld),
+    Iterate(DfsIter),
 }
 
 pin_project! {
@@ -251,52 +311,36 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
         let stateroot_limit = *this.stateroot_limit;
         loop {
-            while let Some(ipld) = this.dfs.pop_front() {
-                match ipld {
+            while let Some(task) = this.dfs.front_mut() {
+                match task {
                     Emit(cid) => {
-                        let result = this.db.get(&cid);
-
-                        let result = result.and_then(|val| {
-                            let block = val.ok_or(anyhow::anyhow!("missing key"))?;
-                            Ok((cid, block))
-                        });
-
-                        return Poll::Ready(Some(result));
+                        let cid = *cid;
+                        let data = this.db.get(&cid)?.ok_or(anyhow::anyhow!("missing key"))?;
+                        this.dfs.pop_front();
+                        return Poll::Ready(Some(Ok((cid, data))));
                     }
-                    Iterate(Ipld::Null) => {}
-                    Iterate(Ipld::Bool(_)) => {}
-                    Iterate(Ipld::Integer(_)) => {}
-                    Iterate(Ipld::Float(_)) => {}
-                    Iterate(Ipld::String(_)) => {}
-                    Iterate(Ipld::Bytes(_)) => {}
-                    Iterate(Ipld::List(list)) => list
-                        .into_iter()
-                        .rev()
-                        .for_each(|elt| this.dfs.push_front(Iterate(elt))),
-                    Iterate(Ipld::Map(map)) => map
-                        .into_values()
-                        .rev()
-                        .for_each(|elt| this.dfs.push_front(Iterate(elt))),
-                    // The link traversal implementation assumes there are three types of encoding:
-                    // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
-                    // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
-                    // 3. _: ignore all other links
-                    Iterate(Ipld::Link(cid)) => {
-                        // Don't revisit what's already been visited.
-                        if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
-                            let result = this.db.get(&cid);
+                    Iterate(dfs_iter) => {
+                        while let Some(ipld) = dfs_iter.next() {
+                            if let Ipld::Link(cid) = ipld {
+                                // The link traversal implementation assumes there are three types of encoding:
+                                // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
+                                // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
+                                // 3. _: ignore all other links
+                                // Don't revisit what's already been visited.
+                                if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                                    let data =
+                                        this.db.get(&cid)?.ok_or(anyhow::anyhow!("missing key"))?;
 
-                            let result = result.and_then(|val| {
-                                let block = val.ok_or(anyhow::anyhow!("missing key"))?;
-                                if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                    let ipld: Ipld = from_slice(&block)?;
-                                    this.dfs.push_front(Iterate(ipld));
+                                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                        let ipld: Ipld = from_slice(&data)?;
+                                        dfs_iter.walk_next(ipld);
+                                    }
+
+                                    return Poll::Ready(Some(Ok((cid, data))));
                                 }
-                                Ok((cid, block))
-                            });
-
-                            return Poll::Ready(Some(result));
+                            }
                         }
+                        this.dfs.pop_front();
                     }
                 }
             }
@@ -318,7 +362,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                     // Process block messages.
                     if block.epoch() > stateroot_limit {
-                        this.dfs.push_back(Iterate(Ipld::Link(*block.messages())));
+                        this.dfs
+                            .push_back(Iterate(DfsIter::from(*block.messages())));
                     }
 
                     // Visit the block if it's within required depth. And a special case for `0`
@@ -326,7 +371,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                     if block.epoch() == 0 || block.epoch() > stateroot_limit {
                         // NOTE: In the original `walk_snapshot` implementation we walk the dag
                         // immediately. Which is what we do here as well, but using a queue.
-                        this.dfs.push_back(Iterate(Ipld::Link(*block.state_root())));
+                        this.dfs
+                            .push_back(Iterate(DfsIter::from(*block.state_root())));
                     }
                 }
             } else {
