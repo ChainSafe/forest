@@ -32,13 +32,21 @@ impl From<u64> for Hash {
 
 impl From<Cid> for Hash {
     fn from(cid: Cid) -> Hash {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::Hasher;
-        let mut hasher = DefaultHasher::new();
-        std::hash::Hash::hash(&cid, &mut hasher);
-        Hash::from(hasher.finish())
-        // It's tempting to directly reuse the hash value in `Cid` but it actually affect performance.
-        // Hash::from(u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8])))
+        // Don't use DefaultHasher, it is not stable over time.
+        // // use std::collections::hash_map::DefaultHasher;
+        // // use std::hash::Hasher;
+        // // let mut hasher = DefaultHasher::new();
+        // // std::hash::Hash::hash(&cid, &mut hasher);
+        // // Hash::from(hasher.finish())
+        cid.hash()
+            .digest()
+            .chunks_exact(8)
+            .map(<[u8; 8]>::try_from)
+            .filter_map(Result::ok)
+            .fold(cid.codec() ^ cid.hash().code(), |hash, chunk| {
+                hash ^ u64::from_le_bytes(chunk)
+            })
+            .into()
     }
 }
 
@@ -92,6 +100,8 @@ impl Hash {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::cid::CidCborExt;
+    use cid::multihash::{Code, MultihashDigest};
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
     use std::num::NonZeroUsize;
@@ -100,6 +110,11 @@ mod tests {
         fn arbitrary(g: &mut Gen) -> Hash {
             Hash::from(u64::arbitrary(g))
         }
+    }
+
+    #[quickcheck]
+    fn hash_may_not_be_invalid(cid: Cid) {
+        assert_ne!(Hash::from(cid), Hash::INVALID);
     }
 
     #[quickcheck]
@@ -154,5 +169,47 @@ mod tests {
     fn hash_distance_2() {
         // If Hash(0) is at position 4 then it is 4 places away from where it wants to be.
         assert_eq!(Hash(0).distance(4, 10), 4);
+    }
+
+    // The hashes must be static. If any of these tests fail, the index version
+    // number must be bumped.
+    #[test]
+    fn known_hashes() {
+        assert_eq!(Hash::from(Cid::default()), Hash(0));
+        assert_eq!(
+            Hash::from(Cid::from_cbor_blake2b256(&"forest").unwrap()),
+            Hash(7060553106844083342)
+        );
+        assert_eq!(
+            Hash::from(Cid::from_cbor_blake2b256(&"lotus").unwrap()),
+            Hash(10998694778601859716)
+        );
+        assert_eq!(
+            Hash::from(Cid::from_cbor_blake2b256(&"libp2p").unwrap()),
+            Hash(15878333306608412239)
+        );
+        assert_eq!(
+            Hash::from(Cid::from_cbor_blake2b256(&"ChainSafe").unwrap()),
+            Hash(17464860692676963753)
+        );
+        assert_eq!(
+            Hash::from(Cid::from_cbor_blake2b256(&"haskell").unwrap()),
+            Hash(10392497608425502268)
+        );
+        assert_eq!(
+            Hash::from(Cid::new_v1(0xAB, Code::Identity.digest(&[]))),
+            Hash(170)
+        );
+        assert_eq!(
+            Hash::from(Cid::new_v1(0xAC, Code::Identity.digest(&[1, 2, 3, 4]))),
+            Hash(171)
+        );
+        assert_eq!(
+            Hash::from(Cid::new_v1(
+                0xAD,
+                Code::Identity.digest(&[1, 2, 3, 4, 5, 6, 7, 8])
+            )),
+            Hash(578437695752307371)
+        );
     }
 }

@@ -8,8 +8,7 @@
 macro_rules! impl_verifier {
     () => {
         pub(super) mod verifier {
-            use ahash::HashMap;
-            use cid::Cid;
+            use $crate::ipld::CidHashMap;
             use fvm_ipld_blockstore::Blockstore;
             use fvm_ipld_encoding::CborStore;
             use $crate::shim::{address::Address, machine::Manifest, state_tree::StateTree};
@@ -24,7 +23,7 @@ macro_rules! impl_verifier {
                 fn verify_migration(
                     &self,
                     store: &BS,
-                    migrations: &HashMap<Cid, Migrator<BS>>,
+                    migrations: &CidHashMap<Migrator<BS>>,
                     actors_in: &StateTree<BS>,
                 ) -> anyhow::Result<()> {
                     let system_actor = actors_in

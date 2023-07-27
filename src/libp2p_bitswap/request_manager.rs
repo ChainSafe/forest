@@ -9,7 +9,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use crate::ipld::CidHashMap;
+use ahash::{HashSet, HashSetExt};
 use flume::TryRecvError;
 use libipld::{Block, Cid};
 use libp2p::PeerId;
@@ -32,7 +33,7 @@ pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
     outbound_request_rx: flume::Receiver<(PeerId, BitswapRequest)>,
     peers: RwLock<HashSet<PeerId>>,
-    response_channels: RwLock<HashMap<Cid, ResponseChannels>>,
+    response_channels: RwLock<CidHashMap<ResponseChannels>>,
 }
 
 impl BitswapRequestManager {
@@ -52,7 +53,7 @@ impl Default for BitswapRequestManager {
             outbound_request_tx,
             outbound_request_rx,
             peers: RwLock::new(HashSet::new()),
-            response_channels: RwLock::new(HashMap::new()),
+            response_channels: RwLock::new(CidHashMap::new()),
         }
     }
 }
@@ -121,7 +122,7 @@ impl BitswapRequestManager {
         deadline: Instant,
     ) -> bool {
         // Fail fast here when the given `cid` is being processed by other tasks
-        if self.response_channels.read().contains_key(&cid) {
+        if self.response_channels.read().contains_key(cid) {
             return false;
         }
 
@@ -195,7 +196,7 @@ impl BitswapRequestManager {
         // Cleanup
         {
             let mut response_channels = self.response_channels.write();
-            response_channels.remove(&cid);
+            response_channels.remove(cid);
             metrics::response_channel_container_capacity().set(response_channels.capacity() as _);
         }
 
@@ -211,12 +212,12 @@ impl BitswapRequestManager {
 
         match response {
             HaveBlock(peer, cid) => {
-                if let Some(chans) = self.response_channels.read().get(&cid) {
+                if let Some(chans) = self.response_channels.read().get(cid) {
                     _ = chans.block_have.send(peer);
                 }
             }
             DataBlock(_peer, cid, data) => {
-                if let Some(chans) = self.response_channels.read().get(&cid) {
+                if let Some(chans) = self.response_channels.read().get(cid) {
                     if let Ok(true) = store.contains(&cid) {
                         // Avoid duplicate writes, still notify the receiver
                         metrics::message_counter_inbound_response_block_already_exists_in_db()
