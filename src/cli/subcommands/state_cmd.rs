@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKeys;
-use crate::chain::index::ResolveNullTipset;
-use crate::chain::ChainStore;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::blocks::Tipset;
 use crate::db::car::AnyCar;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
-use crate::genesis::read_genesis_header;
 use crate::json::cid::CidJson;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_client::state_ops::state_fetch_root;
@@ -22,7 +21,6 @@ use cid::Cid;
 use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use std::{path::PathBuf, sync::Arc};
-use tempfile::TempDir;
 
 use super::handle_rpc_err;
 use super::Config;
@@ -77,25 +75,8 @@ async fn print_computed_state(
     // Initialize Blockstore
     let store = Arc::new(AnyCar::new(move || std::fs::File::open(&snapshot))?);
 
-    let tsk = TipsetKeys::new(store.roots());
-
-    // Initialize ChainStore
-    let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
-        &store,
-    )
-    .await?;
-
-    let cs = Arc::new(ChainStore::new(
-        store.clone(),
-        config.chain.clone(),
-        genesis_header,
-        TempDir::new()?.path(),
-    )?);
-
     // Prepare call to apply_block_messages
-    let ts = cs.tipset_from_keys(&tsk)?;
+    let ts = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
 
     let genesis = ts.genesis(&store)?;
     let network = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -108,16 +89,18 @@ async fn print_computed_state(
 
     let chain_config = ChainConfig::from_chain(&network);
 
-    let timestamp = cs.genesis().timestamp();
+    let timestamp = genesis.timestamp();
+
+    let chain_index = ChainIndex::new(Arc::clone(&store));
+
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
-    let tipset = cs
-        .chain_index
-        .tipset_by_height(vm_height, ts, ResolveNullTipset::TakeOlder)
+    let tipset = chain_index
+        .tipset_by_height(vm_height, Arc::new(ts), ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", vm_height))?;
 
     let ((st, _), output) = apply_block_messages(
         timestamp,
-        Arc::clone(&cs.chain_index),
+        Arc::clone(&Arc::new(chain_index)),
         Arc::clone(&Arc::new(chain_config)),
         beacon,
         &MultiEngine::default(),
