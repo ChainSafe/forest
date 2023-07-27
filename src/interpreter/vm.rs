@@ -55,7 +55,7 @@ type ForestKernelV3<DB> =
 type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 
-/// Comes from https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473
+/// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
 
 /// Contains all messages to process through the VM as well as miner information
