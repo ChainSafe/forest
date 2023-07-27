@@ -377,6 +377,12 @@ mod tests {
         assert_eq!(info.epoch, 0);
     }
 
+    fn genesis_timestamp(reader: impl Read + Seek) -> u64 {
+        let db = crate::db::car::PlainCar::new(reader).unwrap();
+        let ts = Tipset::load_required(&db, &TipsetKeys::new(db.roots())).unwrap();
+        ts.genesis(&db).unwrap().timestamp()
+    }
+
     #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
@@ -390,7 +396,7 @@ mod tests {
         .unwrap();
         let file = tokio::fs::File::open(build_output_path(
             NetworkChain::Calibnet.to_string(),
-            0,
+            genesis_timestamp(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
             0,
             output_path.path().into(),
         ))
