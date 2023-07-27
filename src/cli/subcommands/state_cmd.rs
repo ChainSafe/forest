@@ -67,7 +67,6 @@ pub enum StateCommands {
 }
 
 async fn print_computed_state(
-    config: Config,
     snapshot: PathBuf,
     vm_height: ChainEpoch,
     json: bool,
@@ -87,12 +86,9 @@ async fn print_computed_state(
         NetworkChain::Devnet("devnet".to_string())
     };
 
-    let chain_config = ChainConfig::from_chain(&network);
-
     let timestamp = genesis.timestamp();
-
     let chain_index = ChainIndex::new(Arc::clone(&store));
-
+    let chain_config = ChainConfig::from_chain(&network);
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
         .tipset_by_height(vm_height, Arc::new(ts), ResolveNullTipset::TakeOlder)
@@ -145,7 +141,7 @@ impl StateCommands {
                 vm_height,
                 json,
             } => {
-                print_computed_state(config, snapshot, vm_height, json).await?;
+                print_computed_state(snapshot, vm_height, json).await?;
             }
         }
         Ok(())
