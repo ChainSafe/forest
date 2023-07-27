@@ -269,13 +269,27 @@ enum Task {
 }
 
 pin_project! {
-    struct ChainStream<DB, T> {
+    pub struct ChainStream<DB, T> {
         #[pin]
         tipset_iter: T,
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
         seen: CidHashSet,
         stateroot_limit: ChainEpoch,
+        fail_on_dead_links: bool,
+    }
+}
+
+impl<DB, T> ChainStream<DB, T> {
+    pub fn with_seen(self, seen: CidHashSet) -> Self {
+        ChainStream {
+            seen: seen,
+            ..self
+        }
+    }
+
+    pub fn into_seen(self) -> CidHashSet {
+        self.seen
     }
 }
 
@@ -299,6 +313,21 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
         dfs: VecDeque::new(),
         seen: CidHashSet::default(),
         stateroot_limit,
+        fail_on_dead_links: true,
+    }
+}
+
+pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
+    db: DB,
+    tipset_iter: T ,
+) -> ChainStream<DB, T> {
+    ChainStream {
+        tipset_iter,
+        db,
+        dfs: VecDeque::new(),
+        seen: CidHashSet::default(),
+        stateroot_limit: 0,
+        fail_on_dead_links: true,
     }
 }
 
@@ -315,9 +344,17 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                 match task {
                     Emit(cid) => {
                         let cid = *cid;
-                        let data = this.db.get(&cid)?.ok_or(anyhow::anyhow!("missing key"))?;
+                        if let Some(data) = this.db.get(&cid)? {
+                            return Poll::Ready(Some(Ok((cid, data))));
+                        } else {
+                            if *this.fail_on_dead_links {
+                                return Poll::Ready(Some(Err(anyhow::anyhow!(
+                                    "missing key: {}",
+                                    cid
+                                ))));
+                            }
+                        }
                         this.dfs.pop_front();
-                        return Poll::Ready(Some(Ok((cid, data))));
                     }
                     Iterate(dfs_iter) => {
                         while let Some(ipld) = dfs_iter.next() {
@@ -328,15 +365,20 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                 // 3. _: ignore all other links
                                 // Don't revisit what's already been visited.
                                 if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
-                                    let data =
-                                        this.db.get(&cid)?.ok_or(anyhow::anyhow!("missing key"))?;
-
-                                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                        let ipld: Ipld = from_slice(&data)?;
-                                        dfs_iter.walk_next(ipld);
+                                    if let Some(data) = this.db.get(&cid)? {
+                                        if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                            let ipld: Ipld = from_slice(&data)?;
+                                            dfs_iter.walk_next(ipld);
+                                        }
+                                        return Poll::Ready(Some(Ok((cid, data))));
+                                    } else {
+                                        if *this.fail_on_dead_links {
+                                            return Poll::Ready(Some(Err(anyhow::anyhow!(
+                                                "missing key: {}",
+                                                cid
+                                            ))));
+                                        }
                                     }
-
-                                    return Poll::Ready(Some(Ok((cid, data))));
                                 }
                             }
                         }
