@@ -49,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed=src/mod.rs");
     println!(
         "cargo:rerun-if-changed={}",
         ACTOR_BUNDLE_CACHE_DIR.display()
