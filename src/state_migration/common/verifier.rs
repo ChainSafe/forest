@@ -3,9 +3,8 @@
 
 use std::sync::Arc;
 
+use crate::ipld::CidHashMap;
 use crate::shim::state_tree::StateTree;
-use ahash::HashMap;
-use cid::Cid;
 
 use super::Migrator;
 
@@ -15,7 +14,7 @@ pub(in crate::state_migration) trait ActorMigrationVerifier<BS> {
     fn verify_migration(
         &self,
         store: &BS,
-        migrations: &HashMap<Cid, Migrator<BS>>,
+        migrations: &CidHashMap<Migrator<BS>>,
         actors_in: &StateTree<BS>,
     ) -> anyhow::Result<()>;
 }
