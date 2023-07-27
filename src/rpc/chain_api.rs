@@ -23,7 +23,6 @@ use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use sha2::Sha256;
 use tokio::sync::Mutex;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub(in crate::rpc) async fn chain_get_message<DB>(
     data: Data<RPCState<DB>>,
@@ -81,23 +80,21 @@ where
             .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
     match if dry_run {
-        crate::chain::export::<_, Sha256>(
+        crate::chain::export::<Sha256>(
             &data.chain_store.db,
             &start_ts,
             recent_roots,
             VoidAsyncWriter,
-            true, // `compressed` is always on
             skip_checksum,
         )
         .await
     } else {
         let file = tokio::fs::File::create(&output_path).await?;
-        crate::chain::export::<_, Sha256>(
+        crate::chain::export::<Sha256>(
             &data.chain_store.db,
             &start_ts,
             recent_roots,
-            file.compat(),
-            true,
+            file,
             skip_checksum,
         )
         .await

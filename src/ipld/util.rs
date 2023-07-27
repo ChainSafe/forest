@@ -12,6 +12,7 @@ use std::{
 
 use crate::blocks::{BlockHeader, Tipset};
 use crate::shim::clock::ChainEpoch;
+use crate::utils::db::car_stream::Block;
 use crate::utils::io::progress_log::WithProgressRaw;
 use cid::Cid;
 use futures::Stream;
@@ -292,7 +293,7 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
-) -> impl Stream<Item = anyhow::Result<(Cid, Vec<u8>)>> {
+) -> impl Stream<Item = anyhow::Result<Block>> {
     ChainStream {
         tipset_iter,
         db,
@@ -303,7 +304,7 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 }
 
 impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
-    type Item = anyhow::Result<(Cid, Vec<u8>)>;
+    type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
@@ -317,7 +318,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         let cid = *cid;
                         let data = this.db.get(&cid)?.ok_or(anyhow::anyhow!("missing key"))?;
                         this.dfs.pop_front();
-                        return Poll::Ready(Some(Ok((cid, data))));
+                        return Poll::Ready(Some(Ok(Block { cid, data })));
                     }
                     Iterate(dfs_iter) => {
                         while let Some(ipld) = dfs_iter.next() {
@@ -336,7 +337,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                         dfs_iter.walk_next(ipld);
                                     }
 
-                                    return Poll::Ready(Some(Ok((cid, data))));
+                                    return Poll::Ready(Some(Ok(Block { cid, data })));
                                 }
                             }
                         }
