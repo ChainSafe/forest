@@ -59,6 +59,12 @@ impl From<anyhow::Error> for Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::Other(e.to_string())
+    }
+}
+
 impl<T> From<flume::SendError<T>> for Error {
     fn from(e: flume::SendError<T>) -> Self {
         Error::Other(e.to_string())

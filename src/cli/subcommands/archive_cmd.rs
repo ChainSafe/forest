@@ -32,9 +32,10 @@ use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::AnyCar;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::{bail, Context as _};
-use chrono::Utc;
+use chrono::NaiveDateTime;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
@@ -43,7 +44,6 @@ use sha2::Sha256;
 use std::io::{self, Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::info;
 
 #[derive(Debug, Subcommand)]
@@ -106,13 +106,24 @@ impl ArchiveCommands {
 
 // This does nothing if the output path is a file. If it is a directory - it produces the following:
 // `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
-fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> PathBuf {
+fn build_output_path(
+    chain: String,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+    output_path: PathBuf,
+) -> PathBuf {
     match output_path.is_dir() {
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            Utc::now().date_naive(),
+            NaiveDateTime::from_timestamp_opt(
+                genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS,
+                0,
+            )
+            .unwrap_or_default()
+            .into(),
             epoch,
+            true,
         )),
         false => output_path.clone(),
     }
@@ -154,7 +165,8 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
-    let output_path = build_output_path(network.to_string(), epoch, output_path);
+    let output_path =
+        build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
 
     let writer = tokio::fs::File::create(&output_path)
         .await
@@ -168,7 +180,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
         output_path.to_str().unwrap_or_default()
     );
 
-    crate::chain::export::<_, Sha256>(store, &ts, depth, writer.compat(), true, true).await?;
+    crate::chain::export::<Sha256>(store, &ts, depth, writer, true).await?;
 
     Ok(())
 }
@@ -335,6 +347,7 @@ mod tests {
     use fvm_ipld_car::CarReader;
     use tempfile::TempDir;
     use tokio::io::BufReader;
+    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     #[test]
     fn archive_info_calibnet() {
@@ -358,6 +371,12 @@ mod tests {
         assert_eq!(info.epoch, 0);
     }
 
+    fn genesis_timestamp(reader: impl Read + Seek) -> u64 {
+        let db = crate::db::car::PlainCar::new(reader).unwrap();
+        let ts = Tipset::load_required(&db, &TipsetKeys::new(db.roots())).unwrap();
+        ts.genesis(&db).unwrap().timestamp()
+    }
+
     #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
@@ -371,6 +390,7 @@ mod tests {
         .unwrap();
         let file = tokio::fs::File::open(build_output_path(
             NetworkChain::Calibnet.to_string(),
+            genesis_timestamp(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
             0,
             output_path.path().into(),
         ))

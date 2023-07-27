@@ -54,6 +54,8 @@
   lookup errors instead of silently ignoring them.
 - [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
   flag to `forest-cli snapshot export` to allow export at a specific tipset.
+- [#3283](https://github.com/ChainSafe/forest/pull/3283): All generated car
+  files use the new forest.car.zst format.
 
 ### Removed
 
