@@ -19,6 +19,7 @@ use futures::{
 };
 use fvm_ipld_car::{CarHeader, CarReader};
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
 use protobuf_codegen::Customize;
 use reqwest::Url;
@@ -28,7 +29,10 @@ use walkdir::WalkDir;
 const PROTO_DIR: &str = "proto";
 const CARGO_OUT_DIR: &str = "proto";
 
-const ACTOR_BUNDLE_CACHE_DIR: &str = "target/actor_bundles/";
+lazy_static! {
+    // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
+    static ref ACTOR_BUNDLE_CACHE_DIR: PathBuf = Path::new("target/actor_bundles/").to_owned();
+}
 
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
@@ -45,7 +49,10 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed={ACTOR_BUNDLE_CACHE_DIR}");
+    println!(
+        "cargo:rerun-if-changed={}",
+        ACTOR_BUNDLE_CACHE_DIR.display()
+    );
 
     let mut tasks = JoinSet::new();
     for ActorBundleInfo { manifest, url } in ACTOR_BUNDLES.iter() {
@@ -114,12 +121,10 @@ where
 }
 
 async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<PathBuf> {
-    // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
-    let cached_car_dir = Path::new(ACTOR_BUNDLE_CACHE_DIR);
-    if !cached_car_dir.is_dir() {
-        fs::create_dir_all(cached_car_dir)?;
+    if !ACTOR_BUNDLE_CACHE_DIR.is_dir() {
+        fs::create_dir_all(ACTOR_BUNDLE_CACHE_DIR.as_path())?;
     }
-    let cached_car_path = cached_car_dir.join(format!("{root}.car"));
+    let cached_car_path = ACTOR_BUNDLE_CACHE_DIR.join(format!("{root}.car"));
     if cached_car_path.is_file() {
         if let Ok(file) = async_fs::File::open(&cached_car_path).await {
             if let Ok(true) = is_bundle_valid(root, BufReader::new(file)).await {
@@ -128,7 +133,7 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
         }
     }
 
-    let tmp = tempfile::NamedTempFile::new_in(ACTOR_BUNDLE_CACHE_DIR)?.into_temp_path();
+    let tmp = tempfile::NamedTempFile::new_in(ACTOR_BUNDLE_CACHE_DIR.as_path())?.into_temp_path();
     {
         let response = global_http_client().get(url.clone()).send().await?;
         let mut writer = BufWriter::new(async_fs::File::create(&tmp).await?);
