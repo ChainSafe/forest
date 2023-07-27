@@ -92,8 +92,8 @@ pub(in crate::rpc) async fn state_get_network_version<
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
-pub(crate) async fn state_get_actor<DB: Blockstore + Clone + Send + Sync + 'static, B: Beacon>(
-    data: Data<RPCState<DB, B>>,
+pub(crate) async fn state_get_actor<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<StateGetActorParams>,
 ) -> Result<StateGetActorResult, JsonRpcError> {
     let (AddressJson(addr), TipsetKeysJson(tsk)) = params;

@@ -270,13 +270,12 @@ where
         .map_err(Into::into)
 }
 
-pub(crate) async fn chain_get_min_base_fee<DB, B>(
-    data: Data<RPCState<DB, B>>,
+pub(crate) async fn chain_get_min_base_fee<DB>(
+    data: Data<RPCState<DB>>,
     Params(params): Params<ChainGetMinBaseFeeParams>,
 ) -> Result<ChainGetMinBaseFeeResult, JsonRpcError>
 where
     DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
 {
     let (basefee_lookback,) = params;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
