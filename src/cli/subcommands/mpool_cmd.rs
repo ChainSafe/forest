@@ -13,7 +13,6 @@ use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
-use fvm_ipld_encoding::Cbor;
 use num::BigInt;
 use std::sync::Arc;
 
@@ -472,7 +471,7 @@ mod tests {
     #[test]
     fn compute_statistics() {
         use crate::shim::message::Message;
-        use fvm_ipld_encoding3::RawBytes;
+        use fvm_ipld_encoding::RawBytes;
 
         let addr0 = Address::from_str("t3urxivigpzih5f6ih3oq3lr2jlunw3m5oehbe5efts4ub5wy2oi4fbo5cw7333a4rrffo5535tjdq24wkc2aa").unwrap();
         let addr1 = Address::from_str("t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i").unwrap();
