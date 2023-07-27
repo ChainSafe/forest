@@ -6,6 +6,7 @@ mod metrics;
 pub mod parity_db;
 pub mod parity_db_config;
 pub use memory::MemoryDB;
+pub mod car;
 
 pub mod rolling;
 

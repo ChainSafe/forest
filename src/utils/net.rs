@@ -7,7 +7,7 @@ use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
 use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
-use tokio::io::{AsyncBufReadExt, AsyncRead};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead};
 use tokio_util::{
     compat::TokioAsyncReadCompatExt,
     either::Either::{Left, Right},
@@ -62,7 +62,7 @@ pub async fn download_ipfs_file_trustlessly(
 /// - uncompressed
 ///
 /// This function returns a reader of uncompressed data.
-pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
+pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
     // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
     // malformed it'll end up trying to treat it as a local filepath. If that fails - an error
     // is thrown.
@@ -86,12 +86,16 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
         }
     };
 
-    let mut reader = tokio::io::BufReader::new(WithProgress::wrap_async_read(
+    Ok(tokio::io::BufReader::new(WithProgress::wrap_async_read(
         "Loading",
         stream,
         content_length,
-    ));
+    )))
+}
 
+pub async fn decompress_if_needed(
+    mut reader: impl AsyncBufRead + Unpin,
+) -> anyhow::Result<impl AsyncRead> {
     Ok(match is_zstd(reader.fill_buf().await?) {
         true => Left(ZstdDecoder::new(reader)),
         false => Right(reader),

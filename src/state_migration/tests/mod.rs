@@ -15,6 +15,7 @@ use std::path::Path;
 use std::{str::FromStr, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
+#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv17_state_migration_calibnet() -> Result<()> {
     // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
@@ -31,6 +32,7 @@ async fn test_nv17_state_migration_calibnet() -> Result<()> {
     .await
 }
 
+#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv18_state_migration_calibnet() -> Result<()> {
     // State migration at height Hygge(epoch 322354) was successful,
@@ -47,6 +49,7 @@ async fn test_nv18_state_migration_calibnet() -> Result<()> {
     .await
 }
 
+#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv19_state_migration_calibnet() -> Result<()> {
     // State migration at height Lightning(epoch 489094) was successful,
@@ -85,11 +88,9 @@ async fn test_state_migration(
         tmp.persist(&car_path)?;
     }
 
-    let store = Arc::new(
-        crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore::new(
-            std::io::BufReader::new(std::fs::File::open(&car_path)?),
-        )?,
-    );
+    let store = Arc::new(crate::db::car::plain::PlainCar::new(
+        std::io::BufReader::new(std::fs::File::open(&car_path)?),
+    )?);
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
 

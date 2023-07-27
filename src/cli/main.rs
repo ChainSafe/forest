@@ -63,7 +63,7 @@ where
                         Subcommand::Info(cmd) => cmd.run(config, opts).await,
                         Subcommand::DB(cmd) => cmd.run(&config).await,
                         Subcommand::Snapshot(cmd) => cmd.run(config).await,
-                        Subcommand::Archive(cmd) => cmd.run(config).await,
+                        Subcommand::Archive(cmd) => cmd.run().await,
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
                         Subcommand::Car(cmd) => cmd.run().await,

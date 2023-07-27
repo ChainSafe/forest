@@ -7,6 +7,7 @@ use crate::blocks::{BlockHeader, TipsetKeys};
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::{BufferSize, ChunkSize};
 use crate::state_manager::StateManager;
+use crate::utils::net;
 use anyhow::bail;
 use cid::Cid;
 use futures::{sink::SinkExt, stream, AsyncRead, Stream, StreamExt};
@@ -96,7 +97,7 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
-    let reader = crate::utils::net::reader(path).await?;
+    let reader = net::decompress_if_needed(net::reader(path).await?).await?;
 
     let (cids, n_records) = load_and_retrieve_header(
         sm.blockstore().clone(),

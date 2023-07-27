@@ -159,6 +159,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2606,7 +2612,7 @@ dependencies = [
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "indexmap 1.9.3",
- "integer-encoding",
+ "integer-encoding 3.0.4",
  "num-derive 0.3.3",
  "num-traits",
  "serde",
@@ -2627,7 +2633,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
- "integer-encoding",
+ "integer-encoding 3.0.4",
  "lazy_static",
  "num-derive 0.3.3",
  "num-traits",
@@ -2881,7 +2887,6 @@ dependencies = [
  "flume",
  "fs_extra",
  "futures",
- "futures-util",
  "fvm 2.5.0",
  "fvm 3.5.0",
  "fvm_ipld_amt",
@@ -2900,6 +2905,7 @@ dependencies = [
  "humantime",
  "indexmap 1.9.3",
  "indicatif",
+ "integer-encoding 4.0.0",
  "is-terminal",
  "itertools 0.11.0",
  "jsonrpc-v2",
@@ -2911,7 +2917,7 @@ dependencies = [
  "libipld-macro",
  "libp2p",
  "libsecp256k1",
- "lru",
+ "lru 0.11.0",
  "memory-stats",
  "mimalloc",
  "nom",
@@ -2953,6 +2959,7 @@ dependencies = [
  "shared_memory",
  "similar",
  "slotmap",
+ "smallvec",
  "smart-default",
  "static_assertions",
  "statrs",
@@ -2967,7 +2974,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-test",
- "tokio-util 0.6.10",
  "tokio-util 0.7.8",
  "toml 0.7.6",
  "tracing",
@@ -3339,7 +3345,7 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "integer-encoding",
+ "integer-encoding 3.0.4",
  "serde",
  "thiserror",
 ]
@@ -3664,6 +3670,10 @@ name = "hashbrown"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
+dependencies = [
+ "ahash",
+ "allocator-api2",
+]
 
 [[package]]
 name = "hdrhistogram"
@@ -4015,6 +4025,12 @@ dependencies = [
  "async-trait",
  "futures-util",
 ]
+
+[[package]]
+name = "integer-encoding"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "924df4f0e24e2e7f9cdd90babb0b96f93b20f3ecfa949ea9e6613756b8c8e1bf"
 
 [[package]]
 name = "interceptor"
@@ -4414,7 +4430,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-swarm",
  "log",
- "lru",
+ "lru 0.10.1",
  "quick-protobuf",
  "quick-protobuf-codec",
  "smallvec",
@@ -4828,6 +4844,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "718e8fae447df0c7e1ba7f5189829e63fd536945c8988d61444c19039f16b670"
 dependencies = [
  "hashbrown 0.13.2",
+]
+
+[[package]]
+name = "lru"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eedb2bdbad7e0634f83989bf596f497b070130daaa398ab22d84c39e266deec5"
+dependencies = [
+ "hashbrown 0.14.0",
 ]
 
 [[package]]

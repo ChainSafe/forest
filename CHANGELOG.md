@@ -45,6 +45,8 @@
   `forest-cli car concat` subcommand for concatenating `.car` files.
 - [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
   option to `forest-cli state fetch` command.
+- [#3213](https://github.com/ChainSafe/forest/pull/3213): Add support for
+  loading forest.car.zst files.
 
 ### Changed
 
@@ -52,6 +54,8 @@
   lookup errors instead of silently ignoring them.
 - [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
   flag to `forest-cli snapshot export` to allow export at a specific tipset.
+- [#3283](https://github.com/ChainSafe/forest/pull/3283): All generated car
+  files use the new forest.car.zst format.
 
 ### Removed
 
