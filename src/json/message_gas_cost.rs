@@ -87,4 +87,34 @@ pub mod json {
 }
 
 #[cfg(test)]
-pub mod tests {}
+mod tests {
+    use crate::shim::econ::TokenAmount;
+    use cid::Cid;
+    use num_bigint::BigInt;
+
+    use quickcheck_macros::quickcheck;
+
+    use super::*;
+
+    impl quickcheck::Arbitrary for MessageGasCost {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self {
+                message: Cid::arbitrary(g),
+                gas_used: BigInt::arbitrary(g),
+                base_fee_burn: TokenAmount::arbitrary(g),
+                over_estimation_burn: TokenAmount::arbitrary(g),
+                miner_penalty: TokenAmount::arbitrary(g),
+                miner_tip: TokenAmount::arbitrary(g),
+                refund: TokenAmount::arbitrary(g),
+                total_cost: TokenAmount::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn message_gas_cost_roundtrip(mgc: MessageGasCost) {
+        let serialized = crate::to_string_with!(&mgc, json::serialize);
+        let parsed: MessageGasCost = crate::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(mgc, parsed);
+    }
+}

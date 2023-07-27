@@ -160,6 +160,19 @@ impl From<Receipt_v3> for Receipt {
     }
 }
 
+#[cfg(test)]
+impl quickcheck::Arbitrary for Receipt {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Receipt_v3 {
+            exit_code: u32::arbitrary(g).into(),
+            return_data: Vec::arbitrary(g).into(),
+            gas_used: u64::arbitrary(g),
+            events_root: Option::arbitrary(g),
+        }
+        .into()
+    }
+}
+
 // We match Lotus structures and code to have similar json trace and an easier diff:
 // https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L391
 #[derive(PartialEq, Clone, Debug)]

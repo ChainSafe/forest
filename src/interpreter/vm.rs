@@ -64,7 +64,7 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct MessageGasCost {
     pub message: Cid,
     pub gas_used: BigInt,
@@ -92,7 +92,7 @@ impl MessageGasCost {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct InvocResult {
     pub msg_cid: Cid,
     pub msg: Message,
