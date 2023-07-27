@@ -32,13 +32,23 @@ impl From<u64> for Hash {
 
 impl From<Cid> for Hash {
     fn from(cid: Cid) -> Hash {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::Hasher;
-        let mut hasher = DefaultHasher::new();
-        std::hash::Hash::hash(&cid, &mut hasher);
-        Hash::from(hasher.finish())
-        // It's tempting to directly reuse the hash value in `Cid` but it actually affect performance.
-        // Hash::from(u64::from_le_bytes(cid.hash().digest()[0..8].try_into().unwrap_or([0xFF; 8])))
+        // Don't use DefaultHasher, it is not stable over time.
+        // // use std::collections::hash_map::DefaultHasher;
+        // // use std::hash::Hasher;
+        // // let mut hasher = DefaultHasher::new();
+        // // std::hash::Hash::hash(&cid, &mut hasher);
+        // // Hash::from(hasher.finish())
+        let mut chunks = cid
+            .hash()
+            .digest()
+            .chunks_exact(8)
+            .map(<[u8; 8]>::try_from)
+            .map(Result::ok);
+        let mut hash: u64 = cid.codec() ^ cid.hash().code();
+        while let Some(chunk) = chunks.next().flatten() {
+            hash ^= u64::from_le_bytes(chunk);
+        }
+        Hash::from(hash)
     }
 }
 
