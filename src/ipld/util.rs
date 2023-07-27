@@ -12,6 +12,7 @@ use std::{
 
 use crate::blocks::{BlockHeader, Tipset};
 use crate::shim::clock::ChainEpoch;
+use crate::utils::db::car_stream::Block;
 use crate::utils::io::progress_log::WithProgressRaw;
 use cid::Cid;
 use futures::Stream;
@@ -282,10 +283,7 @@ pin_project! {
 
 impl<DB, T> ChainStream<DB, T> {
     pub fn with_seen(self, seen: CidHashSet) -> Self {
-        ChainStream {
-            seen: seen,
-            ..self
-        }
+        ChainStream { seen: seen, ..self }
     }
 
     pub fn into_seen(self) -> CidHashSet {
@@ -306,7 +304,7 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
-) -> impl Stream<Item = anyhow::Result<(Cid, Vec<u8>)>> {
+) -> impl Stream<Item = anyhow::Result<Block>> {
     ChainStream {
         tipset_iter,
         db,
@@ -319,7 +317,7 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 
 pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
-    tipset_iter: T ,
+    tipset_iter: T,
 ) -> ChainStream<DB, T> {
     ChainStream {
         tipset_iter,
@@ -332,7 +330,7 @@ pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 }
 
 impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
-    type Item = anyhow::Result<(Cid, Vec<u8>)>;
+    type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
@@ -345,7 +343,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                     Emit(cid) => {
                         let cid = *cid;
                         if let Some(data) = this.db.get(&cid)? {
-                            return Poll::Ready(Some(Ok((cid, data))));
+                            return Poll::Ready(Some(Ok(Block { cid, data })));
                         } else {
                             if *this.fail_on_dead_links {
                                 return Poll::Ready(Some(Err(anyhow::anyhow!(
@@ -370,7 +368,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                             let ipld: Ipld = from_slice(&data)?;
                                             dfs_iter.walk_next(ipld);
                                         }
-                                        return Poll::Ready(Some(Ok((cid, data))));
+                                        return Poll::Ready(Some(Ok(Block { cid, data })));
                                     } else {
                                         if *this.fail_on_dead_links {
                                             return Poll::Ready(Some(Err(anyhow::anyhow!(
