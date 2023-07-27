@@ -201,7 +201,7 @@ impl Provider for TestApi {
     }
 
     fn max_actor_pending_messages(&self) -> u64 {
-        20000
+        200
     }
 }
 
