@@ -13,6 +13,7 @@ use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
+use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
@@ -492,6 +493,9 @@ async fn print_computed_state(
     let timestamp = genesis.timestamp();
     let chain_index = ChainIndex::new(Arc::clone(&store));
     let chain_config = ChainConfig::from_chain(&network);
+    if chain_config.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
         .tipset_by_height(vm_height, Arc::new(ts), ResolveNullTipset::TakeOlder)
