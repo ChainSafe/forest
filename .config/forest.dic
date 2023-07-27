@@ -13,6 +13,7 @@ BLS
 callee
 CAR/SM
 CARv1/SM
+CARv2/SM
 CBOR
 CID/SM
 CIDs
@@ -61,6 +62,7 @@ RPC
 SECP
 SECP256k1
 seekable
+skippable
 serializable
 serializer/SM
 statediff

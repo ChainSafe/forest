@@ -85,11 +85,9 @@ async fn test_state_migration(
         tmp.persist(&car_path)?;
     }
 
-    let store = Arc::new(
-        crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore::new(
-            std::io::BufReader::new(std::fs::File::open(&car_path)?),
-        )?,
-    );
+    let store = Arc::new(crate::db::car::plain::PlainCar::new(
+        std::io::BufReader::new(std::fs::File::open(&car_path)?),
+    )?);
     load_actor_bundles(&store).await?;
 
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
