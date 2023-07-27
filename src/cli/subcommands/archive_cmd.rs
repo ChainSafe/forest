@@ -138,7 +138,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
     let store = Arc::new(AnyCar::new(reader).context("couldn't read input CAR file")?);
 
     let index = ChainIndex::new(store.clone());
-    let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
+    let ts = index.load_tipset(&TipsetKeys::new(store.roots().into()))?;
 
     let genesis = ts.genesis(&store)?;
     let network = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -373,7 +373,7 @@ mod tests {
 
     fn genesis_timestamp(reader: impl Read + Seek) -> u64 {
         let db = crate::db::car::PlainCar::new(reader).unwrap();
-        let ts = Tipset::load_required(&db, &TipsetKeys::new(db.roots())).unwrap();
+        let ts = Tipset::load_required(&db, &TipsetKeys::new(db.roots().into())).unwrap();
         ts.genesis(&db).unwrap().timestamp()
     }
 
