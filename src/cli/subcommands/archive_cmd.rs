@@ -24,13 +24,13 @@
 //! running Forest-daemon or a separate database. Operations are carried out
 //! directly on CAR files.
 //!
-//! Additional reading: [`crate::car_backed_blockstore`]
+//! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
+use crate::db::car::AnyCar;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::{bail, Context as _};
@@ -40,7 +40,7 @@ use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use sha2::Sha256;
-use std::io::{Read, Seek};
+use std::io::{self, Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -90,12 +90,12 @@ impl ArchiveCommands {
                 epoch,
                 depth,
             } => {
-                let reader = std::fs::File::open(&input_path)?;
-
                 info!(
                     "indexing a car-backed store using snapshot: {}",
                     input_path.to_str().unwrap_or_default()
                 );
+
+                let reader = move || std::fs::File::open(&input_path);
 
                 do_export(reader, output_path, epoch, depth).await
             }
@@ -118,16 +118,13 @@ fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> 
     }
 }
 
-async fn do_export(
-    reader: impl Read + Seek + Send + Sync,
+async fn do_export<ReaderT: Read + Seek + Send + Sync>(
+    reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
 ) -> anyhow::Result<()> {
-    let store = Arc::new(
-        UncompressedCarV1BackedBlockstore::new(reader)
-            .context("couldn't read input CAR file - it's either compressed or corrupt")?,
-    );
+    let store = Arc::new(AnyCar::new(reader).context("couldn't read input CAR file")?);
 
     let index = ChainIndex::new(store.clone());
     let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
@@ -200,31 +197,30 @@ impl ArchiveInfo {
     // Scan a CAR file to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
     fn from_file(path: PathBuf) -> anyhow::Result<Self> {
-        Self::from_reader(std::fs::File::open(path)?)
+        Self::from_reader(move || std::fs::File::open(&path))
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_reader(reader: impl Read + Seek) -> anyhow::Result<Self> {
+    fn from_reader<ReaderT: Read + Seek>(
+        reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
+    ) -> anyhow::Result<Self> {
         Self::from_reader_with(reader, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_reader_with(reader: impl Read + Seek, progress: bool) -> anyhow::Result<Self> {
-        let store = UncompressedCarV1BackedBlockstore::new(reader)
-            .context("couldn't read input CAR file - is it compressed?")?;
+    fn from_reader_with<ReaderT: Read + Seek>(
+        reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
+        progress: bool,
+    ) -> anyhow::Result<Self> {
+        let store = AnyCar::new(reader)?;
 
-        let root = Tipset::load(&store, &TipsetKeys::new(store.roots()))?
-            .context("Missing root tipset")?;
+        let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
         let root_epoch = root.epoch();
 
-        let tipsets = itertools::unfold(Some(root.clone()), |tipset| {
-            let child = tipset.take()?;
-            *tipset = Tipset::load(&store, child.parents()).ok().flatten();
-            Some(child)
-        });
+        let tipsets = root.clone().chain(&store);
 
         let windowed = (std::iter::once(root).chain(tipsets)).tuple_windows();
 
@@ -280,6 +276,7 @@ impl ArchiveInfo {
                         } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
                             network = "mainnet".into();
                         }
+                        break;
                     }
                     None => {
                         break;
@@ -289,7 +286,7 @@ impl ArchiveInfo {
         }
 
         Ok(ArchiveInfo {
-            variant: "CARv1".into(),
+            variant: store.variant().to_string(),
             network,
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
@@ -301,9 +298,8 @@ impl ArchiveInfo {
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
 fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
-    let file = std::fs::File::open(snapshot)?;
-    let store = UncompressedCarV1BackedBlockstore::new(file)
-        .context("couldn't read input CAR file - is it compressed?")?;
+    let store = AnyCar::new(move || std::fs::File::open(&snapshot))
+        .context("couldn't read input CAR file")?;
     let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
 
     let genesis = root.genesis(&store)?;
@@ -348,18 +344,22 @@ mod tests {
 
     #[test]
     fn archive_info_calibnet() {
-        let info =
-            ArchiveInfo::from_reader_with(std::io::Cursor::new(calibnet::DEFAULT_GENESIS), false)
-                .unwrap();
+        let info = ArchiveInfo::from_reader_with(
+            || Ok(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
+            false,
+        )
+        .unwrap();
         assert_eq!(info.network, "calibnet");
         assert_eq!(info.epoch, 0);
     }
 
     #[test]
     fn archive_info_mainnet() {
-        let info =
-            ArchiveInfo::from_reader_with(std::io::Cursor::new(mainnet::DEFAULT_GENESIS), false)
-                .unwrap();
+        let info = ArchiveInfo::from_reader_with(
+            || Ok(std::io::Cursor::new(mainnet::DEFAULT_GENESIS)),
+            false,
+        )
+        .unwrap();
         assert_eq!(info.network, "mainnet");
         assert_eq!(info.epoch, 0);
     }
@@ -368,7 +368,7 @@ mod tests {
     async fn export() {
         let output_path = TempDir::new().unwrap();
         do_export(
-            std::io::Cursor::new(calibnet::DEFAULT_GENESIS),
+            || Ok(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
             output_path.path().into(),
             Some(0),
             1,
