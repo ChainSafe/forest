@@ -200,7 +200,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
         output_path.to_str().unwrap_or_default()
     );
 
-    crate::chain::export::<Sha256>(store, &ts, depth, writer, true).await?;
+    crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
 
     Ok(())
 }
