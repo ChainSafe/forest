@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
-use crate::chain::index::ChainIndex;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
@@ -13,7 +13,9 @@ use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
+use crate::shim::clock::ChainEpoch;
 use crate::shim::machine::MultiEngine;
+use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Context, Result};
@@ -80,6 +82,18 @@ pub enum SnapshotCommands {
         /// End zstd frames after they exceed this length
         #[arg(hide = true, long, default_value_t = 8000usize.next_power_of_two())]
         frame_size: usize,
+    },
+    /// Compute a state transition.
+    ComputeState {
+        /// Path to a snapshot CAR, which may be zstd compressed
+        #[arg(long)]
+        snapshot: PathBuf,
+        /// Set the height that the VM will see
+        #[arg(long)]
+        vm_height: ChainEpoch,
+        /// Generate JSON output
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -193,7 +207,6 @@ impl SnapshotCommands {
                 )
                 .await
             }
-
             Self::Compress {
                 source,
                 destination,
@@ -215,6 +228,11 @@ impl SnapshotCommands {
                 dest.flush().await?;
                 Ok(())
             }
+            Self::ComputeState {
+                snapshot,
+                vm_height,
+                json,
+            } => print_computed_state(snapshot, vm_height, json).await,
         }
     }
 }
@@ -449,4 +467,52 @@ fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
         .with_prefix(prefix);
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     pb
+}
+
+async fn print_computed_state(
+    snapshot: PathBuf,
+    vm_height: ChainEpoch,
+    json: bool,
+) -> anyhow::Result<()> {
+    // Initialize Blockstore
+    let store = Arc::new(AnyCar::new(move || std::fs::File::open(&snapshot))?);
+
+    // Prepare call to apply_block_messages
+    let ts = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+
+    let genesis = ts.genesis(&store)?;
+    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
+        NetworkChain::Calibnet
+    } else if genesis.cid() == &*mainnet::GENESIS_CID {
+        NetworkChain::Mainnet
+    } else {
+        NetworkChain::Devnet("devnet".to_string())
+    };
+
+    let timestamp = genesis.timestamp();
+    let chain_index = ChainIndex::new(Arc::clone(&store));
+    let chain_config = ChainConfig::from_chain(&network);
+    let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
+    let tipset = chain_index
+        .tipset_by_height(vm_height, Arc::new(ts), ResolveNullTipset::TakeOlder)
+        .context(format!("couldn't get a tipset at height {}", vm_height))?;
+
+    let ((st, _), output) = apply_block_messages(
+        timestamp,
+        Arc::clone(&Arc::new(chain_index)),
+        Arc::clone(&Arc::new(chain_config)),
+        beacon,
+        &MultiEngine::default(),
+        tipset,
+        NO_CALLBACK,
+        json, // enable traces if json flag is used
+    )?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("computed state cid: {}", st);
+    }
+
+    Ok(())
 }
