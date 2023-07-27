@@ -38,17 +38,15 @@ impl From<Cid> for Hash {
         // // let mut hasher = DefaultHasher::new();
         // // std::hash::Hash::hash(&cid, &mut hasher);
         // // Hash::from(hasher.finish())
-        let mut chunks = cid
-            .hash()
+        cid.hash()
             .digest()
             .chunks_exact(8)
             .map(<[u8; 8]>::try_from)
-            .map(Result::ok);
-        let mut hash: u64 = cid.codec() ^ cid.hash().code();
-        while let Some(chunk) = chunks.next().flatten() {
-            hash ^= u64::from_le_bytes(chunk);
-        }
-        Hash::from(hash)
+            .filter_map(Result::ok)
+            .fold(cid.codec() ^ cid.hash().code(), |hash, chunk| {
+                hash ^ u64::from_le_bytes(chunk)
+            })
+            .into()
     }
 }
 
