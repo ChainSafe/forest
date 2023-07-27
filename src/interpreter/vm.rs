@@ -37,7 +37,7 @@ use fvm3::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
-use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
+use fvm_shared2::clock::ChainEpoch;
 use num::Zero;
 use num_bigint::BigInt;
 
@@ -54,6 +54,9 @@ type ForestKernelV3<DB> =
     fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
 type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
+
+/// Comes from https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473
+const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.
@@ -319,7 +322,7 @@ where
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
-            gas_limit: BLOCK_GAS_LIMIT as u64 * 10000,
+            gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
             method_num: cron::Method::EpochTick as u64,
             params: Default::default(),
             value: Default::default(),
@@ -535,7 +538,7 @@ where
             params,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
-            gas_limit: 1 << 30,
+            gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
             value: Default::default(),
             version: Default::default(),
             gas_fee_cap: Default::default(),
