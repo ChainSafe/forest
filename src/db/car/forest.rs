@@ -192,8 +192,8 @@ impl Encoder {
     pub async fn write(
         sink: &mut (impl AsyncWrite + Unpin),
         roots: Vec<Cid>,
-        mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = io::Error> + Unpin,
-    ) -> io::Result<()> {
+        mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> + Unpin,
+    ) -> anyhow::Result<()> {
         let mut offset = 0;
 
         // Write CARv1 header
@@ -239,8 +239,8 @@ impl Encoder {
     pub fn compress_stream(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
-        stream: impl TryStream<Ok = Block, Error = io::Error>,
-    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = io::Error> {
+        stream: impl TryStream<Ok = Block, Error = anyhow::Error>,
+    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
         let mut encoder_store = new_encoder(zstd_compression_level);
         let mut frame_cids = vec![];
 
@@ -250,7 +250,10 @@ impl Encoder {
                 Err(e) => {
                     let dummy_error =
                         io::Error::new(io::ErrorKind::Other, "Error already consumed.");
-                    return Poll::Ready(Some(Err(std::mem::replace(e, dummy_error))));
+                    return Poll::Ready(Some(Err(anyhow::Error::from(std::mem::replace(
+                        e,
+                        dummy_error,
+                    )))));
                 }
                 Ok(encoder) => encoder,
             };
