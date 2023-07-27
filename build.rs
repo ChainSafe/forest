@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod src;
+use src::{ActorBundleInfo, ACTOR_BUNDLES};
+
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
@@ -18,6 +21,7 @@ use fvm_ipld_car::{CarHeader, CarReader};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use protobuf_codegen::Customize;
+use reqwest::Url;
 use tokio::task::JoinSet;
 use walkdir::WalkDir;
 
@@ -44,45 +48,11 @@ async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed={ACTOR_BUNDLE_CACHE_DIR}");
 
     let mut tasks = JoinSet::new();
-    for (root, url) in [
-        // calibnet
-        (
-            Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/calibnet/Shark.car",
-        ),
-        (
-            Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/calibnet/Hygge.car",
-        ),
-        (
-            Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/calibnet/Lightning.car",
-        ),
-        // devnet
-        (
-            Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/devnet/Hygge.car",
-        ),
-        (
-            Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/devnet/Lightning.car",
-        ),
-        // mainnet
-        (
-            Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/mainnet/Shark.car",
-        ),
-        (
-            Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/mainnet/Hygge.car",
-        ),
-        (
-            Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
-            "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/mainnet/Lightning.car",
-        ),
-    ] {
+    for ActorBundleInfo { manifest, url } in ACTOR_BUNDLES.iter() {
         tasks.spawn(async move {
-            download_bundle_if_needed(root, url).await.with_context(|| format!("Failed to get {root}.car from {url}"))
+            download_bundle_if_needed(manifest, url)
+                .await
+                .with_context(|| format!("Failed to get {manifest}.car from {url}"))
         });
     }
 
@@ -143,7 +113,7 @@ where
     futures::stream::iter(readers).flat_map(read_car_as_stream)
 }
 
-async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathBuf> {
+async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<PathBuf> {
     // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
     let cached_car_dir = Path::new(ACTOR_BUNDLE_CACHE_DIR);
     if !cached_car_dir.is_dir() {
@@ -152,7 +122,7 @@ async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathB
     let cached_car_path = cached_car_dir.join(format!("{root}.car"));
     if cached_car_path.is_file() {
         if let Ok(file) = async_fs::File::open(&cached_car_path).await {
-            if let Ok(true) = is_bundle_valid(&root, BufReader::new(file)).await {
+            if let Ok(true) = is_bundle_valid(root, BufReader::new(file)).await {
                 return Ok(cached_car_path);
             }
         }
@@ -160,7 +130,7 @@ async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathB
 
     let tmp = tempfile::NamedTempFile::new_in(ACTOR_BUNDLE_CACHE_DIR)?.into_temp_path();
     {
-        let response = global_http_client().get(url).send().await?;
+        let response = global_http_client().get(url.clone()).send().await?;
         let mut writer = BufWriter::new(async_fs::File::create(&tmp).await?);
         futures::io::copy(
             response
@@ -172,7 +142,7 @@ async fn download_bundle_if_needed(root: Cid, url: &str) -> anyhow::Result<PathB
         .await?;
         writer.flush().await?;
     }
-    if is_bundle_valid(&root, BufReader::new(async_fs::File::open(&tmp).await?)).await? {
+    if is_bundle_valid(root, BufReader::new(async_fs::File::open(&tmp).await?)).await? {
         tmp.persist(&cached_car_path)?;
         Ok(cached_car_path)
     } else {

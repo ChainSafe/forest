@@ -7,13 +7,11 @@ use lazy_static::lazy_static;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
-use url::Url;
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
     parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
-use crate::networks::ActorBundleInfo;
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 
@@ -126,26 +124,17 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Shark,
         epoch: 2_383_680,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-mainnet.car").unwrap()
-        })
+        bundle: Some(Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap())
     },
     HeightInfo {
         height: Height::Hygge,
         epoch: 2_683_348,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap()
-    }),
+        bundle: Some(Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap()),
     },
     HeightInfo {
         height: Height::Lightning,
         epoch: 2_809_800,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-mainnet.car").unwrap()
-    }),
+        bundle: Some(Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap()),
     },
     HeightInfo {
         height: Height::Thunder,

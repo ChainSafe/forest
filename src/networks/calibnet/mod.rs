@@ -6,10 +6,8 @@ use lazy_static::lazy_static;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
-use url::Url;
 
 use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
-use crate::networks::ActorBundleInfo;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -123,26 +121,17 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Shark,
         epoch: 16_800,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap()
-        })
+        bundle: Some(Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap())
     },
     HeightInfo {
         height: Height::Hygge,
         epoch: 322_354,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap()
-        })
+        bundle: Some(Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap())
     },
     HeightInfo {
         height: Height::Lightning,
         epoch: LIGHTNING_EPOCH,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap()
-        }),
+        bundle: Some(Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap()),
     },
     HeightInfo {
         height: Height::Thunder,

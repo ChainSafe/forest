@@ -3,10 +3,8 @@
 
 use cid::Cid;
 use lazy_static::lazy_static;
-use url::Url;
 
 use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
-use crate::networks::ActorBundleInfo;
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
 pub const ETH_CHAIN_ID: u64 = 31415926;
@@ -107,18 +105,12 @@ pub static ref HEIGHT_INFOS: [HeightInfo; 21] = [
     HeightInfo {
         height: Height::Hygge,
         epoch: -1,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-devnet.car").unwrap()
-    }),
+        bundle: Some(Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts").unwrap()),
     },
     HeightInfo {
         height: Height::Lightning,
         epoch: 30,
-        bundle: Some(ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-devnet.car").unwrap()
-    }),
+        bundle: Some(Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i").unwrap()),
     },
     HeightInfo {
         height: Height::Thunder,

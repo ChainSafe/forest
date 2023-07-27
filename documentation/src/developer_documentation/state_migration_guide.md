@@ -24,18 +24,25 @@ NV19.
 
 The first step is to import the actor bundle into Forest. This is done by:
 
-- adding the bundle to the `HeightInfos` struct in the network definitions files
-  (e.g.,
+- adding the bundle cid to the `HeightInfos` struct in the network definitions
+  files (e.g.,
   [calibnet](https://github.com/ChainSafe/forest/blob/main/src/networks/calibnet/mod.rs)).
 
 ```rust
 HeightInfo {
     height: Height::Hygge,
     epoch: 322_354,
-    bundle: Some(ActorBundleInfo {
-        manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
-        url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap()
-})
+    bundle: Some(Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap()),
+}
+```
+
+- adding the bundle cid and url to the `ACTOR_BUNDLES` in the `src/mod.rs`.
+
+```rust
+ActorBundleInfo{
+    manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
+    url: Url::parse("https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/calibnet/Shark.car").unwrap(),
+},
 ```
 
 ### Implement the migration
