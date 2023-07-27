@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKeys;
-use crate::car_backed_blockstore::UncompressedCarV1BackedBlockstore;
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::ChainStore;
+use crate::db::car::AnyCar;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
 use crate::genesis::read_genesis_header;
@@ -19,7 +19,7 @@ use anyhow::Context;
 use cid::Cid;
 use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
-use std::{path::Path, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 use tempfile::TempDir;
 
 use super::handle_rpc_err;
@@ -68,16 +68,12 @@ pub enum StateCommands {
 
 async fn print_computed_state(
     config: Config,
-    snapshot: &Path,
+    snapshot: PathBuf,
     vm_height: ChainEpoch,
     json: bool,
 ) -> anyhow::Result<()> {
     // Initialize Blockstore
-    let reader = std::fs::File::open(snapshot)?;
-    let store = Arc::new(
-        UncompressedCarV1BackedBlockstore::new(reader)
-            .context("couldn't read input CAR file - is it compressed?")?,
-    );
+    let store = Arc::new(AnyCar::new(move || std::fs::File::open(&snapshot))?);
 
     let tsk = TipsetKeys::new(store.roots());
 
@@ -145,7 +141,7 @@ impl StateCommands {
                 vm_height,
                 json,
             } => {
-                print_computed_state(config, &snapshot, vm_height, json).await?;
+                print_computed_state(config, snapshot, vm_height, json).await?;
             }
         }
         Ok(())
