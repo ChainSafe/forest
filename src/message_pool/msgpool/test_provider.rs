@@ -7,6 +7,7 @@ use std::{convert::TryFrom, sync::Arc};
 
 use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
+use crate::ipld::CidHashMap;
 use crate::json::vrf::VRFProof;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
@@ -27,7 +28,7 @@ pub struct TestApi {
     pub publisher: Publisher<HeadChange>,
 }
 pub struct TestApiInner {
-    bmsgs: HashMap<Cid, Vec<SignedMessage>>,
+    bmsgs: CidHashMap<Vec<SignedMessage>>,
     state_sequence: HashMap<Address, u64>,
     balances: HashMap<Address, TokenAmount>,
     tipsets: Vec<Tipset>,
@@ -39,7 +40,7 @@ impl Default for TestApi {
         let (publisher, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
-                bmsgs: HashMap::new(),
+                bmsgs: CidHashMap::new(),
                 state_sequence: HashMap::new(),
                 balances: HashMap::new(),
                 tipsets: Vec::new(),
@@ -122,7 +123,7 @@ impl Provider for TestApi {
         let inner = self.inner.lock();
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for b in ts.blocks() {
-            if let Some(ms) = inner.bmsgs.get(b.cid()) {
+            if let Some(ms) = inner.bmsgs.get(*b.cid()) {
                 for m in ms {
                     if &m.from() == addr {
                         msgs.push(m.clone());
@@ -162,7 +163,7 @@ impl Provider for TestApi {
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         let inner = self.inner.lock();
         let v: Vec<Message> = Vec::new();
-        let thing = inner.bmsgs.get(h.cid());
+        let thing = inner.bmsgs.get(*h.cid());
 
         match thing {
             Some(s) => Ok((v, s.clone())),
