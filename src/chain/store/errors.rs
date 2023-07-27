@@ -4,7 +4,6 @@
 use std::fmt::Debug;
 
 use crate::blocks::Error as BlkErr;
-use crate::db::Error as DbErr;
 use cid::Error as CidErr;
 use fvm_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
@@ -19,9 +18,6 @@ pub enum Error {
     /// Key not found in database
     #[error("{0} not found")]
     NotFound(String),
-    /// Error originating from key-value store
-    #[error(transparent)]
-    DB(#[from] DbErr),
     /// Error originating constructing blockchain structures
     #[error(transparent)]
     Blockchain(#[from] BlkErr),

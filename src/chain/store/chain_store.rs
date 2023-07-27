@@ -1,51 +1,35 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{num::NonZeroUsize, ops::DerefMut, path::Path, sync::Arc, time::SystemTime};
+use std::{path::Path, sync::Arc};
 
-use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
-use crate::ipld::{walk_snapshot, WALK_SNAPSHOT_PROGRESS_EXPORT};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::metrics;
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
-    address::Address, econ::TokenAmount, executor::Receipt, message::Message, state_tree::StateTree,
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message,
+    state_tree::StateTree, version::NetworkVersion,
 };
-use crate::utils::{
-    db::{
-        file_backed_obj::{ChainMeta, FileBacked},
-        BlockstoreExt, CborStoreExt,
-    },
-    io::{AsyncWriterWithChecksum, Checksum},
+use crate::utils::db::{
+    file_backed_obj::{ChainMeta, FileBacked},
+    BlockstoreExt, CborStoreExt,
 };
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::{Context, Result};
-use async_compression::futures::write::ZstdEncoder;
+use anyhow::Result;
 use cid::Cid;
-use digest::Digest;
-use futures::{io::BufWriter, AsyncWrite};
-use futures_util::future::Either;
-use futures_util::AsyncWriteExt;
 use fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::CborStore;
-use log::{debug, info, trace, warn};
-use lru::LruCache;
-use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::sync::{
-    broadcast::{self, Sender as Publisher},
-    Mutex as TokioMutex,
-};
+use tokio::sync::broadcast::{self, Sender as Publisher};
+use tracing::{debug, info, warn};
 
 use super::{
-    index::{checkpoint_tipsets, ChainIndex},
+    index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
     Error,
 };
@@ -54,7 +38,9 @@ use crate::chain::Scale;
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize);
+/// Disambiguate the type to signify that we are expecting a delta and not an actual epoch/height
+/// while maintaining the same type.
+pub type ChainEpochDelta = ChainEpoch;
 
 /// `Enum` for `pubsub` channel that defines message type variant and data
 /// contained in message type.
@@ -71,19 +57,15 @@ pub struct ChainStore<DB> {
     publisher: Publisher<HeadChange>,
 
     /// key-value `datastore`.
-    pub db: DB,
-
-    /// Caches loaded tipsets for fast retrieval.
-    ts_cache: Arc<TipsetCache>,
+    pub db: Arc<DB>,
 
     /// Used as a cache for tipset `lookbacks`.
-    chain_index: ChainIndex<DB>,
+    pub chain_index: Arc<ChainIndex<Arc<DB>>>,
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    /// File backed genesis block CID
-    file_backed_genesis: Mutex<FileBacked<Cid>>,
+    genesis_block_header: BlockHeader,
 
     /// File backed heaviest tipset keys
     file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
@@ -121,30 +103,23 @@ where
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     pub fn new(
-        db: DB,
+        db: Arc<DB>,
         chain_config: Arc<ChainConfig>,
-        genesis_block_header: &BlockHeader,
+        genesis_block_header: BlockHeader,
         chain_data_root: &Path,
-    ) -> Result<Self>
-    where
-        DB: Clone,
-    {
+    ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
-        let file_backed_genesis = Mutex::new(FileBacked::new(
-            *genesis_block_header.cid(),
-            chain_data_root.join("GENESIS"),
-        ));
+        let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
         let file_backed_heaviest_tipset_keys = Mutex::new({
             let mut head_store = FileBacked::load_from_file_or_create(
                 chain_data_root.join("HEAD"),
                 || TipsetKeys::new(vec![*genesis_block_header.cid()]),
                 None,
             )?;
-            let is_valid = tipset_from_keys(&ts_cache, &db, head_store.inner()).is_ok();
+            let is_valid = chain_index.load_tipset(head_store.inner()).is_ok();
             if !is_valid {
                 // If the stored HEAD is invalid, reset it to the genesis tipset.
                 head_store.set_inner(TipsetKeys::new(vec![*genesis_block_header.cid()]))?;
@@ -160,17 +135,14 @@ where
 
         let cs = Self {
             publisher,
-            chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
-            tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
+            chain_index,
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
-            ts_cache,
-            file_backed_genesis,
+            genesis_block_header,
             file_backed_heaviest_tipset_keys,
             validated_blocks,
             file_backed_chain_meta,
         };
-
-        cs.set_genesis(genesis_block_header)?;
 
         Ok(cs)
     }
@@ -190,15 +162,6 @@ where
             debug!("did not publish head change, no active receivers");
         }
         Ok(())
-    }
-
-    /// Writes genesis to `blockstore`.
-    pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        self.file_backed_genesis.lock().set_inner(*header.cid())?;
-
-        self.blockstore()
-            .put_cbor_default(&header)
-            .map_err(Error::from)
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
@@ -230,11 +193,9 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Returns genesis [`BlockHeader`] from the store based on a static key.
-    pub fn genesis(&self) -> Result<BlockHeader, Error> {
-        self.blockstore()
-            .get_cbor::<BlockHeader>(self.file_backed_genesis.lock().inner())?
-            .ok_or_else(|| Error::Other("Genesis block not set".into()))
+    /// Returns genesis [`BlockHeader`].
+    pub fn genesis(&self) -> &BlockHeader {
+        &self.genesis_block_header
     }
 
     /// Returns the currently tracked heaviest tipset.
@@ -259,12 +220,7 @@ where
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset());
         }
-        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
-    }
-
-    /// Returns Tipset key hash from key-value store from provided CIDs
-    pub fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
-        checkpoint_tipsets::tipset_hash(tsk)
+        self.chain_index.load_tipset(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest
@@ -291,7 +247,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            log::debug!("Block {cid} was previously validated");
+            debug!("Block {cid} was previously validated");
         }
         validated
     }
@@ -307,173 +263,12 @@ where
         let _did_work = file.remove(cid);
     }
 
-    /// Returns the tipset behind `tsk` at a given `height`.
-    /// If the given height is a null round:
-    /// - If `prev` is `true`, the tipset before the null round is returned.
-    /// - If `prev` is `false`, the tipset following the null round is returned.
-    #[tracing::instrument(skip(self, ts))]
-    pub fn tipset_by_height(
-        &self,
-        height: ChainEpoch,
-        ts: Arc<Tipset>,
-        prev: bool,
-    ) -> Result<Arc<Tipset>, Error> {
-        if height > ts.epoch() {
-            return Err(Error::Other(
-                "searching for tipset that has a height less than starting point".to_owned(),
-            ));
-        }
-        if height == ts.epoch() {
-            return Ok(ts);
-        }
-
-        let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
-
-        if lbts.epoch() < height {
-            warn!(
-                "chain index returned the wrong tipset at height {}, using slow retrieval",
-                height
-            );
-            lbts = self
-                .chain_index
-                .get_tipset_by_height_without_cache(ts, height)?;
-        }
-
-        if lbts.epoch() == height || !prev {
-            Ok(lbts)
-        } else {
-            self.tipset_from_keys(lbts.parents())
-        }
-    }
-
-    pub fn validate_tipset_checkpoints(
-        &self,
-        from: Arc<Tipset>,
-        network: &NetworkChain,
-    ) -> Result<(), Error> {
-        info!(
-            "Validating {network} tipset checkpoint hashes from: {}",
-            from.epoch()
-        );
-
-        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(network) else {
-            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
-            return Ok(());
-        };
-
-        let mut ts = from;
-        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-        hashes.remove(&tipset_hash);
-
-        loop {
-            let pts = self.chain_index.load_tipset(ts.parents())?;
-            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
-            hashes.remove(&tipset_hash);
-
-            ts = pts;
-
-            if ts.epoch() == 0 {
-                break;
-            }
-        }
-
-        if !hashes.is_empty() {
-            return Err(Error::Other(format!(
-                "Found tipset hash(es) on {network} that are no longer valid: {hashes:?}"
-            )));
-        }
-
-        if !checkpoint_tipsets::validate_genesis_cid(&ts, network) {
-            return Err(Error::Other(format!(
-                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
-                ts.key().cid()
-            )));
-        }
-
-        Ok(())
-    }
-
-    /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
-        let check_for_beacon_entry = |ts: &Tipset| {
-            let cbe = ts.min_ticket_block().beacon_entries();
-            if let Some(entry) = cbe.last() {
-                return Ok(Some(entry.clone()));
-            }
-            if ts.epoch() == 0 {
-                return Err(Error::Other(
-                    "made it back to genesis block without finding beacon entry".to_owned(),
-                ));
-            }
-            Ok(None)
-        };
-
-        if let Some(entry) = check_for_beacon_entry(ts)? {
-            return Ok(entry);
-        }
-        let mut cur = self.tipset_from_keys(ts.parents())?;
-        for i in 1..20 {
-            if i != 1 {
-                cur = self.tipset_from_keys(cur.parents())?;
-            }
-            if let Some(entry) = check_for_beacon_entry(&cur)? {
-                return Ok(entry);
-            }
-        }
-
-        if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
-            return Ok(BeaconEntry::new(
-                0,
-                vec![9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-            ));
-        }
-
-        Err(Error::Other(
-            "Found no beacon entries in the 20 latest tipsets".to_owned(),
-        ))
-    }
-
-    /// Constructs and returns a full tipset if messages from storage exists -
-    /// non self version
-    pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
-    where
-        DB: Blockstore,
-    {
-        // Collect all messages before moving tipset.
-        let messages: Vec<(Vec<_>, Vec<_>)> = match ts
-            .blocks()
-            .iter()
-            .map(|h| block_messages(self.blockstore(), h))
-            .collect::<Result<_, Error>>()
-        {
-            Ok(m) => m,
-            Err(e) => {
-                trace!("failed to fill tipset: {}", e);
-                return None;
-            }
-        };
-
-        // Zip messages with blocks
-        let blocks = ts
-            .blocks()
-            .iter()
-            .cloned()
-            .zip(messages)
-            .map(|(header, (bls_messages, secp_messages))| Block {
-                header,
-                bls_messages,
-                secp_messages,
-            })
-            .collect();
-
-        // the given tipset has already been verified, so this cannot fail
-        Some(FullTipset::new(blocks).unwrap())
-    }
-
+    // FIXME: This function doesn't use the chain store at all.
+    //        Tracking issue: https://github.com/ChainSafe/forest/issues/3208
     /// Retrieves block messages to be passed through the VM.
     ///
     /// It removes duplicate messages which appear in multiple blocks.
-    pub fn block_msgs_for_tipset(&self, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
+    pub fn block_msgs_for_tipset(db: DB, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
@@ -491,7 +286,7 @@ where
         ts.blocks()
             .iter()
             .map(|b| {
-                let (usm, sm) = block_messages(self.blockstore(), b)?;
+                let (usm, sm) = block_messages(&db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
@@ -519,151 +314,79 @@ where
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
     /// messages that will be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let bmsgs = self.block_msgs_for_tipset(ts)?;
+        let bmsgs = ChainStore::block_msgs_for_tipset(&self.db, ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
     }
 
-    /// Exports a range of tipsets, as well as the state roots based on the
-    /// `recent_roots`.
-    pub async fn export<W, D>(
-        &self,
-        tipset: &Tipset,
-        recent_roots: ChainEpoch,
-        writer: W,
-        compressed: bool,
-        skip_checksum: bool,
-    ) -> Result<Option<digest::Output<D>>, Error>
+    /// Gets look-back tipset (and state-root of that tipset) for block
+    /// validations.
+    ///
+    /// The look-back tipset for a round is the tipset with epoch `round -
+    /// chain_finality`. [Chain
+    /// finality](https://docs.filecoin.io/reference/general/glossary/#finality)
+    /// is usually 900. The `heaviest_tipset` is a reference point in the
+    /// blockchain. It must be a child of the look-back tipset.
+    pub fn get_lookback_tipset_for_round(
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
+        chain_config: Arc<ChainConfig>,
+        heaviest_tipset: Arc<Tipset>,
+        round: ChainEpoch,
+    ) -> Result<(Arc<Tipset>, Cid), Error>
     where
-        D: Digest + Send + 'static,
-        W: AsyncWrite + Send + Unpin + 'static,
+        DB: Send + Sync + 'static,
     {
-        let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
-        let writer = if compressed {
-            Either::Left(ZstdEncoder::new(writer))
+        let version = chain_config.network_version(round);
+        let lb = if version <= NetworkVersion::V3 {
+            ChainEpoch::from(10)
         } else {
-            Either::Right(writer)
+            chain_config.policy.chain_finality
         };
-        // Channel cap is equal to buffered write size
-        const CHANNEL_CAP: usize = 1000;
-        let (tx, rx) = flume::bounded(CHANNEL_CAP);
-        let header = CarHeader::from(tipset.key().cids().to_vec());
+        let lbr = (round - lb).max(0);
 
-        let writer = Arc::new(TokioMutex::new(writer));
-        let writer_clone = writer.clone();
-
-        // Spawns task which receives blocks to write to the car writer.
-        let write_task = tokio::task::spawn(async move {
-            let mut writer = writer_clone.lock().await;
-            let mut stream = rx.stream();
-            match writer.deref_mut() {
-                Either::Left(left) => header.write_stream_async(left, &mut stream).await,
-                Either::Right(right) => header.write_stream_async(right, &mut stream).await,
-            }
-            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
-        });
-
-        let global_pre_time = SystemTime::now();
-        info!("chain export started");
-
-        let estimated_reachable_records = Some(
-            self.file_backed_chain_meta()
-                .lock()
-                .inner()
-                .estimated_reachable_records as u64,
-        );
-        // Walks over tipset and historical data, sending all blocks visited into the
-        // car writer.
-        let n_records = walk_snapshot(
-            tipset,
-            recent_roots,
-            |cid| {
-                let tx_clone = tx.clone();
-                async move {
-                    let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                        Error::Other(format!("Cid {cid} not found in blockstore"))
-                    })?;
-                    tx_clone.send_async((cid, block.clone())).await?;
-                    Ok(block)
-                }
-            },
-            Some("Exporting snapshot | blocks "),
-            Some(WALK_SNAPSHOT_PROGRESS_EXPORT.clone()),
-            estimated_reachable_records,
-        )
-        .await?;
-
-        {
-            let mut meta = self.file_backed_chain_meta().lock();
-            meta.inner_mut().estimated_reachable_records = n_records;
-            meta.sync()?;
+        // More null blocks than lookback
+        if lbr >= heaviest_tipset.epoch() {
+            // This situation is extremely rare so it's fine to compute the
+            // state-root without caching.
+            let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp();
+            let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
+            let (state, _) = crate::state_manager::apply_block_messages(
+                genesis_timestamp,
+                Arc::clone(&chain_index),
+                Arc::clone(&chain_config),
+                beacon,
+                // Creating new WASM engines is expensive (takes seconds to
+                // minutes). It's only acceptable here because this situation is
+                // so rare (may happen in dev-networks, doesn't happen in
+                // calibnet or mainnet.)
+                &crate::shim::machine::MultiEngine::default(),
+                Arc::clone(&heaviest_tipset),
+                crate::state_manager::NO_CALLBACK,
+            )
+            .map_err(|e| Error::Other(e.to_string()))?;
+            return Ok((heaviest_tipset, state));
         }
 
-        // Drop sender, to close the channel to write task, which will end when finished
-        // writing
-        drop(tx);
-
-        // Await on values being written.
-        write_task
-            .await
-            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))??;
-
-        info!(
-            "export finished, took {} seconds",
-            global_pre_time
-                .elapsed()
-                .expect("time cannot go backwards")
-                .as_secs()
-        );
-
-        let mut writer = writer.lock().await;
-        writer.flush().await.context("failed to flush")?;
-        writer.close().await.context("failed to close")?;
-
-        let digest = match &mut *writer {
-            Either::Left(left) => left.get_mut().finalize().await,
-            Either::Right(right) => right.finalize().await,
+        let next_ts = chain_index
+            .tipset_by_height(
+                lbr + 1,
+                heaviest_tipset.clone(),
+                ResolveNullTipset::TakeNewer,
+            )
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+        if lbr > next_ts.epoch() {
+            return Err(Error::Other(format!(
+                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
+                heaviest_tipset.key(),
+                heaviest_tipset.epoch(),
+                next_ts.key(),
+                next_ts.epoch()
+            )));
         }
-        .map_err(|e| Error::Other(e.to_string()))?;
-
-        Ok(digest)
+        let lbts = chain_index
+            .load_tipset(next_ts.parents())
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
+        Ok((lbts, *next_ts.parent_state()))
     }
-}
-
-pub(in crate::chain) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
-
-/// Loads a tipset from memory given the tipset keys and cache.
-pub(in crate::chain) fn tipset_from_keys<BS>(
-    cache: &TipsetCache,
-    store: &BS,
-    tsk: &TipsetKeys,
-) -> Result<Arc<Tipset>, Error>
-where
-    BS: Blockstore,
-{
-    if let Some(ts) = cache.lock().get(tsk) {
-        metrics::LRU_CACHE_HIT
-            .with_label_values(&[metrics::values::TIPSET])
-            .inc();
-        return Ok(ts.clone());
-    }
-
-    let block_headers: Vec<BlockHeader> = tsk
-        .cids()
-        .iter()
-        .map(|c| {
-            store
-                .get_cbor(c)?
-                .ok_or_else(|| Error::NotFound(String::from("Key for header")))
-        })
-        .collect::<Result<_, Error>>()?;
-
-    // construct new Tipset to return
-    let ts = Arc::new(Tipset::new(block_headers)?);
-    cache.lock().put(tsk.clone(), ts.clone());
-    metrics::LRU_CACHE_MISS
-        .with_label_values(&[metrics::values::TIPSET])
-        .inc();
-    Ok(ts)
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
@@ -879,7 +602,7 @@ mod tests {
 
     #[test]
     fn genesis_test() {
-        let db = crate::db::MemoryDB::default();
+        let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
         let gen_block = BlockHeader::builder()
@@ -892,14 +615,15 @@ mod tests {
             .build()
             .unwrap();
         let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
+        let cs =
+            ChainStore::new(db, chain_config, gen_block.clone(), chain_data_root.path()).unwrap();
 
-        assert_eq!(cs.genesis().unwrap(), gen_block);
+        assert_eq!(cs.genesis(), &gen_block);
     }
 
     #[test]
     fn block_validation_cache_basic() {
-        let db = crate::db::MemoryDB::default();
+        let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -907,7 +631,7 @@ mod tests {
             .unwrap();
 
         let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, &gen_block, chain_data_root.path()).unwrap();
+        let cs = ChainStore::new(db, chain_config, gen_block, chain_data_root.path()).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

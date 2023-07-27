@@ -4,7 +4,6 @@
 use crate::blocks::TipsetKeys;
 use crate::json::cid::CidJson;
 use crate::rpc_client::chain_ops::*;
-use crate::shim::clock::ChainEpoch;
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
@@ -25,14 +24,6 @@ pub enum ChainCommands {
 
     /// Prints out the canonical head of the chain
     Head,
-
-    /// Prints the checksum hash for a given epoch. This is used internally to
-    /// improve performance when loading a snapshot.
-    TipsetHash { epoch: Option<ChainEpoch> },
-
-    /// Runs through all epochs back to 0 and validates the tipset checkpoint
-    /// hashes
-    ValidateTipsetCheckpoints,
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
@@ -74,37 +65,6 @@ impl ChainCommands {
                 print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
             }
             Self::Head => print_rpc_res_cids(chain_head(&config.client.rpc_token).await),
-            Self::TipsetHash { epoch } => {
-                use crate::blocks::tipset_keys_json::TipsetKeysJson;
-
-                let TipsetJson(head) = chain_head(&config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
-                // Use the given epoch or HEAD-1. We can't use HEAD since more
-                // blocks are likely to be received (changing the checkpoint hash)
-                let target_epoch = epoch.unwrap_or(head.epoch() - 1);
-                let TipsetJson(target) = chain_get_tipset_by_height(
-                    (target_epoch, head.key().clone()),
-                    &config.client.rpc_token,
-                )
-                .await
-                .map_err(handle_rpc_err)?;
-                let tipset_keys = target.key().clone();
-
-                let tsk_json = TipsetKeysJson(tipset_keys);
-
-                let checkpoint_hash = chain_get_tipset_hash((tsk_json,), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
-                println!("Chain:           {}", config.chain.network);
-                println!("Epoch:           {}", target_epoch);
-                println!("Checkpoint hash: {}", checkpoint_hash);
-                Ok(())
-            }
-            Self::ValidateTipsetCheckpoints => {
-                let result = chain_validate_tipset_checkpoints((), &config.client.rpc_token).await;
-                print_rpc_res(result)
-            }
             Self::Message { cid } => print_rpc_res_pretty(
                 chain_get_message((CidJson(*cid),), &config.client.rpc_token).await,
             ),

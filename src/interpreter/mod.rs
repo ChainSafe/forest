@@ -2,12 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod errors;
-mod fvm;
+mod fvm2;
 pub mod fvm3;
-#[cfg(feature = "instrumented_kernel")]
-mod instrumented_kernel;
-#[cfg(feature = "instrumented_kernel")]
-mod metrics;
 mod vm;
 
 use crate::shim::{

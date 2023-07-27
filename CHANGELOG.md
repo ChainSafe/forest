@@ -27,18 +27,41 @@
 
 ### Breaking
 
+- [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
+  organisation to use multiple columns. The database will need to be recreated.
+- [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
+  `forest-cli chain validate-tipset-checkpoints` and
+  `forest-cli chain tipset-hash` commands.
+
 ### Added
+
+- [#3167](https://github.com/ChainSafe/forest/pull/3167): Added a new option
+  `--validate-tipsets` for `forest-cli snapshot validate`.
+- [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
+  `forest-cli archive info` command for inspecting archives.
+- [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
+  `forest-cli archive export -e=X` command for exporting archives.
+- [#3150](https://github.com/ChainSafe/forest/pull/3150):
+  `forest-cli car concat` subcommand for concatenating `.car` files.
+- [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
+  option to `forest-cli state fetch` command.
 
 ### Changed
 
 - [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
   lookup errors instead of silently ignoring them.
+- [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
+  flag to `forest-cli snapshot export` to allow export at a specific tipset.
 
 ### Removed
 
 ### Fixed
 
-## Forest v0.11.1 "Dagny Taggert"
+- [#3248](https://github.com/ChainSafe/forest/issues/3248): Fixed Forest being
+  unable to re-create its libp2p keypair from file and always changing its
+  `PeerId`.
+
+## Forest v0.11.1 "Dagny Taggart"
 
 ## Forest v0.11.0 "Hypersonic"
 

@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+  merge_group:
   pull_request:
     branches:
       - main
@@ -42,7 +43,7 @@ jobs:
       - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.8.0
         with:
-          args: --verbose --timeout 60 --exclude twitter.com --no-progress 'README.md'
+          args: --verbose --no-progress --timeout 60 --max-retries 6 --retry-wait-time 10 --exclude twitter.com 'README.md'
           # Fail action on broken links
           fail: true
       - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
@@ -61,7 +62,7 @@ jobs:
         uses: lycheeverse/lychee-action@v1.8.0
         with:
           # Check all docs
-          args: --verbose --no-progress './target/doc/*/index.html'
+          args: --verbose --no-progress --timeout 60 --max-retries 6 --retry-wait-time 10 './target/doc/*/index.html'
           # Fail action on broken links
           fail: true
       - name: Prepare rustdoc for publishing
@@ -69,14 +70,14 @@ jobs:
       # The deploy steps are identical expect for name and 'dry-run' attribute.
       # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
-        uses: JamesIves/github-pages-deploy-action@v4.4.2
+        uses: JamesIves/github-pages-deploy-action@v4.4.3
         if: ${{ github.event_name == 'pull_request' }}
         with:
           branch: gh-pages
           folder: ./documentation/book/html/
           dry-run: true
       - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@v4.4.2
+        uses: JamesIves/github-pages-deploy-action@v4.4.3
         if: ${{ github.event_name == 'push' }}
         with:
           branch: gh-pages

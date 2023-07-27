@@ -9,7 +9,7 @@ use std::{
 
 use ahash::HashSet;
 use cid::Cid;
-use log::warn;
+use tracing::warn;
 
 pub struct FileBacked<T: FileBackedObject> {
     inner: T,
@@ -45,16 +45,6 @@ impl<T: FileBackedObject> FileBacked<T> {
     pub fn set_inner(&mut self, inner: T) -> anyhow::Result<()> {
         self.inner = inner;
         self.try_sync()
-    }
-
-    /// Creates a new file backed object
-    pub fn new(inner: T, path: PathBuf) -> Self {
-        Self {
-            inner,
-            path,
-            last_sync: None,
-            sync_period: None,
-        }
     }
 
     /// Loads an object from a file and creates a new instance

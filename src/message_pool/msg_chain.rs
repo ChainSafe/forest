@@ -17,9 +17,9 @@ use crate::shim::{
 };
 use ahash::HashMap;
 use fvm_ipld_encoding::to_vec;
-use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
+use tracing::warn;
 
 use super::errors::Error;
 use crate::message_pool::{

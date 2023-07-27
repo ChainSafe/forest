@@ -4,8 +4,8 @@
 use std::{io::Write, sync::Arc};
 
 use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
-use crate::blocks::{Tipset, TipsetKeys};
-use crate::chain::ChainStore;
+use crate::blocks::Tipset;
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
@@ -18,8 +18,8 @@ use fvm_ipld_blockstore::Blockstore;
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
-    blks: TipsetKeys,
-    cs: Arc<ChainStore<DB>>,
+    tipset: Arc<Tipset>,
+    chain_index: Arc<ChainIndex<Arc<DB>>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
 }
 
@@ -27,8 +27,8 @@ impl<DB> Clone for ChainRand<DB> {
     fn clone(&self) -> Self {
         ChainRand {
             chain_config: self.chain_config.clone(),
-            blks: self.blks.clone(),
-            cs: self.cs.clone(),
+            tipset: Arc::clone(&self.tipset),
+            chain_index: self.chain_index.clone(),
             beacon: self.beacon.clone(),
         }
     }
@@ -40,14 +40,14 @@ where
 {
     pub fn new(
         chain_config: Arc<ChainConfig>,
-        blks: TipsetKeys,
-        cs: Arc<ChainStore<DB>>,
+        tipset: Arc<Tipset>,
+        chain_index: Arc<ChainIndex<Arc<DB>>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
     ) -> Self {
         Self {
             chain_config,
-            blks,
-            cs,
+            tipset,
+            chain_index,
             beacon,
         }
     }
@@ -56,13 +56,12 @@ where
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
     pub fn get_chain_randomness(
         &self,
-        blocks: &TipsetKeys,
         pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let ts = self.cs.tipset_from_keys(blocks)?;
+        let ts = Arc::clone(&self.tipset);
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");
@@ -70,7 +69,14 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self.cs.tipset_by_height(search_height, ts, lookback)?;
+        let resolve = if lookback {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        };
+        let rand_ts = self
+            .chain_index
+            .tipset_by_height(search_height, ts, resolve)?;
 
         draw_randomness(
             rand_ts
@@ -87,38 +93,35 @@ where
     /// network version 13 onward
     pub fn get_chain_randomness_v2(
         &self,
-        blocks: &TipsetKeys,
         pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness(blocks, pers, round, entropy, false)
+        self.get_chain_randomness(pers, round, entropy, false)
     }
 
     /// network version 13; without look-back
     pub fn get_beacon_randomness_v2(
         &self,
-        blocks: &TipsetKeys,
         pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness(blocks, pers, round, entropy, false)
+        self.get_beacon_randomness(pers, round, entropy, false)
     }
 
     /// network version 14 onward
     pub fn get_beacon_randomness_v3(
         &self,
-        blocks: &TipsetKeys,
         pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         if round < 0 {
-            return self.get_beacon_randomness_v2(blocks, pers, round, entropy);
+            return self.get_beacon_randomness_v2(pers, round, entropy);
         }
 
-        let beacon_entry = self.extract_beacon_entry_for_epoch(blocks, round)?;
+        let beacon_entry = self.extract_beacon_entry_for_epoch(round)?;
         draw_randomness(beacon_entry.data(), pers, round, entropy)
     }
 
@@ -127,23 +130,18 @@ where
     /// entry.
     pub fn get_beacon_randomness(
         &self,
-        blocks: &TipsetKeys,
         pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(blocks, round, lookback)?;
-        let be = self.cs.latest_beacon_entry(&rand_ts)?;
+        let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(round, lookback)?;
+        let be = self.chain_index.latest_beacon_entry(&rand_ts)?;
         draw_randomness(be.data(), pers, round, entropy)
     }
 
-    pub fn extract_beacon_entry_for_epoch(
-        &self,
-        blocks: &TipsetKeys,
-        epoch: ChainEpoch,
-    ) -> anyhow::Result<BeaconEntry> {
-        let mut rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(blocks, epoch, false)?;
+    pub fn extract_beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
+        let mut rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(epoch, false)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round =
             beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
@@ -156,7 +154,7 @@ where
                 }
             }
 
-            rand_ts = self.cs.tipset_from_keys(rand_ts.parents())?;
+            rand_ts = self.chain_index.load_tipset(rand_ts.parents())?;
         }
 
         bail!(
@@ -168,11 +166,10 @@ where
 
     pub fn get_beacon_randomness_tipset(
         &self,
-        blocks: &TipsetKeys,
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<Arc<Tipset>> {
-        let ts = self.cs.tipset_from_keys(blocks)?;
+        let ts = Arc::clone(&self.tipset);
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");
@@ -180,8 +177,14 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        self.cs
-            .tipset_by_height(search_height, ts, lookback)
+        let resolve = if lookback {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        };
+
+        self.chain_index
+            .tipset_by_height(search_height, ts, resolve)
             .map_err(|e| e.into())
     }
 }
@@ -196,7 +199,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness_v2(&self.blks, pers, round, entropy)
+        self.get_chain_randomness_v2(pers, round, entropy)
     }
 
     fn get_beacon_randomness(
@@ -205,7 +208,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness_v3(&self.blks, pers, round, entropy)
+        self.get_beacon_randomness_v3(pers, round, entropy)
     }
 }
 

@@ -6,8 +6,10 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
+mod archive_cmd;
 mod attach_cmd;
 mod auth_cmd;
+mod car_cmd;
 mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
@@ -31,15 +33,15 @@ use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
 use jsonrpc_v2::Error as JsonRpcError;
-use log::error;
 use serde::Serialize;
+use tracing::error;
 
 pub(super) use self::{
-    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    config_cmd::ConfigCommands, db_cmd::DBCommands, fetch_params_cmd::FetchCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
+    car_cmd::CarCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
+    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -97,6 +99,10 @@ pub enum Subcommand {
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
 
+    /// Manage archives
+    #[command(subcommand)]
+    Archive(ArchiveCommands),
+
     /// Send funds between accounts
     Send(SendCommand),
 
@@ -113,6 +119,10 @@ pub enum Subcommand {
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
+
+    /// Utilities for manipulating CAR files
+    #[command(subcommand)]
+    Car(CarCommands),
 }
 
 /// Pretty-print a JSON-RPC error and exit

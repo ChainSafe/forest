@@ -4,7 +4,7 @@
 use std::ffi::OsString;
 use std::sync::Arc;
 
-use crate::cli_shared::{cli::LogConfig, logger};
+use crate::cli_shared::logger;
 use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::utils::io::ProgressBar;
@@ -30,7 +30,7 @@ where
         .block_on(async {
             match opts.to_config() {
                 Ok((mut config, _)) => {
-                    logger::setup_logger(&config.log, &opts);
+                    logger::setup_logger(&opts);
                     ProgressBar::set_progress_bars_visibility(config.client.show_progress_bars);
                     if opts.dry_run {
                         return Ok(());
@@ -63,12 +63,13 @@ where
                         Subcommand::Info(cmd) => cmd.run(config, opts).await,
                         Subcommand::DB(cmd) => cmd.run(&config).await,
                         Subcommand::Snapshot(cmd) => cmd.run(config).await,
+                        Subcommand::Archive(cmd) => cmd.run().await,
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
+                        Subcommand::Car(cmd) => cmd.run().await,
                     }
                 }
                 Err(e) => {
-                    logger::setup_logger(&LogConfig::default(), &opts);
                     cli_error_and_die(format!("Error parsing config: {e}"), 1);
                 }
             }

@@ -3,19 +3,24 @@
 
 use cid::Cid;
 use lazy_static::lazy_static;
+use libp2p::Multiaddr;
+use once_cell::sync::Lazy;
+use std::str::FromStr;
 use url::Url;
 
-use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
+use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
 use crate::networks::ActorBundleInfo;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
-pub const GENESIS_CID: &str = "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
+pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+    Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
+});
 
 /// Default bootstrap peer ids.
-pub const DEFAULT_BOOTSTRAP: &[&str] =
-    &const_str::split!(include_str!("../../../build/bootstrap/calibnet"), "\n");
+pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
+    Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet")));
 
 const LIGHTNING_EPOCH: i64 = 489_094;
 
@@ -159,8 +164,5 @@ mod tests {
     #[test]
     fn default_boostrap_list_not_empty() {
         assert!(!DEFAULT_BOOTSTRAP.is_empty());
-        DEFAULT_BOOTSTRAP.iter().for_each(|addr| {
-            assert!(addr.parse::<libp2p::multiaddr::Multiaddr>().is_ok());
-        });
     }
 }

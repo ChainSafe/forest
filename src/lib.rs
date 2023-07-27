@@ -30,9 +30,6 @@ mod fil_cns;
 mod genesis;
 mod interpreter;
 mod ipld;
-// Switch to `fvm_ipld_amt` when possible
-// Tracking issue: https://github.com/ChainSafe/forest/issues/3099
-mod ipld_amt;
 mod json;
 mod key_management;
 mod libp2p;
@@ -68,8 +65,9 @@ pub mod doctest_private {
         shim::{
             address::Address, crypto::Signature, econ::TokenAmount, error::ExitCode,
             randomness::Randomness, sector::RegisteredSealProof, state_tree::ActorState,
-            version::NetworkVersion, Inner,
+            version::NetworkVersion,
         },
+        utils::io::progress_log::WithProgress,
         utils::{encoding::blake2b_256, io::read_toml},
     };
 }

@@ -1,16 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt::Display, str::FromStr, sync::Arc};
+use std::{fmt::Display, str::FromStr};
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use crate::shim::sector::{RegisteredPoStProof, RegisteredSealProof};
+use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
-use crate::shim::Inner;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
+use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use url::Url;
@@ -28,7 +28,7 @@ const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
-const DEFAULT_REQUEST_WINDOW: usize = 8;
+const DEFAULT_REQUEST_WINDOW: usize = 32;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -159,7 +159,7 @@ struct DrandPoint<'a> {
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
-    pub bootstrap_peers: Vec<String>,
+    pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u64,
     pub propagation_delay_secs: u64,
     pub height_infos: Vec<HeightInfo>,
@@ -177,8 +177,8 @@ impl ChainConfig {
         use mainnet::*;
         Self {
             network: NetworkChain::Mainnet,
-            genesis_cid: Some(GENESIS_CID.to_owned()),
-            bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
+            genesis_cid: Some(GENESIS_CID.to_string()),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -193,8 +193,8 @@ impl ChainConfig {
         use calibnet::*;
         Self {
             network: NetworkChain::Calibnet,
-            genesis_cid: Some(GENESIS_CID.to_owned()),
-            bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
+            genesis_cid: Some(GENESIS_CID.to_string()),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -214,14 +214,14 @@ impl ChainConfig {
 
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            <RegisteredSealProof as Inner>::FVM::StackedDRG2KiBV1,
-            <RegisteredSealProof as Inner>::FVM::StackedDRG8MiBV1,
+            RegisteredSealProofV3::StackedDRG2KiBV1,
+            RegisteredSealProofV3::StackedDRG8MiBV1,
         ]);
         policy.valid_pre_commit_proof_type = allowed_proof_types;
         #[allow(clippy::disallowed_types)]
         let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow2KiBV1,
-            <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow8MiBV1,
+            RegisteredPoStProofV3::StackedDRGWindow2KiBV1,
+            RegisteredPoStProofV3::StackedDRGWindow8MiBV1,
         ]);
         policy.valid_post_proof_type = allowed_proof_types;
 
@@ -261,28 +261,21 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub fn get_beacon_schedule(
-        &self,
-        genesis_ts: u64,
-    ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule<DrandBeacon> {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
         };
 
-        let mut points = BeaconSchedule::with_capacity(ds_iter.len());
-        for dc in ds_iter {
-            points.0.push(BeaconPoint {
-                height: dc.height,
-                beacon: Arc::new(DrandBeacon::new(
-                    genesis_ts,
-                    self.block_delay_secs,
-                    dc.config,
-                )?),
-            });
-        }
-        Ok(points)
+        BeaconSchedule(
+            ds_iter
+                .map(|dc| BeaconPoint {
+                    height: dc.height,
+                    beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config),
+                })
+                .collect(),
+        )
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
@@ -315,4 +308,14 @@ impl Default for ChainConfig {
 // XXX: Dummy default. Will be overwritten later. Wish we could get rid of this.
 fn default_policy() -> Policy {
     Policy::mainnet()
+}
+
+pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr> {
+    bootstrap_peer_list
+        .split('\n')
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            Multiaddr::from_str(s).unwrap_or_else(|e| panic!("invalid bootstrap peer {s}: {e}"))
+        })
+        .collect()
 }

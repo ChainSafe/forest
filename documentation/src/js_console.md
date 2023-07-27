@@ -12,9 +12,7 @@ Forest node.
 Like for some other `forest-cli` subcommands you will need to pass an admin
 `--token` given what endpoints you will call.
 
-For a description of different options please refer to the developer
-documentation
-[CLI page](https://github.com/ChainSafe/forest/blob/main/documentation/developer_documentation/CLI.md#cli).
+For a description of different options please refer to the [CLI page](./cli.md).
 
 ## Interactive Use
 

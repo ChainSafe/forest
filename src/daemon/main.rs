@@ -12,14 +12,13 @@ use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
-use log::info;
 use raw_sync::{
     events::{Event, EventInit},
     Timeout,
 };
 use std::ffi::OsString;
-use std::{cmp::max, fs::File, process, time::Duration};
-use tokio::runtime::Builder as RuntimeBuilder;
+use std::{fs::File, process, time::Duration};
+use tracing::info;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
@@ -91,7 +90,7 @@ where
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the
     // subcommand.
 
-    let (loki_task, _chrome_flush_guard) = logger::setup_logger(&cfg.log, &opts);
+    let (loki_task, _chrome_flush_guard) = logger::setup_logger(&opts);
     ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
 
     if let Some(path) = &path {
@@ -128,26 +127,9 @@ where
                 build_daemon(&cfg.daemon)?.start()?;
             }
 
-            let mut builder = RuntimeBuilder::new_multi_thread();
-            builder.enable_io().enable_time();
-
-            if let Some(worker_threads) = cfg.tokio.worker_threads {
-                builder.worker_threads(max(1, worker_threads));
-            }
-            if let Some(max_blocking_threads) = cfg.tokio.max_blocking_threads {
-                builder.max_blocking_threads(max(1, max_blocking_threads));
-            }
-            if let Some(thread_keep_alive) = cfg.tokio.thread_keep_alive {
-                builder.thread_keep_alive(thread_keep_alive);
-            }
-            if let Some(thread_stack_size) = cfg.tokio.thread_stack_size {
-                builder.thread_stack_size(thread_stack_size);
-            }
-            if let Some(global_queue_interval) = cfg.tokio.global_queue_interval {
-                builder.global_queue_interval(global_queue_interval);
-            }
-
-            let rt = builder.build()?;
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
 
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);

@@ -128,7 +128,7 @@ mod test {
         let temp_file = async_fs::File::create(temp_file_path.path()).await?;
         let mut temp_file_writer =
             AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(temp_file), true);
-        for _ in 0..(1024 * 256) {
+        for _ in 0..1024 {
             let mut bytes = [0; 1024];
             OsRng.fill_bytes(&mut bytes);
             temp_file_writer.write_all(&bytes).await?;

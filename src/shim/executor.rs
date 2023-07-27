@@ -1,11 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::borrow::Borrow;
 
-use fvm::executor::ApplyRet as ApplyRet_v2;
+use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::receipt::Receipt as Receipt_v2;
+use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -40,15 +39,15 @@ impl ApplyRet {
 
     pub fn miner_tip(&self) -> TokenAmount {
         match self {
-            ApplyRet::V2(v2) => v2.miner_tip.borrow().into(),
-            ApplyRet::V3(v3) => v3.miner_tip.borrow().into(),
+            ApplyRet::V2(v2) => (&v2.miner_tip).into(),
+            ApplyRet::V3(v3) => (&v3.miner_tip).into(),
         }
     }
 
     pub fn penalty(&self) -> TokenAmount {
         match self {
-            ApplyRet::V2(v2) => v2.penalty.borrow().into(),
-            ApplyRet::V3(v3) => v3.penalty.borrow().into(),
+            ApplyRet::V2(v2) => (&v2.penalty).into(),
+            ApplyRet::V3(v3) => (&v3.penalty).into(),
         }
     }
 

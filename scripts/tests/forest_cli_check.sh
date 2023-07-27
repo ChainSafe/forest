@@ -32,6 +32,11 @@ pushd "$(mktemp --directory)"
 "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor filops
 # this will fail if they happen to have the same height - we should change the format of our filenames
 test "$(num-files-here)" -eq 2
+# verify that we are byte-for-byte identical with filops
+zstd -d filops_*.car.zst
+"$FOREST_CLI_PATH" archive export filops_*.car -o exported_snapshot.car.zst
+zstd -d exported_snapshot.car.zst
+cmp --silent filops_*.car exported_snapshot.car
 rm -- *
 popd
 
@@ -49,12 +54,16 @@ pushd "$(mktemp --directory)"
 
     validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed
-    "$FOREST_CLI_PATH" --chain calibnet snapshot validate "$validate_me"
+    "$FOREST_CLI_PATH" snapshot validate --check-network calibnet "$validate_me"
 
     : : validating under mainnet chain should fail
-    if "$FOREST_CLI_PATH" --chain mainnet snapshot validate "$validate_me"; then
+    if "$FOREST_CLI_PATH" snapshot validate --check-network mainnet "$validate_me"; then
         exit 1
     fi
+
+    : : check that it contains at least one expected checkpoint
+    # If calibnet is reset or the checkpoint interval is changed, this check has to be updated
+    "$FOREST_CLI_PATH" archive checkpoints "$validate_me" | grep bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 rm -- *
 popd
 

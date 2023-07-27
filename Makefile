@@ -71,10 +71,6 @@ lint-clippy:
 	cargo clippy --quiet --no-deps -- --deny=warnings
 	cargo clippy --tests --quiet --no-deps -- --deny=warnings
 
-	# add-on features
-	cargo clippy --features=insecure_post       --quiet --no-deps -- --deny=warnings
-	cargo clippy --features=instrumented_kernel --quiet --no-deps -- --deny=warnings
-
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
 	docker run --rm -i hadolint/hadolint < $<
@@ -94,17 +90,21 @@ release:
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
-test:
+test: go-mod
 	cargo nextest run
 
 	# nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
 	# see also lib.rs::doctest_private
 	cargo test --doc --features doctest-private
 
-test-release:
+test-release: go-mod
 	cargo nextest run --release
 
 test-all: test test-release
+
+go-mod:
+	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor && go build -o /tmp/forest-go-compat-test) || \
+	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
 
 smoke-test:
 	./scripts/smoke_test.sh

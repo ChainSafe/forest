@@ -4,16 +4,12 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::beacon::Beacon;
 use crate::rpc_api::{data_types::RPCState, node_api::NodeStatusResult};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 
-pub(in crate::rpc) async fn node_status<
-    DB: Blockstore + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
+pub(in crate::rpc) async fn node_status<DB: Blockstore + Clone + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
 ) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
 

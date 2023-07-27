@@ -5,8 +5,8 @@ use std::{io, marker::PhantomData, pin::Pin, task::Poll};
 
 use bytes::BytesMut;
 use futures::prelude::*;
-use log::warn;
 use pin_project_lite::pin_project;
+use tracing::warn;
 
 pin_project! {
     #[derive(Debug)]

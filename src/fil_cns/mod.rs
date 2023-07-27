@@ -53,8 +53,6 @@ pub enum FilecoinConsensusError {
     BeaconValidation(String),
     #[error("Failed to verify winning PoSt: {0}")]
     WinningPoStValidation(String),
-    #[error("[INSECURE-POST-VALIDATION] {0}")]
-    InsecurePostValidation(String),
     #[error("Chain store error: {0}")]
     ChainStore(#[from] ChainStoreError),
     #[error("StateManager error: {0}")]
@@ -98,7 +96,7 @@ impl<B> Scale for FilecoinConsensus<B> {
 #[async_trait]
 impl<B> Consensus for FilecoinConsensus<B>
 where
-    B: Beacon + Unpin,
+    B: Beacon,
 {
     type Error = FilecoinConsensusError;
 

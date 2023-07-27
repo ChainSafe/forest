@@ -43,11 +43,23 @@ running:
 
 `forest --chain calibnet`
 
+If your wallet is empty, you can fund your wallet using this
+[faucet](https://faucet.calibration.fildev.network/funds.html). If this faucet
+is unavailable or does not work, there is an
+[alternative faucet](https://faucet.triangleplatform.com/filecoin/calibration).
+You can verify your wallet was funded after a few minutes in
+[Filscan](https://calibration.filscan.io/) by pasting the Message ID obtained
+from the faucet. Example from
+[this wallet](https://calibration.filscan.io/tipset/message-detail?cid=bafy2bzacebdverplts5qs3lwzsenzlh4rdsmvc42r6yg6suu4comr7gkbe76a).
+
 Next, send Filecoin tokens to a wallet address:
 
-`forest-cli --token <admin_token> send <wallet-address> <amount in attoFIL>`
+`forest-cli --token <admin_token> send <wallet-address> <amount>`
 
-where 1 attoFIL = $10^{−18}$ FIL.
+where `<amount>` is an amount specified in any SI units; this field is
+case-sensitive and can be specified in either short or long form (e.g., `mFIL`
+or `milliFIL`) in the range from `quetta` to `quecto`. Note that the default
+unit (if no unit is specified) is `FIL`.
 
 ## Wallet
 
@@ -56,38 +68,62 @@ Filecoin wallets are stored under the Forest data directory (e.g.,
 
 All wallet commands require write permissions and an admin token (`--token`) to
 interact with the keystore. The admin token can be retrieved from forest startup
-logs or by running it with `--save-token <PATH>`.
+logs or by including the flag `--save-token <PATH>` during `forest` invocation.
 
-Balance Retrieve the FIL balance of a given address Usage:
-`forest-cli wallet balance <address>`
+### Balance:
 
-Default Get the default, persisted address from the keystore Usage:
-`forest-cli wallet default`
+Retrieve the FIL balance of a given address. Usage:
+`forest-cli --token <admin_token> wallet balance <address>`
 
-Has Check if an address exists in the keystore shows true/false if exists or
-doesn't Usage: `forest-cli wallet has <address>`
+### Default:
 
-List Display the keys in the keystore Usage: `forest-cli wallet list`
+Get the default, persisted address from the keystore. Usage:
+`forest-cli --token <admin_token> wallet default`
 
-New Create a new wallet The signature type can either be secp256k1 or bls.
-Defaults to use bls Usage: `forest-cli wallet new <bls/secp256k1>`
+### Has:
 
-Set-default Set an address to be the default address of the keystore Usage:
-`forest-cli wallet set-default <address>`
+Check if an address exists in the keystore. Outputs `true` if address exists and
+`false` if address does not exist. Usage:
+`forest-cli --token <admin_token> wallet has <address>`
 
-Import Import a private key to the keystore and create a new address. The
-default format for importing keys is hex encoded JSON. Use the `export` command
-to get formatted keys for importing. Usage:
-`forest-cli wallet import <hex encoded json key>`
+### List:
 
-Export Export a key by address. Use a wallet address to export a key. Returns a
+Display the keys in the keystore. Usage:
+`forest-cli --token <admin_token> wallet list`
+
+### New:
+
+Create a new wallet. The signature type can either be secp256k1 or bls. Defaults
+to use secp256k1. Usage:
+`forest-cli --token <admin_token> wallet new [ bls | secp256k1 ]`
+
+### Set-default:
+
+Set an address to be the default address of the keystore. Usage:
+`forest-cli --token <admin_token> wallet set-default <address>`
+
+### Export:
+
+Export a key by address. Use a wallet address to export a key. Returns a
 formatted key to be used to import on another node, or into a new keystore.
-Usage: forest-cli wallet export <address>
+Usage: `forest-cli --token <admin_token> wallet export <address>`
 
-Sign Use an address to sign a vector of bytes Usage:
-`forest-cli wallet sign -m <hex message> -a <address>`
+### Import:
 
-Verify Verify the message's integrity with an address and signature Usage:
+Import a file containing a private key to the keystore and create a new address.
+The default format for importing keys is hex encoded JSON. Use the `export`
+command to get formatted keys for importing. Usage:
+`forest-cli --token <admin_token> wallet import <PATH>`
+
+### Sign:
+
+Use an address to sign a vector of bytes. Usage:
+`forest-cli --token <admin_token> wallet sign -m <hex message> -a <address>`
+
+### Verify:
+
+Verify the message's integrity with an address and signature. Outputs `true` if
+signature verifies message integrity, otherwise `false`. Usage:
 `forest-cli wallet verify -m <hex message> -a <address> -s <signature>`
 
 ## Chain-Sync

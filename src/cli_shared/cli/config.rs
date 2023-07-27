@@ -1,65 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use core::time::Duration;
-use std::{path::PathBuf, sync::Arc};
-
 use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
 use crate::networks::ChainConfig;
-use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, sync::Arc};
 
 use super::client::Client;
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
-pub struct LogConfig {
-    pub filters: Vec<LogValue>,
-}
-
-impl LogConfig {
-    pub(in crate::cli_shared) fn to_filter_string(&self) -> String {
-        self.filters
-            .iter()
-            .map(|f| format!("{}={}", f.module, f.level))
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-}
-
-impl Default for LogConfig {
-    fn default() -> Self {
-        Self {
-            filters: vec![
-                LogValue::new("axum", LevelFilter::Warn),
-                LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
-                LogValue::new("filecoin_proofs", LevelFilter::Warn),
-                LogValue::new("libp2p_bitswap", LevelFilter::Off),
-                LogValue::new("libp2p_gossipsub", LevelFilter::Error),
-                LogValue::new("libp2p_kad", LevelFilter::Error),
-                LogValue::new("rpc", LevelFilter::Error),
-                LogValue::new("storage_proofs_core", LevelFilter::Warn),
-                LogValue::new("tracing_loki", LevelFilter::Off),
-            ],
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
-pub struct LogValue {
-    pub module: String,
-    pub level: LevelFilter,
-}
-
-impl LogValue {
-    pub fn new(module: &str, level: LevelFilter) -> Self {
-        Self {
-            module: module.to_string(),
-            level,
-        }
-    }
-}
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
@@ -87,15 +36,6 @@ impl Default for DaemonConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default, Debug)]
-pub struct TokioConfig {
-    pub worker_threads: Option<usize>,
-    pub max_blocking_threads: Option<usize>,
-    pub thread_keep_alive: Option<Duration>,
-    pub thread_stack_size: Option<usize>,
-    pub global_queue_interval: Option<u32>,
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[serde(default)]
 pub struct Config {
@@ -105,8 +45,6 @@ pub struct Config {
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
-    pub log: LogConfig,
-    pub tokio: TokioConfig,
 }
 
 impl Config {
@@ -122,11 +60,11 @@ mod test {
         path::PathBuf,
     };
 
+    use crate::cli_shared::cli::client::{BufferSize, ChunkSize};
     use crate::utils::io::ProgressBarVisibility;
     use chrono::Duration;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
-    use tracing_subscriber::EnvFilter;
 
     use super::*;
 
@@ -150,8 +88,6 @@ mod test {
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
-                log: Default::default(),
-                tokio: Default::default(),
             }
         }
     }
@@ -169,6 +105,8 @@ mod test {
                     snapshot_path: Option::arbitrary(g),
                     snapshot_head: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),
+                    chunk_size: ChunkSize::arbitrary(g),
+                    buffer_size: BufferSize::arbitrary(g),
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
@@ -207,13 +145,5 @@ mod test {
                 .expect("configuration empty"),
             '['
         )
-    }
-
-    #[test]
-    fn test_default_log_filters() {
-        let config = LogConfig::default();
-        EnvFilter::builder()
-            .parse(config.to_filter_string())
-            .unwrap();
     }
 }
