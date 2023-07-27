@@ -1,9 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::TipsetKeys;
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::blocks::Tipset;
 use crate::db::car::AnyCar;
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
@@ -13,8 +12,7 @@ use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use crate::shim::machine::MultiEngine;
-use crate::state_manager::apply_block_messages;
-use crate::state_manager::NO_CALLBACK;
+use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use crate::statediff::print_state_diff;
 use anyhow::Context;
 use cid::Cid;
