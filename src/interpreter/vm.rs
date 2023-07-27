@@ -66,7 +66,7 @@ pub struct BlockMessages {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct MessageGasCost {
-    pub message: Cid,
+    pub message: Option<Cid>,
     pub gas_used: BigInt,
     pub base_fee_burn: TokenAmount,
     pub over_estimation_burn: TokenAmount,
@@ -80,7 +80,7 @@ impl MessageGasCost {
     pub fn new(msg: &Message, ret: &ApplyRet) -> Self {
         use crate::message::Message as MessageTrait;
         Self {
-            message: msg.cid().unwrap(),
+            message: Some(msg.cid().unwrap()),
             gas_used: BigInt::from(ret.msg_receipt().gas_used()),
             base_fee_burn: ret.base_fee_burn(),
             over_estimation_burn: ret.over_estimation_burn(),
@@ -88,6 +88,14 @@ impl MessageGasCost {
             miner_tip: ret.miner_tip(),
             refund: ret.refund(),
             total_cost: msg.required_funds() - &ret.refund(),
+        }
+    }
+
+    pub fn from_implicit(msg: &Message, ret: &ApplyRet) -> Self {
+        Self {
+            message: None,
+            gas_used: BigInt::default(),
+            ..Self::new(msg, ret)
         }
     }
 }
@@ -114,6 +122,13 @@ impl InvocResult {
             execution_trace: trace,
             error: ret.failure_info().unwrap_or_default(),
             duration: 0,
+        }
+    }
+
+    pub fn from_implicit(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
+        Self {
+            gas_cost: MessageGasCost::from_implicit(msg, ret),
+            ..Self::new(msg_cid, msg, ret)
         }
     }
 }
@@ -400,7 +415,7 @@ where
                 }
 
                 if enable_tracing {
-                    invoc_results.push(InvocResult::new(rew_msg.cid()?, &rew_msg, &ret));
+                    invoc_results.push(InvocResult::from_implicit(rew_msg.cid()?, &rew_msg, &ret));
                 }
 
                 if let Some(callback) = &mut callback {
@@ -412,7 +427,11 @@ where
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
                 if enable_tracing {
-                    invoc_results.push(InvocResult::new(cron_msg.cid()?, &cron_msg, &ret));
+                    invoc_results.push(InvocResult::from_implicit(
+                        cron_msg.cid()?,
+                        &cron_msg,
+                        &ret,
+                    ));
                 }
             }
             Err(e) => {

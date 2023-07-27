@@ -34,8 +34,8 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        #[serde(default, with = "crate::json::cid")]
-        pub message: Cid,
+        #[serde(default, with = "crate::json::cid::opt")]
+        pub message: Option<Cid>,
         pub gas_used: String,
         #[serde(with = "crate::json::token_amount::json")]
         pub base_fee_burn: TokenAmount,
@@ -89,7 +89,6 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use crate::shim::econ::TokenAmount;
-    use cid::Cid;
     use num_bigint::BigInt;
 
     use quickcheck_macros::quickcheck;
@@ -99,7 +98,7 @@ mod tests {
     impl quickcheck::Arbitrary for MessageGasCost {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             Self {
-                message: Cid::arbitrary(g),
+                message: Option::arbitrary(g),
                 gas_used: BigInt::arbitrary(g),
                 base_fee_burn: TokenAmount::arbitrary(g),
                 over_estimation_burn: TokenAmount::arbitrary(g),
