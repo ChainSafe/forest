@@ -102,7 +102,7 @@ mod tests {
             ChainStore::new(
                 db,
                 chain_config.clone(),
-                genesis_header.clone(),
+                genesis_header,
                 chain_data_root.path(),
             )
             .unwrap(),
@@ -118,7 +118,7 @@ mod tests {
             let header = from_slice::<BlockHeader>(&bz).unwrap();
             let ts = Tipset::from(header);
             let db = cs_for_test.blockstore();
-            let tsk = ts.key().cids.cids().clone();
+            let tsk = ts.key().cids.cids();
             cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
 
             for i in tsk {

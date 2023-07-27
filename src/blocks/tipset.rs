@@ -510,7 +510,7 @@ pub mod tipset_json {
         }
         TipsetSer {
             blocks: &m.headers,
-            cids: &m.key(),
+            cids: m.key(),
             height: m.epoch(),
         }
         .serialize(serializer)

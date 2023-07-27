@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
-use cid::{multihash, Cid};
+use cid::{
+    multihash::{self, Code::Blake2b256},
+    Cid,
+};
 use fvm_ipld_encoding::DAG_CBOR;
 use serde::{Deserialize, Serialize};
 
@@ -31,8 +34,12 @@ impl FromIterator<Cid> for CidVec {
 
 impl From<Vec<Cid>> for CidVec {
     fn from(vec: Vec<Cid>) -> Self {
-        // TODO: add logic to convert to V1Cids if possible
-        vec.into_iter().collect()
+        // Converts `Vec<Cid>` to `CidVec::V1Cids` if possible; otherwise, converts to `CidVec::AllCids`.
+        let mut cid_vec = CidVec::new();
+        for cid in vec {
+            cid_vec.push(cid);
+        }
+        cid_vec
     }
 }
 
@@ -67,7 +74,7 @@ impl CidVec {
                 .map(|c| {
                     Cid::new_v1(
                         DAG_CBOR,
-                        multihash::Multihash::wrap(DAG_CBOR, c)
+                        multihash::Multihash::wrap(Blake2b256.into(), c)
                             .expect("failed to convert digest to CID"),
                     )
                 })
@@ -87,7 +94,7 @@ impl CidVec {
                         .map(|c| {
                             Cid::new_v1(
                                 DAG_CBOR,
-                                multihash::Multihash::wrap(DAG_CBOR, &c)
+                                multihash::Multihash::wrap(Blake2b256.into(), &c)
                                     .expect("failed to convert digest to CID"),
                             )
                         })
@@ -130,9 +137,6 @@ mod test {
 
     #[quickcheck]
     fn cidvec_to_vec_of_cids_to_cidvec(cidvec: CidVec) {
-        // TODO: remove println statements after resolving failing case (i.e., conversion from Vec<Cid> back to V1Cids)
-        println!("cidvec: {:?}", cidvec);
-        println!("vec_cid: {:?}", Vec::<Cid>::from(cidvec.clone()));
         assert_eq!(cidvec, CidVec::from(Vec::<Cid>::from(cidvec.clone())));
     }
 }
