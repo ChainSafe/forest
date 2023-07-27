@@ -59,7 +59,6 @@ filecoin-proofs-api = { version = "14.0", default-features = false }
 flume = "0.10"
 fs_extra = "1.2"
 futures = "0.3"
-futures-util = "0.3"
 fvm2 = { package = "fvm", version = "~2.5", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
 fvm_ipld_amt = "0.6"
@@ -148,6 +147,7 @@ sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
 similar = "2.2.1"
 slotmap = "1.0"
+smallvec = "1.11"
 smart-default = "0.7.1"
 static_assertions = "1.1.0"
 statrs = "0.16"
@@ -227,5 +227,10 @@ mimalloc = ["dep:mimalloc"]
 
 [[bench]]
 name = "example-benchmark"
+harness = false
+required-features = ["benchmark-private"]
+
+[[bench]]
+name = "car-index"
 harness = false
 required-features = ["benchmark-private"]
