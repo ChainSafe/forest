@@ -40,21 +40,21 @@ zstd -d exported_snapshot.car.zst
 cmp --silent filops_*.car exported_snapshot.car
 
 : verify that the exported snapshot is in ForestCAR.zst format
-assert_eq $(forest_query_format exported_snapshot.car.zst) "ForestCARv1.zst"
+assert_eq "$(forest_query_format exported_snapshot.car.zst)" "ForestCARv1.zst"
 
 : verify that diff exports contain the expected number of state roots
 EPOCH=$(forest_query_epoch exported_snapshot.car.zst)
-"$FOREST_CLI_PATH" archive export $($EPOCH - 1100) --depth 900 --output-path base_snapshot.forest.car.zst exported_snapshot.car.zst
+"$FOREST_CLI_PATH" archive export $((EPOCH-1100)) --depth 900 --output-path base_snapshot.forest.car.zst exported_snapshot.car.zst
 
 BASE_EPOCH=$(forest_query_epoch base_snapshot.forest.car.zst)
-assert_eq $BASE_EPOCH $(($EPOCH-1100))
+assert_eq "$BASE_EPOCH" $((EPOCH-1100))
 
 BASE_STATE_ROOTS=$(forest_query_state_roots base_snapshot.forest.car.zst)
-assert_eq $BASE_STATE_ROOTS 900
+assert_eq "$BASE_STATE_ROOTS" 900
 
-"$FOREST_CLI_PATH" archive export --diff $BASE_EPOCH -o diff_snapshot.forest.car.zst exported_snapshot.car.zst
+"$FOREST_CLI_PATH" archive export --diff "$BASE_EPOCH" -o diff_snapshot.forest.car.zst exported_snapshot.car.zst
 DIFF_STATE_ROOTS=$(forest_query_state_roots diff_snapshot.forest.car.zst)
-assert_eq $DIFF_STATE_ROOTS 1100
+assert_eq "$DIFF_STATE_ROOTS" 1100
 rm -- *
 popd
 

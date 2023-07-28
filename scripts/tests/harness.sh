@@ -23,15 +23,15 @@ function forest_check_db_stats {
 }
 
 function forest_query_epoch {
-  $FOREST_CLI_PATH archive info $1 | grep State-roots | awk '{print $2}'
+  $FOREST_CLI_PATH archive info "$1" | grep State-roots | awk '{print $2}'
 }
 
 function forest_query_state_roots {
-  $FOREST_CLI_PATH archive info $1 | grep State-roots | awk '{print $2}'
+  $FOREST_CLI_PATH archive info "$1" | grep State-roots | awk '{print $2}'
 }
 
 function forest_query_format {
-  $FOREST_CLI_PATH archive info $1 | grep "CAR format" | awk '{print $3}'
+  $FOREST_CLI_PATH archive info "$1" | grep "CAR format" | awk '{print $3}'
 }
 
 function forest_run_node_detached {
@@ -88,7 +88,7 @@ function assert_eq {
   if [ "$expected" == "$actual" ]; then
     return 0
   else
-    [ "${#msg}" -gt 0 ] && echo "$expected == $actual :: $msg" || true
+    [ "${#msg}" -gt 0 ] && echo "$expected == $actual :: $msg"
     return 1
   fi
 }
