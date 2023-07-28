@@ -37,6 +37,8 @@ zstd -d filops_*.car.zst
 "$FOREST_CLI_PATH" archive export filops_*.car -o exported_snapshot.car.zst
 zstd -d exported_snapshot.car.zst
 cmp --silent filops_*.car exported_snapshot.car
+# verify that the exported snapshot is in ForestCAR.zst format
+"$FOREST_CLI_PATH" archive info exported_snapshot.car.zst | grep ForestCARv1.zst
 rm -- *
 popd
 
