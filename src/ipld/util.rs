@@ -283,7 +283,7 @@ pin_project! {
 
 impl<DB, T> ChainStream<DB, T> {
     pub fn with_seen(self, seen: CidHashSet) -> Self {
-        ChainStream { seen: seen, ..self }
+        ChainStream { seen, ..self }
     }
 
     pub fn into_seen(self) -> CidHashSet {
@@ -345,13 +345,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         this.dfs.pop_front();
                         if let Some(data) = this.db.get(&cid)? {
                             return Poll::Ready(Some(Ok(Block { cid, data })));
-                        } else {
-                            if *this.fail_on_dead_links {
-                                return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                    "missing key: {}",
-                                    cid
-                                ))));
-                            }
+                        } else if *this.fail_on_dead_links {
+                            return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
                     }
                     Iterate(dfs_iter) => {
@@ -369,13 +364,11 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                             dfs_iter.walk_next(ipld);
                                         }
                                         return Poll::Ready(Some(Ok(Block { cid, data })));
-                                    } else {
-                                        if *this.fail_on_dead_links {
-                                            return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                                "missing key: {}",
-                                                cid
-                                            ))));
-                                        }
+                                    } else if *this.fail_on_dead_links {
+                                        return Poll::Ready(Some(Err(anyhow::anyhow!(
+                                            "missing key: {}",
+                                            cid
+                                        ))));
                                     }
                                 }
                             }

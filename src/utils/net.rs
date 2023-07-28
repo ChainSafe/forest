@@ -101,7 +101,7 @@ pub async fn decompress_if_needed(
             let mut decoder = ZstdDecoder::new(reader);
             decoder.multiple_members(true);
             Left(decoder)
-        },
+        }
         false => Right(reader),
     })
 }

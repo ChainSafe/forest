@@ -179,7 +179,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let mut stream = stream_graph(&store, diff_ts.clone().chain(&store));
-        while let Some(_) = stream.try_next().await? {}
+        while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
         CidHashSet::default()
