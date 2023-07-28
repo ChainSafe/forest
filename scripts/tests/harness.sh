@@ -23,7 +23,7 @@ function forest_check_db_stats {
 }
 
 function forest_query_epoch {
-  $FOREST_CLI_PATH archive info "$1" | grep State-roots | awk '{print $2}'
+  $FOREST_CLI_PATH archive info "$1" | grep Epoch | awk '{print $2}'
 }
 
 function forest_query_state_roots {
