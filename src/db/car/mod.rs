@@ -19,6 +19,8 @@ use std::io::{Read, Seek};
 pub trait CarReader: Read + Seek + Send + Sync + 'static {}
 impl<X: Read + Seek + Send + Sync + 'static> CarReader for X {}
 
+/// Multiple `.forest.car.zst` archives may use the same cache, each with a
+/// unique cache key.
 pub type CacheKey = u64;
 
 pub struct ZstdFrameCache {
@@ -47,6 +49,8 @@ impl ZstdFrameCache {
         }
     }
 
+    /// Return a clone of the value associated with `cid`. If a value is found,
+    /// the cache entry is moved to the top of the queue.
     pub fn get(&mut self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Vec<u8>>> {
         self.lru
             .get(&(offset, key))
@@ -59,7 +63,9 @@ impl ZstdFrameCache {
             entry.values().map(Vec::len).sum::<usize>()
         }
         self.current_size += size_of_entry(&index);
-        self.lru.put((offset, key), index);
+        if let Some(prev_entry) = self.lru.put((offset, key), index) {
+            self.current_size -= size_of_entry(&prev_entry);
+        }
         while self.current_size > self.max_size {
             if let Some((_, entry)) = self.lru.pop_lru() {
                 self.current_size -= size_of_entry(&entry)
