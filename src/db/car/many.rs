@@ -19,21 +19,23 @@ use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::{io, path::PathBuf, sync::Arc};
 
-pub struct ManyCar<WriterT> {
+pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: ZstdFrameCache,
     read_only: Vec<AnyCar<Box<dyn super::CarReader>>>,
     writer: WriterT,
 }
 
-impl<WriterT: Blockstore> ManyCar<WriterT> {
-    pub fn new(writer: WriterT) -> Self {
+impl ManyCar {
+    pub fn new() -> Self {
         ManyCar {
             shared_cache: Arc::new(Mutex::new(LruCache::new(nonzero!(1024_usize)))),
             read_only: Vec::new(),
-            writer,
+            writer: MemoryDB::default(),
         }
     }
+}
 
+impl<WriterT> ManyCar<WriterT> {
     pub fn read_only<ReaderT: super::CarReader>(&mut self, any_car: AnyCar<ReaderT>) {
         let key = self.read_only.len() as u64;
         self.read_only
@@ -63,7 +65,7 @@ impl<WriterT: Blockstore> ManyCar<WriterT> {
 
 impl<ReaderT: super::CarReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
     fn from(any_car: AnyCar<ReaderT>) -> Self {
-        let mut many_car = ManyCar::new(MemoryDB::default());
+        let mut many_car = ManyCar::new();
         many_car.read_only(any_car);
         many_car
     }
@@ -72,7 +74,7 @@ impl<ReaderT: super::CarReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
 impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
     type Error = io::Error;
     fn try_from(files: Vec<PathBuf>) -> io::Result<Self> {
-        let mut many_car = ManyCar::new(MemoryDB::default());
+        let mut many_car = ManyCar::new();
         many_car.read_only_files(files.into_iter())?;
         Ok(many_car)
     }
@@ -103,13 +105,13 @@ mod tests {
 
     #[test]
     fn many_car_empty() {
-        let many = ManyCar::new(MemoryDB::default());
+        let many = ManyCar::new();
         assert!(many.heaviest_tipset().is_err());
     }
 
     #[test]
     fn many_car_idempotent() {
-        let mut many = ManyCar::new(MemoryDB::default());
+        let mut many = ManyCar::new();
         many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
         many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
         assert_eq!(
