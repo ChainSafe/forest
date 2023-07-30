@@ -233,7 +233,7 @@ where
 }
 
 // Access the ok-value by replacing the error with a placeholder.
-fn hoist_error<'a, T>(ret: &'a mut io::Result<T>) -> io::Result<&'a mut T> {
+fn hoist_error<T>(ret: &'_ mut io::Result<T>) -> io::Result<&'_ mut T> {
     ret.as_mut().map_err(|e| {
         std::mem::replace(
             e,
