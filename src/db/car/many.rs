@@ -1,5 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+//! The [`ManyCar`] block store is the union of `N` read-only CAR-backed block
+//! stores and a single writable block store. Get requests are forwarded to each
+//! store (including the writable store) and the first hit is returned. Write
+//! requests are only forwarded to the writable store.
+//!
+//! A single z-frame cache is shared between all read-only stores.
+
 use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::Tipset;
 use crate::db::MemoryDB;
@@ -9,9 +17,7 @@ use fvm_ipld_blockstore::Blockstore;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
-use std::io;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT> {
     shared_cache: ZstdFrameCache,
