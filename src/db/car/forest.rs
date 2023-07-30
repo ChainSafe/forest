@@ -69,22 +69,44 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 
+pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
+impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
+
+pub type ZstdFrameCache = Arc<Mutex<LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>>>;
+
 pub struct ForestCar<ReaderT> {
-    inner: Arc<Mutex<ForestCarInner<ReaderT>>>,
+    indexed: Mutex<io::Result<CarIndex<ReaderT>>>,
+    new_reader: Arc<dyn ReaderGen<CarIndex<ReaderT>>>,
+    frame_cache: ZstdFrameCache,
+    write_cache: Arc<Mutex<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
-struct ForestCarInner<ReaderT> {
-    // the reader fn will be used for parallel queries
-    // new_reader: Box<dyn Fn() -> ReaderT>,
-    reader: ReaderT,
-    frame_cache: LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>,
-    write_cache: ahash::HashMap<Cid, Vec<u8>>,
-    index: CarIndex<ReaderT>,
+impl<ReaderT: Read + Seek> Clone for ForestCar<ReaderT> {
+    fn clone(&self) -> Self {
+        let index: io::Result<CarIndex<ReaderT>> = (self.new_reader)();
+        ForestCar {
+            indexed: Mutex::new(index),
+            new_reader: Arc::clone(&self.new_reader),
+            frame_cache: Arc::clone(&self.frame_cache),
+            write_cache: Arc::clone(&self.write_cache),
+            roots: self.roots.clone(),
+        }
+    }
 }
 
-impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
-    pub fn new(mk_reader: impl Fn() -> io::Result<ReaderT> + 'static) -> io::Result<Self> {
+impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
+    pub fn new(mk_reader: impl ReaderGen<ReaderT>) -> io::Result<Self> {
+        Self::with_cache(
+            mk_reader,
+            Arc::new(Mutex::new(LruCache::new(nonzero!(1024_usize)))),
+        )
+    }
+
+    pub fn with_cache(
+        mk_reader: impl ReaderGen<ReaderT>,
+        frame_cache: ZstdFrameCache,
+    ) -> io::Result<Self> {
         let mut reader = mk_reader()?;
 
         reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
@@ -103,15 +125,13 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
         let header = from_slice::<CarHeader>(&block_frame)?;
 
         let index = CarIndex::open(mk_reader()?, footer.index)?;
-        let inner = ForestCarInner {
-            // new_reader: Box::new(mk_reader),
-            reader,
-            frame_cache: LruCache::new(nonzero!(1024_usize)),
-            write_cache: ahash::HashMap::default(),
-            index,
-        };
         Ok(ForestCar {
-            inner: Arc::new(Mutex::new(inner)),
+            indexed: Mutex::new(Ok(index)),
+            new_reader: Arc::new(move || {
+                mk_reader().and_then(|reader| CarIndex::open(reader, footer.index))
+            }),
+            frame_cache,
+            write_cache: Arc::new(Mutex::new(ahash::HashMap::default())),
             roots: header.roots,
         })
     }
@@ -123,6 +143,27 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
         Tipset::load_required(&self, &TipsetKeys::new(self.roots()))
     }
+
+    pub fn to_dyn(self) -> ForestCar<Box<dyn super::CarReader>> {
+        fn any_reader<ReaderT: super::CarReader>(reader: ReaderT) -> Box<dyn super::CarReader> {
+            Box::new(reader)
+        }
+
+        let indexed = self.indexed.into_inner();
+        let indexed_dyn = indexed.map(|car_reader| car_reader.map_reader(any_reader));
+        let new_reader = self.new_reader;
+        let dyn_reader = move || {
+            let idx = new_reader()?;
+            io::Result::Ok(idx.map_reader(any_reader))
+        };
+        ForestCar {
+            indexed: Mutex::new(indexed_dyn),
+            new_reader: Arc::new(dyn_reader),
+            frame_cache: self.frame_cache,
+            write_cache: self.write_cache,
+            roots: self.roots,
+        }
+    }
 }
 
 impl<ReaderT> Blockstore for ForestCar<ReaderT>
@@ -131,20 +172,29 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let ForestCarInner {
-            reader,
-            frame_cache,
-            write_cache,
-            index,
-            ..
-        } = &mut *self.inner.lock();
+        let inner_ret = &mut *self.indexed.lock();
+        let indexed = match inner_ret {
+            Err(e) => {
+                let err = std::mem::replace(
+                    e,
+                    io::Error::new(
+                        e.kind(),
+                        "Failed to clone reader. See previous error message for details",
+                    ),
+                );
+                return Err(anyhow::Error::from(err));
+            }
+            Ok(ref mut r) => r,
+        };
         // Return immediately if the value is cached.
-        if let Some(value) = write_cache.get(k) {
+        if let Some(value) = self.write_cache.lock().get(k) {
             return Ok(Some(value.clone()));
         }
 
-        for position in index.lookup(*k)?.into_iter() {
-            let block_map = frame_cache.try_get_or_insert(position, || {
+        for position in indexed.lookup(*k)?.into_iter() {
+            let reader = indexed.get_mut();
+            let mut frame_lock = self.frame_cache.lock();
+            let block_map = frame_lock.try_get_or_insert(position, || {
                 // Seek to the start of the zstd frame
                 reader.seek(SeekFrom::Start(position))?;
                 // Decode entire frame into memory
@@ -171,13 +221,12 @@ where
 
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let ForestCarInner { write_cache, .. } = &mut *self.inner.lock();
         debug_assert!(Block {
             cid: *k,
             data: block.to_vec()
         }
         .valid());
-        write_cache.insert(*k, Vec::from(block));
+        self.write_cache.lock().insert(*k, Vec::from(block));
         Ok(())
     }
 }

@@ -11,8 +11,8 @@ pub enum AnyCar<ReaderT> {
     Memory(super::PlainCar<Cursor<Vec<u8>>>),
 }
 
-impl<ReaderT: Read + Seek> AnyCar<ReaderT> {
-    pub fn new(mk_reader: impl Fn() -> Result<ReaderT> + Clone + 'static) -> Result<Self> {
+impl<ReaderT: Read + Seek + Send + Sync + 'static> AnyCar<ReaderT> {
+    pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT> + Clone) -> Result<Self> {
         if let Ok(forest_car) = super::ForestCar::new(mk_reader.clone()) {
             return Ok(AnyCar::Forest(forest_car));
         }
@@ -54,6 +54,23 @@ impl<ReaderT: Read + Seek> AnyCar<ReaderT> {
             AnyCar::Plain(_) => "CARv1",
             AnyCar::Memory(_) => "CARv1.zst",
         }
+    }
+
+    pub fn to_dyn(self) -> AnyCar<Box<dyn super::CarReader>> {
+        match self {
+            AnyCar::Forest(f) => AnyCar::Forest(f.to_dyn()),
+            AnyCar::Plain(p) => AnyCar::Plain(p.to_dyn()),
+            AnyCar::Memory(m) => AnyCar::Memory(m),
+        }
+    }
+}
+
+impl TryFrom<&'static [u8]> for AnyCar<std::io::Cursor<&'static [u8]>> {
+    type Error = std::io::Error;
+    fn try_from(bytes: &'static [u8]) -> std::io::Result<Self> {
+        Ok(AnyCar::Plain(super::PlainCar::new(std::io::Cursor::new(
+            bytes,
+        ))?))
     }
 }
 

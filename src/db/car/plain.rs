@@ -99,7 +99,7 @@ pub struct PlainCar<ReaderT> {
 
 impl<ReaderT> PlainCar<ReaderT>
 where
-    ReaderT: Read + Seek,
+    ReaderT: Read + Seek + Send + Sync + 'static,
 {
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
@@ -149,6 +149,30 @@ where
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
+    }
+
+    pub fn to_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
+        let PlainCarInner {
+            reader,
+            write_cache,
+            index,
+            roots,
+        } = self.inner.into_inner();
+        PlainCar {
+            inner: Mutex::new(PlainCarInner {
+                reader: Box::new(reader),
+                write_cache,
+                index,
+                roots,
+            }),
+        }
+    }
+}
+
+impl TryFrom<&'static [u8]> for PlainCar<std::io::Cursor<&'static [u8]>> {
+    type Error = io::Error;
+    fn try_from(bytes: &'static [u8]) -> io::Result<Self> {
+        PlainCar::new(std::io::Cursor::new(bytes))
     }
 }
 
