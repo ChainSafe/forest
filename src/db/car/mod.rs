@@ -14,12 +14,58 @@ use crate::utils::db::car_index::FrameOffset;
 use ahash::HashMap;
 use cid::Cid;
 use lru::LruCache;
-use parking_lot::Mutex;
 use std::io::{Read, Seek};
-use std::sync::Arc;
 
 pub trait CarReader: Read + Seek + Send + Sync + 'static {}
 impl<X: Read + Seek + Send + Sync + 'static> CarReader for X {}
 
-pub type ReaderKey = u64;
-pub type ZstdFrameCache = Arc<Mutex<LruCache<(FrameOffset, ReaderKey), HashMap<Cid, Vec<u8>>>>>;
+pub type CacheKey = u64;
+
+pub struct ZstdFrameCache {
+    /// Maximum size in bytes. Pages will be evicted if the total size of the
+    /// cache exceeds this amount.
+    pub max_size: usize,
+    current_size: usize,
+    lru: LruCache<(FrameOffset, CacheKey), HashMap<Cid, Vec<u8>>>,
+}
+
+impl Default for ZstdFrameCache {
+    fn default() -> Self {
+        ZstdFrameCache::new(ZstdFrameCache::DEFAULT_SIZE)
+    }
+}
+
+impl ZstdFrameCache {
+    // 2 GiB
+    pub const DEFAULT_SIZE: usize = 2 * 1024 * 1024 * 1024;
+
+    pub fn new(max_size: usize) -> Self {
+        ZstdFrameCache {
+            max_size,
+            current_size: 0,
+            lru: LruCache::unbounded(),
+        }
+    }
+
+    pub fn get(&mut self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Vec<u8>>> {
+        self.lru
+            .get(&(offset, key))
+            .map(|index| index.get(&cid).cloned())
+    }
+
+    /// Insert entry into lru-cache and evict pages if `max_size` has been exceeded.
+    pub fn put(&mut self, offset: FrameOffset, key: CacheKey, index: HashMap<Cid, Vec<u8>>) {
+        fn size_of_entry(entry: &HashMap<Cid, Vec<u8>>) -> usize {
+            entry.values().map(Vec::len).sum::<usize>()
+        }
+        self.current_size += size_of_entry(&index);
+        self.lru.put((offset, key), index);
+        while self.current_size > self.max_size {
+            if let Some((_, entry)) = self.lru.pop_lru() {
+                self.current_size -= size_of_entry(&entry)
+            } else {
+                break;
+            }
+        }
+    }
+}

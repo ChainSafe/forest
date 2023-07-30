@@ -8,11 +8,14 @@
 //!
 //! CARv2 is not supported yet.
 
+use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::Mutex;
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
@@ -76,7 +79,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 
     /// Set the z-frame cache of the inner CAR reader.
-    pub fn with_cache(self, cache: super::ZstdFrameCache, key: super::ReaderKey) -> Self {
+    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
             AnyCar::Plain(p) => AnyCar::Plain(p),

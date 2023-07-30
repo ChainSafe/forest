@@ -46,6 +46,7 @@
 //! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
+use super::ZstdFrameCache;
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
@@ -57,8 +58,6 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec};
-use lru::LruCache;
-use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::task::Poll;
@@ -73,10 +72,10 @@ pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
 impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
 
 pub struct ForestCar<ReaderT> {
-    reader_key: super::ReaderKey,
+    reader_key: super::CacheKey,
     indexed: Mutex<io::Result<CarIndex<ReaderT>>>,
     new_reader: Arc<dyn ReaderGen<CarIndex<ReaderT>>>,
-    frame_cache: super::ZstdFrameCache,
+    frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<Mutex<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
@@ -121,7 +120,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
             new_reader: Arc::new(move || {
                 mk_reader().and_then(|reader| CarIndex::open(reader, footer.index))
             }),
-            frame_cache: Arc::new(Mutex::new(LruCache::new(nonzero!(1024_usize)))),
+            frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             write_cache: Arc::new(Mutex::new(ahash::HashMap::default())),
             roots: header.roots,
         })
@@ -157,7 +156,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         }
     }
 
-    pub fn with_cache(self, cache: super::ZstdFrameCache, key: super::ReaderKey) -> Self {
+    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: super::CacheKey) -> Self {
         Self {
             reader_key: key,
             frame_cache: cache,
@@ -193,27 +192,35 @@ where
 
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.get_mut();
-            let mut frame_lock = self.frame_cache.lock();
-            let block_map = frame_lock.try_get_or_insert((position, self.reader_key), || {
-                // Seek to the start of the zstd frame
-                reader.seek(SeekFrom::Start(position))?;
-                // Decode entire frame into memory
-                let mut zstd_frame = decode_zstd_single_frame(reader)?;
-                // Parse all key-value pairs and insert them into a map
-                let mut block_map = HashMap::new();
-                while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
-                    if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
-                        block_map.insert(cid, data);
-                    } else {
-                        return Err(invalid_data("corrupted key-value block"));
+            match self.frame_cache.lock().get(position, self.reader_key, *k) {
+                // Frame cache hit, found value.
+                Some(Some(val)) => return Ok(Some(val)),
+                // Frame cache hit, no value. This only happens when hashes collide
+                Some(None) => {}
+                None => {
+                    // Seek to the start of the zstd frame
+                    reader.seek(SeekFrom::Start(position))?;
+                    // Decode entire frame into memory
+                    let mut zstd_frame = decode_zstd_single_frame(reader)?;
+                    // Parse all key-value pairs and insert them into a map
+                    let mut block_map = HashMap::new();
+                    while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
+                        if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
+                            block_map.insert(cid, data);
+                        } else {
+                            return Err(invalid_data("corrupted key-value block"))?;
+                        }
+                    }
+                    let get_result = block_map.get(k).cloned();
+                    self.frame_cache
+                        .lock()
+                        .put(position, self.reader_key, block_map);
+
+                    // This lookup only fails in case of a hash collision
+                    if let Some(value) = get_result {
+                        return Ok(Some(value));
                     }
                 }
-                Ok(block_map)
-            })?;
-
-            // This lookup only fails in case of a hash collision
-            if let Some(value) = block_map.get(k) {
-                return Ok(Some(value.clone()));
             }
         }
         Ok(None)

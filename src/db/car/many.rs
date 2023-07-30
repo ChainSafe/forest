@@ -14,13 +14,11 @@ use crate::db::MemoryDB;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use lru::LruCache;
-use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
-    shared_cache: ZstdFrameCache,
+    shared_cache: Arc<Mutex<ZstdFrameCache>>,
     read_only: Vec<AnyCar<Box<dyn super::CarReader>>>,
     writer: WriterT,
 }
@@ -28,7 +26,7 @@ pub struct ManyCar<WriterT = MemoryDB> {
 impl ManyCar {
     pub fn new() -> Self {
         ManyCar {
-            shared_cache: Arc::new(Mutex::new(LruCache::new(nonzero!(1024_usize)))),
+            shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             read_only: Vec::new(),
             writer: MemoryDB::default(),
         }
