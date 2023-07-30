@@ -27,11 +27,14 @@
 //! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::Tipset;
-use crate::chain::{ChainEpochDelta, index::{ChainIndex, ResolveNullTipset}};
+use crate::chain::{
+    index::{ChainIndex, ResolveNullTipset},
+    ChainEpochDelta,
+};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::{AnyCar, CarReader, ManyCar};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
-use crate::shim::clock::{EPOCH_DURATION_SECONDS,ChainEpoch, EPOCHS_IN_DAY};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
@@ -92,7 +95,9 @@ impl ArchiveCommands {
 
                 do_export(&store, store.heaviest_tipset()?, output_path, epoch, depth).await
             }
-            Self::Checkpoints { snapshot_files: snapshot } => print_checkpoints(snapshot),
+            Self::Checkpoints {
+                snapshot_files: snapshot,
+            } => print_checkpoints(snapshot),
         }
     }
 }
@@ -282,8 +287,7 @@ impl ArchiveInfo {
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
 fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
-    let store = ManyCar::try_from(snapshot_files)
-        .context("couldn't read input CAR file")?;
+    let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
 
     let genesis = root.genesis(&store)?;
