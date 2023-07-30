@@ -36,11 +36,14 @@ impl ManyCar {
 impl<WriterT> ManyCar<WriterT> {
     pub fn read_only<ReaderT: super::CarReader>(&mut self, any_car: AnyCar<ReaderT>) {
         let key = self.read_only.len() as u64;
-        self.read_only
-            .push(any_car.with_cache(self.shared_cache.clone(), key).to_dyn());
+        self.read_only.push(
+            any_car
+                .with_cache(self.shared_cache.clone(), key)
+                .into_dyn(),
+        );
     }
 
-    pub fn read_only_files<'a>(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+    pub fn read_only_files(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
         for file in files {
             let car = AnyCar::new(move || std::fs::File::open(&file))?;
             self.read_only(car);

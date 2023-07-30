@@ -139,7 +139,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(&self, &TipsetKeys::new(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::new(self.roots()))
     }
 
     /// In an arbitrary order
@@ -148,7 +148,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
         self.inner.lock().index.keys().cloned().collect()
     }
 
-    pub fn to_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
+    pub fn into_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
         let PlainCarInner {
             reader,
             write_cache,

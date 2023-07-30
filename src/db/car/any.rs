@@ -70,10 +70,10 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 
     /// Discard reader type and replace with dynamic trait object.
-    pub fn to_dyn(self) -> AnyCar<Box<dyn super::CarReader>> {
+    pub fn into_dyn(self) -> AnyCar<Box<dyn super::CarReader>> {
         match self {
-            AnyCar::Forest(f) => AnyCar::Forest(f.to_dyn()),
-            AnyCar::Plain(p) => AnyCar::Plain(p.to_dyn()),
+            AnyCar::Forest(f) => AnyCar::Forest(f.into_dyn()),
+            AnyCar::Plain(p) => AnyCar::Plain(p.into_dyn()),
             AnyCar::Memory(m) => AnyCar::Memory(m),
         }
     }
@@ -100,7 +100,7 @@ impl TryFrom<&'static [u8]> for AnyCar<std::io::Cursor<&'static [u8]>> {
 impl TryFrom<PathBuf> for AnyCar<std::fs::File> {
     type Error = std::io::Error;
     fn try_from(path: PathBuf) -> std::io::Result<Self> {
-        Ok(AnyCar::new(move || std::fs::File::open(&path))?)
+        AnyCar::new(move || std::fs::File::open(&path))
     }
 }
 
