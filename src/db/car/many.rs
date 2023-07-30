@@ -74,6 +74,8 @@ impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
 
 impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        // FIXME: Query each file in parallel. Tracking issue:
+        //        https://github.com/ChainSafe/forest/issues/3222
         for reader in self.read_only.iter() {
             if let Some(val) = reader.get(k)? {
                 return Ok(Some(val));
