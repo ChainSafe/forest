@@ -86,3 +86,40 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
         self.writer.put_keyed(k, block)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::AnyCar;
+    use super::*;
+    use crate::networks::{calibnet, mainnet};
+
+    #[test]
+    fn many_car_empty() {
+        let many = ManyCar::new(MemoryDB::default());
+        assert!(many.heaviest_tipset().is_err());
+    }
+
+    #[test]
+    fn many_car_idempotent() {
+        let mut many = ManyCar::new(MemoryDB::default());
+        many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
+        many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
+        assert_eq!(
+            many.heaviest_tipset().unwrap(),
+            AnyCar::try_from(mainnet::DEFAULT_GENESIS)
+                .unwrap()
+                .heaviest_tipset()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn many_car_calibnet_heaviest() {
+        let many = ManyCar::from(AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap());
+        let heaviest = many.heaviest_tipset().unwrap();
+        assert_eq!(
+            heaviest.min_ticket_block(),
+            &heaviest.genesis(&many).unwrap()
+        );
+    }
+}
