@@ -54,6 +54,7 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
+use crate::blocks::{Tipset, TipsetKeys};
 use ahash::HashMapExt as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -138,6 +139,10 @@ where
 
     pub fn roots(&self) -> Vec<Cid> {
         self.inner.lock().roots.clone()
+    }
+
+    pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
+        Tipset::load_required(&self, &TipsetKeys::new(self.roots()))
     }
 
     /// In an arbitrary order

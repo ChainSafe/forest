@@ -26,7 +26,7 @@
 //!
 //! Additional reading: [`crate::db::car::plain`]
 
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
@@ -138,7 +138,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
     let store = Arc::new(AnyCar::new(reader).context("couldn't read input CAR file")?);
 
     let index = ChainIndex::new(store.clone());
-    let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
+    let ts = Arc::new(store.heaviest_tipset()?);
 
     let genesis = ts.genesis(&store)?;
     let network = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -229,7 +229,7 @@ impl ArchiveInfo {
     ) -> anyhow::Result<Self> {
         let store = AnyCar::new(reader)?;
 
-        let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+        let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
         let tipsets = root.clone().chain(&store);
@@ -306,7 +306,7 @@ impl ArchiveInfo {
 fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
     let store = AnyCar::new(move || std::fs::File::open(&snapshot))
         .context("couldn't read input CAR file")?;
-    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+    let root = store.heaviest_tipset()?;
 
     let genesis = root.genesis(&store)?;
     let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -373,7 +373,7 @@ mod tests {
 
     fn genesis_timestamp(reader: impl Read + Seek) -> u64 {
         let db = crate::db::car::PlainCar::new(reader).unwrap();
-        let ts = Tipset::load_required(&db, &TipsetKeys::new(db.roots())).unwrap();
+        let ts = db.heaviest_tipset().unwrap();
         ts.genesis(&db).unwrap().timestamp()
     }
 

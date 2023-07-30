@@ -46,6 +46,7 @@
 //! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
 use crate::utils::db::car_stream::{Block, CarHeader};
@@ -117,6 +118,10 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
 
     pub fn roots(&self) -> Vec<Cid> {
         self.roots.clone()
+    }
+
+    pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
+        Tipset::load_required(&self, &TipsetKeys::new(self.roots()))
     }
 }
 

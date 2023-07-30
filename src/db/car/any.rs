@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek};
@@ -36,6 +37,14 @@ impl<ReaderT: Read + Seek> AnyCar<ReaderT> {
             AnyCar::Forest(forest) => forest.roots(),
             AnyCar::Plain(plain) => plain.roots(),
             AnyCar::Memory(mem) => mem.roots(),
+        }
+    }
+
+    pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
+        match self {
+            AnyCar::Forest(forest) => forest.heaviest_tipset(),
+            AnyCar::Plain(plain) => plain.heaviest_tipset(),
+            AnyCar::Memory(mem) => mem.heaviest_tipset(),
         }
     }
 
