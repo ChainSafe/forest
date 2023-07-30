@@ -1,5 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+//! There are three different CAR formats: `.car`, `.car.zst` and
+//! `.forest.car.zst`. [`AnyCar`] identifies the format by inspecting the CAR
+//! header and the first key-value block, and picks the block store (either
+//! [`super::ForestCar`] or [`super::PlainCar`]).
+//!
+//! CARv2 is not supported yet.
+
 use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -13,6 +21,9 @@ pub enum AnyCar<ReaderT> {
 }
 
 impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
+    /// Open a archive. May be formatted as `.car`, `.car.zst` or
+    /// `.forest.car.zst`. This call may block for an indeterminate amount of
+    /// time while data is decoded and indexed.
     pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT>) -> Result<Self> {
         let plain_reader = mk_reader();
         let zstd_reader = mk_reader();
