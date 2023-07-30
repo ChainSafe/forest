@@ -186,7 +186,8 @@ where
 
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.get_mut();
-            match self.frame_cache.lock().get(position, self.cache_key, *k) {
+            let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
+            match cache_query {
                 // Frame cache hit, found value.
                 Some(Some(val)) => return Ok(Some(val)),
                 // Frame cache hit, no value. This only happens when hashes collide
