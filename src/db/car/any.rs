@@ -3,8 +3,8 @@
 
 //! There are three different CAR formats: `.car`, `.car.zst` and
 //! `.forest.car.zst`. [`AnyCar`] identifies the format by inspecting the CAR
-//! header and the first key-value block, and picks the block store (either
-//! [`super::ForestCar`] or [`super::PlainCar`]).
+//! header and the first key-value block, and picks the appropriate block store
+//! (either [`super::ForestCar`] or [`super::PlainCar`]).
 //!
 //! CARv2 is not supported yet.
 
@@ -46,6 +46,8 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
         ))
     }
 
+    /// Filecoin archives are tagged with the heaviest tipset. This call may
+    /// fail if the archive is corrupt or if it's not a Filecoin archive.
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
         match self {
             AnyCar::Forest(forest) => forest.heaviest_tipset(),
@@ -54,6 +56,8 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
         }
     }
 
+    /// Return the identified CAR format variant. There are three variants:
+    /// `CARv1`, `CARv1.zst` and `ForestCARv1.zst`.
     pub fn variant(&self) -> &'static str {
         match self {
             AnyCar::Forest(_) => "ForestCARv1.zst",
@@ -62,6 +66,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
         }
     }
 
+    /// Discard reader type and replace with dynamic trait object.
     pub fn to_dyn(self) -> AnyCar<Box<dyn super::CarReader>> {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.to_dyn()),
@@ -70,6 +75,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
         }
     }
 
+    /// Set the z-frame cache of the inner CAR reader.
     pub fn with_cache(self, cache: super::ZstdFrameCache, key: super::ReaderKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),

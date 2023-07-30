@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::AnyCar;
-use super::ZstdFrameCache;
+use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::Tipset;
 use crate::db::MemoryDB;
 use anyhow::Context;
