@@ -24,7 +24,7 @@ pub enum AnyCar<ReaderT> {
 }
 
 impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
-    /// Open a archive. May be formatted as `.car`, `.car.zst` or
+    /// Open an archive. May be formatted as `.car`, `.car.zst` or
     /// `.forest.car.zst`. This call may block for an indeterminate amount of
     /// time while data is decoded and indexed.
     pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT>) -> Result<Self> {
@@ -50,7 +50,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 
     /// Filecoin archives are tagged with the heaviest tipset. This call may
-    /// fail if the archive is corrupt or if it's not a Filecoin archive.
+    /// fail if the archive is corrupt or if it is not a Filecoin archive.
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
         match self {
             AnyCar::Forest(forest) => forest.heaviest_tipset(),

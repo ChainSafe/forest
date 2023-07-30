@@ -176,24 +176,13 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let inner_ret = &mut *self.indexed.lock();
-        let indexed = match inner_ret {
-            Err(e) => {
-                let err = std::mem::replace(
-                    e,
-                    io::Error::new(
-                        e.kind(),
-                        "Failed to clone reader. See previous error message for details",
-                    ),
-                );
-                return Err(anyhow::Error::from(err));
-            }
-            Ok(ref mut r) => r,
-        };
         // Return immediately if the value is cached.
         if let Some(value) = self.write_cache.lock().get(k) {
             return Ok(Some(value.clone()));
         }
+
+        let mut indexed_guard = self.indexed.lock();
+        let indexed = hoist_error(&mut *indexed_guard)?;
 
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.get_mut();
@@ -241,6 +230,19 @@ where
         self.write_cache.lock().insert(*k, Vec::from(block));
         Ok(())
     }
+}
+
+// Access the ok-value by replacing the error with a placeholder.
+fn hoist_error<'a, T>(ret: &'a mut io::Result<T>) -> io::Result<&'a mut T> {
+    ret.as_mut().map_err(|e| {
+        std::mem::replace(
+            e,
+            io::Error::new(
+                e.kind(),
+                "Repeated failure. See previous error message for details",
+            ),
+        )
+    })
 }
 
 fn decode_zstd_single_frame<ReaderT: Read>(reader: &mut ReaderT) -> io::Result<BytesMut> {
