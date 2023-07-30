@@ -267,14 +267,12 @@ async fn validate_with_blockstore<BlockstoreT>(
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
 {
-    let ts = root;
-
     if check_links != 0 {
-        validate_ipld_links(ts.clone(), &store, check_links).await?;
+        validate_ipld_links(root.clone(), &store, check_links).await?;
     }
 
     if let Some(expected_network) = &check_network {
-        let actual_network = query_network(ts.clone(), &store)?;
+        let actual_network = query_network(&root, &store)?;
         // Somewhat silly use of a spinner but this makes the checks line up nicely.
         let pb = validation_spinner("Verifying network identity:");
         if expected_network != &actual_network {
@@ -288,8 +286,8 @@ where
     if check_stateroots != 0 {
         let network = check_network
             .map(anyhow::Ok)
-            .unwrap_or_else(|| query_network(ts.clone(), &store))?;
-        validate_stateroots(ts, &store, network, check_stateroots).await?;
+            .unwrap_or_else(|| query_network(&root, &store))?;
+        validate_stateroots(root, &store, network, check_stateroots).await?;
     }
 
     println!("Snapshot is valid");
@@ -338,10 +336,7 @@ where
 // Forest keeps a list of known tipsets for each network. Finding a known tipset
 // short-circuits the search for the genesis block. If no genesis block can be
 // found or if the genesis block is unrecognizable, an error is returned.
-fn query_network<DB>(ts: Tipset, db: &DB) -> Result<NetworkChain>
-where
-    DB: Blockstore + Send + Sync + Clone + 'static,
-{
+fn query_network(ts: &Tipset, db: impl Blockstore) -> Result<NetworkChain> {
     let pb = validation_spinner("Identifying genesis block:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("✅ found!".into()),
     );
