@@ -11,7 +11,7 @@ pub enum AnyCar<ReaderT> {
     Memory(super::PlainCar<Cursor<Vec<u8>>>),
 }
 
-impl<ReaderT: Read + Seek + Send + Sync + 'static> AnyCar<ReaderT> {
+impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT> + Clone) -> Result<Self> {
         if let Ok(forest_car) = super::ForestCar::new(mk_reader.clone()) {
             return Ok(AnyCar::Forest(forest_car));

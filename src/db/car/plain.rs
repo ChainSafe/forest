@@ -97,10 +97,7 @@ pub struct PlainCar<ReaderT> {
     inner: Mutex<PlainCarInner<ReaderT>>,
 }
 
-impl<ReaderT> PlainCar<ReaderT>
-where
-    ReaderT: Read + Seek + Send + Sync + 'static,
-{
+impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
