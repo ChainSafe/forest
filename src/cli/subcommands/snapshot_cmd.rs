@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
+use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_bundles;
-use crate::db::car::AnyCar;
+use crate::db::car::ManyCar;
 use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
@@ -68,7 +68,8 @@ pub enum SnapshotCommands {
         #[arg(long, default_value_t = 60)]
         check_stateroots: u32,
         /// Path to a snapshot CAR, which may be zstd compressed
-        snapshot: PathBuf,
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
     },
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
     Compress {
@@ -181,11 +182,11 @@ impl SnapshotCommands {
                 check_links,
                 check_network,
                 check_stateroots,
-                snapshot,
+                snapshot_files,
             } => {
-                let store = AnyCar::new(move || std::fs::File::open(&snapshot))?;
+                let store = ManyCar::try_from(snapshot_files)?;
                 validate_with_blockstore(
-                    store.roots(),
+                    store.heaviest_tipset()?,
                     Arc::new(store),
                     check_links,
                     check_network,
@@ -257,7 +258,7 @@ async fn save_checksum(source: &Path, encoded_hash: String) -> Result<()> {
 //     Verifying network identity:    ❌ wrong!
 //   Error: Expected mainnet but found calibnet
 async fn validate_with_blockstore<BlockstoreT>(
-    roots: Vec<Cid>,
+    root: Tipset,
     store: Arc<BlockstoreT>,
     check_links: u32,
     check_network: Option<NetworkChain>,
@@ -266,9 +267,7 @@ async fn validate_with_blockstore<BlockstoreT>(
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
 {
-    let tipset_key = TipsetKeys::new(roots);
-    let store_clone = Arc::clone(&store);
-    let ts = Tipset::load(&store_clone, &tipset_key)?.context("missing root tipset")?;
+    let ts = root;
 
     if check_links != 0 {
         validate_ipld_links(ts.clone(), &store, check_links).await?;

@@ -64,6 +64,15 @@ impl<ReaderT: super::CarReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
     }
 }
 
+impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
+    type Error = io::Error;
+    fn try_from(files: Vec<PathBuf>) -> io::Result<Self> {
+        let mut many_car = ManyCar::new(MemoryDB::default());
+        many_car.read_only_files(files.into_iter())?;
+        Ok(many_car)
+    }
+}
+
 impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         for reader in self.read_only.iter() {

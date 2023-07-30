@@ -4,6 +4,7 @@ use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek};
+use std::path::PathBuf;
 
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
@@ -32,14 +33,6 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
             ErrorKind::InvalidData,
             "input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)",
         ))
-    }
-
-    pub fn roots(&self) -> Vec<Cid> {
-        match self {
-            AnyCar::Forest(forest) => forest.roots(),
-            AnyCar::Plain(plain) => plain.roots(),
-            AnyCar::Memory(mem) => mem.roots(),
-        }
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -81,6 +74,13 @@ impl TryFrom<&'static [u8]> for AnyCar<std::io::Cursor<&'static [u8]>> {
         Ok(AnyCar::Plain(super::PlainCar::new(std::io::Cursor::new(
             bytes,
         ))?))
+    }
+}
+
+impl TryFrom<PathBuf> for AnyCar<std::fs::File> {
+    type Error = std::io::Error;
+    fn try_from(path: PathBuf) -> std::io::Result<Self> {
+        Ok(AnyCar::new(move || std::fs::File::open(&path))?)
     }
 }
 

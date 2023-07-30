@@ -27,14 +27,11 @@
 //! Additional reading: [`crate::db::car::plain`]
 
 use crate::blocks::Tipset;
-use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::chain::ChainEpochDelta;
+use crate::chain::{ChainEpochDelta, index::{ChainIndex, ResolveNullTipset}};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::{AnyCar, CarReader, ManyCar};
-use crate::db::MemoryDB;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
-use crate::shim::clock::EPOCH_DURATION_SECONDS;
-use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
+use crate::shim::clock::{EPOCH_DURATION_SECONDS,ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
@@ -56,8 +53,8 @@ pub enum ArchiveCommands {
     /// Trim a snapshot of the chain and write it to `<output_path>`
     Export {
         /// Snapshot input path. Currently supports only `.car` file format.
-        #[arg()]
-        input_path: Vec<PathBuf>,
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
         /// Snapshot output filename or directory. Defaults to
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, long, default_value = ".", verbatim_doc_comment)]
@@ -73,7 +70,8 @@ pub enum ArchiveCommands {
     /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
         /// Path to snapshot file.
-        snapshot: PathBuf,
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
     },
 }
 
@@ -81,26 +79,20 @@ impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
-                println!("{}", ArchiveInfo::from_file(snapshot)?);
+                println!("{}", ArchiveInfo::from_store(AnyCar::try_from(snapshot)?)?);
                 Ok(())
             }
             Self::Export {
-                input_path,
+                snapshot_files,
                 output_path,
                 epoch,
                 depth,
             } => {
-                // info!(
-                //     "indexing a car-backed store using snapshot: {}",
-                //     input_path.to_str().unwrap_or_default()
-                // );
-
-                let mut store = ManyCar::new(MemoryDB::default());
-                store.read_only_files(input_path.into_iter())?;
+                let store = ManyCar::try_from(snapshot_files)?;
 
                 do_export(&store, store.heaviest_tipset()?, output_path, epoch, depth).await
             }
-            Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
+            Self::Checkpoints { snapshot_files: snapshot } => print_checkpoints(snapshot),
         }
     }
 }
@@ -205,13 +197,6 @@ impl std::fmt::Display for ArchiveInfo {
 }
 
 impl ArchiveInfo {
-    // Scan a CAR file to identify which network it belongs to and how many
-    // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_file(path: PathBuf) -> anyhow::Result<Self> {
-        let store = AnyCar::new(move || std::fs::File::open(&path))?;
-        Self::from_store(store)
-    }
-
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
     fn from_store(store: AnyCar<impl CarReader>) -> anyhow::Result<Self> {
@@ -296,8 +281,8 @@ impl ArchiveInfo {
 
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
-fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
-    let store = AnyCar::new(move || std::fs::File::open(&snapshot))
+fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+    let store = ManyCar::try_from(snapshot_files)
         .context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
 
