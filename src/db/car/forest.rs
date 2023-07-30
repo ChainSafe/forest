@@ -46,7 +46,7 @@
 //! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
-use super::ZstdFrameCache;
+use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
@@ -72,7 +72,9 @@ pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
 impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
 
 pub struct ForestCar<ReaderT> {
-    reader_key: super::CacheKey,
+    // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
+    // the origin of a cached z-frame.
+    cache_key: CacheKey,
     indexed: Mutex<io::Result<CarIndex<ReaderT>>>,
     new_reader: Arc<dyn ReaderGen<CarIndex<ReaderT>>>,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
@@ -80,11 +82,14 @@ pub struct ForestCar<ReaderT> {
     roots: Vec<Cid>,
 }
 
+// Cloning a `ForestCar` duplicates the reader. If the reader is a [`std::fs::File`] then a new
+// handle will be created pointing to the same underlying file. Each `ForestCar` clone can be
+// accessed in parallel and will share the same z-frame cache.
 impl<ReaderT: Read + Seek> Clone for ForestCar<ReaderT> {
     fn clone(&self) -> Self {
         let index: io::Result<CarIndex<ReaderT>> = (self.new_reader)();
         ForestCar {
-            reader_key: self.reader_key,
+            cache_key: self.cache_key,
             indexed: Mutex::new(index),
             new_reader: Arc::clone(&self.new_reader),
             frame_cache: Arc::clone(&self.frame_cache),
@@ -115,7 +120,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
 
         let index = CarIndex::open(mk_reader()?, footer.index)?;
         Ok(ForestCar {
-            reader_key: 0,
+            cache_key: 0,
             indexed: Mutex::new(Ok(index)),
             new_reader: Arc::new(move || {
                 mk_reader().and_then(|reader| CarIndex::open(reader, footer.index))
@@ -147,7 +152,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
             io::Result::Ok(idx.map_reader(any_reader))
         };
         ForestCar {
-            reader_key: self.reader_key,
+            cache_key: self.cache_key,
             indexed: Mutex::new(indexed_dyn),
             new_reader: Arc::new(dyn_reader),
             frame_cache: self.frame_cache,
@@ -156,9 +161,9 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         }
     }
 
-    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: super::CacheKey) -> Self {
+    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
         Self {
-            reader_key: key,
+            cache_key: key,
             frame_cache: cache,
             ..self
         }
@@ -192,7 +197,7 @@ where
 
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.get_mut();
-            match self.frame_cache.lock().get(position, self.reader_key, *k) {
+            match self.frame_cache.lock().get(position, self.cache_key, *k) {
                 // Frame cache hit, found value.
                 Some(Some(val)) => return Ok(Some(val)),
                 // Frame cache hit, no value. This only happens when hashes collide
@@ -214,7 +219,7 @@ where
                     let get_result = block_map.get(k).cloned();
                     self.frame_cache
                         .lock()
-                        .put(position, self.reader_key, block_map);
+                        .put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision
                     if let Some(value) = get_result {
