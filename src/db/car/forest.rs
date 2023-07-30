@@ -72,12 +72,11 @@ use tokio_util::codec::{Decoder, Encoder as _};
 pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
 impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
 
-pub type ZstdFrameCache = Arc<Mutex<LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>>>;
-
 pub struct ForestCar<ReaderT> {
+    reader_key: super::ReaderKey,
     indexed: Mutex<io::Result<CarIndex<ReaderT>>>,
     new_reader: Arc<dyn ReaderGen<CarIndex<ReaderT>>>,
-    frame_cache: ZstdFrameCache,
+    frame_cache: super::ZstdFrameCache,
     write_cache: Arc<Mutex<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
@@ -86,6 +85,7 @@ impl<ReaderT: Read + Seek> Clone for ForestCar<ReaderT> {
     fn clone(&self) -> Self {
         let index: io::Result<CarIndex<ReaderT>> = (self.new_reader)();
         ForestCar {
+            reader_key: self.reader_key,
             indexed: Mutex::new(index),
             new_reader: Arc::clone(&self.new_reader),
             frame_cache: Arc::clone(&self.frame_cache),
@@ -97,16 +97,6 @@ impl<ReaderT: Read + Seek> Clone for ForestCar<ReaderT> {
 
 impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
     pub fn new(mk_reader: impl ReaderGen<ReaderT>) -> io::Result<Self> {
-        Self::with_cache(
-            mk_reader,
-            Arc::new(Mutex::new(LruCache::new(nonzero!(1024_usize)))),
-        )
-    }
-
-    pub fn with_cache(
-        mk_reader: impl ReaderGen<ReaderT>,
-        frame_cache: ZstdFrameCache,
-    ) -> io::Result<Self> {
         let mut reader = mk_reader()?;
 
         reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
@@ -126,11 +116,12 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
 
         let index = CarIndex::open(mk_reader()?, footer.index)?;
         Ok(ForestCar {
+            reader_key: 0,
             indexed: Mutex::new(Ok(index)),
             new_reader: Arc::new(move || {
                 mk_reader().and_then(|reader| CarIndex::open(reader, footer.index))
             }),
-            frame_cache,
+            frame_cache: Arc::new(Mutex::new(LruCache::new(nonzero!(1024_usize)))),
             write_cache: Arc::new(Mutex::new(ahash::HashMap::default())),
             roots: header.roots,
         })
@@ -157,11 +148,20 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
             io::Result::Ok(idx.map_reader(any_reader))
         };
         ForestCar {
+            reader_key: self.reader_key,
             indexed: Mutex::new(indexed_dyn),
             new_reader: Arc::new(dyn_reader),
             frame_cache: self.frame_cache,
             write_cache: self.write_cache,
             roots: self.roots,
+        }
+    }
+
+    pub fn with_cache(self, cache: super::ZstdFrameCache, key: super::ReaderKey) -> Self {
+        Self {
+            reader_key: key,
+            frame_cache: cache,
+            ..self
         }
     }
 }
@@ -194,7 +194,7 @@ where
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.get_mut();
             let mut frame_lock = self.frame_cache.lock();
-            let block_map = frame_lock.try_get_or_insert(position, || {
+            let block_map = frame_lock.try_get_or_insert((position, self.reader_key), || {
                 // Seek to the start of the zstd frame
                 reader.seek(SeekFrom::Start(position))?;
                 // Decode entire frame into memory

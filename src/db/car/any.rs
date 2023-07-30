@@ -12,15 +12,17 @@ pub enum AnyCar<ReaderT> {
 }
 
 impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
-    pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT> + Clone) -> Result<Self> {
-        if let Ok(forest_car) = super::ForestCar::new(mk_reader.clone()) {
+    pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT>) -> Result<Self> {
+        let plain_reader = mk_reader();
+        let zstd_reader = mk_reader();
+        if let Ok(forest_car) = super::ForestCar::new(mk_reader) {
             return Ok(AnyCar::Forest(forest_car));
         }
-        if let Ok(plain_car) = super::PlainCar::new(mk_reader()?) {
+        if let Ok(plain_car) = super::PlainCar::new(plain_reader?) {
             return Ok(AnyCar::Plain(plain_car));
         }
         // Maybe use a tempfile for this in the future.
-        if let Ok(decompressed) = zstd::stream::decode_all(mk_reader()?) {
+        if let Ok(decompressed) = zstd::stream::decode_all(zstd_reader?) {
             let mem_reader = Cursor::new(decompressed);
             if let Ok(mem_car) = super::PlainCar::new(mem_reader) {
                 return Ok(AnyCar::Memory(mem_car));
@@ -60,6 +62,14 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.to_dyn()),
             AnyCar::Plain(p) => AnyCar::Plain(p.to_dyn()),
+            AnyCar::Memory(m) => AnyCar::Memory(m),
+        }
+    }
+
+    pub fn with_cache(self, cache: super::ZstdFrameCache, key: super::ReaderKey) -> Self {
+        match self {
+            AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
+            AnyCar::Plain(p) => AnyCar::Plain(p),
             AnyCar::Memory(m) => AnyCar::Memory(m),
         }
     }
