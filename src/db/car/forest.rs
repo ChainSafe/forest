@@ -70,6 +70,7 @@ use tokio_util::codec::{Decoder, Encoder as _};
 
 pub struct ForestCar<ReaderT> {
     inner: Arc<Mutex<ForestCarInner<ReaderT>>>,
+    roots: Vec<Cid>,
 }
 
 struct ForestCarInner<ReaderT> {
@@ -79,7 +80,6 @@ struct ForestCarInner<ReaderT> {
     frame_cache: LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>,
     write_cache: ahash::HashMap<Cid, Vec<u8>>,
     index: CarIndex<ReaderT>,
-    roots: Vec<Cid>,
 }
 
 impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
@@ -108,15 +108,15 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
             frame_cache: LruCache::new(nonzero!(1024_usize)),
             write_cache: ahash::HashMap::default(),
             index,
-            roots: header.roots,
         };
         Ok(ForestCar {
             inner: Arc::new(Mutex::new(inner)),
+            roots: header.roots,
         })
     }
 
     pub fn roots(&self) -> Vec<Cid> {
-        self.inner.lock().roots.clone()
+        self.roots.clone()
     }
 }
 
