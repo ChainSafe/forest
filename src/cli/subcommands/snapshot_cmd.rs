@@ -230,7 +230,10 @@ impl SnapshotCommands {
 
                 if destination.exists() && !force {
                     let have_permission = Confirm::with_theme(&ColorfulTheme::default())
-                        .with_prompt(format!("{:?} will be overwritten. Continue?", destination))
+                        .with_prompt(format!(
+                            "{} will be overwritten. Continue?",
+                            destination.to_string_lossy()
+                        ))
                         .default(false)
                         .interact()
                         // e.g not a tty (or some other error), so haven't got permission.
