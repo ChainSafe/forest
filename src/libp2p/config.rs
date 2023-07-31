@@ -16,7 +16,7 @@ pub struct Libp2pConfig {
     /// can still work as a dialer
     #[cfg_attr(test, arbitrary(gen(
         |g: &mut quickcheck::Gen| {
-            let addr = Ipv4Addr::arbitrary(&mut *g); 
+            let addr = Ipv4Addr::arbitrary(&mut *g);
             let n = u8::arbitrary(g) as usize;
             vec![addr.into(); n]
         }
