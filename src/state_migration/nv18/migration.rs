@@ -80,10 +80,9 @@ where
         .ok_or_else(|| anyhow!("no height info for network version NV18"))?
         .bundle
         .as_ref()
-        .ok_or_else(|| anyhow!("no bundle info for network version NV18"))?
-        .manifest;
+        .ok_or_else(|| anyhow!("no bundle info for network version NV18"))?;
 
-    blockstore.get(&new_manifest_cid)?.ok_or_else(|| {
+    blockstore.get(new_manifest_cid)?.ok_or_else(|| {
         anyhow!(
             "manifest for network version NV18 not found in blockstore: {}",
             new_manifest_cid
@@ -94,7 +93,7 @@ where
     let verifier = Arc::new(Verifier::default());
 
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    migration.add_nv18_migrations(blockstore.clone(), state, &new_manifest_cid)?;
+    migration.add_nv18_migrations(blockstore.clone(), state, new_manifest_cid)?;
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
