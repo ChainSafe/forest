@@ -61,7 +61,7 @@
 //! - A wrapper that abstracts over car formats for reading.
 
 use crate::blocks::{Tipset, TipsetKeys};
-use ahash::HashMapExt as _;
+use crate::ipld::{CidHashMap, CidHashMapEntry};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -137,7 +137,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
                         reader: buf_reader.into_inner(),
                         index,
                         roots,
-                        write_cache: ahash::HashMap::new(),
+                        write_cache: CidHashMap::new(),
                     }),
                 })
             }
@@ -185,7 +185,7 @@ impl TryFrom<&'static [u8]> for PlainCar<std::io::Cursor<&'static [u8]>> {
 
 struct PlainCarInner<ReaderT> {
     reader: ReaderT,
-    write_cache: ahash::HashMap<Cid, Vec<u8>>,
+    write_cache: CidHashMap<Vec<u8>>,
     index: ahash::HashMap<Cid, UncompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
@@ -211,22 +211,38 @@ where
             ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
-            (Some(_location), Occupied(cached)) => {
+            (Some(_location), CidHashMapEntry::V1DagCborBlake2b(Occupied(cached))) => {
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
-            (Some(UncompressedBlockDataLocation { offset, length }), Vacant(_)) => {
+            (Some(_location), CidHashMapEntry::Fallback(Occupied(cached))) => {
+                trace!("evicting from write cache");
+                Ok(Some(cached.remove()))
+            }
+            (
+                Some(UncompressedBlockDataLocation { offset, length }),
+                CidHashMapEntry::V1DagCborBlake2b(Vacant(_)),
+            )
+            | (
+                Some(UncompressedBlockDataLocation { offset, length }),
+                CidHashMapEntry::Fallback(Vacant(_)),
+            ) => {
                 trace!("fetching from disk");
                 reader.seek(SeekFrom::Start(*offset))?;
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
                 reader.read_exact(&mut data)?;
                 Ok(Some(data))
             }
-            (None, Occupied(cached)) => {
+            (None, CidHashMapEntry::V1DagCborBlake2b(Occupied(cached))) => {
                 trace!("getting from write cache");
                 Ok(Some(cached.get().clone()))
             }
-            (None, Vacant(_)) => {
+            (None, CidHashMapEntry::Fallback(Occupied(cached))) => {
+                trace!("getting from write cache");
+                Ok(Some(cached.get().clone()))
+            }
+            (None, CidHashMapEntry::V1DagCborBlake2b(Vacant(_)))
+            | (None, CidHashMapEntry::Fallback(Vacant(_))) => {
                 trace!("not found");
                 Ok(None)
             }
@@ -263,29 +279,45 @@ pub struct CompressedBlockDataLocation {
 /// # Panics
 /// - If the write cache already contains different data with this CID
 fn handle_write_cache(
-    write_cache: &mut ahash::HashMap<Cid, Vec<u8>>,
+    write_cache: &mut CidHashMap<Vec<u8>>,
     index: &mut ahash::HashMap<Cid, impl Any>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
     match (index.get(k), write_cache.entry(*k)) {
-        (None, Occupied(already)) => match already.get() == block {
+        (None, CidHashMapEntry::V1DagCborBlake2b(Occupied(already))) => {
+            match already.get() == block {
+                true => {
+                    trace!("already in cache");
+                    Ok(())
+                }
+                false => panic!("mismatched content on second write for CID {k}"),
+            }
+        }
+        (None, CidHashMapEntry::Fallback(Occupied(already))) => match already.get() == block {
             true => {
                 trace!("already in cache");
                 Ok(())
             }
             false => panic!("mismatched content on second write for CID {k}"),
         },
-        (None, Vacant(vacant)) => {
+        (None, CidHashMapEntry::V1DagCborBlake2b(Vacant(vacant))) => {
             trace!(bytes = block.len(), "insert into cache");
             vacant.insert(block.to_owned());
             Ok(())
         }
-        (Some(_), Vacant(_)) => {
+        (None, CidHashMapEntry::Fallback(Vacant(vacant))) => {
+            trace!(bytes = block.len(), "insert into cache");
+            vacant.insert(block.to_owned());
+            Ok(())
+        }
+        (Some(_), CidHashMapEntry::V1DagCborBlake2b(Vacant(_)))
+        | (Some(_), CidHashMapEntry::Fallback(Vacant(_))) => {
             trace!("already on disk");
             Ok(())
         }
-        (Some(_), Occupied(_)) => {
+        (Some(_), CidHashMapEntry::V1DagCborBlake2b(Occupied(_)))
+        | (Some(_), CidHashMapEntry::Fallback(Occupied(_))) => {
             unreachable!("we don't insert a CID in the write cache if it exists on disk")
         }
     }
