@@ -107,9 +107,9 @@ use smallvec::{smallvec, SmallVec};
 use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
 
 pub struct CarIndex<ReaderT> {
-    reader: ReaderT,
-    offset: u64,
-    header: IndexHeader,
+    pub reader: ReaderT,
+    pub offset: u64,
+    pub header: IndexHeader,
 }
 
 impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
@@ -174,6 +174,19 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
             limit -= 1;
         }
         Ok(smallvec![])
+    }
+
+    /// Gets a mutable reference to the underlying reader.
+    pub fn get_mut(&mut self) -> &mut ReaderT {
+        &mut self.reader
+    }
+
+    pub fn map_reader<V>(self, f: impl FnOnce(ReaderT) -> V) -> CarIndex<V> {
+        CarIndex {
+            reader: f(self.reader),
+            offset: self.offset,
+            header: self.header,
+        }
     }
 }
 

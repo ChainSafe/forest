@@ -22,6 +22,18 @@ function forest_check_db_stats {
   $FOREST_CLI_PATH --chain calibnet db stats
 }
 
+function forest_query_epoch {
+  $FOREST_CLI_PATH archive info "$1" | grep Epoch | awk '{print $2}'
+}
+
+function forest_query_state_roots {
+  $FOREST_CLI_PATH archive info "$1" | grep State-roots | awk '{print $2}'
+}
+
+function forest_query_format {
+  $FOREST_CLI_PATH archive info "$1" | grep "CAR format" | awk '{print $3}'
+}
+
 function forest_run_node_detached {
   echo "Running forest in detached mode"
   $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
@@ -65,6 +77,19 @@ function forest_cleanup {
     forest_print_logs_and_metrics
     $FOREST_CLI_PATH shutdown --force
     timeout 10s sh -c "while pkill -0 forest 2>/dev/null; do sleep 1; done"
+  fi
+}
+
+function assert_eq {
+  local expected="$1"
+  local actual="$2"
+  local msg="${3-}"
+
+  if [ "$expected" == "$actual" ]; then
+    return 0
+  else
+    [ "${#msg}" -gt 0 ] && echo "$expected == $actual :: $msg"
+    return 1
   fi
 }
 
