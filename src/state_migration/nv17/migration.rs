@@ -146,17 +146,16 @@ where
         .ok_or_else(|| anyhow!("no height info for network version NV17"))?
         .bundle
         .as_ref()
-        .ok_or_else(|| anyhow!("no bundle info for network version NV17"))?
-        .manifest;
+        .ok_or_else(|| anyhow!("no bundle info for network version NV17"))?;
 
-    blockstore.get(&new_manifest_cid)?.ok_or_else(|| {
+    blockstore.get(new_manifest_cid)?.ok_or_else(|| {
         anyhow!(
             "manifest for network version NV17 not found in blockstore: {}",
             new_manifest_cid
         )
     })?;
 
-    let new_manifest = Manifest::load(&blockstore, &new_manifest_cid)?;
+    let new_manifest = Manifest::load(&blockstore, new_manifest_cid)?;
 
     let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
 

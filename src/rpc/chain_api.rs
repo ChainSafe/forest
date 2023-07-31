@@ -9,6 +9,7 @@ use crate::blocks::{
     BlockHeader, Tipset,
 };
 use crate::chain::index::ResolveNullTipset;
+use crate::ipld::CidHashSet;
 use crate::json::{cid::CidJson, message::json::MessageJson};
 use crate::rpc_api::{
     chain_api::*,
@@ -85,6 +86,7 @@ where
             &start_ts,
             recent_roots,
             VoidAsyncWriter,
+            CidHashSet::default(),
             skip_checksum,
         )
         .await
@@ -95,6 +97,7 @@ where
             &start_ts,
             recent_roots,
             file,
+            CidHashSet::default(),
             skip_checksum,
         )
         .await

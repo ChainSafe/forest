@@ -31,12 +31,15 @@ use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::chain::ChainEpochDelta;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::AnyCar;
+use crate::ipld::stream_graph;
+use crate::ipld::CidHashSet;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
+use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
@@ -69,6 +72,9 @@ pub enum ArchiveCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
+        /// Do not include any values reachable from epoch-diff.
+        #[arg(short, long)]
+        diff: Option<ChainEpochDelta>,
     },
     /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
@@ -89,6 +95,7 @@ impl ArchiveCommands {
                 output_path,
                 epoch,
                 depth,
+                diff,
             } => {
                 info!(
                     "indexing a car-backed store using snapshot: {}",
@@ -97,7 +104,7 @@ impl ArchiveCommands {
 
                 let reader = move || std::fs::File::open(&input_path);
 
-                do_export(reader, output_path, epoch, depth).await
+                do_export(reader, output_path, epoch, depth, diff).await
             }
             Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
         }
@@ -134,6 +141,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
+    diff: Option<ChainEpochDelta>,
 ) -> anyhow::Result<()> {
     let store = Arc::new(AnyCar::new(reader).context("couldn't read input CAR file")?);
 
@@ -165,6 +173,18 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
+    let seen = if let Some(diff) = diff {
+        let diff_ts: Arc<Tipset> = index
+            .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
+            .context("diff epoch must be smaller than target epoch")?;
+        let diff_ts: &Tipset = &diff_ts;
+        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store));
+        while stream.try_next().await?.is_some() {}
+        stream.into_seen()
+    } else {
+        CidHashSet::default()
+    };
+
     let output_path =
         build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
 
@@ -180,7 +200,7 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
         output_path.to_str().unwrap_or_default()
     );
 
-    crate::chain::export::<Sha256>(store, &ts, depth, writer, true).await?;
+    crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
 
     Ok(())
 }
@@ -385,6 +405,7 @@ mod tests {
             output_path.path().into(),
             Some(0),
             1,
+            None,
         )
         .await
         .unwrap();

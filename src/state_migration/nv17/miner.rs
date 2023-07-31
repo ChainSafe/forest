@@ -589,7 +589,7 @@ mod tests {
 
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
-            bundle.manifest = new_manifest_cid;
+            *bundle = new_manifest_cid;
         }
         let new_state_cid = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
         let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
@@ -622,7 +622,7 @@ mod tests {
         let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/9/")?;
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
-            bundle.manifest = new_manifest_cid;
+            *bundle = new_manifest_cid;
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &state_tree_old_root, 200)?;

@@ -97,7 +97,11 @@ pub async fn decompress_if_needed(
     mut reader: impl AsyncBufRead + Unpin,
 ) -> anyhow::Result<impl AsyncRead> {
     Ok(match is_zstd(reader.fill_buf().await?) {
-        true => Left(ZstdDecoder::new(reader)),
+        true => {
+            let mut decoder = ZstdDecoder::new(reader);
+            decoder.multiple_members(true);
+            Left(decoder)
+        }
         false => Right(reader),
     })
 }

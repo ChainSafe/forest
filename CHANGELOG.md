@@ -47,6 +47,8 @@
   option to `forest-cli state fetch` command.
 - [#3213](https://github.com/ChainSafe/forest/pull/3213): Add support for
   loading forest.car.zst files.
+- [#3284](https://github.com/ChainSafe/forest/pull/3284): Add `--diff` flag to
+  `archive export`.
 
 ### Changed
 
