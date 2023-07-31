@@ -3,11 +3,11 @@
 
 //! # Varint frames
 //!
-//! CARs are made of concatenations of _varint frames_. Each varint frame is a
-//! concatenation of the _body length_ as an
-//! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html),
-//! and the _frame body_ itself. [`crate::utils::encoding::uvibytes::UviBytes`] can be
-//! used to read frames piecewise into memory.
+//! CARs are made of concatenations of _varint frames_. Each varint frame is a concatenation of the
+//! _body length_ as an
+//! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html), and the
+//! _frame body_ itself. [`crate::utils::encoding::uvibytes::UviBytes`] can be used to read frames
+//! piecewise into memory.
 //!
 //! ```text
 //!        varint frame
@@ -24,9 +24,11 @@
 //!
 //! # CARv1 layout and seeking
 //!
-//! The first varint frame is a _header frame_, where the frame body is a [`CarHeader`] encoded using [`ipld_dagcbor`](serde_ipld_dagcbor).
+//! The first varint frame is a _header frame_, where the frame body is a [`CarHeader`] encoded
+//! using [`ipld_dagcbor`](serde_ipld_dagcbor).
 //!
-//! Subsequent varint frames are _block frames_, where the frame body is a concatenation of a [`Cid`] and the _block data_ addressed by that CID.
+//! Subsequent varint frames are _block frames_, where the frame body is a concatenation of a
+//! [`Cid`] and the _block data_ addressed by that CID.
 //!
 //! ```text
 //! block frame ►│
@@ -43,17 +45,22 @@
 //! ```
 //!
 //! ## Block ordering
-//! > _... a filecoin-deterministic car-file is currently implementation-defined as containing all DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting from a single root._
+//! > _... a filecoin-deterministic car-file is currently implementation-defined as containing all
+//! > DAG-forming blocks in first-seen order, as a result of a depth-first DAG traversal starting
+//! > from a single root._
 //! - [CAR documentation](https://ipld.io/specs/transport/car/carv1/#determinism)
 //!
 //! # Future work
-//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the file, to improve random access performance.
+//! - [`fadvise`](https://linux.die.net/man/2/posix_fadvise)-based APIs to pre-fetch parts of the
+//!   file, to improve random access performance.
 //! - Use an inner [`Blockstore`] for writes.
 //! - Use safe arithmetic for all operations - a malicious frame shouldn't cause a crash.
-//! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low overhead, so that multiple threads could perform operations concurrently.
+//! - Theoretically, file-backed blockstores should be clonable (or even [`Sync`]) with very low
+//!   overhead, so that multiple threads could perform operations concurrently.
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
+use crate::blocks::{Tipset, TipsetKeys};
 use ahash::HashMapExt as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -75,9 +82,11 @@ use tracing::{debug, trace};
 
 /// **Note that all operations on this store are blocking**.
 ///
-/// It can often be time, memory, or disk prohibitive to read large snapshots into a database like [`ParityDb`](crate::db::parity_db::ParityDb).
+/// It can often be time, memory, or disk prohibitive to read large snapshots into a database like
+/// [`ParityDb`](crate::db::parity_db::ParityDb).
 ///
-/// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [CARv1 file](https://ipld.io/specs/transport/car/carv1).
+/// This is an implementer of [`Blockstore`] that simply wraps an uncompressed [CARv1
+/// file](https://ipld.io/specs/transport/car/carv1).
 ///
 /// On creation, [`PlainCar`] builds an in-memory index of the [`Cid`]s in the file,
 /// and their offsets into that file.
@@ -87,8 +96,9 @@ use tracing::{debug, trace};
 ///
 /// Writes for new blocks (which don't exist in the CAR already) are currently cached in-memory.
 ///
-/// Random-access performance is expected to be poor, as the OS will have to load separate parts of the file from disk, and flush it for each read.
-/// However, (near) linear access should be pretty good, as file chunks will be pre-fetched.
+/// Random-access performance is expected to be poor, as the OS will have to load separate parts of
+/// the file from disk, and flush it for each read. However, (near) linear access should be pretty
+/// good, as file chunks will be pre-fetched.
 ///
 /// See [module documentation](mod@self) for more.
 pub struct PlainCar<ReaderT> {
@@ -96,12 +106,10 @@ pub struct PlainCar<ReaderT> {
     inner: Mutex<PlainCarInner<ReaderT>>,
 }
 
-impl<ReaderT> PlainCar<ReaderT>
-where
-    ReaderT: Read + Seek,
-{
+impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     /// To be correct:
-    /// - `reader` must read immutable data. e.g if it is a file, it should be [`flock`](https://linux.die.net/man/2/flock)ed.
+    /// - `reader` must read immutable data. e.g if it is a file, it should be
+    ///   [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(mut reader: ReaderT) -> io::Result<Self> {
@@ -140,10 +148,38 @@ where
         self.inner.lock().roots.clone()
     }
 
+    pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
+        Tipset::load_required(self, &TipsetKeys::new(self.roots()))
+    }
+
     /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
         self.inner.lock().index.keys().cloned().collect()
+    }
+
+    pub fn into_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
+        let PlainCarInner {
+            reader,
+            write_cache,
+            index,
+            roots,
+        } = self.inner.into_inner();
+        PlainCar {
+            inner: Mutex::new(PlainCarInner {
+                reader: Box::new(reader),
+                write_cache,
+                index,
+                roots,
+            }),
+        }
+    }
+}
+
+impl TryFrom<&'static [u8]> for PlainCar<std::io::Cursor<&'static [u8]>> {
+    type Error = io::Error;
+    fn try_from(bytes: &'static [u8]) -> io::Result<Self> {
+        PlainCar::new(std::io::Cursor::new(bytes))
     }
 }
 
