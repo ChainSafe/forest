@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
+use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
-use crate::db::car::AnyCar;
+use crate::db::car::ManyCar;
 use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
@@ -70,7 +70,8 @@ pub enum SnapshotCommands {
         #[arg(long, default_value_t = 60)]
         check_stateroots: u32,
         /// Path to a snapshot CAR, which may be zstd compressed
-        snapshot: PathBuf,
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
     },
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
     Compress {
@@ -191,11 +192,11 @@ impl SnapshotCommands {
                 check_links,
                 check_network,
                 check_stateroots,
-                snapshot,
+                snapshot_files,
             } => {
-                let store = AnyCar::new(move || std::fs::File::open(&snapshot))?;
+                let store = ManyCar::try_from(snapshot_files)?;
                 validate_with_blockstore(
-                    store.roots(),
+                    store.heaviest_tipset()?,
                     Arc::new(store),
                     check_links,
                     check_network,
@@ -308,7 +309,7 @@ async fn save_checksum(source: &Path, encoded_hash: String) -> Result<()> {
 //     Verifying network identity:    ❌ wrong!
 //   Error: Expected mainnet but found calibnet
 async fn validate_with_blockstore<BlockstoreT>(
-    roots: Vec<Cid>,
+    root: Tipset,
     store: Arc<BlockstoreT>,
     check_links: u32,
     check_network: Option<NetworkChain>,
@@ -317,16 +318,12 @@ async fn validate_with_blockstore<BlockstoreT>(
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
 {
-    let tipset_key = TipsetKeys::new(roots);
-    let store_clone = Arc::clone(&store);
-    let ts = Tipset::load(&store_clone, &tipset_key)?.context("missing root tipset")?;
-
     if check_links != 0 {
-        validate_ipld_links(ts.clone(), &store, check_links).await?;
+        validate_ipld_links(root.clone(), &store, check_links).await?;
     }
 
     if let Some(expected_network) = &check_network {
-        let actual_network = query_network(ts.clone(), &store)?;
+        let actual_network = query_network(&root, &store)?;
         // Somewhat silly use of a spinner but this makes the checks line up nicely.
         let pb = validation_spinner("Verifying network identity:");
         if expected_network != &actual_network {
@@ -340,8 +337,8 @@ where
     if check_stateroots != 0 {
         let network = check_network
             .map(anyhow::Ok)
-            .unwrap_or_else(|| query_network(ts.clone(), &store))?;
-        validate_stateroots(ts, &store, network, check_stateroots).await?;
+            .unwrap_or_else(|| query_network(&root, &store))?;
+        validate_stateroots(root, &store, network, check_stateroots).await?;
     }
 
     println!("Snapshot is valid");
@@ -390,10 +387,7 @@ where
 // Forest keeps a list of known tipsets for each network. Finding a known tipset
 // short-circuits the search for the genesis block. If no genesis block can be
 // found or if the genesis block is unrecognizable, an error is returned.
-fn query_network<DB>(ts: Tipset, db: &DB) -> Result<NetworkChain>
-where
-    DB: Blockstore + Send + Sync + Clone + 'static,
-{
+fn query_network(ts: &Tipset, db: impl Blockstore) -> Result<NetworkChain> {
     let pb = validation_spinner("Identifying genesis block:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("✅ found!".into()),
     );
