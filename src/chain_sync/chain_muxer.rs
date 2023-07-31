@@ -419,10 +419,6 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
-                // Unset heavist tipset for unset peers
-                metrics::PEER_TIPSET_EPOCH
-                    .with_label_values(&[peer_id.to_string().as_str()])
-                    .set(-1);
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
