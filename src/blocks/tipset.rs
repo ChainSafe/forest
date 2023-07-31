@@ -17,9 +17,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::{Block, BlockHeader, Error, Ticket};
-use crate::utils::derive_arbitrary;
 
-derive_arbitrary! {
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
@@ -28,7 +26,7 @@ derive_arbitrary! {
 #[serde(transparent)]
 pub struct TipsetKeys {
     pub cids: Vec<Cid>,
-}}
+}
 
 impl TipsetKeys {
     pub fn new(cids: Vec<Cid>) -> Self {
@@ -545,6 +543,14 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
+
+    impl quickcheck::Arbitrary for TipsetKeys {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self {
+                cids: Vec::arbitrary(g),
+            }
+        }
+    }
 
     #[quickcheck]
     fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {

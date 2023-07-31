@@ -13,13 +13,12 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::Message as MessageTrait;
 
-crate::utils::derive_arbitrary! {
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
 pub struct SignedMessage {
     pub message: Message,
     pub signature: Signature,
-}}
+}
 
 impl SignedMessage {
     /// Generate a new signed message from fields.
@@ -82,6 +81,16 @@ impl SignedMessage {
         } else {
             use crate::utils::cid::CidCborExt;
             cid::Cid::from_cbor_blake2b256(self)
+        }
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SignedMessage {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        SignedMessage {
+            message: Message::arbitrary(g),
+            signature: Signature::arbitrary(g),
         }
     }
 }

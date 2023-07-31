@@ -1,10 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::{derive_arbitrary, encoding::serde_byte_array};
+use crate::utils::encoding::serde_byte_array;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-derive_arbitrary! {
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that
 /// round of randomness.
@@ -14,7 +13,7 @@ pub struct BeaconEntry {
     round: u64,
     #[serde(with = "serde_byte_array")]
     data: Vec<u8>,
-}}
+}
 
 impl BeaconEntry {
     pub fn new(round: u64, data: Vec<u8>) -> Self {
@@ -27,6 +26,16 @@ impl BeaconEntry {
     /// The signature of message `H(prev_round, prev_round.data, round)`.
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for BeaconEntry {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        BeaconEntry {
+            round: u64::arbitrary(g),
+            data: Vec::arbitrary(g),
+        }
     }
 }
 
