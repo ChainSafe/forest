@@ -20,6 +20,7 @@ use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
+use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -118,6 +119,7 @@ impl SnapshotCommands {
                         chain_name,
                         Utc::now().date_naive(),
                         epoch,
+                        true,
                     )),
                     false => output_path.clone(),
                 };
@@ -255,7 +257,7 @@ impl SnapshotCommands {
                 let frames = crate::db::car::forest::Encoder::compress_stream(
                     frame_size,
                     compression_level,
-                    block_stream,
+                    block_stream.map_err(anyhow::Error::from),
                 );
                 crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
                 dest.flush().await?;
