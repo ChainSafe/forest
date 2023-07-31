@@ -5,6 +5,7 @@ use super::Hash;
 pub type FrameOffset = u64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct KeyValuePair {
     pub hash: Hash,
     pub value: FrameOffset,
@@ -19,15 +20,5 @@ impl KeyValuePair {
     // Walking distance between `at` and the optimal location of `hash`
     pub fn distance(&self, at: u64, len: u64) -> u64 {
         self.hash.distance(at, len)
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for KeyValuePair {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        KeyValuePair {
-            hash: Hash::from(u64::arbitrary(g)),
-            value: FrameOffset::arbitrary(g),
-        }
     }
 }
