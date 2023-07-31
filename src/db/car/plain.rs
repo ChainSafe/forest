@@ -149,7 +149,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::new(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::new(self.roots().into()))
     }
 
     /// In an arbitrary order

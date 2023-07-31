@@ -136,7 +136,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::new(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::new(self.roots().into()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::CarReader>> {
