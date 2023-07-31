@@ -1,19 +1,41 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
+use crate::{
+    json::cid::vec::CidJsonVec,
+    utils::cid::{CidVariant, BLAKE2B256_SIZE},
+};
 use cid::{
     multihash::{self, Code::Blake2b256},
     Cid,
 };
 use fvm_ipld_encoding::DAG_CBOR;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 // CidVec takes advantage of the fact that the V1 DAG-CBOR Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid` type) is +99.99% of all CIDs. CidVec defaults to the `Vec<[u8; BLAKE2B256_SIZE]>` type, only using the more expensive `Vec<Cid>` type when necessary.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CidVec {
     V1Cids(Vec<[u8; BLAKE2B256_SIZE]>),
     AllCids(Vec<Cid>),
+}
+
+impl Serialize for CidVec {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        CidJsonVec(self.cids()).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CidVec {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let items: Vec<Cid> = CidJsonVec::deserialize(deserializer)?.0;
+        Ok(items.into())
+    }
 }
 
 impl Default for CidVec {
@@ -138,5 +160,21 @@ mod test {
     #[quickcheck]
     fn cidvec_to_vec_of_cids_to_cidvec(cidvec: CidVec) {
         assert_eq!(cidvec, CidVec::from(Vec::<Cid>::from(cidvec.clone())));
+    }
+
+    #[quickcheck]
+    fn serialize_vec_of_cids_deserialize_cidvec(vec_of_cids: Vec<Cid>) {
+        let serialized: String =
+            crate::to_string_with!(&vec_of_cids, crate::json::cid::vec::serialize);
+        let parsed: CidVec = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(vec_of_cids, Vec::<Cid>::from(parsed));
+    }
+
+    #[quickcheck]
+    fn serialize_cidvec_deserialize_vec_of_cids(cidvec: CidVec) {
+        let serialized: String = serde_json::to_string(&cidvec).unwrap();
+        let parsed: Vec<Cid> =
+            crate::from_str_with!(&serialized, crate::json::cid::vec::deserialize);
+        assert_eq!(Vec::<Cid>::from(cidvec), parsed);
     }
 }
