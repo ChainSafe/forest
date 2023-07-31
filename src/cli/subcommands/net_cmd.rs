@@ -51,6 +51,7 @@ impl NetCommands {
                 let info = net_info((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
+                println!("forest libp2p swarm info:");
                 println!("num peers: {}", info.num_peers);
                 println!("num connections: {}", info.num_connections);
                 println!("num pending: {}", info.num_pending);
