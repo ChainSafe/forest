@@ -777,10 +777,7 @@ where
         self: &Arc<Self>,
         msg_cid: Cid,
         confidence: i64,
-    ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>
-    where
-        DB: Blockstore + Send + Sync + 'static,
-    {
+    ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
