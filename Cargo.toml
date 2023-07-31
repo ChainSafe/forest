@@ -182,6 +182,7 @@ termios = "0.3"
 assert_cmd = "2"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
+derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["arb"] }
 libp2p = { version = "=0.51.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
