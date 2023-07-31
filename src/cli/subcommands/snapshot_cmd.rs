@@ -19,9 +19,11 @@ use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tempfile::NamedTempFile;
@@ -72,14 +74,22 @@ pub enum SnapshotCommands {
     },
     /// Make this snapshot suitable for use as a compressed car-backed blockstore.
     Compress {
-        /// CAR file. May be a zstd-compressed
+        /// Input CAR file, in `.car`, `.car.zst`, or `.forest.car.zst` format.
         source: PathBuf,
-        destination: PathBuf,
-        #[arg(hide = true, long, default_value_t = 3)]
+        /// Output file, will be in `.forest.car.zst` format.
+        ///
+        /// Will reuse the source name (with new extension) if pointed to a
+        /// directory.
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
+        #[arg(long, default_value_t = 3)]
         compression_level: u16,
         /// End zstd frames after they exceed this length
-        #[arg(hide = true, long, default_value_t = 8000usize.next_power_of_two())]
+        #[arg(long, default_value_t = 8000usize.next_power_of_two())]
         frame_size: usize,
+        /// Overwrite output file without prompting.
+        #[arg(long, default_value_t = false)]
+        force: bool,
     },
 }
 
@@ -196,11 +206,52 @@ impl SnapshotCommands {
 
             Self::Compress {
                 source,
-                destination,
+                output,
                 compression_level,
                 frame_size,
+                force,
             } => {
-                let file = tokio::io::BufReader::new(File::open(&source).await?);
+                // If input is 'snapshot.car.zst' and output is '.', set the
+                // destination to './snapshot.forest.car.zst'.
+                let destination = match output.is_dir() {
+                    true => {
+                        let mut destination = output;
+                        destination.push(source.clone());
+                        while let Some(ext) = destination.extension() {
+                            if !(ext == "zst" || ext == "car" || ext == "forest") {
+                                break;
+                            }
+                            destination.set_extension("");
+                        }
+                        destination.with_extension("forest.car.zst")
+                    }
+                    false => output.clone(),
+                };
+
+                if destination.exists() && !force {
+                    let have_permission = Confirm::with_theme(&ColorfulTheme::default())
+                        .with_prompt(format!(
+                            "{} will be overwritten. Continue?",
+                            destination.to_string_lossy()
+                        ))
+                        .default(false)
+                        .interact()
+                        // e.g not a tty (or some other error), so haven't got permission.
+                        .unwrap_or(false);
+                    if !have_permission {
+                        return Ok(());
+                    }
+                }
+
+                println!("Generating ForestCAR.zst file: {:?}", &destination);
+
+                let file = File::open(&source).await?;
+                let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
+                    ProgressStyle::with_template("{bar} {percent}%, eta: {eta}")
+                        .expect("infallible"),
+                );
+                let file = tokio::io::BufReader::new(pb.wrap_async_read(file));
+
                 let mut block_stream = CarStream::new(file).await?;
                 let roots = std::mem::take(&mut block_stream.header.roots);
 
