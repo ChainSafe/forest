@@ -28,33 +28,36 @@ function num-files-here() {
 
 : fetch snapshot
 pushd "$(mktemp --directory)"
-"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest
-"$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor filops
-# this will fail if they happen to have the same height - we should change the format of our filenames
-test "$(num-files-here)" -eq 2
+    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest
+    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor filops
+    # this will fail if they happen to have the same height - we should change the format of our filenames
+    test "$(num-files-here)" -eq 2
 
-: verify that we are byte-for-byte identical with filops
-zstd -d filops_*.car.zst
-"$FOREST_CLI_PATH" archive export filops_*.car -o exported_snapshot.car.zst
-zstd -d exported_snapshot.car.zst
-cmp --silent filops_*.car exported_snapshot.car
+    : verify that we are byte-for-byte identical with filops
+    zstd -d filops_*.car.zst
+    "$FOREST_CLI_PATH" archive export filops_*.car -o exported_snapshot.car.zst
+    zstd -d exported_snapshot.car.zst
+    cmp --silent filops_*.car exported_snapshot.car
 
-: verify that the exported snapshot is in ForestCAR.zst format
-assert_eq "$(forest_query_format exported_snapshot.car.zst)" "ForestCARv1.zst"
+    : verify that the exported snapshot is in ForestCAR.zst format
+    assert_eq "$(forest_query_format exported_snapshot.car.zst)" "ForestCARv1.zst"
 
-: verify that diff exports contain the expected number of state roots
-EPOCH=$(forest_query_epoch exported_snapshot.car.zst)
-"$FOREST_CLI_PATH" archive export --epoch $((EPOCH-1100)) --depth 900 --output-path base_snapshot.forest.car.zst exported_snapshot.car.zst
+    : verify that diff exports contain the expected number of state roots
+    EPOCH=$(forest_query_epoch exported_snapshot.car.zst)
+    "$FOREST_CLI_PATH" archive export --epoch $((EPOCH-1100)) --depth 900 --output-path base_snapshot.forest.car.zst exported_snapshot.car.zst
 
-BASE_EPOCH=$(forest_query_epoch base_snapshot.forest.car.zst)
-assert_eq "$BASE_EPOCH" $((EPOCH-1100))
+    BASE_EPOCH=$(forest_query_epoch base_snapshot.forest.car.zst)
+    assert_eq "$BASE_EPOCH" $((EPOCH-1100))
 
-BASE_STATE_ROOTS=$(forest_query_state_roots base_snapshot.forest.car.zst)
-assert_eq "$BASE_STATE_ROOTS" 900
+    BASE_STATE_ROOTS=$(forest_query_state_roots base_snapshot.forest.car.zst)
+    assert_eq "$BASE_STATE_ROOTS" 900
 
-"$FOREST_CLI_PATH" archive export --diff "$BASE_EPOCH" -o diff_snapshot.forest.car.zst exported_snapshot.car.zst
-DIFF_STATE_ROOTS=$(forest_query_state_roots diff_snapshot.forest.car.zst)
-assert_eq "$DIFF_STATE_ROOTS" 1100
+    "$FOREST_CLI_PATH" archive export --diff "$BASE_EPOCH" -o diff_snapshot.forest.car.zst exported_snapshot.car.zst
+    DIFF_STATE_ROOTS=$(forest_query_state_roots diff_snapshot.forest.car.zst)
+    assert_eq "$DIFF_STATE_ROOTS" 1100
+
+    : Validate the union of a snapshot and a diff
+    "$FOREST_CLI_PATH" snapshot validate --check-network calibnet base_snapshot.forest.car.zst diff_snapshot.forest.car.zst
 rm -- *
 popd
 
