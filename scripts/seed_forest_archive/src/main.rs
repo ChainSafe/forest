@@ -28,6 +28,24 @@ fn main() -> Result<()> {
         println!("{:?}", snapshot);
     }
 
+    // forest_snapshot_calibnet_2023-05-12_height_30000.forest.car.zst
+    // forest_diff_calibnet_2023-05-12_height_30000+3000.forest.car.zst
+    // Snapshot at epoch 0
+    //  1 diff 00000+3000
+    //  2 diff 03000+3000
+    //  3 diff 06000+3000
+    //  4 diff 09000+3000
+    //  5 diff 12000+3000
+    //  6 diff 15000+3000
+    //  7 diff 18000+3000
+    //  8 diff 21000+3000
+    //  9 diff 24000+3000
+    // 10 diff 27000+3000
+    // Snapshot at epoch 30000
+    // roughly 2880 in a day.
+    // 00000-29999
+    // 30000-59999
+
     Ok(())
 }
 
