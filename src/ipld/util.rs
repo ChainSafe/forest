@@ -291,7 +291,8 @@ impl<DB, T> ChainStream<DB, T> {
     }
 }
 
-/// Initializes a stream of blocks.
+/// Stream all blocks that are reachable before the `stateroot_limit` epoch. After this limit, only
+/// block headers are streamed. Any dead links are reported as errors.
 ///
 /// # Arguments
 ///
@@ -315,6 +316,8 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     }
 }
 
+// Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
+// are ignored.
 pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
