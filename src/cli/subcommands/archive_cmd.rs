@@ -33,7 +33,7 @@ use crate::chain::{
 };
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::{AnyCar, CarReader, ManyCar};
-use crate::ipld::{CidHashSet, stream_graph};
+use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use anyhow::{bail, Context as _};
@@ -99,7 +99,15 @@ impl ArchiveCommands {
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
 
-                do_export(&store, store.heaviest_tipset()?, output_path, epoch, depth, diff).await
+                do_export(
+                    &store,
+                    store.heaviest_tipset()?,
+                    output_path,
+                    epoch,
+                    depth,
+                    diff,
+                )
+                .await
             }
             Self::Checkpoints {
                 snapshot_files: snapshot,
