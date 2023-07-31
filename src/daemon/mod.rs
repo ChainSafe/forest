@@ -36,7 +36,7 @@ use crate::utils::{
     version::FOREST_VERSION_STRING, RetryArgs,
 };
 use anyhow::{bail, Context};
-use bundle::load_bundles;
+use bundle::load_actor_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
@@ -261,7 +261,7 @@ pub(super) async fn start(
 
     let epoch = chain_store.heaviest_tipset().epoch();
 
-    load_bundles(epoch, &config, &db).await?;
+    load_actor_bundles(&db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
