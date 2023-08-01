@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum ProgressBarVisibility {
     Always,
     #[default]
@@ -117,17 +118,5 @@ impl ProgressBar {
 impl Drop for ProgressBar {
     fn drop(&mut self) {
         self.finish()
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ProgressBarVisibility {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        *g.choose(&[
-            ProgressBarVisibility::Always,
-            ProgressBarVisibility::Auto,
-            ProgressBarVisibility::Never,
-        ])
-        .unwrap()
     }
 }

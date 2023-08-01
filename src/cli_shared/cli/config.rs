@@ -55,15 +55,6 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        net::{Ipv4Addr, SocketAddr},
-        path::PathBuf,
-    };
-
-    use crate::cli_shared::cli::client::{BufferSize, ChunkSize};
-    use crate::utils::io::ProgressBarVisibility;
-    use chrono::Duration;
-    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
     use super::*;
@@ -71,7 +62,7 @@ mod test {
     /// Partial configuration, as some parts of the proper one don't implement
     /// required traits (i.e. Debug)
     // This should be removed in #2965
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, derive_quickcheck_arbitrary::Arbitrary)]
     struct ConfigPartial {
         client: Client,
         parity_db: crate::db::parity_db_config::ParityDbConfig,
@@ -88,46 +79,6 @@ mod test {
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
-            }
-        }
-    }
-
-    impl Arbitrary for ConfigPartial {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ConfigPartial {
-                client: Client {
-                    data_dir: PathBuf::arbitrary(g),
-                    genesis_file: Option::arbitrary(g),
-                    enable_rpc: bool::arbitrary(g),
-                    rpc_token: Option::arbitrary(g),
-                    snapshot: bool::arbitrary(g),
-                    snapshot_height: Option::arbitrary(g),
-                    snapshot_path: Option::arbitrary(g),
-                    snapshot_head: Option::arbitrary(g),
-                    skip_load: bool::arbitrary(g),
-                    chunk_size: ChunkSize::arbitrary(g),
-                    buffer_size: BufferSize::arbitrary(g),
-                    encrypt_keystore: bool::arbitrary(g),
-                    metrics_address: SocketAddr::arbitrary(g),
-                    rpc_address: SocketAddr::arbitrary(g),
-                    token_exp: Duration::milliseconds(i64::arbitrary(g)),
-                    show_progress_bars: ProgressBarVisibility::arbitrary(g),
-                },
-                parity_db: crate::db::parity_db_config::ParityDbConfig {
-                    enable_statistics: bool::arbitrary(g),
-                    compression_type: String::arbitrary(g),
-                },
-                network: Libp2pConfig {
-                    listening_multiaddrs: vec![Ipv4Addr::arbitrary(g).into()],
-                    bootstrap_peers: vec![Ipv4Addr::arbitrary(g).into(); u8::arbitrary(g) as usize],
-                    mdns: bool::arbitrary(g),
-                    kademlia: bool::arbitrary(g),
-                    target_peer_count: u32::arbitrary(g),
-                },
-                sync: SyncConfig {
-                    req_window: i64::arbitrary(g),
-                    tipset_sample_size: u32::arbitrary(g) as _,
-                },
             }
         }
     }

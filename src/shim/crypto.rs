@@ -16,6 +16,7 @@ use num_derive::FromPrimitive;
 
 /// A cryptographic signature, represented in bytes, of any key protocol.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Signature {
     pub sig_type: SignatureType,
     pub bytes: Vec<u8>,
@@ -164,35 +165,14 @@ pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str>
     fvm_shared2::commcid::cid_to_replica_commitment_v1(c)
 }
 
-#[cfg(test)]
-impl quickcheck::Arbitrary for Signature {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Self {
-            bytes: Vec::arbitrary(g),
-            sig_type: SignatureType::arbitrary(g),
-        }
-    }
-}
-
 /// Signature variants for Filecoin signatures.
 #[derive(
     Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr, Hash,
 )]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u8)]
 pub enum SignatureType {
     Secp256k1 = 1,
     Bls = 2,
     Delegated = 3,
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for SignatureType {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        *g.choose(&[
-            SignatureType::Secp256k1,
-            SignatureType::Bls,
-            SignatureType::Delegated,
-        ])
-        .unwrap()
-    }
 }
