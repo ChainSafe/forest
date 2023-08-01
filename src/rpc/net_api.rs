@@ -53,6 +53,18 @@ pub(in crate::rpc) async fn net_peers<DB: Blockstore + Clone + Send + Sync + 'st
     Ok(connections)
 }
 
+pub(in crate::rpc) async fn net_info<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+) -> Result<NetInfoResult, JsonRpcError> {
+    let (tx, rx) = oneshot::channel();
+    let req = NetworkMessage::JSONRPCRequest {
+        method: NetRPCMethods::Info(tx),
+    };
+
+    data.network_send.send_async(req).await?;
+    Ok(rx.await?)
+}
+
 pub(in crate::rpc) async fn net_connect<DB: Blockstore + Clone + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(params): Params<NetConnectParams>,

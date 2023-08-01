@@ -47,6 +47,7 @@ cov forest-cli snapshot export
 cov forest-cli attach --exec 'showPeers()'
 cov forest-cli net listen
 cov forest-cli net peers
+cov forest-cli net info
 
 # Load the admin token
 TOKEN=$(cat "$TOKEN_PATH")

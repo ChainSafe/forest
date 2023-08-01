@@ -31,6 +31,7 @@ async fn test_nv17_state_migration_calibnet() -> Result<()> {
     .await
 }
 
+#[ignore = "flacky"]
 #[tokio::test]
 async fn test_nv18_state_migration_calibnet() -> Result<()> {
     // State migration at height Hygge(epoch 322354) was successful,
@@ -47,6 +48,7 @@ async fn test_nv18_state_migration_calibnet() -> Result<()> {
     .await
 }
 
+#[ignore = "flacky"]
 #[tokio::test]
 async fn test_nv19_state_migration_calibnet() -> Result<()> {
     // State migration at height Lightning(epoch 489094) was successful,

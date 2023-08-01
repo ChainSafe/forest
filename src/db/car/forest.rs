@@ -385,6 +385,7 @@ fn new_encoder(
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 struct ForestCarFooter {
     index: u64,
 }
@@ -420,17 +421,8 @@ impl ForestCarFooter {
 mod tests {
     use super::*;
     use futures::executor::block_on;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
     use std::io::Cursor;
-
-    impl Arbitrary for ForestCarFooter {
-        fn arbitrary(g: &mut Gen) -> Self {
-            ForestCarFooter {
-                index: u64::arbitrary(g),
-            }
-        }
-    }
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,
