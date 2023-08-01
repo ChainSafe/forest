@@ -43,7 +43,7 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static;
+        DB: Blockstore + Sync + Send + 'static;
 }
 
 /// Helper function to collect errors from async validations.
@@ -111,7 +111,7 @@ pub trait Proposer {
         services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static,
+        DB: Blockstore + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;
 }
 
@@ -139,7 +139,7 @@ pub trait MessagePoolApi {
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static;
+        DB: Blockstore;
 }
 
 impl<P> MessagePoolApi for MessagePool<P>
@@ -152,7 +152,7 @@ where
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static,
+        DB: Blockstore,
     {
         self.select_messages_for_block(base)
             .map_err(|e| e.into())

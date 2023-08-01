@@ -25,7 +25,7 @@ pub(in crate::rpc) async fn mpool_pending<DB>(
     Params(params): Params<MpoolPendingParams>,
 ) -> Result<MpoolPendingResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
@@ -84,7 +84,7 @@ pub(in crate::rpc) async fn mpool_push<DB>(
     Params(params): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let (SignedMessageJson(smsg),) = params;
 
@@ -99,7 +99,7 @@ pub(in crate::rpc) async fn mpool_push_message<DB>(
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let (MessageJson(umsg), spec) = params;
 
