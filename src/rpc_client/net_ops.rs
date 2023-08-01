@@ -20,6 +20,13 @@ pub async fn net_peers(
     call(NET_PEERS, params, auth_token).await
 }
 
+pub async fn net_info(
+    params: NetInfoParams,
+    auth_token: &Option<String>,
+) -> Result<NetInfoResult, Error> {
+    call(NET_INFO, params, auth_token).await
+}
+
 pub async fn net_connect(
     params: NetConnectParams,
     auth_token: &Option<String>,

@@ -121,6 +121,7 @@ where
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
             .with_method(NET_PEERS, net_api::net_peers::<DB>)
+            .with_method(NET_INFO, net_api::net_info::<DB>)
             .with_method(NET_CONNECT, net_api::net_connect::<DB>)
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
             // DB API

@@ -27,6 +27,23 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.12.0 "Carp"
+
+Notable updates:
+
+- Support for the `.forest.car.zst` format.
+- Support for diff snapshots.
+
+### Breaking
+
 - [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
   organisation to use multiple columns. The database will need to be recreated.
 - [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
@@ -49,6 +66,8 @@
   loading forest.car.zst files.
 - [#3284](https://github.com/ChainSafe/forest/pull/3284): Add `--diff` flag to
   `archive export`.
+- [#3292](https://github.com/ChainSafe/forest/pull/3292): Add `net info`
+  subcommand to `forest-cli`.
 
 ### Changed
 
