@@ -6,12 +6,12 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::blocks::GossipBlock;
 use crate::chain::ChainStore;
 use crate::libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
+use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
@@ -170,6 +170,7 @@ pub enum NetworkMessage {
 pub enum NetRPCMethods {
     AddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
     Peers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Info(OneShotSender<NetInfoResult>),
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
 }
@@ -434,6 +435,11 @@ async fn handle_network_message(
             NetRPCMethods::Peers(response_channel) => {
                 let peer_addresses = swarm.behaviour_mut().peer_addresses();
                 if response_channel.send(peer_addresses.clone()).is_err() {
+                    warn!("Failed to get Libp2p peers");
+                }
+            }
+            NetRPCMethods::Info(response_channel) => {
+                if response_channel.send(swarm.network_info().into()).is_err() {
                     warn!("Failed to get Libp2p peers");
                 }
             }
