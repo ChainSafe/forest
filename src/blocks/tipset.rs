@@ -537,7 +537,6 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod property_tests {
-    use crate::ipld::CidVec;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
