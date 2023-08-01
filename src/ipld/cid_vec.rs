@@ -1,10 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    json::cid::vec::CidJsonVec,
-    utils::cid::{CidVariant, BLAKE2B256_SIZE},
-};
+use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use cid::{
     multihash::{self, Code::Blake2b256},
     Cid,
@@ -24,7 +21,7 @@ impl Serialize for CidVec {
     where
         S: Serializer,
     {
-        CidJsonVec(self.cids()).serialize(serializer)
+        self.cids().serialize(serializer)
     }
 }
 
@@ -33,8 +30,7 @@ impl<'de> Deserialize<'de> for CidVec {
     where
         D: Deserializer<'de>,
     {
-        let items: Vec<Cid> = CidJsonVec::deserialize(deserializer)?.0;
-        Ok(items.into())
+        Ok(Self::from(<Vec<Cid>>::deserialize(deserializer)?))
     }
 }
 
@@ -164,17 +160,15 @@ mod test {
 
     #[quickcheck]
     fn serialize_vec_of_cids_deserialize_cidvec(vec_of_cids: Vec<Cid>) {
-        let serialized: String =
-            crate::to_string_with!(&vec_of_cids, crate::json::cid::vec::serialize);
+        let serialized = serde_json::to_string(&vec_of_cids).unwrap();
         let parsed: CidVec = serde_json::from_str(&serialized).unwrap();
         assert_eq!(vec_of_cids, Vec::<Cid>::from(parsed));
     }
 
     #[quickcheck]
     fn serialize_cidvec_deserialize_vec_of_cids(cidvec: CidVec) {
-        let serialized: String = serde_json::to_string(&cidvec).unwrap();
-        let parsed: Vec<Cid> =
-            crate::from_str_with!(&serialized, crate::json::cid::vec::deserialize);
+        let serialized = serde_json::to_string(&cidvec).unwrap();
+        let parsed: Vec<Cid> = serde_json::from_str(&serialized).unwrap();
         assert_eq!(Vec::<Cid>::from(cidvec), parsed);
     }
 }
