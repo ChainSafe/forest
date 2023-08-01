@@ -74,10 +74,12 @@ impl From<CidVec> for Vec<Cid> {
 }
 
 impl CidVec {
+    /// Creates a new empty `V1Cids` variant of `CidVec`.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Creates a new `CidVec` from a single `Cid`, with the resulting variant of `CidVec` depending on the variant of the `Cid`.
     pub fn new_from_cid(cid: Cid) -> Self {
         match cid.try_into() {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => Self::V1Cids(vec![bytes]),
@@ -85,6 +87,7 @@ impl CidVec {
         }
     }
 
+    /// Converts a `CidVec` to a `Vec<Cid>`.
     pub fn cids(&self) -> Vec<Cid> {
         match self {
             Self::V1Cids(cids) => cids
@@ -101,6 +104,7 @@ impl CidVec {
         }
     }
 
+    /// Adds a CID to the `CidVec`, converting the `CidVec` to the `AllCids` variant if necessary.
     pub fn push(&mut self, cid: Cid) {
         match self {
             Self::V1Cids(cids) => {
