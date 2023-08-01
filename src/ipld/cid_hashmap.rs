@@ -3,8 +3,10 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
+use cid::multihash::{self};
 use cid::Cid;
-use std::collections::hash_map::{Entry, OccupiedEntry, VacantEntry};
+use fvm_ipld_encoding::DAG_CBOR;
+use std::collections::hash_map::{Entry, Keys, OccupiedEntry, VacantEntry};
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -21,6 +23,26 @@ use std::collections::hash_map::{Entry, OccupiedEntry, VacantEntry};
 pub struct CidHashMap<V> {
     v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
     fallback_hash_map: HashMap<Cid, V>,
+}
+
+pub struct CidHashMapKeys<'a, V> {
+    v1_dagcbor_blake2b_keys: Keys<'a, [u8; BLAKE2B256_SIZE], V>,
+    fallback_keys: Keys<'a, Cid, V>,
+}
+
+impl<V> Iterator for CidHashMapKeys<'_, V> {
+    type Item = Cid;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.v1_dagcbor_blake2b_keys.next() {
+            Some(bytes) => Some(Cid::new_v1(
+                DAG_CBOR,
+                multihash::Multihash::wrap(multihash::Code::Blake2b256.into(), bytes)
+                    .expect("failed to convert digest to CID"),
+            )),
+            None => self.fallback_keys.next().copied(),
+        }
+    }
 }
 
 pub enum CidHashMapEntry<'a, V> {
@@ -152,15 +174,30 @@ impl<V> CidHashMap<V> {
             },
         }
     }
+
+    #[cfg(test)]
+    pub fn keys(&self) -> CidHashMapKeys<'_, V> {
+        CidHashMapKeys {
+            v1_dagcbor_blake2b_keys: self.v1_dagcbor_blake2b_hash_map.keys(),
+            fallback_keys: self.fallback_hash_map.keys(),
+        }
+    }
+}
+
+impl<V> FromIterator<(Cid, V)> for CidHashMap<V> {
+    fn from_iter<T: IntoIterator<Item = (Cid, V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+        for (k, v) in iter {
+            map.insert(k, v);
+        }
+        map
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::{
-        multihash::{self, MultihashDigest},
-        Cid,
-    };
+    use cid::multihash::MultihashDigest;
     use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck_macros::quickcheck;
 

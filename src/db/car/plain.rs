@@ -122,7 +122,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
         // now create the index
         let index =
             iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
-                .collect::<Result<ahash::HashMap<_, _>, _>>()?;
+                .collect::<Result<CidHashMap<_>, _>>()?;
 
         match index.len() {
             0 => Err(io::Error::new(
@@ -155,7 +155,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
-        self.inner.lock().index.keys().cloned().collect()
+        self.inner.lock().index.keys().collect()
     }
 
     pub fn into_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
@@ -186,7 +186,7 @@ impl TryFrom<&'static [u8]> for PlainCar<std::io::Cursor<&'static [u8]>> {
 struct PlainCarInner<ReaderT> {
     reader: ReaderT,
     write_cache: CidHashMap<Vec<u8>>,
-    index: ahash::HashMap<Cid, UncompressedBlockDataLocation>,
+    index: CidHashMap<UncompressedBlockDataLocation>,
     roots: Vec<Cid>,
 }
 
@@ -210,7 +210,7 @@ where
             index,
             ..
         } = &mut *self.inner.lock();
-        match (index.get(k), write_cache.entry(*k)) {
+        match (index.get(*k), write_cache.entry(*k)) {
             (Some(_location), Occupied(cached)) => {
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
@@ -264,11 +264,11 @@ pub struct CompressedBlockDataLocation {
 /// - If the write cache already contains different data with this CID
 fn handle_write_cache(
     write_cache: &mut CidHashMap<Vec<u8>>,
-    index: &mut ahash::HashMap<Cid, impl Any>,
+    index: &mut CidHashMap<impl Any>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
-    match (index.get(k), write_cache.entry(*k)) {
+    match (index.get(*k), write_cache.entry(*k)) {
         (None, Occupied(already)) => match already.get() == block {
             true => {
                 trace!("already in cache");
