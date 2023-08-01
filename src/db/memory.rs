@@ -19,29 +19,19 @@ pub struct MemoryDB {
 }
 
 impl SettingsStore for MemoryDB {
-    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
-    where
-        K: AsRef<str>,
-    {
-        Ok(self.settings_db.read().get(key.as_ref()).cloned())
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(self.settings_db.read().get(key).cloned())
     }
 
-    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
-    where
-        K: AsRef<str>,
-        V: AsRef<[u8]>,
-    {
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
         self.settings_db
             .write()
-            .insert(key.as_ref().to_owned(), value.as_ref().to_vec());
+            .insert(key.to_owned(), value.to_vec());
         Ok(())
     }
 
-    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
-    where
-        K: AsRef<str>,
-    {
-        Ok(self.settings_db.read().contains_key(key.as_ref()))
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
+        Ok(self.settings_db.read().contains_key(key))
     }
 }
 

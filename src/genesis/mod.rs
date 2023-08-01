@@ -114,9 +114,7 @@ where
         stopwatch.elapsed().as_secs()
     );
     if let Some(n_records) = n_records {
-        let mut meta = sm.chain_store().file_backed_chain_meta().lock();
-        meta.inner_mut().estimated_reachable_records = n_records;
-        meta.sync()?;
+        sm.chain_store().set_estimated_records(n_records as u64)?;
     }
 
     let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;

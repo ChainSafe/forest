@@ -73,8 +73,10 @@ use std::{
 };
 
 use crate::blocks::Tipset;
+use crate::db::setting_keys::ESTIMATED_RECORDS_KEY;
+use crate::db::SettingsStoreExt;
 use crate::ipld::util::*;
-use crate::utils::db::{file_backed_obj::ChainMeta, BlockstoreBufferedWriteExt, DB_KEY_BYTES};
+use crate::utils::db::{BlockstoreBufferedWriteExt, DB_KEY_BYTES};
 use chrono::Utc;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
@@ -87,7 +89,6 @@ where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
     db: RollingDB,
-    file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
     get_tipset: F,
     chain_finality: i64,
     recent_state_roots: i64,
@@ -101,18 +102,11 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(
-        db: RollingDB,
-        file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
-        chain_finality: i64,
-        recent_state_roots: i64,
-        get_tipset: F,
-    ) -> Self {
+    pub fn new(db: RollingDB, chain_finality: i64, recent_state_roots: i64, get_tipset: F) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {
             db,
-            file_backed_chain_meta,
             get_tipset,
             chain_finality,
             recent_state_roots,
@@ -229,12 +223,7 @@ where
             let db = db.current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        let estimated_reachable_records = Some(
-            self.file_backed_chain_meta
-                .lock()
-                .inner()
-                .estimated_reachable_records as u64,
-        );
+        let estimated_reachable_records = self.db.read_obj(ESTIMATED_RECORDS_KEY)?;
         let n_records = walk_snapshot(
             &tipset,
             self.recent_state_roots,
@@ -264,11 +253,7 @@ where
         .await?;
         drop(tx);
 
-        {
-            let mut meta = self.file_backed_chain_meta.lock();
-            meta.inner_mut().estimated_reachable_records = n_records;
-            meta.sync()?;
-        }
+        self.db.write_obj(ESTIMATED_RECORDS_KEY, &n_records)?;
 
         write_task.await??;
 

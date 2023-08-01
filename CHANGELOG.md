@@ -27,6 +27,9 @@
 
 ### Breaking
 
+- [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
+  internal settings from files to the database.
+
 ### Added
 
 ### Changed

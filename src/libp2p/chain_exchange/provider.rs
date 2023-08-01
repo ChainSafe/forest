@@ -155,7 +155,6 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use fvm_ipld_car::load_car;
-    use tempfile::TempDir;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -181,15 +180,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let chain_store_root = TempDir::new().unwrap();
         let response = make_chain_exchange_response(
-            &ChainStore::new(
-                db,
-                Arc::new(ChainConfig::default()),
-                gen_block,
-                chain_store_root.path(),
-            )
-            .unwrap(),
+            &ChainStore::new(db.clone(), db, Arc::new(ChainConfig::default()), gen_block).unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
