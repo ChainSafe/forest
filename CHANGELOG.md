@@ -38,6 +38,7 @@
 ## Forest v0.12.0 "Carp"
 
 Notable updates:
+
 - Support for the `.forest.car.zst` format.
 - Support for diff snapshots.
 
