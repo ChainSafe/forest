@@ -7,6 +7,7 @@ use crate::rpc_client::net_ops::*;
 use ahash::HashSet;
 use cid::multibase;
 use clap::Subcommand;
+use itertools::Itertools;
 
 use super::{handle_rpc_err, print_stdout, Config};
 use crate::cli::subcommands::cli_error_and_die;
@@ -15,6 +16,8 @@ use crate::cli::subcommands::cli_error_and_die;
 pub enum NetCommands {
     /// Lists `libp2p` swarm listener addresses
     Listen,
+    /// Lists `libp2p` swarm network info
+    Info,
     /// Lists `libp2p` swarm peers
     Peers,
     /// Connects to a peer by its peer ID and multi-addresses
@@ -44,6 +47,19 @@ impl NetCommands {
                 print_stdout(addresses.join("\n"));
                 Ok(())
             }
+            Self::Info => {
+                let info = net_info((), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                println!("forest libp2p swarm info:");
+                println!("num peers: {}", info.num_peers);
+                println!("num connections: {}", info.num_connections);
+                println!("num pending: {}", info.num_pending);
+                println!("num pending incoming: {}", info.num_pending_incoming);
+                println!("num pending outgoing: {}", info.num_pending_outgoing);
+                println!("num established: {}", info.num_established);
+                Ok(())
+            }
             Self::Peers => {
                 let addrs = net_peers((), &config.client.rpc_token)
                     .await
@@ -60,8 +76,7 @@ impl NetCommands {
                                 _ => true,
                             })
                             .map(|addr| addr.to_string())
-                            .collect::<HashSet<_>>()
-                            .into_iter()
+                            .unique()
                             .collect();
                         if addresses.is_empty() {
                             return None;

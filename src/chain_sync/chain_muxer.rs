@@ -73,11 +73,13 @@ pub enum ChainMuxerError<C: Consensus> {
 
 /// Structure that defines syncing configuration options
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
     /// Sample size of tipsets to acquire before determining what the network
     /// head is
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
     pub tipset_sample_size: usize,
 }
 
