@@ -37,6 +37,10 @@
 
 ## Forest v0.12.0 "Carp"
 
+Notable updates:
+- Support for the `.forest.car.zst` format.
+- Support for diff snapshots.
+
 ### Breaking
 
 - [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
