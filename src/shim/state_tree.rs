@@ -226,6 +226,7 @@ where
 /// ```
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct ActorState(ActorStateV3);
 
 impl ActorState {
@@ -328,12 +329,5 @@ impl From<&ActorState> for ActorStateV2 {
             sequence: other.sequence,
             balance: TokenAmount::from(&other.balance).into(),
         }
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ActorState {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        ActorState(ActorStateV3::arbitrary(g))
     }
 }

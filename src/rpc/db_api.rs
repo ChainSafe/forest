@@ -5,7 +5,7 @@ use crate::rpc_api::{data_types::RPCState, db_api::*};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
-pub(in crate::rpc) async fn db_gc<DB: Blockstore + Clone + Send + Sync + 'static>(
+pub(in crate::rpc) async fn db_gc<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(_): Params<DBGCParams>,
 ) -> Result<DBGCResult, JsonRpcError> {

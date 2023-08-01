@@ -16,6 +16,7 @@ use crate::shim::{address::Address, econ::TokenAmount};
 pub type MethodNum = u64;
 
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Message {
     pub version: u64,
     pub from: Address,
@@ -23,28 +24,13 @@ pub struct Message {
     pub sequence: u64,
     pub value: TokenAmount,
     pub method_num: MethodNum,
+    #[cfg_attr(test, arbitrary(gen(
+        |g| RawBytes::new(Vec::arbitrary(g))
+    )))]
     pub params: RawBytes,
     pub gas_limit: u64,
     pub gas_fee_cap: TokenAmount,
     pub gas_premium: TokenAmount,
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for Message {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Self {
-            to: Address::arbitrary(g),
-            from: Address::arbitrary(g),
-            version: u64::arbitrary(g),
-            sequence: u64::arbitrary(g),
-            value: TokenAmount::arbitrary(g),
-            method_num: u64::arbitrary(g),
-            params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
-            gas_limit: u64::arbitrary(g),
-            gas_fee_cap: TokenAmount::arbitrary(g),
-            gas_premium: TokenAmount::arbitrary(g),
-        }
-    }
 }
 
 impl From<Message_v3> for Message {

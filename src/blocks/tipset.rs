@@ -24,6 +24,7 @@ use super::{Block, BlockHeader, Error, Ticket};
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
 pub struct TipsetKeys {
     pub cids: CidVec,
@@ -545,14 +546,6 @@ mod property_tests {
         tipset_keys_json::TipsetKeysJson,
         Tipset, TipsetKeys,
     };
-
-    impl quickcheck::Arbitrary for TipsetKeys {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                cids: CidVec::arbitrary(g),
-            }
-        }
-    }
 
     #[quickcheck]
     fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
