@@ -69,7 +69,6 @@ use integer_encoding::VarIntReader;
 use parking_lot::Mutex;
 use std::{
     any::Any,
-    collections::hash_map::Entry::{Occupied, Vacant},
     io::{
         self, BufReader,
         ErrorKind::{InvalidData, UnexpectedEof, Unsupported},
@@ -79,6 +78,7 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{debug, trace};
+use CidHashMapEntry::{Occupied, Vacant};
 
 /// **Note that all operations on this store are blocking**.
 ///
@@ -211,38 +211,22 @@ where
             ..
         } = &mut *self.inner.lock();
         match (index.get(k), write_cache.entry(*k)) {
-            (Some(_location), CidHashMapEntry::V1DagCborBlake2b(Occupied(cached))) => {
+            (Some(_location), Occupied(cached)) => {
                 trace!("evicting from write cache");
                 Ok(Some(cached.remove()))
             }
-            (Some(_location), CidHashMapEntry::Fallback(Occupied(cached))) => {
-                trace!("evicting from write cache");
-                Ok(Some(cached.remove()))
-            }
-            (
-                Some(UncompressedBlockDataLocation { offset, length }),
-                CidHashMapEntry::V1DagCborBlake2b(Vacant(_)),
-            )
-            | (
-                Some(UncompressedBlockDataLocation { offset, length }),
-                CidHashMapEntry::Fallback(Vacant(_)),
-            ) => {
+            (Some(UncompressedBlockDataLocation { offset, length }), Vacant(_)) => {
                 trace!("fetching from disk");
                 reader.seek(SeekFrom::Start(*offset))?;
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
                 reader.read_exact(&mut data)?;
                 Ok(Some(data))
             }
-            (None, CidHashMapEntry::V1DagCborBlake2b(Occupied(cached))) => {
+            (None, Occupied(cached)) => {
                 trace!("getting from write cache");
                 Ok(Some(cached.get().clone()))
             }
-            (None, CidHashMapEntry::Fallback(Occupied(cached))) => {
-                trace!("getting from write cache");
-                Ok(Some(cached.get().clone()))
-            }
-            (None, CidHashMapEntry::V1DagCborBlake2b(Vacant(_)))
-            | (None, CidHashMapEntry::Fallback(Vacant(_))) => {
+            (None, Vacant(_)) => {
                 trace!("not found");
                 Ok(None)
             }
@@ -285,39 +269,23 @@ fn handle_write_cache(
     block: &[u8],
 ) -> anyhow::Result<()> {
     match (index.get(k), write_cache.entry(*k)) {
-        (None, CidHashMapEntry::V1DagCborBlake2b(Occupied(already))) => {
-            match already.get() == block {
-                true => {
-                    trace!("already in cache");
-                    Ok(())
-                }
-                false => panic!("mismatched content on second write for CID {k}"),
-            }
-        }
-        (None, CidHashMapEntry::Fallback(Occupied(already))) => match already.get() == block {
+        (None, Occupied(already)) => match already.get() == block {
             true => {
                 trace!("already in cache");
                 Ok(())
             }
             false => panic!("mismatched content on second write for CID {k}"),
         },
-        (None, CidHashMapEntry::V1DagCborBlake2b(Vacant(vacant))) => {
+        (None, Vacant(vacant)) => {
             trace!(bytes = block.len(), "insert into cache");
             vacant.insert(block.to_owned());
             Ok(())
         }
-        (None, CidHashMapEntry::Fallback(Vacant(vacant))) => {
-            trace!(bytes = block.len(), "insert into cache");
-            vacant.insert(block.to_owned());
-            Ok(())
-        }
-        (Some(_), CidHashMapEntry::V1DagCborBlake2b(Vacant(_)))
-        | (Some(_), CidHashMapEntry::Fallback(Vacant(_))) => {
+        (Some(_), Vacant(_)) => {
             trace!("already on disk");
             Ok(())
         }
-        (Some(_), CidHashMapEntry::V1DagCborBlake2b(Occupied(_)))
-        | (Some(_), CidHashMapEntry::Fallback(Occupied(_))) => {
+        (Some(_), Occupied(_)) => {
             unreachable!("we don't insert a CID in the write cache if it exists on disk")
         }
     }

@@ -4,7 +4,7 @@
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
-use std::collections::hash_map::Entry;
+use std::collections::hash_map::{Entry, OccupiedEntry, VacantEntry};
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -23,9 +23,52 @@ pub struct CidHashMap<V> {
     fallback_hash_map: HashMap<Cid, V>,
 }
 
-pub enum CidHashMapEntry<'a, V: 'a> {
-    V1DagCborBlake2b(Entry<'a, [u8; BLAKE2B256_SIZE], V>),
-    Fallback(Entry<'a, Cid, V>),
+pub enum CidHashMapEntry<'a, V> {
+    Occupied(Occupied<'a, V>),
+    Vacant(Vacant<'a, V>),
+}
+
+pub struct Occupied<'a, V> {
+    inner: OccupiedInner<'a, V>,
+}
+
+enum OccupiedInner<'a, V> {
+    V1(OccupiedEntry<'a, [u8; 32], V>),
+    Fallback(OccupiedEntry<'a, Cid, V>),
+}
+
+impl<V> Occupied<'_, V> {
+    pub fn get(&self) -> &V {
+        let ret = match &self.inner {
+            OccupiedInner::V1(o) => o.get(),
+            OccupiedInner::Fallback(o) => o.get(),
+        };
+        ret
+    }
+    pub fn remove(self) -> V {
+        match self.inner {
+            OccupiedInner::V1(o) => o.remove(),
+            OccupiedInner::Fallback(o) => o.remove(),
+        }
+    }
+}
+
+pub struct Vacant<'a, V> {
+    inner: VacantInner<'a, V>,
+}
+
+enum VacantInner<'a, V> {
+    V1(VacantEntry<'a, [u8; 32], V>),
+    Fallback(VacantEntry<'a, Cid, V>),
+}
+
+impl<'a, V> Vacant<'a, V> {
+    pub fn insert(self, value: V) -> &'a mut V {
+        match self.inner {
+            VacantInner::V1(v) => v.insert(value),
+            VacantInner::Fallback(v) => v.insert(value),
+        }
+    }
 }
 
 impl<V> CidHashMap<V> {
@@ -87,12 +130,26 @@ impl<V> CidHashMap<V> {
     }
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
-    pub fn entry(&mut self, k: Cid) -> CidHashMapEntry<'_, V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
-                CidHashMapEntry::V1DagCborBlake2b(self.v1_dagcbor_blake2b_hash_map.entry(bytes))
+    pub fn entry(&mut self, key: Cid) -> CidHashMapEntry<'_, V> {
+        match CidVariant::try_from(key) {
+            Ok(CidVariant::V1DagCborBlake2b(v1)) => {
+                match self.v1_dagcbor_blake2b_hash_map.entry(v1) {
+                    Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
+                        inner: OccupiedInner::V1(occupied),
+                    }),
+                    Entry::Vacant(vacant) => CidHashMapEntry::Vacant(Vacant {
+                        inner: VacantInner::V1(vacant),
+                    }),
+                }
             }
-            Err(()) => CidHashMapEntry::Fallback(self.fallback_hash_map.entry(k)),
+            Err(_must_use_fallback) => match self.fallback_hash_map.entry(key) {
+                Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
+                    inner: OccupiedInner::Fallback(occupied),
+                }),
+                Entry::Vacant(vacant) => CidHashMapEntry::Vacant(Vacant {
+                    inner: VacantInner::Fallback(vacant),
+                }),
+            },
         }
     }
 }
