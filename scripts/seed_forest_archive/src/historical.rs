@@ -10,7 +10,6 @@ use std::{ops::RangeInclusive};
 use std::process::Command;
 use std::str::FromStr;
 use url::Url;
-use which::which;
 
 use super::ChainEpoch;
 use super::FOREST_PROJECT;
@@ -58,6 +57,10 @@ impl HistoricalSnapshot {
         ensure!(output.status.success());
         ensure!(output.stderr.is_empty());
         std::str::from_utf8(&output.stdout)?.lines().map(HistoricalSnapshot::parse).collect::<Result<Vec<_>>>()
+    }
+
+    pub fn highest_epoch(&self) -> ChainEpoch {
+        *self.epoch_range.end()
     }
 }
 
