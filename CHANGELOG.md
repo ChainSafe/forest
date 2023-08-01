@@ -49,6 +49,8 @@
   loading forest.car.zst files.
 - [#3284](https://github.com/ChainSafe/forest/pull/3284): Add `--diff` flag to
   `archive export`.
+- [#3292](https://github.com/ChainSafe/forest/pull/3292): Add `net info`
+  subcommand to `forest-cli`.
 
 ### Changed
 

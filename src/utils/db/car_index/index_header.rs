@@ -3,6 +3,7 @@
 use std::io::{Read, Result};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct IndexHeader {
     // Version number
     pub magic_number: u64,
@@ -48,19 +49,7 @@ impl IndexHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
-
-    impl Arbitrary for IndexHeader {
-        fn arbitrary(g: &mut Gen) -> IndexHeader {
-            IndexHeader {
-                magic_number: u64::arbitrary(g),
-                longest_distance: u64::arbitrary(g),
-                collisions: u64::arbitrary(g),
-                buckets: u64::arbitrary(g),
-            }
-        }
-    }
 
     #[quickcheck]
     fn index_header_roundtrip(header: IndexHeader) {

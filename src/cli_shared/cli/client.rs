@@ -16,6 +16,7 @@ use serde_with::{serde_as, DurationSeconds};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct ChunkSize(pub u32);
 impl Default for ChunkSize {
     fn default() -> Self {
@@ -25,6 +26,7 @@ impl Default for ChunkSize {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct BufferSize(pub u32);
 impl Default for BufferSize {
     fn default() -> Self {
@@ -35,6 +37,7 @@ impl Default for BufferSize {
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Client {
     pub data_dir: PathBuf,
     pub genesis_file: Option<String>,
@@ -62,6 +65,9 @@ pub struct Client {
     pub rpc_address: SocketAddr,
     // Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
+    #[cfg_attr(test, arbitrary(gen(
+        |g| Duration::milliseconds(i64::arbitrary(g))
+    )))]
     pub token_exp: Duration,
     /// Display progress bars mode. Auto will display if TTY.
     pub show_progress_bars: ProgressBarVisibility,
@@ -87,24 +93,6 @@ impl Default for Client {
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{BufferSize, ChunkSize};
-    use quickcheck::Arbitrary;
-
-    impl Arbitrary for ChunkSize {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ChunkSize(u32::arbitrary(g))
-        }
-    }
-
-    impl Arbitrary for BufferSize {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            BufferSize(u32::arbitrary(g))
         }
     }
 }

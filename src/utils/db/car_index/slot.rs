@@ -4,6 +4,7 @@ use super::{FrameOffset, Hash, KeyValuePair};
 use std::io::{Read, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Slot {
     Empty,
     Full(KeyValuePair),
@@ -56,18 +57,7 @@ impl Slot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
-
-    impl Arbitrary for Slot {
-        fn arbitrary(g: &mut Gen) -> Self {
-            if bool::arbitrary(g) {
-                Slot::Empty
-            } else {
-                Slot::Full(KeyValuePair::arbitrary(g))
-            }
-        }
-    }
 
     #[quickcheck]
     fn forest_footer_roundtrip(slot: Slot) {
