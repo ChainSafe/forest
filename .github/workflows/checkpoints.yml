@@ -3,15 +3,36 @@ name: Checkpoints
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 1 * *" # The 1st of every month
+    # - cron: "0 0 1 * *" # The 1st of every month
+    - cron: "*/10 * * * *" # for test
 
 jobs:
-  checkpoint_issue:
-    runs-on: ubuntu-latest
+  update_checkpoints:
+    runs-on: buildjet-8vcpu-ubuntu-2204
     steps:
-      - uses: actions/checkout@v3
-      - uses: JasonEtco/create-an-issue@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
         with:
-          filename: .github/CHECKPOINT_ISSUE_TEMPLATE.md
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: mark generate_checkpoints as executable
+        run: chmod +x scripts/generate_checkpoints.sh
+      - name: update checkpoints
+        run: ./scripts/generate_checkpoints.sh
+      - name: raise a pull request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: Update snapshot checkpoints
+          title: Update checkpoints
+          body: This is an automated PR that updates forest snapshot checkpoints for calibnet and mainnet.
+          add-paths: build/known_blocks.yaml
+          base: main
+          labels: automated-pr, perf, dx
+          branch: ga-update-checkpoints
+          # delete-branch: true
