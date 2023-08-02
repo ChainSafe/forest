@@ -64,4 +64,5 @@ jobs:
           base: main
           labels: automated-pr, perf, dx
           branch: ga-update-checkpoints
+          draft: true
           # delete-branch: true
