@@ -13,10 +13,15 @@ echo "
 # This file was generated with \\\`forest-cli archive checkpoints\\\`
 # " > build/known_blocks.yaml
 
+echo "Disk space"
+df -h
+
 # import calibnet snapshot
 forest-cli --chain calibnet snapshot fetch
 # populate checkpoints for calibnet
 forest-cli archive checkpoints "$(find . -name "forest_snapshot_calibnet*.forest.car.zst")" >> build/known_blocks.yaml
+
+rm "$(find . -name "forest_snapshot_calibnet*.forest.car.zst")"
 
 # import mainnet snapshot
 forest-cli --chain mainnet snapshot fetch
