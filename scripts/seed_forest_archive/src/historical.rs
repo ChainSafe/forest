@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Result, ensure};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use nom::{
     bytes::complete::tag,
     character::complete::digit1,
@@ -6,7 +6,8 @@ use nom::{
     multi::many1,
     sequence::tuple,
 };
-use std::{ops::RangeInclusive};
+use std::ops::RangeInclusive;
+use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use url::Url;
@@ -14,11 +15,11 @@ use url::Url;
 use super::ChainEpoch;
 use super::FOREST_PROJECT;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HistoricalSnapshot {
-    url: Url,
-    epoch_range: RangeInclusive<ChainEpoch>,
-    size: u64,
+    pub url: Url,
+    pub epoch_range: RangeInclusive<ChainEpoch>,
+    pub size: u64,
 }
 
 impl HistoricalSnapshot {
@@ -56,11 +57,26 @@ impl HistoricalSnapshot {
             .output()?;
         ensure!(output.status.success());
         ensure!(output.stderr.is_empty());
-        std::str::from_utf8(&output.stdout)?.lines().map(HistoricalSnapshot::parse).collect::<Result<Vec<_>>>()
+        std::str::from_utf8(&output.stdout)?
+            .lines()
+            .map(HistoricalSnapshot::parse)
+            .collect::<Result<Vec<_>>>()
     }
 
     pub fn highest_epoch(&self) -> ChainEpoch {
         *self.epoch_range.end()
+    }
+
+    pub fn download(&self, dst: &Path) -> Result<()> {
+        let status = Command::new("gsutil")
+            .arg("-u")
+            .arg(FOREST_PROJECT)
+            .arg("cp")
+            .arg(self.url.to_string())
+            .arg(dst)
+            .status()?;
+        anyhow::ensure!(status.success());
+        Ok(())
     }
 }
 

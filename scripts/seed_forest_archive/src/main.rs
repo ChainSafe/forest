@@ -1,19 +1,12 @@
-use anyhow::{anyhow, bail, Context, Result, ensure};
-use nom::{
-    bytes::complete::tag,
-    character::complete::digit1,
-    combinator::{map_res, recognize},
-    multi::many1,
-    sequence::tuple,
-};
-use std::{ops::RangeInclusive};
-use std::process::Command;
-use std::str::FromStr;
-use url::Url;
-use which::which;
+use anyhow::{Context, Result};
 use rand::prelude::Rng;
+use std::ops::RangeInclusive;
+use which::which;
 
 mod historical;
+mod store;
+mod forest;
+use store::Store;
 use historical::HistoricalSnapshot;
 
 use crate::archive::has_complete_round;
@@ -35,17 +28,28 @@ fn main() -> Result<()> {
     which("gsutil").context("Failed to find the 'gsutil' binary.\nSee installation instructions: https://cloud.google.com/storage/docs/gsutil_install")?;
 
     let snapshots = HistoricalSnapshot::new()?;
-    let highest_epoch = snapshots.iter().map(HistoricalSnapshot::highest_epoch).max().unwrap_or(0);
+    let highest_epoch = snapshots
+        .iter()
+        .map(HistoricalSnapshot::highest_epoch)
+        .max()
+        .unwrap_or(0);
     let max_round = highest_epoch / EPOCH_STEP;
     println!("Highest epoch: {highest_epoch}");
     let mut rng = rand::thread_rng();
+    let mut store = Store::new(snapshots.clone());
     loop {
         let round = rng.gen::<ChainEpoch>() % max_round;
+        let round = 0;
         println!("Round {round}");
         if !has_complete_round(round)? {
             let epoch = round * EPOCH_STEP;
             let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
+            store.get_range(initial_range)?;
+            forest::export(epoch, store.files())?;
             // Get range round*EPOCH_DIFF-2000 to round*EPOCH_DIFF
+            // export at epoch
+            // get range round*EPOCH_DIFF..round*EPOCH_DIFF+DIFF_STEP
+            // export diff epoch+diff_step
         }
         break;
     }
@@ -78,4 +82,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-

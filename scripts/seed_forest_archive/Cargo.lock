@@ -793,6 +793,7 @@ dependencies = [
  "nom",
  "rand",
  "reqwest",
+ "tempfile",
  "url",
  "which",
 ]
