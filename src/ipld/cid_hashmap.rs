@@ -89,7 +89,12 @@ impl<V> CidHashMap<V> {
             .v1_dagcbor_blake2b_hash_map
             .into_iter()
             .map(|(hash, v)| {
-                let cid = Cid::new_v1(DAG_CBOR, Code::Blake2b256.digest(&hash));
+                let cid = Cid::new_v1(
+                    DAG_CBOR,
+                    Code::Blake2b256
+                        .wrap(&hash)
+                        .expect("wrapping [u8; 32] is infallible"),
+                );
                 (cid, v)
             });
         let other = self.fallback_hash_map.into_iter();
