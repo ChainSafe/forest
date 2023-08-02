@@ -9,7 +9,7 @@ mod forest;
 use store::Store;
 use historical::HistoricalSnapshot;
 
-use crate::archive::{has_complete_round, upload_lite_snapshot};
+use crate::archive::{has_complete_round, upload_lite_snapshot, upload_diff_snapshot, has_lite_snapshot, has_diff_snapshot};
 mod archive;
 
 const FOREST_PROJECT: &str = "forest-391213";
@@ -22,7 +22,7 @@ type ChainEpochDelta = u64;
 const EPOCH_STEP: ChainEpochDelta = 30_000;
 const DIFF_STEP: ChainEpochDelta = 3_000;
 
-const MAINNET_GENESIS_TIMESTAMP: u64 = 0;
+const MAINNET_GENESIS_TIMESTAMP: u64 = 1598306400;
 const EPOCH_DURATION_SECONDS: u64 = 30;
 
 fn main() -> Result<()> {
@@ -46,13 +46,26 @@ fn main() -> Result<()> {
         if !has_complete_round(round)? {
             let epoch = round * EPOCH_STEP;
             let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
-            store.get_range(initial_range)?;
-            let lite_snapshot = forest::export(epoch, store.files())?;
-            upload_lite_snapshot(&lite_snapshot)?;
-            // Get range round*EPOCH_DIFF-2000 to round*EPOCH_DIFF
-            // export at epoch
-            // get range round*EPOCH_DIFF..round*EPOCH_DIFF+DIFF_STEP
-            // export diff epoch+diff_step
+            store.get_range(&initial_range)?;
+
+            if !has_lite_snapshot(epoch)? {
+                let lite_snapshot = forest::export(epoch, store.files())?;
+                upload_lite_snapshot(&lite_snapshot)?;
+                store.insert(initial_range, lite_snapshot);
+            }
+
+            for n in 0 .. EPOCH_STEP/DIFF_STEP {
+                let diff_range = RangeInclusive::new(epoch, epoch+DIFF_STEP);
+                store.get_range(&diff_range)?;
+
+                let diff_epoch = epoch + DIFF_STEP*n;
+
+                if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
+                    let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
+                    upload_diff_snapshot(&diff_snapshot)?;
+                    store.insert(diff_range, diff_snapshot);
+                }
+            }
         }
         break;
     }
