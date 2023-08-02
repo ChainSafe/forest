@@ -96,7 +96,7 @@ mod key_value_pair;
 mod slot;
 
 pub use car_index_builder::CarIndexBuilder;
-use hash::Hash;
+pub use hash::Hash;
 use index_header::IndexHeader;
 pub use key_value_pair::FrameOffset;
 use key_value_pair::KeyValuePair;
