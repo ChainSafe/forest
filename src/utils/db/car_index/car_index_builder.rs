@@ -25,9 +25,7 @@ impl CarIndexBuilder {
     }
 
     // Construct a new index builder that maps `Cid` to `FrameOffset`.
-    pub fn new(
-        values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>,
-    ) -> CarIndexBuilder {
+    pub fn new(values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>) -> CarIndexBuilder {
         let size = Self::capacity_at(values.len());
         let mut vec = Vec::with_capacity(size);
         vec.resize(size, Slot::Empty);
