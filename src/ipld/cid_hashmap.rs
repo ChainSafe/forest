@@ -3,7 +3,9 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
+use cid::multihash::{self, MultihashDigest};
 use cid::Cid;
+use fvm_ipld_encoding::DAG_CBOR;
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -17,12 +19,103 @@ use cid::Cid;
 // length=32. Taking advantage of this knowledge, we can store the vast majority of CIDs (+99.99%)
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct CidHashMap<V> {
+pub struct CidHashMap<V>
+where
+    V: Clone,
+{
     v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
     fallback_hash_map: HashMap<Cid, V>,
 }
 
-impl<V> CidHashMap<V> {
+impl<V> Extend<(Cid, V)> for CidHashMap<V>
+where
+    V: Clone,
+{
+    fn extend<T: IntoIterator<Item = (Cid, V)>>(&mut self, iter: T) {
+        for (k, v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
+
+impl<V> FromIterator<(Cid, V)> for CidHashMap<V>
+where
+    V: Clone,
+{
+    fn from_iter<T: IntoIterator<Item = (Cid, V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+        map.extend(iter);
+        map
+    }
+}
+
+pub struct CidHashMapIntoIterator<'a, V>
+where
+    V: Clone,
+{
+    cid_hash_map: &'a CidHashMap<V>,
+    current_ix: usize,
+}
+
+impl<'a, V> IntoIterator for &'a CidHashMap<V>
+where
+    V: Clone,
+{
+    type Item = (Cid, V);
+    type IntoIter = CidHashMapIntoIterator<'a, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CidHashMapIntoIterator {
+            cid_hash_map: self,
+            current_ix: 0,
+        }
+    }
+}
+
+impl<V> Iterator for CidHashMapIntoIterator<'_, V>
+where
+    V: Clone,
+{
+    type Item = (Cid, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_ix < self.cid_hash_map.v1_dagcbor_blake2b_hash_map.len() {
+            let (bytes, value) = self
+                .cid_hash_map
+                .v1_dagcbor_blake2b_hash_map
+                .iter()
+                .nth(self.current_ix)
+                .expect("failed to get element from V1 DAG-CBOR Blake2b256 CID hashmap");
+            self.current_ix += 1;
+            Some((
+                Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(bytes)),
+                value.clone(),
+            ))
+        } else if self.current_ix
+            < self
+                .cid_hash_map
+                .v1_dagcbor_blake2b_hash_map
+                .len()
+                .saturating_add(self.cid_hash_map.fallback_hash_map.len())
+        {
+            let (cid, value) = self
+                .cid_hash_map
+                .fallback_hash_map
+                .iter()
+                .nth(self.current_ix - self.cid_hash_map.v1_dagcbor_blake2b_hash_map.len())
+                .expect("failed to get element from CID hashmap");
+            self.current_ix += 1;
+            Some((*cid, value.clone()))
+        } else {
+            None
+        }
+    }
+}
+
+impl<V> CidHashMap<V>
+where
+    V: Clone,
+{
     /// Creates an empty `HashMap` with CID type keys.
     pub fn new() -> Self {
         Self {
