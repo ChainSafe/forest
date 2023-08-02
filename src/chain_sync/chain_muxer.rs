@@ -262,7 +262,7 @@ where
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
-                heaviest_tip_set: heaviest.cids().to_vec(),
+                heaviest_tip_set: heaviest.cids(),
                 heaviest_tipset_height: heaviest.epoch(),
                 heaviest_tipset_weight: heaviest.weight().clone().into(),
                 genesis_cid: genesis_block_cid,

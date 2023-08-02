@@ -55,7 +55,7 @@ where
             }
         }
 
-        curr_tipset_cids = tipset.parents().cids().to_vec();
+        curr_tipset_cids = Vec::<Cid>::from(&tipset.parents().cids);
         let tipset_epoch = tipset.epoch();
 
         if request.include_blocks() {

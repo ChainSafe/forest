@@ -7,6 +7,7 @@ use crate::db::car::forest;
 use crate::ipld::{stream_chain, CidHashSet};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use anyhow::{Context, Result};
+use cid::Cid;
 use digest::Digest;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
@@ -22,7 +23,7 @@ pub async fn export<D: Digest>(
     skip_checksum: bool,
 ) -> Result<Option<digest::Output<D>>, Error> {
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
-    let roots = tipset.key().cids().to_vec();
+    let roots = Vec::<Cid>::from(&tipset.key().cids);
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);

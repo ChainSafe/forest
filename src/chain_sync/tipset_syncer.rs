@@ -1593,7 +1593,7 @@ fn validate_tipset_against_cache<C: Consensus>(
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError<C>> {
-    for cid in tipset.cids() {
+    for cid in &tipset.cids {
         if let Some(reason) = bad_block_cache.get(&cid) {
             for block_cid in descendant_blocks {
                 bad_block_cache.put(*block_cid, format!("chain contained {cid}"));

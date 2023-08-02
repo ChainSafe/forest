@@ -21,7 +21,7 @@ impl Serialize for CidVec {
     where
         S: Serializer,
     {
-        self.cids().serialize(serializer)
+        Vec::<Cid>::from(self).serialize(serializer)
     }
 }
 
@@ -124,20 +124,8 @@ impl From<&[Cid]> for CidVec {
 
 impl From<CidVec> for Vec<Cid> {
     fn from(vec: CidVec) -> Self {
-        vec.cids()
-    }
-}
-
-impl CidVec {
-    /// Creates a new empty `V1DagCborBlake2bCids` variant of `CidVec`.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Converts a `CidVec` to a `Vec<Cid>`.
-    pub fn cids(&self) -> Vec<Cid> {
-        match self {
-            Self::V1DagCborBlake2bCids(cids) => cids
+        match vec {
+            CidVec::V1DagCborBlake2bCids(cids) => cids
                 .iter()
                 .map(|c| {
                     Cid::new_v1(
@@ -147,8 +135,33 @@ impl CidVec {
                     )
                 })
                 .collect(),
-            Self::AllCids(cids) => cids.clone(),
+            CidVec::AllCids(cids) => cids,
         }
+    }
+}
+
+impl From<&CidVec> for Vec<Cid> {
+    fn from(vec: &CidVec) -> Self {
+        match vec {
+            CidVec::V1DagCborBlake2bCids(cids) => cids
+                .iter()
+                .map(|c| {
+                    Cid::new_v1(
+                        DAG_CBOR,
+                        multihash::Multihash::wrap(Blake2b256.into(), c)
+                            .expect("failed to convert digest to CID"),
+                    )
+                })
+                .collect(),
+            CidVec::AllCids(cids) => cids.clone(),
+        }
+    }
+}
+
+impl CidVec {
+    /// Creates a new empty `V1DagCborBlake2bCids` variant of `CidVec`.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Adds a CID to the `CidVec`, converting the `CidVec` to the `AllCids` variant if necessary.
@@ -173,6 +186,26 @@ impl CidVec {
                 }
             }
             Self::AllCids(cids) => cids.push(cid),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::V1DagCborBlake2bCids(cids) => cids.is_empty(),
+            Self::AllCids(cids) => cids.is_empty(),
+        }
+    }
+
+    pub fn contains(&self, cid: Cid) -> bool {
+        match self {
+            Self::V1DagCborBlake2bCids(cids) => {
+                if let Ok(CidVariant::V1DagCborBlake2b(bytes)) = cid.try_into() {
+                    cids.contains(&bytes)
+                } else {
+                    false
+                }
+            }
+            Self::AllCids(cids) => cids.contains(&cid),
         }
     }
 }

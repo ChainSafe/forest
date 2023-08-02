@@ -35,16 +35,11 @@ impl TipsetKeys {
         Self { cids }
     }
 
-    /// Returns tipset header `cids`
-    pub fn cids(&self) -> Vec<Cid> {
-        self.cids.cids()
-    }
-
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
         let mut bytes = Vec::new();
-        for cid in self.cids() {
+        for cid in Vec::<Cid>::from(&self.cids) {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
@@ -60,7 +55,7 @@ impl From<Vec<Cid>> for TipsetKeys {
 impl fmt::Display for TipsetKeys {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
-            .cids()
+            .cids
             .into_iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
@@ -148,7 +143,7 @@ impl Tipset {
     /// present but invalid. If the tipset is missing, None is returned.
     pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
-            .cids()
+            .cids
             .into_iter()
             .map(|key| BlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<_>>>()?
@@ -228,7 +223,7 @@ impl Tipset {
     }
     /// Returns slice of `CIDs` for the current tipset
     pub fn cids(&self) -> Vec<Cid> {
-        self.key().cids.cids()
+        Vec::<Cid>::from(&self.key().cids)
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKeys {
@@ -454,7 +449,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        crate::json::cid::vec::serialize(&m.cids(), serializer)
+        crate::json::cid::vec::serialize(&Vec::<Cid>::from(&m.cids), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>

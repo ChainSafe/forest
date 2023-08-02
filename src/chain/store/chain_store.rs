@@ -218,7 +218,7 @@ where
     /// Returns Tipset from key-value store from provided CIDs
     #[tracing::instrument(skip_all)]
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        if tsk.cids().is_empty() {
+        if tsk.cids.is_empty() {
             return Ok(self.heaviest_tipset());
         }
         self.chain_index.load_tipset(tsk)
