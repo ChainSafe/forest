@@ -78,8 +78,8 @@ pub mod json {
     }
 
     pub mod vec {
+        use crate::json::vec::GoVecVisitor;
         use crate::shim::sector::PoStProof;
-        use crate::utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         use super::*;

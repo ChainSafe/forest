@@ -5,7 +5,6 @@ pub mod cid;
 pub mod db;
 pub mod encoding;
 pub mod io;
-pub mod json;
 pub mod misc;
 pub mod monitoring;
 pub mod net;

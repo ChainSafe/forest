@@ -48,7 +48,7 @@ pub mod json {
     }
 
     pub mod vec {
-        use crate::utils::json::GoVecVisitor;
+        use crate::json::vec::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         use super::{AddressJson, AddressJsonRef, *};
