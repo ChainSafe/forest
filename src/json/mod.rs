@@ -55,6 +55,30 @@ pub mod empty_vec_is_null {
     }
 }
 
+/// Lotus (de)serializes empty sequences as null.
+/// This matches that behaviour.
+// TODO(aatifsyed): this shouldn't exist.
+pub mod empty_slice_is_null {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer, T: Serialize>(
+        v: &[T],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match v.is_empty() {
+            true => serializer.serialize_none(),
+            false => v.serialize(serializer),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>, T>(deserializer: D) -> Result<&'de [T], D::Error>
+    where
+        &'de [T]: Deserialize<'de>,
+    {
+        Option::<&'de [T]>::deserialize(deserializer).map(Option::unwrap_or_default)
+    }
+}
+
 pub mod actor_state;
 pub mod address;
 pub mod cid;
