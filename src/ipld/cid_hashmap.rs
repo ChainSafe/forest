@@ -3,7 +3,7 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
-use cid::multihash::{self, MultihashDigest};
+use cid::multihash::{self, Code::Blake2b256};
 use cid::Cid;
 use fvm_ipld_encoding::DAG_CBOR;
 
@@ -88,7 +88,11 @@ where
                 .expect("failed to get element from V1 DAG-CBOR Blake2b256 CID hashmap");
             self.current_ix += 1;
             Some((
-                Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(bytes)),
+                Cid::new_v1(
+                    DAG_CBOR,
+                    multihash::Multihash::wrap(Blake2b256.into(), bytes)
+                        .expect("failed to convert digest to CID"),
+                ),
                 value.clone(),
             ))
         } else if self.current_ix
