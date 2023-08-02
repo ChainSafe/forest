@@ -3,11 +3,7 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
-use fvm_ipld_encoding::DAG_CBOR;
+use cid::Cid;
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -82,48 +78,6 @@ impl<V> CidHashMap<V> {
     /// Returns the number of elements in the map.
     pub fn len(&self) -> usize {
         self.v1_dagcbor_blake2b_hash_map.len() + self.fallback_hash_map.len()
-    }
-
-    pub fn into_iter(self) -> impl Iterator<Item = (Cid, V)> + ExactSizeIterator {
-        let blakes = self
-            .v1_dagcbor_blake2b_hash_map
-            .into_iter()
-            .map(|(hash, v)| {
-                let cid = Cid::new_v1(
-                    DAG_CBOR,
-                    Code::Blake2b256
-                        .wrap(&hash)
-                        .expect("wrapping [u8; 32] is infallible"),
-                );
-                (cid, v)
-            });
-        let other = self.fallback_hash_map.into_iter();
-        ExactChain(blakes.chain(other))
-    }
-}
-
-// `Chain` does not implement ExactSizeIterator because the combined size may
-// exceed usize. We don't have to worry about that.
-struct ExactChain<A, B>(std::iter::Chain<A, B>);
-
-impl<A, B> std::iter::Iterator for ExactChain<A, B>
-where
-    A: Iterator,
-    B: Iterator<Item = A::Item>,
-{
-    type Item = A::Item;
-    fn next(&mut self) -> Option<A::Item> {
-        self.0.next()
-    }
-}
-
-impl<A, B> std::iter::ExactSizeIterator for ExactChain<A, B>
-where
-    A: ExactSizeIterator,
-    B: Iterator<Item = A::Item> + ExactSizeIterator,
-{
-    fn len(&self) -> usize {
-        self.0.size_hint().0
     }
 }
 
