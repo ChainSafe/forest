@@ -3,7 +3,9 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
+use cid::multihash::{self, MultihashDigest};
 use cid::Cid;
+use fvm_ipld_encoding::DAG_CBOR;
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -20,6 +22,23 @@ use cid::Cid;
 pub struct CidHashMap<V> {
     v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
     fallback_hash_map: HashMap<Cid, V>,
+}
+
+impl<V> IntoIterator for CidHashMap<V> {
+    type Item = (Cid, V);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.v1_dagcbor_blake2b_hash_map
+            .into_iter()
+            .map(|(bytes, v)| {
+                let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&bytes));
+                (cid, v)
+            })
+            .chain(self.fallback_hash_map.into_iter())
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
 }
 
 impl<V> CidHashMap<V> {
