@@ -117,15 +117,13 @@ where
         let file_backed_heaviest_tipset_keys = Mutex::new({
             let mut head_store = FileBacked::load_from_file_or_create(
                 chain_data_root.join("HEAD"),
-                || TipsetKeys::new(CidVec::new_from_cid(*genesis_block_header.cid())),
+                || TipsetKeys::new(CidVec::from(*genesis_block_header.cid())),
                 None,
             )?;
             let is_valid = chain_index.load_tipset(head_store.inner()).is_ok();
             if !is_valid {
                 // If the stored HEAD is invalid, reset it to the genesis tipset.
-                head_store.set_inner(TipsetKeys::new(CidVec::new_from_cid(
-                    *genesis_block_header.cid(),
-                )))?;
+                head_store.set_inner(TipsetKeys::new(CidVec::from(*genesis_block_header.cid())))?;
             }
             head_store
         });

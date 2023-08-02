@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // CidVec takes advantage of the fact that the V1 DAG-CBOR Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid` type) is +99.99% of all CIDs. CidVec defaults to the `Vec<[u8; BLAKE2B256_SIZE]>` type, only using the more expensive `Vec<Cid>` type when necessary.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CidVec {
-    V1Cids(Vec<[u8; BLAKE2B256_SIZE]>),
+    V1DagCborBlake2bCids(Vec<[u8; BLAKE2B256_SIZE]>),
     AllCids(Vec<Cid>),
 }
 
@@ -36,7 +36,53 @@ impl<'de> Deserialize<'de> for CidVec {
 
 impl Default for CidVec {
     fn default() -> Self {
-        Self::V1Cids(Vec::new())
+        Self::V1DagCborBlake2bCids(Vec::new())
+    }
+}
+
+pub struct CidVecIterator<'a> {
+    buffer: &'a CidVec,
+    current_ix: usize,
+}
+
+impl Iterator for CidVecIterator<'_> {
+    type Item = Cid;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.buffer {
+            CidVec::V1DagCborBlake2bCids(cids) => {
+                if self.current_ix < cids.len() {
+                    let cid = Cid::new_v1(
+                        DAG_CBOR,
+                        multihash::Multihash::wrap(Blake2b256.into(), &cids[self.current_ix])
+                            .expect("failed to convert digest to CID"),
+                    );
+                    self.current_ix += 1;
+                    Some(cid)
+                } else {
+                    None
+                }
+            }
+            CidVec::AllCids(cids) => {
+                if self.current_ix < cids.len() {
+                    let cid = cids[self.current_ix];
+                    self.current_ix += 1;
+                    Some(cid)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a CidVec {
+    type Item = Cid;
+    type IntoIter = CidVecIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        CidVecIterator {
+            buffer: self,
+            current_ix: 0,
+        }
     }
 }
 
@@ -50,9 +96,18 @@ impl FromIterator<Cid> for CidVec {
     }
 }
 
+impl From<Cid> for CidVec {
+    fn from(cid: Cid) -> Self {
+        match cid.try_into() {
+            Ok(CidVariant::V1DagCborBlake2b(bytes)) => Self::V1DagCborBlake2bCids(vec![bytes]),
+            _ => Self::AllCids(vec![cid]),
+        }
+    }
+}
+
 impl From<Vec<Cid>> for CidVec {
     fn from(vec: Vec<Cid>) -> Self {
-        // Converts `Vec<Cid>` to `CidVec::V1Cids` if possible; otherwise, converts to `CidVec::AllCids`.
+        // Converts `Vec<Cid>` to `CidVec::V1DagCborBlake2bCids` if possible; otherwise, converts to `CidVec::AllCids`.
         let mut cid_vec = CidVec::new();
         for cid in vec {
             cid_vec.push(cid);
@@ -74,23 +129,15 @@ impl From<CidVec> for Vec<Cid> {
 }
 
 impl CidVec {
-    /// Creates a new empty `V1Cids` variant of `CidVec`.
+    /// Creates a new empty `V1DagCborBlake2bCids` variant of `CidVec`.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Creates a new `CidVec` from a single `Cid`, with the resulting variant of `CidVec` depending on the variant of the `Cid`.
-    pub fn new_from_cid(cid: Cid) -> Self {
-        match cid.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => Self::V1Cids(vec![bytes]),
-            _ => Self::AllCids(vec![cid]),
-        }
     }
 
     /// Converts a `CidVec` to a `Vec<Cid>`.
     pub fn cids(&self) -> Vec<Cid> {
         match self {
-            Self::V1Cids(cids) => cids
+            Self::V1DagCborBlake2bCids(cids) => cids
                 .iter()
                 .map(|c| {
                     Cid::new_v1(
@@ -107,7 +154,7 @@ impl CidVec {
     /// Adds a CID to the `CidVec`, converting the `CidVec` to the `AllCids` variant if necessary.
     pub fn push(&mut self, cid: Cid) {
         match self {
-            Self::V1Cids(cids) => {
+            Self::V1DagCborBlake2bCids(cids) => {
                 if let Ok(CidVariant::V1DagCborBlake2b(bytes)) = cid.try_into() {
                     cids.push(bytes);
                 } else {

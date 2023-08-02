@@ -51,6 +51,12 @@ impl TipsetKeys {
     }
 }
 
+impl From<Vec<Cid>> for TipsetKeys {
+    fn from(cids: Vec<Cid>) -> Self {
+        Self::new(CidVec::from(cids))
+    }
+}
+
 impl fmt::Display for TipsetKeys {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
@@ -714,7 +720,7 @@ mod test {
             .unwrap();
         let h1 = BlockHeader::builder()
             .miner_address(Address::new_id(1))
-            .parents(TipsetKeys::new(CidVec::new_from_cid(Cid::new_v1(
+            .parents(TipsetKeys::new(CidVec::from(Cid::new_v1(
                 DAG_CBOR,
                 Identity.digest(&[]),
             ))))

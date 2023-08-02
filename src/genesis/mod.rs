@@ -119,9 +119,7 @@ where
         meta.sync()?;
     }
 
-    let ts = sm
-        .chain_store()
-        .tipset_from_keys(&TipsetKeys::from(cids))?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::from(cids))?;
 
     if !skip_load {
         let gb = sm.chain_store().chain_index.tipset_by_height(
