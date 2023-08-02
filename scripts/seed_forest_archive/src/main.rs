@@ -9,10 +9,12 @@ mod forest;
 use store::Store;
 use historical::HistoricalSnapshot;
 
-use crate::archive::has_complete_round;
+use crate::archive::{has_complete_round, upload_lite_snapshot};
 mod archive;
 
 const FOREST_PROJECT: &str = "forest-391213";
+
+const R2_ENDPOINT: &str = "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com/forest-archive";
 
 type ChainEpoch = u64;
 type ChainEpochDelta = u64;
@@ -45,7 +47,8 @@ fn main() -> Result<()> {
             let epoch = round * EPOCH_STEP;
             let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
             store.get_range(initial_range)?;
-            forest::export(epoch, store.files())?;
+            let lite_snapshot = forest::export(epoch, store.files())?;
+            upload_lite_snapshot(&lite_snapshot)?;
             // Get range round*EPOCH_DIFF-2000 to round*EPOCH_DIFF
             // export at epoch
             // get range round*EPOCH_DIFF..round*EPOCH_DIFF+DIFF_STEP
