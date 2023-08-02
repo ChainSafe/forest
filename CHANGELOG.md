@@ -35,6 +35,13 @@
 
 ### Fixed
 
+## Forest v0.12.1 "Carp++"
+
+### Fixed
+
+- [#3307](https://github.com/ChainSafe/forest/pull/3307)[#3310](https://github.com/ChainSafe/forest/pull/3310):
+  Reduce memory requirements when exporting a snapshot by 50%.
+
 ## Forest v0.12.0 "Carp"
 
 Notable updates:
