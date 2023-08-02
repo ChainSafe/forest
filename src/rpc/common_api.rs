@@ -34,7 +34,7 @@ pub(in crate::rpc) async fn shutdown(
 }
 
 /// gets start time from network
-pub(in crate::rpc) async fn start_time<DB: Blockstore + Clone + Send + Sync + 'static>(
+pub(in crate::rpc) async fn start_time<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<StartTimeResult, JsonRpcError> {
     Ok(data.start_time)
