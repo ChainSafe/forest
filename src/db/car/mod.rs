@@ -39,7 +39,7 @@ impl Default for ZstdFrameCache {
 
 impl ZstdFrameCache {
     // 1 GiB
-    pub const DEFAULT_SIZE: usize = 1 * 1024 * 1024 * 1024;
+    pub const DEFAULT_SIZE: usize = 1024 * 1024 * 1024;
 
     pub fn new(max_size: usize) -> Self {
         ZstdFrameCache {
