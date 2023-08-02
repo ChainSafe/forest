@@ -57,14 +57,11 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::json::message::json::vec")]
+    #[serde(rename = "BlsMessages", with = "crate::json::empty_vec_is_null")]
     pub bls_msg: Vec<Message>,
-    #[serde(
-        rename = "SecpkMessages",
-        with = "crate::json::signed_message::json::vec"
-    )]
+    #[serde(rename = "SecpkMessages", with = "crate::json::empty_vec_is_null")]
     pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::json::cid::vec")]
+    #[serde(rename = "Cids", with = "crate::json::empty_vec_is_null")]
     pub cids: Vec<Cid>,
 }
 

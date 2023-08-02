@@ -46,41 +46,6 @@ pub mod json {
         let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
         Address::from_str(&address_as_string).map_err(de::Error::custom)
     }
-
-    pub mod vec {
-        use crate::json::vec::GoVecVisitor;
-        use serde::ser::SerializeSeq;
-
-        use super::{AddressJson, AddressJsonRef, *};
-
-        /// Wrapper for serializing and de-serializing a Cid vector from JSON.
-        #[derive(Deserialize, Serialize)]
-        #[serde(transparent)]
-        pub struct AddressJsonVec(#[serde(with = "self")] pub Vec<Address>);
-
-        /// Wrapper for serializing a CID slice to JSON.
-        #[derive(Serialize)]
-        #[serde(transparent)]
-        pub struct AddressJsonSlice<'a>(#[serde(with = "self")] pub &'a [Address]);
-
-        pub fn serialize<S>(m: &[Address], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let mut seq = serializer.serialize_seq(Some(m.len()))?;
-            for e in m {
-                seq.serialize_element(&AddressJsonRef(e))?;
-            }
-            seq.end()
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Address>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_any(GoVecVisitor::<Address, AddressJson>::new())
-        }
-    }
 }
 
 #[cfg(test)]

@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::BlockHeader;
-use crate::beacon::{beacon_entries, BeaconEntry};
+use crate::beacon::BeaconEntry;
 use crate::blocks::{
     election_proof, ticket, tipset::tipset_keys_json, ElectionProof, Ticket, TipsetKeys,
 };
-use crate::json::{sector, signature};
+use crate::json::signature;
 use crate::shim::{crypto::Signature, econ::TokenAmount, sector::PoStProof};
 use cid::Cid;
 use num::BigInt;
@@ -40,9 +40,9 @@ where
         ticket: &'a Option<Ticket>,
         #[serde(with = "election_proof::json::opt")]
         election_proof: &'a Option<ElectionProof>,
-        #[serde(with = "beacon_entries::json::vec")]
+        #[serde(with = "crate::json::empty_slice_is_null", borrow)]
         beacon_entries: &'a [BeaconEntry],
-        #[serde(rename = "WinPoStProof", with = "sector::json::vec")]
+        #[serde(rename = "WinPoStProof", with = "crate::json::empty_slice_is_null")]
         winning_post_proof: &'a [PoStProof],
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: &'a TipsetKeys,
@@ -98,9 +98,13 @@ where
         ticket: Option<Ticket>,
         #[serde(default, with = "election_proof::json::opt")]
         election_proof: Option<ElectionProof>,
-        #[serde(default, with = "beacon_entries::json::vec")]
+        #[serde(default, with = "crate::json::empty_vec_is_null")]
         beacon_entries: Vec<BeaconEntry>,
-        #[serde(default, rename = "WinPoStProof", with = "sector::json::vec")]
+        #[serde(
+            default,
+            rename = "WinPoStProof",
+            with = "crate::json::empty_vec_is_null"
+        )]
         winning_post_proof: Vec<PoStProof>,
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: TipsetKeys,
@@ -149,29 +153,4 @@ where
         )
         .build()
         .map_err(de::Error::custom)
-}
-
-pub mod vec {
-    use crate::json::vec::GoVecVisitor;
-    use serde::ser::SerializeSeq;
-
-    use super::*;
-
-    pub fn serialize<S>(m: &[BlockHeader], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(m.len()))?;
-        for e in m {
-            seq.serialize_element(&BlockHeaderJsonRef(e))?;
-        }
-        seq.end()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BlockHeader>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(GoVecVisitor::<BlockHeader, BlockHeaderJson>::new())
-    }
 }

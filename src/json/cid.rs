@@ -42,39 +42,14 @@ struct CidMap {
     cid: String,
 }
 
+// TODO(aatifsyed): should this even exist?
 pub mod vec {
-    use crate::json::vec::GoVecVisitor;
-    use serde::ser::SerializeSeq;
-
     use super::*;
 
     /// Wrapper for serializing and de-serializing a Cid vector from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
-    pub struct CidJsonVec(#[serde(with = "self")] pub Vec<Cid>);
-
-    /// Wrapper for serializing a CID slice to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct CidJsonSlice<'a>(#[serde(with = "self")] pub &'a [Cid]);
-
-    pub fn serialize<S>(m: &[Cid], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(m.len()))?;
-        for e in m {
-            seq.serialize_element(&CidJsonRef(e))?;
-        }
-        seq.end()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Cid>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(GoVecVisitor::<Cid, CidJson>::new())
-    }
+    pub struct CidJsonVec(#[serde(with = "crate::json::empty_vec_is_null")] pub Vec<Cid>);
 }
 
 pub mod opt {

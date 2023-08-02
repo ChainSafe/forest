@@ -57,9 +57,10 @@ pub mod empty_vec_is_null {
 
 /// Lotus (de)serializes empty sequences as null.
 /// This matches that behaviour.
-// TODO(aatifsyed): this shouldn't exist.
+// TODO(aatifsyed): this shouldn't exist the `&[T]`s are all serialization helpers
+// (we should just do the actual serialization on the parent struct)
 pub mod empty_slice_is_null {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Serialize, Serializer};
 
     pub fn serialize<S: Serializer, T: Serialize>(
         v: &[T],
@@ -71,12 +72,12 @@ pub mod empty_slice_is_null {
         }
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>, T>(deserializer: D) -> Result<&'de [T], D::Error>
-    where
-        &'de [T]: Deserialize<'de>,
-    {
-        Option::<&'de [T]>::deserialize(deserializer).map(Option::unwrap_or_default)
-    }
+    // pub fn deserialize<'de, D: Deserializer<'de>, T>(deserializer: D) -> Result<&'de [T], D::Error>
+    // where
+    //     &'de [T]: Deserialize<'de>,
+    // {
+    //     Option::<&'de [T]>::deserialize(deserializer).map(Option::unwrap_or_default)
+    // }
 }
 
 pub mod actor_state;
@@ -88,7 +89,6 @@ pub mod sector;
 pub mod signature;
 pub mod signed_message;
 pub mod token_amount;
-pub mod vec;
 pub mod vrf;
 
 #[cfg(test)]

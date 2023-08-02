@@ -40,9 +40,9 @@ pub mod json {
         struct GossipBlockSer<'a> {
             #[serde(with = "header::json")]
             pub header: &'a BlockHeader,
-            #[serde(with = "crate::json::cid::vec")]
+            #[serde(with = "crate::json::empty_slice_is_null")]
             pub bls_messages: &'a [Cid],
-            #[serde(with = "crate::json::cid::vec")]
+            #[serde(with = "crate::json::empty_slice_is_null")]
             pub secpk_messages: &'a [Cid],
         }
         GossipBlockSer {
@@ -62,9 +62,9 @@ pub mod json {
         struct GossipBlockDe {
             #[serde(with = "header::json")]
             pub header: BlockHeader,
-            #[serde(with = "crate::json::cid::vec")]
+            #[serde(with = "crate::json::empty_vec_is_null")]
             pub bls_messages: Vec<Cid>,
-            #[serde(with = "crate::json::cid::vec")]
+            #[serde(with = "crate::json::empty_vec_is_null")]
             pub secpk_messages: Vec<Cid>,
         }
         let GossipBlockDe {

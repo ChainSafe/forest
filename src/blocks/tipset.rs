@@ -447,7 +447,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        crate::json::cid::vec::serialize(m.cids(), serializer)
+        crate::json::empty_slice_is_null::serialize(m.cids(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
@@ -455,7 +455,7 @@ pub mod tipset_keys_json {
         D: Deserializer<'de>,
     {
         Ok(TipsetKeys {
-            cids: crate::json::cid::vec::deserialize(deserializer)?,
+            cids: crate::json::empty_vec_is_null::deserialize(deserializer)?,
         })
     }
 }
@@ -504,7 +504,7 @@ pub mod tipset_json {
         struct TipsetSer<'a> {
             #[serde(with = "super::tipset_keys_json")]
             cids: &'a TipsetKeys,
-            #[serde(with = "super::super::header::json::vec")]
+            #[serde(with = "crate::json::empty_slice_is_null")]
             blocks: &'a [BlockHeader],
             height: ChainEpoch,
         }
@@ -525,7 +525,7 @@ pub mod tipset_json {
         struct TipsetDe {
             #[serde(with = "super::tipset_keys_json")]
             cids: TipsetKeys,
-            #[serde(with = "super::super::header::json::vec")]
+            #[serde(with = "crate::json::empty_vec_is_null")]
             blocks: Vec<BlockHeader>,
             height: ChainEpoch,
         }

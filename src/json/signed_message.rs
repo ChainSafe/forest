@@ -67,31 +67,6 @@ pub mod json {
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
         Ok(SignedMessage { message, signature })
     }
-
-    pub mod vec {
-        use crate::json::vec::GoVecVisitor;
-        use serde::ser::SerializeSeq;
-
-        use super::*;
-
-        pub fn serialize<S>(m: &[SignedMessage], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let mut seq = serializer.serialize_seq(Some(m.len()))?;
-            for e in m {
-                seq.serialize_element(&SignedMessageJsonRef(e))?;
-            }
-            seq.end()
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SignedMessage>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_any(GoVecVisitor::<SignedMessage, SignedMessageJson>::new())
-        }
-    }
 }
 
 #[cfg(test)]
