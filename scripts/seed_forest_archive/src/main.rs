@@ -3,18 +3,22 @@ use rand::prelude::Rng;
 use std::ops::RangeInclusive;
 use which::which;
 
+mod forest;
 mod historical;
 mod store;
-mod forest;
-use store::Store;
 use historical::HistoricalSnapshot;
+use store::Store;
 
-use crate::archive::{has_complete_round, upload_lite_snapshot, upload_diff_snapshot, has_lite_snapshot, has_diff_snapshot};
+use crate::archive::{
+    has_complete_round, has_diff_snapshot, has_lite_snapshot, upload_diff_snapshot,
+    upload_lite_snapshot,
+};
 mod archive;
 
 const FOREST_PROJECT: &str = "forest-391213";
 
-const R2_ENDPOINT: &str = "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com/forest-archive";
+const R2_ENDPOINT: &str =
+    "https://2238a825c5aca59233eab1f221f7aefb.r2.cloudflarestorage.com/forest-archive";
 
 type ChainEpoch = u64;
 type ChainEpochDelta = u64;
@@ -54,11 +58,10 @@ fn main() -> Result<()> {
                 store.insert(initial_range, lite_snapshot);
             }
 
-            for n in 0 .. EPOCH_STEP/DIFF_STEP {
-                let diff_range = RangeInclusive::new(epoch, epoch+DIFF_STEP);
+            for n in 0..EPOCH_STEP / DIFF_STEP {
+                let diff_epoch = epoch + DIFF_STEP * n;
+                let diff_range = RangeInclusive::new(diff_epoch, diff_epoch + DIFF_STEP);
                 store.get_range(&diff_range)?;
-
-                let diff_epoch = epoch + DIFF_STEP*n;
 
                 if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                     let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;

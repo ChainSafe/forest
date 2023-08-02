@@ -1,11 +1,11 @@
 use super::ChainEpoch;
 use super::HistoricalSnapshot;
 use anyhow::Result;
-use std::collections::HashMap;
 use std::collections::btree_map::Range;
+use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
 use std::ops::RangeInclusive;
+use std::path::{Path, PathBuf};
 use tempfile::{NamedTempFile, TempPath};
 
 pub struct Store {
@@ -20,7 +20,7 @@ impl Store {
             local: HashMap::new(),
         }
     }
-    
+
     pub fn files(&self) -> Vec<&Path> {
         self.local.values().map(|tmp| tmp.deref()).collect()
     }
@@ -37,7 +37,8 @@ impl Store {
                 let tmp_forest_file = NamedTempFile::new_in(".")?.into_temp_path();
                 required_snapshot.download(&tmp_plain_file)?;
                 super::forest::compress(&tmp_plain_file, &tmp_forest_file)?;
-                self.local.insert(required_snapshot.epoch_range.clone(), tmp_forest_file);
+                self.local
+                    .insert(required_snapshot.epoch_range.clone(), tmp_forest_file);
             }
         }
         Ok(())
@@ -48,7 +49,6 @@ impl Store {
     }
 
     pub fn drop_before(&mut self, epoch: ChainEpoch) {
-        self.local
-            .retain(|range, _| range.end() < &epoch)
+        self.local.retain(|range, _| range.end() < &epoch)
     }
 }

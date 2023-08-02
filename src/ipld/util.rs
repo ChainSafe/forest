@@ -50,6 +50,9 @@ where
             }
         }
         &Ipld::Link(cid) => {
+            if !should_save_block_to_snapshot(cid) {
+                return Ok(());
+            }
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
             if cid.codec() == crate::shim::crypto::IPLD_RAW {
                 if !walked.insert(cid) {
