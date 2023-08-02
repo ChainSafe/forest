@@ -3,62 +3,37 @@ name: Checkpoints
 on:
   workflow_dispatch:
   schedule:
-    # - cron: "0 0 1 * *" # The 1st of every month
-    - cron: "*/10 * * * *" # for test
+    - cron: "0 0 1 * *" # The 1st of every month
 
 jobs:
-  build-ubuntu:
-    name: Build Ubuntu
-    runs-on: buildjet-8vcpu-ubuntu-2204
-    steps:
-      # To help investigate transient test failures
-      - run: lscpu
-      # find the nearest S3 space for storing cache files
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - name: Install Apt Dependencies
-        run: |
-          sudo make install-deps
-      - name: Cargo Install
-        run: make install
-      - uses: actions/upload-artifact@v3
-        with:
-          name: forest-${{ runner.os }}
-          path: |
-            ~/.cargo/bin/forest*
-          if-no-files-found: error
   update_checkpoints:
-    needs:
-      - build-ubuntu
     runs-on: buildjet-8vcpu-ubuntu-2204
     steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: forest-${{ runner.os }}
-          path: ~/.cargo/bin
-      # Permissions are lost during artifact-upload
-      # https://github.com/actions/upload-artifact#permission-loss
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: mark generate_checkpoints as executable
-        run: chmod +x scripts/generate_checkpoints.sh
-      - name: update checkpoints
-        run: ./scripts/generate_checkpoints.sh
-      - name: raise a pull request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          commit-message: Update snapshot checkpoints
-          title: Update checkpoints
-          body: This is an automated PR that updates forest snapshot checkpoints for calibnet and mainnet.
-          add-paths: build/known_blocks.yaml
-          base: main
-          labels: automated-pr, perf, dx
-          branch: ga-update-checkpoints
-          draft: true
-          # delete-branch: true
+    - name: Checkout Sources
+      uses: actions/checkout@v3
+    - name: disk space
+      run: df -h
+    - name: pwd
+      run: pwd
+    - name: ls
+      run: ls
+    - name: download forest-cli binary
+      run: curl -LJO https://github.com/ChainSafe/forest/releases/download/v0.12.1/forest-v0.12.1-linux-amd64.zip && unzip forest-v0.12.1-linux-amd64.zip && cp forest-v0.12.1/forest-cli .
+    - name: ls
+      run: ls
+    - name: mark generate_checkpoints as executable
+      run: chmod +x scripts/generate_checkpoints.sh
+    - name: update checkpoints
+      run: ./scripts/generate_checkpoints.sh
+    - name: raise a pull request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        commit-message: Update snapshot checkpoints
+        title: Update checkpoints
+        body: This is an automated PR that updates forest snapshot checkpoints for calibnet and mainnet.
+        add-paths: build/known_blocks.yaml
+        base: main
+        labels: automated-pr, perf, dx
+        branch: ga-update-checkpoints
+        draft: true
+        # delete-branch: true
