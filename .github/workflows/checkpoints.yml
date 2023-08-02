@@ -19,10 +19,6 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
       - name: Install Apt Dependencies
         run: |
           sudo make install-deps
