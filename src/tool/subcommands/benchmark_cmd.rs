@@ -1,14 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::chain::{
+    index::{ChainIndex, ResolveNullTipset},
+    ChainEpochDelta,
+};
 use crate::db::car::ManyCar;
 use crate::ipld::{stream_chain, stream_graph};
+use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarStream;
 use anyhow::{Context as _, Result};
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
+use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::{
     fs::File,
     io::{AsyncWrite, AsyncWriteExt, BufReader},
@@ -38,7 +45,7 @@ pub enum BenchmarkCommands {
         #[arg(long, default_value_t = 8000usize.next_power_of_two())]
         frame_size: usize,
     },
-    /// Exporting a `.forest.car.zst` file from @head
+    /// Exporting a `.forest.car.zst` file from HEAD
     Export {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
@@ -48,6 +55,13 @@ pub enum BenchmarkCommands {
         /// End zstd frames after they exceed this length
         #[arg(long, default_value_t = 8000usize.next_power_of_two())]
         frame_size: usize,
+        /// Latest epoch that has to be exported for this snapshot, the upper bound. This value
+        /// cannot be greater than the latest epoch available in the input snapshot.
+        #[arg(short, long)]
+        epoch: Option<ChainEpoch>,
+        /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
+        #[arg(short, long, default_value_t = 2000)]
+        depth: ChainEpochDelta,
     },
 }
 
@@ -67,7 +81,12 @@ impl BenchmarkCommands {
                 snapshot_files,
                 compression_level,
                 frame_size,
-            } => benchmark_exporting(snapshot_files, compression_level, frame_size).await,
+                epoch,
+                depth,
+            } => {
+                benchmark_exporting(snapshot_files, compression_level, frame_size, epoch, depth)
+                    .await
+            }
         }
     }
 }
@@ -135,16 +154,26 @@ async fn benchmark_exporting(
     input: Vec<PathBuf>,
     compression_level: u16,
     frame_size: usize,
+    epoch: Option<ChainEpoch>,
+    depth: ChainEpochDelta,
 ) -> Result<()> {
     let store = open_store(input)?;
     let heaviest = store.heaviest_tipset()?;
-    let stateroot_lookup_limit = heaviest.epoch() - 2000;
+    let idx = ChainIndex::new(&store);
+    let ts = idx.tipset_by_height(
+        epoch.unwrap_or(heaviest.epoch()),
+        Arc::new(heaviest),
+        ResolveNullTipset::TakeOlder,
+    )?;
+    // We don't do any sanity checking for 'depth'. The output is discarded so
+    // there's no need.
+    let stateroot_lookup_limit = ts.epoch() - depth;
 
     let mut dest = indicatif_sink("exported");
 
     let blocks = stream_chain(
         &store,
-        heaviest.clone().chain(&store),
+        ts.deref().clone().chain(&store),
         stateroot_lookup_limit,
     );
 
@@ -153,7 +182,7 @@ async fn benchmark_exporting(
         compression_level,
         blocks.map_err(anyhow::Error::from),
     );
-    crate::db::car::forest::Encoder::write(&mut dest, heaviest.key().cids.clone(), frames).await?;
+    crate::db::car::forest::Encoder::write(&mut dest, ts.key().cids.clone(), frames).await?;
     dest.flush().await?;
     Ok(())
 }
