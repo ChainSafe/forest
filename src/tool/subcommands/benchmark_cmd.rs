@@ -32,6 +32,11 @@ pub enum BenchmarkCommands {
     ForestEncoding {
         /// Snapshot input file (`.car.`, `.car.zst`, `.forest.car.zst`)
         snapshot_file: PathBuf,
+        #[arg(long, default_value_t = 3)]
+        compression_level: u16,
+        /// End zstd frames after they exceed this length
+        #[arg(long, default_value_t = 8000usize.next_power_of_two())]
+        frame_size: usize,
     },
 }
 
@@ -42,9 +47,11 @@ impl BenchmarkCommands {
             Self::GraphTraversal { snapshot_files } => {
                 benchmark_graph_traversal(snapshot_files).await
             }
-            Self::ForestEncoding { snapshot_file } => {
-                benchmark_forest_encoding(snapshot_file).await
-            }
+            Self::ForestEncoding {
+                snapshot_file,
+                compression_level,
+                frame_size,
+            } => benchmark_forest_encoding(snapshot_file, compression_level, frame_size).await,
         }
     }
 }
@@ -83,16 +90,17 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
 }
 
 // Encode a file to the ForestCAR.zst format and measure throughput.
-async fn benchmark_forest_encoding(input: PathBuf) -> Result<()> {
+async fn benchmark_forest_encoding(
+    input: PathBuf,
+    compression_level: u16,
+    frame_size: usize,
+) -> Result<()> {
     let file = tokio::io::BufReader::new(File::open(&input).await?);
 
     let mut block_stream = CarStream::new(file).await?;
     let roots = std::mem::take(&mut block_stream.header.roots);
 
     let mut dest = indicatif_sink("encoded");
-
-    let frame_size = 8000usize.next_power_of_two();
-    let compression_level = 3;
 
     let frames = crate::db::car::forest::Encoder::compress_stream(
         frame_size,
