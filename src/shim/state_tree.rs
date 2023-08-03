@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 use anyhow::{bail, Context};
 use cid::Cid;
@@ -91,16 +94,17 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
 pub enum StateTree<S> {
-    V2(StateTreeV2<S>),
-    V3(StateTreeV3<S>),
+    V2(StateTreeV2<Arc<S>>),
+    V3(StateTreeV3<Arc<S>>),
 }
 
 impl<S> StateTree<S>
 where
-    S: Blockstore + Clone,
+    S: Blockstore,
 {
     /// Constructor for a HAMT state tree given an IPLD store
     pub fn new(store: S, version: StateTreeVersion) -> anyhow::Result<Self> {
+        let store = Arc::new(store);
         if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
             Ok(StateTree::V3(st))
         } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
@@ -111,6 +115,7 @@ where
     }
 
     pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
+        let store = Arc::new(store);
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::V3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store, c) {

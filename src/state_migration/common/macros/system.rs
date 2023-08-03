@@ -25,7 +25,7 @@ macro_rules! impl_system {
             use $crate::state_migration::common::*;
             use $crate::utils::db::CborStoreExt;
 
-            pub(super) fn system_migrator<BS: Blockstore + Clone + Send + Sync>(
+            pub(super) fn system_migrator<BS: Blockstore>(
                 new_manifest: &Manifest,
             ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
                 Arc::new(SystemMigrator {
@@ -39,7 +39,7 @@ macro_rules! impl_system {
                 new_code_cid: Cid,
             }
 
-            impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for SystemMigrator {
+            impl<BS: Blockstore> ActorMigration<BS> for SystemMigrator {
                 fn migrate_state(
                     &self,
                     store: BS,

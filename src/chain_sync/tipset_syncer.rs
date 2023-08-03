@@ -260,7 +260,7 @@ pub(in crate::chain_sync) struct TipsetProcessor<DB, C: Consensus> {
 
 impl<DB, C> TipsetProcessor<DB, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
@@ -348,7 +348,7 @@ enum TipsetProcessorState<DB, C: Consensus> {
 
 impl<DB, C> Future for TipsetProcessor<DB, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetProcessorError<C>>;
@@ -636,7 +636,7 @@ pub(in crate::chain_sync) struct TipsetRangeSyncer<DB, C: Consensus> {
 
 impl<DB, C> TipsetRangeSyncer<DB, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
@@ -760,7 +760,7 @@ where
 /// messages going forward on the chain and validate each extension. Finally set
 /// the proposed head as the heaviest tipset.
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset_range<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
+fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
     tracker: crate::chain_sync::chain_muxer::WorkerState,
@@ -848,7 +848,7 @@ fn sync_tipset_range<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensu
 /// Download headers between the proposed head and the current one available
 /// locally. If they turn out to be on different forks, download more headers up
 /// to a certain limit to try to find a common ancestor.
-async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
+async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static, C: Consensus>(
     tracker: crate::chain_sync::chain_muxer::WorkerState,
     tipset_range_length: u64,
     proposed_head: Arc<Tipset>,
@@ -965,7 +965,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Clone + Sync + Send + 'static,
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
+fn sync_tipset<DB: Blockstore + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -1078,7 +1078,7 @@ async fn fetch_batch<DB: Blockstore, C: Consensus>(
 /// `BlockStore`, or download them from the network, then validate the full
 /// tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
-async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensus>(
+async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static, C: Consensus>(
     tracker: crate::chain_sync::chain_muxer::WorkerState,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -1129,7 +1129,7 @@ async fn sync_messages_check_state<DB: Blockstore + Clone + Send + Sync + 'stati
 /// executed), adding the successful ones to the tipset tracker, and the failed
 /// ones to the bad block cache, depending on strategy. Any bad block fails
 /// validation.
-async fn validate_tipset<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensus>(
+async fn validate_tipset<DB: Blockstore + Send + Sync + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
@@ -1213,7 +1213,7 @@ async fn validate_tipset<DB: Blockstore + Clone + Send + Sync + 'static, C: Cons
 /// * Checking that the messages in the block correspond to the agreed upon
 ///   total ordering
 /// * That the block is a deterministic derivative of the underlying consensus
-async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Consensus>(
+async fn validate_block<DB: Blockstore + Sync + Send + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
@@ -1284,7 +1284,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
     // Base fee check
     let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
     let v_base_tipset = Arc::clone(&base_tipset);
-    let v_block_store = state_manager.blockstore().clone();
+    let v_block_store = state_manager.blockstore_owned();
     let v_block = Arc::clone(&block);
     validations.push(tokio::task::spawn_blocking(move || {
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
@@ -1304,7 +1304,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
     }));
 
     // Parent weight calculation check
-    let v_block_store = state_manager.blockstore().clone();
+    let v_block_store = state_manager.blockstore_owned();
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(tokio::task::spawn_blocking(move || {
@@ -1400,7 +1400,7 @@ async fn validate_block<DB: Blockstore + Clone + Sync + Send + 'static, C: Conse
 ///
 /// NB: This loads/computes the state resulting from the execution of the parent
 /// tipset.
-async fn check_block_messages<DB: Blockstore + Clone + Send + Sync + 'static, C: Consensus>(
+async fn check_block_messages<DB: Blockstore + Send + Sync + 'static, C: Consensus>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
     base_tipset: Arc<Tipset>,
