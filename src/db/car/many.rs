@@ -15,7 +15,6 @@ use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
@@ -84,11 +83,14 @@ impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
 
 impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read_only
-            .par_iter()
-            .find_map_any(|reader| reader.get(k).transpose())
-            .or_else(|| self.writer.get(k).transpose())
-            .transpose()
+        // FIXME: Query each file in parallel. Tracking issue:
+        //        https://github.com/ChainSafe/forest/issues/3222
+        for reader in self.read_only.iter() {
+            if let Some(val) = reader.get(k)? {
+                return Ok(Some(val));
+            }
+        }
+        self.writer.get(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
