@@ -1,11 +1,145 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! In the filecoin ecosystem, there are TWO different ways to present a domain object:
+//! - CBOR (defined in [fvm_ipld_encoding]).
+//!   This is the wire format.
+//! - JSON (see [serde_json]).
+//!   This is used in e.g RPC code, or in lotus printouts
+//!
+//! We care about compatibility with lotus/the filecoin ecosystem for both.
+//! This module explores how we lay that out in code.
+//!
+//! # Terminology
+//! - A "domain object" is a concept of an object.
+//!   E.g "a CID with version = 1, codec = 0, and a multihash which is all zero"
+//!   (This happens to be the default CID).
+//! - The "in memory" representation is how (rust) lays that out in memory.
+//!   See the definition of [`struct Cid { .. }`](`::cid::Cid`).
+//! - The "lotus json" is how [lotus](https://github.com/filecoin-project/lotus),
+//!   the reference filecoin implementation, displays that object in json.
+//!   ```json
+//!   { "/": "baeaaaaa" }
+//!   ```
+//! - The "lotus cbor" is how lotus represents that object on the wire.
+//!   ```rust
+//!   let in_memory = ::cid::Cid::default();
+//!   let cbor = fvm_ipld_encoding::to_vec(&in_memory).unwrap();
+//!   assert_eq!(
+//!       cbor,
+//!       0b_11011000_00101010_01000101_00000000_00000001_00000000_00000000_00000000_u64.to_be_bytes(),
+//!   );
+//!   ```
+//!
+//! In rust, the most common serialization framework is [serde].
+//! It has ONE (de)serialization model for each struct.
+//!
+//! The way forest currently does this is
+//!
+//!
+//!
+
 //! Lotus' json presentation has some quirks.
 //! These are helpers for (de)serialising data that has to match those.
 //!
 //! **Note: writing custom deserialisation code is considered harmful.**
 //! If you are about to write a `mod json` or a `mod vec`, please think twice!
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::{convert::Infallible, fmt::Display, str::FromStr as _};
+
+pub trait LotusSerialize {
+    fn serialize_cbor<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer;
+
+    fn serialize_json<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer;
+}
+
+pub trait LotusDeserialize<'de>: Sized {
+    fn deserialize_cbor<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>;
+
+    fn deserialize_json<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>;
+}
+
+impl<'de, T> LotusSerialize for T
+where
+    T: HasLotusJson<'de> + 'de,
+{
+    fn serialize_cbor<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+
+    fn serialize_json<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+
+// TODO(aatifsyed): #[derive(HasLotusJson)]
+pub trait HasLotusJson<'de>
+where
+    Self::LotusJson: TryInto<Self>,
+    //               ^ This should probably be Into, but users will prefer
+    //                 to write CidLotusJson { cid: String } over
+    //                 CidLotusJson { cid: GuaranteedToParseAsCid<String> }
+    //                 as the implementation of GuaranteedToParse
+    Self: TryInto<Self::LotusJson>,
+    Self: 'de,
+    // use with serde::de::Error::custom
+    <Self::LotusJson as TryInto<Self>>::Error: Display,
+    // use with serde::se::Error::custom
+    <Self as TryInto<Self::LotusJson>>::Error: Display,
+{
+    type LotusJson: Deserialize<'de> + 'de + Serialize;
+    //              ^ This could probably be DeserializeOwned.
+    //                Because json is never on the fastpath (CBOR is).
+    //                But this keeps our options open.
+}
+
+mod cid2 {
+    use super::*;
+
+    impl<'de, const S: usize> HasLotusJson<'de> for ::cid::CidGeneric<S> {
+        type LotusJson = CidLotusJson;
+    }
+
+    /// Structure just used as a helper to serialize a CID into a map with key "/"
+    #[derive(Serialize, Deserialize)]
+    pub struct CidLotusJson {
+        #[serde(rename = "/")]
+        cid: String,
+    }
+
+    impl<const S: usize> TryFrom<CidLotusJson> for ::cid::CidGeneric<S> {
+        type Error = ::cid::Error;
+
+        fn try_from(value: CidLotusJson) -> Result<Self, Self::Error> {
+            Self::from_str(&value.cid)
+        }
+    }
+
+    impl<const S: usize> TryFrom<::cid::CidGeneric<S>> for CidLotusJson {
+        type Error = Infallible;
+
+        fn try_from(value: ::cid::CidGeneric<S>) -> Result<Self, Self::Error> {
+            Ok(Self {
+                cid: value.to_string(),
+            })
+        }
+    }
+}
 
 /// Lotus (de)serializes empty sequences as null.
 /// This matches that behaviour.
