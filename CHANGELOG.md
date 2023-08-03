@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#3319](https://github.com/ChainSafe/forest/pull/3319): Fix bug triggered by
+  re-encoding ForestCAR.zst files.
+
 ## Forest v0.12.1 "Carp++"
 
 ### Fixed
