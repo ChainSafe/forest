@@ -15,7 +15,7 @@ use crate::cli_shared::{
 };
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
-    migration::{check_if_another_db_exist, migrate_db, LATEST_DB_VERSION},
+    migration::{check_if_another_db_exist, migrate_db},
     rolling::DbGarbageCollector,
 };
 use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -152,7 +152,7 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     if let Some(db_path) = check_if_another_db_exist(&config) {
-        migrate_db(&config, db_path, LATEST_DB_VERSION).await?;
+        migrate_db(&config, db_path).await?;
     }
 
     let chain_data_path = chain_path(&config);
