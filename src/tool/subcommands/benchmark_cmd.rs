@@ -10,6 +10,7 @@ use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarStream;
 use anyhow::{Context as _, Result};
+use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -182,7 +183,12 @@ async fn benchmark_exporting(
         compression_level,
         blocks.map_err(anyhow::Error::from),
     );
-    crate::db::car::forest::Encoder::write(&mut dest, ts.key().cids.clone(), frames).await?;
+    crate::db::car::forest::Encoder::write(
+        &mut dest,
+        Vec::<Cid>::from(ts.key().cids.clone()),
+        frames,
+    )
+    .await?;
     dest.flush().await?;
     Ok(())
 }
