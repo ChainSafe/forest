@@ -3,7 +3,7 @@
 
 use std::{fmt, sync::OnceLock};
 
-use crate::ipld::CidVec;
+use crate::ipld::FrozenCids;
 use crate::networks::{calibnet, mainnet};
 use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
@@ -27,11 +27,11 @@ use super::{Block, BlockHeader, Error, Ticket};
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
 pub struct TipsetKeys {
-    pub cids: CidVec,
+    pub cids: FrozenCids,
 }
 
 impl TipsetKeys {
-    pub fn new(cids: CidVec) -> Self {
+    pub fn new(cids: FrozenCids) -> Self {
         Self { cids }
     }
 
@@ -48,7 +48,7 @@ impl TipsetKeys {
 
 impl From<Vec<Cid>> for TipsetKeys {
     fn from(cids: Vec<Cid>) -> Self {
-        Self::new(CidVec::from(cids))
+        Self::new(FrozenCids::from(cids))
     }
 }
 
@@ -564,7 +564,7 @@ mod property_tests {
 
 #[cfg(test)]
 mod test {
-    use crate::ipld::CidVec;
+    use crate::ipld::FrozenCids;
     use crate::json::vrf::VRFProof;
     use crate::shim::address::Address;
     use cid::{
@@ -715,10 +715,10 @@ mod test {
             .unwrap();
         let h1 = BlockHeader::builder()
             .miner_address(Address::new_id(1))
-            .parents(TipsetKeys::new(CidVec::from(Cid::new_v1(
+            .parents(TipsetKeys::new(FrozenCids::from_iter([Cid::new_v1(
                 DAG_CBOR,
                 Identity.digest(&[]),
-            ))))
+            )])))
             .build()
             .unwrap();
         assert_eq!(
