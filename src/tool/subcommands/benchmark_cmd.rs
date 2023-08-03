@@ -118,7 +118,7 @@ fn indicatif_sink(task: &'static str) -> impl AsyncWrite {
     let pb = ProgressBar::new_spinner()
         .with_style(
             ProgressStyle::with_template(
-                "{spinner} {prefix} {total_bytes} at {binary_bytes_per_sec} in {elapsed}",
+                "{spinner} {prefix} {total_bytes} at {binary_bytes_per_sec} in {elapsed_precise}",
             )
             .expect("infallible"),
         )
