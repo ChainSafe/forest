@@ -7,22 +7,12 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 use crate::blocks::BlockHeader;
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,
     pub bls_messages: Vec<Cid>,
     pub secpk_messages: Vec<Cid>,
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for GossipBlock {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Self {
-            header: BlockHeader::arbitrary(g),
-            bls_messages: Vec::arbitrary(g),
-            secpk_messages: Vec::arbitrary(g),
-        }
-    }
 }
 
 pub mod json {

@@ -12,6 +12,7 @@ use data_encoding_macro::new_encoding;
 use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use integer_encoding::VarInt;
 use lazy_static::lazy_static;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -101,6 +102,7 @@ impl Drop for NetworkGuard {
     Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 )]
 #[serde(transparent)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Address(Address_v3);
 
 impl Address {
@@ -147,13 +149,6 @@ impl Address {
 
     pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
         Address_v3::from_bytes(bz).map(Address)
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for Address {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Address(Address_v3::arbitrary(g))
     }
 }
 
@@ -224,10 +219,7 @@ impl Display for Address {
                 write_payload(
                     f,
                     protocol,
-                    Some(unsigned_varint::encode::u64(
-                        addr.namespace(),
-                        &mut unsigned_varint::encode::u64_buffer(),
-                    )),
+                    Some(&addr.namespace().encode_var_vec()),
                     addr.subaddress(),
                 )
             }

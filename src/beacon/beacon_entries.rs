@@ -8,6 +8,7 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 /// The entry contains the round, or epoch as well as the BLS signature for that
 /// round of randomness.
 /// This beacon entry is stored on chain in the block header.
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple)]
 pub struct BeaconEntry {
     round: u64,
@@ -26,16 +27,6 @@ impl BeaconEntry {
     /// The signature of message `H(prev_round, prev_round.data, round)`.
     pub fn data(&self) -> &[u8] {
         &self.data
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for BeaconEntry {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        BeaconEntry {
-            round: u64::arbitrary(g),
-            data: Vec::arbitrary(g),
-        }
     }
 }
 

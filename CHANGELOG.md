@@ -29,23 +29,72 @@
 
 ### Added
 
-- [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
-  `forest-cli archive info` command for inspecting archives.
-- [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
-  `forest-cli archive export -e=X` command for exporting archives.
-- [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
-  option to `forest-cli state fetch` command.
-
 ### Changed
-
-- [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
-  lookup errors instead of silently ignoring them.
 
 ### Removed
 
 ### Fixed
 
-## Forest v0.11.1 "Dagny Taggert"
+## Forest v0.12.1 "Carp++"
+
+### Fixed
+
+- [#3307](https://github.com/ChainSafe/forest/pull/3307)[#3310](https://github.com/ChainSafe/forest/pull/3310):
+  Reduce memory requirements when exporting a snapshot by 50% (roughly from
+  14GiB to 7GiB).
+
+## Forest v0.12.0 "Carp"
+
+Notable updates:
+
+- Support for the `.forest.car.zst` format.
+- Support for diff snapshots.
+
+### Breaking
+
+- [#3189](https://github.com/ChainSafe/forest/issues/3189): Changed the database
+  organisation to use multiple columns. The database will need to be recreated.
+- [#3220](https://github.com/ChainSafe/forest/pull/3220): Removed the
+  `forest-cli chain validate-tipset-checkpoints` and
+  `forest-cli chain tipset-hash` commands.
+
+### Added
+
+- [#3167](https://github.com/ChainSafe/forest/pull/3167): Added a new option
+  `--validate-tipsets` for `forest-cli snapshot validate`.
+- [#3166](https://github.com/ChainSafe/forest/issues/3166): Add
+  `forest-cli archive info` command for inspecting archives.
+- [#3159](https://github.com/ChainSafe/forest/issues/3159): Add
+  `forest-cli archive export -e=X` command for exporting archives.
+- [#3150](https://github.com/ChainSafe/forest/pull/3150):
+  `forest-cli car concat` subcommand for concatenating `.car` files.
+- [#3148](https://github.com/ChainSafe/forest/pull/3148): add `save_to_file`
+  option to `forest-cli state fetch` command.
+- [#3213](https://github.com/ChainSafe/forest/pull/3213): Add support for
+  loading forest.car.zst files.
+- [#3284](https://github.com/ChainSafe/forest/pull/3284): Add `--diff` flag to
+  `archive export`.
+- [#3292](https://github.com/ChainSafe/forest/pull/3292): Add `net info`
+  subcommand to `forest-cli`.
+
+### Changed
+
+- [#3126](https://github.com/ChainSafe/forest/issues/3126): Bail on database
+  lookup errors instead of silently ignoring them.
+- [#2999](https://github.com/ChainSafe/forest/issues/2999): Restored `--tipset`
+  flag to `forest-cli snapshot export` to allow export at a specific tipset.
+- [#3283](https://github.com/ChainSafe/forest/pull/3283): All generated car
+  files use the new forest.car.zst format.
+
+### Removed
+
+### Fixed
+
+- [#3248](https://github.com/ChainSafe/forest/issues/3248): Fixed Forest being
+  unable to re-create its libp2p keypair from file and always changing its
+  `PeerId`.
+
+## Forest v0.11.1 "Dagny Taggart"
 
 ## Forest v0.11.0 "Hypersonic"
 

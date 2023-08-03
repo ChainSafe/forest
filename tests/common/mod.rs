@@ -8,6 +8,10 @@ use assert_cmd::Command;
 use tempfile::TempDir;
 
 pub fn cli() -> Result<Command> {
+    Ok(Command::cargo_bin("forest-cli")?)
+}
+
+pub fn daemon() -> Result<Command> {
     Ok(Command::cargo_bin("forest")?)
 }
 

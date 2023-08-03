@@ -12,20 +12,11 @@ pub mod net;
 pub mod proofs_api;
 pub mod version;
 
-use std::{
-    marker::PhantomData,
-    ops::ControlFlow,
-    pin::Pin,
-    task::{ready, Context, Poll},
-    time::Duration,
-};
-
 use futures::{
     future::{pending, FusedFuture},
     select, Future, FutureExt,
 };
-use futures_util::{Stream, TryStream};
-use pin_project_lite::pin_project;
+use std::{pin::Pin, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
 
@@ -85,97 +76,10 @@ pub enum RetryError {
     RetriesExceeded,
 }
 
-/// _Collation_ is a mixture between [`futures::StreamExt::fold`] and [`futures::StreamExt::chunks`].
-/// It allows a user to fold into collections, like `fold`,
-/// but without consuming the entire stream, like `chunks`.
-///
-/// `collate_fn` should accept a [`Collate`] and return:
-/// - [`ControlFlow::Continue`] to add the next stream item to the current collation
-/// - [`ControlFlow::Break`] to yield the current collation, and start a new one with the next stream item
-///
-/// If the underlying stream returns [`None`], `finish_fn` is called to handle a partial collation.
-pub fn try_collate<Inner, Accumulator, CollateFn, FinishFn, Collection>(
-    inner: Inner,
-    collate_fn: CollateFn,
-    finish_fn: FinishFn,
-) -> TryCollate<Inner, Accumulator, CollateFn, FinishFn, Collection>
-where
-    Inner: TryStream,
-    CollateFn: FnMut(Collate<Accumulator, Inner::Ok>) -> ControlFlow<Collection, Accumulator>,
-    FinishFn: FnMut(Accumulator) -> Collection,
-{
-    fn assert_try_stream<T: TryStream>(t: T) -> T {
-        t
-    }
-
-    assert_try_stream(TryCollate {
-        inner,
-        accumulator: None,
-        collate_fn,
-        finish_fn,
-        collection: PhantomData,
-    })
-}
-
-pin_project! {
-    /// Stream for [`try_collate`], see that function for more.
-    pub struct TryCollate<Inner, Accumulator, CollateFn, FinishFn, Collection> {
-        #[pin]
-        inner: Inner,
-        accumulator: Option<Accumulator>,
-        collate_fn: CollateFn,
-        finish_fn: FinishFn,
-        collection: PhantomData<Collection>
-    }
-}
-
-pub enum Collate<Accumulator, Item> {
-    /// Handle the first item since the last collation
-    Started(Item),
-    /// Fold into the existing collator
-    Continued(Accumulator, Item),
-}
-
-impl<Inner, Accumulator, CollateFn, FinishFn, Collection> Stream
-    for TryCollate<Inner, Accumulator, CollateFn, FinishFn, Collection>
-where
-    Inner: TryStream,
-    CollateFn: FnMut(Collate<Accumulator, Inner::Ok>) -> ControlFlow<Collection, Accumulator>,
-    FinishFn: FnMut(Accumulator) -> Collection,
-{
-    type Item = Result<Collection, Inner::Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.as_mut().project();
-        loop {
-            match ready!(this.inner.as_mut().try_poll_next(cx)) {
-                Some(Ok(ok)) => {
-                    let action = match this.accumulator.take() {
-                        Some(accumulator) => (this.collate_fn)(Collate::Continued(accumulator, ok)),
-                        None => (this.collate_fn)(Collate::Started(ok)),
-                    };
-                    match action {
-                        ControlFlow::Continue(accumulator) => *this.accumulator = Some(accumulator),
-                        ControlFlow::Break(collated) => break Poll::Ready(Some(Ok(collated))),
-                    }
-                }
-                Some(Err(error)) => break Poll::Ready(Some(Err(error))),
-                None => match this.accumulator.take() {
-                    Some(accumulator) => {
-                        break Poll::Ready(Some(Ok((this.finish_fn)(accumulator))))
-                    }
-                    None => break Poll::Ready(None),
-                },
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     mod files;
 
-    use futures::stream::StreamExt as _;
     use std::{future::ready, sync::atomic::AtomicUsize};
     use RetryError::{RetriesExceeded, TimeoutExceeded};
 
@@ -226,33 +130,5 @@ mod tests {
         .await;
         assert_eq!(Ok(()), res);
         assert!(count.load(SeqCst) > 5);
-    }
-
-    #[tokio::test]
-    async fn test_try_collate() {
-        let source = futures::stream::iter(["the", "cuttlefish", "is", "not", "a", "fish"])
-            .map(Ok)
-            .chain(futures::stream::iter([Err(())]));
-
-        let mut collated = try_collate(
-            source,
-            |request| {
-                let buffer = match request {
-                    Collate::Started(el) => String::from(el),
-                    Collate::Continued(already, el) => already + el,
-                };
-                match buffer.len() >= 5 {
-                    true => ControlFlow::Break(buffer),
-                    false => ControlFlow::Continue(buffer),
-                }
-            },
-            std::convert::identity,
-        );
-
-        assert_eq!(collated.next().await.unwrap().unwrap(), "thecuttlefish");
-        assert_eq!(collated.next().await.unwrap().unwrap(), "isnot");
-        assert_eq!(collated.next().await.unwrap().unwrap(), "afish");
-        collated.next().await.unwrap().unwrap_err();
-        assert!(collated.next().await.is_none());
     }
 }

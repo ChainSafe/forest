@@ -192,21 +192,21 @@ impl MinerMigrator {
             let mut out_array = if let Some(prev_in_root) = prev_in_root {
                 if let Some(prev_out_root) = prev_out_root {
                     // we have previous work, but the AMT has changed -- diff them
-                    let prev_in_sectors = crate::ipld_amt::Amt::<
+                    let prev_in_sectors = fvm_ipld_amt::Amt::<
                         fil_actor_miner_state::v8::SectorOnChainInfo,
                         _,
                     >::load(prev_in_root, store)?;
-                    let in_sectors = crate::ipld_amt::Amt::<
+                    let in_sectors = fvm_ipld_amt::Amt::<
                         fil_actor_miner_state::v8::SectorOnChainInfo,
                         _,
                     >::load(in_root, store)?;
-                    let changes = crate::ipld_amt::diff(&prev_in_sectors, &in_sectors)?;
+                    let changes = fvm_ipld_amt::diff(&prev_in_sectors, &in_sectors)?;
                     let mut prev_out_sectors = fil_actors_shared::v9::Array::<
                         fil_actor_miner_state::v9::SectorOnChainInfo,
                         _,
                     >::load(prev_out_root, store)?;
                     for change in changes {
-                        use crate::ipld_amt::ChangeType;
+                        use fvm_ipld_amt::ChangeType;
                         match &change.change_type() {
                             ChangeType::Remove => {
                                 prev_out_sectors.delete(change.key)?;
@@ -370,7 +370,7 @@ mod tests {
     use crate::shim::{
         econ::TokenAmount,
         machine::Manifest,
-        state_tree::{ActorState, StateTree, StateTreeVersion},
+        state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
     use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
@@ -384,7 +384,6 @@ mod tests {
             SHA2_256_TRUNC254_PADDED,
         },
         piece::PaddedPieceSize,
-        state::StateRoot,
     };
 
     #[test]
@@ -590,7 +589,7 @@ mod tests {
 
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
-            bundle.manifest = new_manifest_cid;
+            *bundle = new_manifest_cid;
         }
         let new_state_cid = super::super::run_migration(&chain_config, &store, &tree_root, 200)?;
         let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid)?.unwrap();
@@ -623,7 +622,7 @@ mod tests {
         let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/9/")?;
         let mut chain_config = ChainConfig::calibnet();
         if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
-            bundle.manifest = new_manifest_cid;
+            *bundle = new_manifest_cid;
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &state_tree_old_root, 200)?;

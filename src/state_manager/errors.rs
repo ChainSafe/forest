@@ -3,7 +3,6 @@
 
 use std::fmt::Debug;
 
-use crate::db::Error as DbErr;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -13,9 +12,6 @@ pub enum Error {
     /// Error originating from state
     #[error("{0}")]
     State(String),
-    /// Error originating from key-value store
-    #[error(transparent)]
-    DB(#[from] DbErr),
     /// Other state manager error
     #[error("{0}")]
     Other(String),

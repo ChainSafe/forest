@@ -42,6 +42,7 @@ impl ChainExchangeRequest {
 
 /// Status codes of a `chain_exchange` response.
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum ChainExchangeResponseStatus {
     /// All is well.
     Success,
@@ -57,23 +58,7 @@ pub enum ChainExchangeResponseStatus {
     /// Request was bad.
     BadRequest,
     /// Other undefined response code.
-    Other(i32),
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ChainExchangeResponseStatus {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        *g.choose(&[
-            ChainExchangeResponseStatus::Success,
-            ChainExchangeResponseStatus::PartialResponse,
-            ChainExchangeResponseStatus::BlockNotFound,
-            ChainExchangeResponseStatus::GoAway,
-            ChainExchangeResponseStatus::InternalError,
-            ChainExchangeResponseStatus::BadRequest,
-            ChainExchangeResponseStatus::Other(1),
-        ])
-        .unwrap()
-    }
+    Other(#[cfg_attr(test, arbitrary(gen(|_| 1)))] i32),
 }
 
 impl Serialize for ChainExchangeResponseStatus {

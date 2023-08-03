@@ -15,6 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum SyncStage {
     /// Idle state.
     Idle,
@@ -26,6 +27,7 @@ pub enum SyncStage {
     Messages,
     /// `ChainSync` completed and is following chain.
     Complete,
+    #[cfg_attr(test, arbitrary(skip))]
     /// Error has occurred while syncing.
     Error,
 }
@@ -33,20 +35,6 @@ pub enum SyncStage {
 impl Default for SyncStage {
     fn default() -> Self {
         Self::Headers
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for SyncStage {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        *g.choose(&[
-            SyncStage::Idle,
-            SyncStage::Headers,
-            SyncStage::PersistHeaders,
-            SyncStage::Messages,
-            SyncStage::Complete,
-        ])
-        .unwrap()
     }
 }
 
@@ -95,6 +83,7 @@ impl<'de> Deserialize<'de> for SyncStage {
 /// State of the node's syncing process.
 /// This state is different from the general state of the `ChainSync` process.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SyncState {
     base: Option<Arc<Tipset>>,
     target: Option<Arc<Tipset>>,
@@ -102,31 +91,18 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
+    #[cfg_attr(test, arbitrary(gen(maybe_epoch0)))]
     start: Option<DateTime<Utc>>,
+    #[cfg_attr(test, arbitrary(gen(maybe_epoch0)))]
     end: Option<DateTime<Utc>>,
     message: String,
 }
 
 #[cfg(test)]
-impl quickcheck::Arbitrary for SyncState {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        SyncState {
-            base: Option::arbitrary(g),
-            target: Option::arbitrary(g),
-            stage: SyncStage::arbitrary(g),
-            epoch: ChainEpoch::arbitrary(g),
-            start: if bool::arbitrary(g) {
-                None
-            } else {
-                Some(Utc.timestamp_nanos(0))
-            },
-            end: if bool::arbitrary(g) {
-                None
-            } else {
-                Some(Utc.timestamp_nanos(0))
-            },
-            message: String::arbitrary(g),
-        }
+fn maybe_epoch0(g: &mut quickcheck::Gen) -> Option<DateTime<Utc>> {
+    match quickcheck::Arbitrary::arbitrary(g) {
+        true => None,
+        false => Some(Utc.timestamp_nanos(0)),
     }
 }
 

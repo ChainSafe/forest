@@ -73,11 +73,13 @@ pub enum ChainMuxerError<C: Consensus> {
 
 /// Structure that defines syncing configuration options
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
     /// Sample size of tipsets to acquire before determining what the network
     /// head is
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
     pub tipset_sample_size: usize,
 }
 
@@ -315,14 +317,14 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<Message>(epoch, m))
+            .map(|m| network.bitswap_get::<Message>(m))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
         let secp_messages: Vec<_> = block
             .secpk_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<SignedMessage>(epoch, m))
+            .map(|m| network.bitswap_get::<SignedMessage>(m))
             .collect();
 
         let (bls_messages, secp_messages) =
@@ -336,7 +338,7 @@ where
             bls_messages,
             secp_messages,
         };
-        Ok(FullTipset::new(vec![block]).unwrap())
+        Ok(FullTipset::from(block))
     }
 
     fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
@@ -419,6 +421,10 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
+                // Unset heaviest tipset for disconnected peers
+                metrics::PEER_TIPSET_EPOCH
+                    .with_label_values(&[peer_id.to_string().as_str()])
+                    .set(-1);
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),

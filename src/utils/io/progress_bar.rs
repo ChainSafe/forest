@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 // JANK(aatifsyed): I don't really understand why this module exists, a lot of
 // the code looks wrong
-use std::{io::Stdout, str::FromStr, sync::Arc, time::Duration};
+use std::{io::Stdout, str::FromStr, sync::Arc};
 
 use is_terminal::IsTerminal;
 use parking_lot::{Mutex, RwLock};
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum ProgressBarVisibility {
     Always,
     #[default]
@@ -69,12 +70,6 @@ impl ProgressBar {
         }
     }
 
-    pub fn set_max_refresh_rate(&self, w: Option<Duration>) {
-        if self.display {
-            self.inner.lock().set_max_refresh_rate(w);
-        }
-    }
-
     pub fn set_total(&self, i: u64) {
         if self.display {
             self.inner.lock().total = i;
@@ -123,17 +118,5 @@ impl ProgressBar {
 impl Drop for ProgressBar {
     fn drop(&mut self) {
         self.finish()
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ProgressBarVisibility {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        *g.choose(&[
-            ProgressBarVisibility::Always,
-            ProgressBarVisibility::Auto,
-            ProgressBarVisibility::Never,
-        ])
-        .unwrap()
     }
 }

@@ -19,7 +19,6 @@ cfg_if::cfg_if! {
 mod auth;
 mod beacon;
 mod blocks;
-mod car_backed_blockstore;
 mod chain;
 mod chain_sync;
 mod cli;
@@ -30,9 +29,6 @@ mod fil_cns;
 mod genesis;
 mod interpreter;
 mod ipld;
-// Switch to `fvm_ipld_amt` when possible
-// Tracking issue: https://github.com/ChainSafe/forest/issues/3099
-mod ipld_amt;
 mod json;
 mod key_management;
 mod libp2p;
@@ -40,6 +36,7 @@ mod libp2p_bitswap;
 mod message;
 mod message_pool;
 mod metrics;
+mod r#mod;
 mod networks;
 mod rpc;
 mod rpc_api;
@@ -51,6 +48,10 @@ mod statediff;
 #[cfg(test)]
 mod test_utils;
 mod utils;
+
+pub mod build {
+    pub use super::r#mod::*;
+}
 
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:
@@ -79,7 +80,10 @@ pub mod doctest_private {
 // Allow benchmarks of forest internals
 #[cfg(feature = "benchmark-private")]
 #[doc(hidden)]
-pub mod benchmark_private {}
+pub mod benchmark_private {
+    pub use crate::utils::cid;
+    pub use crate::utils::db::car_index;
+}
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013
 pub use auth::{verify_token, JWT_IDENTIFIER};

@@ -3,11 +3,15 @@
 
 use crate::utils::io::WithProgress;
 use async_compression::tokio::bufread::ZstdDecoder;
-use futures::TryStreamExt;
-use std::io::ErrorKind;
+use cid::Cid;
+use futures::{AsyncWriteExt, TryStreamExt};
+use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
-use tokio::io::{AsyncBufReadExt, AsyncRead};
-use tokio_util::either::Either::{Left, Right};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead};
+use tokio_util::{
+    compat::TokioAsyncReadCompatExt,
+    either::Either::{Left, Right},
+};
 use tracing::info;
 use url::Url;
 
@@ -18,6 +22,39 @@ pub fn global_http_client() -> reqwest::Client {
     CLIENT.clone()
 }
 
+/// Download a file via IPFS HTTP gateway in trustless mode.
+/// See <https://github.com/ipfs/specs/blob/main/http-gateways/TRUSTLESS_GATEWAY.md>
+pub async fn download_ipfs_file_trustlessly(
+    cid: &Cid,
+    gateway: Option<&str>,
+    destination: &Path,
+) -> anyhow::Result<()> {
+    let url = {
+        // https://docs.ipfs.tech/concepts/ipfs-gateway/
+        const DEFAULT_IPFS_GATEWAY: &str = "https://ipfs.io/ipfs/";
+        let mut url =
+            Url::parse(gateway.unwrap_or(DEFAULT_IPFS_GATEWAY))?.join(&format!("{cid}"))?;
+        url.set_query(Some("format=car"));
+        Ok::<_, anyhow::Error>(url)
+    }?;
+
+    let tmp =
+        tempfile::NamedTempFile::new_in(destination.parent().unwrap_or_else(|| Path::new(".")))?
+            .into_temp_path();
+    {
+        let mut reader = reader(url.as_str()).await?.compat();
+        let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
+        rs_car_ipfs::single_file::read_single_file_seek(&mut reader, &mut writer, Some(cid))
+            .await?;
+        writer.flush().await?;
+        writer.close().await?;
+    }
+
+    tmp.persist(destination)?;
+
+    Ok(())
+}
+
 /// `location` may be:
 /// - a path to a local file
 /// - a URL to a web resource
@@ -25,7 +62,7 @@ pub fn global_http_client() -> reqwest::Client {
 /// - uncompressed
 ///
 /// This function returns a reader of uncompressed data.
-pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
+pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
     // This isn't the cleanest approach in terms of error-handling, but it works. If the URL is
     // malformed it'll end up trying to treat it as a local filepath. If that fails - an error
     // is thrown.
@@ -49,14 +86,22 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncRead> {
         }
     };
 
-    let mut reader = tokio::io::BufReader::new(WithProgress::wrap_async_read(
+    Ok(tokio::io::BufReader::new(WithProgress::wrap_async_read(
         "Loading",
         stream,
         content_length,
-    ));
+    )))
+}
 
+pub async fn decompress_if_needed(
+    mut reader: impl AsyncBufRead + Unpin,
+) -> anyhow::Result<impl AsyncRead> {
     Ok(match is_zstd(reader.fill_buf().await?) {
-        true => Left(ZstdDecoder::new(reader)),
+        true => {
+            let mut decoder = ZstdDecoder::new(reader);
+            decoder.multiple_members(true);
+            Left(decoder)
+        }
         false => Right(reader),
     })
 }
