@@ -140,7 +140,7 @@ async fn benchmark_exporting(
     let heaviest = store.heaviest_tipset()?;
     let stateroot_lookup_limit = heaviest.epoch() - 2000;
 
-    let mut dest = indicatif_sink("encoded");
+    let mut dest = indicatif_sink("exported");
 
     let blocks = stream_chain(
         &store,
