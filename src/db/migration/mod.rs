@@ -11,6 +11,7 @@ use crate::utils::proofs_api::paramfetch::{
     ensure_params_downloaded, set_proofs_parameter_cache_dir_env,
 };
 use anyhow::{Context, Result};
+use fs_extra::dir::{copy, CopyOptions};
 use lazy_static::lazy_static;
 use semver::Version;
 use std::fs;
@@ -99,7 +100,16 @@ pub async fn migrate_db(config: &Config, db_path: PathBuf) -> anyhow::Result<()>
     migration_check(config, &temp_db_path).await?;
 
     // Rename db to latest versioned db
-    fs::rename(temp_db_path, chain_path(config))?;
+    if let Some(path) = chain_path(config).to_str() {
+        if path.contains("dev") {
+            let mut options = CopyOptions::new();
+            // options.overwrite = true;
+            options.content_only = true;
+            copy(temp_db_path, chain_path(config), &options)?;
+        } else {
+            fs::rename(temp_db_path, chain_path(config))?;
+        }
+    }
 
     info!("Database Successfully Migrated");
     Ok(())
