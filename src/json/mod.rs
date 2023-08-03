@@ -45,7 +45,7 @@
 //! **Note: writing custom deserialisation code is considered harmful.**
 //! If you are about to write a `mod json` or a `mod vec`, please think twice!
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 use std::{convert::Infallible, fmt::Display, str::FromStr as _};
 
 pub trait LotusSerialize {
@@ -68,50 +68,49 @@ pub trait LotusDeserialize<'de>: Sized {
         D: Deserializer<'de>;
 }
 
-impl<'de, T> LotusSerialize for T
+impl<T> LotusSerialize for T
 where
-    T: HasLotusJson<'de> + 'de,
+    T: Serialize, // CBOR
+    T: HasLotusJson,
+    T::LotusJson: Serialize,
+    for<'a> &'a T: TryInto<T::LotusJson>,
+    for<'a> <&'a T as TryInto<T::LotusJson>>::Error: Display,
 {
     fn serialize_cbor<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        todo!()
+        self.serialize(serializer)
     }
 
     fn serialize_json<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        todo!()
+        match self.try_into() {
+            Ok(o) => o.serialize(serializer),
+            Err(e) => Err(S::Error::custom(e)),
+        }
     }
 }
 
+struct Foo {
+    cid: ::cid::Cid,
+}
+
+struct FooJson {
+    cid: <::cid::Cid as HasLotusJson>::LotusJson,
+}
+
 // TODO(aatifsyed): #[derive(HasLotusJson)]
-pub trait HasLotusJson<'de>
-where
-    Self::LotusJson: TryInto<Self>,
-    //               ^ This should probably be Into, but users will prefer
-    //                 to write CidLotusJson { cid: String } over
-    //                 CidLotusJson { cid: GuaranteedToParseAsCid<String> }
-    //                 as the implementation of GuaranteedToParse
-    Self: TryInto<Self::LotusJson>,
-    Self: 'de,
-    // use with serde::de::Error::custom
-    <Self::LotusJson as TryInto<Self>>::Error: Display,
-    // use with serde::se::Error::custom
-    <Self as TryInto<Self::LotusJson>>::Error: Display,
-{
-    type LotusJson: Deserialize<'de> + 'de + Serialize;
-    //              ^ This could probably be DeserializeOwned.
-    //                Because json is never on the fastpath (CBOR is).
-    //                But this keeps our options open.
+pub trait HasLotusJson {
+    type LotusJson;
 }
 
 mod cid2 {
     use super::*;
 
-    impl<'de, const S: usize> HasLotusJson<'de> for ::cid::CidGeneric<S> {
+    impl<const S: usize> HasLotusJson for ::cid::CidGeneric<S> {
         type LotusJson = CidLotusJson;
     }
 
