@@ -18,13 +18,13 @@ use crate::state_migration::common::{
 
 pub struct InitMigrator(Cid);
 
-pub(in crate::state_migration) fn init_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(in crate::state_migration) fn init_migrator<BS: Blockstore>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(InitMigrator(cid))
 }
 
-impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for InitMigrator {
+impl<BS: Blockstore> ActorMigration<BS> for InitMigrator {
     fn migrate_state(
         &self,
         store: BS,

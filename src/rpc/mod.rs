@@ -48,7 +48,7 @@ pub async fn start_rpc<DB>(
     shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     use auth_api::*;
     use chain_api::*;

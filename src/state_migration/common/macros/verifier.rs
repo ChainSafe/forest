@@ -19,7 +19,7 @@ macro_rules! impl_verifier {
             #[derive(Default)]
             pub struct Verifier {}
 
-            impl<BS: Blockstore + Clone + Send + Sync> ActorMigrationVerifier<BS> for Verifier {
+            impl<BS: Blockstore> ActorMigrationVerifier<BS> for Verifier {
                 fn verify_migration(
                     &self,
                     store: &BS,

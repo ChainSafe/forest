@@ -205,6 +205,15 @@ async fn do_export(
         output_path.to_str().unwrap_or_default()
     );
 
+    let pb = indicatif::ProgressBar::new_spinner().with_style(
+        indicatif::ProgressStyle::with_template(
+            "{spinner} exported {total_bytes} with {binary_bytes_per_sec} in {elapsed}",
+        )
+        .expect("indicatif template must be valid"),
+    );
+    pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
+    let writer = pb.wrap_async_write(writer);
+
     crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
 
     Ok(())

@@ -49,7 +49,7 @@
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
-use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
+use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::uvibytes::UviBytes;
 use ahash::{HashMap, HashMapExt};
@@ -280,10 +280,10 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_map = ahash::HashMap::new();
+        let mut cid_map = HashMap::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
             for cid in cids {
-                cid_map.insert(cid, offset as FrameOffset);
+                cid_map.insert(Hash::from(cid), offset as FrameOffset);
             }
             sink.write_all(&zstd_frame).await?;
             offset += zstd_frame.len();
