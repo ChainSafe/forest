@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::db::car::ManyCar;
-use crate::ipld::stream_graph;
+use crate::ipld::{stream_chain, stream_graph};
 use crate::utils::db::car_stream::CarStream;
 use anyhow::{Context as _, Result};
 use clap::Subcommand;
@@ -38,6 +38,17 @@ pub enum BenchmarkCommands {
         #[arg(long, default_value_t = 8000usize.next_power_of_two())]
         frame_size: usize,
     },
+    /// Exporting a `.forest.car.zst` file from @head
+    Export {
+        /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+        #[arg(long, default_value_t = 3)]
+        compression_level: u16,
+        /// End zstd frames after they exceed this length
+        #[arg(long, default_value_t = 8000usize.next_power_of_two())]
+        frame_size: usize,
+    },
 }
 
 impl BenchmarkCommands {
@@ -52,6 +63,11 @@ impl BenchmarkCommands {
                 compression_level,
                 frame_size,
             } => benchmark_forest_encoding(snapshot_file, compression_level, frame_size).await,
+            Self::Export {
+                snapshot_files,
+                compression_level,
+                frame_size,
+            } => benchmark_exporting(snapshot_files, compression_level, frame_size).await,
         }
     }
 }
@@ -108,6 +124,36 @@ async fn benchmark_forest_encoding(
         block_stream.map_err(anyhow::Error::from),
     );
     crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
+    dest.flush().await?;
+    Ok(())
+}
+
+// Exporting combines a graph traversal with ForestCAR.zst encoding. Ideally, it
+// should be no lower than `min(benchmark_graph_traversal,
+// benchmark_forest_encoding)`.
+async fn benchmark_exporting(
+    input: Vec<PathBuf>,
+    compression_level: u16,
+    frame_size: usize,
+) -> Result<()> {
+    let store = open_store(input)?;
+    let heaviest = store.heaviest_tipset()?;
+    let stateroot_lookup_limit = heaviest.epoch() - 2000;
+
+    let mut dest = indicatif_sink("encoded");
+
+    let blocks = stream_chain(
+        &store,
+        heaviest.clone().chain(&store),
+        stateroot_lookup_limit,
+    );
+
+    let frames = crate::db::car::forest::Encoder::compress_stream(
+        frame_size,
+        compression_level,
+        blocks.map_err(anyhow::Error::from),
+    );
+    crate::db::car::forest::Encoder::write(&mut dest, heaviest.key().cids.clone(), frames).await?;
     dest.flush().await?;
     Ok(())
 }
