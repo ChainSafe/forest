@@ -3430,7 +3430,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_hamt"
 version = "0.7.0"
-source = "git+https://github.com/creativcoder/ref-fvm?branch=creativcoder/hamtv0-forest#c181eedc47963d104a7e7cfc56a79525049354ac"
+source = "git+https://github.com/creativcoder/ref-fvm?branch=creativcoder/hamtv0-forest#76d346fa2b6f63cb8e2e001d207a780ccae4d689"
 dependencies = [
  "anyhow",
  "byteorder",
