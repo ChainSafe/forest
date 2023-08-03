@@ -1,11 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Due to https://git.wiki.kernel.org/index.php/GitFaq#Why_does_Git_not_.22track.22_renames.3F
-// we cannot rewire the git history of this file.
-// check out the original commit history here:
-// https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
-
 pub mod benchmark_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
@@ -21,7 +16,7 @@ pub struct Cli {
     pub cmd: Subcommand,
 }
 
-/// Forest binary sub-commands available.
+/// forest-tool sub-commands
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
     /// Benchmark various Forest subsystems
