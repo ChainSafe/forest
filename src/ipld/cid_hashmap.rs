@@ -91,7 +91,7 @@ where
                 Cid::new_v1(
                     DAG_CBOR,
                     multihash::Multihash::wrap(Blake2b256.into(), bytes)
-                        .expect("failed to convert digest to CID"),
+                        .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
                 ),
                 value.clone(),
             ))
@@ -260,5 +260,13 @@ mod tests {
     fn len(cid_vector: Vec<(Cid, u64)>) {
         let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
         assert_eq!(cid_hash_map.len(), hash_map.len());
+    }
+
+    #[quickcheck]
+    fn cidhashmap_to_hashmap_to_cidhashmap(cid_vector: Vec<(Cid, u64)>) {
+        let (cid_hash_map, _) = generate_hash_maps(cid_vector);
+        let hash_map: HashMap<Cid, u64> = cid_hash_map.into_iter().collect();
+        let cid_hash_map_2: CidHashMap<u64> = hash_map.into_iter().collect();
+        assert_eq!(cid_hash_map, cid_hash_map_2);
     }
 }
