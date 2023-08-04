@@ -19,3 +19,7 @@ use parking_lot::RwLock instead to silently ignore panics."""
 path = "std::sync::Mutex"
 reason = """the standard library synchronization primitives are poisoned when aquiring threads panic.
 use parking_lot::Mutex instead to silently ignore panics."""
+
+[[disallowed-methods]]
+path = "tempfile::NamedTempFile::new"
+reason = """The temporary files created by this method are not persistable if the temporary directory lives on a different filesystem than the target directory. While it is valid in other contexts (if not persisting files), it was misused many times and so we are banning it. Consider using `tempfile::NamedTempFile::new_in` or `tempfile::NamedTempFile::Builder"""
