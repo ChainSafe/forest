@@ -44,17 +44,22 @@ impl DbColumn {
         DbColumn::iter()
             .map(|col| {
                 match col {
-                    DbColumn::GraphDagCborBlake2b256 | DbColumn::Settings => {
-                        parity_db::ColumnOptions {
-                            preimage: true,
-                            compression,
-                            ..Default::default()
-                        }
-                    }
+                    DbColumn::GraphDagCborBlake2b256 => parity_db::ColumnOptions {
+                        preimage: true,
+                        compression,
+                        ..Default::default()
+                    },
                     DbColumn::GraphFull => parity_db::ColumnOptions {
                         preimage: true,
                         // This is needed for key retrieval.
                         btree_index: true,
+                        compression,
+                        ..Default::default()
+                    },
+                    DbColumn::Settings => parity_db::ColumnOptions {
+                        // explicitly disable preimage for settings column
+                        // othewise we are not able to overwrite entries
+                        preimage: false,
                         compression,
                         ..Default::default()
                     },
@@ -135,27 +140,17 @@ impl ParityDb {
 }
 
 impl SettingsStore for ParityDb {
-    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
-    where
-        K: AsRef<str>,
-    {
-        self.read_from_column(key.as_ref().as_bytes(), DbColumn::Settings)
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(key.as_bytes(), DbColumn::Settings)
     }
 
-    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
-    where
-        K: AsRef<str>,
-        V: AsRef<[u8]>,
-    {
-        self.write_to_column(key.as_ref().as_bytes(), value, DbColumn::Settings)
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(key.as_bytes(), value, DbColumn::Settings)
     }
 
-    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
-    where
-        K: AsRef<str>,
-    {
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
         self.db
-            .get_size(DbColumn::Settings as u8, key.as_ref().as_bytes())
+            .get_size(DbColumn::Settings as u8, key.as_bytes())
             .map(|size| size.is_some())
             .context("error checking if key exists")
     }
