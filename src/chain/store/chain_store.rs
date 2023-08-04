@@ -110,21 +110,12 @@ where
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
 
-        match settings.read_obj::<TipsetKeys>(HEAD_KEY)? {
-            None => {
-                let tipset_keys = TipsetKeys::new(vec![*genesis_block_header.cid()]);
-                settings.write_obj(HEAD_KEY, &tipset_keys)?;
-            }
-            Some(tipset_keys) => {
-                let is_valid = chain_index.load_tipset(&tipset_keys).is_ok();
-                if !is_valid {
-                    // If the stored HEAD is invalid, reset it to the genesis tipset.
-                    settings.write_obj(
-                        HEAD_KEY,
-                        &TipsetKeys::new(vec![*genesis_block_header.cid()]),
-                    )?;
-                }
-            }
+        if !settings
+            .read_obj::<TipsetKeys>(HEAD_KEY)?
+            .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
+        {
+            let tipset_keys = TipsetKeys::new(vec![*genesis_block_header.cid()]);
+            settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 
         let validated_blocks = Mutex::new(HashSet::default());
@@ -196,8 +187,7 @@ where
         self.tipset_from_keys(
             &self
                 .settings
-                .read_obj::<TipsetKeys>(HEAD_KEY)
-                .expect("failed to load heaviest tipset")
+                .require_obj::<TipsetKeys>(HEAD_KEY)
                 .expect("failed to load heaviest tipset"),
         )
         .expect("failed to load heaviest tipset")

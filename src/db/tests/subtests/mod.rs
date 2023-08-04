@@ -58,7 +58,9 @@ pub fn does_not_exist<DB>(db: &DB)
 where
     DB: SettingsStore,
 {
-    let key = "0";
-    let res = db.exists(key).unwrap();
-    assert!(!res);
+    let key = "Azathoth";
+
+    assert!(!db.exists(key).unwrap());
+    assert!(db.read_obj::<i32>(key).unwrap().is_none());
+    assert!(db.require_obj::<i32>(key).is_err());
 }

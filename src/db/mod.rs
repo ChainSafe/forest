@@ -41,6 +41,9 @@ pub trait SettingsStore {
 pub trait SettingsStoreExt {
     fn read_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<V>>;
     fn write_obj<V: Serialize>(&self, key: &str, value: &V) -> anyhow::Result<()>;
+
+    /// Same as [`SettingsStoreExt::read_obj`], but returns an error if the key does not exist.
+    fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V>;
 }
 
 impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
@@ -53,6 +56,12 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 
     fn write_obj<V: Serialize>(&self, key: &str, value: &V) -> anyhow::Result<()> {
         self.write_bin(key, &serde_json::to_vec(value)?)
+    }
+
+    fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V> {
+        self.read_bin(key)?
+            .ok_or_else(|| anyhow::anyhow!("Key {key} not found"))
+            .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
     }
 }
 
