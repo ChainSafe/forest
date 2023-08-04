@@ -34,12 +34,27 @@
 //! The way forest currently handles the two is to have a single struct represent
 //! - the domain object
 //! - the in memory representation
-//! - the lotus cbor
+//! - the lotus cbor via `#[derive(Serialize, Deserialize)]`
 //!
-//! This is largely the right decision - the [serde::Serialize] and [serde::Deserialize]
+//! This is largely the right decision - the [Serialize] and [Deserialize]
 //! implementations of crates we depend on model the lotus cbor only.
 //!
+//! However, the way we handle json is inconsistent:
+//! - [Typically we create a `json` module for the domain object, for use with `serde(with = ...)`](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/json/token_amount.rs)
+//! - [Sometimes we create a `FooJson` wrapper struct to wrap the deserialization](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/json/message_receipt.rs#L17)
+//! - [Sometimes we create a `JsonHelper` struct for serde](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/json/signature.rs#L20-L25)
+//! - Sometimes we create [different](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/blocks/header/json.rs#L37-L66) [structs](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/blocks/header/json.rs#L95-L124) for each serialization direction,
+//!   where one typically wraps a reference.
+//! - Typically we create additional [vec](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/json/cid.rs#L45-L78) and [opt](https://github.com/ChainSafe/forest/blob/77d6b2b128d73900b0162e3f573ff8d63e6324b3/src/json/cid.rs#L80-L99) modules for domain objects which may be wrapped as `Vec<T>` and `Option<T>`
+//!
+//! This PR explores more structured ways to handle this.
+//!
 //! # How about a shadow tree with [HasLotusJson]?
+//!
+//! JSON input is on the slow path for forest - we don't expect large numbers of RPC API calls.
+//! We can create mirror `LotusJson` versions of the required structs - most of the complexity above goes away.
+//! We then ensure [From] and [Into] conversions to the domain objects.
+//! With careful design, this could theoretically be a `#[derive(LotusJson)]` macro in future.
 //!
 //! # How about a custom trait which represents both with [LotusSerialize] and [LotusDeserialize]?
 //!
@@ -122,24 +137,31 @@ where
 // TODO(aatifsyed): we should be able to write quickchecks that make sure our parser pipeline doesn't panic
 // but quickcheck is not powerful enough... we should use proptest instead/in addition
 
-use self::cid::CidLotusJson;
-mod cid;
-use token_amount::TokenAmountLotusJson;
-mod token_amount;
-use address::AddressLotusJson;
-mod address;
-use message::MessageLotusJson;
-mod message;
-use signature_type::SignatureTypeLotusJson;
-mod signature_type;
-use signature::SignatureLotusJson;
-mod signature;
-use signed_message::SignedMessageLotusJson;
-mod signed_message;
-use raw_bytes::RawBytesLotusJson;
-mod raw_bytes;
-use vec::VecLotusJson;
-mod vec;
+macro_rules! lotus_json {
+    ($($mod_name:ident -> $ty_name:ident),* $(,)?) => {
+        $(
+            #[allow(unused)]
+            use self::$mod_name::$ty_name;
+            mod $mod_name;
+        )*
+    }
+}
+
+lotus_json!(
+    address -> AddressLotusJson,
+    cid -> CidLotusJson,
+    message -> MessageLotusJson,
+    raw_bytes -> RawBytesLotusJson,
+    signature -> SignatureLotusJson,
+    signature_type -> SignatureTypeLotusJson,
+    signed_message -> SignedMessageLotusJson,
+    token_amount -> TokenAmountLotusJson,
+    vec -> VecLotusJson,
+    beacon_entry -> BeaconEntryLotusJson,
+    vec_u8 -> VecU8LotusJson,
+    election_proof -> ElectionProofLotusJson,
+    vrf_proof -> VRFProofLotusJson,
+);
 
 /// Usage: `#[serde(with = "stringify")]`
 mod stringify {
