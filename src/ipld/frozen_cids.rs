@@ -9,9 +9,9 @@ use cid::{
 use fvm_ipld_encoding::DAG_CBOR;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-// `FrozenCids` takes advantage of the fact that the V1 DAG-CBOR Blake2b-256 variant 
-// (which can be stored in 32 bytes vs 96 bytes for a `Cid` type) is +99.99% of 
-// all CIDs. `FrozenCids` defaults to the `Box<[u8; BLAKE2B256_SIZE]>` variant of 
+// `FrozenCids` takes advantage of the fact that the V1 DAG-CBOR Blake2b-256 variant
+// (which can be stored in 32 bytes vs 96 bytes for a `Cid` type) is +99.99% of
+// all CIDs. `FrozenCids` defaults to the `Box<[u8; BLAKE2B256_SIZE]>` variant of
 // `CidBox`, only using the more expensive `Box<Cid>` variant when necessary.
 // The Box type has been chosen to make `FrozenCids` explicitly immutable.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -103,7 +103,7 @@ impl FromIterator<Cid> for FrozenCids {
     }
 }
 
- // Converts `Vec<Cid>` to `FrozenCids(CidBox::V1DagCborBlake2bCids)` if possible; otherwise, converts to `FrozenCids(CidBox::AllCids)`.
+// Converts `Vec<Cid>` to `FrozenCids(CidBox::V1DagCborBlake2bCids)` if possible; otherwise, converts to `FrozenCids(CidBox::AllCids)`.
 impl From<Vec<Cid>> for FrozenCids {
     fn from(cids: Vec<Cid>) -> Self {
         let mut v1dagcborblake2bcids = Vec::new();
@@ -172,7 +172,7 @@ impl From<&FrozenCids> for Vec<Cid> {
 }
 
 impl FrozenCids {
-     /// Adds a CID to `FrozenCids`, returning the appropriate `FrozenCids` variant via the `FrozenCids::from` call.
+    /// Adds a CID to `FrozenCids`, returning the appropriate `FrozenCids` variant via the `FrozenCids::from` call.
     pub fn push(&self, cid: Cid) -> Self {
         let mut cids = Vec::<Cid>::from(self);
         cids.push(cid);
