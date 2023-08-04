@@ -11,7 +11,7 @@ use anyhow::*;
 use cid::Cid;
 use fvm_ipld_encoding::CborStore;
 use pretty_assertions::assert_eq;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{str::FromStr, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
