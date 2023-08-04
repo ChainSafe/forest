@@ -19,7 +19,7 @@ pub fn make_chain_exchange_response<DB>(
     request: &ChainExchangeRequest,
 ) -> ChainExchangeResponse
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 
@@ -88,7 +88,7 @@ where
 // Builds CompactedMessages for given Tipset.
 fn compact_messages<DB>(db: &DB, tipset: &Tipset) -> Result<CompactedMessages, ChainError>
 where
-    DB: Blockstore + Clone,
+    DB: Blockstore,
 {
     let mut bls_messages_order = HashMap::new();
     let mut secp_messages_order = HashMap::new();

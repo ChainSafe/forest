@@ -164,131 +164,8 @@ pub struct MessagePool<T> {
 
 impl<T> MessagePool<T>
 where
-    T: Provider + std::marker::Send + std::marker::Sync + 'static,
+    T: Provider,
 {
-    /// Creates a new `MessagePool` instance.
-    pub fn new(
-        api: T,
-        network_name: String,
-        network_sender: flume::Sender<NetworkMessage>,
-        config: MpoolConfig,
-        chain_config: Arc<ChainConfig>,
-        services: &mut JoinSet<anyhow::Result<()>>,
-    ) -> Result<MessagePool<T>, Error>
-    where
-        T: Provider,
-    {
-        let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
-        let pending = Arc::new(SyncRwLock::new(HashMap::new()));
-        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
-        let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
-        let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
-        let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
-        let republished = Arc::new(SyncRwLock::new(HashSet::new()));
-        let block_delay = chain_config.block_delay_secs;
-
-        let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
-        let mut mp = MessagePool {
-            local_addrs,
-            pending,
-            cur_tipset: tipset,
-            api: Arc::new(api),
-            min_gas_price: Default::default(),
-            max_tx_pool_size: 5000,
-            network_name,
-            bls_sig_cache,
-            sig_val_cache,
-            local_msgs,
-            republished,
-            config,
-            network_sender,
-            repub_trigger,
-            chain_config: Arc::clone(&chain_config),
-        };
-
-        mp.load_local()?;
-
-        let mut subscriber = mp.api.subscribe_head_changes();
-
-        let api = mp.api.clone();
-        let bls_sig_cache = mp.bls_sig_cache.clone();
-        let pending = mp.pending.clone();
-        let republished = mp.republished.clone();
-
-        let cur_tipset = mp.cur_tipset.clone();
-        let repub_trigger = Arc::new(mp.repub_trigger.clone());
-
-        // Reacts to new HeadChanges
-        services.spawn(async move {
-            loop {
-                match subscriber.recv().await {
-                    Ok(ts) => {
-                        let (cur, rev, app) = match ts {
-                            HeadChange::Apply(tipset) => (
-                                cur_tipset.clone(),
-                                Vec::new(),
-                                vec![tipset.as_ref().clone()],
-                            ),
-                        };
-                        head_change(
-                            api.as_ref(),
-                            bls_sig_cache.as_ref(),
-                            repub_trigger.clone(),
-                            republished.as_ref(),
-                            pending.as_ref(),
-                            cur.as_ref(),
-                            rev,
-                            app,
-                        )
-                        .await
-                        .context("Error changing head")?;
-                    }
-                    Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {} events", e);
-                    }
-                    Err(RecvError::Closed) => {
-                        break Ok(());
-                    }
-                }
-            }
-        });
-
-        let api = mp.api.clone();
-        let pending = mp.pending.clone();
-        let cur_tipset = mp.cur_tipset.clone();
-        let republished = mp.republished.clone();
-        let local_addrs = mp.local_addrs.clone();
-        let network_sender = Arc::new(mp.network_sender.clone());
-        let network_name = mp.network_name.clone();
-        let republish_interval = 10 * block_delay + chain_config.propagation_delay_secs;
-        // Reacts to republishing requests
-        services.spawn(async move {
-            let mut repub_trigger_rx = repub_trigger_rx.stream();
-            let mut interval = interval(Duration::from_secs(republish_interval));
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => (),
-                    _ = repub_trigger_rx.next() => (),
-                }
-                if let Err(e) = republish_pending_messages(
-                    api.as_ref(),
-                    network_sender.as_ref(),
-                    network_name.as_ref(),
-                    pending.as_ref(),
-                    cur_tipset.as_ref(),
-                    republished.as_ref(),
-                    local_addrs.as_ref(),
-                    &chain_config,
-                )
-                .await
-                {
-                    warn!("Failed to republish pending messages: {}", e.to_string());
-                }
-            }
-        });
-        Ok(mp)
-    }
-
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().push(m.from());
@@ -544,6 +421,134 @@ where
         };
 
         select_messages_for_block(self.api.as_ref(), self.chain_config.as_ref(), base, pending)
+    }
+}
+
+impl<T> MessagePool<T>
+where
+    T: Provider + Send + Sync + 'static,
+{
+    /// Creates a new `MessagePool` instance.
+    pub fn new(
+        api: T,
+        network_name: String,
+        network_sender: flume::Sender<NetworkMessage>,
+        config: MpoolConfig,
+        chain_config: Arc<ChainConfig>,
+        services: &mut JoinSet<anyhow::Result<()>>,
+    ) -> Result<MessagePool<T>, Error>
+    where
+        T: Provider,
+    {
+        let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
+        let pending = Arc::new(SyncRwLock::new(HashMap::new()));
+        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
+        let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
+        let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
+        let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
+        let republished = Arc::new(SyncRwLock::new(HashSet::new()));
+        let block_delay = chain_config.block_delay_secs;
+
+        let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
+        let mut mp = MessagePool {
+            local_addrs,
+            pending,
+            cur_tipset: tipset,
+            api: Arc::new(api),
+            min_gas_price: Default::default(),
+            max_tx_pool_size: 5000,
+            network_name,
+            bls_sig_cache,
+            sig_val_cache,
+            local_msgs,
+            republished,
+            config,
+            network_sender,
+            repub_trigger,
+            chain_config: Arc::clone(&chain_config),
+        };
+
+        mp.load_local()?;
+
+        let mut subscriber = mp.api.subscribe_head_changes();
+
+        let api = mp.api.clone();
+        let bls_sig_cache = mp.bls_sig_cache.clone();
+        let pending = mp.pending.clone();
+        let republished = mp.republished.clone();
+
+        let cur_tipset = mp.cur_tipset.clone();
+        let repub_trigger = Arc::new(mp.repub_trigger.clone());
+
+        // Reacts to new HeadChanges
+        services.spawn(async move {
+            loop {
+                match subscriber.recv().await {
+                    Ok(ts) => {
+                        let (cur, rev, app) = match ts {
+                            HeadChange::Apply(tipset) => (
+                                cur_tipset.clone(),
+                                Vec::new(),
+                                vec![tipset.as_ref().clone()],
+                            ),
+                        };
+                        head_change(
+                            api.as_ref(),
+                            bls_sig_cache.as_ref(),
+                            repub_trigger.clone(),
+                            republished.as_ref(),
+                            pending.as_ref(),
+                            cur.as_ref(),
+                            rev,
+                            app,
+                        )
+                        .await
+                        .context("Error changing head")?;
+                    }
+                    Err(RecvError::Lagged(e)) => {
+                        warn!("Head change subscriber lagged: skipping {} events", e);
+                    }
+                    Err(RecvError::Closed) => {
+                        break Ok(());
+                    }
+                }
+            }
+        });
+
+        let api = mp.api.clone();
+        let pending = mp.pending.clone();
+        let cur_tipset = mp.cur_tipset.clone();
+        let republished = mp.republished.clone();
+        let local_addrs = mp.local_addrs.clone();
+        let network_sender = Arc::new(mp.network_sender.clone());
+        let network_name = mp.network_name.clone();
+        let republish_interval = 10 * block_delay + chain_config.propagation_delay_secs;
+        // Reacts to republishing requests
+        services.spawn(async move {
+            let mut repub_trigger_rx = repub_trigger_rx.stream();
+            let mut interval = interval(Duration::from_secs(republish_interval));
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => (),
+                    _ = repub_trigger_rx.next() => (),
+                }
+                if let Err(e) = republish_pending_messages(
+                    api.as_ref(),
+                    network_sender.as_ref(),
+                    network_name.as_ref(),
+                    pending.as_ref(),
+                    cur_tipset.as_ref(),
+                    republished.as_ref(),
+                    local_addrs.as_ref(),
+                    &chain_config,
+                )
+                .await
+                {
+                    warn!("Failed to republish pending messages: {}", e.to_string());
+                }
+            }
+        });
+        Ok(mp)
     }
 }
 

@@ -160,7 +160,7 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -177,11 +177,8 @@ where
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
     ) -> Result<Self, ChainMuxerError<C>> {
-        let network = SyncNetworkContext::new(
-            network_send,
-            peer_manager,
-            state_manager.blockstore().clone(),
-        );
+        let network =
+            SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
 
         Ok(Self {
             state: ChainMuxerState::Idle,
@@ -845,7 +842,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
