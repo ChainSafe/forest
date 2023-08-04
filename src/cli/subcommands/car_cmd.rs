@@ -4,16 +4,14 @@
 use std::path::PathBuf;
 use std::pin::pin;
 
-use cid::Cid;
 use clap::Subcommand;
-use futures::{AsyncRead, Stream, StreamExt, TryStreamExt};
+use futures::{Stream, StreamExt, TryStreamExt};
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_car::CarReader;
 use itertools::Itertools;
 
+use crate::build::{merge_car_readers, BlockPair};
 use crate::ipld::CidHashSet;
-
-type BlockPair = (Cid, Vec<u8>);
 
 #[derive(Debug, Subcommand)]
 pub enum CarCommands {
@@ -59,26 +57,6 @@ impl CarCommands {
         }
         Ok(())
     }
-}
-
-fn read_car_as_stream<R>(reader: CarReader<R>) -> impl Stream<Item = BlockPair>
-where
-    R: AsyncRead + Send + Unpin,
-{
-    futures::stream::unfold(reader, move |mut reader| async {
-        reader
-            .next_block()
-            .await
-            .expect("Failed to call CarReader::next_block")
-            .map(|b| ((b.cid, b.data), reader))
-    })
-}
-
-fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = BlockPair>
-where
-    R: AsyncRead + Send + Unpin,
-{
-    futures::stream::iter(readers).flat_map(read_car_as_stream)
 }
 
 fn dedup_block_stream(stream: impl Stream<Item = BlockPair>) -> impl Stream<Item = BlockPair> {

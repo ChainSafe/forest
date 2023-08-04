@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod src;
-use src::{ActorBundleInfo, ACTOR_BUNDLES};
+use src::{merge_car_readers, ActorBundleInfo, ACTOR_BUNDLES};
 
 use std::{
     env, fs, io,
@@ -15,7 +15,7 @@ use async_compression::futures::write::ZstdEncoder;
 use cid::Cid;
 use futures::{
     io::{BufReader, BufWriter},
-    AsyncRead, AsyncWriteExt, Stream, StreamExt, TryStreamExt,
+    AsyncRead, AsyncWriteExt, TryStreamExt,
 };
 use fvm_ipld_car::{CarHeader, CarReader};
 use itertools::Itertools;
@@ -97,26 +97,6 @@ async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
         .await?;
 
     Ok(())
-}
-
-fn read_car_as_stream<R>(reader: CarReader<R>) -> impl Stream<Item = (Cid, Vec<u8>)>
-where
-    R: AsyncRead + Send + Unpin,
-{
-    futures::stream::unfold(reader, move |mut reader| async {
-        reader
-            .next_block()
-            .await
-            .expect("Failed to call CarReader::next_block")
-            .map(|b| ((b.cid, b.data), reader))
-    })
-}
-
-fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = (Cid, Vec<u8>)>
-where
-    R: AsyncRead + Send + Unpin,
-{
-    futures::stream::iter(readers).flat_map(read_car_as_stream)
 }
 
 async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<PathBuf> {

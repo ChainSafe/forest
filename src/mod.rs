@@ -4,6 +4,8 @@
 //! This module contains code that is shared between the library and the build script
 
 use cid::Cid;
+use futures::{AsyncRead, Stream, StreamExt};
+use fvm_ipld_car::CarReader;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 
@@ -52,3 +54,25 @@ pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 8]> = Lazy::new(|| {
         },
     ]
 });
+
+pub type BlockPair = (Cid, Vec<u8>);
+
+pub fn read_car_as_stream<R>(reader: CarReader<R>) -> impl Stream<Item = BlockPair>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    futures::stream::unfold(reader, move |mut reader| async {
+        reader
+            .next_block()
+            .await
+            .expect("Failed to call CarReader::next_block")
+            .map(|b| ((b.cid, b.data), reader))
+    })
+}
+
+pub fn merge_car_readers<R>(readers: Vec<CarReader<R>>) -> impl Stream<Item = BlockPair>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    futures::stream::iter(readers).flat_map(read_car_as_stream)
+}
