@@ -73,7 +73,7 @@ async fn test_state_migration(
 ) -> Result<()> {
     // Car files are cached under data folder for Go test to pick up without network access
     let car_path = PathBuf::from(format!("./src/state_migration/tests/data/{old_state}.car"));
-    if !Path::new(&car_path).is_file() {
+    if !car_path.is_file() {
         let tmp: tempfile::TempPath =
             tempfile::NamedTempFile::new_in(car_path.parent().unwrap())?.into_temp_path();
         {
