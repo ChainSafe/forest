@@ -30,7 +30,7 @@ pub fn run_state_migrations<DB>(
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync,
 {
     let mappings: [(_, RunMigration<DB>); 3] = [
         (Height::Shark, nv17::run_migration::<DB>),
