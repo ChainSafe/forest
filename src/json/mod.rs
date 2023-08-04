@@ -94,14 +94,6 @@ where
     }
 }
 
-struct Foo {
-    cid: ::cid::Cid,
-}
-
-struct FooJson {
-    cid: <::cid::Cid as HasLotusJson>::LotusJson,
-}
-
 // TODO(aatifsyed): #[derive(HasLotusJson)]
 pub trait HasLotusJson {
     type LotusJson;
