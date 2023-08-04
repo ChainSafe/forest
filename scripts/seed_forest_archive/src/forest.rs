@@ -15,7 +15,7 @@ pub fn export(epoch: ChainEpoch, files: Vec<&Path>) -> Result<PathBuf> {
         .arg(&output_path)
         .args(files)
         .status()?;
-    anyhow::ensure!(status.success());
+    anyhow::ensure!(status.success(), "failed to export lite snapshot");
     Ok(PathBuf::from(output_path))
 }
 
@@ -40,7 +40,7 @@ pub fn export_diff(
         .arg(&output_path)
         .args(files)
         .status()?;
-    anyhow::ensure!(status.success());
+    anyhow::ensure!(status.success(), "failed to export diff snapshot");
     Ok(PathBuf::from(output_path))
 }
 
@@ -53,6 +53,6 @@ pub fn compress(input: &Path, output: &Path) -> Result<()> {
         .arg(output)
         .arg(input)
         .status()?;
-    anyhow::ensure!(status.success());
+    anyhow::ensure!(status.success(), "failed to compress CAR file");
     Ok(())
 }

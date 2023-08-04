@@ -44,7 +44,7 @@ pub fn upload_lite_snapshot(path: &Path) -> Result<()> {
         .arg(path)
         .arg("s3://mainnet/lite/")
         .status()?;
-    anyhow::ensure!(status.success());
+    anyhow::ensure!(status.success(), "failed to upload lite snapshot");
     Ok(())
 }
 
@@ -57,7 +57,7 @@ pub fn upload_diff_snapshot(path: &Path) -> Result<()> {
         .arg(path)
         .arg("s3://mainnet/diff/")
         .status()?;
-    anyhow::ensure!(status.success());
+    anyhow::ensure!(status.success(), "failed to upload diff snapshot");
     Ok(())
 }
 

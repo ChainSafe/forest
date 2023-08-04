@@ -55,7 +55,7 @@ impl HistoricalSnapshot {
             .arg("du")
             .arg("gs://fil-mainnet-archival-snapshots/historical-exports/*")
             .output()?;
-        ensure!(output.status.success());
+        ensure!(output.status.success(), "failed to list historical snapshots");
         ensure!(output.stderr.is_empty());
         std::str::from_utf8(&output.stdout)?
             .lines()
