@@ -11,7 +11,7 @@ use anyhow::*;
 use cid::Cid;
 use fvm_ipld_encoding::CborStore;
 use pretty_assertions::assert_eq;
-use std::path::Path;
+use std::path::PathBuf;
 use std::{str::FromStr, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
@@ -31,7 +31,7 @@ async fn test_nv17_state_migration_calibnet() -> Result<()> {
     .await
 }
 
-#[ignore = "flacky"]
+#[ignore = "flaky"]
 #[tokio::test]
 async fn test_nv18_state_migration_calibnet() -> Result<()> {
     // State migration at height Hygge(epoch 322354) was successful,
@@ -48,7 +48,7 @@ async fn test_nv18_state_migration_calibnet() -> Result<()> {
     .await
 }
 
-#[ignore = "flacky"]
+#[ignore = "flaky"]
 #[tokio::test]
 async fn test_nv19_state_migration_calibnet() -> Result<()> {
     // State migration at height Lightning(epoch 489094) was successful,
@@ -72,9 +72,10 @@ async fn test_state_migration(
     expected_new_state: Cid,
 ) -> Result<()> {
     // Car files are cached under data folder for Go test to pick up without network access
-    let car_path = format!("./src/state_migration/tests/data/{old_state}.car");
-    if !Path::new(&car_path).is_file() {
-        let tmp: tempfile::TempPath = tempfile::NamedTempFile::new()?.into_temp_path();
+    let car_path = PathBuf::from(format!("./src/state_migration/tests/data/{old_state}.car"));
+    if !car_path.is_file() {
+        let tmp: tempfile::TempPath =
+            tempfile::NamedTempFile::new_in(car_path.parent().unwrap())?.into_temp_path();
         {
             let mut reader = crate::utils::net::reader(&format!(
                 "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/state_migration/state/{old_state}.car"

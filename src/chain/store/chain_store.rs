@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
@@ -13,10 +13,7 @@ use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::StateTree, version::NetworkVersion,
 };
-use crate::utils::db::{
-    file_backed_obj::{ChainMeta, FileBacked},
-    BlockstoreExt, CborStoreExt,
-};
+use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
 use cid::Cid;
@@ -34,6 +31,8 @@ use super::{
     Error,
 };
 use crate::chain::Scale;
+use crate::db::setting_keys::{ESTIMATED_RECORDS_KEY, HEAD_KEY};
+use crate::db::{SettingsStore, SettingsStoreExt};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -59,6 +58,9 @@ pub struct ChainStore<DB> {
     /// key-value `datastore`.
     pub db: Arc<DB>,
 
+    /// Settings store
+    settings: Arc<dyn SettingsStore + Sync + Send>,
+
     /// Used as a cache for tipset `lookbacks`.
     pub chain_index: Arc<ChainIndex<Arc<DB>>>,
 
@@ -67,14 +69,8 @@ pub struct ChainStore<DB> {
 
     genesis_block_header: BlockHeader,
 
-    /// File backed heaviest tipset keys
-    file_backed_heaviest_tipset_keys: Mutex<FileBacked<TipsetKeys>>,
-
     /// validated blocks
     validated_blocks: Mutex<HashSet<Cid>>,
-
-    /// File backed chain metadata
-    file_backed_chain_meta: Arc<Mutex<FileBacked<ChainMeta>>>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -107,57 +103,40 @@ where
 {
     pub fn new(
         db: Arc<DB>,
+        settings: Arc<dyn SettingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: BlockHeader,
-        chain_data_root: &Path,
     ) -> Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
-        let file_backed_heaviest_tipset_keys = Mutex::new({
-            let mut head_store = FileBacked::load_from_file_or_create(
-                chain_data_root.join("HEAD"),
-                || TipsetKeys::new(vec![*genesis_block_header.cid()]),
-                None,
-            )?;
-            let is_valid = chain_index.load_tipset(head_store.inner()).is_ok();
-            if !is_valid {
-                // If the stored HEAD is invalid, reset it to the genesis tipset.
-                head_store.set_inner(TipsetKeys::new(vec![*genesis_block_header.cid()]))?;
-            }
-            head_store
-        });
+
+        if !settings
+            .read_obj::<TipsetKeys>(HEAD_KEY)?
+            .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
+        {
+            let tipset_keys = TipsetKeys::new(vec![*genesis_block_header.cid()]);
+            settings.write_obj(HEAD_KEY, &tipset_keys)?;
+        }
+
         let validated_blocks = Mutex::new(HashSet::default());
-        let file_backed_chain_meta = Arc::new(Mutex::new(FileBacked::load_from_file_or_create(
-            chain_data_root.join("meta.yaml"),
-            ChainMeta::default,
-            None,
-        )?));
 
         let cs = Self {
             publisher,
             chain_index,
             tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
             db,
+            settings,
             genesis_block_header,
-            file_backed_heaviest_tipset_keys,
             validated_blocks,
-            file_backed_chain_meta,
         };
 
         Ok(cs)
     }
 
-    /// Gets chain metadata
-    pub fn file_backed_chain_meta(&self) -> &Arc<Mutex<FileBacked<ChainMeta>>> {
-        &self.file_backed_chain_meta
-    }
-
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys in
-    /// `{crate::chain_store}/HEAD`
+    /// the settings store under the [`crate::db::setting_keys::HEAD_KEY`] key.
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.file_backed_heaviest_tipset_keys
-            .lock()
-            .set_inner(ts.key().clone())?;
+        self.settings.write_obj(HEAD_KEY, ts.key())?;
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -168,6 +147,11 @@ where
     /// headers.
     pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
         self.tipset_tracker.add(header);
+    }
+
+    pub fn set_estimated_records(&self, records: u64) -> anyhow::Result<()> {
+        self.settings.write_obj(ESTIMATED_RECORDS_KEY, &records)?;
+        Ok(())
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
@@ -200,8 +184,13 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        self.tipset_from_keys(self.file_backed_heaviest_tipset_keys.lock().inner())
-            .expect("Failed to load heaviest tipset")
+        self.tipset_from_keys(
+            &self
+                .settings
+                .require_obj::<TipsetKeys>(HEAD_KEY)
+                .expect("failed to load heaviest tipset"),
+        )
+        .expect("failed to load heaviest tipset")
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -596,7 +585,6 @@ mod tests {
         Cid,
     };
     use fvm_ipld_encoding::DAG_CBOR;
-    use tempfile::TempDir;
 
     use super::*;
 
@@ -614,9 +602,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let chain_data_root = TempDir::new().unwrap();
-        let cs =
-            ChainStore::new(db, chain_config, gen_block.clone(), chain_data_root.path()).unwrap();
+        let cs = ChainStore::new(db.clone(), db, chain_config, gen_block.clone()).unwrap();
 
         assert_eq!(cs.genesis(), &gen_block);
     }
@@ -630,8 +616,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let chain_data_root = TempDir::new().unwrap();
-        let cs = ChainStore::new(db, chain_config, gen_block, chain_data_root.path()).unwrap();
+        let cs = ChainStore::new(db.clone(), db, chain_config, gen_block).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

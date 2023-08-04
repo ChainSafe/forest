@@ -70,7 +70,6 @@ mod tests {
     use crate::state_manager::StateManager;
     use fvm_ipld_encoding::from_slice;
     use serde_json::from_str;
-    use tempfile::TempDir;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -97,15 +96,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let chain_data_root = TempDir::new().unwrap();
         let cs_arc = Arc::new(
-            ChainStore::new(
-                db,
-                chain_config.clone(),
-                genesis_header.clone(),
-                chain_data_root.path(),
-            )
-            .unwrap(),
+            ChainStore::new(db.clone(), db, chain_config.clone(), genesis_header.clone()).unwrap(),
         );
 
         let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());

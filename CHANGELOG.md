@@ -27,13 +27,30 @@
 
 ### Breaking
 
+- [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
+  internal settings from files to the database.
+
 ### Added
+
+- [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
+  `forest-tool benchmark` commands.
 
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#3319](https://github.com/ChainSafe/forest/pull/3319): Fix bug triggered by
+  re-encoding ForestCAR.zst files.
+
+## Forest v0.12.1 "Carp++"
+
+### Fixed
+
+- [#3307](https://github.com/ChainSafe/forest/pull/3307)[#3310](https://github.com/ChainSafe/forest/pull/3310):
+  Reduce memory requirements when exporting a snapshot by 50% (roughly from
+  14GiB to 7GiB).
 
 ## Forest v0.12.0 "Carp"
 

@@ -69,12 +69,9 @@ impl Blockstore for RollingDB {
 }
 
 impl SettingsStore for RollingDB {
-    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
-    where
-        K: AsRef<str>,
-    {
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
         for db in self.db_queue().iter() {
-            if let Some(v) = SettingsStore::read_bin(db, key.as_ref())? {
+            if let Some(v) = SettingsStore::read_bin(db, key)? {
                 return Ok(Some(v));
             }
         }
@@ -82,25 +79,18 @@ impl SettingsStore for RollingDB {
         Ok(None)
     }
 
-    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
-    where
-        K: AsRef<str>,
-    {
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
+        SettingsStore::write_bin(&self.current(), key, value)
+    }
+
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
         for db in self.db_queue().iter() {
-            if SettingsStore::exists(db, key.as_ref())? {
+            if SettingsStore::exists(db, key)? {
                 return Ok(true);
             }
         }
 
         Ok(false)
-    }
-
-    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
-    where
-        K: AsRef<str>,
-        V: AsRef<[u8]>,
-    {
-        SettingsStore::write_bin(&self.current(), key, value)
     }
 }
 
@@ -212,11 +202,8 @@ impl RollingDB {
 }
 
 fn load_dbs(db_root: &Path, db_config: &DbConfig) -> anyhow::Result<(FileBacked<DbIndex>, Db, Db)> {
-    let mut db_index = FileBacked::load_from_file_or_create(
-        db_root.join("db_index.yaml"),
-        Default::default,
-        None,
-    )?;
+    let mut db_index =
+        FileBacked::load_from_file_or_create(db_root.join("db_index.yaml"), Default::default)?;
     let db_index_mut: &mut DbIndex = db_index.inner_mut();
     if db_index_mut.current.is_empty() {
         db_index_mut.current = Uuid::new_v4().simple().to_string();

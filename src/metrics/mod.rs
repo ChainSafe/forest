@@ -9,6 +9,7 @@ use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use lazy_static::lazy_static;
 use prometheus::core::{AtomicU64, GenericCounterVec, Opts};
 use prometheus::{Encoder, TextEncoder};
+use std::sync::Arc;
 use std::{net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
 use tracing::warn;
@@ -24,10 +25,10 @@ pub async fn add_metrics_registry(name: String, registry: prometheus_client::reg
 pub async fn init_prometheus<DB>(
     prometheus_listener: TcpListener,
     db_directory: PathBuf,
-    db: DB,
+    db: Arc<DB>,
 ) -> anyhow::Result<()>
 where
-    DB: DBStatistics + Sync + Send + Clone + 'static,
+    DB: DBStatistics + Send + Sync + 'static,
 {
     let registry = prometheus::default_registry();
 
@@ -73,10 +74,10 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
 
 #[allow(clippy::unused_async)]
 async fn collect_db_metrics<DB>(
-    axum::extract::State(db): axum::extract::State<DB>,
+    axum::extract::State(db): axum::extract::State<Arc<DB>>,
 ) -> impl IntoResponse
 where
-    DB: DBStatistics + Sync + Send + Clone + 'static,
+    DB: DBStatistics,
 {
     let mut metrics = "# DB statistics:\n".to_owned();
     if let Some(db_stats) = db.get_statistics() {
