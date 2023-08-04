@@ -33,8 +33,10 @@ impl Store {
         for required_snapshot in required_snapshots {
             if self.local.get(&required_snapshot.epoch_range).is_none() {
                 println!("Downloading snapshot: {}", required_snapshot.url);
-                let tmp_plain_file = NamedTempFile::new_in(".")?.into_temp_path();
-                let tmp_forest_file = NamedTempFile::new_in(".")?.into_temp_path();
+                let base_name = format!("snapshot_{}_to_{}.car.zst", required_snapshot.epoch_range.start(), required_snapshot.epoch_range.end());
+                let compressed_name = format!("snapshot_{}_to_{}.forest.car.zst", required_snapshot.epoch_range.start(), required_snapshot.epoch_range.end());
+                let tmp_plain_file = TempPath::from_path(&base_name);
+                let tmp_forest_file = TempPath::from_path(&compressed_name);
                 required_snapshot.download(&tmp_plain_file)?;
                 super::forest::compress(&tmp_plain_file, &tmp_forest_file)?;
                 self.local
@@ -42,10 +44,6 @@ impl Store {
             }
         }
         Ok(())
-    }
-
-    pub fn insert(&mut self, range: RangeInclusive<ChainEpoch>, path: PathBuf) {
-        self.local.insert(range, TempPath::from_path(path));
     }
 
     pub fn drop_before(&mut self, epoch: ChainEpoch) {

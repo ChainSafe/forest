@@ -47,27 +47,28 @@ fn main() -> Result<()> {
         let round = rng.gen::<ChainEpoch>() % max_round;
         let round = 0;
         println!("Round {round}");
-        if !has_complete_round(round)? {
-            let epoch = round * EPOCH_STEP;
-            let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
+        let epoch = round * EPOCH_STEP;
+        let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
+
+        if !has_lite_snapshot(epoch)? {
             store.get_range(&initial_range)?;
+            let lite_snapshot = forest::export(epoch, store.files())?;
+            upload_lite_snapshot(&lite_snapshot)?;
+        } else {
+            println!("Lite snapshot already uploaded - skipping");
+        }
 
-            if !has_lite_snapshot(epoch)? {
-                let lite_snapshot = forest::export(epoch, store.files())?;
-                upload_lite_snapshot(&lite_snapshot)?;
-                store.insert(initial_range, lite_snapshot);
-            }
+        for n in 0..EPOCH_STEP / DIFF_STEP {
+            let diff_epoch = epoch + DIFF_STEP * n;
+            let diff_range =
+                RangeInclusive::new(diff_epoch.saturating_sub(2000), diff_epoch + DIFF_STEP);
 
-            for n in 0..EPOCH_STEP / DIFF_STEP {
-                let diff_epoch = epoch + DIFF_STEP * n;
-                let diff_range = RangeInclusive::new(diff_epoch, diff_epoch + DIFF_STEP);
+            if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                 store.get_range(&diff_range)?;
-
-                if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
-                    let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
-                    upload_diff_snapshot(&diff_snapshot)?;
-                    store.insert(diff_range, diff_snapshot);
-                }
+                let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
+                upload_diff_snapshot(&diff_snapshot)?;
+            } else {
+                println!("Diff snapshot already uploaded - skipping");
             }
         }
         break;

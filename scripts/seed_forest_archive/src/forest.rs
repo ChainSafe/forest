@@ -30,6 +30,8 @@ pub fn export_diff(
         .arg("export")
         .arg("--epoch")
         .arg((epoch + range).to_string())
+        .arg("--depth")
+        .arg(range.to_string())
         .arg("--diff")
         .arg(epoch.to_string())
         .arg("--output-path")
