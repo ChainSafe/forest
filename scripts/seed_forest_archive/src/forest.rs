@@ -34,6 +34,8 @@ pub fn export_diff(
         .arg(range.to_string())
         .arg("--diff")
         .arg(epoch.to_string())
+        .arg("--diff-depth")
+        .arg("2000")
         .arg("--output-path")
         .arg(&output_path)
         .args(files)

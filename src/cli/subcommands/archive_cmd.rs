@@ -73,7 +73,11 @@ pub enum ArchiveCommands {
         depth: ChainEpochDelta,
         /// Do not include any values reachable from epoch-diff.
         #[arg(short, long)]
-        diff: Option<ChainEpochDelta>,
+        diff: Option<ChainEpoch>,
+        /// How many state-roots to include when computing the diff set. All
+        /// state-roots are included if this flag is not set.
+        #[arg(short, long)]
+        diff_depth: Option<ChainEpochDelta>,
     },
     /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
@@ -95,7 +99,7 @@ impl ArchiveCommands {
                 output_path,
                 epoch,
                 depth,
-                diff,
+                diff,diff_depth,
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
 
@@ -106,6 +110,7 @@ impl ArchiveCommands {
                     epoch,
                     depth,
                     diff,
+                    diff_depth
                 )
                 .await
             }
@@ -147,7 +152,8 @@ async fn do_export(
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
-    diff: Option<ChainEpochDelta>,
+    diff: Option<ChainEpoch>,
+    diff_depth: Option<ChainEpochDelta>
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
 
@@ -183,7 +189,8 @@ async fn do_export(
             .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
-        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store));
+        let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
+        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store).take_while(|tipset| tipset.epoch() >= diff_limit ));
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
@@ -407,6 +414,7 @@ mod tests {
             output_path.path().into(),
             Some(0),
             1,
+            None,
             None,
         )
         .await
