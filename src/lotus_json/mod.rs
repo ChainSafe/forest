@@ -100,7 +100,7 @@ where
 }
 
 #[cfg(test)]
-fn assert_round_trip<T>(val: T)
+fn assert_via_json<T>(val: T)
 where
     T: HasLotusJson + Clone + Into<T::LotusJson> + PartialEq + std::fmt::Debug,
     T::LotusJson: Into<T> + Serialize + serde::de::DeserializeOwned,
@@ -122,8 +122,11 @@ where
 // TODO(aatifsyed): we should be able to write quickchecks that make sure our parser pipeline doesn't panic
 // but quickcheck is not powerful enough... we should use proptest instead/in addition
 
+use self::cid::CidLotusJson;
 mod cid {
     use super::*;
+
+    pub type CidLotusJson = CidLotusJsonGeneric<64>;
 
     #[derive(Serialize, Deserialize, From, Into)]
     pub struct CidLotusJsonGeneric<const S: usize> {
@@ -143,12 +146,13 @@ mod cid {
     #[cfg(test)]
     quickcheck! {
         fn round_trip(val: ::cid::Cid) -> bool {
-            assert_round_trip(val);
+            assert_via_json(val);
             true
         }
     }
 }
 
+use token_amount::TokenAmountLotusJson;
 mod token_amount {
     use super::*;
 
@@ -187,12 +191,13 @@ mod token_amount {
     #[cfg(test)]
     quickcheck! {
         fn round_trip(val: TokenAmount) -> bool {
-            assert_round_trip(val);
+            assert_via_json(val);
             true
         }
     }
 }
 
+use address::AddressLotusJson;
 mod address {
     use super::*;
 
@@ -200,10 +205,10 @@ mod address {
 
     #[derive(Serialize, Deserialize, From, Into)]
     #[serde(transparent)]
-    pub struct AddressJson(#[serde(with = "stringify")] Address);
+    pub struct AddressLotusJson(#[serde(with = "stringify")] Address);
 
     impl HasLotusJson for Address {
-        type LotusJson = AddressJson;
+        type LotusJson = AddressLotusJson;
     }
 
     #[test]
@@ -214,7 +219,354 @@ mod address {
     #[cfg(test)]
     quickcheck! {
         fn round_trip(val: Address) -> bool {
-            assert_round_trip(val);
+            assert_via_json(val);
+            true
+        }
+    }
+}
+
+use message::MessageLotusJson;
+mod message {
+    use super::{raw_bytes::RawBytesLotusJson, *};
+
+    use crate::shim::message::Message;
+
+    // TODO(aatifsyed): derive
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct MessageLotusJson {
+        version: u64,
+        to: AddressLotusJson,
+        from: AddressLotusJson,
+        nonce: u64,
+        value: TokenAmountLotusJson,
+        gas_limit: u64,
+        gas_fee_cap: TokenAmountLotusJson,
+        gas_premium: TokenAmountLotusJson,
+        method: u64,
+        params: Option<RawBytesLotusJson>,
+        #[serde(rename = "CID", skip_serializing_if = "Option::is_none")]
+        cid: Option<CidLotusJson>,
+    }
+
+    impl HasLotusJson for Message {
+        type LotusJson = MessageLotusJson;
+    }
+
+    // TODO(aatifsyed): derive
+    impl From<MessageLotusJson> for Message {
+        fn from(value: MessageLotusJson) -> Self {
+            let MessageLotusJson {
+                version,
+                to,
+                from,
+                nonce,
+                value,
+                gas_limit,
+                gas_fee_cap,
+                gas_premium,
+                method,
+                params,
+                cid: _ignored, // TODO(aatifsyed): is this an error?
+            } = value;
+            Self {
+                version,
+                from: from.into(),
+                to: to.into(),
+                sequence: nonce,
+                value: value.into(),
+                method_num: method,
+                params: params.map(Into::into).unwrap_or_default(),
+                gas_limit,
+                gas_fee_cap: gas_fee_cap.into(),
+                gas_premium: gas_premium.into(),
+            }
+        }
+    }
+
+    impl From<Message> for MessageLotusJson {
+        fn from(value: Message) -> Self {
+            let Message {
+                version,
+                from,
+                to,
+                sequence,
+                value,
+                method_num,
+                params,
+                gas_limit,
+                gas_fee_cap,
+                gas_premium,
+            } = value;
+            Self {
+                version,
+                to: to.into(),
+                from: from.into(),
+                nonce: sequence,
+                value: value.into(),
+                gas_limit,
+                gas_fee_cap: gas_fee_cap.into(),
+                gas_premium: gas_premium.into(),
+                method: method_num,
+                params: Some(params.into()),
+                cid: None, // TODO(aatifsyed): is this an error?
+            }
+        }
+    }
+
+    #[test]
+    fn test() {
+        assert_snapshot(
+            json!({
+                "From": "f00",
+                "GasFeeCap": "0",
+                "GasLimit": 0, // BUG?(aatifsyed)
+                "GasPremium": "0",
+                "Method": 0,
+                "Nonce": 0,
+                "Params": "", // BUG?(aatifsyed)
+                "To": "f00",
+                "Value": "0",
+                "Version": 0
+            }),
+            Message::default(),
+        );
+    }
+
+    #[cfg(test)]
+    quickcheck! {
+        fn round_trip(val: Message) -> bool {
+            assert_via_json(val);
+            true
+        }
+    }
+}
+
+use signature_type::SignatureTypeLotusJson;
+mod signature_type {
+    use super::*;
+    use crate::shim::crypto::SignatureType;
+
+    #[derive(Deserialize, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum SignatureTypeLotusJson {
+        Bls,
+        Secp256k1,
+        Delegated,
+    }
+
+    impl HasLotusJson for SignatureType {
+        type LotusJson = SignatureTypeLotusJson;
+    }
+
+    impl From<SignatureTypeLotusJson> for SignatureType {
+        fn from(value: SignatureTypeLotusJson) -> Self {
+            match value {
+                SignatureTypeLotusJson::Bls => Self::Bls,
+                SignatureTypeLotusJson::Secp256k1 => Self::Secp256k1,
+                SignatureTypeLotusJson::Delegated => Self::Delegated,
+            }
+        }
+    }
+
+    impl From<SignatureType> for SignatureTypeLotusJson {
+        fn from(value: SignatureType) -> Self {
+            match value {
+                SignatureType::Secp256k1 => Self::Secp256k1,
+                SignatureType::Bls => Self::Bls,
+                SignatureType::Delegated => Self::Delegated,
+            }
+        }
+    }
+
+    #[test]
+    fn test() {
+        assert_snapshot(json!("bls"), SignatureType::Bls);
+    }
+
+    #[cfg(test)]
+    quickcheck! {
+        fn round_trip(val: SignatureType) -> bool {
+            assert_via_json(val);
+            true
+        }
+    }
+}
+
+use signature::SignatureLotusJson;
+mod signature {
+    use super::*;
+    use crate::shim::crypto::Signature;
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct SignatureLotusJson {
+        r#type: SignatureTypeLotusJson,
+        #[serde(with = "base64_standard")]
+        data: Vec<u8>,
+    }
+
+    impl HasLotusJson for Signature {
+        type LotusJson = SignatureLotusJson;
+    }
+
+    impl From<SignatureLotusJson> for Signature {
+        fn from(value: SignatureLotusJson) -> Self {
+            let SignatureLotusJson { r#type, data } = value;
+            Self {
+                sig_type: r#type.into(),
+                bytes: data,
+            }
+        }
+    }
+
+    impl From<Signature> for SignatureLotusJson {
+        fn from(value: Signature) -> Self {
+            let Signature { sig_type, bytes } = value;
+            Self {
+                r#type: sig_type.into(),
+                data: bytes,
+            }
+        }
+    }
+
+    #[test]
+    fn test() {
+        assert_snapshot(
+            json!({"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}),
+            Signature {
+                sig_type: crate::shim::crypto::SignatureType::Bls,
+                bytes: Vec::from_iter(*b"hello world!"),
+            },
+        );
+    }
+
+    #[cfg(test)]
+    quickcheck! {
+        fn round_trip(val: Signature) -> bool {
+            assert_via_json(val);
+            true
+        }
+    }
+}
+
+use signed_message::SignedMessageLotusJson;
+mod signed_message {
+    use crate::message::SignedMessage;
+
+    use super::*;
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct SignedMessageLotusJson {
+        message: MessageLotusJson,
+        signature: SignatureLotusJson,
+        #[serde(rename = "CID", skip_serializing_if = "Option::is_none")]
+        cid: Option<CidLotusJson>,
+    }
+
+    impl HasLotusJson for SignedMessage {
+        type LotusJson = SignedMessageLotusJson;
+    }
+
+    impl From<SignedMessage> for SignedMessageLotusJson {
+        fn from(value: SignedMessage) -> Self {
+            let SignedMessage { message, signature } = value;
+            Self {
+                message: message.into(),
+                signature: signature.into(),
+                cid: None, // BUG?(aatifsyed)
+            }
+        }
+    }
+
+    impl From<SignedMessageLotusJson> for SignedMessage {
+        fn from(value: SignedMessageLotusJson) -> Self {
+            let SignedMessageLotusJson {
+                message,
+                signature,
+                cid: _ignored, // BUG?(aatifsyed)
+            } = value;
+            Self {
+                message: message.into(),
+                signature: signature.into(),
+            }
+        }
+    }
+
+    #[test]
+    fn test() {
+        assert_snapshot(
+            json!({
+                "Message": {
+                    "From": "f00",
+                    "GasFeeCap": "0",
+                    "GasLimit": 0,
+                    "GasPremium": "0",
+                    "Method": 0,
+                    "Nonce": 0,
+                    "Params": "",
+                    "To": "f00",
+                    "Value": "0",
+                    "Version": 0
+                },
+                "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
+            }),
+            SignedMessage {
+                message: crate::shim::message::Message::default(),
+                signature: crate::shim::crypto::Signature {
+                    sig_type: crate::shim::crypto::SignatureType::Bls,
+                    bytes: Vec::from_iter(*b"hello world!"),
+                },
+            },
+        );
+    }
+
+    #[cfg(test)]
+    quickcheck! {
+        fn round_trip(val: SignedMessage) -> bool {
+            assert_via_json(val);
+            true
+        }
+    }
+}
+
+mod raw_bytes {
+    use super::*;
+    use fvm_ipld_encoding::RawBytes;
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct RawBytesLotusJson(#[serde(with = "base64_standard")] Vec<u8>);
+
+    impl HasLotusJson for RawBytes {
+        type LotusJson = RawBytesLotusJson;
+    }
+
+    impl From<RawBytes> for RawBytesLotusJson {
+        fn from(value: RawBytes) -> Self {
+            RawBytesLotusJson(Vec::from(value))
+        }
+    }
+
+    impl From<RawBytesLotusJson> for RawBytes {
+        fn from(value: RawBytesLotusJson) -> Self {
+            Self::from(value.0)
+        }
+    }
+
+    #[test]
+    fn test() {
+        assert_snapshot(
+            json!("aGVsbG8gd29ybGQh"),
+            RawBytes::new(Vec::from_iter(*b"hello world!")),
+        );
+    }
+
+    #[cfg(test)]
+    quickcheck! {
+        fn round_trip(val: Vec<u8>) -> bool {
+            assert_via_json(RawBytes::new(val));
             true
         }
     }
@@ -287,7 +639,7 @@ mod vec {
     #[cfg(test)]
     quickcheck! {
         fn round_trip(val: Vec<::cid::Cid>) -> bool {
-            assert_round_trip(val);
+            assert_via_json(val);
             true
         }
     }
@@ -313,6 +665,28 @@ mod stringify {
     {
         String::deserialize(deserializer)?
             .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+mod base64_standard {
+    use super::*;
+
+    use base64::engine::{general_purpose::STANDARD, Engine as _};
+
+    pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        STANDARD.encode(value).serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        STANDARD
+            .decode(String::deserialize(deserializer)?)
             .map_err(serde::de::Error::custom)
     }
 }
