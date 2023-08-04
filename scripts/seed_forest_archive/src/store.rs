@@ -30,6 +30,8 @@ impl Store {
         let required_snapshots = self.known_snapshots.iter().filter(|snapshot| {
             range.contains(snapshot.epoch_range.start())
                 || range.contains(snapshot.epoch_range.end())
+            || snapshot.epoch_range.contains(range.start())
+            || snapshot.epoch_range.contains(range.end())
         });
         for required_snapshot in required_snapshots {
             if self.local.get(&required_snapshot.epoch_range).is_none() {
