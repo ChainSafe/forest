@@ -115,7 +115,7 @@ where
             .read_obj::<TipsetKeys>(HEAD_KEY)?
             .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
         {
-            let tipset_keys = TipsetKeys::new(vec![*genesis_block_header.cid()]);
+            let tipset_keys = TipsetKeys::new(FrozenCids::from_iter([*genesis_block_header.cid()]));
             settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 
