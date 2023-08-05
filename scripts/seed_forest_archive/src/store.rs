@@ -26,6 +26,7 @@ impl Store {
     }
 
     pub fn get_range(&mut self, range: &RangeInclusive<ChainEpoch>) -> Result<()> {
+        self.drop_before(*range.start())?;
         println!("Get range: {:?}", range);
         let required_snapshots = self.known_snapshots.iter().filter(|snapshot| {
             range.contains(snapshot.epoch_range.start())
@@ -46,7 +47,6 @@ impl Store {
                     .insert(required_snapshot.epoch_range.clone(), tmp_forest_file);
             }
         }
-        self.drop_before(*range.start())?;
         Ok(())
     }
 
