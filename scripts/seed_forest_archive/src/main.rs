@@ -33,6 +33,8 @@ fn main() -> Result<()> {
     which("forest").context("Failed to find the 'forest' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
     which("gsutil").context("Failed to find the 'gsutil' binary.\nSee installation instructions: https://cloud.google.com/storage/docs/gsutil_install")?;
 
+    let mut threads = vec![];
+
     let snapshots = HistoricalSnapshot::new()?;
     let highest_epoch = snapshots
         .iter()
@@ -45,7 +47,7 @@ fn main() -> Result<()> {
     let mut store = Store::new(snapshots.clone());
     loop {
         let round = rng.gen::<ChainEpoch>() % max_round;
-        let round = 0;
+        let round = 50;
         println!("Round {round}");
         let epoch = round * EPOCH_STEP;
         let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
@@ -53,7 +55,12 @@ fn main() -> Result<()> {
         if !has_lite_snapshot(epoch)? {
             store.get_range(&initial_range)?;
             let lite_snapshot = forest::export(epoch, store.files())?;
-            upload_lite_snapshot(&lite_snapshot)?;
+            threads.push(std::thread::spawn(move|| {
+                upload_lite_snapshot(&lite_snapshot)?;
+                std::fs::remove_file(&lite_snapshot)?;
+                anyhow::Ok(())
+            }));
+
         } else {
             println!("Lite snapshot already uploaded - skipping");
         }
@@ -66,12 +73,19 @@ fn main() -> Result<()> {
             if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                 store.get_range(&diff_range)?;
                 let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
-                upload_diff_snapshot(&diff_snapshot)?;
+                threads.push(std::thread::spawn(move|| {
+                    upload_diff_snapshot(&diff_snapshot)?;
+                    std::fs::remove_file(&diff_snapshot)?;
+                    anyhow::Ok(())
+                }));
             } else {
                 println!("Diff snapshot already uploaded - skipping");
             }
         }
         break;
+    }
+    for thread in threads {
+        thread.join().unwrap()?;
     }
     // for snapshot in snapshots {
     //     println!("{:?}", snapshot);

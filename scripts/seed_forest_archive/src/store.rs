@@ -10,7 +10,7 @@ use tempfile::{NamedTempFile, TempPath};
 
 pub struct Store {
     known_snapshots: Vec<HistoricalSnapshot>,
-    local: HashMap<RangeInclusive<ChainEpoch>, TempPath>,
+    local: HashMap<RangeInclusive<ChainEpoch>, PathBuf>,
 }
 
 impl Store {
@@ -39,17 +39,24 @@ impl Store {
                 let base_name = format!("snapshot_{}_to_{}.car.zst", required_snapshot.epoch_range.start(), required_snapshot.epoch_range.end());
                 let compressed_name = format!("snapshot_{}_to_{}.forest.car.zst", required_snapshot.epoch_range.start(), required_snapshot.epoch_range.end());
                 let tmp_plain_file = TempPath::from_path(&base_name);
-                let tmp_forest_file = TempPath::from_path(&compressed_name);
+                let tmp_forest_file = PathBuf::from(&compressed_name);
                 required_snapshot.download(&tmp_plain_file)?;
                 super::forest::compress(&tmp_plain_file, &tmp_forest_file)?;
                 self.local
                     .insert(required_snapshot.epoch_range.clone(), tmp_forest_file);
             }
         }
+        self.drop_before(*range.start())?;
         Ok(())
     }
 
-    pub fn drop_before(&mut self, epoch: ChainEpoch) {
-        self.local.retain(|range, _| range.end() < &epoch)
+    pub fn drop_before(&mut self, epoch: ChainEpoch) -> Result<()> {
+        for (range,v) in self.local.iter() {
+            if range.end() < &epoch {
+                std::fs::remove_file(v)?;
+            }
+        }
+        self.local.retain(|range, _| range.end() >= &epoch);
+        Ok(())
     }
 }
