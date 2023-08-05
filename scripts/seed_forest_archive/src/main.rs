@@ -47,9 +47,12 @@ fn main() -> Result<()> {
     let mut store = Store::new(snapshots.clone());
     loop {
         let round = rng.gen::<ChainEpoch>() % max_round;
-        let round = 50;
         println!("Round {round}");
         let epoch = round * EPOCH_STEP;
+        // Avoid older epochs for now. This due to corrupt CBOR data.
+        if epoch < 1594680 {
+            continue;
+        }
         let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
 
         if !has_lite_snapshot(epoch)? {
