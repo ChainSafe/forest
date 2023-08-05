@@ -4,13 +4,17 @@
 use crate::ipld::CidHashMap;
 use cid::Cid;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CidHashSet(CidHashMap<()>);
 
 impl CidHashSet {
     /// Adds a value to the set if not already present and returns whether the value was newly inserted.
     pub fn insert(&mut self, cid: Cid) -> bool {
         self.0.insert(cid, ()).is_none()
+    }
+
+    pub fn exists(&self, cid: Cid) -> bool {
+        self.0.contains_key(cid)
     }
 
     /// Returns the number of items in the set.

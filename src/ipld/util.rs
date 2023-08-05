@@ -15,13 +15,17 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::Block;
 use crate::utils::io::progress_log::WithProgressRaw;
 use cid::Cid;
+use dashmap::DashSet;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
+use parking_lot::RwLock;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicI8, Ordering};
 use std::task::{Context, Poll};
+use tokio::task;
 
 use crate::ipld::{CidHashSet, Ipld};
 
@@ -426,15 +430,19 @@ enum PrefetchingTask {
     Emit(Cid),
     // Visit all the elements, recursively.
     Iterate(VecDeque<Cid>),
+    // Prefetch the top level for each tipset.
+    Prefetch(VecDeque<Cid>),
 }
 
 pin_project! {
     pub struct PrefetchingChainStream<DB, T> {
         #[pin]
         tipset_iter: T,
-        db: DB,
+        db: Arc<DB>,
         dfs: VecDeque<PrefetchingTask>, // Depth-first work queue.
-        seen: CidHashSet,
+        seen: Arc<RwLock<CidHashSet>>,
+        prefetched: Arc<DashSet<Cid>>,
+        prefetch_worker_count: Arc<AtomicI8>,
         stateroot_limit: ChainEpoch,
         fail_on_dead_links: bool,
     }
@@ -442,11 +450,14 @@ pin_project! {
 
 impl<DB, T> PrefetchingChainStream<DB, T> {
     pub fn with_seen(self, seen: CidHashSet) -> Self {
-        Self { seen, ..self }
+        Self {
+            seen: Arc::new(RwLock::new(seen)),
+            ..self
+        }
     }
 
     pub fn into_seen(self) -> CidHashSet {
-        self.seen
+        self.seen.read().clone()
     }
 }
 
@@ -460,8 +471,11 @@ impl<DB, T> PrefetchingChainStream<DB, T> {
 /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
 /// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
 /// `$depth` is the number of `[`Tipset`]` that needs inspection.
-pub fn stream_chain_prefetching<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
-    db: DB,
+pub fn stream_chain_prefetching<
+    DB: Blockstore + Send + Sync,
+    T: Iterator<Item = Tipset> + Unpin,
+>(
+    db: Arc<DB>,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> PrefetchingChainStream<DB, T> {
@@ -469,29 +483,38 @@ pub fn stream_chain_prefetching<DB: Blockstore, T: Iterator<Item = Tipset> + Unp
         tipset_iter,
         db,
         dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
+        prefetched: Arc::new(DashSet::new()),
+        seen: Arc::new(RwLock::new(CidHashSet::default())),
         stateroot_limit,
         fail_on_dead_links: true,
+        prefetch_worker_count: Arc::new(AtomicI8::default()),
     }
 }
 
 // Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
 // are ignored.
-pub fn stream_graph_prefetching<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
-    db: DB,
+pub fn stream_graph_prefetching<
+    DB: Blockstore + Send + Sync,
+    T: Iterator<Item = Tipset> + Unpin,
+>(
+    db: Arc<DB>,
     tipset_iter: T,
 ) -> PrefetchingChainStream<DB, T> {
     PrefetchingChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
+        prefetched: Arc::new(DashSet::new()),
+        prefetch_worker_count: Arc::new(AtomicI8::default()),
+        seen: Arc::new(RwLock::new(CidHashSet::default())),
         stateroot_limit: 0,
         fail_on_dead_links: false,
     }
 }
 
-impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for PrefetchingChainStream<DB, T> {
+impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
+    for PrefetchingChainStream<DB, T>
+{
     type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -519,6 +542,33 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for PrefetchingC
                             return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
                     }
+                    Prefetch(_) => {
+                        if let Some(Prefetch(cid_vec)) = this.dfs.pop_front() {
+                            let cur_count = this.prefetch_worker_count.load(Ordering::Relaxed);
+                            // An arbitrary limit of scheduled tasks.
+                            // This is helpful to avoid scheduling prefetches that will be late to
+                            // the party.
+                            if cur_count < 12 {
+                                task::spawn({
+                                    let db = this.db.clone();
+                                    let count = this.prefetch_worker_count.clone();
+                                    let seen = this.seen.clone();
+                                    let prefetched = this.prefetched.clone();
+                                    async move {
+                                        for cid in cid_vec.clone() {
+                                            if seen.read().exists(cid) {
+                                                continue;
+                                            }
+                                            if prefetched.insert(cid) {
+                                                let _ = db.get(&cid);
+                                            }
+                                        }
+                                        count.fetch_sub(1, Ordering::Relaxed);
+                                    }
+                                });
+                            }
+                        }
+                    }
                     Iterate(cid_vec) => {
                         while let Some(cid) = cid_vec.pop_front() {
                             // The link traversal implementation assumes there are three types of encoding:
@@ -526,13 +576,16 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for PrefetchingC
                             // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
                             // 3. _: ignore all other links
                             // Don't revisit what's already been visited.
-                            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                            if should_save_block_to_snapshot(cid) && this.seen.write().insert(cid) {
+                                let _ = this.prefetched.insert(cid);
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let ipld: Ipld = from_slice(&data)?;
                                         let mut new_vec = DfsIter::new(ipld)
                                             .flat_map(ipld_to_cid)
                                             .collect::<VecDeque<Cid>>();
+                                        let prefetch_vec = new_vec.clone();
+
                                         // Since there's no way to add a whole Vec to the front,
                                         // just add an old one to a new one and reassign the
                                         // pointer.
@@ -558,7 +611,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for PrefetchingC
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.as_mut().next() {
                 for block in tipset.into_blocks().into_iter() {
-                    if this.seen.insert(*block.cid()) {
+                    if this.seen.write().insert(*block.cid()) {
+                        this.prefetched.insert(*block.cid());
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(*block.cid()));
 
@@ -574,6 +628,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for PrefetchingC
                             let cid_vec = DfsIter::from(*block.messages())
                                 .flat_map(ipld_to_cid)
                                 .collect::<VecDeque<Cid>>();
+                            this.dfs.push_back(Prefetch(cid_vec.clone()));
                             this.dfs.push_back(Iterate(cid_vec));
                         }
 
@@ -585,6 +640,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for PrefetchingC
                             let cid_vec = DfsIter::from(*block.state_root())
                                 .flat_map(ipld_to_cid)
                                 .collect::<VecDeque<Cid>>();
+                            this.dfs.push_back(Prefetch(cid_vec.clone()));
                             this.dfs.push_back(Iterate(cid_vec));
                         }
                     }
