@@ -149,18 +149,22 @@ macro_rules! lotus_json {
 
 lotus_json!(
     address -> AddressLotusJson,
+    beacon_entry -> BeaconEntryLotusJson,
+    block_header -> BlockHeaderLotusJson,
     cid -> CidLotusJson,
+    election_proof -> ElectionProofLotusJson,
     message -> MessageLotusJson,
     raw_bytes -> RawBytesLotusJson,
     signature -> SignatureLotusJson,
     signature_type -> SignatureTypeLotusJson,
     signed_message -> SignedMessageLotusJson,
+    ticket -> TicketLotusJson,
+    tipset_keys ->  TipsetKeysLotusJson,
     token_amount -> TokenAmountLotusJson,
     vec -> VecLotusJson,
-    beacon_entry -> BeaconEntryLotusJson,
     vec_u8 -> VecU8LotusJson,
-    election_proof -> ElectionProofLotusJson,
     vrf_proof -> VRFProofLotusJson,
+    po_st_proof -> PoStProofLotusJson,
 );
 
 /// Usage: `#[serde(with = "stringify")]`

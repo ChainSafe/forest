@@ -9,14 +9,17 @@ where
     type LotusJson = VecLotusJson<T::LotusJson>;
 }
 
-impl<T> Serialize for VecLotusJson<T> {
+impl<T> Serialize for VecLotusJson<T>
+where
+    T: Serialize,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match self.0.is_empty() {
             true => serializer.serialize_none(),
-            false => self.serialize(serializer),
+            false => self.0.serialize(serializer),
         }
     }
 }
