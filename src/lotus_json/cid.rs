@@ -23,8 +23,7 @@ fn test() {
 
 #[cfg(test)]
 quickcheck! {
-    fn round_trip(val: ::cid::Cid) -> bool {
-        assert_via_json(val);
-        true
+    fn round_trip(val: ::cid::Cid) -> () {
+        assert_via_json(val)
     }
 }

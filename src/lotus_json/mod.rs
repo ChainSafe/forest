@@ -107,7 +107,7 @@ where
 }
 
 #[cfg(test)]
-fn assert_snapshot</* 'de, */ T>(lotus_json: serde_json::Value, val: T)
+pub fn assert_snapshot</* 'de, */ T>(lotus_json: serde_json::Value, val: T)
 where
     T: HasLotusJson + PartialEq + std::fmt::Debug,
 {
@@ -122,7 +122,7 @@ where
 }
 
 #[cfg(test)]
-fn assert_via_json<T>(val: T)
+pub fn assert_via_json<T>(val: T)
 where
     T: HasLotusJson + Clone + Into<T::LotusJson> + PartialEq + std::fmt::Debug,
     T::LotusJson: Into<T> + Serialize + serde::de::DeserializeOwned,
@@ -148,7 +148,7 @@ macro_rules! decl_and_test {
     ($($mod_name:ident -> $lotus_json_ty:ident for $domain_ty:ty),* $(,)?) => {
         $(
             #[allow(unused)]
-            use self::$mod_name::$lotus_json_ty;
+            pub use self::$mod_name::$lotus_json_ty;
             mod $mod_name;
         )*
         #[test]
@@ -175,7 +175,7 @@ macro_rules! decl_and_test {
 decl_and_test!(
     address -> AddressLotusJson for crate::shim::address::Address,
     beacon_entry -> BeaconEntryLotusJson for crate::beacon::BeaconEntry,
-    // block_header -> BlockHeaderLotusJson for crate::blocks::BlockHeader,
+    big_int -> BigIntLotusJson for num::BigInt,
     election_proof -> ElectionProofLotusJson for crate::blocks::ElectionProof,
     message -> MessageLotusJson for crate::shim::message::Message,
     po_st_proof -> PoStProofLotusJson for crate::shim::sector::PoStProof,
@@ -190,14 +190,14 @@ decl_and_test!(
     vrf_proof -> VRFProofLotusJson for  crate::json::vrf::VRFProof, // TODO(aatifsyed): why is this in `json`?
 );
 
-use self::cid::CidLotusJson;
-mod cid;
+pub use self::cid::CidLotusJson;
+mod cid; // can't make snapshots of generic type
 
-use self::vec::VecLotusJson;
-mod vec;
+pub use self::vec::VecLotusJson;
+mod vec; // can't make snapshots of generic type
 
-use self::raw_bytes::RawBytesLotusJson;
-mod raw_bytes;
+pub use self::raw_bytes::RawBytesLotusJson;
+mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 
 /// Usage: `#[serde(with = "stringify")]`
 mod stringify {

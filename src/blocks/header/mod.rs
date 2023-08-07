@@ -20,6 +20,7 @@ use once_cell::sync::OnceCell;
 
 mod encoding;
 pub mod json;
+mod lotus_json;
 #[cfg(test)]
 mod tests;
 

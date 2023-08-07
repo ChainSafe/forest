@@ -5,8 +5,7 @@ use super::*;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ElectionProofLotusJson {
-    #[serde(rename = "VRFProof")]
-    vrfproof: VRFProofLotusJson,
+    v_r_f_proof: VRFProofLotusJson,
     win_count: i64,
 }
 
@@ -27,7 +26,7 @@ impl HasLotusJson for ElectionProof {
 impl From<ElectionProofLotusJson> for ElectionProof {
     fn from(value: ElectionProofLotusJson) -> Self {
         let ElectionProofLotusJson {
-            vrfproof,
+            v_r_f_proof: vrfproof,
             win_count,
         } = value;
         Self {
@@ -44,7 +43,7 @@ impl From<ElectionProof> for ElectionProofLotusJson {
             vrfproof,
         } = value;
         Self {
-            vrfproof: vrfproof.into(),
+            v_r_f_proof: vrfproof.into(),
             win_count,
         }
     }

@@ -17,13 +17,13 @@ impl HasLotusJson for VRFProof {
 }
 
 impl From<VRFProofLotusJson> for VRFProof {
-    fn from(value: VRFProofLotusJson) -> Self {
-        Self(value.0.into())
+    fn from(VRFProofLotusJson(value): VRFProofLotusJson) -> Self {
+        Self(value.into())
     }
 }
 
 impl From<VRFProof> for VRFProofLotusJson {
-    fn from(value: VRFProof) -> Self {
-        Self(value.0.into())
+    fn from(VRFProof(value): VRFProof) -> Self {
+        Self(value.into())
     }
 }

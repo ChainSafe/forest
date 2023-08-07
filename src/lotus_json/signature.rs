@@ -5,8 +5,7 @@ use crate::shim::crypto::Signature;
 #[serde(rename_all = "PascalCase")]
 pub struct SignatureLotusJson {
     r#type: SignatureTypeLotusJson,
-    #[serde(with = "base64_standard")]
-    data: Vec<u8>,
+    data: VecU8LotusJson,
 }
 
 impl HasLotusJson for Signature {
@@ -28,7 +27,7 @@ impl From<SignatureLotusJson> for Signature {
         let SignatureLotusJson { r#type, data } = value;
         Self {
             sig_type: r#type.into(),
-            bytes: data,
+            bytes: data.into(),
         }
     }
 }
@@ -38,7 +37,7 @@ impl From<Signature> for SignatureLotusJson {
         let Signature { sig_type, bytes } = value;
         Self {
             r#type: sig_type.into(),
-            data: bytes,
+            data: bytes.into(),
         }
     }
 }

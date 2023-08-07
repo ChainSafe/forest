@@ -3,9 +3,9 @@ use crate::blocks::Ticket;
 use super::*;
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct TicketLotusJson {
-    #[serde(rename = "VRFProof")]
-    vrfproof: VRFProofLotusJson,
+    v_r_f_proof: VRFProofLotusJson,
 }
 
 impl HasLotusJson for Ticket {
@@ -26,14 +26,16 @@ impl From<Ticket> for TicketLotusJson {
     fn from(value: Ticket) -> Self {
         let Ticket { vrfproof } = value;
         Self {
-            vrfproof: vrfproof.into(),
+            v_r_f_proof: vrfproof.into(),
         }
     }
 }
 
 impl From<TicketLotusJson> for Ticket {
     fn from(value: TicketLotusJson) -> Self {
-        let TicketLotusJson { vrfproof } = value;
+        let TicketLotusJson {
+            v_r_f_proof: vrfproof,
+        } = value;
         Self {
             vrfproof: vrfproof.into(),
         }

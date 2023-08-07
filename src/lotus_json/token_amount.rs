@@ -3,10 +3,9 @@ use super::*;
 use crate::shim::econ::TokenAmount;
 
 #[derive(Serialize, Deserialize)]
-#[serde(transparent)]
+#[serde(transparent)] // name the field for clarity
 pub struct TokenAmountLotusJson {
-    #[serde(with = "stringify")]
-    attos: num::BigInt,
+    attos: BigIntLotusJson,
 }
 
 impl HasLotusJson for TokenAmount {
@@ -20,7 +19,7 @@ impl HasLotusJson for TokenAmount {
 impl From<TokenAmount> for TokenAmountLotusJson {
     fn from(value: TokenAmount) -> Self {
         Self {
-            attos: value.atto().clone(),
+            attos: value.atto().clone().into(),
         }
     }
 }
