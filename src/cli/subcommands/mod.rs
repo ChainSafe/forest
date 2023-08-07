@@ -203,7 +203,7 @@ pub(super) fn print_stdout(out: String) {
         .unwrap();
 }
 
-fn prompt_confirm() -> bool {
+pub fn prompt_confirm() -> bool {
     print!("Do you want to continue? [y/n] ");
     std::io::stdout().flush().unwrap();
     let mut line = String::new();
