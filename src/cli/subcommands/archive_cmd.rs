@@ -99,15 +99,7 @@ impl ArchiveCommands {
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
                 let heaviest_tipset = store.heaviest_tipset()?;
-                do_export(
-                    store,
-                    heaviest_tipset,
-                    output_path,
-                    epoch,
-                    depth,
-                    diff,
-                )
-                .await
+                do_export(store, heaviest_tipset, output_path, epoch, depth, diff).await
             }
             Self::Checkpoints {
                 snapshot_files: snapshot,

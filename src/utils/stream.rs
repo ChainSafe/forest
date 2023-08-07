@@ -11,7 +11,10 @@ use futures::{Stream, StreamExt};
 /// and will make use of multiple cores when both the stream and the stream
 /// consumer are CPU-bound. Because a new thread is spawned, the stream has to
 /// be [`Sync`], [`Send`] and `'static`.
-pub fn par_buffer<V: Send + Sync + 'static>(cap: usize, stream: impl Stream<Item = V> + Send + Sync + 'static) -> impl Stream<Item = V> {
+pub fn par_buffer<V: Send + Sync + 'static>(
+    cap: usize,
+    stream: impl Stream<Item = V> + Send + Sync + 'static,
+) -> impl Stream<Item = V> {
     let (send, recv) = flume::bounded(cap);
     tokio::task::spawn(stream.map(Ok).forward(send.into_sink()));
     recv.into_stream()

@@ -10,8 +10,8 @@ pub mod misc;
 pub mod monitoring;
 pub mod net;
 pub mod proofs_api;
-pub mod version;
 pub mod stream;
+pub mod version;
 
 use futures::{
     future::{pending, FusedFuture},
