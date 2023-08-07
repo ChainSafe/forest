@@ -94,6 +94,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
     access.insert(net_api::NET_PEERS, Access::Read);
+    access.insert(net_api::NET_INFO, Access::Read);
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
 
@@ -417,6 +418,8 @@ pub mod common_api {
 
 /// Net API
 pub mod net_api {
+    use serde::{Deserialize, Serialize};
+
     use crate::rpc_api::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
@@ -426,6 +429,33 @@ pub mod net_api {
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
     pub type NetPeersParams = ();
     pub type NetPeersResult = Vec<AddrInfo>;
+
+    pub const NET_INFO: &str = "Filecoin.NetInfo";
+    pub type NetInfoParams = ();
+
+    #[derive(Debug, Default, Serialize, Deserialize)]
+    pub struct NetInfoResult {
+        pub num_peers: usize,
+        pub num_connections: u32,
+        pub num_pending: u32,
+        pub num_pending_incoming: u32,
+        pub num_pending_outgoing: u32,
+        pub num_established: u32,
+    }
+
+    impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
+        fn from(i: libp2p::swarm::NetworkInfo) -> Self {
+            let counters = i.connection_counters();
+            Self {
+                num_peers: i.num_peers(),
+                num_connections: counters.num_connections(),
+                num_pending: counters.num_pending(),
+                num_pending_incoming: counters.num_pending_incoming(),
+                num_pending_outgoing: counters.num_pending_outgoing(),
+                num_established: counters.num_established(),
+            }
+        }
+    }
 
     pub const NET_CONNECT: &str = "Filecoin.NetConnect";
     pub type NetConnectParams = (AddrInfo,);

@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::{FrameOffset, Hash, IndexHeader, KeyValuePair, Slot};
-use cid::Cid;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
 #[derive(Debug)]
@@ -26,13 +25,7 @@ impl CarIndexBuilder {
     }
 
     // Construct a new index builder that maps `Cid` to `FrameOffset`.
-    pub fn new(values: impl ExactSizeIterator<Item = (Cid, FrameOffset)>) -> CarIndexBuilder {
-        Self::new_raw(values.map(|(cid, value)| (Hash::from(cid), value)))
-    }
-
-    pub(super) fn new_raw(
-        values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>,
-    ) -> CarIndexBuilder {
+    pub fn new(values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>) -> CarIndexBuilder {
         let size = Self::capacity_at(values.len());
         let mut vec = Vec::with_capacity(size);
         vec.resize(size, Slot::Empty);

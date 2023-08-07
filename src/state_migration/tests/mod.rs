@@ -1,21 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::state_tree::StateRoot;
 use crate::{
-    daemon::bundle::get_actors_bundle,
+    daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},
+    shim::state_tree::StateRoot,
     state_migration::run_state_migrations,
 };
 use anyhow::*;
 use cid::Cid;
 use fvm_ipld_encoding::CborStore;
 use pretty_assertions::assert_eq;
-use std::path::Path;
+use std::path::PathBuf;
 use std::{str::FromStr, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
-#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
 #[tokio::test]
 async fn test_nv17_state_migration_calibnet() -> Result<()> {
     // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
@@ -32,7 +31,7 @@ async fn test_nv17_state_migration_calibnet() -> Result<()> {
     .await
 }
 
-#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
+#[ignore = "flaky"]
 #[tokio::test]
 async fn test_nv18_state_migration_calibnet() -> Result<()> {
     // State migration at height Hygge(epoch 322354) was successful,
@@ -49,7 +48,7 @@ async fn test_nv18_state_migration_calibnet() -> Result<()> {
     .await
 }
 
-#[ignore = "https://github.com/ChainSafe/forest/issues/2765"]
+#[ignore = "flaky"]
 #[tokio::test]
 async fn test_nv19_state_migration_calibnet() -> Result<()> {
     // State migration at height Lightning(epoch 489094) was successful,
@@ -73,9 +72,10 @@ async fn test_state_migration(
     expected_new_state: Cid,
 ) -> Result<()> {
     // Car files are cached under data folder for Go test to pick up without network access
-    let car_path = format!("./src/state_migration/tests/data/{old_state}.car");
-    if !Path::new(&car_path).is_file() {
-        let tmp: tempfile::TempPath = tempfile::NamedTempFile::new()?.into_temp_path();
+    let car_path = PathBuf::from(format!("./src/state_migration/tests/data/{old_state}.car"));
+    if !car_path.is_file() {
+        let tmp: tempfile::TempPath =
+            tempfile::NamedTempFile::new_in(car_path.parent().unwrap())?.into_temp_path();
         {
             let mut reader = crate::utils::net::reader(&format!(
                 "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/state_migration/state/{old_state}.car"
@@ -91,21 +91,10 @@ async fn test_state_migration(
     let store = Arc::new(crate::db::car::plain::PlainCar::new(
         std::io::BufReader::new(std::fs::File::open(&car_path)?),
     )?);
+    load_actor_bundles(&store).await?;
+
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
-
-    fvm_ipld_car::load_car(
-        &store,
-        get_actors_bundle(
-            &crate::Config {
-                chain: chain_config.clone(),
-                ..Default::default()
-            },
-            height,
-        )
-        .await?,
-    )
-    .await?;
 
     let state_root: StateRoot = store.get_cbor(&old_state)?.unwrap();
     println!("Actor root (for Go test): {}", state_root.actors);

@@ -40,7 +40,7 @@ pub(in crate::state_migration) struct ActorMigrationOutput {
 }
 
 /// Trait that defines the interface for actor migration job.
-pub(in crate::state_migration) trait ActorMigration<BS: Blockstore + Clone + Send + Sync> {
+pub(in crate::state_migration) trait ActorMigration<BS: Blockstore> {
     fn migrate_state(
         &self,
         store: BS,

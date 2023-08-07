@@ -102,6 +102,7 @@ impl Drop for NetworkGuard {
     Copy, Clone, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 )]
 #[serde(transparent)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Address(Address_v3);
 
 impl Address {
@@ -148,13 +149,6 @@ impl Address {
 
     pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
         Address_v3::from_bytes(bz).map(Address)
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for Address {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Address(Address_v3::arbitrary(g))
     }
 }
 

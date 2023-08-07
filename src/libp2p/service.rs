@@ -6,12 +6,12 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::blocks::GossipBlock;
 use crate::chain::ChainStore;
 use crate::libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
+use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
@@ -170,6 +170,7 @@ pub enum NetworkMessage {
 pub enum NetRPCMethods {
     AddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
     Peers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Info(OneShotSender<NetInfoResult>),
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
 }
@@ -190,7 +191,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: Blockstore + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
+    DB: Blockstore + BitswapStoreReadWrite + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,
@@ -437,6 +438,11 @@ async fn handle_network_message(
                     warn!("Failed to get Libp2p peers");
                 }
             }
+            NetRPCMethods::Info(response_channel) => {
+                if response_channel.send(swarm.network_info().into()).is_err() {
+                    warn!("Failed to get Libp2p peers");
+                }
+            }
             NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
                 let mut success = false;
 
@@ -676,7 +682,7 @@ async fn handle_chain_exchange_event<DB>(
         ChainExchangeResponse,
     )>,
 ) where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
 {
     match ce_event {
         request_response::Event::Message { peer, message } => {
@@ -697,7 +703,7 @@ async fn handle_chain_exchange_event<DB>(
                         if let Err(e) = cx_response_tx.send((
                             request_id,
                             channel,
-                            make_chain_exchange_response(db.as_ref(), &request),
+                            make_chain_exchange_response(&db, &request),
                         )) {
                             debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
@@ -762,7 +768,7 @@ async fn handle_forest_behaviour_event<DB>(
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
-    DB: Blockstore + BitswapStoreRead + Clone + Sync + Send + 'static,
+    DB: Blockstore + BitswapStoreRead + Sync + Send + 'static,
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {

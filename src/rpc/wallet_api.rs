@@ -18,7 +18,7 @@ pub(in crate::rpc) async fn wallet_balance<DB>(
     Params(params): Params<WalletBalanceParams>,
 ) -> Result<WalletBalanceResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
@@ -179,7 +179,7 @@ pub(in crate::rpc) async fn wallet_sign<DB>(
     Params(params): Params<WalletSignParams>,
 ) -> Result<WalletSignResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;

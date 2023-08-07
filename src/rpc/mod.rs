@@ -48,7 +48,7 @@ pub async fn start_rpc<DB>(
     shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     use auth_api::*;
     use chain_api::*;
@@ -121,6 +121,7 @@ where
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
             .with_method(NET_PEERS, net_api::net_peers::<DB>)
+            .with_method(NET_INFO, net_api::net_info::<DB>)
             .with_method(NET_CONNECT, net_api::net_connect::<DB>)
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
             // DB API

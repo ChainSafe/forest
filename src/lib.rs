@@ -36,6 +36,7 @@ mod libp2p_bitswap;
 mod message;
 mod message_pool;
 mod metrics;
+mod r#mod;
 mod networks;
 mod rpc;
 mod rpc_api;
@@ -46,7 +47,12 @@ mod state_migration;
 mod statediff;
 #[cfg(test)]
 mod test_utils;
+mod tool;
 mod utils;
+
+pub mod build {
+    pub use super::r#mod::*;
+}
 
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:
@@ -88,3 +94,4 @@ pub use daemon::main::main as forestd_main;
 pub use key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
+pub use tool::main::main as forest_tool_main;

@@ -23,14 +23,14 @@ use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorM
 
 pub struct PowerMigrator(Cid);
 
-pub(in crate::state_migration) fn power_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(in crate::state_migration) fn power_migrator<BS: Blockstore>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(PowerMigrator(cid))
 }
 
 // original golang code: https://github.com/filecoin-project/go-state-types/blob/master/builtin/v11/migration/power.go
-impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for PowerMigrator {
+impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
     fn migrate_state(
         &self,
         store: BS,
