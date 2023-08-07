@@ -7,6 +7,15 @@ pub struct TipsetKeysLotusJson(VecLotusJson<CidLotusJson>);
 
 impl HasLotusJson for TipsetKeys {
     type LotusJson = TipsetKeysLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!([{"/": "baeaaaaa"}]),
+            TipsetKeys {
+                cids: vec![::cid::Cid::default()],
+            },
+        )]
+    }
 }
 
 impl From<TipsetKeys> for TipsetKeysLotusJson {
@@ -21,16 +30,6 @@ impl From<TipsetKeysLotusJson> for TipsetKeys {
         let TipsetKeysLotusJson(cids) = value;
         Self { cids: cids.into() }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!([{"/": "baeaaaaa"}]),
-        TipsetKeys {
-            cids: vec![::cid::Cid::default()],
-        },
-    );
 }
 
 #[cfg(test)]

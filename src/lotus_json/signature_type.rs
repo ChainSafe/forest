@@ -11,6 +11,10 @@ pub enum SignatureTypeLotusJson {
 
 impl HasLotusJson for SignatureType {
     type LotusJson = SignatureTypeLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(json!("bls"), SignatureType::Bls)]
+    }
 }
 
 impl From<SignatureTypeLotusJson> for SignatureType {
@@ -31,11 +35,6 @@ impl From<SignatureType> for SignatureTypeLotusJson {
             SignatureType::Delegated => Self::Delegated,
         }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(json!("bls"), SignatureType::Bls);
 }
 
 #[cfg(test)]

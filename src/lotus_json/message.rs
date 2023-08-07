@@ -22,6 +22,24 @@ pub struct MessageLotusJson {
 
 impl HasLotusJson for Message {
     type LotusJson = MessageLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "From": "f00",
+                "GasFeeCap": "0",
+                "GasLimit": 0, // BUG?(aatifsyed)
+                "GasPremium": "0",
+                "Method": 0,
+                "Nonce": 0,
+                "Params": "", // BUG?(aatifsyed)
+                "To": "f00",
+                "Value": "0",
+                "Version": 0
+            }),
+            Message::default(),
+        )]
+    }
 }
 
 // TODO(aatifsyed): derive
@@ -83,25 +101,6 @@ impl From<Message> for MessageLotusJson {
             cid: None, // TODO(aatifsyed): is this an error?
         }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!({
-            "From": "f00",
-            "GasFeeCap": "0",
-            "GasLimit": 0, // BUG?(aatifsyed)
-            "GasPremium": "0",
-            "Method": 0,
-            "Nonce": 0,
-            "Params": "", // BUG?(aatifsyed)
-            "To": "f00",
-            "Value": "0",
-            "Version": 0
-        }),
-        Message::default(),
-    );
 }
 
 #[cfg(test)]

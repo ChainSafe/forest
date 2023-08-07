@@ -10,6 +10,16 @@ pub struct TicketLotusJson {
 
 impl HasLotusJson for Ticket {
     type LotusJson = TicketLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({"VRFProof": "aGVsbG8gd29ybGQh"}),
+            Ticket {
+                // TODO(aatifsyed): why does this domain struct live in crate::json??
+                vrfproof: crate::json::vrf::VRFProof(Vec::from_iter(*b"hello world!")),
+            },
+        )]
+    }
 }
 
 impl From<Ticket> for TicketLotusJson {
@@ -28,17 +38,6 @@ impl From<TicketLotusJson> for Ticket {
             vrfproof: vrfproof.into(),
         }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!({"VRFProof": "aGVsbG8gd29ybGQh"}),
-        Ticket {
-            // TODO(aatifsyed): why does this domain struct live in crate::json??
-            vrfproof: crate::json::vrf::VRFProof(Vec::from_iter(*b"hello world!")),
-        },
-    );
 }
 
 #[cfg(test)]

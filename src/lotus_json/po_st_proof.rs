@@ -12,6 +12,21 @@ pub struct PoStProofLotusJson {
 
 impl HasLotusJson for PoStProof {
     type LotusJson = PoStProofLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "PoStProof": 0,
+                "ProofBytes": "aGVsbG8gd29ybGQh"
+            }),
+            PoStProof::new(
+                crate::shim::sector::RegisteredPoStProof::from(
+                    crate::shim::sector::RegisteredPoStProofV3::StackedDRGWinning2KiBV1,
+                ),
+                Vec::from_iter(*b"hello world!"),
+            ),
+        )]
+    }
 }
 
 impl From<PoStProof> for PoStProofLotusJson {
@@ -38,22 +53,6 @@ impl From<PoStProofLotusJson> for PoStProof {
             proof_bytes: proof_bytes.into(),
         })
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!({
-            "PoStProof": 0,
-            "ProofBytes": "aGVsbG8gd29ybGQh"
-        }),
-        PoStProof::new(
-            crate::shim::sector::RegisteredPoStProof::from(
-                crate::shim::sector::RegisteredPoStProofV3::StackedDRGWinning2KiBV1,
-            ),
-            Vec::from_iter(*b"hello world!"),
-        ),
-    );
 }
 
 #[cfg(test)]

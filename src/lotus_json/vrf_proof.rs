@@ -7,6 +7,13 @@ pub struct VRFProofLotusJson(VecU8LotusJson);
 
 impl HasLotusJson for VRFProof {
     type LotusJson = VRFProofLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!("aGVsbG8gd29ybGQh"),
+            VRFProof(Vec::from_iter(*b"hello world!")),
+        )]
+    }
 }
 
 impl From<VRFProofLotusJson> for VRFProof {
@@ -19,14 +26,6 @@ impl From<VRFProof> for VRFProofLotusJson {
     fn from(value: VRFProof) -> Self {
         Self(value.0.into())
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!("aGVsbG8gd29ybGQh"),
-        VRFProof(Vec::from_iter(*b"hello world!")),
-    );
 }
 
 #[cfg(test)]

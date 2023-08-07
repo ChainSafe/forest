@@ -11,6 +11,16 @@ pub struct SignatureLotusJson {
 
 impl HasLotusJson for Signature {
     type LotusJson = SignatureLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}),
+            Signature {
+                sig_type: crate::shim::crypto::SignatureType::Bls,
+                bytes: Vec::from_iter(*b"hello world!"),
+            },
+        )]
+    }
 }
 
 impl From<SignatureLotusJson> for Signature {
@@ -31,17 +41,6 @@ impl From<Signature> for SignatureLotusJson {
             data: bytes,
         }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!({"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}),
-        Signature {
-            sig_type: crate::shim::crypto::SignatureType::Bls,
-            bytes: Vec::from_iter(*b"hello world!"),
-        },
-    );
 }
 
 #[cfg(test)]

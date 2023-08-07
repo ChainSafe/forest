@@ -13,6 +13,33 @@ pub struct SignedMessageLotusJson {
 
 impl HasLotusJson for SignedMessage {
     type LotusJson = SignedMessageLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "Message": {
+                    "From": "f00",
+                    "GasFeeCap": "0",
+                    "GasLimit": 0,
+                    "GasPremium": "0",
+                    "Method": 0,
+                    "Nonce": 0,
+                    "Params": "",
+                    "To": "f00",
+                    "Value": "0",
+                    "Version": 0
+                },
+                "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
+            }),
+            SignedMessage {
+                message: crate::shim::message::Message::default(),
+                signature: crate::shim::crypto::Signature {
+                    sig_type: crate::shim::crypto::SignatureType::Bls,
+                    bytes: Vec::from_iter(*b"hello world!"),
+                },
+            },
+        )]
+    }
 }
 
 impl From<SignedMessage> for SignedMessageLotusJson {
@@ -38,34 +65,6 @@ impl From<SignedMessageLotusJson> for SignedMessage {
             signature: signature.into(),
         }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!({
-            "Message": {
-                "From": "f00",
-                "GasFeeCap": "0",
-                "GasLimit": 0,
-                "GasPremium": "0",
-                "Method": 0,
-                "Nonce": 0,
-                "Params": "",
-                "To": "f00",
-                "Value": "0",
-                "Version": 0
-            },
-            "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
-        }),
-        SignedMessage {
-            message: crate::shim::message::Message::default(),
-            signature: crate::shim::crypto::Signature {
-                sig_type: crate::shim::crypto::SignatureType::Bls,
-                bytes: Vec::from_iter(*b"hello world!"),
-            },
-        },
-    );
 }
 
 #[cfg(test)]

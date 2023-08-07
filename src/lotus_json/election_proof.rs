@@ -12,6 +12,16 @@ pub struct ElectionProofLotusJson {
 
 impl HasLotusJson for ElectionProof {
     type LotusJson = ElectionProofLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!({
+                "WinCount": 0,
+                "VRFProof": ""
+            }),
+            ElectionProof::default(),
+        )]
+    }
 }
 
 impl From<ElectionProofLotusJson> for ElectionProof {
@@ -38,17 +48,6 @@ impl From<ElectionProof> for ElectionProofLotusJson {
             win_count,
         }
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!({
-            "WinCount": 0,
-            "VRFProof": ""
-        }),
-        ElectionProof::default(),
-    );
 }
 
 #[cfg(test)]

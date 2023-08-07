@@ -11,6 +11,10 @@ pub struct TokenAmountLotusJson {
 
 impl HasLotusJson for TokenAmount {
     type LotusJson = TokenAmountLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(json!("1"), TokenAmount::from_atto(1))]
+    }
 }
 
 impl From<TokenAmount> for TokenAmountLotusJson {
@@ -25,11 +29,6 @@ impl From<TokenAmountLotusJson> for TokenAmount {
     fn from(value: TokenAmountLotusJson) -> Self {
         Self::from_atto(value.attos)
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(json!("1"), TokenAmount::from_atto(1));
 }
 
 #[cfg(test)]

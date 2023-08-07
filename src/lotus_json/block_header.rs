@@ -26,6 +26,10 @@ pub struct BlockHeaderLotusJson {
 
 impl HasLotusJson for BlockHeader {
     type LotusJson = BlockHeaderLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        todo!()
+    }
 }
 
 impl From<BlockHeader> for BlockHeaderLotusJson {

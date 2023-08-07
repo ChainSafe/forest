@@ -8,6 +8,13 @@ pub struct RegisteredPoStProofLotusJson(i64);
 
 impl HasLotusJson for RegisteredPoStProof {
     type LotusJson = RegisteredPoStProofLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(
+            json!(0),
+            RegisteredPoStProof::from(RegisteredPoStProofV3::StackedDRGWinning2KiBV1),
+        )]
+    }
 }
 
 impl From<RegisteredPoStProof> for RegisteredPoStProofLotusJson {
@@ -20,14 +27,6 @@ impl From<RegisteredPoStProofLotusJson> for RegisteredPoStProof {
     fn from(value: RegisteredPoStProofLotusJson) -> Self {
         Self::from(RegisteredPoStProofV3::from(value.0))
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(
-        json!(0),
-        RegisteredPoStProof::from(RegisteredPoStProofV3::StackedDRGWinning2KiBV1),
-    );
 }
 
 #[cfg(test)]

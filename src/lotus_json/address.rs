@@ -8,11 +8,10 @@ pub struct AddressLotusJson(#[serde(with = "stringify")] Address);
 
 impl HasLotusJson for Address {
     type LotusJson = AddressLotusJson;
-}
 
-#[test]
-fn test() {
-    assert_snapshot(json!("f00"), Address::default());
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(json!("f00"), Address::default())]
+    }
 }
 
 #[cfg(test)]

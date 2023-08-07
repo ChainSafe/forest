@@ -7,6 +7,10 @@ where
     T: HasLotusJson,
 {
     type LotusJson = VecLotusJson<T::LotusJson>;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        unimplemented!("only Vec<Cid> is tested, below")
+    }
 }
 
 impl<T> Serialize for VecLotusJson<T>

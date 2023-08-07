@@ -11,6 +11,10 @@ pub struct BeaconEntryLotusJson {
 
 impl HasLotusJson for BeaconEntry {
     type LotusJson = BeaconEntryLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(json!({"Round": 0, "Data": ""}), BeaconEntry::default())]
+    }
 }
 
 impl From<BeaconEntry> for BeaconEntryLotusJson {
@@ -28,11 +32,6 @@ impl From<BeaconEntryLotusJson> for BeaconEntry {
         let BeaconEntryLotusJson { round, data } = value;
         Self::new(round, data.into())
     }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(json!({"Round": 0, "Data": ""}), BeaconEntry::default());
 }
 
 #[cfg(test)]

@@ -63,10 +63,11 @@
 //! # We know all the weird types - can we do downcast magic?
 
 use derive_more::{From, Into};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{fmt::Display, str::FromStr};
 #[cfg(test)]
-use {quickcheck::quickcheck, serde_json::json};
+use quickcheck::quickcheck;
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::json;
+use std::{fmt::Display, str::FromStr};
 
 pub trait LotusSerialize {
     fn serialize_cbor<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -88,21 +89,35 @@ pub trait LotusDeserialize<'de>: Sized {
         D: Deserializer<'de>;
 }
 
-pub trait HasLotusJson {
-    type LotusJson;
+pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
+    type LotusJson: Into<Self> + Serialize + DeserializeOwned;
+    fn snapshots() -> Vec<(serde_json::Value, Self)>;
+}
+
+#[cfg(test)]
+fn test_snapshots<HasLotusJsonT>()
+where
+    HasLotusJsonT: HasLotusJson + PartialEq + std::fmt::Debug,
+{
+    let snapshots = HasLotusJsonT::snapshots();
+    assert!(!snapshots.is_empty());
+    for (lotus_json, val) in snapshots {
+        // lotus_json -> T::LotusJson -> T
+        let deserialized = Into::<HasLotusJsonT>::into(
+            serde_json::from_value::<HasLotusJsonT::LotusJson>(lotus_json.clone()).unwrap(),
+        );
+        assert_eq!(deserialized, val);
+
+        // T -> T::LotusJson -> lotus_json
+        let serialized = serde_json::to_value(Into::<HasLotusJsonT::LotusJson>::into(val)).unwrap();
+        assert_eq!(serialized, lotus_json);
+    }
 }
 
 #[cfg(test)]
 fn assert_snapshot</* 'de, */ T>(lotus_json: serde_json::Value, val: T)
 where
-    // API
-    T: HasLotusJson,
-    T::LotusJson: Serialize, // + Deserialize<'de>, // conflicts with DeserializeOwned
-    T::LotusJson: Into<T>,
-    T: Into<T::LotusJson>,
-    // Testing
-    T: PartialEq + std::fmt::Debug,
-    T::LotusJson: serde::de::DeserializeOwned,
+    T: HasLotusJson + PartialEq + std::fmt::Debug,
 {
     // lotus_json -> T::LotusJson -> T
     let deserialized =
@@ -137,36 +152,48 @@ where
 // TODO(aatifsyed): we should be able to write quickchecks that make sure our parser pipeline doesn't panic
 // but quickcheck is not powerful enough... we should use proptest instead/in addition
 
-macro_rules! lotus_json {
-    ($($mod_name:ident -> $ty_name:ident),* $(,)?) => {
+macro_rules! decl_and_test {
+    ($($mod_name:ident -> $lotus_json_ty:ident for $domain_ty:ty),* $(,)?) => {
         $(
             #[allow(unused)]
-            use self::$mod_name::$ty_name;
+            use self::$mod_name::$lotus_json_ty;
             mod $mod_name;
         )*
+        #[test]
+        fn test_all_snapshots() {
+            $(
+                print!("test snapshots for {}...", std::any::type_name::<$domain_ty>());
+                test_snapshots::<$domain_ty>();
+                println!("ok.");
+            )*
+        }
     }
 }
 
-lotus_json!(
-    address -> AddressLotusJson,
-    beacon_entry -> BeaconEntryLotusJson,
-    block_header -> BlockHeaderLotusJson,
-    cid -> CidLotusJson,
-    election_proof -> ElectionProofLotusJson,
-    message -> MessageLotusJson,
-    po_st_proof -> PoStProofLotusJson,
-    raw_bytes -> RawBytesLotusJson,
-    registered_po_st_proof -> RegisteredPoStProofLotusJson,
-    signature -> SignatureLotusJson,
-    signature_type -> SignatureTypeLotusJson,
-    signed_message -> SignedMessageLotusJson,
-    ticket -> TicketLotusJson,
-    tipset_keys ->  TipsetKeysLotusJson,
-    token_amount -> TokenAmountLotusJson,
-    vec -> VecLotusJson,
-    vec_u8 -> VecU8LotusJson,
-    vrf_proof -> VRFProofLotusJson,
+decl_and_test!(
+    address -> AddressLotusJson for crate::shim::address::Address,
+    beacon_entry -> BeaconEntryLotusJson for crate::beacon::BeaconEntry,
+    // block_header -> BlockHeaderLotusJson for crate::blocks::BlockHeader,
+    election_proof -> ElectionProofLotusJson for crate::blocks::ElectionProof,
+    message -> MessageLotusJson for crate::shim::message::Message,
+    po_st_proof -> PoStProofLotusJson for crate::shim::sector::PoStProof,
+    raw_bytes -> RawBytesLotusJson for fvm_ipld_encoding::RawBytes,
+    registered_po_st_proof -> RegisteredPoStProofLotusJson for crate::shim::sector::RegisteredPoStProof,
+    signature -> SignatureLotusJson for crate::shim::crypto::Signature,
+    signature_type -> SignatureTypeLotusJson for crate::shim::crypto::SignatureType,
+    signed_message -> SignedMessageLotusJson for  crate::message::SignedMessage,
+    ticket -> TicketLotusJson for crate::blocks::Ticket,
+    tipset_keys ->  TipsetKeysLotusJson for crate::blocks::TipsetKeys,
+    token_amount -> TokenAmountLotusJson for crate::shim::econ::TokenAmount,
+    vec_u8 -> VecU8LotusJson for Vec<u8>,
+    vrf_proof -> VRFProofLotusJson for  crate::json::vrf::VRFProof, // TODO(aatifsyed): why is this in `json`?
 );
+
+use self::cid::CidLotusJson;
+mod cid;
+
+use self::vec::VecLotusJson;
+mod vec;
 
 /// Usage: `#[serde(with = "stringify")]`
 mod stringify {
