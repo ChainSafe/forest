@@ -40,6 +40,7 @@ use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::clock::ChainEpoch;
 use num::Zero;
 use num_bigint::BigInt;
+use serde::{Deserialize, Serialize};
 
 use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
 
@@ -103,11 +104,17 @@ impl MessageGasCost {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
+    #[serde(default, with = "crate::json::cid")]
     pub msg_cid: Cid,
+    #[serde(with = "crate::json::message::json")]
     pub msg: Message,
+    #[serde(with = "crate::json::message_receipt::json")]
+    #[serde(rename = "MsgRct")]
     pub msg_receipt: Receipt,
+    #[serde(with = "crate::json::message_gas_cost::json")]
     pub gas_cost: MessageGasCost,
     pub execution_trace: Option<Trace>,
     pub error: String,

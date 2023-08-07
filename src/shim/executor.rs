@@ -177,29 +177,42 @@ impl quickcheck::Arbitrary for Receipt {
 
 // We match Lotus structures and code to have similar json trace and an easier diff:
 // https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L391
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct TraceGasCharge {
     pub name: Cow<'static, str>,
+    #[serde(rename = "tg")]
     pub total_gas: u64,
+    #[serde(rename = "cg")]
     pub compute_gas: u64,
+    #[serde(rename = "sg")]
     pub other_gas: u64,
+    #[serde(rename = "tt")]
     pub duration_nanos: u64,
 }
 
-#[derive(Default, PartialEq, Clone, Debug)]
+#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Trace {
     pub msg: TraceMessage,
+    #[serde(rename = "MsgRct")]
     pub msg_ret: TraceReturn,
     pub gas_charges: Vec<TraceGasCharge>,
     pub subcalls: Vec<Trace>,
 }
 
-#[derive(Default, PartialEq, Clone, Debug)]
+#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct TraceMessage {
+    #[serde(with = "crate::json::address::json")]
     pub from: Address,
+    #[serde(with = "crate::json::address::json")]
     pub to: Address,
+    #[serde(with = "crate::json::token_amount::json")]
     pub value: TokenAmount,
+    #[serde(rename = "Method")]
     pub method_num: MethodNum,
+    #[serde(with = "crate::json::bytes::json")]
     pub params: Vec<u8>,
     pub params_codec: u64,
 }
@@ -218,9 +231,12 @@ impl quickcheck::Arbitrary for TraceMessage {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct TraceReturn {
     pub exit_code: ExitCode,
+    #[serde(rename = "Return")]
+    #[serde(with = "crate::json::bytes::json")]
     pub return_data: Vec<u8>,
     pub return_codec: u64,
 }

@@ -5,7 +5,6 @@ pub mod actor_state;
 pub mod address;
 pub mod bytes;
 pub mod cid;
-pub mod invoc_result;
 pub mod message;
 pub mod message_gas_cost;
 pub mod message_receipt;
@@ -13,10 +12,6 @@ pub mod sector;
 pub mod signature;
 pub mod signed_message;
 pub mod token_amount;
-pub mod trace;
-pub mod trace_gas_charge;
-pub mod trace_message;
-pub mod trace_return;
 pub mod vrf;
 #[cfg(test)]
 mod tests {
