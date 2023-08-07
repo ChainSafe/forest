@@ -103,7 +103,7 @@ mod tests {
     use libipld::Ipld;
     use rand::Rng;
     use serde::{Deserialize, Serialize};
-    use serde_ipld_dagcbor::{from_slice, to_vec};
+    use serde_ipld_dagcbor::to_vec;
 
     use super::*;
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
@@ -156,7 +156,7 @@ mod tests {
 
             let encoding = serde_ipld_dagcbor::to_vec(&bytes).unwrap();
             assert_eq!(
-                serde_ipld_dagcbor::from_slice::<ByteArray>(&encoding).unwrap(),
+                from_slice_with_fallback::<ByteArray>(&encoding).unwrap(),
                 bytes
             );
         }
@@ -176,7 +176,7 @@ mod tests {
 
         ensure!(format!(
             "{}",
-            serde_ipld_dagcbor::from_slice::<ByteArray>(&overflow_encoding)
+            from_slice_with_fallback::<ByteArray>(&overflow_encoding)
                 .err()
                 .unwrap()
         )
@@ -213,7 +213,10 @@ mod tests {
         // Valid UTF-8, should return the same results.
         let ipld_string = Ipld::String("cthulhu".to_string());
         let serialized = to_vec(&ipld_string).unwrap();
-        assert_eq!(ipld_string, from_slice::<Ipld>(&serialized).unwrap());
+        assert_eq!(
+            ipld_string,
+            serde_ipld_dagcbor::from_slice::<Ipld>(&serialized).unwrap()
+        );
         assert_eq!(
             ipld_string,
             from_slice_with_fallback::<Ipld>(&serialized).unwrap()

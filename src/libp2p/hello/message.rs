@@ -27,7 +27,9 @@ pub struct HelloResponse {
 #[cfg(test)]
 mod tests {
     use cid::multihash::{Code::Identity, MultihashDigest};
-    use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
+    use fvm_ipld_encoding::{to_vec, DAG_CBOR};
+
+    use crate::utils::encoding::from_slice_with_fallback;
 
     use super::*;
 
@@ -40,7 +42,7 @@ mod tests {
             heaviest_tip_set: Default::default(),
         };
         let bz = to_vec(&orig_msg).unwrap();
-        let msg: HelloRequest = from_slice(&bz).unwrap();
+        let msg: HelloRequest = from_slice_with_fallback(&bz).unwrap();
         assert_eq!(msg, orig_msg);
     }
 }
