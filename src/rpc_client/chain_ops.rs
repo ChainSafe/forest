@@ -64,3 +64,10 @@ pub async fn chain_set_head(
 ) -> Result<ChainSetHeadResult, Error> {
     call(CHAIN_SET_HEAD, params, auth_token).await
 }
+
+pub async fn chain_get_min_base_fee(
+    params: ChainGetMinBaseFeeParams,
+    auth_token: &Option<String>,
+) -> Result<ChainGetMinBaseFeeResult, Error> {
+    call(CHAIN_GET_MIN_BASE_FEE, params, auth_token).await
+}

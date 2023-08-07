@@ -50,6 +50,9 @@ use crate::message_pool::{
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = nonzero!(40000usize);
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
+pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
+pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
 #[derive(Clone, Default, Debug)]
@@ -70,10 +73,39 @@ impl MsgSet {
 
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
-    pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
+    /// Use this method when pushing a message coming from trusted sources.
+    pub fn add_trusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
+    where
+        T: Provider,
+    {
+        self.add(api, m, true)
+    }
+
+    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
+    /// message has a sequence greater than any existing message sequence.
+    /// Use this method when pushing a message coming from untrusted sources.
+    #[allow(dead_code)]
+    pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
+    where
+        T: Provider,
+    {
+        self.add(api, m, false)
+    }
+
+    fn add<T>(&mut self, api: &T, m: SignedMessage, trusted: bool) -> Result<(), Error>
+    where
+        T: Provider,
+    {
+        let max_actor_pending_messages = if trusted {
+            api.max_actor_pending_messages()
+        } else {
+            api.max_untrusted_actor_pending_messages()
+        };
+
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
             self.next_sequence = m.sequence() + 1;
         }
+
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let premium = &exms.message().gas_premium;
@@ -86,6 +118,13 @@ impl MsgSet {
             } else {
                 return Err(Error::DuplicateSequence);
             }
+        }
+
+        if self.msgs.len() as u64 >= max_actor_pending_messages {
+            return Err(Error::TooManyPendingMessages(
+                m.message.from().to_string(),
+                trusted,
+            ));
         }
         if self.msgs.insert(m.sequence(), m).is_none() {
             metrics::MPOOL_MESSAGE_TOTAL.inc();
@@ -139,8 +178,6 @@ pub struct MessagePool<T> {
     /// The minimum gas price needed for executing the transaction based on
     /// number of included blocks
     pub min_gas_price: BigInt,
-    /// This is max number of messages in the pool.
-    pub max_tx_pool_size: i64,
     // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
@@ -456,7 +493,6 @@ where
             cur_tipset: tipset,
             api: Arc::new(api),
             min_gas_price: Default::default(),
-            max_tx_pool_size: 5000,
             network_name,
             bls_sig_cache,
             sig_val_cache,
@@ -586,11 +622,11 @@ where
     let mut pending = pending.write();
     let msett = pending.get_mut(&msg.from());
     match msett {
-        Some(mset) => mset.add(msg)?,
+        Some(mset) => mset.add_trusted(api, msg)?,
         None => {
             let mut mset = MsgSet::new(sequence);
             let from = msg.from();
-            mset.add(msg)?;
+            mset.add_trusted(api, msg)?;
             pending.insert(from, mset);
         }
     }
