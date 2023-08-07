@@ -30,11 +30,3 @@ impl From<TokenAmountLotusJson> for TokenAmount {
         Self::from_atto(value.attos)
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: TokenAmount) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

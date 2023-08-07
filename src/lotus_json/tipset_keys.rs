@@ -31,11 +31,3 @@ impl From<TipsetKeysLotusJson> for TipsetKeys {
         Self { cids: cids.into() }
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: TipsetKeys) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

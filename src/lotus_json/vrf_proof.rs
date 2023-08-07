@@ -27,11 +27,3 @@ impl From<VRFProof> for VRFProofLotusJson {
         Self(value.0.into())
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: Vec<u8>) -> bool {
-        assert_via_json(VRFProof(val));
-        true
-    }
-}

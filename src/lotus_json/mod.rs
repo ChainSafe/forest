@@ -95,22 +95,14 @@ pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
 }
 
 #[cfg(test)]
-fn test_snapshots<HasLotusJsonT>()
+fn assert_all_snapshots<HasLotusJsonT>()
 where
     HasLotusJsonT: HasLotusJson + PartialEq + std::fmt::Debug,
 {
     let snapshots = HasLotusJsonT::snapshots();
     assert!(!snapshots.is_empty());
     for (lotus_json, val) in snapshots {
-        // lotus_json -> T::LotusJson -> T
-        let deserialized = Into::<HasLotusJsonT>::into(
-            serde_json::from_value::<HasLotusJsonT::LotusJson>(lotus_json.clone()).unwrap(),
-        );
-        assert_eq!(deserialized, val);
-
-        // T -> T::LotusJson -> lotus_json
-        let serialized = serde_json::to_value(Into::<HasLotusJsonT::LotusJson>::into(val)).unwrap();
-        assert_eq!(serialized, lotus_json);
+        assert_snapshot(lotus_json, val);
     }
 }
 
@@ -160,10 +152,20 @@ macro_rules! decl_and_test {
             mod $mod_name;
         )*
         #[test]
-        fn test_all_snapshots() {
+        fn all_snapshots() {
             $(
                 print!("test snapshots for {}...", std::any::type_name::<$domain_ty>());
-                test_snapshots::<$domain_ty>();
+                assert_all_snapshots::<$domain_ty>();
+                println!("ok.");
+            )*
+        }
+        #[test]
+        fn all_quickchecks() {
+            $(
+                print!("quickcheck for {}...", std::any::type_name::<$domain_ty>());
+                std::io::Write::flush(&mut std::io::stdout()).unwrap();
+                // ^ make sure the above line is flushed in the case that the quickcheck fails
+                quickcheck::quickcheck(assert_via_json::<$domain_ty> as fn(_));
                 println!("ok.");
             )*
         }
@@ -177,7 +179,6 @@ decl_and_test!(
     election_proof -> ElectionProofLotusJson for crate::blocks::ElectionProof,
     message -> MessageLotusJson for crate::shim::message::Message,
     po_st_proof -> PoStProofLotusJson for crate::shim::sector::PoStProof,
-    raw_bytes -> RawBytesLotusJson for fvm_ipld_encoding::RawBytes,
     registered_po_st_proof -> RegisteredPoStProofLotusJson for crate::shim::sector::RegisteredPoStProof,
     signature -> SignatureLotusJson for crate::shim::crypto::Signature,
     signature_type -> SignatureTypeLotusJson for crate::shim::crypto::SignatureType,
@@ -194,6 +195,9 @@ mod cid;
 
 use self::vec::VecLotusJson;
 mod vec;
+
+use self::raw_bytes::RawBytesLotusJson;
+mod raw_bytes;
 
 /// Usage: `#[serde(with = "stringify")]`
 mod stringify {

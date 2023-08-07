@@ -28,11 +28,3 @@ impl From<RegisteredPoStProofLotusJson> for RegisteredPoStProof {
         Self::from(RegisteredPoStProofV3::from(value.0))
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: RegisteredPoStProof) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

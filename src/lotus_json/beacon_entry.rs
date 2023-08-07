@@ -33,11 +33,3 @@ impl From<BeaconEntryLotusJson> for BeaconEntry {
         Self::new(round, data.into())
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: BeaconEntry) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

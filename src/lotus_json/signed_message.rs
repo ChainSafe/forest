@@ -66,11 +66,3 @@ impl From<SignedMessageLotusJson> for SignedMessage {
         }
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: SignedMessage) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

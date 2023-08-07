@@ -39,14 +39,3 @@ impl From<TicketLotusJson> for Ticket {
         }
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: Vec<u8>) -> bool {
-        assert_via_json(Ticket {
-            // TODO(aatifsyed): why does this domain struct live in crate::json??
-            vrfproof: crate::json::vrf::VRFProof(val),
-        });
-        true
-    }
-}

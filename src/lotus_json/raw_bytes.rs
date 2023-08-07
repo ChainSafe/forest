@@ -28,10 +28,14 @@ impl From<RawBytesLotusJson> for RawBytes {
     }
 }
 
+#[test]
+fn snapshot_raw_bytes() {
+    assert_all_snapshots::<fvm_ipld_encoding::RawBytes>();
+}
+
 #[cfg(test)]
 quickcheck! {
-    fn round_trip(val: Vec<u8>) -> bool {
-        assert_via_json(RawBytes::new(val));
-        true
+    fn quickcheck_raw_bytes(val: Vec<u8>) -> () {
+        assert_via_json(RawBytes::new(val))
     }
 }

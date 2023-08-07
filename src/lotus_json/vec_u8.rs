@@ -23,11 +23,3 @@ impl From<VecU8LotusJson> for Vec<u8> {
         value.0
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: Vec<u8>) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

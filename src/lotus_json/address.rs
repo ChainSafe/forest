@@ -13,11 +13,3 @@ impl HasLotusJson for Address {
         vec![(json!("f00"), Address::default())]
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: Address) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

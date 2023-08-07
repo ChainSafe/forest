@@ -42,11 +42,3 @@ impl From<Signature> for SignatureLotusJson {
         }
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: Signature) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

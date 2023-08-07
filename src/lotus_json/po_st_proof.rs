@@ -54,11 +54,3 @@ impl From<PoStProofLotusJson> for PoStProof {
         })
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: PoStProof) -> bool {
-        assert_via_json(val);
-        true
-    }
-}

@@ -49,11 +49,3 @@ impl From<ElectionProof> for ElectionProofLotusJson {
         }
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: ElectionProof) -> bool {
-        assert_via_json(val);
-        true
-    }
-}
