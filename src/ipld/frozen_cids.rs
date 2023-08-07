@@ -9,24 +9,26 @@ use cid::{
 use fvm_ipld_encoding::DAG_CBOR;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-// `FrozenCids` takes advantage of the fact that the V1 DAG-CBOR Blake2b-256 variant
-// (which can be stored in 32 bytes vs 96 bytes for a `Cid` type) is +99.99% of
-// all CIDs. `FrozenCids` defaults to the `Box<[u8; BLAKE2B256_SIZE]>` variant of
-// `CidBox`, only using the more expensive `Box<Cid>` variant when necessary.
-// The Box type has been chosen to make `FrozenCids` explicitly immutable.
+// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
+// CIDs that would normally be stored as a vector of CIDs. The V1 DAG-CBOR
+// Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
+// type) is +99.99% of all CIDs, so very few CIDs need to be stored in the
+// `Heap(Box<Cid>)` variant of `SmallCid`. The Box type has been chosen to make
+// `FrozenCids` explicitly immutable due to the fact that the vectors are parsed
+// from CBOR and are immutable.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct FrozenCids(CidBox);
+pub struct FrozenCids(Box<[SmallCid]>);
 
 impl Default for FrozenCids {
     fn default() -> Self {
-        Self(CidBox::V1DagCborBlake2bCids(Box::new([])))
+        FrozenCids(Box::new([]))
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum CidBox {
-    V1DagCborBlake2bCids(Box<[[u8; BLAKE2B256_SIZE]]>),
-    AllCids(Box<[Cid]>),
+enum SmallCid {
+    Heap(Box<Cid>),
+    Inline([u8; 32]),
 }
 
 pub struct FrozenCidsIterator<'a> {
@@ -48,29 +50,23 @@ impl<'a> IntoIterator for &'a FrozenCids {
 impl Iterator for FrozenCidsIterator<'_> {
     type Item = Cid;
     fn next(&mut self) -> Option<Self::Item> {
-        match &self.buffer.0 {
-            CidBox::V1DagCborBlake2bCids(cids) => {
-                if self.current_ix >= cids.len() {
-                    None
-                } else {
-                    let cid = Cid::new_v1(
+        if self.current_ix < self.buffer.0.len() {
+            let cid = &self.buffer.0[self.current_ix];
+            self.current_ix += 1;
+            match cid {
+                SmallCid::Heap(cid) => Some(*cid.clone()),
+                SmallCid::Inline(bytes) => {
+                    let mut cid = [0; BLAKE2B256_SIZE];
+                    cid.copy_from_slice(bytes);
+                    Some(Cid::new_v1(
                         DAG_CBOR,
-                        multihash::Multihash::wrap(Blake2b256.into(), &cids[self.current_ix])
+                        multihash::Multihash::wrap(Blake2b256.into(), &cid)
                             .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                    );
-                    self.current_ix += 1;
-                    Some(cid)
+                    ))
                 }
             }
-            CidBox::AllCids(cids) => {
-                if self.current_ix >= cids.len() {
-                    None
-                } else {
-                    let cid = cids[self.current_ix];
-                    self.current_ix += 1;
-                    Some(cid)
-                }
-            }
+        } else {
+            None
         }
     }
 }
@@ -103,76 +99,47 @@ impl FromIterator<Cid> for FrozenCids {
     }
 }
 
-// Converts `Vec<Cid>` to `FrozenCids(CidBox::V1DagCborBlake2bCids)` if possible; otherwise, converts to `FrozenCids(CidBox::AllCids)`.
 impl From<Vec<Cid>> for FrozenCids {
     fn from(cids: Vec<Cid>) -> Self {
-        let mut v1dagcborblake2bcids = Vec::new();
-        let mut allcids = Vec::new();
+        let mut small_cids = Vec::with_capacity(cids.len());
         for cid in cids {
             match cid.try_into() {
-                Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
-                    v1dagcborblake2bcids.push(bytes);
-                }
-                _ => {
-                    allcids.push(cid);
-                }
+                Ok(CidVariant::V1DagCborBlake2b(bytes)) => small_cids.push(SmallCid::Inline(bytes)),
+                _ => small_cids.push(SmallCid::Heap(Box::new(cid))),
             }
         }
-        if allcids.is_empty() {
-            FrozenCids(CidBox::V1DagCborBlake2bCids(
-                v1dagcborblake2bcids.into_boxed_slice(),
-            ))
-        } else {
-            allcids.extend(v1dagcborblake2bcids.into_iter().map(|bytes| {
-                Cid::new_v1(
-                    DAG_CBOR,
-                    multihash::Multihash::wrap(Blake2b256.into(), &bytes)
-                        .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                )
-            }));
-            FrozenCids(CidBox::AllCids(allcids.into_boxed_slice()))
-        }
+        FrozenCids(small_cids.into_boxed_slice())
     }
 }
 
 impl From<FrozenCids> for Vec<Cid> {
     fn from(frozen_cids: FrozenCids) -> Self {
-        match frozen_cids.0 {
-            CidBox::V1DagCborBlake2bCids(cids) => cids
-                .iter()
-                .map(|bytes| {
-                    Cid::new_v1(
-                        DAG_CBOR,
-                        multihash::Multihash::wrap(Blake2b256.into(), bytes)
-                            .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                    )
-                })
-                .collect(),
-            CidBox::AllCids(cids) => cids.to_vec(),
-        }
+        Vec::<Cid>::from(&frozen_cids)
     }
 }
 
 impl From<&FrozenCids> for Vec<Cid> {
     fn from(frozen_cids: &FrozenCids) -> Self {
-        match &frozen_cids.0 {
-            CidBox::V1DagCborBlake2bCids(cids) => cids
-                .iter()
-                .map(|bytes| {
-                    Cid::new_v1(
+        let mut cids = Vec::with_capacity(frozen_cids.0.len());
+        for cid in frozen_cids.into_iter() {
+            match cid.try_into() {
+                Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+                    let mut digest = [0; BLAKE2B256_SIZE];
+                    digest.copy_from_slice(&bytes);
+                    cids.push(Cid::new_v1(
                         DAG_CBOR,
-                        multihash::Multihash::wrap(Blake2b256.into(), bytes)
+                        multihash::Multihash::wrap(Blake2b256.into(), &digest)
                             .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                    )
-                })
-                .collect(),
-            CidBox::AllCids(cids) => cids.to_vec(),
+                    ))
+                }
+                _ => cids.push(cid),
+            }
         }
+        cids
     }
 }
 
 impl FrozenCids {
-    /// Adds a CID to `FrozenCids`, returning the appropriate `FrozenCids` variant via the `FrozenCids::from` call.
     pub fn push(&self, cid: Cid) -> Self {
         let mut cids = Vec::<Cid>::from(self);
         cids.push(cid);
@@ -180,23 +147,12 @@ impl FrozenCids {
     }
 
     pub fn is_empty(&self) -> bool {
-        match &self.0 {
-            CidBox::V1DagCborBlake2bCids(cids) => cids.is_empty(),
-            CidBox::AllCids(cids) => cids.is_empty(),
-        }
+        self.0.is_empty()
     }
 
     pub fn contains(&self, cid: Cid) -> bool {
-        match &self.0 {
-            CidBox::V1DagCborBlake2bCids(cids) => {
-                if let Ok(CidVariant::V1DagCborBlake2b(bytes)) = cid.try_into() {
-                    cids.contains(&bytes)
-                } else {
-                    false
-                }
-            }
-            CidBox::AllCids(cids) => cids.contains(&cid),
-        }
+        let cids = Vec::<Cid>::from(self);
+        cids.contains(&cid)
     }
 }
 
