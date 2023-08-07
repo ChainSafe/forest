@@ -63,11 +63,11 @@
 //! # We know all the weird types - can we do downcast magic?
 
 use derive_more::{From, Into};
-#[cfg(test)]
-use quickcheck::quickcheck;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
+#[cfg(test)]
+use {pretty_assertions::assert_eq, quickcheck::quickcheck};
 
 pub trait LotusSerialize {
     fn serialize_cbor<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -95,7 +95,7 @@ pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
 }
 
 #[cfg(test)]
-fn assert_all_snapshots<HasLotusJsonT>()
+pub fn assert_all_snapshots<HasLotusJsonT>()
 where
     HasLotusJsonT: HasLotusJson + PartialEq + std::fmt::Debug,
 {

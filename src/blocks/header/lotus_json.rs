@@ -8,7 +8,9 @@ use super::BlockHeader;
 #[serde(rename_all = "PascalCase")]
 pub struct BlockHeaderLotusJson {
     miner: AddressLotusJson,
+    #[serde(skip_serializing_if = "Option::is_none")]
     ticket: Option<TicketLotusJson>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     election_proof: Option<ElectionProofLotusJson>,
     beacon_entries: VecLotusJson<BeaconEntryLotusJson>,
     win_po_st_proof: VecLotusJson<PoStProofLotusJson>,
@@ -18,8 +20,10 @@ pub struct BlockHeaderLotusJson {
     parent_state_root: CidLotusJson,
     parent_message_receipts: CidLotusJson,
     messages: CidLotusJson,
+    #[serde(skip_serializing_if = "Option::is_none")]
     b_l_s_aggregate: Option<SignatureLotusJson>,
     timestamp: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     block_sig: Option<SignatureLotusJson>,
     fork_signaling: u64,
     parent_base_fee: TokenAmountLotusJson,
@@ -29,12 +33,38 @@ impl HasLotusJson for BlockHeader {
     type LotusJson = BlockHeaderLotusJson;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        todo!()
+        use serde_json::json;
+
+        vec![(
+            json!({
+                "BeaconEntries": null,
+                "Miner": "f00",
+                "Parents": null,
+                "ParentWeight": "0",
+                "Height": 0,
+                "ParentStateRoot": {
+                    "/": "baeaaaaa"
+                },
+                "ParentMessageReceipts": {
+                    "/": "baeaaaaa"
+                },
+                "Messages": {
+                    "/": "baeaaaaa"
+                },
+                "WinPoStProof": null,
+                "Timestamp": 0,
+                "ForkSignaling": 0,
+                "ParentBaseFee": "0",
+            }),
+            BlockHeader::default(),
+        )]
     }
 }
 
 #[test]
-fn snapshots() {}
+fn snapshots() {
+    assert_all_snapshots::<BlockHeader>()
+}
 
 #[cfg(test)]
 quickcheck::quickcheck! {
