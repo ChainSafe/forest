@@ -393,9 +393,10 @@ mod tests {
     async fn export() {
         let output_path = TempDir::new().unwrap();
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            &store,
-            store.heaviest_tipset().unwrap(),
+            store,
+            heaviest_tipset,
             output_path.path().into(),
             Some(0),
             1,
