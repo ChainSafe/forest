@@ -14,18 +14,28 @@ use futures::StreamExt;
 use fvm_ipld_car::{CarHeader, CarReader};
 use fvm_ipld_encoding::DAG_CBOR;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use tempfile::NamedTempFile;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::common::cli;
 
 #[tokio::test]
 async fn forest_cli_car_concat() -> Result<()> {
-    let a = NamedTempFile::new()?;
+    let a = tempfile::Builder::new()
+        .prefix("forest-cli-car-concat-a")
+        .suffix(".car")
+        .tempfile()?;
     new_car(1024, a.path()).await?;
-    let b = NamedTempFile::new()?;
+
+    let b = tempfile::Builder::new()
+        .prefix("forest-cli-car-concat-b")
+        .suffix(".car")
+        .tempfile()?;
     new_car(2048, b.path()).await?;
-    let output = NamedTempFile::new()?;
+
+    let output = tempfile::Builder::new()
+        .prefix("forest-cli-car-concat-output")
+        .suffix(".car")
+        .tempfile()?;
 
     cli()?
         .arg("car")
@@ -44,7 +54,10 @@ async fn forest_cli_car_concat() -> Result<()> {
 
 #[tokio::test]
 async fn forest_cli_car_concat_same_file() -> Result<()> {
-    let output = NamedTempFile::new()?;
+    let output = tempfile::Builder::new()
+        .prefix("forest-cli-car-concat-same-file")
+        .suffix(".car")
+        .tempfile()?;
 
     cli()?
         .arg("car")
@@ -63,7 +76,10 @@ async fn forest_cli_car_concat_same_file() -> Result<()> {
 
 #[tokio::test]
 async fn forest_cli_car_concat_same_file_3_times() -> Result<()> {
-    let output = NamedTempFile::new()?;
+    let output = tempfile::Builder::new()
+        .prefix("forest-cli-car-concat-same-file-3-times")
+        .suffix(".car")
+        .tempfile()?;
 
     cli()?
         .arg("car")

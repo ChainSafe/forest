@@ -26,7 +26,7 @@ pub(in crate::rpc) async fn gas_estimate_fee_cap<DB>(
     Params(params): Params<GasEstimateFeeCapParams>,
 ) -> Result<GasEstimateFeeCapResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
@@ -40,7 +40,7 @@ fn estimate_fee_cap<DB>(
     _tsk: TipsetKeys,
 ) -> Result<TokenAmount, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
@@ -62,7 +62,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_premium<DB>(
     Params(params): Params<GasEstimateGasPremiumParams>,
 ) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
     estimate_gas_premium::<DB>(&data, nblocksincl)
@@ -75,7 +75,7 @@ async fn estimate_gas_premium<DB>(
     mut nblocksincl: u64,
 ) -> Result<TokenAmount, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     if nblocksincl == 0 {
         nblocksincl = 1;
@@ -161,7 +161,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
     Params(params): Params<GasEstimateGasLimitParams>,
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
     estimate_gas_limit::<DB>(&data, msg, tsk).await
@@ -173,7 +173,7 @@ async fn estimate_gas_limit<DB>(
     _: TipsetKeys,
 ) -> Result<i64, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let mut msg = msg;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
@@ -215,7 +215,7 @@ pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
     Params(params): Params<GasEstimateMessageGasParams>,
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
     estimate_message_gas::<DB>(&data, msg, spec, tsk)
@@ -230,7 +230,7 @@ pub(in crate::rpc) async fn estimate_message_gas<DB>(
     tsk: TipsetKeys,
 ) -> Result<Message, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {

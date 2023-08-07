@@ -90,13 +90,15 @@ impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
         } else {
             reader.seek(SeekFrom::Start(start_position)).await?;
             let mut zstd = ZstdDecoder::new(reader);
+            zstd.multiple_members(true);
             if let Some(header) = read_header(&mut zstd).await {
                 let mut reader = zstd.into_inner();
 
                 reset_bufread(&mut reader).await?;
 
                 reader.seek(SeekFrom::Start(start_position)).await?;
-                let zstd = ZstdDecoder::new(reader);
+                let mut zstd = ZstdDecoder::new(reader);
+                zstd.multiple_members(true);
                 let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
                 let _ = framed_reader.next().await;
                 Ok(CarStream {

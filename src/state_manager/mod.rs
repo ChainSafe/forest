@@ -210,7 +210,7 @@ pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Resu
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Send + Sync + 'static,
+    DB: Blockstore,
 {
     pub fn new(
         cs: Arc<ChainStore<DB>>,
@@ -342,7 +342,12 @@ where
 
         Ok(None)
     }
+}
 
+impl<DB> StateManager<DB>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
     /// Returns the pair of (parent state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
@@ -772,10 +777,7 @@ where
         self: &Arc<Self>,
         msg_cid: Cid,
         confidence: i64,
-    ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>
-    where
-        DB: Blockstore + Clone + Send + Sync + 'static,
-    {
+    ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)

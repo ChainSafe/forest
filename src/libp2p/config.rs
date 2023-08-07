@@ -3,16 +3,29 @@
 
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use std::net::Ipv4Addr;
 
 /// Libp2p configuration for the Forest node.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct Libp2pConfig {
     /// Local addresses. TCP and WebSocket with DNS are supported. By making it
     /// empty, the libp2p node will not be capable of working as a callee but
     /// can still work as a dialer
+    #[cfg_attr(test, arbitrary(gen(
+        |g: &mut quickcheck::Gen| {
+            let addr = Ipv4Addr::arbitrary(&mut *g);
+            let n = u8::arbitrary(g) as usize;
+            vec![addr.into(); n]
+        }
+    )))]
     pub listening_multiaddrs: Vec<Multiaddr>,
     /// Bootstrap peer list.
+    #[cfg_attr(test, arbitrary(gen(
+        |g| vec![Ipv4Addr::arbitrary(g).into()]
+    )))]
     pub bootstrap_peers: Vec<Multiaddr>,
     /// MDNS discovery enabled.
     pub mdns: bool,

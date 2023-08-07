@@ -50,10 +50,10 @@ pub(in crate::chain_sync) struct SyncNetworkContext<DB> {
     /// Manages peers to send requests to and updates request stats for the
     /// respective peers.
     peer_manager: Arc<PeerManager>,
-    db: Box<DB>,
+    db: Arc<DB>,
 }
 
-impl<DB: Clone> Clone for SyncNetworkContext<DB> {
+impl<DB> Clone for SyncNetworkContext<DB> {
     fn clone(&self) -> Self {
         Self {
             network_send: self.network_send.clone(),
@@ -113,12 +113,12 @@ where
     pub fn new(
         network_send: flume::Sender<NetworkMessage>,
         peer_manager: Arc<PeerManager>,
-        db: DB,
+        db: Arc<DB>,
     ) -> Self {
         Self {
             network_send,
             peer_manager,
-            db: Box::new(db),
+            db,
         }
     }
 

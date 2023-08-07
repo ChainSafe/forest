@@ -20,7 +20,7 @@ use crate::state_manager::{errors::*, StateManager};
 
 impl<DB> StateManager<DB>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt`
     /// verification.
