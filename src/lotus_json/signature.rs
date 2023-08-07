@@ -13,7 +13,7 @@ impl HasLotusJson for Signature {
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
-            json!({"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}),
+            json!({"Type": 2, "Data": "aGVsbG8gd29ybGQh"}),
             Signature {
                 sig_type: crate::shim::crypto::SignatureType::Bls,
                 bytes: Vec::from_iter(*b"hello world!"),

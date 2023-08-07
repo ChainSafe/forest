@@ -72,7 +72,7 @@ fvm_shared2 = { package = "fvm_shared", version = "~2.5" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.4", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
-hex = "0.4"
+hex = { version = "0.4", features = ["serde"] }
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"

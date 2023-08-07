@@ -97,7 +97,7 @@ pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
 #[cfg(test)]
 pub fn assert_all_snapshots<T>()
 where
-    T: HasLotusJson + PartialEq + std::fmt::Debug,
+    T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
 {
     let snapshots = T::snapshots();
     assert!(!snapshots.is_empty());
@@ -109,16 +109,27 @@ where
 #[cfg(test)]
 pub fn assert_one_snapshot<T>(lotus_json: serde_json::Value, val: T)
 where
-    T: HasLotusJson + PartialEq + std::fmt::Debug,
+    T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
 {
-    // lotus_json -> T::LotusJson -> T
-    let deserialized =
-        Into::<T>::into(serde_json::from_value::<T::LotusJson>(lotus_json.clone()).unwrap());
-    assert_eq!(deserialized, val);
-
     // T -> T::LotusJson -> lotus_json
-    let serialized = serde_json::to_value(Into::<T::LotusJson>::into(val)).unwrap();
-    assert_eq!(serialized, lotus_json);
+    let serialized = serde_json::to_value(Into::<T::LotusJson>::into(val.clone())).unwrap();
+    assert_eq!(
+        serialized.to_string(),
+        lotus_json.to_string(),
+        "snapshot failed for {}",
+        std::any::type_name::<T>()
+    );
+
+    // lotus_json -> T::LotusJson -> T
+    let deserialized = match serde_json::from_value::<T::LotusJson>(lotus_json.clone()) {
+        Ok(lotus_json) => Into::<T>::into(lotus_json),
+        Err(e) => panic!(
+            "couldn't deserialize a {} from {}: {e}",
+            std::any::type_name::<T::LotusJson>(),
+            lotus_json
+        ),
+    };
+    assert_eq!(deserialized, val);
 }
 
 #[cfg(test)]
@@ -201,7 +212,7 @@ pub use self::raw_bytes::RawBytesLotusJson;
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 
 /// Usage: `#[serde(with = "stringify")]`
-mod stringify {
+pub mod stringify {
     use super::*;
 
     pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
@@ -225,7 +236,7 @@ mod stringify {
 }
 
 /// Usage: `#[serde(with = "base64_standard")]`
-mod base64_standard {
+pub mod base64_standard {
     use super::*;
 
     use base64::engine::{general_purpose::STANDARD, Engine as _};
@@ -245,4 +256,13 @@ mod base64_standard {
             .decode(String::deserialize(deserializer)?)
             .map_err(serde::de::Error::custom)
     }
+}
+
+#[cfg(test)]
+pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: HasLotusJson,
+{
+    T::LotusJson::deserialize(deserializer).map(Into::into)
 }
