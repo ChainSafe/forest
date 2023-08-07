@@ -916,7 +916,6 @@ mod test_selection {
         .await
         .unwrap();
 
-        // let gas_limit = 6955002;
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
@@ -1055,7 +1054,7 @@ mod test_selection {
     #[tokio::test]
     async fn test_optimal_msg_selection1() {
         // this test uses just a single actor sending messages with a low tq
-        // the chain depenent merging algorithm should pick messages from the actor
+        // the chain dependent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
         let mpool = make_test_mpool(&mut joinset);
@@ -1096,7 +1095,7 @@ mod test_selection {
 
         let n_msgs = 10 * crate::shim::econ::BLOCK_GAS_LIMIT as i64 / TEST_GAS_LIMIT;
 
-        // we create 10 messages from each actor to another, with the first actor paying
+        // we create n_msgs messages from each actor to another, with the first actor paying
         // higher gas prices than the second; we expect message selection to
         // order his messages first
         for i in 0..(n_msgs as usize) {

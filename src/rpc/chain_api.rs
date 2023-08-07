@@ -269,3 +269,24 @@ where
         .set_heaviest_tipset(new_head)
         .map_err(Into::into)
 }
+
+pub(crate) async fn chain_get_min_base_fee<DB>(
+    data: Data<RPCState<DB>>,
+    Params(params): Params<ChainGetMinBaseFeeParams>,
+) -> Result<ChainGetMinBaseFeeResult, JsonRpcError>
+where
+    DB: Blockstore,
+{
+    let (basefee_lookback,) = params;
+    let mut current = data.state_manager.chain_store().heaviest_tipset();
+    let mut min_base_fee = current.blocks()[0].parent_base_fee().clone();
+
+    for _ in 0..basefee_lookback {
+        let parents = current.blocks()[0].parents();
+        current = data.state_manager.chain_store().tipset_from_keys(parents)?;
+
+        min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee().to_owned());
+    }
+
+    Ok(min_base_fee.atto().to_string())
+}

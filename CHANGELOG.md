@@ -119,6 +119,10 @@ Notable updates:
 
 ### Added
 
+- [#2761](https://github.com/ChainSafe/forest/issues/2761): Add a per actor
+  limit of 1000 messages to Forest mpool for preventing spam attacks.
+- [#2728](https://github.com/ChainSafe/forest/issues/2728): Revive
+  `forest-cli mpool pending` and `forest-cli mpool stat` subcommands.
 - [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`
