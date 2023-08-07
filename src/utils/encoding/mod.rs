@@ -99,8 +99,11 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
 #[cfg(test)]
 mod tests {
     use anyhow::{ensure, Result};
+    use itertools::Itertools;
+    use libipld::Ipld;
     use rand::Rng;
     use serde::{Deserialize, Serialize};
+    use serde_ipld_dagcbor::{from_slice, to_vec};
 
     use super::*;
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
@@ -200,5 +203,32 @@ mod tests {
         ensure!(serde_json::to_string_pretty(&a)? == serde_json::to_string_pretty(&b)?);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_fallback_deserialization() {
+        // where the regular deserialization fails with invalid UTF-8 strings, the fallback should
+        // succeed.
+
+        // Valid UTF-8, should return the same results.
+        let ipld_string = Ipld::String("cthulhu".to_string());
+        let serialized = to_vec(&ipld_string).unwrap();
+        assert_eq!(ipld_string, from_slice::<Ipld>(&serialized).unwrap());
+        assert_eq!(
+            ipld_string,
+            from_slice_with_fallback::<Ipld>(&serialized).unwrap()
+        );
+
+        // Invalid UTF-8, regular deserialization fails, fallback succeeds. We can
+        // extract the bytes.
+        let corrupted = serialized
+            .iter()
+            .take(serialized.len() - 2)
+            .chain(&[0xa0, 0xa1])
+            .copied()
+            .collect_vec();
+        assert!(
+            matches!(from_slice_with_fallback::<Ipld>(&corrupted).unwrap(), Ipld::Bytes(bytes) if bytes == [0x63, 0x74, 0x68, 0x75, 0x6c, 0xa0, 0xa1])
+        )
     }
 }
