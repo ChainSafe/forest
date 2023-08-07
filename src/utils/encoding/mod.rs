@@ -9,6 +9,12 @@ pub use serde::{de, ser, Deserializer, Serializer};
 
 mod fallback_de_ipld_dagcbor;
 
+/// This method will attempt to de-serialize given bytes using the regular
+/// `serde_ipld_dagcbor::from_slice`. Due to a historical issue in Lotus (see more in
+/// [FIP-0027](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0027.md), we must still
+/// support strings with invalid UTF-8 bytes. On a failure, it
+/// will retry the operation using the fallback that will de-serialize
+/// strings with invalid UTF-8 bytes as bytes.
 pub fn from_slice_with_fallback<'a, T: serde::de::Deserialize<'a>>(
     bytes: &'a [u8],
 ) -> anyhow::Result<T> {
