@@ -513,12 +513,12 @@ async fn print_computed_state(
     json: bool,
 ) -> anyhow::Result<()> {
     // Get header roots
-    let file = tokio::io::BufReader::new(tokio::fs::File::open(&snapshot).await?);
-    let mut block_stream = CarStream::new(file).await?;
+    let file = tokio::fs::File::open(&snapshot).await?;
+    let mut block_stream = CarStream::new(tokio::io::BufReader::new(file)).await?;
     let roots = std::mem::take(&mut block_stream.header.roots);
 
     // Initialize Blockstore
-    let store = Arc::new(AnyCar::new(move || std::fs::File::open(&snapshot))?);
+    let store = Arc::new(AnyCar::try_from(snapshot)?);
 
     // Prepare call to apply_block_messages
     let ts = Tipset::load_required(&store, &TipsetKeys::new(roots))?;
