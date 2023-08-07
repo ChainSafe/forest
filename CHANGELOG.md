@@ -37,6 +37,9 @@
 
 ### Changed
 
+- [#3331](https://github.com/ChainSafe/forest/pull/3331): Use multiple cores
+  when exporting snapshots.
+
 ### Removed
 
 ### Fixed
