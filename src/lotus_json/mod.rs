@@ -154,7 +154,9 @@ lotus_json!(
     cid -> CidLotusJson,
     election_proof -> ElectionProofLotusJson,
     message -> MessageLotusJson,
+    po_st_proof -> PoStProofLotusJson,
     raw_bytes -> RawBytesLotusJson,
+    registered_po_st_proof -> RegisteredPoStProofLotusJson,
     signature -> SignatureLotusJson,
     signature_type -> SignatureTypeLotusJson,
     signed_message -> SignedMessageLotusJson,
@@ -164,7 +166,6 @@ lotus_json!(
     vec -> VecLotusJson,
     vec_u8 -> VecU8LotusJson,
     vrf_proof -> VRFProofLotusJson,
-    po_st_proof -> PoStProofLotusJson,
 );
 
 /// Usage: `#[serde(with = "stringify")]`

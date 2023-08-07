@@ -1,7 +1,6 @@
-use super::*;
+use crate::blocks::BlockHeader;
 
-#[derive(Serialize, Deserialize)]
-enum PoStProofLotusJson {} // TODO(aatifsyed)
+use super::*;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -23,4 +22,20 @@ pub struct BlockHeaderLotusJson {
     block_sig: Option<SignatureLotusJson>,
     fork_signaling: u64,
     parent_base_fee: String,
+}
+
+impl HasLotusJson for BlockHeader {
+    type LotusJson = BlockHeaderLotusJson;
+}
+
+impl From<BlockHeader> for BlockHeaderLotusJson {
+    fn from(value: BlockHeader) -> Self {
+        todo!()
+    }
+}
+
+impl From<BlockHeaderLotusJson> for BlockHeader {
+    fn from(value: BlockHeaderLotusJson) -> Self {
+        todo!()
+    }
 }
