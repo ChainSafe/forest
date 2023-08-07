@@ -11,7 +11,7 @@ use crate::ipld::CidHashMap;
 use crate::json::vrf::VRFProof;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use async_trait::async_trait;
 use cid::Cid;
 use num::BigInt;
