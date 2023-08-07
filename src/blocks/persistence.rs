@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::db::file_backed_obj::FileBackedObject;
-use fvm_ipld_encoding::{from_slice, to_vec};
+use crate::utils::{db::file_backed_obj::FileBackedObject, encoding::from_slice_with_fallback};
+use fvm_ipld_encoding::to_vec;
 
 use crate::blocks::*;
 
@@ -12,7 +12,7 @@ impl FileBackedObject for TipsetKeys {
     }
 
     fn deserialize(bytes: &[u8]) -> anyhow::Result<Self> {
-        Ok(from_slice(bytes)?)
+        from_slice_with_fallback(bytes)
     }
 }
 

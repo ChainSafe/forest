@@ -3,8 +3,7 @@
 
 use std::time::Duration;
 
-use crate::{db::SettingsStore, shim::address::Address};
-use fvm_ipld_encoding::from_slice;
+use crate::{db::SettingsStore, shim::address::Address, utils::encoding::from_slice_with_fallback};
 use serde::{Deserialize, Serialize};
 
 const MPOOL_CONFIG_KEY: &str = "/mpool/config";
@@ -62,7 +61,7 @@ impl MpoolConfig {
     /// default.
     pub fn load_config<DB: SettingsStore>(store: &DB) -> Result<Self, anyhow::Error> {
         match store.read_bin(MPOOL_CONFIG_KEY)? {
-            Some(v) => Ok(from_slice(&v)?),
+            Some(v) => Ok(from_slice_with_fallback(&v)?),
             None => Ok(Default::default()),
         }
     }

@@ -44,6 +44,9 @@
 - [#3319](https://github.com/ChainSafe/forest/pull/3319): Fix bug triggered by
   re-encoding ForestCAR.zst files.
 
+- [#3322](https://github.com/ChainSafe/forest/pull/3332): Forest is now able to
+  parse data from epochs below 1_960_320 (on mainnet)
+
 ## Forest v0.12.1 "Carp++"
 
 ### Fixed
