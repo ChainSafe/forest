@@ -347,7 +347,7 @@ pub mod tests {
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let tma = TestApi::default();
+        let tma = TestApi::with_max_actor_pending_messages(200);
         tma.set_state_sequence(&sender, 0);
 
         let (tx, _rx) = flume::bounded(50);

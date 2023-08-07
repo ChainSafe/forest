@@ -27,11 +27,14 @@ pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
     pub publisher: Publisher<HeadChange>,
 }
+
+#[derive(Default)]
 pub struct TestApiInner {
     bmsgs: CidHashMap<Vec<SignedMessage>>,
     state_sequence: HashMap<Address, u64>,
     balances: HashMap<Address, TokenAmount>,
     tipsets: Vec<Tipset>,
+    max_actor_pending_messages: u64,
 }
 
 impl Default for TestApi {
@@ -40,10 +43,8 @@ impl Default for TestApi {
         let (publisher, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
-                bmsgs: CidHashMap::new(),
-                state_sequence: HashMap::new(),
-                balances: HashMap::new(),
-                tipsets: Vec::new(),
+                max_actor_pending_messages: 20000,
+                ..TestApiInner::default()
             }),
             publisher,
         }
@@ -51,6 +52,18 @@ impl Default for TestApi {
 }
 
 impl TestApi {
+    /// Constructor for a `TestApi` with custom number of max pending messages
+    pub fn with_max_actor_pending_messages(max_actor_pending_messages: u64) -> Self {
+        let (publisher, _) = broadcast::channel(1);
+        TestApi {
+            inner: Mutex::new(TestApiInner {
+                max_actor_pending_messages,
+                ..TestApiInner::default()
+            }),
+            publisher,
+        }
+    }
+
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&self, addr: &Address, sequence: u64) {
         self.inner.lock().set_state_sequence(addr, sequence)
@@ -202,7 +215,7 @@ impl Provider for TestApi {
     }
 
     fn max_actor_pending_messages(&self) -> u64 {
-        20000
+        self.inner.lock().max_actor_pending_messages
     }
 }
 
