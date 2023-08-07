@@ -69,7 +69,7 @@ fn snapshots() {
 #[cfg(test)]
 quickcheck::quickcheck! {
     fn quickcheck(val: BlockHeader) -> () {
-        assert_via_json(val)
+        assert_unchanged_via_json(val)
     }
 }
 

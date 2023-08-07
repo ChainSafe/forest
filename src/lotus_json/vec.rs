@@ -13,6 +13,18 @@ where
     }
 }
 
+#[test]
+fn shapshots() {
+    assert_one_snapshot(json!([{"/": "baeaaaaa"}]), vec![::cid::Cid::default()]);
+}
+
+#[cfg(test)]
+quickcheck! {
+    fn quickcheck(val: Vec<::cid::Cid>) -> () {
+        assert_unchanged_via_json(val)
+    }
+}
+
 impl<T> Serialize for VecLotusJson<T>
 where
     T: Serialize,
@@ -60,17 +72,5 @@ where
 {
     fn from(value: Vec<T>) -> Self {
         Self(value.into_iter().map(Into::into).collect())
-    }
-}
-
-#[test]
-fn test() {
-    assert_snapshot(json!([{"/": "baeaaaaa"}]), vec![::cid::Cid::default()]);
-}
-
-#[cfg(test)]
-quickcheck! {
-    fn round_trip(val: Vec<::cid::Cid>) -> () {
-        assert_via_json(val)
     }
 }

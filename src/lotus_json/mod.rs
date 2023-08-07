@@ -95,19 +95,19 @@ pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
 }
 
 #[cfg(test)]
-pub fn assert_all_snapshots<HasLotusJsonT>()
+pub fn assert_all_snapshots<T>()
 where
-    HasLotusJsonT: HasLotusJson + PartialEq + std::fmt::Debug,
+    T: HasLotusJson + PartialEq + std::fmt::Debug,
 {
-    let snapshots = HasLotusJsonT::snapshots();
+    let snapshots = T::snapshots();
     assert!(!snapshots.is_empty());
     for (lotus_json, val) in snapshots {
-        assert_snapshot(lotus_json, val);
+        assert_one_snapshot(lotus_json, val);
     }
 }
 
 #[cfg(test)]
-pub fn assert_snapshot</* 'de, */ T>(lotus_json: serde_json::Value, val: T)
+pub fn assert_one_snapshot<T>(lotus_json: serde_json::Value, val: T)
 where
     T: HasLotusJson + PartialEq + std::fmt::Debug,
 {
@@ -122,7 +122,7 @@ where
 }
 
 #[cfg(test)]
-pub fn assert_via_json<T>(val: T)
+pub fn assert_unchanged_via_json<T>(val: T)
 where
     T: HasLotusJson + Clone + Into<T::LotusJson> + PartialEq + std::fmt::Debug,
     T::LotusJson: Into<T> + Serialize + serde::de::DeserializeOwned,
@@ -165,7 +165,7 @@ macro_rules! decl_and_test {
                 print!("quickcheck for {}...", std::any::type_name::<$domain_ty>());
                 std::io::Write::flush(&mut std::io::stdout()).unwrap();
                 // ^ make sure the above line is flushed in the case that the quickcheck fails
-                quickcheck::quickcheck(assert_via_json::<$domain_ty> as fn(_));
+                quickcheck::quickcheck(assert_unchanged_via_json::<$domain_ty> as fn(_));
                 println!("ok.");
             )*
         }
@@ -176,6 +176,7 @@ decl_and_test!(
     address -> AddressLotusJson for crate::shim::address::Address,
     beacon_entry -> BeaconEntryLotusJson for crate::beacon::BeaconEntry,
     big_int -> BigIntLotusJson for num::BigInt,
+    gossip_block -> GossipBlockLotusJson for crate::blocks::GossipBlock,
     election_proof -> ElectionProofLotusJson for crate::blocks::ElectionProof,
     message -> MessageLotusJson for crate::shim::message::Message,
     po_st_proof -> PoStProofLotusJson for crate::shim::sector::PoStProof,

@@ -5,6 +5,18 @@ use fvm_ipld_encoding::RawBytes;
 #[serde(transparent)]
 pub struct RawBytesLotusJson(#[serde(with = "base64_standard")] Vec<u8>);
 
+#[test]
+fn snapshots() {
+    assert_all_snapshots::<fvm_ipld_encoding::RawBytes>();
+}
+
+#[cfg(test)]
+quickcheck! {
+    fn quickcheck(val: Vec<u8>) -> () {
+        assert_unchanged_via_json(RawBytes::new(val))
+    }
+}
+
 impl HasLotusJson for RawBytes {
     type LotusJson = RawBytesLotusJson;
 
@@ -23,19 +35,7 @@ impl From<RawBytes> for RawBytesLotusJson {
 }
 
 impl From<RawBytesLotusJson> for RawBytes {
-    fn from(value: RawBytesLotusJson) -> Self {
-        Self::from(value.0)
-    }
-}
-
-#[test]
-fn snapshot_raw_bytes() {
-    assert_all_snapshots::<fvm_ipld_encoding::RawBytes>();
-}
-
-#[cfg(test)]
-quickcheck! {
-    fn quickcheck_raw_bytes(val: Vec<u8>) -> () {
-        assert_via_json(RawBytes::new(val))
+    fn from(RawBytesLotusJson(value): RawBytesLotusJson) -> Self {
+        Self::from(value)
     }
 }

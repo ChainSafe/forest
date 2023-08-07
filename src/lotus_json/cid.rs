@@ -17,13 +17,13 @@ impl<const S: usize> HasLotusJson for ::cid::CidGeneric<S> {
 }
 
 #[test]
-fn test() {
-    assert_snapshot(json!({"/": "baeaaaaa"}), ::cid::Cid::default());
+fn snapshots() {
+    assert_one_snapshot(json!({"/": "baeaaaaa"}), ::cid::Cid::default());
 }
 
 #[cfg(test)]
 quickcheck! {
-    fn round_trip(val: ::cid::Cid) -> () {
-        assert_via_json(val)
+    fn quickcheck(val: ::cid::Cid) -> () {
+        assert_unchanged_via_json(val)
     }
 }
