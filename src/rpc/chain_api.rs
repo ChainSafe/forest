@@ -53,7 +53,7 @@ pub(in crate::rpc) async fn chain_export<DB>(
     }): Params<ChainExportParams>,
 ) -> Result<ChainExportResult, JsonRpcError>
 where
-    DB: Blockstore,
+    DB: Blockstore + Send + Sync + 'static,
 {
     lazy_static::lazy_static! {
         static ref LOCK: Mutex<()> = Mutex::new(());
@@ -82,7 +82,7 @@ where
 
     match if dry_run {
         crate::chain::export::<Sha256>(
-            &data.chain_store.db,
+            Arc::clone(&data.chain_store.db),
             &start_ts,
             recent_roots,
             VoidAsyncWriter,
@@ -93,7 +93,7 @@ where
     } else {
         let file = tokio::fs::File::create(&output_path).await?;
         crate::chain::export::<Sha256>(
-            &data.chain_store.db,
+            Arc::clone(&data.chain_store.db),
             &start_ts,
             recent_roots,
             file,

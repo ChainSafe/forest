@@ -98,10 +98,10 @@ impl ArchiveCommands {
                 diff,
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
-
+                let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
-                    &store,
-                    store.heaviest_tipset()?,
+                    store,
+                    heaviest_tipset,
                     output_path,
                     epoch,
                     depth,
@@ -142,7 +142,7 @@ fn build_output_path(
 }
 
 async fn do_export(
-    store: impl Blockstore,
+    store: impl Blockstore + Send + Sync + 'static,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,

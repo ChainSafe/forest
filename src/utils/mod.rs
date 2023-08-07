@@ -11,6 +11,7 @@ pub mod monitoring;
 pub mod net;
 pub mod proofs_api;
 pub mod version;
+pub mod stream;
 
 use futures::{
     future::{pending, FusedFuture},
