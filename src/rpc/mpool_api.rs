@@ -39,13 +39,13 @@ where
     }
 
     if mpts.epoch() > ts.epoch() {
-        return Ok(pending);
+        return Ok(pending.into_iter().map(SignedMessageJson::from).collect());
     }
 
     loop {
         if mpts.epoch() == ts.epoch() {
             if mpts == ts {
-                return Ok(pending);
+                break;
             }
 
             // mpts has different blocks than ts
@@ -68,7 +68,7 @@ where
         }
 
         if mpts.epoch() >= ts.epoch() {
-            return Ok(pending);
+            break;
         }
 
         ts = data
@@ -76,6 +76,7 @@ where
             .chain_store()
             .tipset_from_keys(ts.parents())?;
     }
+    Ok(pending.into_iter().map(SignedMessageJson::from).collect())
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID

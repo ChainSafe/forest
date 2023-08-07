@@ -80,6 +80,7 @@ trie
 TTY
 uncompress
 URL
+untrusted
 validator/S
 varint
 verifier

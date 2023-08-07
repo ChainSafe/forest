@@ -27,6 +27,7 @@ bls-signatures = { version = "0.13", default-features = false, features = [
 boa_engine = { version = "0.16.0", features = ["console"] }
 byteorder = "1.4.3"
 bytes = "1.2"
+cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }
 cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
@@ -136,9 +137,10 @@ reqwest = { version = "0.11.18", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rs-car-ipfs = "0.3"
 rustyline = "12"
+scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_ipld_dagcbor = "0.2"
+serde_ipld_dagcbor = "0.4"
 serde_json = "1.0"
 serde_tuple = "0.5"
 serde_with = { version = "3.0.0", features = ["chrono_0_4"] }

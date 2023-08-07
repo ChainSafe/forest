@@ -10,20 +10,21 @@ use std::{
     },
 };
 
-use crate::blocks::{BlockHeader, Tipset};
+use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::Block;
 use crate::utils::io::progress_log::WithProgressRaw;
+use crate::{
+    blocks::{BlockHeader, Tipset},
+    utils::encoding::from_slice_with_fallback,
+};
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::from_slice;
 use lazy_static::lazy_static;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
-use crate::ipld::{CidHashSet, Ipld};
 
 /// Traverses all Cid links, hashing and loading all unique values and using the
 /// callback function to interact with the data.
@@ -64,7 +65,7 @@ where
                 }
                 on_inserted(walked.len());
                 let bytes = load_block(cid).await?;
-                let ipld = from_slice(&bytes)?;
+                let ipld = from_slice_with_fallback(&bytes)?;
                 traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
             }
         }
@@ -94,7 +95,7 @@ where
     }
 
     let bytes = load_block(root).await?;
-    let ipld = from_slice(&bytes)?;
+    let ipld = from_slice_with_fallback(&bytes)?;
 
     traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
 
@@ -159,7 +160,7 @@ where
         }
 
         let data = load_block(next).await?;
-        let h = from_slice::<BlockHeader>(&data)?;
+        let h = from_slice_with_fallback::<BlockHeader>(&data)?;
 
         if current_min_height > h.epoch() {
             current_min_height = h.epoch();
@@ -363,7 +364,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                 if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
                                     if let Some(data) = this.db.get(&cid)? {
                                         if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                            let ipld: Ipld = from_slice(&data)?;
+                                            let ipld: Ipld = from_slice_with_fallback(&data)?;
                                             dfs_iter.walk_next(ipld);
                                         }
                                         return Poll::Ready(Some(Ok(Block { cid, data })));
