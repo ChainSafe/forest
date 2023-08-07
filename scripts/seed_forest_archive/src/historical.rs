@@ -55,7 +55,10 @@ impl HistoricalSnapshot {
             .arg("du")
             .arg("gs://fil-mainnet-archival-snapshots/historical-exports/*")
             .output()?;
-        ensure!(output.status.success(), "failed to list historical snapshots");
+        ensure!(
+            output.status.success(),
+            "failed to list historical snapshots"
+        );
         ensure!(output.stderr.is_empty());
         std::str::from_utf8(&output.stdout)?
             .lines()
@@ -77,6 +80,10 @@ impl HistoricalSnapshot {
             .status()?;
         anyhow::ensure!(status.success());
         Ok(())
+    }
+
+    pub fn path(&self) -> &str {
+        self.url.path_segments().unwrap().last().unwrap()
     }
 }
 

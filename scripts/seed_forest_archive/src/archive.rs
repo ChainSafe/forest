@@ -1,7 +1,4 @@
-use super::{
-    ChainEpoch, ChainEpochDelta, DIFF_STEP, EPOCH_DURATION_SECONDS, EPOCH_STEP,
-    MAINNET_GENESIS_TIMESTAMP,
-};
+use super::{ChainEpoch, ChainEpochDelta, EPOCH_DURATION_SECONDS, MAINNET_GENESIS_TIMESTAMP};
 use anyhow::Result;
 use chrono::NaiveDateTime;
 use reqwest::Url;
@@ -75,14 +72,22 @@ pub fn has_diff_snapshot(epoch: ChainEpoch, range: ChainEpochDelta) -> Result<bo
     ))
 }
 
-pub fn has_complete_round(round: u64) -> Result<bool> {
-    if !has_lite_snapshot(round * EPOCH_STEP)? {
-        return Ok(false);
-    }
-    for n in 0..EPOCH_STEP / DIFF_STEP {
-        if !has_diff_snapshot(round * EPOCH_STEP, n * DIFF_STEP)? {
-            return Ok(false);
-        }
-    }
-    Ok(true)
+pub fn has_historical_snapshot(snapshot: &crate::historical::HistoricalSnapshot) -> Result<bool> {
+    let name = snapshot.path();
+    is_available(&format!(
+        "https://forest-archive.chainsafe.dev/historical/{name}"
+    ))
+}
+
+pub fn upload_historical_snapshot(path: &Path) -> Result<()> {
+    let status = Command::new("aws")
+        .arg("--endpoint")
+        .arg(super::R2_ENDPOINT)
+        .arg("s3")
+        .arg("cp")
+        .arg(path)
+        .arg("s3://historical/")
+        .status()?;
+    anyhow::ensure!(status.success(), "failed to upload diff snapshot");
+    Ok(())
 }
