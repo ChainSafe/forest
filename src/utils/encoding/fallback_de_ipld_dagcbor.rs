@@ -2,7 +2,7 @@
 // https://github.com/ipld/serde_ipld_dagcbor/blob/379581691d82a68a774f87deb9462091ec3c8cb6/src/de.rs
 //
 // This is mostly a copy-paste of the original file, with the following changes:
-// - strings are deserialized as `BadStr`. This is a workaround for the historical
+// - strings are de-serialized as `BadStr`. This is a workaround for the historical
 // bug in Lotus where malformed UTF-8 strings were serialized as CBOR strings.
 // Allow everything so we don't stray from the original code too much.
 #![allow(clippy::all, warnings)]
@@ -66,7 +66,7 @@ mod cbor4ii_nonpub {
 ///
 /// # Examples
 ///
-/// Deserialize a `String`
+/// De-serialize a `String`
 ///
 /// ```
 /// # use serde_ipld_dagcbor::de;
@@ -75,7 +75,7 @@ mod cbor4ii_nonpub {
 /// assert_eq!(value, "foobar");
 /// ```
 ///
-/// Deserialize a borrowed string with zero copies.
+/// De-serialize a borrowed string with zero copies.
 ///
 /// ```
 /// # use serde_ipld_dagcbor::de;
@@ -98,7 +98,7 @@ where
 ///
 /// # Examples
 ///
-/// Deserialize a `String`
+/// De-serialize a `String`
 ///
 /// ```
 /// # use serde_ipld_dagcbor::de;
@@ -127,7 +127,7 @@ where
     Ok(value)
 }
 
-/// A Serde `Deserialize`r of DAG-CBOR data.
+/// A `serde` `Deserialize`r of DAG-CBOR data.
 #[derive(Debug)]
 struct Deserializer<R> {
     reader: R,
@@ -170,7 +170,7 @@ impl<'de, R: dec::Read<'de>> Deserializer<R> {
         }
     }
 
-    /// This method should be called after a value has been deserialized to ensure there is no
+    /// This method should be called after a value has been de-serialized to ensure there is no
     /// trailing data in the input source.
     pub fn end(&mut self) -> Result<(), DecodeError<R::Error>> {
         match peek_one(&mut self.reader) {
@@ -642,7 +642,7 @@ where
     }
 }
 
-/// Deserialize a DAG-CBOR encoded CID.
+/// De-serialize a DAG-CBOR encoded CID.
 ///
 /// This is without the CBOR tag information. It is only the CBOR byte string identifier (major
 /// type 2), the number of bytes, and a null byte prefixed CID.
