@@ -7,6 +7,21 @@ use filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
+mod fallback_de_ipld_dagcbor;
+
+pub fn from_slice_with_fallback<'a, T: serde::de::Deserialize<'a>>(
+    bytes: &'a [u8],
+) -> anyhow::Result<T> {
+    match serde_ipld_dagcbor::from_slice(bytes) {
+        Ok(v) => Ok(v),
+        Err(err) => fallback_de_ipld_dagcbor::from_slice(bytes).map_err(|fallback_err| {
+            anyhow::anyhow!(
+                "Fallback deserialization failed: {fallback_err}. Original error: {err}"
+            )
+        }),
+    }
+}
+
 pub mod uvibytes;
 
 /// `serde_bytes` with max length check
