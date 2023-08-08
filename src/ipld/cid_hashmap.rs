@@ -19,18 +19,12 @@ use fvm_ipld_encoding::DAG_CBOR;
 // length=32. Taking advantage of this knowledge, we can store the vast majority of CIDs (+99.99%)
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct CidHashMap<V>
-where
-    V: Clone,
-{
+pub struct CidHashMap<V> {
     v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
     fallback_hash_map: HashMap<Cid, V>,
 }
 
-impl<V> Extend<(Cid, V)> for CidHashMap<V>
-where
-    V: Clone,
-{
+impl<V> Extend<(Cid, V)> for CidHashMap<V> {
     fn extend<T: IntoIterator<Item = (Cid, V)>>(&mut self, iter: T) {
         for (k, v) in iter {
             self.insert(k, v);
@@ -38,10 +32,7 @@ where
     }
 }
 
-impl<V> FromIterator<(Cid, V)> for CidHashMap<V>
-where
-    V: Clone,
-{
+impl<V> FromIterator<(Cid, V)> for CidHashMap<V> {
     fn from_iter<T: IntoIterator<Item = (Cid, V)>>(iter: T) -> Self {
         let mut map = Self::new();
         map.extend(iter);
@@ -49,77 +40,45 @@ where
     }
 }
 
-pub struct CidHashMapIntoIterator<'a, V>
-where
-    V: Clone,
-{
-    cid_hash_map: &'a CidHashMap<V>,
-    current_ix: usize,
+pub struct IntoIter<V> {
+    small: std::collections::hash_map::IntoIter<[u8; BLAKE2B256_SIZE], V>,
+    fallback: std::collections::hash_map::IntoIter<Cid, V>,
 }
 
-impl<'a, V> IntoIterator for &'a CidHashMap<V>
-where
-    V: Clone,
-{
+impl<V> IntoIterator for CidHashMap<V> {
     type Item = (Cid, V);
-    type IntoIter = CidHashMapIntoIterator<'a, V>;
+    type IntoIter = IntoIter<V>;
 
     fn into_iter(self) -> Self::IntoIter {
-        CidHashMapIntoIterator {
-            cid_hash_map: self,
-            current_ix: 0,
+        let CidHashMap {
+            v1_dagcbor_blake2b_hash_map,
+            fallback_hash_map,
+        } = self;
+        Self::IntoIter {
+            small: v1_dagcbor_blake2b_hash_map.into_iter(),
+            fallback: fallback_hash_map.into_iter(),
         }
     }
 }
 
-impl<V> Iterator for CidHashMapIntoIterator<'_, V>
-where
-    V: Clone,
-{
+impl<V> Iterator for IntoIter<V> {
     type Item = (Cid, V);
-
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_ix < self.cid_hash_map.v1_dagcbor_blake2b_hash_map.len() {
-            let (bytes, value) = self
-                .cid_hash_map
-                .v1_dagcbor_blake2b_hash_map
-                .iter()
-                .nth(self.current_ix)
-                .expect("failed to get element from V1 DAG-CBOR Blake2b256 CID hashmap");
-            self.current_ix += 1;
-            Some((
-                Cid::new_v1(
+        match self.small.next() {
+            Some((bytes, v)) => {
+                let cid = Cid::new_v1(
                     DAG_CBOR,
-                    multihash::Multihash::wrap(Blake2b256.into(), bytes)
+                    multihash::Multihash::wrap(Blake2b256.into(), &bytes)
                         .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                ),
-                value.clone(),
-            ))
-        } else if self.current_ix
-            < self
-                .cid_hash_map
-                .v1_dagcbor_blake2b_hash_map
-                .len()
-                .saturating_add(self.cid_hash_map.fallback_hash_map.len())
-        {
-            let (cid, value) = self
-                .cid_hash_map
-                .fallback_hash_map
-                .iter()
-                .nth(self.current_ix - self.cid_hash_map.v1_dagcbor_blake2b_hash_map.len())
-                .expect("failed to get element from CID hashmap");
-            self.current_ix += 1;
-            Some((*cid, value.clone()))
-        } else {
-            None
+                );
+                Some((cid, v))
+            }
+            None => self.fallback.next().map(|(cid, v)| (cid, v)),
         }
     }
 }
 
-impl<V> CidHashMap<V>
-where
-    V: Clone,
-{
+impl<V> CidHashMap<V> {
     /// Creates an empty `HashMap` with CID type keys.
     pub fn new() -> Self {
         Self {
@@ -265,7 +224,7 @@ mod tests {
     #[quickcheck]
     fn cidhashmap_to_hashmap_to_cidhashmap(cid_vector: Vec<(Cid, u64)>) {
         let (cid_hash_map, _) = generate_hash_maps(cid_vector);
-        let hash_map: HashMap<Cid, u64> = cid_hash_map.into_iter().collect();
+        let hash_map: HashMap<Cid, u64> = cid_hash_map.clone().into_iter().collect();
         let cid_hash_map_2: CidHashMap<u64> = hash_map.into_iter().collect();
         assert_eq!(cid_hash_map, cid_hash_map_2);
     }
