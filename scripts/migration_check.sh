@@ -33,7 +33,7 @@ function sync_with_tag() {
 }
 
 # DB Migration are supported v0.11.1 onwards
-START_TAG="v0.11.1"
+START_TAG="v0.12.1"
 
 # Fetch the latest tags from the remote repository
 git fetch --tags
