@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{
-    multihash::{Code, MultihashDigest},
+    multihash::{self, Code, Code::Blake2b256, MultihashDigest},
     Cid, Version,
 };
 use fvm_ipld_encoding::{Error, DAG_CBOR};
@@ -45,18 +45,30 @@ pub enum CidVariant {
     V1DagCborBlake2b([u8; BLAKE2B256_SIZE]),
 }
 
-impl TryFrom<Cid> for CidVariant {
-    type Error = ();
-    fn try_from(cid: Cid) -> Result<Self, Self::Error> {
+impl From<Cid> for CidVariant {
+    fn from(cid: Cid) -> Self {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
             if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
                 if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
-                    return Ok(CidVariant::V1DagCborBlake2b(bytes));
+                    return CidVariant::V1DagCborBlake2b(bytes);
                 }
             }
         }
-        Err(())
+        CidVariant::Generic(Box::new(cid))
+    }
+}
+
+impl From<CidVariant> for Cid {
+    fn from(variant: CidVariant) -> Self {
+        match variant {
+            CidVariant::Generic(cid) => *cid,
+            CidVariant::V1DagCborBlake2b(digest) => Cid::new_v1(
+                DAG_CBOR,
+                multihash::Multihash::wrap(Blake2b256.into(), &digest)
+                    .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
+            ),
+        }
     }
 }
 
@@ -68,12 +80,26 @@ mod tests {
     use crate::utils::db::CborStoreExt;
     use anyhow::*;
     use cid::{
-        multihash::{Code, MultihashDigest},
+        multihash::{self, Code, MultihashDigest},
         Cid,
     };
     use fvm_ipld_encoding::DAG_CBOR;
+    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::mem::size_of;
+
+    impl Arbitrary for CidVariant {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs, but we can manually create them. This method will generate each variant of `CidVariant` with equal probability.
+            match bool::arbitrary(g) {
+                true => CidVariant::Generic(Box::new(Cid::arbitrary(g))),
+                false => CidVariant::from(Cid::new_v1(
+                    DAG_CBOR,
+                    multihash::Code::Blake2b256.digest(&u64::arbitrary(g).to_be_bytes()),
+                )),
+            }
+        }
+    }
 
     #[quickcheck]
     fn test_cid_cbor_ext(s: String) -> Result<()> {

@@ -93,8 +93,8 @@ impl From<Vec<Cid>> for FrozenCids {
     fn from(cids: Vec<Cid>) -> Self {
         let mut small_cids = Vec::with_capacity(cids.len());
         for cid in cids {
-            match cid.try_into() {
-                Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+            match cid.into() {
+                CidVariant::V1DagCborBlake2b(bytes) => {
                     small_cids.push(CidVariant::V1DagCborBlake2b(bytes))
                 }
                 _ => small_cids.push(CidVariant::Generic(Box::new(cid))),
@@ -114,15 +114,9 @@ impl From<&FrozenCids> for Vec<Cid> {
     fn from(frozen_cids: &FrozenCids) -> Self {
         let mut cids = Vec::with_capacity(frozen_cids.0.len());
         for cid in frozen_cids.into_iter() {
-            match cid.try_into() {
-                Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
-                    let mut digest = [0; BLAKE2B256_SIZE];
-                    digest.copy_from_slice(&bytes);
-                    cids.push(Cid::new_v1(
-                        DAG_CBOR,
-                        multihash::Multihash::wrap(Blake2b256.into(), &digest)
-                            .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                    ))
+            match cid.into() {
+                CidVariant::V1DagCborBlake2b(bytes) => {
+                    cids.push(Cid::from(CidVariant::V1DagCborBlake2b(bytes)))
                 }
                 _ => cids.push(cid),
             }
