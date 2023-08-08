@@ -25,6 +25,9 @@ pub enum SnapshotCommands {
     Fetch {
         #[arg(short, long, default_value = ".")]
         directory: PathBuf,
+        /// Network chain the snapshot will belong to
+        #[arg(long, default_value_t = NetworkChain::Mainnet)]
+        chain: NetworkChain,
         /// Vendor to fetch the snapshot from
         #[arg(short, long, value_enum, default_value_t = snapshot::TrustedVendor::default())]
         vendor: snapshot::TrustedVendor,
@@ -51,16 +54,17 @@ pub enum SnapshotCommands {
 impl SnapshotCommands {
     pub async fn run(self) -> Result<()> {
         match self {
-            Self::Fetch { directory, vendor } => {
-                let config = read_config()?;
-                match snapshot::fetch(&directory, &config.chain.network, vendor).await {
-                    Ok(out) => {
-                        println!("{}", out.display());
-                        Ok(())
-                    }
-                    Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
+            Self::Fetch {
+                directory,
+                chain,
+                vendor,
+            } => match snapshot::fetch(&directory, &chain, vendor).await {
+                Ok(out) => {
+                    println!("{}", out.display());
+                    Ok(())
                 }
-            }
+                Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
+            },
             Self::Validate {
                 check_links,
                 check_network,
