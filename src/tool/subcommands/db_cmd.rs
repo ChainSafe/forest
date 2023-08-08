@@ -31,7 +31,7 @@ impl DBCommands {
             Self::Stats { chain_path } => {
                 use human_repr::HumanCount;
 
-                let dir = db_root(&chain_path);
+                let dir = db_root(chain_path);
                 if !dir.is_dir() {
                     println!(
                         "Aborted. Database path {} is not a valid directory",
@@ -58,7 +58,7 @@ impl DBCommands {
                     println!("Aborted.");
                     return Ok(());
                 }
-                match fs_extra::dir::remove(&dir) {
+                match fs_extra::dir::remove(dir) {
                     Ok(_) => {
                         println!("Deleted {}", dir.display());
                         Ok(())
