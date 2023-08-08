@@ -62,7 +62,8 @@ use fvm_ipld_encoding::to_vec;
 use parking_lot::RwLock;
 use positioned_io::{Cursor, ReadAt};
 
-use std::sync::Arc;
+use std::io::{Seek, SeekFrom};
+use std::sync::{Arc, Mutex};
 use std::task::Poll;
 use std::{
     io,
@@ -71,34 +72,45 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 
-pub trait ReaderGen<V>: Fn() -> io::Result<(V, u64)> + Send + Sync + 'static {}
-impl<ReaderT, X: Fn() -> io::Result<(ReaderT, u64)> + Send + Sync + 'static> ReaderGen<ReaderT>
-    for X
-{
-}
+pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
+impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
 
 pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
     cache_key: CacheKey,
     indexed: CarIndex<ReaderT>,
-    frame_cache: Arc<RwLock<ZstdFrameCache>>,
+    frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
 impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
-    pub fn new(mk_reader: impl ReaderGen<ReaderT>) -> io::Result<Self> {
-        let (reader, file_size) = mk_reader()?;
+    pub fn new(reader: ReaderT) -> io::Result<Self> {
+        let (header, footer) = Self::try_construct(&reader)?;
+
+        let index = CarIndex::open(reader, footer.index)?;
+
+        Ok(ForestCar {
+            cache_key: 0,
+            indexed: index,
+            frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
+            write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
+            roots: header.roots,
+        })
+    }
+
+    pub fn is_valid(reader: &ReaderT) -> bool {
+        Self::try_construct(reader).is_ok()
+    }
+
+    fn try_construct(reader: &ReaderT) -> io::Result<(CarHeader, ForestCarFooter)> {
+        let mut cursor = Cursor::new(&reader);
+        cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
 
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
+        cursor.read_exact(&mut footer_buffer)?;
 
-        // Make sure we don't panic when the filesize is less than the footer size.
-        let read_offset = match file_size.checked_sub(ForestCarFooter::SIZE as u64) {
-            Some(offset) => offset,
-            _ => 0,
-        };
-        reader.read_exact_at(read_offset, &mut footer_buffer)?;
         let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
             io::ErrorKind::InvalidData,
             "Data not recognized as ForestCAR.zst",
@@ -112,14 +124,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         let header = from_slice_with_fallback::<CarHeader>(&block_frame)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        let index = CarIndex::open(reader, footer.index)?;
-        Ok(ForestCar {
-            cache_key: 0,
-            indexed: index,
-            frame_cache: Arc::new(RwLock::new(ZstdFrameCache::default())),
-            write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
-            roots: header.roots,
-        })
+        Ok((header, footer))
     }
 
     pub fn roots(&self) -> Vec<Cid> {
@@ -144,7 +149,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         }
     }
 
-    pub fn with_cache(self, cache: Arc<RwLock<ZstdFrameCache>>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
         Self {
             cache_key: key,
             frame_cache: cache,
@@ -167,7 +172,11 @@ where
         let indexed = &self.indexed;
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.reader();
-            let cache_query = self.frame_cache.write().get(position, self.cache_key, *k);
+            let cache_query =
+                self.frame_cache
+                    .lock()
+                    .expect("unrecoverable")
+                    .get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
                 Some(Some(val)) => return Ok(Some(val)),
@@ -187,9 +196,11 @@ where
                         }
                     }
                     let get_result = block_map.get(k).cloned();
-                    self.frame_cache
-                        .write()
-                        .put(position, self.cache_key, block_map);
+                    self.frame_cache.lock().expect("unrecoverable").put(
+                        position,
+                        self.cache_key,
+                        block_map,
+                    );
 
                     // This lookup only fails in case of a hash collision
                     if let Some(value) = get_result {
@@ -414,10 +425,8 @@ mod tests {
     #[quickcheck]
     fn forest_car_create_basic(head: Block, mut tail: Vec<Block>, roots: Vec<Cid>) {
         tail.push(head);
-        let forest_car_data = mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone());
         let forest_car =
-            ForestCar::new(move || Ok((forest_car_data.clone(), forest_car_data.len() as u64)))
-                .unwrap();
+            ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone())).unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
@@ -434,15 +443,14 @@ mod tests {
     ) {
         compression_level %= 15;
         tail.push(head);
-        let forest_car_data = mk_encoded_car(
+
+        let forest_car = ForestCar::new(mk_encoded_car(
             frame_size,
             compression_level.max(1),
             roots.clone(),
             tail.clone(),
-        );
-        let forest_car =
-            ForestCar::new(move || Ok((forest_car_data.clone(), forest_car_data.len() as u64)))
-                .unwrap();
+        ))
+        .unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
@@ -452,7 +460,7 @@ mod tests {
     #[quickcheck]
     fn forest_car_open_invalid(junk: Vec<u8>) {
         // The chance of thinking random data is a valid ForestCar should be practically zero.
-        assert!(ForestCar::new(move || Ok((junk.clone(), junk.len() as u64))).is_err());
+        assert!(ForestCar::new(junk.clone()).is_err());
     }
 
     #[quickcheck]

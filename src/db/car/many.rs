@@ -14,12 +14,12 @@ use crate::db::MemoryDB;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::RwLock;
 use positioned_io::RandomAccessFile;
+use std::sync::Mutex;
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
-    shared_cache: Arc<RwLock<ZstdFrameCache>>,
+    shared_cache: Arc<Mutex<ZstdFrameCache>>,
     read_only: Vec<AnyCar<Box<dyn super::CarReader>>>,
     writer: WriterT,
 }
@@ -27,7 +27,7 @@ pub struct ManyCar<WriterT = MemoryDB> {
 impl ManyCar {
     pub fn new() -> Self {
         ManyCar {
-            shared_cache: Arc::new(RwLock::new(ZstdFrameCache::default())),
+            shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             read_only: Vec::new(),
             writer: MemoryDB::default(),
         }
@@ -46,11 +46,7 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn read_only_files(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
         for file in files {
-            let car = AnyCar::new(move || {
-                let file = std::fs::File::open(file.clone())?;
-                let size = file.metadata()?.len();
-                RandomAccessFile::try_new(file).map(|file| (file, size))
-            })?;
+            let car = AnyCar::new(RandomAccessFile::open(file)?)?;
             self.read_only(car);
         }
         Ok(())

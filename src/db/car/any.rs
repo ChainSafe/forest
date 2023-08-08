@@ -14,10 +14,9 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use positioned_io::{RandomAccessFile, ReadAt};
-use std::fs::File;
 use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
@@ -29,22 +28,21 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     /// Open an archive. May be formatted as `.car`, `.car.zst` or
     /// `.forest.car.zst`. This call may block for an indeterminate amount of
     /// time while data is decoded and indexed.
-    pub fn new(mk_reader: impl super::forest::ReaderGen<ReaderT>) -> Result<Self> {
-        let plain_reader = mk_reader();
-        let zstd_reader = mk_reader();
-        if let Ok(forest_car) = super::ForestCar::new(mk_reader) {
+    pub fn new(reader: ReaderT) -> Result<Self> {
+        if super::ForestCar::is_valid(&reader) {
+            let forest_car = super::ForestCar::new(reader)?;
             return Ok(AnyCar::Forest(forest_car));
         }
-        if let Ok(plain_car) = super::PlainCar::new(plain_reader?.0) {
-            return Ok(AnyCar::Plain(plain_car));
-        }
+
         // Maybe use a tempfile for this in the future.
-        if let Ok(decompressed) =
-            zstd::stream::decode_all(positioned_io::Cursor::new(zstd_reader?.0))
-        {
+        if let Ok(decompressed) = zstd::stream::decode_all(positioned_io::Cursor::new(&reader)) {
             if let Ok(mem_car) = super::PlainCar::new(decompressed) {
                 return Ok(AnyCar::Memory(mem_car));
             }
+        }
+
+        if let Ok(plain_car) = super::PlainCar::new(reader) {
+            return Ok(AnyCar::Plain(plain_car));
         }
         Err(Error::new(
             ErrorKind::InvalidData,
@@ -82,7 +80,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 
     /// Set the z-frame cache of the inner CAR reader.
-    pub fn with_cache(self, cache: Arc<RwLock<ZstdFrameCache>>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
             AnyCar::Plain(p) => AnyCar::Plain(p),
@@ -101,11 +99,7 @@ impl TryFrom<&'static [u8]> for AnyCar<&'static [u8]> {
 impl TryFrom<PathBuf> for AnyCar<RandomAccessFile> {
     type Error = std::io::Error;
     fn try_from(path: PathBuf) -> std::io::Result<Self> {
-        AnyCar::new(move || {
-            let file = File::open(path.clone())?;
-            let size = file.metadata()?.len();
-            RandomAccessFile::try_new(file).map(|file| (file, size))
-        })
+        AnyCar::new(RandomAccessFile::open(path)?)
     }
 }
 
@@ -137,42 +131,27 @@ mod tests {
 
     #[test]
     fn forest_any_load_calibnet() {
-        let forest_car = AnyCar::new(move || {
-            Ok((
-                calibnet::DEFAULT_GENESIS,
-                calibnet::DEFAULT_GENESIS.len() as u64,
-            ))
-        })
-        .unwrap();
+        let forest_car = AnyCar::new(calibnet::DEFAULT_GENESIS).unwrap();
         assert!(forest_car.has(&calibnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_calibnet_zstd() {
         let data = zstd::encode_all(calibnet::DEFAULT_GENESIS, 3).unwrap();
-        let len = data.len() as u64;
-
-        let forest_car = AnyCar::new(move || Ok((data.clone(), len))).unwrap();
+        let forest_car = AnyCar::new(data).unwrap();
         assert!(forest_car.has(&calibnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_mainnet() {
-        let forest_car = AnyCar::new(move || {
-            Ok((
-                mainnet::DEFAULT_GENESIS,
-                mainnet::DEFAULT_GENESIS.len() as u64,
-            ))
-        })
-        .unwrap();
+        let forest_car = AnyCar::new(mainnet::DEFAULT_GENESIS).unwrap();
         assert!(forest_car.has(&mainnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_mainnet_zstd() {
         let data = zstd::encode_all(mainnet::DEFAULT_GENESIS, 3).unwrap();
-        let len = data.len() as u64;
-        let forest_car = AnyCar::new(move || Ok((data.clone(), len))).unwrap();
+        let forest_car = AnyCar::new(data).unwrap();
         assert!(forest_car.has(&mainnet::GENESIS_CID).unwrap());
     }
 }
