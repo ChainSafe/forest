@@ -141,12 +141,13 @@ impl SnapshotCommands {
                     dry_run,
                 };
 
-                let finality = config.chain
-                    .policy
-                    .chain_finality
-                    .min(epoch);
+                let finality = config.chain.policy.chain_finality.min(epoch);
                 if params.recent_roots < finality {
-                    bail!("For {}, depth has to be at least {}.", config.chain.network, finality);
+                    bail!(
+                        "For {}, depth has to be at least {}.",
+                        config.chain.network,
+                        finality
+                    );
                 }
 
                 let handle = tokio::spawn({
