@@ -96,11 +96,7 @@ impl ArchiveCommands {
             Self::Checkpoints {
                 snapshot_files: snapshot,
             } => print_checkpoints(snapshot),
-            Self::Info { snapshot: _ } => {
-                anyhow::bail!(
-                    "Invalid subcommand: archive info. It has been moved to forest-tool binary.",
-                )
-            }
+            Self::Info { snapshot: _ } => crate::bail_moved_cmd!("archive info"),
         }
     }
 }

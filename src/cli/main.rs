@@ -16,6 +16,16 @@ use clap::Parser;
 
 use super::subcommands::Subcommand;
 
+#[macro_export]
+macro_rules! bail_moved_cmd {
+    ($str:literal) => {
+        anyhow::bail!(
+            "Invalid subcommand: {}. It has been moved to forest-tool binary.",
+            $str
+        )
+    };
+}
+
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
     ArgT: Into<OsString> + Clone,
@@ -65,10 +75,8 @@ where
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
                         Subcommand::Car(cmd) => cmd.run().await,
-                        Subcommand::Fetch(_cmd) =>
-                            anyhow::bail!("Invalid subcommand: fetch-params. It has been moved to forest-tool binary."),
-                        Subcommand::Config(_cmd) =>
-                            anyhow::bail!("Invalid subcommand: config dump. It has been moved to forest-tool binary."),
+                        Subcommand::Fetch(_cmd) => bail_moved_cmd!("fetch-params"),
+                        Subcommand::Config(_cmd) => bail_moved_cmd!("config dump"),
                     }
                 }
                 Err(e) => {

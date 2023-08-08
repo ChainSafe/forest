@@ -71,12 +71,8 @@ impl DBCommands {
 
                 Ok(())
             }
-            _ => {
-                anyhow::bail!(
-                    "Invalid subcommand: db {}. It has been moved to forest-tool binary.",
-                    format!("{:?}", self).to_lowercase()
-                );
-            }
+            Self::Clean { force: _ } => crate::bail_moved_cmd!("db clean"),
+            Self::Stats => crate::bail_moved_cmd!("db stats"),
         }
     }
 }

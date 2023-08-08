@@ -231,21 +231,13 @@ impl SnapshotCommands {
             Self::Fetch {
                 directory: _,
                 vendor: _,
-            } => {
-                anyhow::bail!(
-                    "Invalid subcommand: snapshot fetch. It has been moved to forest-tool binary.",
-                )
-            }
+            } => crate::bail_moved_cmd!("snapshot fetch"),
             Self::Validate {
                 check_links: _,
                 check_network: _,
                 check_stateroots: _,
                 snapshot_files: _,
-            } => {
-                anyhow::bail!(
-                    "Invalid subcommand: snapshot validate. It has been moved to forest-tool binary.",
-                )
-            }
+            } => crate::bail_moved_cmd!("snapshot validate"),
         }
     }
 }
