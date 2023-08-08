@@ -14,6 +14,7 @@ use forest_filecoin::utils::db::car_stream::CarStream;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::DAG_CBOR;
+use itertools::Itertools;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -130,10 +131,8 @@ async fn validate_car(path: impl AsRef<Path>) -> Result<()> {
     .await?;
     assert!(!reader.header.roots.is_empty());
     let mut count = 0;
-    reader
-        .inspect_ok(|_| count += 1)
-        .try_collect::<Vec<_>>()
-        .await?;
+    let blocks: Vec<_> = reader.inspect_ok(|_| count += 1).try_collect().await?;
+    assert!(blocks.iter().map(|b| b.cid).all_unique());
     println!("Result car block count: {count}");
     Ok(())
 }
