@@ -17,7 +17,7 @@ pub enum CarCommands {
         /// A list of CAR file paths. A CAR file can be a plain CAR, a zstd compressed CAR
         /// or a forest CAR
         car_files: Vec<PathBuf>,
-        /// The output forest CAR file path
+        /// The output ForestCAR.zst file path
         #[arg(short, long)]
         output: PathBuf,
     },
@@ -68,7 +68,7 @@ fn dedup_block_stream(
     stream: impl Stream<Item = std::io::Result<Block>>,
 ) -> impl Stream<Item = std::io::Result<Block>> {
     let mut seen = CidHashSet::default();
-    stream.try_filter_map(move |block| {
+    stream.try_filter(move |block| {
         futures::future::ready(Ok(if seen.insert(block.cid) {
             Some(block)
         } else {
