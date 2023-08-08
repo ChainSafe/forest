@@ -4,6 +4,7 @@
 pub mod benchmark_cmd;
 pub mod config_cmd;
 pub mod db_cmd;
+pub mod fetch_params_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
@@ -21,6 +22,10 @@ pub struct Cli {
 /// forest-tool sub-commands
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
+    /// Download parameters for generating and verifying proofs for given size
+    #[command(name = "fetch-params")]
+    Fetch(fetch_params_cmd::FetchCommands),
+
     /// Manage node configuration
     #[command(subcommand)]
     Config(config_cmd::ConfigCommands),

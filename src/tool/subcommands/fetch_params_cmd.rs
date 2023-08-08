@@ -4,8 +4,7 @@
 use crate::shim::sector::SectorSize;
 use crate::utils::proofs_api::paramfetch::{get_params_default, SectorSizeOpt};
 
-use super::cli_error_and_die;
-use crate::cli::subcommands::Config;
+use crate::cli::subcommands::{cli_error_and_die, Config};
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Args)]

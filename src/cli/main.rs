@@ -50,7 +50,6 @@ where
                     }
                     // Run command
                     match cmd {
-                        Subcommand::Fetch(cmd) => cmd.run(config).await,
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
@@ -66,6 +65,8 @@ where
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
                         Subcommand::Car(cmd) => cmd.run().await,
+                        Subcommand::Fetch(_cmd) =>
+                            anyhow::bail!("Invalid subcommand: fetch-params. It has been moved to forest-tool binary."),
                         _ => {
                             let mut s = format!("{:?}", cmd).to_lowercase();
                             s = s.replace("(", " ");
