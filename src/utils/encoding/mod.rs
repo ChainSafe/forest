@@ -7,6 +7,27 @@ use filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
 pub use serde::{de, ser, Deserializer, Serializer};
 
+mod fallback_de_ipld_dagcbor;
+
+/// This method will attempt to de-serialize given bytes using the regular
+/// `serde_ipld_dagcbor::from_slice`. Due to a historical issue in Lotus (see more in
+/// [FIP-0027](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0027.md), we must still
+/// support strings with invalid UTF-8 bytes. On a failure, it
+/// will retry the operation using the fallback that will de-serialize
+/// strings with invalid UTF-8 bytes as bytes.
+pub fn from_slice_with_fallback<'a, T: serde::de::Deserialize<'a>>(
+    bytes: &'a [u8],
+) -> anyhow::Result<T> {
+    match serde_ipld_dagcbor::from_slice(bytes) {
+        Ok(v) => Ok(v),
+        Err(err) => fallback_de_ipld_dagcbor::from_slice(bytes).map_err(|fallback_err| {
+            anyhow::anyhow!(
+                "Fallback deserialization failed: {fallback_err}. Original error: {err}"
+            )
+        }),
+    }
+}
+
 pub mod uvibytes;
 
 /// `serde_bytes` with max length check
@@ -84,8 +105,11 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
 #[cfg(test)]
 mod tests {
     use anyhow::{ensure, Result};
+    use itertools::Itertools;
+    use libipld::Ipld;
     use rand::Rng;
     use serde::{Deserialize, Serialize};
+    use serde_ipld_dagcbor::to_vec;
 
     use super::*;
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
@@ -138,7 +162,7 @@ mod tests {
 
             let encoding = serde_ipld_dagcbor::to_vec(&bytes).unwrap();
             assert_eq!(
-                serde_ipld_dagcbor::from_slice::<ByteArray>(&encoding).unwrap(),
+                from_slice_with_fallback::<ByteArray>(&encoding).unwrap(),
                 bytes
             );
         }
@@ -158,7 +182,7 @@ mod tests {
 
         ensure!(format!(
             "{}",
-            serde_ipld_dagcbor::from_slice::<ByteArray>(&overflow_encoding)
+            from_slice_with_fallback::<ByteArray>(&overflow_encoding)
                 .err()
                 .unwrap()
         )
@@ -185,5 +209,35 @@ mod tests {
         ensure!(serde_json::to_string_pretty(&a)? == serde_json::to_string_pretty(&b)?);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_fallback_deserialization() {
+        // where the regular deserialization fails with invalid UTF-8 strings, the fallback should
+        // succeed.
+
+        // Valid UTF-8, should return the same results.
+        let ipld_string = Ipld::String("cthulhu".to_string());
+        let serialized = to_vec(&ipld_string).unwrap();
+        assert_eq!(
+            ipld_string,
+            serde_ipld_dagcbor::from_slice::<Ipld>(&serialized).unwrap()
+        );
+        assert_eq!(
+            ipld_string,
+            from_slice_with_fallback::<Ipld>(&serialized).unwrap()
+        );
+
+        // Invalid UTF-8, regular deserialization fails, fallback succeeds. We can
+        // extract the bytes.
+        let corrupted = serialized
+            .iter()
+            .take(serialized.len() - 2)
+            .chain(&[0xa0, 0xa1])
+            .copied()
+            .collect_vec();
+        assert!(
+            matches!(from_slice_with_fallback::<Ipld>(&corrupted).unwrap(), Ipld::Bytes(bytes) if bytes == [0x63, 0x74, 0x68, 0x75, 0x6c, 0xa0, 0xa1])
+        )
     }
 }
