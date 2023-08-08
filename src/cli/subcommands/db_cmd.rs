@@ -16,6 +16,15 @@ use crate::cli::subcommands::handle_rpc_err;
 pub enum DBCommands {
     /// Run DB garbage collection
     GC,
+
+    // Those subcommands are hidden and only here to help users migrating to forest-tool
+    #[command(hide = true)]
+    Stats,
+    #[command(hide = true)]
+    Clean {
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 impl DBCommands {
@@ -61,6 +70,12 @@ impl DBCommands {
                 ));
 
                 Ok(())
+            }
+            _ => {
+                anyhow::bail!(
+                    "Invalid subcommand: db {}. It has been moved to forest-tool binary.",
+                    format!("{:?}", self).to_lowercase()
+                );
             }
         }
     }
