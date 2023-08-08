@@ -106,9 +106,6 @@ go-mod:
 	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor && go build -o /tmp/forest-go-compat-test) || \
 	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
 
-smoke-test:
-	./scripts/smoke_test.sh
-
 # Checks if all headers are present and adds if not
 license:
 	./scripts/add_license.sh

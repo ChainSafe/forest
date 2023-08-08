@@ -16,5 +16,4 @@ mod tests {
     mod address_test;
     mod base_cid_tests;
     mod json_tests;
-    mod serde_tests;
 }
