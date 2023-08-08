@@ -10,6 +10,7 @@ use crate::{
 use anyhow::*;
 use cid::Cid;
 use fvm_ipld_encoding::CborStore;
+use positioned_io::RandomAccessFile;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 use std::{str::FromStr, sync::Arc};
@@ -89,7 +90,7 @@ async fn test_state_migration(
     }
 
     let store = Arc::new(crate::db::car::plain::PlainCar::new(
-        std::io::BufReader::new(std::fs::File::open(&car_path)?),
+        RandomAccessFile::open(&car_path)?,
     )?);
     load_actor_bundles(&store).await?;
 

@@ -12,7 +12,9 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
+use positioned_io::{RandomAccessFile, ReadAt};
+use std::fs::File;
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -20,7 +22,7 @@ use std::sync::Arc;
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
     Forest(super::ForestCar<ReaderT>),
-    Memory(super::PlainCar<Cursor<Vec<u8>>>),
+    Memory(super::PlainCar<Vec<u8>>),
 }
 
 impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
@@ -33,13 +35,14 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
         if let Ok(forest_car) = super::ForestCar::new(mk_reader) {
             return Ok(AnyCar::Forest(forest_car));
         }
-        if let Ok(plain_car) = super::PlainCar::new(plain_reader?) {
+        if let Ok(plain_car) = super::PlainCar::new(plain_reader?.0) {
             return Ok(AnyCar::Plain(plain_car));
         }
         // Maybe use a tempfile for this in the future.
-        if let Ok(decompressed) = zstd::stream::decode_all(zstd_reader?) {
-            let mem_reader = Cursor::new(decompressed);
-            if let Ok(mem_car) = super::PlainCar::new(mem_reader) {
+        if let Ok(decompressed) =
+            zstd::stream::decode_all(positioned_io::Cursor::new(zstd_reader?.0))
+        {
+            if let Ok(mem_car) = super::PlainCar::new(decompressed) {
                 return Ok(AnyCar::Memory(mem_car));
             }
         }
@@ -79,7 +82,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 
     /// Set the z-frame cache of the inner CAR reader.
-    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
+    pub fn with_cache(self, cache: Arc<RwLock<ZstdFrameCache>>, key: CacheKey) -> Self {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.with_cache(cache, key)),
             AnyCar::Plain(p) => AnyCar::Plain(p),
@@ -88,25 +91,27 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 }
 
-impl TryFrom<&'static [u8]> for AnyCar<std::io::Cursor<&'static [u8]>> {
+impl TryFrom<&'static [u8]> for AnyCar<&'static [u8]> {
     type Error = std::io::Error;
     fn try_from(bytes: &'static [u8]) -> std::io::Result<Self> {
-        Ok(AnyCar::Plain(super::PlainCar::new(std::io::Cursor::new(
-            bytes,
-        ))?))
+        Ok(AnyCar::Plain(super::PlainCar::new(bytes)?))
     }
 }
 
-impl TryFrom<PathBuf> for AnyCar<std::fs::File> {
+impl TryFrom<PathBuf> for AnyCar<RandomAccessFile> {
     type Error = std::io::Error;
     fn try_from(path: PathBuf) -> std::io::Result<Self> {
-        AnyCar::new(move || std::fs::File::open(&path))
+        AnyCar::new(move || {
+            let file = File::open(path.clone())?;
+            let size = file.metadata()?.len();
+            RandomAccessFile::try_new(file).map(|file| (file, size))
+        })
     }
 }
 
 impl<ReaderT> Blockstore for AnyCar<ReaderT>
 where
-    ReaderT: Read + Seek,
+    ReaderT: ReadAt,
 {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         match self {
@@ -133,29 +138,42 @@ mod tests {
 
     #[test]
     fn forest_any_load_calibnet() {
-        let forest_car = AnyCar::new(move || Ok(Cursor::new(calibnet::DEFAULT_GENESIS))).unwrap();
+        let forest_car = AnyCar::new(move || {
+            Ok((
+                calibnet::DEFAULT_GENESIS,
+                calibnet::DEFAULT_GENESIS.len() as u64,
+            ))
+        })
+        .unwrap();
         assert!(forest_car.has(&calibnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_calibnet_zstd() {
-        let forest_car =
-            AnyCar::new(move || Ok(Cursor::new(zstd::encode_all(calibnet::DEFAULT_GENESIS, 3)?)))
-                .unwrap();
+        let data = zstd::encode_all(calibnet::DEFAULT_GENESIS, 3).unwrap();
+        let len = data.len() as u64;
+
+        let forest_car = AnyCar::new(move || Ok((data.clone(), len))).unwrap();
         assert!(forest_car.has(&calibnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_mainnet() {
-        let forest_car = AnyCar::new(move || Ok(Cursor::new(mainnet::DEFAULT_GENESIS))).unwrap();
+        let forest_car = AnyCar::new(move || {
+            Ok((
+                mainnet::DEFAULT_GENESIS,
+                mainnet::DEFAULT_GENESIS.len() as u64,
+            ))
+        })
+        .unwrap();
         assert!(forest_car.has(&mainnet::GENESIS_CID).unwrap());
     }
 
     #[test]
     fn forest_any_load_mainnet_zstd() {
-        let forest_car =
-            AnyCar::new(move || Ok(Cursor::new(zstd::encode_all(mainnet::DEFAULT_GENESIS, 3)?)))
-                .unwrap();
+        let data = zstd::encode_all(mainnet::DEFAULT_GENESIS, 3).unwrap();
+        let len = data.len() as u64;
+        let forest_car = AnyCar::new(move || Ok((data.clone(), len))).unwrap();
         assert!(forest_car.has(&mainnet::GENESIS_CID).unwrap());
     }
 }

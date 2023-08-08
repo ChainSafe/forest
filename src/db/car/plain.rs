@@ -62,11 +62,15 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use ahash::HashMapExt as _;
+use anyhow::{anyhow, Context};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use integer_encoding::VarIntReader;
 use parking_lot::Mutex;
+use positioned_io::ReadAt;
+use std::ops::{Deref, DerefMut};
+use std::sync::RwLock;
 use std::{
     any::Any,
     collections::hash_map::Entry::{Occupied, Vacant},
@@ -102,8 +106,10 @@ use tracing::{debug, trace};
 ///
 /// See [module documentation](mod@self) for more.
 pub struct PlainCar<ReaderT> {
-    // https://github.com/ChainSafe/forest/issues/3096
-    inner: Mutex<PlainCarInner<ReaderT>>,
+    reader: ReaderT,
+    write_cache: RwLock<ahash::HashMap<Cid, Vec<u8>>>,
+    index: RwLock<ahash::HashMap<Cid, UncompressedBlockDataLocation>>,
+    roots: Vec<Cid>,
 }
 
 impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
@@ -113,11 +119,12 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     ///   [`Blockstore`] API calls may panic if this is not upheld.
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn new(mut reader: ReaderT) -> io::Result<Self> {
-        let roots = get_roots_from_v1_header(&mut reader)?;
+        let mut cursor = positioned_io::Cursor::new(&reader);
+        let roots = get_roots_from_v1_header(&mut cursor)?;
 
         // When indexing, we perform small reads of the length and CID before seeking
         // Buffering these gives us a ~50% speedup (n=10): https://github.com/ChainSafe/forest/pull/3085#discussion_r1246897333
-        let mut buf_reader = BufReader::with_capacity(1024, reader);
+        let mut buf_reader = BufReader::with_capacity(1024, cursor);
 
         // now create the index
         let index =
@@ -132,20 +139,17 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
             num_blocks => {
                 debug!(num_blocks, "indexed CAR");
                 Ok(Self {
-                    inner: Mutex::new(PlainCarInner {
-                        // discarding the buffer is ok - we only seek within this now
-                        reader: buf_reader.into_inner(),
-                        index,
-                        roots,
-                        write_cache: ahash::HashMap::new(),
-                    }),
+                    reader,
+                    index: RwLock::new(index),
+                    roots,
+                    write_cache: RwLock::new(ahash::HashMap::new()),
                 })
             }
         }
     }
 
     pub fn roots(&self) -> Vec<Cid> {
-        self.inner.lock().roots.clone()
+        self.roots.clone()
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
@@ -155,39 +159,24 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
-        self.inner.lock().index.keys().cloned().collect()
+        self.index.read().unwrap().keys().cloned().collect()
     }
 
     pub fn into_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
-        let PlainCarInner {
-            reader,
-            write_cache,
-            index,
-            roots,
-        } = self.inner.into_inner();
         PlainCar {
-            inner: Mutex::new(PlainCarInner {
-                reader: Box::new(reader),
-                write_cache,
-                index,
-                roots,
-            }),
+            reader: Box::new(self.reader),
+            write_cache: self.write_cache,
+            index: self.index,
+            roots: self.roots,
         }
     }
 }
 
-impl TryFrom<&'static [u8]> for PlainCar<std::io::Cursor<&'static [u8]>> {
+impl TryFrom<&'static [u8]> for PlainCar<&'static [u8]> {
     type Error = io::Error;
     fn try_from(bytes: &'static [u8]) -> io::Result<Self> {
-        PlainCar::new(std::io::Cursor::new(bytes))
+        PlainCar::new(bytes)
     }
-}
-
-struct PlainCarInner<ReaderT> {
-    reader: ReaderT,
-    write_cache: ahash::HashMap<Cid, Vec<u8>>,
-    index: ahash::HashMap<Cid, UncompressedBlockDataLocation>,
-    roots: Vec<Cid>,
 }
 
 /// If you seek to `offset` (from the start of the file), and read `length` bytes,
@@ -200,33 +189,29 @@ pub struct UncompressedBlockDataLocation {
 
 impl<ReaderT> Blockstore for PlainCar<ReaderT>
 where
-    ReaderT: Read + Seek,
+    ReaderT: ReadAt,
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let PlainCarInner {
-            reader,
-            write_cache,
-            index,
-            ..
-        } = &mut *self.inner.lock();
-        match (index.get(k), write_cache.entry(*k)) {
-            (Some(_location), Occupied(cached)) => {
+        match (
+            self.index.read().expect("unreachable").get(k),
+            self.write_cache.read().expect("unreachable").get(k),
+        ) {
+            (Some(_location), Some(cached)) => {
                 trace!("evicting from write cache");
-                Ok(Some(cached.remove()))
+                Ok(self.write_cache.write().expect("unreachable").remove(k))
             }
-            (Some(UncompressedBlockDataLocation { offset, length }), Vacant(_)) => {
+            (Some(UncompressedBlockDataLocation { offset, length }), None) => {
                 trace!("fetching from disk");
-                reader.seek(SeekFrom::Start(*offset))?;
                 let mut data = vec![0; usize::try_from(*length).unwrap()];
-                reader.read_exact(&mut data)?;
+                self.reader.read_exact_at(*offset, &mut data)?;
                 Ok(Some(data))
             }
-            (None, Occupied(cached)) => {
+            (None, Some(cached)) => {
                 trace!("getting from write cache");
-                Ok(Some(cached.get().clone()))
+                Ok(Some(cached.clone()))
             }
-            (None, Vacant(_)) => {
+            (None, None) => {
                 trace!("not found");
                 Ok(None)
             }
@@ -238,10 +223,9 @@ where
     /// - See also [`Self::new`].
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let PlainCarInner {
-            write_cache, index, ..
-        } = &mut *self.inner.lock();
-        handle_write_cache(write_cache, index, k, block)
+        let mut cache = self.write_cache.write().expect("unreachable");
+        let mut index = self.index.write().expect("unreachable");
+        handle_write_cache(cache.deref_mut(), index.deref_mut(), k, block)
     }
 }
 
@@ -429,7 +413,7 @@ mod tests {
     fn test_uncompressed() {
         let car = chain4_car();
         let reference = reference(futures::io::Cursor::new(car));
-        let car_backed = PlainCar::new(std::io::Cursor::new(car)).unwrap();
+        let car_backed = PlainCar::new(car).unwrap();
 
         assert_eq!(car_backed.cids().len(), 1222);
         assert_eq!(car_backed.roots().len(), 1);

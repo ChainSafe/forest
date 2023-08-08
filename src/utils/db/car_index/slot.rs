@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::{FrameOffset, Hash, KeyValuePair};
+use positioned_io::ReadAt;
 use std::io::{Read, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,13 +37,13 @@ impl Slot {
 
     pub fn read(reader: &mut impl Read) -> Result<Slot> {
         let mut buffer = [0; Self::SIZE];
-        reader.read_exact(&mut buffer)?;
+        reader.read(&mut buffer)?;
         Ok(Slot::from_le_bytes(buffer))
     }
 
     pub fn read_with_hash(reader: &mut impl Read, hash: Hash) -> Result<Option<FrameOffset>> {
         let mut buffer = [0; Self::SIZE];
-        reader.read_exact(&mut buffer)?;
+        reader.read(&mut buffer)?;
         let disk_hash = Hash::from_le_bytes(buffer[0..8].try_into().expect("infallible"));
         if disk_hash == hash {
             Ok(Some(FrameOffset::from_le_bytes(

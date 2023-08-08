@@ -14,10 +14,25 @@ use crate::utils::db::car_index::FrameOffset;
 use ahash::HashMap;
 use cid::Cid;
 use lru::LruCache;
+use positioned_io::{ReadAt, WriteAt};
 use std::io::{Read, Seek};
 
-pub trait CarReader: Read + Seek + Send + Sync + 'static {}
-impl<X: Read + Seek + Send + Sync + 'static> CarReader for X {}
+pub trait CarReader: ReadAt + Send + Sync + 'static {}
+impl<X: ReadAt + Send + Sync + 'static> CarReader for X {}
+
+// Something to be contributed upstream.
+// Similar to https://doc.rust-lang.org/1.38.0/src/std/io/impls.rs.html#122-143.
+impl ReadAt for Box<dyn CarReader> {
+    #[inline]
+    fn read_at(&self, pos: u64, buf: &mut [u8]) -> std::io::Result<usize> {
+        (**self).read_at(pos, buf)
+    }
+
+    #[inline]
+    fn read_exact_at(&self, pos: u64, buf: &mut [u8]) -> std::io::Result<()> {
+        (**self).read_exact_at(pos, buf)
+    }
+}
 
 /// Multiple `.forest.car.zst` archives may use the same cache, each with a
 /// unique cache key.
