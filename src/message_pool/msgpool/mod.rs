@@ -341,6 +341,42 @@ pub mod tests {
         msg_pool::MessagePool,
     };
 
+    #[tokio::test]
+    async fn test_per_actor_limit() {
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
+        let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let tma = TestApi::with_max_actor_pending_messages(200);
+        tma.set_state_sequence(&sender, 0);
+
+        let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+            &mut services,
+        )
+        .unwrap();
+        let mut smsg_vec = Vec::new();
+        for i in 0..(mpool.api.max_actor_pending_messages() + 1) {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        let (last, body) = smsg_vec.split_last().unwrap();
+        for smsg in body {
+            mpool.add(smsg.clone()).unwrap();
+        }
+        assert_eq!(
+            mpool.add(last.clone()),
+            Err(Error::TooManyPendingMessages(sender.to_string(), true))
+        );
+    }
+
     pub fn create_smsg(
         to: &Address,
         from: &Address,

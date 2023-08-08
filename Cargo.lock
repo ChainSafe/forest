@@ -2875,6 +2875,7 @@ dependencies = [
  "boa_engine",
  "byteorder",
  "bytes 1.4.0",
+ "cbor4ii",
  "cfg-if 1.0.0",
  "chrono",
  "cid 0.10.1",
@@ -2971,9 +2972,10 @@ dependencies = [
  "reqwest",
  "rs-car-ipfs",
  "rustyline",
+ "scopeguard",
  "semver",
  "serde",
- "serde_ipld_dagcbor 0.2.2",
+ "serde_ipld_dagcbor 0.4.0",
  "serde_json",
  "serde_tuple",
  "serde_with",
@@ -4008,9 +4010,9 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.17.5"
+version = "0.17.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ff8cc23a7393a397ed1d7f56e6365cba772aba9f9912ab968b03043c395d057"
+checksum = "0b297dc40733f23a0e52728a58fa9489a5b7638a324932de16b41adc3ef80730"
 dependencies = [
  "console",
  "instant",

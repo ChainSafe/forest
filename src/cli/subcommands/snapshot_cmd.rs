@@ -419,12 +419,12 @@ fn query_network(ts: &Tipset, db: impl Blockstore) -> Result<NetworkChain> {
 // for the last 1100 epochs.
 async fn validate_stateroots<DB>(
     ts: Tipset,
-    db: &DB,
+    db: &Arc<DB>,
     network: NetworkChain,
     epochs: u32,
 ) -> Result<()>
 where
-    DB: Blockstore + Send + Sync + Clone + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let genesis = ts.genesis(db)?;

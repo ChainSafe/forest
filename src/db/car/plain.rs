@@ -60,7 +60,10 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::{
+    blocks::{Tipset, TipsetKeys},
+    utils::encoding::from_slice_with_fallback,
+};
 use ahash::HashMapExt as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -320,7 +323,7 @@ fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
         read_varint_body_length_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
-    fvm_ipld_encoding::from_slice(&buffer).map_err(|e| io::Error::new(InvalidData, e))
+    from_slice_with_fallback(&buffer).map_err(|e| io::Error::new(InvalidData, e))
 }
 
 /// Returns ([`Cid`], the `block data offset` and `block data length`)

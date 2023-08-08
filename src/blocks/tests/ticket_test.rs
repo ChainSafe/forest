@@ -3,7 +3,8 @@
 
 use crate::blocks::*;
 use crate::test_utils::construct_ticket;
-use fvm_ipld_encoding::{from_slice, to_vec};
+use crate::utils::encoding::from_slice_with_fallback;
+use fvm_ipld_encoding::to_vec;
 
 // From Lotus
 const TICKET: [u8; 99] = [
@@ -28,6 +29,6 @@ fn encode_ticket() {
 fn decode_ticket() {
     let ticket = construct_ticket();
     // Decode Ticket
-    let decoded_ticket: Ticket = from_slice(&TICKET).unwrap();
+    let decoded_ticket: Ticket = from_slice_with_fallback(&TICKET).unwrap();
     assert_eq!(ticket, decoded_ticket);
 }

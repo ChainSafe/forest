@@ -5,50 +5,64 @@ mod memory;
 mod metrics;
 pub mod parity_db;
 pub mod parity_db_config;
+
 pub use memory::MemoryDB;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 pub mod car;
 
 pub mod rolling;
+
+pub mod setting_keys {
+    /// Key used to store the heaviest tipset in the settings store.
+    pub const HEAD_KEY: &str = "head";
+    /// Estimated number of IPLD records in the database.
+    pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
+}
 
 /// Interface used to store and retrieve settings from the database.
 /// To store IPLD blocks, use the `BlockStore` trait.
 pub trait SettingsStore {
     /// Reads binary field from the Settings store. This should be used for
-    /// non-serializable data. For serializable data, use [`SettingsStore::read_obj`].
-    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
-    where
-        K: AsRef<str>;
+    /// non-serializable data. For serializable data, use [`SettingsStoreExt::read_obj`].
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>>;
 
     /// Writes binary field to the Settings store. This should be used for
-    /// non-serializable data. For serializable data, use [`SettingsStore::write_obj`].
-    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
-    where
-        K: AsRef<str>,
-        V: AsRef<[u8]>;
+    /// non-serializable data. For serializable data, use [`SettingsStoreExt::write_obj`].
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()>;
 
-    fn read_obj<K, T>(&self, key: K) -> anyhow::Result<Option<T>>
-    where
-        K: AsRef<str>,
-        T: serde::de::DeserializeOwned,
-    {
+    /// Returns `Ok(true)` if key exists in store
+    fn exists(&self, key: &str) -> anyhow::Result<bool>;
+}
+
+/// Extension trait for the [`SettingsStore`] trait. It is implemented for all types that implement
+/// [`SettingsStore`].
+/// It provides methods for writing and reading any serializable object from the store.
+pub trait SettingsStoreExt {
+    fn read_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<V>>;
+    fn write_obj<V: Serialize>(&self, key: &str, value: &V) -> anyhow::Result<()>;
+
+    /// Same as [`SettingsStoreExt::read_obj`], but returns an error if the key does not exist.
+    fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V>;
+}
+
+impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
+    fn read_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<Option<V>> {
         match self.read_bin(key)? {
             Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
             None => Ok(None),
         }
     }
 
-    fn write_obj<K, T>(&self, key: K, value: &T) -> anyhow::Result<()>
-    where
-        K: AsRef<str>,
-        T: serde::Serialize,
-    {
-        self.write_bin(key, serde_json::to_vec(value)?)
+    fn write_obj<V: Serialize>(&self, key: &str, value: &V) -> anyhow::Result<()> {
+        self.write_bin(key, &serde_json::to_vec(value)?)
     }
 
-    /// Returns `Ok(true)` if key exists in store
-    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
-    where
-        K: AsRef<str>;
+    fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V> {
+        self.read_bin(key)?
+            .ok_or_else(|| anyhow::anyhow!("Key {key} not found"))
+            .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
+    }
 }
 
 /// Traits for collecting DB stats

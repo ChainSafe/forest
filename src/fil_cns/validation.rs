@@ -43,7 +43,7 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
 pub(in crate::fil_cns) async fn validate_block<
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     B: Beacon,
 >(
     state_manager: Arc<StateManager<DB>>,
@@ -213,7 +213,7 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: Blockstore + Clone + Send + Sync + 'static>(
+fn validate_miner<DB: Blockstore>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
     tipset_state: &Cid,
@@ -237,7 +237,7 @@ fn validate_miner<DB: Blockstore + Clone + Send + Sync + 'static>(
     Ok(())
 }
 
-fn validate_winner_election<DB: Blockstore + Clone + Sync + Send + 'static>(
+fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
@@ -347,7 +347,7 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
+fn verify_winning_post_proof<DB: Blockstore>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,

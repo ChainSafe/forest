@@ -160,7 +160,7 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -177,11 +177,8 @@ where
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
     ) -> Result<Self, ChainMuxerError<C>> {
-        let network = SyncNetworkContext::new(
-            network_send,
-            peer_manager,
-            state_manager.blockstore().clone(),
-        );
+        let network =
+            SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
 
         Ok(Self {
             state: ChainMuxerState::Idle,
@@ -845,7 +842,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -943,6 +940,7 @@ mod tests {
     use crate::networks::{ChainConfig, Height};
     use crate::shim::{address::Address, message::Message};
     use crate::test_utils::construct_messages;
+    use crate::utils::encoding::from_slice_with_fallback;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
 
@@ -967,9 +965,9 @@ mod tests {
     fn empty_msg_meta_vector() {
         let blockstore = MemoryDB::default();
         let usm: Vec<Message> =
-            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
+            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
         let sm: Vec<SignedMessage> =
-            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
+            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
             TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)

@@ -12,7 +12,7 @@ use super::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 /// This is used to migrate actors which do not require any state migration.
 pub(in crate::state_migration) struct NilMigrator(Cid);
 
-impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for NilMigrator {
+impl<BS: Blockstore> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
         _store: BS,
@@ -27,7 +27,7 @@ impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for NilMigrator {
 
 /// Creates a new migrator which preserves the head CID and provides a fixed
 /// result code CID.
-pub(in crate::state_migration) fn nil_migrator<BS: Blockstore + Clone + Send + Sync>(
+pub(in crate::state_migration) fn nil_migrator<BS: Blockstore>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(NilMigrator(cid))
@@ -36,7 +36,7 @@ pub(in crate::state_migration) fn nil_migrator<BS: Blockstore + Clone + Send + S
 /// A migrator that does nothing but delegates the explicit migration logic to post migrator(s)
 pub(in crate::state_migration) struct DeferredMigrator;
 
-impl<BS: Blockstore + Clone + Send + Sync> ActorMigration<BS> for DeferredMigrator {
+impl<BS: Blockstore> ActorMigration<BS> for DeferredMigrator {
     fn migrate_state(
         &self,
         _store: BS,
