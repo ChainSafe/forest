@@ -157,14 +157,17 @@ macro_rules! decl_and_test {
 pub(crate) use decl_and_test;
 
 decl_and_test!(
+    actor_state -> ActorStateLotusJson for crate::shim::state_tree::ActorState,
     address -> AddressLotusJson for crate::shim::address::Address,
     beacon_entry -> BeaconEntryLotusJson for crate::beacon::BeaconEntry,
     big_int -> BigIntLotusJson for num::BigInt,
-    gossip_block -> GossipBlockLotusJson for crate::blocks::GossipBlock,
     election_proof -> ElectionProofLotusJson for crate::blocks::ElectionProof,
+    gossip_block -> GossipBlockLotusJson for crate::blocks::GossipBlock,
     message -> MessageLotusJson for crate::shim::message::Message,
     po_st_proof -> PoStProofLotusJson for crate::shim::sector::PoStProof,
     registered_po_st_proof -> RegisteredPoStProofLotusJson for crate::shim::sector::RegisteredPoStProof,
+    registered_seal_proof -> RegisteredSealProofLotusJson for crate::shim::sector::RegisteredSealProof,
+    sector_info -> SectorInfoLotusJson for crate::shim::sector::SectorInfo,
     signature -> SignatureLotusJson for crate::shim::crypto::Signature,
     signature_type -> SignatureTypeLotusJson for crate::shim::crypto::SignatureType,
     signed_message -> SignedMessageLotusJson for  crate::message::SignedMessage,
