@@ -48,7 +48,7 @@ mod statediff;
 #[cfg(test)]
 mod test_utils;
 mod tool;
-mod utils;
+pub mod utils;
 
 pub mod build {
     pub use super::r#mod::*;

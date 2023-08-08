@@ -141,4 +141,8 @@ impl CarIndexBuilder {
     pub fn len(&self) -> u64 {
         self.table.len() as u64
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.table.is_empty()
+    }
 }

@@ -2,27 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
-use std::pin::pin;
 
-use cid::Cid;
 use clap::Subcommand;
 use futures::{Stream, StreamExt, TryStreamExt};
-use fvm_ipld_car::CarHeader;
 use itertools::Itertools;
-use tokio::io::{AsyncBufRead, AsyncSeek};
+use tokio::io::{AsyncBufRead, AsyncSeek, AsyncWriteExt};
 
 use crate::ipld::CidHashSet;
-use crate::utils::db::car_stream::Block;
-use crate::utils::db::car_stream::CarStream;
-
-type BlockPair = (Cid, Vec<u8>);
+use crate::utils::db::car_stream::{Block, CarStream};
 
 #[derive(Debug, Subcommand)]
 pub enum CarCommands {
     Concat {
-        /// A list of `.car` file paths
+        /// A list of CAR file paths. A CAR file can be a plain CAR, a zstd compressed CAR
+        /// or a forest CAR
         car_files: Vec<PathBuf>,
-        /// The output `.car` file path
+        /// The output forest CAR file path
         #[arg(short, long)]
         output: PathBuf,
     },
@@ -46,16 +41,14 @@ impl CarCommands {
                     .cloned()
                     .collect::<Vec<_>>();
 
-                let car_writer = CarHeader::from(all_roots);
-                let mut output_file =
-                    futures::io::BufWriter::new(async_fs::File::create(output).await?);
-
-                car_writer
-                    .write_stream_async(
-                        &mut output_file,
-                        &mut pin!(dedup_block_stream(merge_car_streams(car_streams))),
-                    )
-                    .await?;
+                let frames = crate::db::car::forest::Encoder::compress_stream(
+                    8000_usize.next_power_of_two(),
+                    zstd::DEFAULT_COMPRESSION_LEVEL as _,
+                    dedup_block_stream(merge_car_streams(car_streams)).map_err(anyhow::Error::from),
+                );
+                let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&output).await?);
+                crate::db::car::forest::Encoder::write(&mut writer, all_roots, frames).await?;
+                writer.flush().await?;
             }
         }
         Ok(())
@@ -73,28 +66,28 @@ where
 
 fn dedup_block_stream(
     stream: impl Stream<Item = std::io::Result<Block>>,
-) -> impl Stream<Item = BlockPair> {
+) -> impl Stream<Item = std::io::Result<Block>> {
     let mut seen = CidHashSet::default();
-    stream.filter_map(move |result| {
-        // FIXME: Remove `.expect` once `CarHeader` `write` API accepts `TryStream`
-        let Block { cid, data } = result.expect("Failed to read block from CarStream");
-        futures::future::ready(if seen.insert(cid) {
-            Some((cid, data))
+    stream.try_filter_map(move |block| {
+        futures::future::ready(Ok(if seen.insert(block.cid) {
+            Some(block)
         } else {
             None
-        })
+        }))
     })
 }
 
 #[cfg(test)]
 mod tests {
+    use std::pin::pin;
+
     use super::*;
     use ahash::HashSet;
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
     use futures::executor::{block_on, block_on_stream};
-    use fvm_ipld_car::{Block, CarReader};
+    use fvm_ipld_car::{Block, CarHeader, CarReader};
     use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
@@ -194,7 +187,7 @@ mod tests {
     fn dedup_block_stream_wrapper(a: &Blocks, b: &Blocks) -> HashSet<Cid> {
         let blocks: Vec<Cid> =
             block_on_stream(dedup_block_stream(a.to_stream().chain(b.to_stream())))
-                .map(|(cid, _)| cid)
+                .map(|block| block.unwrap().cid)
                 .collect();
 
         // Ensure `dedup_block_stream` works properly
@@ -216,7 +209,7 @@ mod tests {
             ])));
 
             let mut cid_union2 = HashSet::default();
-            while let Some((cid, _)) = deduped.next().await {
+            while let Some(super::Block { cid, data: _ }) = deduped.try_next().await? {
                 cid_union2.insert(cid);
             }
 

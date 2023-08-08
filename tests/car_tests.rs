@@ -10,8 +10,9 @@ use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
-use futures::StreamExt;
-use fvm_ipld_car::{CarHeader, CarReader};
+use forest_filecoin::utils::db::car_stream::CarStream;
+use futures::{StreamExt, TryStreamExt};
+use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::DAG_CBOR;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -34,7 +35,7 @@ async fn forest_cli_car_concat() -> Result<()> {
 
     let output = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-output")
-        .suffix(".car")
+        .suffix(".forest.car.zst")
         .tempfile()?;
 
     cli()?
@@ -56,7 +57,7 @@ async fn forest_cli_car_concat() -> Result<()> {
 async fn forest_cli_car_concat_same_file() -> Result<()> {
     let output = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-same-file")
-        .suffix(".car")
+        .suffix(".forest.car.zst")
         .tempfile()?;
 
     cli()?
@@ -78,7 +79,7 @@ async fn forest_cli_car_concat_same_file() -> Result<()> {
 async fn forest_cli_car_concat_same_file_3_times() -> Result<()> {
     let output = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-same-file-3-times")
-        .suffix(".car")
+        .suffix(".forest.car.zst")
         .tempfile()?;
 
     cli()?
@@ -123,10 +124,13 @@ fn new_block(rng: &mut SmallRng) -> (Cid, Vec<u8>) {
 }
 
 async fn validate_car(path: impl AsRef<Path>) -> Result<()> {
-    let mut reader = CarReader::new(tokio::fs::File::open(path).await?.compat()).await?;
-    assert!(reader.validate);
+    let mut reader = CarStream::new(tokio::io::BufReader::new(
+        tokio::fs::File::open(path).await?,
+    ))
+    .await?;
+    assert!(!reader.header.roots.is_empty());
     let mut count = 0;
-    while reader.next_block().await?.is_some() {
+    while reader.try_next().await?.is_some() {
         count += 1;
     }
     println!("Result car block count: {count}");
