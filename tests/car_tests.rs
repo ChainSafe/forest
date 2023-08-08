@@ -129,7 +129,7 @@ async fn validate_car(path: impl AsRef<Path>) -> Result<()> {
     ))
     .await?;
     assert!(!reader.header.roots.is_empty());
-    let count = reader.count();
+    let mut count = 0;
     while reader.try_next().await?.is_some() {
         count += 1;
     }

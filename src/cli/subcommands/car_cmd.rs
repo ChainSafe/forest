@@ -68,13 +68,7 @@ fn dedup_block_stream(
     stream: impl Stream<Item = std::io::Result<Block>>,
 ) -> impl Stream<Item = std::io::Result<Block>> {
     let mut seen = CidHashSet::default();
-    stream.try_filter(move |block| {
-        futures::future::ready(Ok(if seen.insert(block.cid) {
-            Some(block)
-        } else {
-            None
-        }))
-    })
+    stream.try_filter(move |Block { cid, data: _ }| futures::future::ready(seen.insert(*cid)))
 }
 
 #[cfg(test)]
