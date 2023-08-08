@@ -247,7 +247,7 @@ impl ConfigPath {
     }
 }
 
-fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
+pub fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
     if let Some(s) = &opts.config {
         return Some(ConfigPath::Cli(PathBuf::from(s)));
     }

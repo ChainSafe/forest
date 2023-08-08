@@ -58,7 +58,6 @@ where
                         Subcommand::Sync(cmd) => cmd.run(config).await,
                         Subcommand::Mpool(cmd) => cmd.run(config).await,
                         Subcommand::State(cmd) => cmd.run(config).await,
-                        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
                         Subcommand::Send(cmd) => cmd.run(config).await,
                         Subcommand::Info(cmd) => cmd.run(config, opts).await,
                         Subcommand::DB(cmd) => cmd.run(&config).await,
@@ -67,6 +66,15 @@ where
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
                         Subcommand::Car(cmd) => cmd.run().await,
+                        _ => {
+                            let mut s = format!("{:?}", cmd).to_lowercase();
+                            s = s.replace("(", " ");
+                            s = s.replace(")", "");
+                            anyhow::bail!(
+                                "Invalid subcommand: {}. It has been moved to forest-tool binary.",
+                                s
+                            );
+                        }
                     }
                 }
                 Err(e) => {

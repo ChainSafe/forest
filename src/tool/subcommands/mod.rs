@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod benchmark_cmd;
+pub mod config_cmd;
 pub mod db_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
@@ -20,6 +21,10 @@ pub struct Cli {
 /// forest-tool sub-commands
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
+    /// Manage node configuration
+    #[command(subcommand)]
+    Config(config_cmd::ConfigCommands),
+
     /// Benchmark various Forest subsystems
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
