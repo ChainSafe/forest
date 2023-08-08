@@ -81,7 +81,7 @@ mod tests {
     use cid::multihash::MultihashDigest;
     use cid::Cid;
     use futures::executor::{block_on, block_on_stream};
-    use fvm_ipld_car::{Block, CarHeader, CarReader};
+    use fvm_ipld_car::CarHeader;
     use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
@@ -109,16 +109,12 @@ mod tests {
             car
         }
 
-        fn into_stream(self) -> impl Stream<Item = std::io::Result<super::Block>> {
-            futures::stream::iter(
-                self.0
-                    .into_iter()
-                    .map(|Block { cid, data }| Ok::<_, std::io::Error>(super::Block { cid, data })),
-            )
+        fn into_stream(self) -> impl Stream<Item = std::io::Result<Block>> {
+            futures::stream::iter(self.0.into_iter().map(Ok::<_, std::io::Error>))
         }
 
         /// Implicit clone is performed inside to simplify caller code
-        fn to_stream(&self) -> impl Stream<Item = std::io::Result<super::Block>> {
+        fn to_stream(&self) -> impl Stream<Item = std::io::Result<Block>> {
             self.clone().into_stream()
         }
     }
@@ -146,9 +142,9 @@ mod tests {
     fn blocks_roundtrip(blocks: Blocks) -> anyhow::Result<()> {
         block_on(async move {
             let car = blocks.into_car_bytes().await;
-            let mut reader = CarReader::new(car.as_slice()).await?;
+            let mut reader = CarStream::new(std::io::Cursor::new(car.clone())).await?;
             let mut blocks2 = vec![];
-            while let Some(b) = reader.next_block().await? {
+            while let Some(b) = reader.try_next().await? {
                 blocks2.push(b);
             }
             let blocks2 = Blocks(blocks2);
@@ -203,7 +199,7 @@ mod tests {
             ])));
 
             let mut cid_union2 = HashSet::default();
-            while let Some(super::Block { cid, data: _ }) = deduped.try_next().await? {
+            while let Some(Block { cid, data: _ }) = deduped.try_next().await? {
                 cid_union2.insert(cid);
             }
 
