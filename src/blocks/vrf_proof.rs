@@ -5,6 +5,7 @@ use crate::utils::encoding::{blake2b_256, serde_byte_array};
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
