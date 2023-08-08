@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::io::random_access::RandomAccessFile;
 use crate::{
     daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},
@@ -10,7 +11,6 @@ use crate::{
 use anyhow::*;
 use cid::Cid;
 use fvm_ipld_encoding::CborStore;
-use positioned_io::RandomAccessFile;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 use std::{str::FromStr, sync::Arc};

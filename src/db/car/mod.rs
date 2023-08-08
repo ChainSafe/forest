@@ -14,10 +14,10 @@ use crate::utils::db::car_index::FrameOffset;
 use ahash::HashMap;
 use cid::Cid;
 use lru::LruCache;
-use positioned_io::ReadAt;
+use positioned_io::{ReadAt, Size};
 
-pub trait CarReader: ReadAt + Send + Sync + 'static {}
-impl<X: ReadAt + Send + Sync + 'static> CarReader for X {}
+pub trait CarReader: ReadAt + Size + Send + Sync + 'static {}
+impl<X: ReadAt + Size + Send + Sync + 'static> CarReader for X {}
 
 // Something to be contributed upstream.
 // Similar to https://doc.rust-lang.org/1.38.0/src/std/io/impls.rs.html#122-143.
@@ -30,6 +30,12 @@ impl ReadAt for Box<dyn CarReader> {
     #[inline]
     fn read_exact_at(&self, pos: u64, buf: &mut [u8]) -> std::io::Result<()> {
         (**self).read_exact_at(pos, buf)
+    }
+}
+
+impl Size for Box<dyn CarReader> {
+    fn size(&self) -> std::io::Result<Option<u64>> {
+        (**self).size()
     }
 }
 

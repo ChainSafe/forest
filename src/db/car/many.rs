@@ -11,10 +11,10 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::blocks::Tipset;
 use crate::db::MemoryDB;
+use crate::utils::io::random_access::RandomAccessFile;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use positioned_io::RandomAccessFile;
 use std::sync::Mutex;
 use std::{io, path::PathBuf, sync::Arc};
 

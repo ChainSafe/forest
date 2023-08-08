@@ -60,7 +60,7 @@ use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use parking_lot::RwLock;
-use positioned_io::{Cursor, ReadAt};
+use positioned_io::{Cursor, ReadAt, SizeCursor};
 
 use std::io::{Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
@@ -105,7 +105,7 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
     }
 
     fn validate_car(reader: &ReaderT) -> io::Result<(CarHeader, ForestCarFooter)> {
-        let mut cursor = Cursor::new(&reader);
+        let mut cursor = SizeCursor::new(&reader);
         cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
 
         let mut footer_buffer = [0; ForestCarFooter::SIZE];

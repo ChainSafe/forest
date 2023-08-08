@@ -10,9 +10,10 @@
 
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::Tipset;
+use crate::utils::io::random_access::RandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use positioned_io::{RandomAccessFile, ReadAt};
+use positioned_io::ReadAt;
 use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
