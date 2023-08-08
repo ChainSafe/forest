@@ -4,11 +4,9 @@ use std::{fmt::Debug, sync::Arc};
 
 use crate::beacon::{Beacon, BeaconSchedule};
 use crate::blocks::{Block, Tipset};
-use crate::chain::{Error as ChainStoreError, Scale, Weight};
-use crate::chain_sync::Consensus;
+use crate::chain::{Error as ChainStoreError, Weight};
 use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
-use async_trait::async_trait;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
@@ -70,10 +68,25 @@ pub struct FilecoinConsensus<B> {
     beacon: Arc<BeaconSchedule<B>>,
 }
 
-impl<B> FilecoinConsensus<B> {
+impl<B> FilecoinConsensus<B>
+where
+    B: Beacon,
+{
     pub fn new(beacon: Arc<BeaconSchedule<B>>) -> Self {
         Self { beacon }
     }
+
+    pub async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
+        &self,
+        state_manager: Arc<StateManager<DB>>,
+        block: Arc<Block>,
+    ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
+        validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
+    }
+
+    // pub fn weight<DB>(&self, db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error> where DB: Blockstore {
+    //     weight::weight(db, ts).map_err(|s| anyhow!(s))
+    // }
 }
 
 impl<B> Debug for FilecoinConsensus<B> {
@@ -84,30 +97,18 @@ impl<B> Debug for FilecoinConsensus<B> {
     }
 }
 
-impl<B> Scale for FilecoinConsensus<B> {
-    fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
-    where
-        DB: Blockstore,
-    {
-        weight::weight(db, ts).map_err(|s| anyhow!(s))
-    }
-}
+// impl<B> Scale for FilecoinB> {
+//     fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+//     where
+//         DB: Blockstore,
+//     {
+//         weight::weight(db, ts).map_err(|s| anyhow!(s))
+//     }
+// }
 
-#[async_trait]
-impl<B> Consensus for FilecoinConsensus<B>
+pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
 where
-    B: Beacon,
+    DB: Blockstore,
 {
-    type Error = FilecoinConsensusError;
-
-    async fn validate_block<DB>(
-        &self,
-        state_manager: Arc<StateManager<DB>>,
-        block: Arc<Block>,
-    ) -> Result<(), NonEmpty<Self::Error>>
-    where
-        DB: Blockstore + Sync + Send + 'static,
-    {
-        validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
-    }
+    weight::weight(db, ts).map_err(|s| anyhow!(s))
 }
