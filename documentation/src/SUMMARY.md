@@ -21,7 +21,6 @@
   - [Mainnet compatibility](./developer_documentation/mainnet_compatibility.md)
   - [Memory analysis](./developer_documentation/memory-analysis.md)
   - [Release checklist](./developer_documentation/release_checklist.md)
-  - [Smoke testing](./developer_documentation/smoke_testing.md)
   - [State migration](./developer_documentation/state_migration.md)
   - [State migration guide](./developer_documentation/state_migration_guide.md)
   - [State migration spike NV17-NV18](./developer_documentation/state_migration_spike.md)
