@@ -45,6 +45,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
+    access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -72,6 +73,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
     access.insert(state_api::STATE_REPLAY, Access::Read);
+    access.insert(state_api::STATE_GET_ACTOR, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
@@ -94,6 +96,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
     access.insert(net_api::NET_PEERS, Access::Read);
+    access.insert(net_api::NET_INFO, Access::Read);
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
 
@@ -224,6 +227,10 @@ pub mod chain_api {
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub type ChainSetHeadParams = (TipsetKeys,);
     pub type ChainSetHeadResult = ();
+
+    pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+    pub type ChainGetMinBaseFeeParams = (u32,);
+    pub type ChainGetMinBaseFeeResult = String;
 }
 
 /// Message Pool API
@@ -233,13 +240,11 @@ pub mod mpool_api {
         message::json::MessageJson,
         signed_message::json::SignedMessageJson,
     };
-    use crate::message::SignedMessage;
-
     use crate::rpc_api::data_types::MessageSendSpec;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
-    pub type MpoolPendingResult = Vec<SignedMessage>;
+    pub type MpoolPendingResult = Vec<SignedMessageJson>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub type MpoolPushParams = (SignedMessageJson,);
@@ -323,6 +328,7 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::tipset_keys_json::TipsetKeysJson;
+    use crate::json::actor_state::json::ActorStateJson;
     use crate::json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
         message_receipt::json::ReceiptJson,
@@ -349,6 +355,10 @@ pub mod state_api {
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
     pub type StateNetworkVersionParams = (TipsetKeysJson,);
     pub type StateNetworkVersionResult = NetworkVersion;
+
+    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
+    pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
+    pub type StateGetActorResult = Option<ActorStateJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);
@@ -417,6 +427,8 @@ pub mod common_api {
 
 /// Net API
 pub mod net_api {
+    use serde::{Deserialize, Serialize};
+
     use crate::rpc_api::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
@@ -426,6 +438,33 @@ pub mod net_api {
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
     pub type NetPeersParams = ();
     pub type NetPeersResult = Vec<AddrInfo>;
+
+    pub const NET_INFO: &str = "Filecoin.NetInfo";
+    pub type NetInfoParams = ();
+
+    #[derive(Debug, Default, Serialize, Deserialize)]
+    pub struct NetInfoResult {
+        pub num_peers: usize,
+        pub num_connections: u32,
+        pub num_pending: u32,
+        pub num_pending_incoming: u32,
+        pub num_pending_outgoing: u32,
+        pub num_established: u32,
+    }
+
+    impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
+        fn from(i: libp2p::swarm::NetworkInfo) -> Self {
+            let counters = i.connection_counters();
+            Self {
+                num_peers: i.num_peers(),
+                num_connections: counters.num_connections(),
+                num_pending: counters.num_pending(),
+                num_pending_incoming: counters.num_pending_incoming(),
+                num_pending_outgoing: counters.num_pending_outgoing(),
+                num_established: counters.num_established(),
+            }
+        }
+    }
 
     pub const NET_CONNECT: &str = "Filecoin.NetConnect";
     pub type NetConnectParams = (AddrInfo,);

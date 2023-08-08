@@ -40,7 +40,13 @@ pub enum TrustedVendor {
 /// Create a filename in the "full" format. See [`parse`].
 // Common between export, and [`fetch`].
 // Keep in sync with the CLI documentation for the `snapshot` sub-command.
-pub fn filename(vendor: impl Display, chain: impl Display, date: NaiveDate, height: i64) -> String {
+pub fn filename(
+    vendor: impl Display,
+    chain: impl Display,
+    date: NaiveDate,
+    height: i64,
+    forest_format: bool,
+) -> String {
     let vendor = vendor.to_string();
     let chain = chain.to_string();
     ParsedFilename::Full {
@@ -48,6 +54,7 @@ pub fn filename(vendor: impl Display, chain: impl Display, date: NaiveDate, heig
         chain: &chain,
         date,
         height,
+        forest_format,
     }
     .to_string()
 }
@@ -60,10 +67,10 @@ pub async fn fetch(
     vendor: TrustedVendor,
 ) -> anyhow::Result<PathBuf> {
     let (_len, url) = peek(vendor, chain).await?;
-    let (date, height) = ParsedFilename::parse_url(&url)
+    let (date, height, forest_format) = ParsedFilename::parse_url(&url)
         .context("unexpected url format")?
-        .date_and_height();
-    let filename = filename(vendor, chain, date, height);
+        .date_and_height_and_forest();
+    let filename = filename(vendor, chain, date, height, forest_format);
 
     match download_aria2c(&url, directory, &filename).await {
         Ok(path) => Ok(path),
@@ -232,6 +239,7 @@ mod parse {
             chain: &'a str,
             date: NaiveDate,
             height: i64,
+            forest_format: bool,
         },
     }
 
@@ -247,19 +255,26 @@ mod parse {
                     chain,
                     date,
                     height,
+                    forest_format,
                 } => f.write_fmt(format_args!(
-                    "{vendor}_snapshot_{chain}_{}_height_{height}.car.zst",
-                    date.format("%Y-%m-%d")
+                    "{vendor}_snapshot_{chain}_{}_height_{height}{}.car.zst",
+                    date.format("%Y-%m-%d"),
+                    if *forest_format { ".forest" } else { "" }
                 )),
             }
         }
     }
 
     impl<'a> ParsedFilename<'a> {
-        pub fn date_and_height(&self) -> (NaiveDate, i64) {
+        pub fn date_and_height_and_forest(&self) -> (NaiveDate, i64, bool) {
             match self {
-                ParsedFilename::Short { date, height, .. } => (*date, *height),
-                ParsedFilename::Full { date, height, .. } => (*date, *height),
+                ParsedFilename::Short { date, height, .. } => (*date, *height, false),
+                ParsedFilename::Full {
+                    date,
+                    height,
+                    forest_format,
+                    ..
+                } => (*date, *height, *forest_format),
             }
         }
 
@@ -310,7 +325,7 @@ mod parse {
     }
 
     fn full(input: &str) -> nom::IResult<&str, ParsedFilename> {
-        let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, _car_zst)) =
+        let (rest, (vendor, _snapshot_, chain, _, date, _height_, height, car_zst)) =
             tuple((
                 take_until("_snapshot_"),
                 tag("_snapshot_"),
@@ -319,7 +334,7 @@ mod parse {
                 ymd("-"),
                 tag("_height_"),
                 number,
-                tag(".car.zst"),
+                alt((tag(".car.zst"), tag(".forest.car.zst"))),
             ))(input)?;
         Ok((
             rest,
@@ -328,6 +343,7 @@ mod parse {
                 chain,
                 date,
                 height,
+                forest_format: car_zst == ".forest.car.zst",
             },
         ))
     }
@@ -389,12 +405,14 @@ mod parse {
                 month: u32,
                 day: u32,
                 height: i64,
+                forest_format: bool,
             ) -> Self {
                 Self::Full {
                     vendor,
                     chain,
                     date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
                     height,
+                    forest_format,
                 }
             }
         }
@@ -402,11 +420,19 @@ mod parse {
         for (text, value) in [
             (
                 "forest_snapshot_mainnet_2023-05-30_height_2905376.car.zst",
-                ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376),
+                ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376, false),
             ),
             (
                 "forest_snapshot_calibnet_2023-05-30_height_604419.car.zst",
-                ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419),
+                ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419, false),
+            ),
+            (
+                "forest_snapshot_mainnet_2023-05-30_height_2905376.forest.car.zst",
+                ParsedFilename::full("forest", "mainnet", 2023, 5, 30, 2905376, true),
+            ),
+            (
+                "forest_snapshot_calibnet_2023-05-30_height_604419.forest.car.zst",
+                ParsedFilename::full("forest", "calibnet", 2023, 5, 30, 604419, true),
             ),
             (
                 "2905920_2023_05_30T22_00_00Z.car.zst",
@@ -418,11 +444,19 @@ mod parse {
             ),
             (
                 "filecoin_snapshot_calibnet_2023-06-13_height_643680.car.zst",
-                ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680),
+                ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680, false),
             ),
             (
                 "venus_snapshot_pineconenet_2045-01-01_height_2.car.zst",
-                ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2),
+                ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2, false),
+            ),
+            (
+                "filecoin_snapshot_calibnet_2023-06-13_height_643680.forest.car.zst",
+                ParsedFilename::full("filecoin", "calibnet", 2023, 6, 13, 643680, true),
+            ),
+            (
+                "venus_snapshot_pineconenet_2045-01-01_height_2.forest.car.zst",
+                ParsedFilename::full("venus", "pineconenet", 2045, 1, 1, 2, true),
             ),
         ] {
             assert_eq!(

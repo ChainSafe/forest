@@ -37,7 +37,7 @@ use crate::utils::{
     version::FOREST_VERSION_STRING, RetryArgs,
 };
 use anyhow::{bail, Context};
-use bundle::load_bundles;
+use bundle::load_actor_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
@@ -202,19 +202,17 @@ pub(super) async fn start(
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
+        db.clone(),
         config.chain.clone(),
         genesis_header.clone(),
-        chain_data_path.as_path(),
     )?);
 
     let db_garbage_collector = {
         let db = db.clone();
-        let file_backed_chain_meta = chain_store.file_backed_chain_meta().clone();
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
             db.as_ref().clone(),
-            file_backed_chain_meta,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
             get_tipset,
@@ -266,7 +264,7 @@ pub(super) async fn start(
 
     let epoch = chain_store.heaviest_tipset().epoch();
 
-    load_bundles(epoch, &config, &db).await?;
+    load_actor_bundles(&db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
@@ -700,7 +698,6 @@ mod test {
     use crate::db::MemoryDB;
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
-    use tempfile::TempDir;
 
     use super::*;
 
@@ -744,12 +741,11 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let chain_data_root = TempDir::new().unwrap();
         let cs = Arc::new(ChainStore::new(
+            db.clone(),
             db,
             chain_config.clone(),
             genesis_header,
-            chain_data_root.path(),
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(
@@ -772,12 +768,11 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let chain_data_root = TempDir::new()?;
         let cs = Arc::new(ChainStore::new(
+            db.clone(),
             db,
             chain_config.clone(),
             genesis_header,
-            chain_data_root.path(),
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
         import_chain::<_>(

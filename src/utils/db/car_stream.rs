@@ -7,7 +7,6 @@ use cid::{
     Cid,
 };
 use futures::{Stream, StreamExt};
-use fvm_ipld_encoding::from_slice;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
@@ -18,7 +17,7 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
 
-use crate::utils::encoding::uvibytes::UviBytes;
+use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
@@ -90,13 +89,15 @@ impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
         } else {
             reader.seek(SeekFrom::Start(start_position)).await?;
             let mut zstd = ZstdDecoder::new(reader);
+            zstd.multiple_members(true);
             if let Some(header) = read_header(&mut zstd).await {
                 let mut reader = zstd.into_inner();
 
                 reset_bufread(&mut reader).await?;
 
                 reader.seek(SeekFrom::Start(start_position)).await?;
-                let zstd = ZstdDecoder::new(reader);
+                let mut zstd = ZstdDecoder::new(reader);
+                zstd.multiple_members(true);
                 let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
                 let _ = framed_reader.next().await;
                 Ok(CarStream {
@@ -138,7 +139,7 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 
 async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option<CarHeader> {
     let mut framed_reader = FramedRead::new(reader, UviBytes::default());
-    let header = from_slice::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
+    let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
     if header.version != 1 {
         return None;
     }

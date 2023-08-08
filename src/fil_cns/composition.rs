@@ -24,7 +24,7 @@ pub async fn consensus<DB, MP>(
     _services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<FullConsensus>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
     MP: MessagePoolApi + Send + Sync + 'static,
 {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());

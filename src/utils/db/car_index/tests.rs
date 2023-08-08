@@ -10,7 +10,7 @@ fn query(table: &mut CarIndex<impl Read + Seek>, key: Hash) -> Vec<FrameOffset> 
 }
 
 fn mk_table(entries: &[(Hash, FrameOffset)]) -> CarIndex<Cursor<Vec<u8>>> {
-    let table_builder = CarIndexBuilder::new_raw(entries.iter().copied());
+    let table_builder = CarIndexBuilder::new(entries.iter().copied());
     let mut store = Vec::new();
     table_builder.write(&mut store).unwrap();
     dbg!(&store[32..32 + 8]);

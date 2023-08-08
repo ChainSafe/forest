@@ -46,18 +46,19 @@
 //! CARv1 specification: <https://ipld.io/specs/transport/car/carv1/>
 //!
 
+use super::{CacheKey, ZstdFrameCache};
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
-use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset};
+use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
 use crate::utils::db::car_stream::{Block, CarHeader};
+use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::encoding::uvibytes::UviBytes;
 use ahash::{HashMap, HashMapExt};
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{from_slice, to_vec};
-use lru::LruCache;
-use nonzero_ext::nonzero;
+use fvm_ipld_encoding::to_vec;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::task::Poll;
@@ -68,22 +69,39 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 
-pub struct ForestCar<ReaderT> {
-    inner: Arc<Mutex<ForestCarInner<ReaderT>>>,
-}
+pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
+impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
 
-struct ForestCarInner<ReaderT> {
-    // the reader fn will be used for parallel queries
-    // new_reader: Box<dyn Fn() -> ReaderT>,
-    reader: ReaderT,
-    frame_cache: LruCache<FrameOffset, HashMap<Cid, Vec<u8>>>,
-    write_cache: ahash::HashMap<Cid, Vec<u8>>,
-    index: CarIndex<ReaderT>,
+pub struct ForestCar<ReaderT> {
+    // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
+    // the origin of a cached z-frame.
+    cache_key: CacheKey,
+    indexed: Mutex<io::Result<CarIndex<ReaderT>>>,
+    new_reader: Arc<dyn ReaderGen<CarIndex<ReaderT>>>,
+    frame_cache: Arc<Mutex<ZstdFrameCache>>,
+    write_cache: Arc<Mutex<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
-impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
-    pub fn new(mk_reader: impl Fn() -> io::Result<ReaderT> + 'static) -> io::Result<Self> {
+// Cloning a `ForestCar` duplicates the reader. If the reader is a [`std::fs::File`] then a new
+// handle will be created pointing to the same underlying file. Each `ForestCar` clone can be
+// accessed in parallel and will share the same z-frame cache.
+impl<ReaderT: Read + Seek> Clone for ForestCar<ReaderT> {
+    fn clone(&self) -> Self {
+        let index: io::Result<CarIndex<ReaderT>> = (self.new_reader)();
+        ForestCar {
+            cache_key: self.cache_key,
+            indexed: Mutex::new(index),
+            new_reader: Arc::clone(&self.new_reader),
+            frame_cache: Arc::clone(&self.frame_cache),
+            write_cache: Arc::clone(&self.write_cache),
+            roots: self.roots.clone(),
+        }
+    }
+}
+
+impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
+    pub fn new(mk_reader: impl ReaderGen<ReaderT>) -> io::Result<Self> {
         let mut reader = mk_reader()?;
 
         reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
@@ -99,24 +117,58 @@ impl<ReaderT: Read + Seek> ForestCar<ReaderT> {
         let block_frame = UviBytes::default()
             .decode(&mut header_zstd_frame)?
             .ok_or(invalid_data("malformed uvibytes"))?;
-        let header = from_slice::<CarHeader>(&block_frame)?;
+        let header = from_slice_with_fallback::<CarHeader>(&block_frame)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         let index = CarIndex::open(mk_reader()?, footer.index)?;
-        let inner = ForestCarInner {
-            // new_reader: Box::new(mk_reader),
-            reader,
-            frame_cache: LruCache::new(nonzero!(1024_usize)),
-            write_cache: ahash::HashMap::default(),
-            index,
-            roots: header.roots,
-        };
         Ok(ForestCar {
-            inner: Arc::new(Mutex::new(inner)),
+            cache_key: 0,
+            indexed: Mutex::new(Ok(index)),
+            new_reader: Arc::new(move || {
+                mk_reader().and_then(|reader| CarIndex::open(reader, footer.index))
+            }),
+            frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
+            write_cache: Arc::new(Mutex::new(ahash::HashMap::default())),
+            roots: header.roots,
         })
     }
 
     pub fn roots(&self) -> Vec<Cid> {
-        self.inner.lock().roots.clone()
+        self.roots.clone()
+    }
+
+    pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
+        Tipset::load_required(self, &TipsetKeys::new(self.roots()))
+    }
+
+    pub fn into_dyn(self) -> ForestCar<Box<dyn super::CarReader>> {
+        fn any_reader<ReaderT: super::CarReader>(reader: ReaderT) -> Box<dyn super::CarReader> {
+            Box::new(reader)
+        }
+
+        let indexed = self.indexed.into_inner();
+        let indexed_dyn = indexed.map(|car_reader| car_reader.map_reader(any_reader));
+        let new_reader = self.new_reader;
+        let dyn_reader = move || {
+            let idx = new_reader()?;
+            io::Result::Ok(idx.map_reader(any_reader))
+        };
+        ForestCar {
+            cache_key: self.cache_key,
+            indexed: Mutex::new(indexed_dyn),
+            new_reader: Arc::new(dyn_reader),
+            frame_cache: self.frame_cache,
+            write_cache: self.write_cache,
+            roots: self.roots,
+        }
+    }
+
+    pub fn with_cache(self, cache: Arc<Mutex<ZstdFrameCache>>, key: CacheKey) -> Self {
+        Self {
+            cache_key: key,
+            frame_cache: cache,
+            ..self
+        }
     }
 }
 
@@ -126,39 +178,46 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        let ForestCarInner {
-            reader,
-            frame_cache,
-            write_cache,
-            index,
-            ..
-        } = &mut *self.inner.lock();
         // Return immediately if the value is cached.
-        if let Some(value) = write_cache.get(k) {
+        if let Some(value) = self.write_cache.lock().get(k) {
             return Ok(Some(value.clone()));
         }
 
-        for position in index.lookup(*k)?.into_iter() {
-            let block_map = frame_cache.try_get_or_insert(position, || {
-                // Seek to the start of the zstd frame
-                reader.seek(SeekFrom::Start(position))?;
-                // Decode entire frame into memory
-                let mut zstd_frame = decode_zstd_single_frame(reader)?;
-                // Parse all key-value pairs and insert them into a map
-                let mut block_map = HashMap::new();
-                while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
-                    if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
-                        block_map.insert(cid, data);
-                    } else {
-                        return Err(invalid_data("corrupted key-value block"));
+        let mut indexed_guard = self.indexed.lock();
+        let indexed = hoist_error(&mut *indexed_guard)?;
+
+        for position in indexed.lookup(*k)?.into_iter() {
+            let reader = indexed.get_mut();
+            let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
+            match cache_query {
+                // Frame cache hit, found value.
+                Some(Some(val)) => return Ok(Some(val)),
+                // Frame cache hit, no value. This only happens when hashes collide
+                Some(None) => {}
+                None => {
+                    // Seek to the start of the zstd frame
+                    reader.seek(SeekFrom::Start(position))?;
+                    // Decode entire frame into memory
+                    let mut zstd_frame = decode_zstd_single_frame(reader)?;
+                    // Parse all key-value pairs and insert them into a map
+                    let mut block_map = HashMap::new();
+                    while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
+                        if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
+                            block_map.insert(cid, data);
+                        } else {
+                            return Err(invalid_data("corrupted key-value block"))?;
+                        }
+                    }
+                    let get_result = block_map.get(k).cloned();
+                    self.frame_cache
+                        .lock()
+                        .put(position, self.cache_key, block_map);
+
+                    // This lookup only fails in case of a hash collision
+                    if let Some(value) = get_result {
+                        return Ok(Some(value));
                     }
                 }
-                Ok(block_map)
-            })?;
-
-            // This lookup only fails in case of a hash collision
-            if let Some(value) = block_map.get(k) {
-                return Ok(Some(value.clone()));
             }
         }
         Ok(None)
@@ -166,15 +225,27 @@ where
 
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let ForestCarInner { write_cache, .. } = &mut *self.inner.lock();
         debug_assert!(Block {
             cid: *k,
             data: block.to_vec()
         }
         .valid());
-        write_cache.insert(*k, Vec::from(block));
+        self.write_cache.lock().insert(*k, Vec::from(block));
         Ok(())
     }
+}
+
+// Access the ok-value by replacing the error with a placeholder.
+fn hoist_error<T>(ret: &'_ mut io::Result<T>) -> io::Result<&'_ mut T> {
+    ret.as_mut().map_err(|e| {
+        std::mem::replace(
+            e,
+            io::Error::new(
+                e.kind(),
+                "Repeated failure. See previous error message for details",
+            ),
+        )
+    })
 }
 
 fn decode_zstd_single_frame<ReaderT: Read>(reader: &mut ReaderT) -> io::Result<BytesMut> {
@@ -192,8 +263,8 @@ impl Encoder {
     pub async fn write(
         sink: &mut (impl AsyncWrite + Unpin),
         roots: Vec<Cid>,
-        mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = io::Error> + Unpin,
-    ) -> io::Result<()> {
+        mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> + Unpin,
+    ) -> anyhow::Result<()> {
         let mut offset = 0;
 
         // Write CARv1 header
@@ -211,10 +282,10 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_map = ahash::HashMap::new();
+        let mut cid_map = HashMap::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
             for cid in cids {
-                cid_map.insert(cid, offset as FrameOffset);
+                cid_map.insert(Hash::from(cid), offset as FrameOffset);
             }
             sink.write_all(&zstd_frame).await?;
             offset += zstd_frame.len();
@@ -239,8 +310,8 @@ impl Encoder {
     pub fn compress_stream(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
-        stream: impl TryStream<Ok = Block, Error = io::Error>,
-    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = io::Error> {
+        stream: impl TryStream<Ok = Block, Error = anyhow::Error>,
+    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
         let mut encoder_store = new_encoder(zstd_compression_level);
         let mut frame_cids = vec![];
 
@@ -250,7 +321,10 @@ impl Encoder {
                 Err(e) => {
                     let dummy_error =
                         io::Error::new(io::ErrorKind::Other, "Error already consumed.");
-                    return Poll::Ready(Some(Err(std::mem::replace(e, dummy_error))));
+                    return Poll::Ready(Some(Err(anyhow::Error::from(std::mem::replace(
+                        e,
+                        dummy_error,
+                    )))));
                 }
                 Ok(encoder) => encoder,
             };
@@ -313,6 +387,7 @@ fn new_encoder(
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 struct ForestCarFooter {
     index: u64,
 }
@@ -348,17 +423,8 @@ impl ForestCarFooter {
 mod tests {
     use super::*;
     use futures::executor::block_on;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
     use std::io::Cursor;
-
-    impl Arbitrary for ForestCarFooter {
-        fn arbitrary(g: &mut Gen) -> Self {
-            ForestCarFooter {
-                index: u64::arbitrary(g),
-            }
-        }
-    }
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,

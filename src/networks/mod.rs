@@ -13,7 +13,6 @@ use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
-use url::Url;
 
 mod drand;
 
@@ -128,17 +127,11 @@ impl From<Height> for NetworkVersion {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct ActorBundleInfo {
-    pub manifest: Cid,
-    pub url: Url,
-}
-
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct HeightInfo {
     pub height: Height,
     pub epoch: ChainEpoch,
-    pub bundle: Option<ActorBundleInfo>,
+    pub bundle: Option<Cid>,
 }
 
 pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {

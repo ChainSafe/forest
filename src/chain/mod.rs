@@ -3,58 +3,58 @@
 pub mod store;
 mod weight;
 use crate::blocks::Tipset;
-use crate::ipld::stream_chain;
+use crate::db::car::forest;
+use crate::ipld::{stream_chain, CidHashSet};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
+use crate::utils::stream::par_buffer;
 use anyhow::{Context, Result};
-use async_compression::futures::write::ZstdEncoder;
 use digest::Digest;
-use futures::future::Either;
-use futures::{io::BufWriter, AsyncWrite, AsyncWriteExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::CarHeader;
 use std::sync::Arc;
+use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 pub use self::{store::*, weight::*};
 
-pub async fn export<W, D>(
-    db: impl Blockstore + Send + Sync,
+pub async fn export<D: Digest>(
+    db: impl Blockstore + Send + Sync + 'static,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
-    writer: W,
-    compressed: bool,
+    writer: impl AsyncWrite + Unpin,
+    seen: CidHashSet,
     skip_checksum: bool,
-) -> Result<Option<digest::Output<D>>, Error>
-where
-    D: Digest + Send + 'static,
-    W: AsyncWrite + Send + Unpin + 'static,
-{
-    let store = Arc::new(db);
-    use futures::StreamExt;
-    let writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
-    let mut writer = if compressed {
-        Either::Left(ZstdEncoder::new(writer))
-    } else {
-        Either::Right(writer)
-    };
-
+) -> Result<Option<digest::Output<D>>, Error> {
+    let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
+    let roots = tipset.key().cids().to_vec();
 
-    let mut stream = stream_chain(&store, tipset.clone().chain(&store), stateroot_lookup_limit)
-        .map(|result| result.unwrap()); // FIXME: use a sink that supports TryStream.
-    let header = CarHeader::from(tipset.key().cids().to_vec());
-    header
-        .write_stream_async(&mut writer, &mut stream)
-        .await
-        .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))?;
+    // Wrap writer in optional checksum calculator
+    let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
 
+    // Stream stateroots in range stateroot_lookup_limit..=tipset.epoch(). Also
+    // stream all block headers until genesis.
+    let blocks = par_buffer(
+        // Queue 1k blocks. This is enuogh to saturate the compressor and blocks
+        // are small enough that keeping 1k in memory isn't a problem. Average
+        // block size is between 1kb and 2kb.
+        1024,
+        stream_chain(
+            Arc::clone(&db),
+            tipset.clone().chain(Arc::clone(&db)),
+            stateroot_lookup_limit,
+        )
+        .with_seen(seen),
+    );
+
+    // Encode Ipld key-value pairs in zstd frames
+    let frames = forest::Encoder::compress_stream(8000usize.next_power_of_two(), 3, blocks);
+
+    // Write zstd frames and include a skippable index
+    forest::Encoder::write(&mut writer, roots, frames).await?;
+
+    // Flush to ensure everything has been successfully written
     writer.flush().await.context("failed to flush")?;
-    writer.close().await.context("failed to close")?;
 
-    let digest = match &mut writer {
-        Either::Left(left) => left.get_mut().finalize().await,
-        Either::Right(right) => right.finalize().await,
-    }
-    .map_err(|e| Error::Other(e.to_string()))?;
+    let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
 
     Ok(digest)
 }

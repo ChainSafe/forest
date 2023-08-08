@@ -26,24 +26,26 @@
 //!
 //! Additional reading: [`crate::db::car::plain`]
 
-use crate::blocks::{Tipset, TipsetKeys};
-use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::chain::ChainEpochDelta;
+use crate::blocks::Tipset;
+use crate::chain::{
+    index::{ChainIndex, ResolveNullTipset},
+    ChainEpochDelta,
+};
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::AnyCar;
+use crate::db::car::{AnyCar, CarReader, ManyCar};
+use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
-use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY};
+use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use anyhow::{bail, Context as _};
-use chrono::Utc;
+use chrono::NaiveDateTime;
 use clap::Subcommand;
+use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
 use sha2::Sha256;
-use std::io::{self, Read, Seek};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 use tracing::info;
 
 #[derive(Debug, Subcommand)]
@@ -56,8 +58,8 @@ pub enum ArchiveCommands {
     /// Trim a snapshot of the chain and write it to `<output_path>`
     Export {
         /// Snapshot input path. Currently supports only `.car` file format.
-        #[arg(index = 1)]
-        input_path: PathBuf,
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
         /// Snapshot output filename or directory. Defaults to
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, long, default_value = ".", verbatim_doc_comment)]
@@ -69,11 +71,15 @@ pub enum ArchiveCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
+        /// Do not include any values reachable from epoch-diff.
+        #[arg(short, long)]
+        diff: Option<ChainEpochDelta>,
     },
     /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
         /// Path to snapshot file.
-        snapshot: PathBuf,
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
     },
 }
 
@@ -81,53 +87,61 @@ impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
-                println!("{}", ArchiveInfo::from_file(snapshot)?);
+                println!("{}", ArchiveInfo::from_store(AnyCar::try_from(snapshot)?)?);
                 Ok(())
             }
             Self::Export {
-                input_path,
+                snapshot_files,
                 output_path,
                 epoch,
                 depth,
+                diff,
             } => {
-                info!(
-                    "indexing a car-backed store using snapshot: {}",
-                    input_path.to_str().unwrap_or_default()
-                );
-
-                let reader = move || std::fs::File::open(&input_path);
-
-                do_export(reader, output_path, epoch, depth).await
+                let store = ManyCar::try_from(snapshot_files)?;
+                let heaviest_tipset = store.heaviest_tipset()?;
+                do_export(store, heaviest_tipset, output_path, epoch, depth, diff).await
             }
-            Self::Checkpoints { snapshot } => print_checkpoints(snapshot),
+            Self::Checkpoints {
+                snapshot_files: snapshot,
+            } => print_checkpoints(snapshot),
         }
     }
 }
 
 // This does nothing if the output path is a file. If it is a directory - it produces the following:
 // `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
-fn build_output_path(chain: String, epoch: ChainEpoch, output_path: PathBuf) -> PathBuf {
+fn build_output_path(
+    chain: String,
+    genesis_timestamp: u64,
+    epoch: ChainEpoch,
+    output_path: PathBuf,
+) -> PathBuf {
     match output_path.is_dir() {
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            Utc::now().date_naive(),
+            NaiveDateTime::from_timestamp_opt(
+                genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS,
+                0,
+            )
+            .unwrap_or_default()
+            .into(),
             epoch,
+            true,
         )),
         false => output_path.clone(),
     }
 }
 
-async fn do_export<ReaderT: Read + Seek + Send + Sync>(
-    reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
+async fn do_export(
+    store: impl Blockstore + Send + Sync + 'static,
+    root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
     depth: ChainEpochDelta,
+    diff: Option<ChainEpochDelta>,
 ) -> anyhow::Result<()> {
-    let store = Arc::new(AnyCar::new(reader).context("couldn't read input CAR file")?);
-
-    let index = ChainIndex::new(store.clone());
-    let ts = index.load_tipset(&TipsetKeys::new(store.roots()))?;
+    let ts = Arc::new(root);
 
     let genesis = ts.genesis(&store)?;
     let network = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -150,11 +164,26 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
 
     info!("looking up a tipset by epoch: {}", epoch);
 
+    let index = ChainIndex::new(&store);
+
     let ts = index
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
-    let output_path = build_output_path(network.to_string(), epoch, output_path);
+    let seen = if let Some(diff) = diff {
+        let diff_ts: Arc<Tipset> = index
+            .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
+            .context("diff epoch must be smaller than target epoch")?;
+        let diff_ts: &Tipset = &diff_ts;
+        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store));
+        while stream.try_next().await?.is_some() {}
+        stream.into_seen()
+    } else {
+        CidHashSet::default()
+    };
+
+    let output_path =
+        build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
 
     let writer = tokio::fs::File::create(&output_path)
         .await
@@ -168,7 +197,16 @@ async fn do_export<ReaderT: Read + Seek + Send + Sync>(
         output_path.to_str().unwrap_or_default()
     );
 
-    crate::chain::export::<_, Sha256>(store, &ts, depth, writer.compat(), true, true).await?;
+    let pb = indicatif::ProgressBar::new_spinner().with_style(
+        indicatif::ProgressStyle::with_template(
+            "{spinner} exported {total_bytes} with {binary_bytes_per_sec} in {elapsed}",
+        )
+        .expect("indicatif template must be valid"),
+    );
+    pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
+    let writer = pb.wrap_async_write(writer);
+
+    crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
 
     Ok(())
 }
@@ -194,30 +232,17 @@ impl std::fmt::Display for ArchiveInfo {
 }
 
 impl ArchiveInfo {
-    // Scan a CAR file to identify which network it belongs to and how many
-    // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_file(path: PathBuf) -> anyhow::Result<Self> {
-        Self::from_reader(move || std::fs::File::open(&path))
-    }
-
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_reader<ReaderT: Read + Seek>(
-        reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
-    ) -> anyhow::Result<Self> {
-        Self::from_reader_with(reader, true)
+    fn from_store(store: AnyCar<impl CarReader>) -> anyhow::Result<Self> {
+        Self::from_store_with(store, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_reader_with<ReaderT: Read + Seek>(
-        reader: impl Fn() -> io::Result<ReaderT> + Clone + 'static,
-        progress: bool,
-    ) -> anyhow::Result<Self> {
-        let store = AnyCar::new(reader)?;
-
-        let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+    fn from_store_with(store: AnyCar<impl CarReader>, progress: bool) -> anyhow::Result<Self> {
+        let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
         let tipsets = root.clone().chain(&store);
@@ -269,19 +294,13 @@ impl ArchiveInfo {
             let may_skip =
                 lowest_stateroot_epoch != tipset.epoch() && lowest_message_epoch != tipset.epoch();
             if may_skip {
-                match tipset.genesis(&store).ok() {
-                    Some(genesis_block) => {
-                        if genesis_block.cid() == &*calibnet::GENESIS_CID {
-                            network = "calibnet".into();
-                        } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
-                            network = "mainnet".into();
-                        }
-                        break;
-                    }
-                    None => {
-                        break;
-                    }
+                let genesis_block = tipset.genesis(&store)?;
+                if genesis_block.cid() == &*calibnet::GENESIS_CID {
+                    network = "calibnet".into();
+                } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
+                    network = "mainnet".into();
                 }
+                break;
             }
         }
 
@@ -297,10 +316,9 @@ impl ArchiveInfo {
 
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
-fn print_checkpoints(snapshot: PathBuf) -> anyhow::Result<()> {
-    let store = AnyCar::new(move || std::fs::File::open(&snapshot))
-        .context("couldn't read input CAR file")?;
-    let root = Tipset::load_required(&store, &TipsetKeys::new(store.roots()))?;
+fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+    let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
+    let root = store.heaviest_tipset()?;
 
     let genesis = root.genesis(&store)?;
     let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -341,11 +359,12 @@ mod tests {
     use fvm_ipld_car::CarReader;
     use tempfile::TempDir;
     use tokio::io::BufReader;
+    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     #[test]
     fn archive_info_calibnet() {
-        let info = ArchiveInfo::from_reader_with(
-            || Ok(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
+        let info = ArchiveInfo::from_store_with(
+            AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap(),
             false,
         )
         .unwrap();
@@ -355,8 +374,8 @@ mod tests {
 
     #[test]
     fn archive_info_mainnet() {
-        let info = ArchiveInfo::from_reader_with(
-            || Ok(std::io::Cursor::new(mainnet::DEFAULT_GENESIS)),
+        let info = ArchiveInfo::from_store_with(
+            AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap(),
             false,
         )
         .unwrap();
@@ -364,19 +383,30 @@ mod tests {
         assert_eq!(info.epoch, 0);
     }
 
+    fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
+        let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
+        let ts = db.heaviest_tipset().unwrap();
+        ts.genesis(&db).unwrap().timestamp()
+    }
+
     #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
+        let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            || Ok(std::io::Cursor::new(calibnet::DEFAULT_GENESIS)),
+            store,
+            heaviest_tipset,
             output_path.path().into(),
             Some(0),
             1,
+            None,
         )
         .await
         .unwrap();
         let file = tokio::fs::File::open(build_output_path(
             NetworkChain::Calibnet.to_string(),
+            genesis_timestamp(calibnet::DEFAULT_GENESIS),
             0,
             output_path.path().into(),
         ))

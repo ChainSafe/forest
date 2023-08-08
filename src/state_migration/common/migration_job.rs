@@ -22,7 +22,7 @@ pub(in crate::state_migration) struct MigrationJob<BS: Blockstore> {
     pub actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
-impl<BS: Blockstore + Clone + Send + Sync> MigrationJob<BS> {
+impl<BS: Blockstore> MigrationJob<BS> {
     pub(in crate::state_migration) fn run(
         &self,
         store: BS,

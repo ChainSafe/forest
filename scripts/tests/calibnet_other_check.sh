@@ -25,4 +25,7 @@ $FOREST_CLI_PATH chain set-head --epoch -10 --force
 echo "Test subcommand: info show"
 $FOREST_CLI_PATH info show
 
+echo "Test subcommand: net info"
+$FOREST_CLI_PATH net info
+
 $FOREST_CLI_PATH sync wait # allow the node to re-sync

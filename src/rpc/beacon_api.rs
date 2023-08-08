@@ -14,7 +14,7 @@ pub(in crate::rpc) async fn beacon_get_entry<DB>(
     Params(params): Params<BeaconGetEntryParams>,
 ) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore,
 {
     let (first,) = params;
     let (_, beacon) = data.beacon.beacon_for_epoch(first)?;
