@@ -64,17 +64,19 @@ impl<V> IntoIterator for CidHashMap<V> {
 impl<V> Iterator for IntoIter<V> {
     type Item = (Cid, V);
     fn next(&mut self) -> Option<Self::Item> {
-        match self.small.next() {
-            Some((bytes, v)) => {
-                let cid = Cid::new_v1(
-                    DAG_CBOR,
-                    multihash::Multihash::wrap(Blake2b256.into(), &bytes)
-                        .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                );
-                Some((cid, v))
-            }
-            None => self.fallback.next().map(|(cid, v)| (cid, v)),
-        }
+        self.small
+            .next()
+            .map(|(bytes, v)| {
+                (
+                    Cid::new_v1(
+                        DAG_CBOR,
+                        multihash::Multihash::wrap(Blake2b256.into(), &bytes)
+                            .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
+                    ),
+                    v,
+                )
+            })
+            .or_else(|| self.fallback.next().map(|(cid, v)| (cid, v)))
     }
 }
 
