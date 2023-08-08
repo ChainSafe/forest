@@ -12,7 +12,6 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::RwLock;
 use positioned_io::{RandomAccessFile, ReadAt};
 use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;

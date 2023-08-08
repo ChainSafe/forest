@@ -87,7 +87,7 @@ pub struct ForestCar<ReaderT> {
 
 impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
     pub fn new(reader: ReaderT) -> io::Result<Self> {
-        let (header, footer) = Self::try_construct(&reader)?;
+        let (header, footer) = Self::try_validate(&reader)?;
 
         let index = CarIndex::open(reader, footer.index)?;
 
@@ -101,10 +101,10 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
     }
 
     pub fn is_valid(reader: &ReaderT) -> bool {
-        Self::try_construct(reader).is_ok()
+        Self::try_validate(reader).is_ok()
     }
 
-    fn try_construct(reader: &ReaderT) -> io::Result<(CarHeader, ForestCarFooter)> {
+    fn try_validate(reader: &ReaderT) -> io::Result<(CarHeader, ForestCarFooter)> {
         let mut cursor = Cursor::new(&reader);
         cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
 
