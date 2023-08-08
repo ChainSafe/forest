@@ -141,6 +141,14 @@ impl SnapshotCommands {
                     dry_run,
                 };
 
+                let finality = config.chain
+                    .policy
+                    .chain_finality
+                    .min(epoch);
+                if params.recent_roots < finality {
+                    bail!("For {}, depth has to be at least {}.", config.chain.network, finality);
+                }
+
                 let handle = tokio::spawn({
                     let tmp_file = temp_path.to_owned();
                     let output_path = output_path.clone();
