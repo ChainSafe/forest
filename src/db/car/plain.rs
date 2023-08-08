@@ -249,6 +249,8 @@ pub struct CompressedBlockDataLocation {
 
 /// # Panics
 /// - If the write cache already contains different data with this CID
+/// Note: This could potentially be enhanced with fine-grained read/write
+/// locking, however the performance is acceptable for now.
 fn handle_write_cache(
     write_cache: &mut ahash::HashMap<Cid, Vec<u8>>,
     index: &mut ahash::HashMap<Cid, impl Any>,
