@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod benchmark_cmd;
+pub mod state_migration_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
@@ -22,4 +23,8 @@ pub enum Subcommand {
     /// Benchmark various Forest subsystems
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
+
+    /// State migration tools
+    #[command(subcommand)]
+    StateMigration(state_migration_cmd::StateMigrationCommands),
 }

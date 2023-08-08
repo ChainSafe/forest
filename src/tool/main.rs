@@ -22,6 +22,7 @@ where
             // Run command
             match cmd {
                 Subcommand::Benchmark(benchmark) => benchmark.run().await,
+                Subcommand::StateMigration(state_migration) => state_migration.run().await,
             }
         })
 }
