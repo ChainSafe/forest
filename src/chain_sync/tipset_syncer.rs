@@ -1608,8 +1608,8 @@ fn validate_tipset_against_cache<C: Consensus>(
 
 #[cfg(test)]
 mod test {
+    use crate::blocks::VRFProof;
     use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use crate::json::vrf::VRFProof;
     use crate::shim::address::Address;
     use cid::Cid;
     use num_bigint::BigInt;

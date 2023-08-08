@@ -158,7 +158,7 @@ decl_and_test!(
     tipset_keys ->  TipsetKeysLotusJson for crate::blocks::TipsetKeys,
     token_amount -> TokenAmountLotusJson for crate::shim::econ::TokenAmount,
     vec_u8 -> VecU8LotusJson for Vec<u8>,
-    vrf_proof -> VRFProofLotusJson for  crate::json::vrf::VRFProof, // TODO(aatifsyed): why is this in `json`?
+    vrf_proof -> VRFProofLotusJson for  crate::blocks::VRFProof, // TODO(aatifsyed): why is this in `json`?
 );
 
 pub use self::cid::CidLotusJson;

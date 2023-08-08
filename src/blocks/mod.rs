@@ -9,6 +9,7 @@ pub mod header;
 pub mod persistence;
 pub mod ticket;
 pub mod tipset;
+mod vrf_proof;
 
 pub use block::*;
 pub use election_proof::ElectionProof;
@@ -17,6 +18,7 @@ pub use gossip_block::GossipBlock;
 pub use header::BlockHeader;
 pub use ticket::Ticket;
 pub use tipset::*;
+pub use vrf_proof::VRFProof;
 
 #[cfg(test)]
 mod tests {

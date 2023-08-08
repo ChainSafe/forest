@@ -16,7 +16,7 @@ impl HasLotusJson for Ticket {
             json!({"VRFProof": "aGVsbG8gd29ybGQh"}),
             Ticket {
                 // TODO(aatifsyed): why does this domain struct live in crate::json??
-                vrfproof: crate::json::vrf::VRFProof(Vec::from_iter(*b"hello world!")),
+                vrfproof: crate::blocks::VRFProof(Vec::from_iter(*b"hello world!")),
             },
         )]
     }

@@ -1,4 +1,4 @@
-use crate::json::vrf::VRFProof;
+use crate::blocks::VRFProof;
 
 use super::*;
 
