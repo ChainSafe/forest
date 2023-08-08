@@ -4,7 +4,8 @@
 use crate::shim::sector::SectorSize;
 use crate::utils::proofs_api::paramfetch::{get_params_default, SectorSizeOpt};
 
-use crate::cli::subcommands::{cli_error_and_die, Config};
+use super::read_config;
+use crate::cli::subcommands::cli_error_and_die;
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Args)]
@@ -23,7 +24,9 @@ pub struct FetchCommands {
 }
 
 impl FetchCommands {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<()> {
+        let config = read_config()?;
+
         let sizes = if self.all {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {

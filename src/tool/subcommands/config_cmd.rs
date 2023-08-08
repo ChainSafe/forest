@@ -6,7 +6,7 @@ use std::io::Write;
 use anyhow::Context;
 use clap::Subcommand;
 
-use crate::cli::subcommands::Config;
+use super::read_config;
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
@@ -15,12 +15,14 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
+    pub fn run<W: Write + Unpin>(&self, sink: &mut W) -> anyhow::Result<()> {
+        let config = read_config()?;
+
         match self {
             Self::Dump => writeln!(
                 sink,
                 "{}",
-                toml::to_string(config)
+                toml::to_string(&config)
                     .context("Could not convert configuration to TOML format")?
             )
             .context("Failed to write the configuration"),
@@ -31,15 +33,14 @@ impl ConfigCommands {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::subcommands::Config;
 
     #[tokio::test]
     async fn given_default_configuration_should_print_valid_toml() {
         let expected_config = Config::default();
         let mut sink = std::io::BufWriter::new(Vec::new());
 
-        ConfigCommands::Dump
-            .run(&expected_config, &mut sink)
-            .unwrap();
+        ConfigCommands::Dump.run(&mut sink).unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");

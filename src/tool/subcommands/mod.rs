@@ -7,7 +7,9 @@ pub mod db_cmd;
 pub mod fetch_params_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
+use crate::cli_shared::cli::*;
 use crate::utils::version::FOREST_VERSION_STRING;
+use crate::utils::{io::read_file_to_string, io::read_toml};
 use clap::Parser;
 
 /// Command-line options for the `forest-tool` binary
@@ -36,4 +38,19 @@ pub enum Subcommand {
     /// Database management
     #[command(subcommand)]
     DB(db_cmd::DBCommands),
+}
+
+fn read_config() -> anyhow::Result<Config> {
+    let opts = CliOpts::default();
+    let path = find_config_path(&opts);
+    let cfg: Config = match &path {
+        Some(path) => {
+            // Read from config file
+            let toml = read_file_to_string(path.to_path_buf())?;
+            // Parse and return the configuration file
+            read_toml(&toml)?
+        }
+        None => Config::default(),
+    };
+    Ok(cfg)
 }
