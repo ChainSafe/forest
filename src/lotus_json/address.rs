@@ -3,7 +3,6 @@ use super::*;
 use crate::shim::address::Address;
 
 #[derive(Serialize, Deserialize, From, Into)]
-#[serde(transparent)]
 pub struct AddressLotusJson(#[serde(with = "stringify")] Address);
 
 impl HasLotusJson for Address {
