@@ -59,10 +59,7 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "crate::json::message::json::vec")]
     pub bls_msg: Vec<Message>,
-    #[serde(
-        rename = "SecpkMessages",
-        with = "crate::json::signed_message::json::vec"
-    )]
+    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "crate::json::cid::vec")]
     pub cids: Vec<Cid>,

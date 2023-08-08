@@ -235,24 +235,26 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
-    use crate::json::{
-        cid::{vec::CidJsonVec, CidJson},
-        message::json::MessageJson,
-        signed_message::json::SignedMessageJson,
-    };
     use crate::rpc_api::data_types::MessageSendSpec;
+    use crate::{
+        json::{
+            cid::{vec::CidJsonVec, CidJson},
+            message::json::MessageJson,
+        },
+        lotus_json::SignedMessageLotusJson,
+    };
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
-    pub type MpoolPendingResult = Vec<SignedMessageJson>;
+    pub type MpoolPendingResult = Vec<SignedMessageLotusJson>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-    pub type MpoolPushParams = (SignedMessageJson,);
+    pub type MpoolPushParams = (SignedMessageLotusJson,);
     pub type MpoolPushResult = CidJson;
 
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
     pub type MpoolPushMessageParams = (MessageJson, Option<MessageSendSpec>);
-    pub type MpoolPushMessageResult = SignedMessageJson;
+    pub type MpoolPushMessageResult = SignedMessageLotusJson;
 }
 
 /// Sync API

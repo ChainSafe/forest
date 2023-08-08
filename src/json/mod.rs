@@ -7,6 +7,5 @@ pub mod message;
 pub mod message_receipt;
 pub mod sector;
 pub mod signature;
-pub mod signed_message;
 pub mod token_amount;
 pub mod vrf;

@@ -5,7 +5,8 @@ use std::str::FromStr;
 
 use crate::blocks::Tipset;
 use crate::json::cid::vec::CidJsonVec;
-use crate::json::signed_message::json::SignedMessageJson;
+use crate::lotus_json::SignedMessageLotusJson;
+use crate::message::SignedMessage;
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
@@ -55,11 +56,11 @@ fn to_addr(value: &Option<String>) -> anyhow::Result<Option<StrictAddress>> {
 }
 
 fn filter_messages(
-    messages: Vec<SignedMessageJson>,
+    messages: Vec<SignedMessageLotusJson>,
     local_addrs: Option<HashSet<Address>>,
     to: &Option<String>,
     from: &Option<String>,
-) -> anyhow::Result<Vec<SignedMessageJson>> {
+) -> anyhow::Result<Vec<SignedMessageLotusJson>> {
     use crate::message::Message;
 
     let to = to_addr(to)?;
@@ -67,14 +68,16 @@ fn filter_messages(
 
     let filtered = messages
         .into_iter()
+        .map(Into::<SignedMessage>::into)
         .filter(|msg| {
             local_addrs
                 .as_ref()
-                .map(|addrs| addrs.contains(&msg.0.from()))
+                .map(|addrs| addrs.contains(&msg.from()))
                 .unwrap_or(true)
-                && to.map(|addr| msg.0.to() == addr.into()).unwrap_or(true)
-                && from.map(|addr| msg.0.from() == addr.into()).unwrap_or(true)
+                && to.map(|addr| msg.to() == addr.into()).unwrap_or(true)
+                && from.map(|addr| msg.from() == addr.into()).unwrap_or(true)
         })
+        .map(Into::into)
         .collect();
 
     Ok(filtered)
@@ -246,7 +249,7 @@ impl MpoolCommands {
 
                 for msg in filtered_messages {
                     if cids {
-                        println!("{}", msg.0.cid().unwrap());
+                        println!("{}", SignedMessage::from(msg).cid().unwrap());
                     } else {
                         println!("{}", serde_json::to_string_pretty(&msg)?);
                     }
@@ -286,7 +289,8 @@ impl MpoolCommands {
 
                 let messages: Vec<Message> = filter_messages(messages, local_addrs, &None, &None)?
                     .into_iter()
-                    .map(|m| m.0.message)
+                    .map(SignedMessage::from)
+                    .map(|it| it.message)
                     .collect();
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
@@ -328,17 +332,17 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+        let smsg_json_vec: Vec<SignedMessageLotusJson> = smsg_vec
             .clone()
             .into_iter()
-            .map(SignedMessageJson::from)
+            .map(SignedMessageLotusJson::from)
             .collect();
 
         // No filtering is set up
         let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, &None, &None)
             .unwrap()
             .into_iter()
-            .map(|m| m.0)
+            .map(Into::into)
             .collect();
 
         assert_eq!(smsg_vec, smsg_filtered);
@@ -373,10 +377,10 @@ mod tests {
         );
         smsg_vec.push(msg);
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+        let smsg_json_vec: Vec<SignedMessageLotusJson> = smsg_vec
             .clone()
             .into_iter()
-            .map(SignedMessageJson::from)
+            .map(SignedMessageLotusJson::from)
             .collect();
         let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap().into_iter());
 
@@ -385,7 +389,7 @@ mod tests {
             filter_messages(smsg_json_vec, Some(local_addrs), &None, &None)
                 .unwrap()
                 .into_iter()
-                .map(|m| m.0)
+                .map(Into::into)
                 .collect();
 
         for smsg in smsg_filtered.iter() {
@@ -412,10 +416,10 @@ mod tests {
         let msg = create_smsg(&target, &sender2, wallet.borrow_mut(), 4, 1000000, 1);
         smsg_vec.push(msg);
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+        let smsg_json_vec: Vec<SignedMessageLotusJson> = smsg_vec
             .clone()
             .into_iter()
-            .map(SignedMessageJson::from)
+            .map(SignedMessageLotusJson::from)
             .collect();
 
         // Filtering messages from sender2
@@ -423,7 +427,7 @@ mod tests {
             filter_messages(smsg_json_vec, None, &None, &Some(sender2.to_string()))
                 .unwrap()
                 .into_iter()
-                .map(|m| m.0)
+                .map(Into::into)
                 .collect();
 
         for smsg in smsg_filtered.iter() {
@@ -450,10 +454,10 @@ mod tests {
         let msg = create_smsg(&target2, &sender, wallet.borrow_mut(), 4, 1000000, 1);
         smsg_vec.push(msg);
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
+        let smsg_json_vec: Vec<SignedMessageLotusJson> = smsg_vec
             .clone()
             .into_iter()
-            .map(SignedMessageJson::from)
+            .map(SignedMessageLotusJson::from)
             .collect();
 
         // Filtering messages to target2
@@ -461,7 +465,7 @@ mod tests {
             filter_messages(smsg_json_vec, None, &Some(target2.to_string()), &None)
                 .unwrap()
                 .into_iter()
-                .map(|m| m.0)
+                .map(Into::into)
                 .collect();
 
         for smsg in smsg_filtered.iter() {

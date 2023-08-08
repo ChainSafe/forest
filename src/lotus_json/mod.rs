@@ -298,8 +298,16 @@ pub mod base64_standard {
     }
 }
 
+/// MUST NOT be used in any `LotusJson` structs
+pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    T: HasLotusJson + Clone,
+{
+    Into::<T::LotusJson>::into(value.clone()).serialize(serializer)
+}
+
 /// MUST NOT be used in any `LotusJson` structs.
-#[cfg(test)]
 pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,

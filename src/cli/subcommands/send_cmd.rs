@@ -4,6 +4,7 @@
 use std::str::FromStr;
 
 use crate::json::message::json::MessageJson;
+use crate::message::SignedMessage;
 use crate::rpc_client::{mpool_push_message, wallet_default_address};
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
@@ -65,7 +66,7 @@ impl SendCommand {
                 .await
                 .map_err(handle_rpc_err)?;
 
-        println!("{}", signed_msg_json.0.cid().unwrap());
+        println!("{}", SignedMessage::from(signed_msg_json).cid().unwrap());
 
         Ok(())
     }
