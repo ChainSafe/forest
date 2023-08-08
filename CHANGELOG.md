@@ -32,6 +32,8 @@
 
 ### Added
 
+- [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for random
+  file access in car-backend stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
   `forest-tool benchmark` commands.
 
