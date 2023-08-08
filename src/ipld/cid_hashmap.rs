@@ -37,7 +37,7 @@ impl<V> CidHashMap<V> {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
                 self.v1_dagcbor_blake2b_hash_map.contains_key(&bytes)
             }
-            Err(()) => self.fallback_hash_map.contains_key(&k),
+            Ok(CidVariant::Generic(_)) | Err(()) => self.fallback_hash_map.contains_key(&k),
         }
     }
 
@@ -47,7 +47,7 @@ impl<V> CidHashMap<V> {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
                 self.v1_dagcbor_blake2b_hash_map.insert(bytes, v)
             }
-            Err(()) => self.fallback_hash_map.insert(k, v),
+            Ok(CidVariant::Generic(_)) | Err(()) => self.fallback_hash_map.insert(k, v),
         }
     }
 
@@ -58,7 +58,7 @@ impl<V> CidHashMap<V> {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
                 self.v1_dagcbor_blake2b_hash_map.remove(&bytes)
             }
-            Err(()) => self.fallback_hash_map.remove(&k),
+            Ok(CidVariant::Generic(_)) | Err(()) => self.fallback_hash_map.remove(&k),
         }
     }
 
@@ -71,7 +71,7 @@ impl<V> CidHashMap<V> {
     pub fn get(&self, k: Cid) -> Option<&V> {
         match k.try_into() {
             Ok(CidVariant::V1DagCborBlake2b(bytes)) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
-            Err(()) => self.fallback_hash_map.get(&k),
+            Ok(CidVariant::Generic(_)) | Err(()) => self.fallback_hash_map.get(&k),
         }
     }
 

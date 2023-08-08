@@ -28,15 +28,20 @@ impl CidCborExt for Cid {}
 
 pub const BLAKE2B256_SIZE: usize = 32;
 
-// `CidVariant` is an enumeration of known CID types that are used in the Filecoin blockchain. CIDs
-// contain a significant amount of static data (such as version, codec, hash identifier, hash
-// length). This static data represented by a single tag in the enum.
-//
-// Nearly all Filecoin CIDs are V1, DagCbor encoded, and hashed with Blake2b256 (which has a hash
-// length of 256bits). Naively representing such a CID requires 96 bytes but `CidVariant` does it in
-// only 40 bytes. If other types of CID become popular, they can be added to the CidVariant
-// structure.
+/// `CidVariant` is an enumeration of known CID types that are used in the Filecoin blockchain. CIDs
+/// contain a significant amount of static data (such as version, codec, hash identifier, hash
+/// length). This static data represented by a single tag in the enum.
+///
+/// Nearly all Filecoin CIDs are V1, DagCbor encoded, and hashed with Blake2b256 (which has a hash
+/// length of 256bits). Naively representing such a CID requires 96 bytes but `CidVariant` does it in
+/// only 40 bytes. If other types of CID become popular, they can be added to the CidVariant
+/// structure.
+///
+/// The `Generic` variant is used for CIDs that do not fit into the other variants.
+/// These variants are used for optimizing storage of CIDs in the `FrozenCids` structure.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CidVariant {
+    Generic(Box<Cid>),
     V1DagCborBlake2b([u8; BLAKE2B256_SIZE]),
 }
 

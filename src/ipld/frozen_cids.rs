@@ -13,22 +13,16 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// CIDs that would normally be stored as a vector of CIDs. The V1 DAG-CBOR
 /// Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
 /// type) is +99.99% of all CIDs, so very few CIDs need to be stored in the
-/// `Heap(Box<Cid>)` variant of `SmallCid`. 
-/// 
+/// `Generic(Box<Cid>)` variant of `CidVariant`.
+///
 /// We use `Box<[...]>` to save memory, avoiding vector overallocation.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct FrozenCids(Box<[SmallCid]>);
+pub struct FrozenCids(Box<[CidVariant]>);
 
 impl Default for FrozenCids {
     fn default() -> Self {
         FrozenCids(Box::new([]))
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum SmallCid {
-    Heap(Box<Cid>),
-    InlineDagCborV1([u8; 32]),
 }
 
 pub struct FrozenCidsIterator<'a> {
@@ -54,8 +48,8 @@ impl Iterator for FrozenCidsIterator<'_> {
             let cid = &self.buffer.0[self.current_ix];
             self.current_ix += 1;
             match cid {
-                SmallCid::Heap(cid) => Some(*cid.clone()),
-                SmallCid::InlineDagCborV1(bytes) => {
+                CidVariant::Generic(cid) => Some(*cid.clone()),
+                CidVariant::V1DagCborBlake2b(bytes) => {
                     let mut cid = [0; BLAKE2B256_SIZE];
                     cid.copy_from_slice(bytes);
                     Some(Cid::new_v1(
@@ -100,8 +94,10 @@ impl From<Vec<Cid>> for FrozenCids {
         let mut small_cids = Vec::with_capacity(cids.len());
         for cid in cids {
             match cid.try_into() {
-                Ok(CidVariant::V1DagCborBlake2b(bytes)) => small_cids.push(SmallCid::InlineDagCborV1(bytes)),
-                _ => small_cids.push(SmallCid::Heap(Box::new(cid))),
+                Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+                    small_cids.push(CidVariant::V1DagCborBlake2b(bytes))
+                }
+                _ => small_cids.push(CidVariant::Generic(Box::new(cid))),
             }
         }
         FrozenCids(small_cids.into_boxed_slice())
