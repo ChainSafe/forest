@@ -162,7 +162,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
-        self.index.read().unwrap().keys().cloned().collect()
+        self.index.read().keys().cloned().collect()
     }
 
     pub fn into_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
