@@ -22,6 +22,7 @@ where
             // Run command
             match cmd {
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
+                Subcommand::Snapshot(cmd) => cmd.run().await,
                 Subcommand::Fetch(cmd) => cmd.run().await,
                 Subcommand::Benchmark(cmd) => cmd.run().await,
                 Subcommand::DB(cmd) => cmd.run().await,

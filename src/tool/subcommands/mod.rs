@@ -5,6 +5,7 @@ pub mod benchmark_cmd;
 pub mod config_cmd;
 pub mod db_cmd;
 pub mod fetch_params_cmd;
+pub mod snapshot_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
@@ -32,9 +33,14 @@ pub enum Subcommand {
     #[command(subcommand)]
     Config(config_cmd::ConfigCommands),
 
+    /// Manage snapshots
+    #[command(subcommand)]
+    Snapshot(snapshot_cmd::SnapshotCommands),
+
     /// Benchmark various Forest subsystems
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
+
     /// Database management
     #[command(subcommand)]
     DB(db_cmd::DBCommands),
