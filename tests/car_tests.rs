@@ -124,15 +124,16 @@ fn new_block(rng: &mut SmallRng) -> (Cid, Vec<u8>) {
 }
 
 async fn validate_car(path: impl AsRef<Path>) -> Result<()> {
-    let mut reader = CarStream::new(tokio::io::BufReader::new(
+    let reader = CarStream::new(tokio::io::BufReader::new(
         tokio::fs::File::open(path).await?,
     ))
     .await?;
     assert!(!reader.header.roots.is_empty());
     let mut count = 0;
-    while reader.try_next().await?.is_some() {
-        count += 1;
-    }
+    reader
+        .inspect_ok(|_| count += 1)
+        .try_collect::<Vec<_>>()
+        .await?;
     println!("Result car block count: {count}");
     Ok(())
 }
