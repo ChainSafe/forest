@@ -67,15 +67,8 @@ where
                         Subcommand::Car(cmd) => cmd.run().await,
                         Subcommand::Fetch(_cmd) =>
                             anyhow::bail!("Invalid subcommand: fetch-params. It has been moved to forest-tool binary."),
-                        _ => {
-                            let mut s = format!("{:?}", cmd).to_lowercase();
-                            s = s.replace("(", " ");
-                            s = s.replace(")", "");
-                            anyhow::bail!(
-                                "Invalid subcommand: {}. It has been moved to forest-tool binary.",
-                                s
-                            );
-                        }
+                        Subcommand::Config(_cmd) =>
+                            anyhow::bail!("Invalid subcommand: config dump. It has been moved to forest-tool binary."),
                     }
                 }
                 Err(e) => {
