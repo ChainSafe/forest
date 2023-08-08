@@ -71,9 +71,9 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use integer_encoding::VarIntReader;
 
+use parking_lot::RwLock;
 use positioned_io::ReadAt;
 use std::ops::DerefMut;
-use std::sync::RwLock;
 use std::{
     any::Any,
     collections::hash_map::Entry::{Occupied, Vacant},
@@ -196,13 +196,10 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match (
-            self.index.read().expect("unreachable").get(k),
-            self.write_cache.read().expect("unreachable").get(k),
-        ) {
+        match (self.index.read().get(k), self.write_cache.read().get(k)) {
             (Some(_location), Some(_cached)) => {
                 trace!("evicting from write cache");
-                Ok(self.write_cache.write().expect("unreachable").remove(k))
+                Ok(self.write_cache.write().remove(k))
             }
             (Some(UncompressedBlockDataLocation { offset, length }), None) => {
                 trace!("fetching from disk");
@@ -226,8 +223,8 @@ where
     /// - See also [`Self::new`].
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let mut cache = self.write_cache.write().expect("unreachable");
-        let mut index = self.index.write().expect("unreachable");
+        let mut cache = self.write_cache.write();
+        let mut index = self.index.write();
         handle_write_cache(cache.deref_mut(), index.deref_mut(), k, block)
     }
 }

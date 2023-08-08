@@ -37,13 +37,13 @@ impl Slot {
 
     pub fn read(reader: &mut impl Read) -> Result<Slot> {
         let mut buffer = [0; Self::SIZE];
-        reader.read(&mut buffer)?;
+        reader.read_exact(&mut buffer)?;
         Ok(Slot::from_le_bytes(buffer))
     }
 
     pub fn read_with_hash(reader: &mut impl Read, hash: Hash) -> Result<Option<FrameOffset>> {
         let mut buffer = [0; Self::SIZE];
-        reader.read(&mut buffer)?;
+        reader.read_exact(&mut buffer)?;
         let disk_hash = Hash::from_le_bytes(buffer[0..8].try_into().expect("infallible"));
         if disk_hash == hash {
             Ok(Some(FrameOffset::from_le_bytes(

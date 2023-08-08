@@ -15,7 +15,7 @@ use crate::utils::io::random_access::RandomAccessFile;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {

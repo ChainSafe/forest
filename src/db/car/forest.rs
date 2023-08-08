@@ -59,11 +59,11 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
 
 use std::io::{Seek, SeekFrom};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::task::Poll;
 use std::{
     io,
@@ -172,11 +172,7 @@ where
         let indexed = &self.indexed;
         for position in indexed.lookup(*k)?.into_iter() {
             let reader = indexed.reader();
-            let cache_query =
-                self.frame_cache
-                    .lock()
-                    .expect("unrecoverable")
-                    .get(position, self.cache_key, *k);
+            let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
                 Some(Some(val)) => return Ok(Some(val)),
@@ -196,11 +192,9 @@ where
                         }
                     }
                     let get_result = block_map.get(k).cloned();
-                    self.frame_cache.lock().expect("unrecoverable").put(
-                        position,
-                        self.cache_key,
-                        block_map,
-                    );
+                    self.frame_cache
+                        .lock()
+                        .put(position, self.cache_key, block_map);
 
                     // This lookup only fails in case of a hash collision
                     if let Some(value) = get_result {

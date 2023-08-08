@@ -13,10 +13,11 @@ use crate::blocks::Tipset;
 use crate::utils::io::random_access::RandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::Mutex;
 use positioned_io::ReadAt;
 use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
