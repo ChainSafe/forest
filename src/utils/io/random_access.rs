@@ -1,3 +1,6 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use positioned_io::{ReadAt, Size};
 use std::fs::File;
 use std::io;
