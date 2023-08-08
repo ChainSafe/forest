@@ -15,9 +15,9 @@ use crate::utils::db::car_stream::{Block, CarStream};
 pub enum CarCommands {
     Concat {
         /// A list of CAR file paths. A CAR file can be a plain CAR, a zstd compressed CAR
-        /// or a forest CAR
+        /// or a `ForestCAR.zst`
         car_files: Vec<PathBuf>,
-        /// The output ForestCAR.zst file path
+        /// The output `ForestCAR.zst` file path
         #[arg(short, long)]
         output: PathBuf,
     },
