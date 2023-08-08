@@ -56,11 +56,12 @@ async fn migration_check(config: &Config, existing_chain_data_root: &Path) -> an
     )?);
     let genesis = read_genesis_header(None, config.chain.genesis_bytes(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
-        db,
-        Arc::clone(&config.chain),
-        genesis,
-        existing_chain_data_root,
+        Arc::clone(&db),
+        db.clone(),
+        config.chain.clone(),
+        genesis.clone(),
     )?);
+
     let state_manager = Arc::new(StateManager::new(chain_store, Arc::clone(&config.chain))?);
 
     let ts = state_manager.chain_store().heaviest_tipset();
