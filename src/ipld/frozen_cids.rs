@@ -55,7 +55,7 @@ impl Iterator for FrozenCidsIterator<'_> {
             self.current_ix += 1;
             match cid {
                 SmallCid::Heap(cid) => Some(*cid.clone()),
-                SmallCid::Inline(bytes) => {
+                SmallCid::InlineDagCborV1(bytes) => {
                     let mut cid = [0; BLAKE2B256_SIZE];
                     cid.copy_from_slice(bytes);
                     Some(Cid::new_v1(
@@ -100,7 +100,7 @@ impl From<Vec<Cid>> for FrozenCids {
         let mut small_cids = Vec::with_capacity(cids.len());
         for cid in cids {
             match cid.try_into() {
-                Ok(CidVariant::V1DagCborBlake2b(bytes)) => small_cids.push(SmallCid::Inline(bytes)),
+                Ok(CidVariant::V1DagCborBlake2b(bytes)) => small_cids.push(SmallCid::InlineDagCborV1(bytes)),
                 _ => small_cids.push(SmallCid::Heap(Box::new(cid))),
             }
         }
