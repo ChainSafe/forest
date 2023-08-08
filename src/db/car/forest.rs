@@ -92,7 +92,13 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         let (reader, file_size) = mk_reader()?;
 
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
-        reader.read_exact_at(file_size - ForestCarFooter::SIZE as u64, &mut footer_buffer)?;
+
+        // Make sure we don't panic when the filesize is less than the footer size.
+        let read_offset = match file_size.checked_sub(ForestCarFooter::SIZE as u64) {
+            Some(offset) => offset,
+            _ => 0,
+        };
+        reader.read_exact_at(read_offset, &mut footer_buffer)?;
         let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
             io::ErrorKind::InvalidData,
             "Data not recognized as ForestCAR.zst",
