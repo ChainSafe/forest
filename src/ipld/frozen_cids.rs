@@ -9,13 +9,13 @@ use cid::{
 use fvm_ipld_encoding::DAG_CBOR;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
-// CIDs that would normally be stored as a vector of CIDs. The V1 DAG-CBOR
-// Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
-// type) is +99.99% of all CIDs, so very few CIDs need to be stored in the
-// `Heap(Box<Cid>)` variant of `SmallCid`. The Box type has been chosen to make
-// `FrozenCids` explicitly immutable due to the fact that the vectors are parsed
-// from CBOR and are immutable.
+/// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
+/// CIDs that would normally be stored as a vector of CIDs. The V1 DAG-CBOR
+/// Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
+/// type) is +99.99% of all CIDs, so very few CIDs need to be stored in the
+/// `Heap(Box<Cid>)` variant of `SmallCid`. 
+/// 
+/// We use `Box<[...]>` to save memory, avoiding vector overallocation.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FrozenCids(Box<[SmallCid]>);
 
@@ -28,7 +28,7 @@ impl Default for FrozenCids {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum SmallCid {
     Heap(Box<Cid>),
-    Inline([u8; 32]),
+    InlineDagCborV1([u8; 32]),
 }
 
 pub struct FrozenCidsIterator<'a> {
@@ -91,11 +91,7 @@ impl<'de> Deserialize<'de> for FrozenCids {
 
 impl FromIterator<Cid> for FrozenCids {
     fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
-        let mut vec = Vec::new();
-        for i in iter {
-            vec.push(i);
-        }
-        FrozenCids::from(vec)
+        FrozenCids::from(iter.into_iter().collect::<Vec<_>>())
     }
 }
 
