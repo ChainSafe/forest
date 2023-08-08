@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod archive_cmd;
 pub mod benchmark_cmd;
 pub mod config_cmd;
 pub mod db_cmd;
@@ -36,6 +37,10 @@ pub enum Subcommand {
     /// Manage snapshots
     #[command(subcommand)]
     Snapshot(snapshot_cmd::SnapshotCommands),
+
+    /// Manage archives
+    #[command(subcommand)]
+    Archive(archive_cmd::ArchiveCommands),
 
     /// Benchmark various Forest subsystems
     #[command(subcommand)]

@@ -4,7 +4,6 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::ChainIndex;
-use cid::Cid;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::ManyCar;
@@ -14,6 +13,7 @@ use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::machine::MultiEngine;
 use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Result};
+use cid::Cid;
 use clap::Subcommand;
 use fvm_ipld_blockstore::Blockstore;
 use std::path::PathBuf;
