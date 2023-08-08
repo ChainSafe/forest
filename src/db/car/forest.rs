@@ -58,15 +58,15 @@ use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{from_slice, to_vec};
-use parking_lot::{Mutex, RwLock};
+use fvm_ipld_encoding::to_vec;
+use parking_lot::RwLock;
 use positioned_io::{Cursor, ReadAt};
 
 use std::sync::Arc;
 use std::task::Poll;
 use std::{
     io,
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Write},
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
@@ -89,7 +89,7 @@ pub struct ForestCar<ReaderT> {
 
 impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
     pub fn new(mk_reader: impl ReaderGen<ReaderT>) -> io::Result<Self> {
-        let (mut reader, file_size) = mk_reader()?;
+        let (reader, file_size) = mk_reader()?;
 
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
         reader.read_exact_at(file_size - ForestCarFooter::SIZE as u64, &mut footer_buffer)?;
@@ -384,7 +384,6 @@ mod tests {
     use super::*;
     use futures::executor::block_on;
     use quickcheck_macros::quickcheck;
-    use std::io::Cursor;
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,

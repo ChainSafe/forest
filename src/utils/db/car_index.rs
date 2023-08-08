@@ -105,7 +105,7 @@ use slot::Slot;
 use cid::Cid;
 use positioned_io::{Cursor, ReadAt};
 use smallvec::{smallvec, SmallVec};
-use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
+use std::io::{Error, ErrorKind, Result};
 
 pub struct CarIndex<ReaderT> {
     pub reader: ReaderT,

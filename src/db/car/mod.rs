@@ -14,8 +14,7 @@ use crate::utils::db::car_index::FrameOffset;
 use ahash::HashMap;
 use cid::Cid;
 use lru::LruCache;
-use positioned_io::{ReadAt, WriteAt};
-use std::io::{Read, Seek};
+use positioned_io::ReadAt;
 
 pub trait CarReader: ReadAt + Send + Sync + 'static {}
 impl<X: ReadAt + Send + Sync + 'static> CarReader for X {}

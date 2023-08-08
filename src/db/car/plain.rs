@@ -65,14 +65,14 @@ use crate::{
     utils::encoding::from_slice_with_fallback,
 };
 use ahash::HashMapExt as _;
-use anyhow::{anyhow, Context};
+
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use integer_encoding::VarIntReader;
-use parking_lot::Mutex;
+
 use positioned_io::ReadAt;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::sync::RwLock;
 use std::{
     any::Any,
@@ -121,7 +121,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
     ///   [`flock`](https://linux.die.net/man/2/flock)ed.
     ///   [`Blockstore`] API calls may panic if this is not upheld.
     #[tracing::instrument(level = "debug", skip_all)]
-    pub fn new(mut reader: ReaderT) -> io::Result<Self> {
+    pub fn new(reader: ReaderT) -> io::Result<Self> {
         let mut cursor = positioned_io::Cursor::new(&reader);
         let roots = get_roots_from_v1_header(&mut cursor)?;
 
@@ -200,7 +200,7 @@ where
             self.index.read().expect("unreachable").get(k),
             self.write_cache.read().expect("unreachable").get(k),
         ) {
-            (Some(_location), Some(cached)) => {
+            (Some(_location), Some(_cached)) => {
                 trace!("evicting from write cache");
                 Ok(self.write_cache.write().expect("unreachable").remove(k))
             }

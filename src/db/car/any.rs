@@ -12,10 +12,10 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::Tipset;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use positioned_io::{RandomAccessFile, ReadAt};
 use std::fs::File;
-use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek};
+use std::io::{Error, ErrorKind, Result};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -134,7 +134,6 @@ where
 mod tests {
     use super::*;
     use crate::networks::{calibnet, mainnet};
-    use std::io::Cursor;
 
     #[test]
     fn forest_any_load_calibnet() {

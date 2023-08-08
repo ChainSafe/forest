@@ -3,7 +3,6 @@
 use super::*;
 use ahash::{AHashMap, AHashSet};
 use quickcheck_macros::quickcheck;
-use std::io::{Cursor, Read, Seek};
 
 fn query(table: &CarIndex<impl ReadAt>, key: Hash) -> Vec<FrameOffset> {
     table.lookup_hash(key).unwrap().into_vec()

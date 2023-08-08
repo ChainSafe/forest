@@ -14,7 +14,7 @@ use crate::db::MemoryDB;
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use positioned_io::RandomAccessFile;
 use std::{io, path::PathBuf, sync::Arc};
 
