@@ -456,7 +456,7 @@ mod tests {
     #[quickcheck]
     fn forest_car_open_invalid(junk: Vec<u8>) {
         // The chance of thinking random data is a valid ForestCar should be practically zero.
-        assert!(ForestCar::new(junk.clone()).is_err());
+        assert!(ForestCar::new(junk).is_err());
     }
 
     #[quickcheck]
