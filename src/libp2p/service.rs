@@ -6,12 +6,12 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::chain::ChainStore;
 use crate::libp2p_bitswap::{
     request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
+use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use cid::Cid;
@@ -501,7 +501,7 @@ async fn handle_gossip_event(
         let message = message.data;
         trace!("Got a Gossip Message from {:?}", source);
         if topic == pubsub_block_str {
-            match fvm_ipld_encoding::from_slice::<GossipBlock>(&message) {
+            match from_slice_with_fallback::<GossipBlock>(&message) {
                 Ok(b) => {
                     emit_event(
                         network_sender_out,
@@ -517,7 +517,7 @@ async fn handle_gossip_event(
                 }
             }
         } else if topic == pubsub_msg_str {
-            match fvm_ipld_encoding::from_slice::<SignedMessage>(&message) {
+            match from_slice_with_fallback::<SignedMessage>(&message) {
                 Ok(m) => {
                     emit_event(
                         network_sender_out,
