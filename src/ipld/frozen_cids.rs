@@ -10,9 +10,9 @@ use fvm_ipld_encoding::DAG_CBOR;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
-/// CIDs that would normally be stored as a vector of CIDs. The V1 DAG-CBOR
-/// Blake2b-256 variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
-/// type) is +99.99% of all CIDs, so very few CIDs need to be stored in the
+/// CIDs that would normally be stored as a vector of CIDs. The `V1 DAG-CBOR Blake2b-256`
+/// variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
+/// type) is `+99.99%` of all CIDs, so very few CIDs need to be stored in the
 /// `Generic(Box<Cid>)` variant of `CidVariant`.
 ///
 /// We use `Box<[...]>` to save memory, avoiding vector overallocation.
