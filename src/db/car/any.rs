@@ -25,7 +25,7 @@ pub enum AnyCar<ReaderT> {
     Memory(super::PlainCar<Vec<u8>>),
 }
 
-impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
+impl<ReaderT: super::RandomAccessFileReader> AnyCar<ReaderT> {
     /// Open an archive. May be formatted as `.car`, `.car.zst` or
     /// `.forest.car.zst`. This call may block for an indeterminate amount of
     /// time while data is decoded and indexed.
@@ -72,7 +72,7 @@ impl<ReaderT: super::CarReader> AnyCar<ReaderT> {
     }
 
     /// Discard reader type and replace with dynamic trait object.
-    pub fn into_dyn(self) -> AnyCar<Box<dyn super::CarReader>> {
+    pub fn into_dyn(self) -> AnyCar<Box<dyn super::RandomAccessFileReader>> {
         match self {
             AnyCar::Forest(f) => AnyCar::Forest(f.into_dyn()),
             AnyCar::Plain(p) => AnyCar::Plain(p.into_dyn()),

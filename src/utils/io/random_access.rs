@@ -10,14 +10,14 @@ use std::path::Path;
 /// [`positioned_io::Size`].
 pub struct RandomAccessFile {
     file: positioned_io::RandomAccessFile,
-    size: u64,
+    size: Option<u64>,
 }
 
 impl RandomAccessFile {
     /// This opens a file and fetches the size. Fails with an error if the path is a directory.
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<RandomAccessFile> {
         let file = File::open(path)?;
-        let size = file.metadata()?.len();
+        let size = file.size()?;
         let file = positioned_io::RandomAccessFile::try_new(file)?;
         Ok(Self { file, size })
     }
@@ -25,7 +25,7 @@ impl RandomAccessFile {
 
 impl Size for RandomAccessFile {
     fn size(&self) -> std::io::Result<Option<u64>> {
-        Ok(Some(self.size))
+        Ok(self.size)
     }
 }
 

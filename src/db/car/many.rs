@@ -20,7 +20,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
-    read_only: Vec<AnyCar<Box<dyn super::CarReader>>>,
+    read_only: Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>,
     writer: WriterT,
 }
 
@@ -35,7 +35,7 @@ impl ManyCar {
 }
 
 impl<WriterT> ManyCar<WriterT> {
-    pub fn read_only<ReaderT: super::CarReader>(&mut self, any_car: AnyCar<ReaderT>) {
+    pub fn read_only<ReaderT: super::RandomAccessFileReader>(&mut self, any_car: AnyCar<ReaderT>) {
         let key = self.read_only.len() as u64;
         self.read_only.push(
             any_car
@@ -65,7 +65,7 @@ impl<WriterT> ManyCar<WriterT> {
     }
 }
 
-impl<ReaderT: super::CarReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
+impl<ReaderT: super::RandomAccessFileReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
     fn from(any_car: AnyCar<ReaderT>) -> Self {
         let mut many_car = ManyCar::new();
         many_car.read_only(any_car);

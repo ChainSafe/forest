@@ -115,7 +115,7 @@ pub struct PlainCar<ReaderT> {
     roots: Vec<Cid>,
 }
 
-impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
+impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     /// To be correct:
     /// - `reader` must read immutable data. e.g if it is a file, it should be
     ///   [`flock`](https://linux.die.net/man/2/flock)ed.
@@ -165,7 +165,7 @@ impl<ReaderT: super::CarReader> PlainCar<ReaderT> {
         self.index.read().keys().cloned().collect()
     }
 
-    pub fn into_dyn(self) -> PlainCar<Box<dyn super::CarReader>> {
+    pub fn into_dyn(self) -> PlainCar<Box<dyn super::RandomAccessFileReader>> {
         PlainCar {
             reader: Box::new(self.reader),
             write_cache: self.write_cache,

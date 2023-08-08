@@ -85,7 +85,7 @@ pub struct ForestCar<ReaderT> {
     roots: Vec<Cid>,
 }
 
-impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
+impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     pub fn new(reader: ReaderT) -> io::Result<Self> {
         let (header, footer) = Self::validate_car(&reader)?;
 
@@ -135,8 +135,10 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         Tipset::load_required(self, &TipsetKeys::new(self.roots()))
     }
 
-    pub fn into_dyn(self) -> ForestCar<Box<dyn super::CarReader>> {
-        fn any_reader<ReaderT: super::CarReader>(reader: ReaderT) -> Box<dyn super::CarReader> {
+    pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
+        fn any_reader<ReaderT: super::RandomAccessFileReader>(
+            reader: ReaderT,
+        ) -> Box<dyn super::RandomAccessFileReader> {
             Box::new(reader)
         }
 
