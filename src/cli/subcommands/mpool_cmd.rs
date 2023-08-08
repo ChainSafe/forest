@@ -9,6 +9,7 @@ use crate::json::signed_message::json::SignedMessageJson;
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
+use crate::shim::state_tree::ActorState;
 use crate::shim::{address::Address, econ::TokenAmount};
 
 use ahash::{HashMap, HashSet};
@@ -94,7 +95,7 @@ async fn get_actor_sequence(
     let actor_state = match get_actor_result {
         Ok(actor_json) => {
             if let Some(state) = actor_json {
-                state.0
+                ActorState::from(state)
             } else {
                 println!("{}, actor state not found", address);
                 return None;

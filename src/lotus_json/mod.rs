@@ -122,6 +122,12 @@ pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
     /// If using [`decl_and_test`], this test is automatically run for you, but if the test
     /// is out-of-module, you must call [`assert_all_snapshots`] manually.
     fn snapshots() -> Vec<(serde_json::Value, Self)>;
+    fn to_lotus_json(self) -> Self::LotusJson {
+        self.into()
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        lotus_json.into()
+    }
 }
 
 macro_rules! decl_and_test {

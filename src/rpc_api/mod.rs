@@ -328,11 +328,11 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::tipset_keys_json::TipsetKeysJson;
-    use crate::json::actor_state::json::ActorStateJson;
     use crate::json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
         message_receipt::json::ReceiptJson,
     };
+    use crate::lotus_json::ActorStateLotusJson;
     use crate::shim::version::NetworkVersion;
     use crate::state_manager::{InvocResult, MarketBalance};
     use ahash::HashMap;
@@ -358,7 +358,7 @@ pub mod state_api {
 
     pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
     pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
-    pub type StateGetActorResult = Option<ActorStateJson>;
+    pub type StateGetActorResult = Option<ActorStateLotusJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);

@@ -5,10 +5,10 @@
 use crate::blocks::tipset_keys_json::TipsetKeysJson;
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
-use crate::json::actor_state::json::ActorStateJson;
 use crate::json::address::json::AddressJson;
 use crate::json::cid::CidJson;
 use crate::libp2p::NetworkMessage;
+use crate::lotus_json::HasLotusJson;
 use crate::rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
@@ -98,7 +98,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state
-        .map(|opt| opt.map(ActorStateJson))
+        .map(|opt| opt.map(HasLotusJson::to_lotus_json))
         .map_err(|e| e.into())
 }
 
