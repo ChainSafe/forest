@@ -144,9 +144,8 @@ impl SnapshotCommands {
                 let finality = config.chain.policy.chain_finality.min(epoch);
                 if params.recent_roots < finality {
                     bail!(
-                        "For {}, depth has to be at least {}.",
-                        config.chain.network,
-                        finality
+                        "For {}, depth has to be at least {finality}.",
+                        config.chain.network
                     );
                 }
 
