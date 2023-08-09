@@ -25,7 +25,6 @@ where
                 Subcommand::Snapshot(cmd) => cmd.run().await,
                 Subcommand::Fetch(cmd) => cmd.run().await,
                 Subcommand::Benchmark(cmd) => cmd.run().await,
-                Subcommand::DB(cmd) => cmd.run().await,
                 Subcommand::Archive(cmd) => cmd.run().await,
             }
         })
