@@ -40,6 +40,8 @@
   `forest-tool benchmark` commands.
 - [#3330](https://github.com/ChainSafe/forest/pull/3330): Add `--depth` flag to
   `forest-cli snapshot export`.
+- [#3348](https://github.com/ChainSafe/forest/pull/3348): Add `--diff-depth`
+  flag to `forest-cli archive export`.
 
 ### Changed
 
