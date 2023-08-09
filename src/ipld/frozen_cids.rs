@@ -1,12 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
-use cid::{
-    multihash::{self, Code::Blake2b256},
-    Cid,
-};
-use fvm_ipld_encoding::DAG_CBOR;
+use crate::utils::cid::CidVariant;
+use cid::Cid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
@@ -25,42 +21,31 @@ impl Default for FrozenCids {
     }
 }
 
-pub struct FrozenCidsIterator<'a> {
-    buffer: &'a FrozenCids,
-    current_ix: usize,
+pub struct IntoIter<'a> {
+    cids: std::slice::Iter<'a, CidVariant>,
 }
 
 impl<'a> IntoIterator for &'a FrozenCids {
     type Item = Cid;
-    type IntoIter = FrozenCidsIterator<'a>;
+    type IntoIter = IntoIter<'a>;
     fn into_iter(self) -> Self::IntoIter {
-        FrozenCidsIterator {
-            buffer: self,
-            current_ix: 0,
+        IntoIter {
+            cids: self.0.iter(),
         }
     }
 }
 
-impl Iterator for FrozenCidsIterator<'_> {
+impl<'a> Iterator for IntoIter<'a> {
     type Item = Cid;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_ix < self.buffer.0.len() {
-            let cid = &self.buffer.0[self.current_ix];
-            self.current_ix += 1;
-            match cid {
-                CidVariant::Generic(cid) => Some(*cid.clone()),
+        match self.cids.next() {
+            Some(cid) => match cid {
                 CidVariant::V1DagCborBlake2b(bytes) => {
-                    let mut cid = [0; BLAKE2B256_SIZE];
-                    cid.copy_from_slice(bytes);
-                    Some(Cid::new_v1(
-                        DAG_CBOR,
-                        multihash::Multihash::wrap(Blake2b256.into(), &cid)
-                            .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                    ))
+                    Some(Cid::from(CidVariant::V1DagCborBlake2b(*bytes)))
                 }
-            }
-        } else {
-            None
+                CidVariant::Generic(cid) => Some(*cid.clone()),
+            },
+            None => None,
         }
     }
 }
@@ -145,7 +130,8 @@ impl FrozenCids {
 #[cfg(test)]
 mod test {
     use super::*;
-    use cid::multihash::MultihashDigest;
+    use cid::multihash::{self, MultihashDigest};
+    use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
 
