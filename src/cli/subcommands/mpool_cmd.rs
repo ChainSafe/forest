@@ -263,9 +263,8 @@ impl MpoolCommands {
             } => {
                 let tipset = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)?
-                    .0;
-
+                    .map(|json| Arc::new(Tipset::from(json)))
+                    .map_err(handle_rpc_err)?;
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
 
                 let atto_str =

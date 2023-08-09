@@ -150,28 +150,3 @@ where
         .build()
         .map_err(de::Error::custom)
 }
-
-pub mod vec {
-    use crate::utils::json::GoVecVisitor;
-    use serde::ser::SerializeSeq;
-
-    use super::*;
-
-    pub fn serialize<S>(m: &[BlockHeader], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(m.len()))?;
-        for e in m {
-            seq.serialize_element(&BlockHeaderJsonRef(e))?;
-        }
-        seq.end()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<BlockHeader>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(GoVecVisitor::<BlockHeader, BlockHeaderJson>::new())
-    }
-}

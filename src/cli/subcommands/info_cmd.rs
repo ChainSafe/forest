@@ -188,7 +188,7 @@ impl InfoCommand {
                 let node_status_info = NodeStatusInfo::new(
                     cur_duration,
                     blocks_per_tipset_last_finality,
-                    head.0.as_ref(),
+                    &head.into(),
                     start_time,
                     network,
                     default_wallet_address.clone(),

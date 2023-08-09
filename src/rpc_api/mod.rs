@@ -159,8 +159,8 @@ pub mod chain_api {
     use std::path::PathBuf;
 
     use crate::blocks::{
-        header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-        TipsetKeys,
+        header::json::BlockHeaderJson, lotus_json::TipsetLotusJson,
+        tipset_keys_json::TipsetKeysJson, TipsetKeys,
     };
     use crate::json::{cid::CidJson, message::json::MessageJson};
     use crate::shim::clock::ChainEpoch;
@@ -200,17 +200,17 @@ pub mod chain_api {
 
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipsetByHeight";
     pub type ChainGetTipsetByHeightParams = (ChainEpoch, TipsetKeys);
-    pub type ChainGetTipsetByHeightResult = TipsetJson;
+    pub type ChainGetTipsetByHeightResult = TipsetLotusJson;
 
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
     #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainGetGenesisParams = ();
-    pub type ChainGetGenesisResult = Option<TipsetJson>;
+    pub type ChainGetGenesisResult = Option<TipsetLotusJson>;
 
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
     #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainHeadParams = ();
-    pub type ChainHeadResult = TipsetJson;
+    pub type ChainHeadResult = TipsetLotusJson;
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub type ChainGetBlockParams = (CidJson,);
@@ -218,7 +218,7 @@ pub mod chain_api {
 
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
     pub type ChainGetTipSetParams = (TipsetKeysJson,);
-    pub type ChainGetTipSetResult = TipsetJson;
+    pub type ChainGetTipSetResult = TipsetLotusJson;
 
     pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
     pub type ChainGetNameParams = ();

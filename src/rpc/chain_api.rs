@@ -5,8 +5,7 @@
 use std::sync::Arc;
 
 use crate::blocks::{
-    header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-    BlockHeader, Tipset,
+    header::json::BlockHeaderJson, tipset_keys_json::TipsetKeysJson, BlockHeader, Tipset,
 };
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
@@ -182,7 +181,7 @@ where
         .chain_store()
         .chain_index
         .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-    Ok(TipsetJson(tss))
+    Ok((*tss).clone().into())
 }
 
 pub(in crate::rpc) async fn chain_get_genesis<DB>(
@@ -192,8 +191,7 @@ where
     DB: Blockstore,
 {
     let genesis = data.state_manager.chain_store().genesis();
-    let gen_ts = Arc::new(Tipset::from(genesis));
-    Ok(Some(TipsetJson(gen_ts)))
+    Ok(Some(Tipset::from(genesis).into()))
 }
 
 pub(in crate::rpc) async fn chain_head<DB>(
@@ -203,7 +201,7 @@ where
     DB: Blockstore,
 {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
-    Ok(TipsetJson(heaviest))
+    Ok((*heaviest).clone().into())
 }
 
 pub(in crate::rpc) async fn chain_get_block<DB>(
@@ -231,7 +229,7 @@ where
 {
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
-    Ok(TipsetJson(ts))
+    Ok((*ts).clone().into())
 }
 
 pub(in crate::rpc) async fn chain_get_name<DB>(
