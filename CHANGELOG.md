@@ -27,12 +27,24 @@
 
 ### Breaking
 
+- [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
+  internal settings from files to the database.
+- [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
+  port from 1234 to 2345.
+
 ### Added
 
+- [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
+  multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
   `forest-tool benchmark` commands.
+- [#3330](https://github.com/ChainSafe/forest/pull/3330): Add `--depth` flag to
+  `forest-cli snapshot export`.
 
 ### Changed
+
+- [#3331](https://github.com/ChainSafe/forest/pull/3331): Use multiple cores
+  when exporting snapshots.
 
 ### Removed
 
@@ -40,6 +52,9 @@
 
 - [#3319](https://github.com/ChainSafe/forest/pull/3319): Fix bug triggered by
   re-encoding ForestCAR.zst files.
+
+- [#3322](https://github.com/ChainSafe/forest/pull/3332): Forest is now able to
+  parse data from epochs below 1_960_320 (on mainnet)
 
 ## Forest v0.12.1 "Carp++"
 
@@ -116,6 +131,10 @@ Notable updates:
 
 ### Added
 
+- [#2761](https://github.com/ChainSafe/forest/issues/2761): Add a per actor
+  limit of 1000 messages to Forest mpool for preventing spam attacks.
+- [#2728](https://github.com/ChainSafe/forest/issues/2728): Revive
+  `forest-cli mpool pending` and `forest-cli mpool stat` subcommands.
 - [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`

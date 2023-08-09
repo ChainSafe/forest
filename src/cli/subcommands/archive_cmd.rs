@@ -32,7 +32,7 @@ use crate::chain::{
     ChainEpochDelta,
 };
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
-use crate::db::car::{AnyCar, CarReader, ManyCar};
+use crate::db::car::{AnyCar, ManyCar, RandomAccessFileReader};
 use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
@@ -98,16 +98,8 @@ impl ArchiveCommands {
                 diff,
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
-
-                do_export(
-                    &store,
-                    store.heaviest_tipset()?,
-                    output_path,
-                    epoch,
-                    depth,
-                    diff,
-                )
-                .await
+                let heaviest_tipset = store.heaviest_tipset()?;
+                do_export(store, heaviest_tipset, output_path, epoch, depth, diff).await
             }
             Self::Checkpoints {
                 snapshot_files: snapshot,
@@ -142,7 +134,7 @@ fn build_output_path(
 }
 
 async fn do_export(
-    store: impl Blockstore,
+    store: impl Blockstore + Send + Sync + 'static,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -242,14 +234,17 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl CarReader>) -> anyhow::Result<Self> {
+    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
         Self::from_store_with(store, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_store_with(store: AnyCar<impl CarReader>, progress: bool) -> anyhow::Result<Self> {
+    fn from_store_with(
+        store: AnyCar<impl RandomAccessFileReader>,
+        progress: bool,
+    ) -> anyhow::Result<Self> {
         let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
@@ -401,9 +396,10 @@ mod tests {
     async fn export() {
         let output_path = TempDir::new().unwrap();
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            &store,
-            store.heaviest_tipset().unwrap(),
+            store,
+            heaviest_tipset,
             output_path.path().into(),
             Some(0),
             1,

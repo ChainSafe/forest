@@ -9,6 +9,7 @@ use crate::db::car::ManyCar;
 use crate::ipld::{stream_chain, stream_chain_prefetching, stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarStream;
+use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
@@ -155,7 +156,7 @@ async fn benchmark_forest_encoding(
     let frames = crate::db::car::forest::Encoder::compress_stream(
         frame_size,
         compression_level,
-        block_stream.map_err(anyhow::Error::from),
+        par_buffer(1024, block_stream.map_err(anyhow::Error::from)),
     );
     crate::db::car::forest::Encoder::write(&mut dest, roots, frames).await?;
     dest.flush().await?;
@@ -235,7 +236,7 @@ async fn benchmark_exporting_prefetched(
     let frames = crate::db::car::forest::Encoder::compress_stream(
         frame_size,
         compression_level,
-        blocks.map_err(anyhow::Error::from),
+        par_buffer(1024, blocks.map_err(anyhow::Error::from)),
     );
     crate::db::car::forest::Encoder::write(&mut dest, ts.key().cids.clone(), frames).await?;
     dest.flush().await?;

@@ -29,7 +29,7 @@ pub async fn read_genesis_header<DB>(
     db: &DB,
 ) -> Result<BlockHeader, anyhow::Error>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -67,7 +67,7 @@ where
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Send + Sync,
+    BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(db, reader).await?;
@@ -114,9 +114,7 @@ where
         stopwatch.elapsed().as_secs()
     );
     if let Some(n_records) = n_records {
-        let mut meta = sm.chain_store().file_backed_chain_meta().lock();
-        meta.inner_mut().estimated_reachable_records = n_records;
-        meta.sync()?;
+        sm.chain_store().set_estimated_records(n_records as u64)?;
     }
 
     let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;

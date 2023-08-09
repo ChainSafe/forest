@@ -45,6 +45,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
+    access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -72,6 +73,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
     access.insert(state_api::STATE_REPLAY, Access::Read);
+    access.insert(state_api::STATE_GET_ACTOR, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
@@ -225,6 +227,10 @@ pub mod chain_api {
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub type ChainSetHeadParams = (TipsetKeys,);
     pub type ChainSetHeadResult = ();
+
+    pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+    pub type ChainGetMinBaseFeeParams = (u32,);
+    pub type ChainGetMinBaseFeeResult = String;
 }
 
 /// Message Pool API
@@ -234,13 +240,11 @@ pub mod mpool_api {
         message::json::MessageJson,
         signed_message::json::SignedMessageJson,
     };
-    use crate::message::SignedMessage;
-
     use crate::rpc_api::data_types::MessageSendSpec;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
-    pub type MpoolPendingResult = Vec<SignedMessage>;
+    pub type MpoolPendingResult = Vec<SignedMessageJson>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub type MpoolPushParams = (SignedMessageJson,);
@@ -324,6 +328,7 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::tipset_keys_json::TipsetKeysJson;
+    use crate::json::actor_state::json::ActorStateJson;
     use crate::json::{
         address::json::AddressJson, cid::CidJson, message::json::MessageJson,
         message_receipt::json::ReceiptJson,
@@ -350,6 +355,10 @@ pub mod state_api {
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
     pub type StateNetworkVersionParams = (TipsetKeysJson,);
     pub type StateNetworkVersionResult = NetworkVersion;
+
+    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
+    pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
+    pub type StateGetActorResult = Option<ActorStateJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);
