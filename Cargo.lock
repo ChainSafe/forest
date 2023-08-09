@@ -2958,6 +2958,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "pbr",
  "pin-project-lite 0.2.10",
+ "positioned-io",
  "pretty_assertions",
  "prometheus",
  "prometheus-client",

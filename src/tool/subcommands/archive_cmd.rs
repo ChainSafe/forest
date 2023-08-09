@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::car::{AnyCar, CarReader};
+use crate::db::car::{AnyCar, RandomAccessFileReader};
 use crate::networks::{calibnet, mainnet};
 use crate::shim::clock::ChainEpoch;
 use anyhow::bail;
@@ -54,14 +54,17 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    pub fn from_store(store: AnyCar<impl CarReader>) -> anyhow::Result<Self> {
+    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
         Self::from_store_with(store, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    pub fn from_store_with(store: AnyCar<impl CarReader>, progress: bool) -> anyhow::Result<Self> {
+    fn from_store_with(
+        store: AnyCar<impl RandomAccessFileReader>,
+        progress: bool,
+    ) -> anyhow::Result<Self> {
         let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 

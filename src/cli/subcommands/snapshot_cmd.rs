@@ -36,6 +36,9 @@ pub enum SnapshotCommands {
         /// Tipset to start the export from, default is the chain head
         #[arg(short, long)]
         tipset: Option<i64>,
+        /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
+        #[arg(short, long)]
+        depth: Option<crate::chain::ChainEpochDelta>,
     },
 
     // This subcommand is hidden and only here to help users migrating to forest-tool
@@ -89,6 +92,7 @@ impl SnapshotCommands {
                 skip_checksum,
                 dry_run,
                 tipset,
+                depth,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
@@ -117,12 +121,20 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: config.chain.recent_state_roots,
+                    recent_roots: depth.unwrap_or(config.chain.recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: TipsetKeysJson(chain_head.key().clone()),
                     skip_checksum,
                     dry_run,
                 };
+
+                let finality = config.chain.policy.chain_finality.min(epoch);
+                if params.recent_roots < finality {
+                    anyhow::bail!(
+                        "For {}, depth has to be at least {finality}.",
+                        config.chain.network
+                    );
+                }
 
                 let handle = tokio::spawn({
                     let tmp_file = temp_path.to_owned();
