@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::read_config;
+use crate::cli_shared::chain_path;
 use crate::db::db_engine::db_root;
 use clap::Subcommand;
-use std::path::PathBuf;
 use tracing::error;
 
 use crate::cli::subcommands::prompt_confirm;
@@ -12,26 +13,30 @@ use crate::cli::subcommands::prompt_confirm;
 pub enum DBCommands {
     /// Show DB stats
     Stats {
-        #[arg(long)]
-        chain_path: PathBuf,
+        /// Optional TOML file containing forest daemon configuration
+        #[arg(short, long)]
+        config: Option<String>,
     },
     /// DB destruction
     Destroy {
         /// Answer yes to all forest-cli yes/no questions without prompting
         #[arg(long)]
         force: bool,
-        #[arg(long)]
-        chain_path: PathBuf,
+        /// Optional TOML file containing forest daemon configuration
+        #[arg(short, long)]
+        config: Option<String>,
     },
 }
 
 impl DBCommands {
     pub async fn run(&self) -> anyhow::Result<()> {
         match self {
-            Self::Stats { chain_path } => {
+            Self::Stats { config } => {
                 use human_repr::HumanCount;
 
-                let dir = db_root(chain_path);
+                let config = read_config(config)?;
+
+                let dir = db_root(&chain_path(&config));
                 if !dir.is_dir() {
                     println!(
                         "Aborted. Database path {} is not a valid directory",
@@ -44,8 +49,10 @@ impl DBCommands {
                 println!("Database size: {}", size.human_count_bytes());
                 Ok(())
             }
-            Self::Destroy { force, chain_path } => {
-                let dir = chain_path;
+            Self::Destroy { force, config } => {
+                let config = read_config(config)?;
+
+                let dir = db_root(&chain_path(&config));
                 if !dir.is_dir() {
                     println!(
                         "Aborted. Database path {} is not a valid directory",
@@ -58,7 +65,7 @@ impl DBCommands {
                     println!("Aborted.");
                     return Ok(());
                 }
-                match fs_extra::dir::remove(dir) {
+                match fs_extra::dir::remove(dir.clone()) {
                     Ok(_) => {
                         println!("Deleted {}", dir.display());
                         Ok(())
