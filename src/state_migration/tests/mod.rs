@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::io::random_access::RandomAccessFile;
 use crate::{
     daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},
@@ -89,7 +90,7 @@ async fn test_state_migration(
     }
 
     let store = Arc::new(crate::db::car::plain::PlainCar::new(
-        std::io::BufReader::new(std::fs::File::open(&car_path)?),
+        RandomAccessFile::open(&car_path)?,
     )?);
     load_actor_bundles(&store).await?;
 
