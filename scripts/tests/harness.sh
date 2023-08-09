@@ -5,6 +5,7 @@
 
 FOREST_PATH="forest"
 FOREST_CLI_PATH="forest-cli"
+FOREST_TOOL_PATH="forest-tool"
 
 TMP_DIR=$(mktemp --directory)
 LOG_DIRECTORY=$TMP_DIR/logs
@@ -19,19 +20,19 @@ function forest_download_and_import_snapshot {
 
 function forest_check_db_stats {
   echo "Checking DB stats"
-  $FOREST_CLI_PATH --chain calibnet db stats
+  $FOREST_TOOL_PATH --chain calibnet db stats
 }
 
 function forest_query_epoch {
-  $FOREST_CLI_PATH archive info "$1" | grep Epoch | awk '{print $2}'
+  $FOREST_TOOL_PATH archive info "$1" | grep Epoch | awk '{print $2}'
 }
 
 function forest_query_state_roots {
-  $FOREST_CLI_PATH archive info "$1" | grep State-roots | awk '{print $2}'
+  $FOREST_TOOL_PATH archive info "$1" | grep State-roots | awk '{print $2}'
 }
 
 function forest_query_format {
-  $FOREST_CLI_PATH archive info "$1" | grep "CAR format" | awk '{print $3}'
+  $FOREST_TOOL_PATH archive info "$1" | grep "CAR format" | awk '{print $3}'
 }
 
 function forest_run_node_detached {
