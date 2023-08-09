@@ -68,6 +68,7 @@ impl<V> Iterator for IntoIter<V> {
             .next()
             .map(|(bytes, v)| {
                 (
+                    // TODO: use `Cid::from(CidVariant)` when PR #3275 is merged.
                     Cid::new_v1(
                         DAG_CBOR,
                         multihash::Multihash::wrap(Blake2b256.into(), &bytes)
