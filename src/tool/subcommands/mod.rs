@@ -3,7 +3,6 @@
 
 pub mod archive_cmd;
 pub mod benchmark_cmd;
-pub mod config_cmd;
 pub mod fetch_params_cmd;
 pub mod snapshot_cmd;
 
@@ -28,10 +27,6 @@ pub enum Subcommand {
     /// Download parameters for generating and verifying proofs for given size
     #[command(name = "fetch-params")]
     Fetch(fetch_params_cmd::FetchCommands),
-
-    /// Manage node configuration
-    #[command(subcommand)]
-    Config(config_cmd::ConfigCommands),
 
     /// Manage snapshots
     #[command(subcommand)]

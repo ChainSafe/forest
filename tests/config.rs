@@ -8,7 +8,6 @@ use forest_filecoin::{Client, Config};
 use rand::Rng;
 use tempfile::TempDir;
 
-#[ignore]
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
     let cmd = Command::cargo_bin("forest-cli")
@@ -26,7 +25,6 @@ fn test_config_subcommand_produces_valid_toml_configuration_dump() {
     toml::from_str::<Config>(std::str::from_utf8(output).unwrap()).expect("Invalid configuration!");
 }
 
-#[ignore]
 #[test]
 fn test_overrides_are_reflected_in_configuration_dump() {
     let mut rng = rand::thread_rng();
@@ -55,7 +53,6 @@ fn test_overrides_are_reflected_in_configuration_dump() {
     );
 }
 
-#[ignore]
 #[test]
 fn test_reading_configuration_from_file() {
     let mut rng = rand::thread_rng();
@@ -97,7 +94,6 @@ fn test_reading_configuration_from_file() {
     assert!(expected_config == actual_config);
 }
 
-#[ignore]
 #[test]
 fn test_config_env_var() -> Result<()> {
     let expected_config = Config {

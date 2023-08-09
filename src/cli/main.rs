@@ -60,6 +60,7 @@ where
                     }
                     // Run command
                     match cmd {
+                        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
@@ -76,7 +77,6 @@ where
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
                         Subcommand::Car(cmd) => cmd.run().await,
                         Subcommand::Fetch(_cmd) => bail_moved_cmd!("fetch-params"),
-                        Subcommand::Config(_cmd) => bail_moved_cmd!("config dump"),
                     }
                 }
                 Err(e) => {
