@@ -462,6 +462,102 @@ pub mod tipset_keys_json {
     }
 }
 
+pub mod lotus_json {
+    //! [Tipset] isn't just plain old data - it has an invariant (all [BlockHeader]s are valid)
+    //! So there is custom deserialization here
+
+    use crate::blocks::{BlockHeader, Tipset};
+    use crate::lotus_json::*;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(derive_more::From, derive_more::Into)]
+    pub struct TipsetLotusJson(Tipset);
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct TipsetLotusJsonInner {
+        cids: TipsetKeysLotusJson,
+        blocks: VecLotusJson<<BlockHeader as HasLotusJson>::LotusJson>,
+        height: i64,
+    }
+
+    impl<'de> Deserialize<'de> for TipsetLotusJson {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let TipsetLotusJsonInner {
+                cids: _ignored0,
+                blocks,
+                height: _ignored1,
+            } = Deserialize::deserialize(deserializer)?;
+            Tipset::new(blocks.into())
+                .map_err(serde::de::Error::custom)
+                .map(Self)
+        }
+    }
+
+    impl Serialize for TipsetLotusJson {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let Self(tipset) = self;
+            TipsetLotusJsonInner {
+                cids: tipset.key().clone().into(),
+                blocks: tipset.clone().into_blocks().into(),
+                height: tipset.epoch(),
+            }
+            .serialize(serializer)
+        }
+    }
+
+    impl HasLotusJson for Tipset {
+        type LotusJson = TipsetLotusJson;
+
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            use serde_json::json;
+            vec![(
+                json!({
+                    "Blocks": [
+                        {
+                            "BeaconEntries": null,
+                            "ForkSignaling": 0,
+                            "Height": 0,
+                            "Messages": { "/": "baeaaaaa" },
+                            "Miner": "f00",
+                            "ParentBaseFee": "0",
+                            "ParentMessageReceipts": { "/": "baeaaaaa" },
+                            "ParentStateRoot": { "/":"baeaaaaa" },
+                            "ParentWeight": "0",
+                            "Parents": null,
+                            "Timestamp": 0,
+                            "WinPoStProof": null
+                        }
+                    ],
+                    "Cids": [
+                        { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                    ],
+                    "Height": 0
+                }),
+                Self::new(vec![BlockHeader::default()]).unwrap(),
+            )]
+        }
+    }
+
+    #[test]
+    fn snapshots() {
+        assert_all_snapshots::<Tipset>()
+    }
+
+    #[cfg(test)]
+    quickcheck::quickcheck! {
+        fn quickcheck(val: Tipset) -> () {
+            assert_unchanged_via_json(val)
+        }
+    }
+}
+
 pub mod tipset_json {
     use std::sync::Arc;
 

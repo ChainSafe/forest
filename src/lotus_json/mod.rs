@@ -182,6 +182,7 @@ decl_and_test!(
     token_amount -> TokenAmountLotusJson for crate::shim::econ::TokenAmount,
     vec_u8 -> VecU8LotusJson for Vec<u8>,
     vrf_proof -> VRFProofLotusJson for crate::blocks::VRFProof,
+    sync_stage -> SyncStageLotusJson for crate::chain_sync::SyncStage,
 );
 
 pub use self::cid::CidLotusJson;

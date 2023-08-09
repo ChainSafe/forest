@@ -47,8 +47,9 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
-    #[serde(rename = "ActiveSyncs")]
+    #[serde(with = "crate::lotus_json")]
     pub active_syncs: Vec<SyncState>,
 }
 
