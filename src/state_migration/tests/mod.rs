@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::io::random_access::RandomAccessFile;
 use crate::{
     daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},
@@ -11,7 +12,7 @@ use anyhow::*;
 use cid::Cid;
 use fvm_ipld_encoding::CborStore;
 use pretty_assertions::assert_eq;
-use std::path::Path;
+use std::path::PathBuf;
 use std::{str::FromStr, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
@@ -72,9 +73,10 @@ async fn test_state_migration(
     expected_new_state: Cid,
 ) -> Result<()> {
     // Car files are cached under data folder for Go test to pick up without network access
-    let car_path = format!("./src/state_migration/tests/data/{old_state}.car");
-    if !Path::new(&car_path).is_file() {
-        let tmp: tempfile::TempPath = tempfile::NamedTempFile::new()?.into_temp_path();
+    let car_path = PathBuf::from(format!("./src/state_migration/tests/data/{old_state}.car"));
+    if !car_path.is_file() {
+        let tmp: tempfile::TempPath =
+            tempfile::NamedTempFile::new_in(car_path.parent().unwrap())?.into_temp_path();
         {
             let mut reader = crate::utils::net::reader(&format!(
                 "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/state_migration/state/{old_state}.car"
@@ -88,7 +90,7 @@ async fn test_state_migration(
     }
 
     let store = Arc::new(crate::db::car::plain::PlainCar::new(
-        std::io::BufReader::new(std::fs::File::open(&car_path)?),
+        RandomAccessFile::open(&car_path)?,
     )?);
     load_actor_bundles(&store).await?;
 
