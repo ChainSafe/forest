@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::shim::crypto::SignatureType;
+use crate::{shim::crypto::SignatureType, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashMapExt};
 use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
@@ -282,7 +282,7 @@ impl KeyStore {
                             let decrypted_data = EncryptedKeyStore::decrypt(&encryption_key, &data)
                                 .map_err(|error| Error::Other(error.to_string()))?;
 
-                            let key_info = serde_ipld_dagcbor::from_slice(&decrypted_data)
+                            let key_info = from_slice_with_fallback(&decrypted_data)
                                 .map_err(|e| {
                                     error!("Failed to deserialize keyfile, initializing new");
                                     e

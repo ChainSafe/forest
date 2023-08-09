@@ -98,16 +98,8 @@ impl ArchiveCommands {
                 diff,
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
-
-                do_export(
-                    &store,
-                    store.heaviest_tipset()?,
-                    output_path,
-                    epoch,
-                    depth,
-                    diff,
-                )
-                .await
+                let heaviest_tipset = store.heaviest_tipset()?;
+                do_export(store, heaviest_tipset, output_path, epoch, depth, diff).await
             }
             Self::Checkpoints {
                 snapshot_files: snapshot,
@@ -142,7 +134,7 @@ fn build_output_path(
 }
 
 async fn do_export(
-    store: impl Blockstore,
+    store: impl Blockstore + Send + Sync + 'static,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -401,9 +393,10 @@ mod tests {
     async fn export() {
         let output_path = TempDir::new().unwrap();
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            &store,
-            store.heaviest_tipset().unwrap(),
+            store,
+            heaviest_tipset,
             output_path.path().into(),
             Some(0),
             1,

@@ -51,13 +51,14 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
 use crate::utils::db::car_stream::{Block, CarHeader};
+use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::encoding::uvibytes::UviBytes;
 use ahash::{HashMap, HashMapExt};
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{from_slice, to_vec};
+use fvm_ipld_encoding::to_vec;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::task::Poll;
@@ -116,7 +117,8 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         let block_frame = UviBytes::default()
             .decode(&mut header_zstd_frame)?
             .ok_or(invalid_data("malformed uvibytes"))?;
-        let header = from_slice::<CarHeader>(&block_frame)?;
+        let header = from_slice_with_fallback::<CarHeader>(&block_frame)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         let index = CarIndex::open(mk_reader()?, footer.index)?;
         Ok(ForestCar {

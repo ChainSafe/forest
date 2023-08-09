@@ -4,10 +4,12 @@
 use std::str::FromStr;
 
 use data_encoding::{DecodeError, DecodeKind};
-use fvm_ipld_encoding::{from_slice, to_vec};
+use fvm_ipld_encoding::to_vec;
 use fvm_shared2::address::{
     checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, SECP_PUB_LEN,
 };
+
+use crate::utils::encoding::from_slice_with_fallback;
 
 #[test]
 fn bytes() {
@@ -446,7 +448,7 @@ fn cbor_encoding() {
         let encoded = to_vec(&res).unwrap();
         // assert intermediate value is correct
         assert_eq!(encoded.as_slice(), t.encoded);
-        let rec: Address = from_slice(&encoded).unwrap();
+        let rec: Address = from_slice_with_fallback(&encoded).unwrap();
         // assert decoded Address is equal to initial one
         assert_eq!(rec, res);
     }
@@ -475,12 +477,12 @@ fn address_hashmap() {
 #[test]
 fn set_network() {
     // Assert network can be chained when printing string
-    let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
+    let mut addr: Address = from_slice_with_fallback(&[66, 0, 1]).unwrap();
     assert_eq!(addr.network(), Network::Mainnet);
     assert_eq!(addr.set_network(Network::Testnet).to_string(), "t01");
 
     // Assert network can be set before printing
-    let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
+    let mut addr: Address = from_slice_with_fallback(&[66, 0, 1]).unwrap();
     assert_eq!(addr.network(), Network::Mainnet);
     addr.set_network(Network::Testnet);
     assert_eq!(addr.network(), Network::Testnet);
