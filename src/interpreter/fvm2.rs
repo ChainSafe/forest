@@ -85,7 +85,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
         }
 
         let prev_root = self.get_lookback_tipset_state_root_for_round(height)?;
-        let lb_state = StateTree::new_from_root(&self.chain_index.db, &prev_root)?;
+        let lb_state = StateTree::new_from_root(Arc::clone(&self.chain_index.db), &prev_root)?;
 
         let actor = lb_state
             .get_actor(&miner_addr.into())?
@@ -97,7 +97,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
 
         let worker = ms.info(&tbs)?.worker;
 
-        let state = StateTree::new_from_root(&self.chain_index.db, &self.root)?;
+        let state = StateTree::new_from_root(Arc::clone(&self.chain_index.db), &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker.into())?;
 

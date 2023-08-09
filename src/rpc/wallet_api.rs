@@ -26,7 +26,7 @@ where
     let heaviest_ts = data.state_manager.chain_store().heaviest_tipset();
     let cid = heaviest_ts.parent_state();
 
-    let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
+    let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), cid)?;
     match state.get_actor(&address) {
         Ok(act) => {
             if let Some(actor) = act {

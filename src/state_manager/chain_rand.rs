@@ -36,7 +36,7 @@ impl<DB> Clone for ChainRand<DB> {
 
 impl<DB> ChainRand<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     pub fn new(
         chain_config: Arc<ChainConfig>,
@@ -191,7 +191,7 @@ where
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     fn get_chain_randomness(
         &self,

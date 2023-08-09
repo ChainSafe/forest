@@ -30,7 +30,7 @@ pub(super) struct DataCapPostMigrator {
     pub(super) pending_verified_deal_size: u64,
 }
 
-impl<BS: Blockstore + Clone> PostMigrator<BS> for DataCapPostMigrator {
+impl<BS: Blockstore> PostMigrator<BS> for DataCapPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         use fil_actors_shared::v9::builtin::HAMT_BIT_WIDTH;
 
