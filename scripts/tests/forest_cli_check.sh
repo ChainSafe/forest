@@ -19,7 +19,7 @@ function num-files-here() {
         | wc --lines
 }
 
-"$FOREST_CLI_PATH" fetch-params --keys
+"$FOREST_TOOL_PATH" fetch-params --keys
 
 : "cleaning an empty database doesn't fail (see #2811)"
 "$FOREST_CLI_PATH" --chain calibnet db clean --force
@@ -59,7 +59,7 @@ pushd "$(mktemp --directory)"
     #assert_eq "$DIFF_STATE_ROOTS" 1100
 
     : Validate the union of a snapshot and a diff
-    "$FOREST_CLI_PATH" snapshot validate --check-network calibnet base_snapshot.forest.car.zst diff_snapshot.forest.car.zst
+    "$FOREST_TOOL_PATH" snapshot validate --check-network calibnet base_snapshot.forest.car.zst diff_snapshot.forest.car.zst
 rm -- *
 popd
 
@@ -68,7 +68,7 @@ popd
 : validate latest calibnet snapshot
 pushd "$(mktemp --directory)"
     : : fetch a compressed calibnet snapshot
-    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch
+    "$FOREST_TOOL_PATH" --chain calibnet snapshot fetch
     test "$(num-files-here)" -eq 1
     uncompress_me=$(find . -type f | head -1)
 
@@ -77,10 +77,10 @@ pushd "$(mktemp --directory)"
 
     validate_me=$(find . -type f | head -1)
     : : validating under calibnet chain should succeed
-    "$FOREST_CLI_PATH" snapshot validate --check-network calibnet "$validate_me"
+    "$FOREST_TOOL_PATH" snapshot validate --check-network calibnet "$validate_me"
 
     : : validating under mainnet chain should fail
-    if "$FOREST_CLI_PATH" snapshot validate --check-network mainnet "$validate_me"; then
+    if "$FOREST_TOOL_PATH" snapshot validate --check-network mainnet "$validate_me"; then
         exit 1
     fi
 

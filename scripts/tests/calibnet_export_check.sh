@@ -25,5 +25,5 @@ echo "Validating CAR files"
 zstd --decompress ./*.car.zst
 for f in *.car; do
   echo "Validating CAR file $f"
-  $FOREST_CLI_PATH --chain calibnet snapshot validate "$f"
+  $FOREST_TOOL_PATH --chain calibnet snapshot validate "$f"
 done
