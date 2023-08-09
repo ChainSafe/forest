@@ -38,6 +38,8 @@
   multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
   `forest-tool benchmark` commands.
+- [#3330](https://github.com/ChainSafe/forest/pull/3330): Add `--depth` flag to
+  `forest-cli snapshot export`.
 
 ### Changed
 
