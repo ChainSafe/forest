@@ -103,8 +103,9 @@ use key_value_pair::KeyValuePair;
 use slot::Slot;
 
 use cid::Cid;
+use positioned_io::{Cursor, ReadAt};
 use smallvec::{smallvec, SmallVec};
-use std::io::{Error, ErrorKind, Read, Result, Seek, SeekFrom};
+use std::io::{Error, ErrorKind, Result};
 
 pub struct CarIndex<ReaderT> {
     pub reader: ReaderT,
@@ -112,12 +113,11 @@ pub struct CarIndex<ReaderT> {
     pub header: IndexHeader,
 }
 
-impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
+impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     /// `O(1)` Open a reader as a mapping from CIDs to frame positions in a
     /// compressed content-addressable archive.
-    pub fn open(mut reader: ReaderT, offset: u64) -> Result<Self> {
-        reader.seek(SeekFrom::Start(offset))?;
-        let header = IndexHeader::read(&mut reader)?;
+    pub fn open(reader: ReaderT, offset: u64) -> Result<Self> {
+        let header = IndexHeader::read(&reader, offset)?;
         if header.magic_number != IndexHeader::MAGIC_NUMBER {
             Err(Error::new(
                 ErrorKind::InvalidData,
@@ -138,30 +138,30 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
 
     /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
     /// unless 2 or more CIDs have collided.
-    pub fn lookup(&mut self, key: Cid) -> Result<SmallVec<[FrameOffset; 1]>> {
+    pub fn lookup(&self, key: Cid) -> Result<SmallVec<[FrameOffset; 1]>> {
         self.lookup_internal(Hash::from(key))
     }
 
     #[cfg(any(test, feature = "benchmark-private"))]
-    pub fn lookup_hash(&mut self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
+    pub fn lookup_hash(&self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
         self.lookup_internal(hash)
     }
 
     // Jump to bucket offset and scan downstream. All key-value pairs with the
     // right key are guaranteed to appear before we encounter an empty slot.
-    fn lookup_internal(&mut self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
+    fn lookup_internal(&self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
         let mut limit = self.header.longest_distance;
-        self.reader.seek(SeekFrom::Start(
-            self.offset + hash.bucket(self.header.buckets) * Slot::SIZE as u64,
-        ))?;
-        while let Slot::Full(entry) = Slot::read(&mut self.reader)? {
+
+        let offset = self.offset + hash.bucket(self.header.buckets) * Slot::SIZE as u64;
+        let mut cursor = Cursor::new_pos(&self.reader, offset);
+        while let Slot::Full(entry) = Slot::read(&mut cursor)? {
             if entry.hash == hash {
                 let mut ret = smallvec![entry.value];
                 // The entries are sorted. Once we've found a matching
                 // key, all duplicate hash keys will be right next to
                 // it. Note that it's extremely rare for hashes to
                 // collide.
-                while let Some(value) = Slot::read_with_hash(&mut self.reader, hash)? {
+                while let Some(value) = Slot::read_with_hash(&mut cursor, hash)? {
                     ret.push(value);
                 }
                 return Ok(ret);
@@ -177,8 +177,8 @@ impl<ReaderT: Read + Seek> CarIndex<ReaderT> {
     }
 
     /// Gets a mutable reference to the underlying reader.
-    pub fn get_mut(&mut self) -> &mut ReaderT {
-        &mut self.reader
+    pub fn reader(&self) -> &ReaderT {
+        &self.reader
     }
 
     pub fn map_reader<V>(self, f: impl FnOnce(ReaderT) -> V) -> CarIndex<V> {

@@ -3,18 +3,17 @@
 use super::*;
 use ahash::{AHashMap, AHashSet};
 use quickcheck_macros::quickcheck;
-use std::io::{Cursor, Read, Seek};
 
-fn query(table: &mut CarIndex<impl Read + Seek>, key: Hash) -> Vec<FrameOffset> {
+fn query(table: &CarIndex<impl ReadAt>, key: Hash) -> Vec<FrameOffset> {
     table.lookup_hash(key).unwrap().into_vec()
 }
 
-fn mk_table(entries: &[(Hash, FrameOffset)]) -> CarIndex<Cursor<Vec<u8>>> {
+fn mk_table(entries: &[(Hash, FrameOffset)]) -> CarIndex<Vec<u8>> {
     let table_builder = CarIndexBuilder::new(entries.iter().copied());
     let mut store = Vec::new();
     table_builder.write(&mut store).unwrap();
     dbg!(&store[32..32 + 8]);
-    CarIndex::open(Cursor::new(store), 0).unwrap()
+    CarIndex::open(store, 0).unwrap()
 }
 
 fn mk_map(entries: &[(Hash, FrameOffset)]) -> AHashMap<Hash, AHashSet<FrameOffset>> {
@@ -31,18 +30,18 @@ fn mk_map(entries: &[(Hash, FrameOffset)]) -> AHashMap<Hash, AHashSet<FrameOffse
 
 #[quickcheck]
 fn lookup_singleton(key: Hash, value: FrameOffset) {
-    let mut table = mk_table(&[(key, value)]);
-    assert_eq!(query(&mut table, key), vec![value]);
-    assert_eq!(query(&mut table, !key), Vec::<FrameOffset>::new());
+    let table = mk_table(&[(key, value)]);
+    assert_eq!(query(&table, key), vec![value]);
+    assert_eq!(query(&table, !key), Vec::<FrameOffset>::new());
 }
 
 // Identical to HashMap<Hash, HashSet<FrameOffset>> with almost no collision
 #[quickcheck]
 fn lookup_wide(entries: Vec<(Hash, FrameOffset)>) {
     let map = mk_map(&entries);
-    let mut table = mk_table(&entries);
+    let table = mk_table(&entries);
     for (&hash, value_set) in map.iter() {
-        assert_eq!(&AHashSet::from_iter(query(&mut table, hash)), value_set);
+        assert_eq!(&AHashSet::from_iter(query(&table, hash)), value_set);
     }
 }
 
@@ -53,9 +52,9 @@ fn lookup_narrow(mut entries: Vec<(Hash, FrameOffset)>) {
         *hash = Hash::from(u64::from(*hash) % 10);
     }
     let map = mk_map(&entries);
-    let mut table = mk_table(&entries);
+    let table = mk_table(&entries);
     for (&hash, value_set) in map.iter() {
-        assert_eq!(&AHashSet::from_iter(query(&mut table, hash)), value_set);
+        assert_eq!(&AHashSet::from_iter(query(&table, hash)), value_set);
     }
 }
 
@@ -69,9 +68,9 @@ fn lookup_clash_all(mut entries: Vec<(Hash, FrameOffset)>) {
         assert_eq!(hash.bucket(table_len), 0);
     }
     let map = mk_map(&entries);
-    let mut table = mk_table(&entries);
+    let table = mk_table(&entries);
     for (&hash, value_set) in map.iter() {
-        assert_eq!(&AHashSet::from_iter(query(&mut table, hash)), value_set);
+        assert_eq!(&AHashSet::from_iter(query(&table, hash)), value_set);
     }
 }
 
@@ -86,8 +85,8 @@ fn lookup_clash_many(mut entries: Vec<(Hash, FrameOffset)>) {
         assert_eq!(hash.bucket(table_len), i);
     }
     let map = mk_map(&entries);
-    let mut table = mk_table(&entries);
+    let table = mk_table(&entries);
     for (hash, _) in entries.into_iter() {
-        assert_eq!(&AHashSet::from_iter(query(&mut table, hash)), &map[&hash]);
+        assert_eq!(&AHashSet::from_iter(query(&table, hash)), &map[&hash]);
     }
 }
