@@ -221,10 +221,13 @@ where
     /// # Panics
     /// - If the write cache already contains different data with this CID
     /// - See also [`Self::new`].
+    ///
+    /// Note: Locks have to be acquired in exactly the same order as in `get`, otherwise a
+    /// deadlock is imminent in a multi-threaded context.
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        let mut cache = self.write_cache.write();
         let mut index = self.index.write();
+        let mut cache = self.write_cache.write();
         handle_write_cache(cache.deref_mut(), index.deref_mut(), k, block)
     }
 }
