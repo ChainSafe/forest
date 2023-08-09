@@ -3,7 +3,7 @@
 
 use crate::utils::cid::CidVariant;
 use cid::Cid;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 /// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
 /// CIDs that would normally be stored as a vector of CIDs. The `V1 DAG-CBOR Blake2b-256`
@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `Generic(Box<Cid>)` variant of `CidVariant`.
 ///
 /// We use `Box<[...]>` to save memory, avoiding vector overallocation.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FrozenCids(Box<[CidVariant]>);
 
 impl Default for FrozenCids {
@@ -47,24 +47,6 @@ impl<'a> Iterator for Iter<'a> {
             },
             None => None,
         }
-    }
-}
-
-impl Serialize for FrozenCids {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        Vec::<Cid>::from(self).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for FrozenCids {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self::from(<Vec<Cid>>::deserialize(deserializer)?))
     }
 }
 
@@ -131,7 +113,7 @@ mod test {
 
     impl Arbitrary for FrozenCids {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            // Although the vast majority of CIDs are V1DagCborBlake2b, we want to generate the variants of CidVec with equal probability.
+            // Although the vast majority of CIDs are V1DagCborBlake2b, we want to generate the variants of FrozenCids with equal probability.
             if bool::arbitrary(g) {
                 Vec::arbitrary(g).into_iter().collect()
             } else {

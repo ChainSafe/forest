@@ -6,6 +6,7 @@ use cid::{
     Cid, Version,
 };
 use fvm_ipld_encoding::{Error, DAG_CBOR};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Extension methods for constructing `dag-cbor` [Cid]
 pub trait CidCborExt {
@@ -45,6 +46,24 @@ pub enum CidVariant {
     V1DagCborBlake2b([u8; BLAKE2B256_SIZE]),
 }
 
+impl Serialize for CidVariant {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Cid::from(self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CidVariant {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self::from(Cid::deserialize(deserializer)?))
+    }
+}
+
 impl From<Cid> for CidVariant {
     fn from(cid: Cid) -> Self {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
@@ -61,11 +80,17 @@ impl From<Cid> for CidVariant {
 
 impl From<CidVariant> for Cid {
     fn from(variant: CidVariant) -> Self {
+        Cid::from(&variant)
+    }
+}
+
+impl From<&CidVariant> for Cid {
+    fn from(variant: &CidVariant) -> Self {
         match variant {
-            CidVariant::Generic(cid) => *cid,
+            CidVariant::Generic(cid) => **cid,
             CidVariant::V1DagCborBlake2b(digest) => Cid::new_v1(
                 DAG_CBOR,
-                multihash::Multihash::wrap(Blake2b256.into(), &digest)
+                multihash::Multihash::wrap(Blake2b256.into(), digest)
                     .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
             ),
         }
