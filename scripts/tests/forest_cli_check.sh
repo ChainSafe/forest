@@ -28,8 +28,8 @@ function num-files-here() {
 
 : fetch snapshot
 pushd "$(mktemp --directory)"
-    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor forest
-    "$FOREST_CLI_PATH" --chain calibnet snapshot fetch --vendor filops
+    "$FOREST_TOOL_PATH" snapshot fetch --chain calibnet --vendor forest
+    "$FOREST_TOOL_PATH" snapshot fetch --chain calibnet --vendor filops
     # this will fail if they happen to have the same height - we should change the format of our filenames
     test "$(num-files-here)" -eq 2
 
@@ -68,7 +68,7 @@ popd
 : validate latest calibnet snapshot
 pushd "$(mktemp --directory)"
     : : fetch a compressed calibnet snapshot
-    "$FOREST_TOOL_PATH" --chain calibnet snapshot fetch
+    "$FOREST_TOOL_PATH" snapshot fetch --chain calibnet
     test "$(num-files-here)" -eq 1
     uncompress_me=$(find . -type f | head -1)
 
