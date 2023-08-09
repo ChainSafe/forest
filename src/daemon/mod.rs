@@ -272,7 +272,7 @@ pub(super) async fn start(
         net_keypair,
         &network_name,
         genesis_cid,
-    );
+    )?;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
