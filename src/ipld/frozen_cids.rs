@@ -21,21 +21,21 @@ impl Default for FrozenCids {
     }
 }
 
-pub struct IntoIter<'a> {
+pub struct Iter<'a> {
     cids: std::slice::Iter<'a, CidVariant>,
 }
 
 impl<'a> IntoIterator for &'a FrozenCids {
     type Item = Cid;
-    type IntoIter = IntoIter<'a>;
+    type IntoIter = Iter<'a>;
     fn into_iter(self) -> Self::IntoIter {
-        IntoIter {
+        Iter {
             cids: self.0.iter(),
         }
     }
 }
 
-impl<'a> Iterator for IntoIter<'a> {
+impl<'a> Iterator for Iter<'a> {
     type Item = Cid;
     fn next(&mut self) -> Option<Self::Item> {
         match self.cids.next() {
@@ -111,19 +111,13 @@ impl From<&FrozenCids> for Vec<Cid> {
 }
 
 impl FrozenCids {
-    pub fn push(&self, cid: Cid) -> Self {
-        let mut cids = Vec::<Cid>::from(self);
-        cids.push(cid);
-        FrozenCids::from(cids)
-    }
-
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     pub fn contains(&self, cid: Cid) -> bool {
-        let cids = Vec::<Cid>::from(self);
-        cids.contains(&cid)
+        let cid = CidVariant::from(cid);
+        self.0.contains(&cid)
     }
 }
 
