@@ -88,7 +88,7 @@ pub struct DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    db: RollingDB,
+    db: Arc<RollingDB>,
     get_tipset: F,
     chain_finality: i64,
     recent_state_roots: i64,
@@ -102,7 +102,12 @@ impl<F> DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    pub fn new(db: RollingDB, chain_finality: i64, recent_state_roots: i64, get_tipset: F) -> Self {
+    pub fn new(
+        db: Arc<RollingDB>,
+        chain_finality: i64,
+        recent_state_roots: i64,
+        get_tipset: F,
+    ) -> Self {
         let (gc_tx, gc_rx) = flume::unbounded();
 
         Self {

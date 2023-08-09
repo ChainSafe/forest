@@ -207,7 +207,7 @@ pub(super) async fn start(
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
-            db.as_ref().clone(),
+            db,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
             get_tipset,
@@ -381,7 +381,7 @@ pub(super) async fn start(
 
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
-        import_chain::<_>(
+        import_chain(
             &state_manager,
             &path.display().to_string(),
             config.client.skip_load,
@@ -743,7 +743,7 @@ mod test {
             genesis_header,
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
-        import_chain::<_>(
+        import_chain(
             &sm,
             file_path,
             false,
@@ -770,7 +770,7 @@ mod test {
             genesis_header,
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
-        import_chain::<_>(
+        import_chain(
             &sm,
             "test-snapshots/chain4.car",
             false,

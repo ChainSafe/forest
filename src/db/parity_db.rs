@@ -69,9 +69,8 @@ impl DbColumn {
     }
 }
 
-#[derive(Clone)]
 pub struct ParityDb {
-    pub db: Arc<parity_db::Db>,
+    pub db: parity_db::Db,
     statistics_enabled: bool,
 }
 
@@ -102,7 +101,7 @@ impl ParityDb {
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
         let opts = Self::to_options(path.into(), config)?;
         Ok(Self {
-            db: Arc::new(Db::open_or_create(&opts)?),
+            db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
         })
     }
@@ -230,6 +229,26 @@ impl BitswapStoreReadWrite for ParityDb {
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
+    }
+}
+
+impl BitswapStoreRead for Arc<ParityDb> {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        BitswapStoreRead::contains(self.as_ref(), cid)
+    }
+
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        BitswapStoreRead::get(self.as_ref(), cid)
+    }
+}
+
+impl BitswapStoreReadWrite for Arc<ParityDb> {
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
+    /// [`libipld::DefaultParams`] under feature `dag-cbor`
+    type Params = libipld::DefaultParams;
+
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        BitswapStoreReadWrite::insert(self.as_ref(), block)
     }
 }
 
