@@ -29,6 +29,8 @@
 
 - [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
   internal settings from files to the database.
+- [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
+  port from 1234 to 2345.
 
 ### Added
 

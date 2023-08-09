@@ -50,7 +50,7 @@ function forest_init {
   forest_run_node_detached
 
   ADMIN_TOKEN=$(cat admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/1234/http"
+  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
 
   export ADMIN_TOKEN
   export FULLNODE_API_INFO
