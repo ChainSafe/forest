@@ -442,8 +442,8 @@ pin_project! {
         db: Arc<DB>,
         dfs: VecDeque<PrefetchingTask>, // Depth-first work queue.
         seen: Arc<RwLock<CidHashSet>>,
-        prefetched: Arc<DashSet<Cid>>,
         prefetch_worker_count: Arc<AtomicI8>,
+        max_prefetch_worker_count: i8,
         stateroot_limit: ChainEpoch,
         fail_on_dead_links: bool,
     }
@@ -480,16 +480,7 @@ pub fn stream_chain_prefetching<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> PrefetchingChainStream<DB, T> {
-    PrefetchingChainStream {
-        tipset_iter,
-        db,
-        dfs: VecDeque::new(),
-        prefetched: Arc::new(DashSet::new()),
-        seen: Arc::new(RwLock::new(CidHashSet::default())),
-        stateroot_limit,
-        fail_on_dead_links: true,
-        prefetch_worker_count: Arc::new(AtomicI8::default()),
-    }
+    new(db, tipset_iter, stateroot_limit, true)
 }
 
 // Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
@@ -501,15 +492,25 @@ pub fn stream_graph_prefetching<
     db: Arc<DB>,
     tipset_iter: T,
 ) -> PrefetchingChainStream<DB, T> {
+    new(db, tipset_iter, 0, false)
+}
+
+fn new<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
+    db: Arc<DB>,
+    tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+    fail_on_dead_links: bool,
+) -> PrefetchingChainStream<DB, T> {
     PrefetchingChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
-        prefetched: Arc::new(DashSet::new()),
-        prefetch_worker_count: Arc::new(AtomicI8::default()),
         seen: Arc::new(RwLock::new(CidHashSet::default())),
-        stateroot_limit: 0,
-        fail_on_dead_links: false,
+        stateroot_limit,
+        fail_on_dead_links,
+        prefetch_worker_count: Arc::new(AtomicI8::default()),
+
+        max_prefetch_worker_count: (num_cpus::get() * 3) as i8,
     }
 }
 
@@ -546,23 +547,19 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                     Prefetch(_) => {
                         if let Some(Prefetch(cid_vec)) = this.dfs.pop_front() {
                             let cur_count = this.prefetch_worker_count.load(Ordering::Relaxed);
-                            // An arbitrary limit of scheduled tasks.
-                            // This is helpful to avoid scheduling prefetches that will be late to
-                            // the party.
-                            if cur_count < 12 {
+                            // Limit the amount of prefetching tasks in order to maximize
+                            // performance.
+                            if cur_count < *this.max_prefetch_worker_count {
                                 task::spawn({
                                     let db = this.db.clone();
                                     let count = this.prefetch_worker_count.clone();
                                     let seen = this.seen.clone();
-                                    let prefetched = this.prefetched.clone();
                                     async move {
                                         for cid in cid_vec.clone() {
                                             if seen.read().exists(cid) {
                                                 continue;
                                             }
-                                            if prefetched.insert(cid) {
-                                                let _ = db.get(&cid);
-                                            }
+                                            let _ = db.get(&cid);
                                         }
                                         count.fetch_sub(1, Ordering::Relaxed);
                                     }
@@ -578,10 +575,9 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                             // 3. _: ignore all other links
                             // Don't revisit what's already been visited.
                             if should_save_block_to_snapshot(cid) && this.seen.write().insert(cid) {
-                                let _ = this.prefetched.insert(cid);
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                        let ipld: Ipld = from_slice(&data)?;
+                                        let ipld: Ipld = from_slice_with_fallback(&data)?;
                                         let mut new_vec = DfsIter::new(ipld)
                                             .flat_map(ipld_to_cid)
                                             .collect::<VecDeque<Cid>>();
@@ -613,7 +609,6 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
             if let Some(tipset) = this.tipset_iter.as_mut().next() {
                 for block in tipset.into_blocks().into_iter() {
                     if this.seen.write().insert(*block.cid()) {
-                        this.prefetched.insert(*block.cid());
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(*block.cid()));
 
