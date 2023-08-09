@@ -59,12 +59,15 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
+use positioned_io::{Cursor, ReadAt, SizeCursor};
+
+use std::io::{Seek, SeekFrom};
 use std::sync::Arc;
 use std::task::Poll;
 use std::{
     io,
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Write},
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
@@ -76,61 +79,52 @@ pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
     cache_key: CacheKey,
-    indexed: Mutex<io::Result<CarIndex<ReaderT>>>,
-    new_reader: Arc<dyn ReaderGen<CarIndex<ReaderT>>>,
+    indexed: CarIndex<ReaderT>,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
-    write_cache: Arc<Mutex<ahash::HashMap<Cid, Vec<u8>>>>,
+    write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
-// Cloning a `ForestCar` duplicates the reader. If the reader is a [`std::fs::File`] then a new
-// handle will be created pointing to the same underlying file. Each `ForestCar` clone can be
-// accessed in parallel and will share the same z-frame cache.
-impl<ReaderT: Read + Seek> Clone for ForestCar<ReaderT> {
-    fn clone(&self) -> Self {
-        let index: io::Result<CarIndex<ReaderT>> = (self.new_reader)();
-        ForestCar {
-            cache_key: self.cache_key,
-            indexed: Mutex::new(index),
-            new_reader: Arc::clone(&self.new_reader),
-            frame_cache: Arc::clone(&self.frame_cache),
-            write_cache: Arc::clone(&self.write_cache),
-            roots: self.roots.clone(),
-        }
+impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
+    pub fn new(reader: ReaderT) -> io::Result<Self> {
+        let (header, footer) = Self::validate_car(&reader)?;
+
+        let index = CarIndex::open(reader, footer.index)?;
+
+        Ok(ForestCar {
+            cache_key: 0,
+            indexed: index,
+            frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
+            write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
+            roots: header.roots,
+        })
     }
-}
 
-impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
-    pub fn new(mk_reader: impl ReaderGen<ReaderT>) -> io::Result<Self> {
-        let mut reader = mk_reader()?;
+    pub fn is_valid(reader: &ReaderT) -> bool {
+        Self::validate_car(reader).is_ok()
+    }
 
-        reader.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
+    fn validate_car(reader: &ReaderT) -> io::Result<(CarHeader, ForestCarFooter)> {
+        let mut cursor = SizeCursor::new(&reader);
+        cursor.seek(SeekFrom::End(-(ForestCarFooter::SIZE as i64)))?;
+
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
-        reader.read_exact(&mut footer_buffer)?;
+        cursor.read_exact(&mut footer_buffer)?;
+
         let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
             io::ErrorKind::InvalidData,
             "Data not recognized as ForestCAR.zst",
         ))?;
 
-        reader.seek(SeekFrom::Start(0))?;
-        let mut header_zstd_frame = decode_zstd_single_frame(&mut reader)?;
+        let cursor = Cursor::new_pos(&reader, 0);
+        let mut header_zstd_frame = decode_zstd_single_frame(cursor)?;
         let block_frame = UviBytes::default()
             .decode(&mut header_zstd_frame)?
             .ok_or(invalid_data("malformed uvibytes"))?;
         let header = from_slice_with_fallback::<CarHeader>(&block_frame)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        let index = CarIndex::open(mk_reader()?, footer.index)?;
-        Ok(ForestCar {
-            cache_key: 0,
-            indexed: Mutex::new(Ok(index)),
-            new_reader: Arc::new(move || {
-                mk_reader().and_then(|reader| CarIndex::open(reader, footer.index))
-            }),
-            frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
-            write_cache: Arc::new(Mutex::new(ahash::HashMap::default())),
-            roots: header.roots,
-        })
+        Ok((header, footer))
     }
 
     pub fn roots(&self) -> Vec<Cid> {
@@ -141,22 +135,16 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
         Tipset::load_required(self, &TipsetKeys::new(self.roots()))
     }
 
-    pub fn into_dyn(self) -> ForestCar<Box<dyn super::CarReader>> {
-        fn any_reader<ReaderT: super::CarReader>(reader: ReaderT) -> Box<dyn super::CarReader> {
+    pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
+        fn any_reader<ReaderT: super::RandomAccessFileReader>(
+            reader: ReaderT,
+        ) -> Box<dyn super::RandomAccessFileReader> {
             Box::new(reader)
         }
 
-        let indexed = self.indexed.into_inner();
-        let indexed_dyn = indexed.map(|car_reader| car_reader.map_reader(any_reader));
-        let new_reader = self.new_reader;
-        let dyn_reader = move || {
-            let idx = new_reader()?;
-            io::Result::Ok(idx.map_reader(any_reader))
-        };
         ForestCar {
             cache_key: self.cache_key,
-            indexed: Mutex::new(indexed_dyn),
-            new_reader: Arc::new(dyn_reader),
+            indexed: self.indexed.map_reader(any_reader),
             frame_cache: self.frame_cache,
             write_cache: self.write_cache,
             roots: self.roots,
@@ -174,20 +162,18 @@ impl<ReaderT: super::CarReader> ForestCar<ReaderT> {
 
 impl<ReaderT> Blockstore for ForestCar<ReaderT>
 where
-    ReaderT: Read + Seek,
+    ReaderT: ReadAt,
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         // Return immediately if the value is cached.
-        if let Some(value) = self.write_cache.lock().get(k) {
+        if let Some(value) = self.write_cache.read().get(k) {
             return Ok(Some(value.clone()));
         }
 
-        let mut indexed_guard = self.indexed.lock();
-        let indexed = hoist_error(&mut *indexed_guard)?;
-
+        let indexed = &self.indexed;
         for position in indexed.lookup(*k)?.into_iter() {
-            let reader = indexed.get_mut();
+            let reader = indexed.reader();
             let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
@@ -195,10 +181,9 @@ where
                 // Frame cache hit, no value. This only happens when hashes collide
                 Some(None) => {}
                 None => {
-                    // Seek to the start of the zstd frame
-                    reader.seek(SeekFrom::Start(position))?;
-                    // Decode entire frame into memory
-                    let mut zstd_frame = decode_zstd_single_frame(reader)?;
+                    // Decode entire frame into memory, "position" arg is the frame start offset.
+                    let cursor = Cursor::new_pos(reader, position);
+                    let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = HashMap::new();
                     while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
@@ -230,26 +215,14 @@ where
             data: block.to_vec()
         }
         .valid());
-        self.write_cache.lock().insert(*k, Vec::from(block));
+        self.write_cache.write().insert(*k, Vec::from(block));
         Ok(())
     }
 }
 
-// Access the ok-value by replacing the error with a placeholder.
-fn hoist_error<T>(ret: &'_ mut io::Result<T>) -> io::Result<&'_ mut T> {
-    ret.as_mut().map_err(|e| {
-        std::mem::replace(
-            e,
-            io::Error::new(
-                e.kind(),
-                "Repeated failure. See previous error message for details",
-            ),
-        )
-    })
-}
-
-fn decode_zstd_single_frame<ReaderT: Read>(reader: &mut ReaderT) -> io::Result<BytesMut> {
+fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<BytesMut> {
     let mut zstd_frame = vec![];
+
     zstd::Decoder::new(reader)?
         .single_frame()
         .read_to_end(&mut zstd_frame)?;
@@ -424,7 +397,6 @@ mod tests {
     use super::*;
     use futures::executor::block_on;
     use quickcheck_macros::quickcheck;
-    use std::io::Cursor;
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,
@@ -449,8 +421,8 @@ mod tests {
     #[quickcheck]
     fn forest_car_create_basic(head: Block, mut tail: Vec<Block>, roots: Vec<Cid>) {
         tail.push(head);
-        let forest_car_data = mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone());
-        let forest_car = ForestCar::new(move || Ok(Cursor::new(forest_car_data.clone()))).unwrap();
+        let forest_car =
+            ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone())).unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
@@ -467,13 +439,14 @@ mod tests {
     ) {
         compression_level %= 15;
         tail.push(head);
-        let forest_car_data = mk_encoded_car(
+
+        let forest_car = ForestCar::new(mk_encoded_car(
             frame_size,
             compression_level.max(1),
             roots.clone(),
             tail.clone(),
-        );
-        let forest_car = ForestCar::new(move || Ok(Cursor::new(forest_car_data.clone()))).unwrap();
+        ))
+        .unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
@@ -483,7 +456,7 @@ mod tests {
     #[quickcheck]
     fn forest_car_open_invalid(junk: Vec<u8>) {
         // The chance of thinking random data is a valid ForestCar should be practically zero.
-        assert!(ForestCar::new(move || Ok(Cursor::new(junk.clone()))).is_err());
+        assert!(ForestCar::new(junk).is_err());
     }
 
     #[quickcheck]

@@ -29,11 +29,17 @@
 
 - [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
   internal settings from files to the database.
+- [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
+  port from 1234 to 2345.
 
 ### Added
 
+- [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
+  multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
   `forest-tool benchmark` commands.
+- [#3330](https://github.com/ChainSafe/forest/pull/3330): Add `--depth` flag to
+  `forest-cli snapshot export`.
 
 ### Changed
 
