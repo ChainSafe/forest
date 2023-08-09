@@ -51,9 +51,8 @@ pub enum Subcommand {
     DB(db_cmd::DBCommands),
 }
 
-fn read_config() -> anyhow::Result<Config> {
-    let opts = CliOpts::default();
-    let path = find_config_path(&opts);
+fn read_config(config: &Option<String>) -> anyhow::Result<Config> {
+    let path = find_config_path(config);
     let cfg: Config = match &path {
         Some(path) => {
             // Read from config file

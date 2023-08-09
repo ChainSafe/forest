@@ -11,21 +11,26 @@ use super::read_config;
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
     /// Dump current configuration to standard output
-    Dump,
+    Dump {
+        /// Optional TOML file containing forest daemon configuration
+        #[arg(short, long)]
+        config: Option<String>,
+    },
 }
 
 impl ConfigCommands {
     pub fn run<W: Write + Unpin>(&self, sink: &mut W) -> anyhow::Result<()> {
-        let config = read_config()?;
-
         match self {
-            Self::Dump => writeln!(
-                sink,
-                "{}",
-                toml::to_string(&config)
-                    .context("Could not convert configuration to TOML format")?
-            )
-            .context("Failed to write the configuration"),
+            Self::Dump { config } => {
+                let config = read_config(config)?;
+                writeln!(
+                    sink,
+                    "{}",
+                    toml::to_string(&config)
+                        .context("Could not convert configuration to TOML format")?
+                )
+                .context("Failed to write the configuration")
+            }
         }
     }
 }
@@ -40,7 +45,9 @@ mod tests {
         let expected_config = Config::default();
         let mut sink = std::io::BufWriter::new(Vec::new());
 
-        ConfigCommands::Dump.run(&mut sink).unwrap();
+        ConfigCommands::Dump { config: None }
+            .run(&mut sink)
+            .unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");

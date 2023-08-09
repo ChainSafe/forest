@@ -21,11 +21,14 @@ pub struct FetchCommands {
     dry_run: bool,
     /// Size in bytes
     params_size: Option<String>,
+    /// Optional TOML file containing forest daemon configuration
+    #[arg(short, long)]
+    pub config: Option<String>,
 }
 
 impl FetchCommands {
     pub async fn run(&self) -> anyhow::Result<()> {
-        let config = read_config()?;
+        let config = read_config(&self.config)?;
 
         let sizes = if self.all {
             SectorSizeOpt::All

@@ -27,7 +27,8 @@ macro_rules! bail_moved_cmd {
     ($src:literal, $dst:literal) => {
         anyhow::bail!(
             "Invalid subcommand: {}. It has been moved to forest-tool {}.",
-            $src, $dst
+            $src,
+            $dst
         )
     };
 }
