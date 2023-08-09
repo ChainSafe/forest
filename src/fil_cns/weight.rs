@@ -1,11 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::blocks::Tipset;
 use crate::shim::{address::Address, state_tree::StateTree};
 use fil_actor_interface::power;
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
 use num_traits::Zero;
+use std::sync::Arc;
 
 // constants for Weight calculation
 /// The ratio of weight contributed by short-term vs long-term factors in a
@@ -18,11 +20,12 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 
 /// Returns the weight of provided [Tipset]. This function will load power actor
 /// state and calculate the total weight of the [Tipset].
-pub(in crate::fil_cns) fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
+pub(in crate::fil_cns) fn weight<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: Blockstore,
 {
-    let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
+    let state =
+        StateTree::new_from_root(Arc::clone(db), ts.parent_state()).map_err(|e| e.to_string())?;
 
     let act = state
         .get_actor(&Address::POWER_ACTOR)

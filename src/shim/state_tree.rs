@@ -103,8 +103,7 @@ where
     S: Blockstore,
 {
     /// Constructor for a HAMT state tree given an IPLD store
-    pub fn new(store: S, version: StateTreeVersion) -> anyhow::Result<Self> {
-        let store = Arc::new(store);
+    pub fn new(store: Arc<S>, version: StateTreeVersion) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
             Ok(StateTree::V3(st))
         } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
@@ -114,8 +113,7 @@ where
         }
     }
 
-    pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
-        let store = Arc::new(store);
+    pub fn new_from_root(store: Arc<S>, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::V3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store, c) {

@@ -243,7 +243,7 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
         state.get_actor(addr)
     }
 
@@ -294,7 +294,7 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let act = state
@@ -709,7 +709,7 @@ where
             if current.epoch() == 0 {
                 return Ok(None);
             }
-            let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
+            let state = StateTree::new_from_root(self.blockstore_owned(), current.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
             if let Some(actor_state) = state
@@ -905,12 +905,12 @@ where
 
     /// Returns a BLS public key from provided address
     pub fn get_bls_public_key(
-        db: &DB,
+        db: &Arc<DB>,
         addr: &Address,
         state_cid: Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state =
-            StateTree::new_from_root(db, &state_cid).map_err(|e| Error::Other(e.to_string()))?;
+        let state = StateTree::new_from_root(Arc::clone(db), &state_cid)
+            .map_err(|e| Error::Other(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
@@ -924,7 +924,7 @@ where
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
+        let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         Ok(state_tree
             .lookup_id(addr)
@@ -987,14 +987,14 @@ where
 
         // First try to resolve the actor in the parent state, so we don't have to
         // compute anything.
-        let state = StateTree::new_from_root(self.blockstore(), ts.parent_state())?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())?;
         if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
             return Ok(addr);
         }
 
         // If that fails, compute the tip-set and try again.
         let (st, _) = self.tipset_state(ts).await?;
-        let state = StateTree::new_from_root(self.blockstore(), &st)?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), &st)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
     }

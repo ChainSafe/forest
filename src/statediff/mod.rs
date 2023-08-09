@@ -6,6 +6,7 @@ mod resolve;
 use std::{
     fmt::Write as FmtWrite,
     io::{stdout, Write},
+    sync::Arc,
 };
 
 use crate::ipld::json::{IpldJson, IpldJsonRef};
@@ -53,11 +54,11 @@ fn actor_to_resolved(
 }
 
 fn root_to_state_map<BS: Blockstore>(
-    bs: &BS,
+    bs: &Arc<BS>,
     root: &Cid,
 ) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
     let mut actors = HashMap::default();
-    let state_tree = StateTree::new_from_root(bs, root)?;
+    let state_tree = StateTree::new_from_root(bs.clone(), root)?;
     state_tree.for_each(|addr: Address, actor: &ActorState| {
         actors.insert(addr, actor.clone());
         Ok(())
@@ -71,7 +72,7 @@ fn root_to_state_map<BS: Blockstore>(
 /// This function will only print the actors that are added, removed, or changed
 /// so it can be used on large state trees.
 fn try_print_actor_states<BS: Blockstore>(
-    bs: &BS,
+    bs: &Arc<BS>,
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
@@ -81,7 +82,7 @@ fn try_print_actor_states<BS: Blockstore>(
     let mut e_state = root_to_state_map(bs, expected_root)?;
 
     // Compare state with expected
-    let state_tree = StateTree::new_from_root(bs, root)?;
+    let state_tree = StateTree::new_from_root(bs.clone(), root)?;
 
     state_tree.for_each(|addr: Address, actor| {
         let calc_pp = pp_actor_state(bs, actor, depth)?;
@@ -190,7 +191,7 @@ fn print_diffs(handle: &mut impl Write, diffs: TextDiff<str>) -> std::io::Result
 /// Prints a diff of the resolved state tree.
 /// If the actor's HAMT cannot be loaded, base IPLD resolution is given.
 pub fn print_state_diff<BS>(
-    bs: &BS,
+    bs: &Arc<BS>,
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,

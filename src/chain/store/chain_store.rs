@@ -219,9 +219,9 @@ where
         S: Scale,
     {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = S::weight(self.blockstore(), &self.heaviest_tipset())?;
+        let heaviest_weight = S::weight(&self.db, &self.heaviest_tipset())?;
 
-        let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
+        let new_weight = S::weight(&self.db, ts.as_ref())?;
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
@@ -467,17 +467,17 @@ where
 }
 
 /// Given a tipset this function will return all unique messages in that tipset.
-pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
+pub fn messages_for_tipset<DB>(db: Arc<DB>, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: Blockstore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
-    let state = StateTree::new_from_root(db, ts.parent_state())?;
+    let state = StateTree::new_from_root(Arc::clone(&db), ts.parent_state())?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
-        let (unsigned, signed) = block_messages(db, b)?;
+        let (unsigned, signed) = block_messages(&db, b)?;
         let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
         let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
