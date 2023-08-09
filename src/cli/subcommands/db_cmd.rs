@@ -71,7 +71,7 @@ impl DBCommands {
 
                 Ok(())
             }
-            Self::Clean { force: _ } => crate::bail_moved_cmd!("db clean"),
+            Self::Clean { force: _ } => crate::bail_moved_cmd!("db clean", "db destroy"),
             Self::Stats => crate::bail_moved_cmd!("db stats"),
         }
     }

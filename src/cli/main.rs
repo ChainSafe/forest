@@ -18,10 +18,16 @@ use super::subcommands::Subcommand;
 
 #[macro_export]
 macro_rules! bail_moved_cmd {
-    ($str:literal) => {
+    ($src:literal) => {
         anyhow::bail!(
             "Invalid subcommand: {}. It has been moved to forest-tool binary.",
-            $str
+            $src
+        )
+    };
+    ($src:literal, $dst:literal) => {
+        anyhow::bail!(
+            "Invalid subcommand: {}. It has been moved to forest-tool {}.",
+            $src, $dst
         )
     };
 }

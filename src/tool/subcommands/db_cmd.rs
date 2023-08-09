@@ -15,8 +15,8 @@ pub enum DBCommands {
         #[arg(long)]
         chain_path: PathBuf,
     },
-    /// DB Clean up
-    Clean {
+    /// DB destruction
+    Destroy {
         /// Answer yes to all forest-cli yes/no questions without prompting
         #[arg(long)]
         force: bool,
@@ -44,7 +44,7 @@ impl DBCommands {
                 println!("Database size: {}", size.human_count_bytes());
                 Ok(())
             }
-            Self::Clean { force, chain_path } => {
+            Self::Destroy { force, chain_path } => {
                 let dir = chain_path;
                 if !dir.is_dir() {
                     println!(
