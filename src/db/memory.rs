@@ -8,6 +8,7 @@ use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use parking_lot::RwLock;
 
 use super::SettingsStore;
@@ -32,6 +33,10 @@ impl SettingsStore for MemoryDB {
 
     fn exists(&self, key: &str) -> anyhow::Result<bool> {
         Ok(self.settings_db.read().contains_key(key))
+    }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        Ok(self.settings_db.read().keys().cloned().collect_vec())
     }
 }
 
