@@ -142,11 +142,9 @@ mod tests {
     fn blocks_roundtrip(blocks: Blocks) -> anyhow::Result<()> {
         block_on(async move {
             let car = blocks.into_car_bytes().await;
-            let mut reader = CarStream::new(std::io::Cursor::new(car.clone())).await?;
+            let mut reader = CarStream::new(std::io::Cursor::new(&car)).await?;
             let mut blocks2 = vec![];
-            while let Some(b) = reader.try_next().await? {
-                blocks2.push(b);
-            }
+            let blocks2 = Blocks(reader.try_collect().await?);
             let blocks2 = Blocks(blocks2);
             let car2 = blocks2.into_car_bytes().await;
 
