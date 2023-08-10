@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
@@ -63,7 +64,7 @@ impl StateCommands {
                     .client
                     .data_dir
                     .join(config.chain.network.to_string());
-                let blockstore = open_proxy_db(db_root(&chain_path), Default::default())?;
+                let blockstore = Arc::new(open_proxy_db(db_root(&chain_path), Default::default())?);
 
                 if let Err(err) = print_state_diff(&blockstore, &pre, &post, depth) {
                     eprintln!("Failed to print state diff: {err}");

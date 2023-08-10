@@ -24,8 +24,8 @@ use tracing::debug;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
-pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
-pub const DEFAULT_PORT: u16 = 1234;
+pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
+pub const DEFAULT_PORT: u16 = 2345;
 pub const DEFAULT_PROTOCOL: &str = "http";
 pub const RPC_ENDPOINT: &str = "rpc/v0";
 

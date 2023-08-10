@@ -4,19 +4,9 @@
 use serde::{Deserialize, Serialize};
 
 /// `ParityDb` configuration exposed in Forest.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct ParityDbConfig {
     pub enable_statistics: bool,
-    pub compression_type: String,
-}
-
-impl Default for ParityDbConfig {
-    fn default() -> Self {
-        Self {
-            enable_statistics: false,
-            compression_type: "lz4".into(),
-        }
-    }
 }

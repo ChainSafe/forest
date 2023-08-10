@@ -19,13 +19,13 @@ use flume::Sender;
 use futures::stream::StreamExt;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use fvm_ipld_blockstore::Blockstore;
+use libp2p::connection_limits::Exceeded;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
-// https://github.com/ChainSafe/forest/issues/2762
-#[allow(deprecated)]
-use libp2p::swarm::ConnectionLimits;
+use libp2p::swarm::DialError;
 use libp2p::{
-    core::{self, identity::Keypair, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
+    identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping,
@@ -200,27 +200,17 @@ where
         net_keypair: Keypair,
         network_name: &str,
         genesis_cid: Cid,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let peer_id = PeerId::from(net_keypair.public());
 
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
-        // https://github.com/ChainSafe/forest/issues/2762
-        #[allow(deprecated)]
-        let limits = ConnectionLimits::default()
-            .with_max_pending_incoming(Some(10))
-            .with_max_pending_outgoing(Some(30))
-            .with_max_established_incoming(Some(config.target_peer_count))
-            .with_max_established_outgoing(Some(config.target_peer_count))
-            .with_max_established_per_peer(Some(5));
-
         let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name),
+            ForestBehaviour::new(&net_keypair, &config, network_name)?,
             peer_id,
         )
-        .connection_limits(limits)
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .per_connection_event_buffer_size(64)
         .build();
@@ -234,7 +224,7 @@ where
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
-        Libp2pService {
+        Ok(Libp2pService {
             config,
             swarm,
             cs,
@@ -245,7 +235,7 @@ where
             network_sender_out,
             network_name: network_name.into(),
             genesis_cid,
-        }
+        })
     }
 
     /// Starts the libp2p service networking stack. This Future resolves when
@@ -359,15 +349,11 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
     match peer_ops {
         Ban(peer_id, reason) => {
             warn!("Banning {peer_id}, reason: {reason}");
-            // https://github.com/ChainSafe/forest/issues/2762
-            #[allow(deprecated)]
-            swarm.ban_peer_id(peer_id);
+            swarm.behaviour_mut().blocked_peers.block_peer(peer_id);
         }
         Unban(peer_id) => {
             info!("Unbanning {peer_id}");
-            // https://github.com/ChainSafe/forest/issues/2762
-            #[allow(deprecated)]
-            swarm.unban_peer_id(peer_id);
+            swarm.behaviour_mut().blocked_peers.unblock_peer(peer_id);
         }
     }
 }
@@ -423,49 +409,69 @@ async fn handle_network_message(
         } => {
             bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, Some(response_channel));
         }
-        NetworkMessage::JSONRPCRequest { method } => match method {
-            NetRPCMethods::AddrsListen(response_channel) => {
-                let listeners = Swarm::listeners(swarm).cloned().collect();
-                let peer_id = Swarm::local_peer_id(swarm);
+        NetworkMessage::JSONRPCRequest { method } => {
+            match method {
+                NetRPCMethods::AddrsListen(response_channel) => {
+                    let listeners = Swarm::listeners(swarm).cloned().collect();
+                    let peer_id = Swarm::local_peer_id(swarm);
 
-                if response_channel.send((*peer_id, listeners)).is_err() {
-                    warn!("Failed to get Libp2p listeners");
+                    if response_channel.send((*peer_id, listeners)).is_err() {
+                        warn!("Failed to get Libp2p listeners");
+                    }
                 }
-            }
-            NetRPCMethods::Peers(response_channel) => {
-                let peer_addresses = swarm.behaviour_mut().peer_addresses();
-                if response_channel.send(peer_addresses.clone()).is_err() {
-                    warn!("Failed to get Libp2p peers");
+                NetRPCMethods::Peers(response_channel) => {
+                    let peer_addresses = swarm.behaviour_mut().peer_addresses();
+                    if response_channel.send(peer_addresses.clone()).is_err() {
+                        warn!("Failed to get Libp2p peers");
+                    }
                 }
-            }
-            NetRPCMethods::Info(response_channel) => {
-                if response_channel.send(swarm.network_info().into()).is_err() {
-                    warn!("Failed to get Libp2p peers");
+                NetRPCMethods::Info(response_channel) => {
+                    if response_channel.send(swarm.network_info().into()).is_err() {
+                        warn!("Failed to get Libp2p peers");
+                    }
                 }
-            }
-            NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
-                let mut success = false;
+                NetRPCMethods::Connect(response_channel, peer_id, addresses) => {
+                    let mut success = false;
 
-                for mut multiaddr in addresses {
-                    multiaddr.push(Protocol::P2p(peer_id.into()));
+                    for mut multiaddr in addresses {
+                        multiaddr.push(Protocol::P2p(peer_id));
 
-                    if Swarm::dial(swarm, multiaddr.clone()).is_ok() {
-                        success = true;
-                        break;
-                    };
+                        match Swarm::dial(swarm, multiaddr.clone()) {
+                            Ok(_) => {
+                                info!("Dialed {multiaddr}");
+                                success = true;
+                                break;
+                            }
+                            Err(e) => {
+                                match e {
+                                    DialError::Denied { cause } => {
+                                        // try to get a more specific error cause
+                                        if let Some(cause) = cause.downcast_ref::<Exceeded>() {
+                                            error!("Denied dialing (limits exceeded) {multiaddr}: {cause}");
+                                        } else {
+                                            error!("Denied dialing {multiaddr}: {cause}")
+                                        }
+                                    }
+                                    e => {
+                                        error!("Failed to dial {multiaddr}: {e}");
+                                    }
+                                };
+                            }
+                        };
+                    }
+
+                    if response_channel.send(success).is_err() {
+                        warn!("Failed to connect to a peer");
+                    }
                 }
-
-                if response_channel.send(success).is_err() {
-                    warn!("Failed to connect to a peer");
+                NetRPCMethods::Disconnect(response_channel, peer_id) => {
+                    let _ = Swarm::disconnect_peer_id(swarm, peer_id);
+                    if response_channel.send(()).is_err() {
+                        warn!("Failed to disconnect from a peer");
+                    }
                 }
             }
-            NetRPCMethods::Disconnect(response_channel, peer_id) => {
-                let _ = Swarm::disconnect_peer_id(swarm, peer_id);
-                if response_channel.send(()).is_err() {
-                    warn!("Failed to disconnect from a peer");
-                }
-            }
-        },
+        }
     }
 }
 
@@ -637,36 +643,27 @@ async fn handle_hello_event(
 
 async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManager>) {
     match ping_event.result {
-        Ok(ping::Success::Ping { rtt }) => {
+        Ok(rtt) => {
             trace!(
                 "PingSuccess::Ping rtt to {} is {} ms",
                 ping_event.peer.to_base58(),
                 rtt.as_millis()
             );
         }
-        Ok(ping::Success::Pong) => {
-            trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
+        Err(ping::Failure::Unsupported) => {
+            peer_manager
+                .ban_peer(
+                    ping_event.peer,
+                    format!("Ping protocol unsupported: {}", ping_event.peer),
+                    Some(BAN_PEER_DURATION),
+                )
+                .await;
+        }
+        Err(ping::Failure::Timeout) => {
+            warn!("Ping timeout: {}", ping_event.peer);
         }
         Err(ping::Failure::Other { error }) => {
-            warn!(
-                "PingFailure::Other {}: {}",
-                ping_event.peer.to_base58(),
-                error
-            );
-        }
-        Err(err) => {
-            let err = err.to_string();
-            let peer = ping_event.peer.to_base58();
-            warn!("{err}: {peer}",);
-            if err.contains("protocol not supported") {
-                peer_manager
-                    .ban_peer(
-                        ping_event.peer,
-                        format!("Ping protocol err: {err}"),
-                        Some(BAN_PEER_DURATION),
-                    )
-                    .await;
-            }
+            debug!("Ping failure: {error}");
         }
     }
 }
@@ -799,6 +796,8 @@ async fn handle_forest_behaviour_event<DB>(
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
         ForestBehaviourEvent::Identify(_) => {}
         ForestBehaviourEvent::KeepAlive(_) => {}
+        ForestBehaviourEvent::ConnectionLimits(_) => {}
+        ForestBehaviourEvent::BlockedPeers(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {
             handle_chain_exchange_event(
                 &mut swarm.behaviour_mut().chain_exchange,
