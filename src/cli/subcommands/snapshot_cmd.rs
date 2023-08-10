@@ -87,6 +87,8 @@ pub enum SnapshotCommands {
 impl SnapshotCommands {
     pub async fn run(self, config: Config) -> Result<()> {
         match self {
+            Self::Fetch { .. } => crate::bail_moved_cmd!("snapshot fetch"),
+            Self::Validate { .. } => crate::bail_moved_cmd!("snapshot validate"),
             Self::Export {
                 output_path,
                 skip_checksum,
@@ -240,8 +242,6 @@ impl SnapshotCommands {
                 dest.flush().await?;
                 Ok(())
             }
-            Self::Fetch { .. } => crate::bail_moved_cmd!("snapshot fetch"),
-            Self::Validate { .. } => crate::bail_moved_cmd!("snapshot validate"),
         }
     }
 }

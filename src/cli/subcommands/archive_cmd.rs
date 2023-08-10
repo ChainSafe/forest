@@ -86,6 +86,7 @@ pub enum ArchiveCommands {
 impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
+            Self::Info { .. } => crate::bail_moved_cmd!("archive info"),
             Self::Export {
                 snapshot_files,
                 output_path,
@@ -110,7 +111,6 @@ impl ArchiveCommands {
             Self::Checkpoints {
                 snapshot_files: snapshot,
             } => print_checkpoints(snapshot),
-            Self::Info { .. } => crate::bail_moved_cmd!("archive info"),
         }
     }
 }
