@@ -17,7 +17,7 @@ pub enum CarCommands {
         /// A list of CAR file paths. A CAR file can be a plain CAR, a zstd compressed CAR
         /// or a `.forest.car.zst` file
         car_files: Vec<PathBuf>,
-        /// The output `ForestCAR.zst`(`.forest.car.zst`) file path
+        /// The output `.forest.car.zst` file path
         #[arg(short, long)]
         output: PathBuf,
     },
