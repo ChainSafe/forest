@@ -71,8 +71,7 @@ pub struct FetchCommands {
 #[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
     // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    #[command(name = "fetch-params")]
+    #[command(hide = true, name = "fetch-params")]
     Fetch(FetchCommands),
 
     /// Interact with Filecoin blockchain
