@@ -181,7 +181,7 @@ async fn benchmark_exporting(
     let frames = crate::db::car::forest::Encoder::compress_stream(
         frame_size,
         compression_level,
-        blocks.map_err(anyhow::Error::from),
+        par_buffer(1024, blocks.map_err(anyhow::Error::from)),
     );
     crate::db::car::forest::Encoder::write(&mut dest, ts.key().cids.clone(), frames).await?;
     dest.flush().await?;
