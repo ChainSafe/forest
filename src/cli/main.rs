@@ -68,7 +68,7 @@ where
                         Subcommand::Sync(cmd) => cmd.run(config).await,
                         Subcommand::Mpool(cmd) => cmd.run(config).await,
                         Subcommand::State(cmd) => cmd.run(config).await,
-                        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
+                        Subcommand::Config(_cmd) => bail_moved_cmd!("config"),
                         Subcommand::Send(cmd) => cmd.run(config).await,
                         Subcommand::Info(cmd) => cmd.run(config, opts).await,
                         Subcommand::DB(cmd) => cmd.run(&config).await,

@@ -11,7 +11,6 @@ mod attach_cmd;
 mod auth_cmd;
 mod car_cmd;
 mod chain_cmd;
-mod config_cmd;
 mod db_cmd;
 mod info_cmd;
 mod mpool_cmd;
@@ -37,10 +36,10 @@ use tracing::error;
 
 pub(super) use self::{
     archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
-    car_cmd::CarCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    car_cmd::CarCommands, chain_cmd::ChainCommands, db_cmd::DBCommands, mpool_cmd::MpoolCommands,
+    net_cmd::NetCommands, send_cmd::SendCommand, shutdown_cmd::ShutdownCommand,
+    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
+    wallet_cmd::WalletCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -65,6 +64,12 @@ pub struct FetchCommands {
     #[arg(short, long)]
     dry_run: bool,
     params_size: Option<String>,
+}
+
+// Those subcommands are hidden and only here to help users migrating to forest-tool
+#[derive(clap::Subcommand, Debug)]
+pub enum ConfigCommands {
+    Dump,
 }
 
 /// Forest binary sub-commands available.
@@ -102,7 +107,8 @@ pub enum Subcommand {
     #[command(subcommand)]
     State(StateCommands),
 
-    /// Manage node configuration
+    // This subcommand is hidden and only here to help users migrating to forest-tool
+    #[command(hide = true)]
     #[command(subcommand)]
     Config(ConfigCommands),
 
