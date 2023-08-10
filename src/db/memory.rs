@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use ahash::HashMap;
 use anyhow::Result;
@@ -13,10 +11,10 @@ use parking_lot::RwLock;
 
 use super::SettingsStore;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct MemoryDB {
-    blockchain_db: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
-    settings_db: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+    blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
+    settings_db: RwLock<HashMap<String, Vec<u8>>>,
 }
 
 impl SettingsStore for MemoryDB {

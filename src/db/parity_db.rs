@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use super::SettingsStore;
 
@@ -71,9 +71,8 @@ impl DbColumn {
     }
 }
 
-#[derive(Clone)]
 pub struct ParityDb {
-    pub db: Arc<parity_db::Db>,
+    pub db: parity_db::Db,
     statistics_enabled: bool,
 }
 
@@ -93,7 +92,7 @@ impl ParityDb {
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
         let opts = Self::to_options(path.into(), config);
         Ok(Self {
-            db: Arc::new(Db::open_or_create(&opts)?),
+            db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
         })
     }
