@@ -324,5 +324,28 @@ macro_rules! lotus_json {
 }
 pub(crate) use lotus_json;
 
-#[derive(Serialize, Deserialize)]
-pub struct LotusJson<T: HasLotusJson + Clone>(#[serde(with = "self")] pub T);
+/// A domain struct that is (de) serialized through its lotus JSON representation.
+#[derive(Serialize, Deserialize, From)]
+#[serde(bound = "T: HasLotusJson + Clone")]
+pub struct LotusJson<T>(#[serde(with = "self")] pub T);
+
+impl<T> LotusJson<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+macro_rules! lotus_json_with_self {
+    ($($domain_ty:ty),* $(,)?) => {
+        $(
+            impl HasLotusJson for $domain_ty {
+                type LotusJson = Self;
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    unimplemented!("test are superfluous for HasLotusJson<LotusJson = Self>")
+                }
+            }
+        )*
+    }
+}
+
+lotus_json_with_self!(u64);

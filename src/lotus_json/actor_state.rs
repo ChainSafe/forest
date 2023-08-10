@@ -2,16 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::shim::state_tree::ActorState;
+use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+use ::cid::Cid;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateLotusJson {
-    pub code: CidLotusJson,
-    pub head: CidLotusJson,
-    pub nonce: u64,
-    pub balance: TokenAmountLotusJson,
-    pub delegated_address: Option<AddressLotusJson>,
+    pub code: LotusJson<Cid>,
+    pub head: LotusJson<Cid>,
+    pub nonce: LotusJson<u64>,
+    pub balance: LotusJson<TokenAmount>,
+    pub delegated_address: Option<LotusJson<Address>>,
 }
 
 impl HasLotusJson for ActorState {
@@ -31,9 +32,9 @@ impl HasLotusJson for ActorState {
                 "Nonce": 0,
             }),
             Self::new(
-                ::cid::Cid::default(),
-                ::cid::Cid::default(),
-                crate::shim::econ::TokenAmount::default(),
+                Cid::default(),
+                Cid::default(),
+                TokenAmount::default(),
                 0,
                 None,
             ),
@@ -44,18 +45,18 @@ impl HasLotusJson for ActorState {
 impl From<ActorStateLotusJson> for ActorState {
     fn from(value: ActorStateLotusJson) -> Self {
         let ActorStateLotusJson {
-            code,
-            head,
-            nonce,
-            balance,
+            code: LotusJson(code),
+            head: LotusJson(head),
+            nonce: LotusJson(nonce),
+            balance: LotusJson(balance),
             delegated_address,
         } = value;
         Self::new(
-            code.into(),
-            head.into(),
-            balance.into(),
+            code,
+            head,
+            balance,
             nonce,
-            delegated_address.map(Into::into),
+            delegated_address.map(LotusJson::into_inner),
         )
     }
 }
@@ -72,7 +73,7 @@ impl From<ActorState> for ActorStateLotusJson {
         Self {
             code: code.into(),
             head: state.into(),
-            nonce: sequence,
+            nonce: sequence.into(),
             balance: crate::shim::econ::TokenAmount::from(balance).into(),
             delegated_address: delegated_address
                 .map(crate::shim::address::Address::from)
