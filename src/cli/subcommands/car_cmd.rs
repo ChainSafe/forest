@@ -196,7 +196,7 @@ mod tests {
                 CarStream::new(car_b).await?,
             ])));
 
-            let mut cid_union2 = HashSet::default();
+            let cid_union2: HashSet<Cid> = deduped.map_ok(|block| block.cid).try_collect().await?;
             while let Some(Block { cid, data: _ }) = deduped.try_next().await? {
                 cid_union2.insert(cid);
             }
