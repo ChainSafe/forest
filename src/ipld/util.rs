@@ -343,7 +343,6 @@ fn new<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
         stateroot_limit,
         fail_on_dead_links,
         prefetch_worker_count: Arc::new(AtomicI8::default()),
-
         max_prefetch_worker_count: (num_cpus::get() * 3) as i8,
     }
 }
