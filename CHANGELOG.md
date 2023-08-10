@@ -37,6 +37,8 @@
   - `fetch-params`
   - `snapshot fetch`
   - `snapshot validate`
+- [#3356](https://github.com/ChainSafe/forest/pull/3336) Moved
+  `forest-cli config dump` subcommand to `forest-tool config dump`
 
 ### Added
 
