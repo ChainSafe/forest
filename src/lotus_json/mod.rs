@@ -323,3 +323,6 @@ macro_rules! lotus_json {
     };
 }
 pub(crate) use lotus_json;
+
+#[derive(Serialize, Deserialize)]
+pub struct LotusJson<T: HasLotusJson + Clone>(#[serde(with = "self")] pub T);
