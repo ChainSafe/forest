@@ -15,12 +15,14 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
+    pub fn run<W: Write + Unpin>(&self, sink: &mut W) -> anyhow::Result<()> {
+        let config = Config::default();
+
         match self {
             Self::Dump => writeln!(
                 sink,
                 "{}",
-                toml::to_string(config)
+                toml::to_string(&config)
                     .context("Could not convert configuration to TOML format")?
             )
             .context("Failed to write the configuration"),
@@ -38,7 +40,7 @@ mod tests {
         let mut sink = std::io::BufWriter::new(Vec::new());
 
         ConfigCommands::Dump
-            .run(&expected_config, &mut sink)
+            .run(&mut sink)
             .unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())

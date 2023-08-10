@@ -5,6 +5,7 @@ pub mod archive_cmd;
 pub mod benchmark_cmd;
 pub mod fetch_params_cmd;
 pub mod snapshot_cmd;
+pub mod config_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
@@ -39,6 +40,10 @@ pub enum Subcommand {
     /// Manage archives
     #[command(subcommand)]
     Archive(archive_cmd::ArchiveCommands),
+
+    /// Manage node configuration
+    #[command(subcommand)]
+    Config(config_cmd::ConfigCommands),
 }
 
 fn read_config(config: &Option<String>) -> anyhow::Result<Config> {

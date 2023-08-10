@@ -25,6 +25,7 @@ where
                 Subcommand::Snapshot(cmd) => cmd.run().await,
                 Subcommand::Fetch(cmd) => cmd.run().await,
                 Subcommand::Archive(cmd) => cmd.run().await,
+                Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
             }
         })
 }
