@@ -264,14 +264,39 @@ fn delete_db(db_path: &Path) {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    use crate::libp2p_bitswap::BitswapStoreRead;
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
     use fvm_ipld_blockstore::Blockstore;
+    use pretty_assertions::assert_eq;
+    use quickcheck_macros::quickcheck;
     use rand::Rng;
     use tempfile::TempDir;
 
     use super::*;
+    use crate::libp2p_bitswap::BitswapStoreRead;
+
+    #[quickcheck]
+    fn ensure_settings_are_transferred(keys: Vec<String>) -> Result<()> {
+        let db_root = TempDir::new()?;
+        println!("Creating rolling db under {}", db_root.path().display());
+        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+        // Write settings
+        for key in keys.iter() {
+            rolling_db.write_obj(key, key)?;
+        }
+
+        // Roll DB twice
+        rolling_db.next_current(1)?;
+        rolling_db.next_current(2)?;
+
+        // Check if settings are rolled over
+        for key in keys.iter() {
+            let v: String = rolling_db.read_obj(key)?.unwrap();
+            assert_eq!(&v, key);
+        }
+
+        Ok(())
+    }
 
     #[test]
     fn rolling_db_behaviour_tests() -> Result<()> {
