@@ -16,7 +16,7 @@ use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use parking_lot::Mutex;
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
@@ -30,12 +30,12 @@ impl<WriterT> ManyCar<WriterT> {
         ManyCar {
             shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             read_only: Vec::new(),
-            writer: RwLock::new(writer),
+            writer,
         }
     }
 
-    pub fn writer(&self) -> RwLockReadGuard<WriterT> {
-        self.writer.read()
+    pub fn writer(&self) -> &WriterT {
+        &self.writer
     }
 }
 
@@ -103,11 +103,11 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
                 return Ok(Some(val));
             }
         }
-        self.writer.read().get(k)
+        self.writer.get(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.writer.read().put_keyed(k, block)
+        self.writer.put_keyed(k, block)
     }
 }
 

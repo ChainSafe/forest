@@ -148,14 +148,11 @@ where
                 }
             }
 
-            if let (Ok(total_size), Ok(current_size), last_reachable_bytes) = {
-                let setting_db = self.db.writer().clone();
-                (
-                    setting_db.total_size_in_bytes(),
-                    setting_db.current_size_in_bytes(),
-                    self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
-                )
-            } {
+            if let (Ok(total_size), Ok(current_size), last_reachable_bytes) = (
+                self.db.writer().total_size_in_bytes(),
+                self.db.writer().current_size_in_bytes(),
+                self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
+            ) {
                 let should_collect = if last_reachable_bytes > 0 {
                     total_size > (gc_trigger_factor() * last_reachable_bytes as f64) as _
                 } else {
