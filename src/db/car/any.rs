@@ -108,6 +108,14 @@ impl<ReaderT> Blockstore for AnyCar<ReaderT>
 where
     ReaderT: ReadAt,
 {
+    fn has(&self, k: &Cid) -> anyhow::Result<bool> {
+        match self {
+            AnyCar::Forest(forest) => forest.has(k),
+            AnyCar::Plain(plain) => plain.has(k),
+            AnyCar::Memory(mem) => mem.has(k),
+        }
+    }
+
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         match self {
             AnyCar::Forest(forest) => forest.get(k),

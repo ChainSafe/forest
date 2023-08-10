@@ -165,6 +165,11 @@ where
     ReaderT: ReadAt,
 {
     #[tracing::instrument(level = "trace", skip(self))]
+    fn has(&self, k: &Cid) -> anyhow::Result<bool> {
+        Ok(self.write_cache.read().contains_key(k) || !self.indexed.lookup(*k)?.is_empty())
+    }
+
+    #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         // Return immediately if the value is cached.
         if let Some(value) = self.write_cache.read().get(k) {
