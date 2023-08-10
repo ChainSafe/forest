@@ -388,19 +388,17 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                             // Limit the amount of prefetching tasks in order to maximize
                             // performance.
                             if cur_count < *this.max_prefetch_worker_count {
-                                task::spawn({
-                                    let db = this.db.clone();
-                                    let count = this.prefetch_worker_count.clone();
-                                    let seen = this.seen.clone();
-                                    async move {
-                                        for cid in cid_vec_prefetch {
-                                            if seen.read().exists(cid) {
-                                                continue;
-                                            }
-                                            let _ = db.get(&cid);
+                                let db = this.db.clone();
+                                let count = this.prefetch_worker_count.clone();
+                                let seen = this.seen.clone();
+                                task::spawn_blocking(move || {
+                                    for cid in cid_vec_prefetch {
+                                        if seen.read().exists(cid) {
+                                            continue;
                                         }
-                                        count.fetch_sub(1, Ordering::Relaxed);
+                                        let _ = db.get(&cid);
                                     }
+                                    count.fetch_sub(1, Ordering::Relaxed);
                                 });
                             }
                         }
@@ -417,7 +415,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let ipld: Ipld = from_slice_with_fallback(&data)?;
                                         let mut new_vec = DfsIter::new(ipld)
-                                            .flat_map(ipld_to_cid)
+                                            .filter_map(ipld_to_cid)
                                             .collect::<VecDeque<Cid>>();
 
                                         // Since there's no way to add a whole Vec to the front,
