@@ -181,7 +181,16 @@ impl RollingDB {
     }
 
     pub fn total_size_in_bytes(&self) -> anyhow::Result<u64> {
-        Ok(fs_extra::dir::get_size(self.db_root.as_path())?)
+        // Sum old and current in case forest CAR files are stored under DB root
+        Ok(self.current_size_in_bytes()? + self.old_size_in_bytes()?)
+    }
+
+    pub fn old_size_in_bytes(&self) -> anyhow::Result<u64> {
+        Ok(fs_extra::dir::get_size(
+            self.db_root
+                .as_path()
+                .join(self.db_index.read().inner().old.as_str()),
+        )?)
     }
 
     pub fn current_size_in_bytes(&self) -> anyhow::Result<u64> {
