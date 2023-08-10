@@ -24,7 +24,7 @@ mod chain_sync;
 mod cli;
 mod cli_shared;
 mod daemon;
-mod db;
+pub mod db;
 mod fil_cns;
 mod genesis;
 mod interpreter;

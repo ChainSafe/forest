@@ -10,33 +10,34 @@ use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
-use forest_filecoin::utils::db::car_stream::CarStream;
+use forest_filecoin::utils::db::car_stream::{Block, CarStream};
 use futures::{StreamExt, TryStreamExt};
-use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::DAG_CBOR;
 use itertools::Itertools;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use tokio_util::compat::TokioAsyncReadCompatExt;
+use tokio::io::AsyncWriteExt;
 
 use crate::common::cli;
+
+const FOREST_CAR_ZST_SUFFIX: &str = ".forest.car.zst";
 
 #[tokio::test]
 async fn forest_cli_car_concat() -> Result<()> {
     let a = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-a")
-        .suffix(".car")
+        .suffix(FOREST_CAR_ZST_SUFFIX)
         .tempfile()?;
     new_car(1024, a.path()).await?;
 
     let b = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-b")
-        .suffix(".car")
+        .suffix(FOREST_CAR_ZST_SUFFIX)
         .tempfile()?;
     new_car(2048, b.path()).await?;
 
     let output = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-output")
-        .suffix(".forest.car.zst")
+        .suffix(FOREST_CAR_ZST_SUFFIX)
         .tempfile()?;
 
     cli()?
@@ -58,7 +59,7 @@ async fn forest_cli_car_concat() -> Result<()> {
 async fn forest_cli_car_concat_same_file() -> Result<()> {
     let output = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-same-file")
-        .suffix(".forest.car.zst")
+        .suffix(FOREST_CAR_ZST_SUFFIX)
         .tempfile()?;
 
     cli()?
@@ -80,7 +81,7 @@ async fn forest_cli_car_concat_same_file() -> Result<()> {
 async fn forest_cli_car_concat_same_file_3_times() -> Result<()> {
     let output = tempfile::Builder::new()
         .prefix("forest-cli-car-concat-same-file-3-times")
-        .suffix(".forest.car.zst")
+        .suffix(FOREST_CAR_ZST_SUFFIX)
         .tempfile()?;
 
     cli()?
@@ -101,27 +102,32 @@ async fn forest_cli_car_concat_same_file_3_times() -> Result<()> {
 
 async fn new_car(size: usize, path: impl AsRef<Path>) -> Result<()> {
     let rng = SmallRng::seed_from_u64(0xdeadbeef);
-    let (cid, _data) = new_block(&mut rng.clone());
-    let header = CarHeader::from(vec![cid]);
-
-    let mut block_stream = Box::pin(
-        futures::stream::unfold(rng, |mut rng| async { Some((new_block(&mut rng), rng)) })
-            .take(size),
+    let header = new_block(&mut rng.clone());
+    let roots = vec![header.cid];
+    let block_stream = futures::stream::unfold(rng, |mut rng| async {
+        Some((Ok(new_block(&mut rng)), rng))
+    })
+    .take(size);
+    let frames = forest_filecoin::db::car::forest::Encoder::compress_stream(
+        8000_usize.next_power_of_two(),
+        zstd::DEFAULT_COMPRESSION_LEVEL as _,
+        block_stream,
     );
-
-    let mut writer = tokio::fs::File::create(path).await?.compat();
-    header
-        .write_stream_async(&mut writer, &mut block_stream)
-        .await?;
+    let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(path).await?);
+    forest_filecoin::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
+    writer.flush().await?;
 
     Ok(())
 }
 
-fn new_block(rng: &mut SmallRng) -> (Cid, Vec<u8>) {
+fn new_block(rng: &mut SmallRng) -> Block {
     let mut data = [0; 64];
     rng.fill(&mut data);
     let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&data));
-    (cid, data.to_vec())
+    Block {
+        cid,
+        data: data.to_vec(),
+    }
 }
 
 async fn validate_car(path: impl AsRef<Path>) -> Result<()> {
