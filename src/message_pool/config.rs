@@ -3,10 +3,13 @@
 
 use std::time::Duration;
 
-use crate::{db::SettingsStore, shim::address::Address, utils::encoding::from_slice_with_fallback};
+use crate::{
+    db::{setting_keys::MPOOL_CONFIG_KEY, SettingsStore},
+    shim::address::Address,
+    utils::encoding::from_slice_with_fallback,
+};
 use serde::{Deserialize, Serialize};
 
-const MPOOL_CONFIG_KEY: &str = "/mpool/config";
 const SIZE_LIMIT_LOW: i64 = 20000;
 const SIZE_LIMIT_HIGH: i64 = 30000;
 const PRUNE_COOLDOWN: Duration = Duration::from_secs(60); // 1 minute

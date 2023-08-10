@@ -3,9 +3,11 @@
 
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::utils::db::file_backed_obj::FileBackedObject;
+use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
+use itertools::Itertools;
 use parking_lot::RwLock;
 use uuid::Uuid;
 
@@ -92,6 +94,14 @@ impl SettingsStore for RollingDB {
 
         Ok(false)
     }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        let mut set = HashSet::default();
+        for db in self.db_queue().iter() {
+            set.extend(SettingsStore::setting_keys(db)?);
+        }
+        Ok(set.into_iter().collect_vec())
+    }
 }
 
 impl BitswapStoreRead for RollingDB {
@@ -171,7 +181,10 @@ impl RollingDB {
         db_index_inner_mut.current = new_db_name;
         db_index_inner_mut.current_creation_epoch = current_epoch;
         db_index.sync()?;
+
         delete_db(&old_db_path);
+
+        self.transfer_settings()?;
 
         Ok(())
     }
@@ -198,6 +211,19 @@ impl RollingDB {
 
     fn db_queue(&self) -> [Db; 2] {
         [self.current.read().clone(), self.old.read().clone()]
+    }
+
+    fn transfer_settings(&self) -> anyhow::Result<()> {
+        let current = self.current.read();
+        for key in self.setting_keys()? {
+            if !current.exists(&key)? {
+                if let Some(v) = self.read_bin(&key)? {
+                    current.write_bin(&key, &v)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -238,19 +264,42 @@ fn delete_db(db_path: &Path) {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    use crate::libp2p_bitswap::BitswapStoreRead;
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
     use fvm_ipld_blockstore::Blockstore;
+    use pretty_assertions::assert_eq;
+    use quickcheck_macros::quickcheck;
     use rand::Rng;
     use tempfile::TempDir;
 
     use super::*;
+    use crate::libp2p_bitswap::BitswapStoreRead;
+
+    #[quickcheck]
+    fn ensure_settings_are_transferred(keys: Vec<String>) -> Result<()> {
+        let db_root = TempDir::new()?;
+        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+        // Write settings
+        for key in keys.iter() {
+            rolling_db.write_obj(key, key)?;
+        }
+
+        // Roll DB twice
+        rolling_db.next_current(1)?;
+        rolling_db.next_current(2)?;
+
+        // Check if settings are rolled over
+        for key in keys.iter() {
+            let v: String = rolling_db.read_obj(key)?.unwrap();
+            assert_eq!(&v, key);
+        }
+
+        Ok(())
+    }
 
     #[test]
     fn rolling_db_behaviour_tests() -> Result<()> {
         let db_root = TempDir::new()?;
-        println!("Creating rolling db under {}", db_root.path().display());
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
         println!("Generating random blocks");
         let pairs: Vec<_> = (0..1000)
