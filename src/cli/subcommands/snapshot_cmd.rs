@@ -240,16 +240,8 @@ impl SnapshotCommands {
                 dest.flush().await?;
                 Ok(())
             }
-            Self::Fetch {
-                directory: _,
-                vendor: _,
-            } => crate::bail_moved_cmd!("snapshot fetch"),
-            Self::Validate {
-                check_links: _,
-                check_network: _,
-                check_stateroots: _,
-                snapshot_files: _,
-            } => crate::bail_moved_cmd!("snapshot validate"),
+            Self::Fetch { .. } => crate::bail_moved_cmd!("snapshot fetch"),
+            Self::Validate { .. } => crate::bail_moved_cmd!("snapshot validate"),
         }
     }
 }
