@@ -100,7 +100,7 @@ impl CarIndexBuilder {
             magic_number: IndexHeader::MAGIC_NUMBER,
             longest_distance: self.longest_distance,
             collisions: self.collisions,
-            buckets: self.len(),
+            buckets: self.capacity(),
         }
     }
 
@@ -138,11 +138,7 @@ impl CarIndexBuilder {
         len as u32
     }
 
-    pub fn len(&self) -> u64 {
+    pub fn capacity(&self) -> u64 {
         self.table.len() as u64
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.table.is_empty()
     }
 }
