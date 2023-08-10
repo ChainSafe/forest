@@ -377,8 +377,12 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                             return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
                     }
+                    // This also schedules `Iterate` tasks to avoid code duplication.
                     Prefetch(_) => {
                         if let Some(Prefetch(cid_vec)) = this.dfs.pop_front() {
+                            let cid_vec_prefetch = cid_vec.clone();
+                            this.dfs.push_front(Iterate(cid_vec));
+
                             let cur_count = this.prefetch_worker_count.load(Ordering::Relaxed);
                             // Limit the amount of prefetching tasks in order to maximize
                             // performance.
@@ -388,7 +392,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                     let count = this.prefetch_worker_count.clone();
                                     let seen = this.seen.clone();
                                     async move {
-                                        for cid in cid_vec.clone() {
+                                        for cid in cid_vec_prefetch {
                                             if seen.read().exists(cid) {
                                                 continue;
                                             }
@@ -457,7 +461,6 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 .flat_map(ipld_to_cid)
                                 .collect::<VecDeque<Cid>>();
                             this.dfs.push_back(Prefetch(cid_vec.clone()));
-                            this.dfs.push_back(Iterate(cid_vec));
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`
@@ -469,7 +472,6 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 .flat_map(ipld_to_cid)
                                 .collect::<VecDeque<Cid>>();
                             this.dfs.push_back(Prefetch(cid_vec.clone()));
-                            this.dfs.push_back(Iterate(cid_vec));
                         }
                     }
                 }
