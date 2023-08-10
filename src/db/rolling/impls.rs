@@ -171,7 +171,10 @@ impl RollingDB {
         db_index_inner_mut.current = new_db_name;
         db_index_inner_mut.current_creation_epoch = current_epoch;
         db_index.sync()?;
+
         delete_db(&old_db_path);
+
+        self.transfer_settings()?;
 
         Ok(())
     }
@@ -198,6 +201,19 @@ impl RollingDB {
 
     fn db_queue(&self) -> [Db; 2] {
         [self.current.read().clone(), self.old.read().clone()]
+    }
+
+    fn transfer_settings(&self) -> anyhow::Result<()> {
+        let current = self.current.read();
+        for key in setting_keys::all_keys() {
+            if !current.exists(key)? {
+                if let Some(v) = self.read_bin(key)? {
+                    current.write_bin(key, &v)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

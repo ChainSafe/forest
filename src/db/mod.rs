@@ -18,6 +18,12 @@ pub mod setting_keys {
     pub const HEAD_KEY: &str = "head";
     /// Estimated number of IPLD records in the database.
     pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
+    /// Key used to store the memory pool config in the settings store.
+    pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
+
+    pub fn all_keys<'a>() -> &'a [&'a str] {
+        [HEAD_KEY, ESTIMATED_RECORDS_KEY, MPOOL_CONFIG_KEY].as_slice()
+    }
 }
 
 /// Interface used to store and retrieve settings from the database.
