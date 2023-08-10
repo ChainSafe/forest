@@ -10,14 +10,14 @@ use tempfile::TempDir;
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
-    let cmd = Command::cargo_bin("forest-cli")
+    let cmd = Command::cargo_bin("forest-tool")
         .unwrap()
+        .arg("config")
+        .arg("dump")
         .arg("--rpc")
         .arg("true")
         .arg("--token")
         .arg("Azazello")
-        .arg("config")
-        .arg("dump")
         .assert()
         .success();
 
@@ -30,16 +30,16 @@ fn test_overrides_are_reflected_in_configuration_dump() {
     let mut rng = rand::thread_rng();
     let randomized_metrics_host = format!("127.0.0.1:{}", rng.gen::<u16>());
 
-    let cmd = Command::cargo_bin("forest-cli")
+    let cmd = Command::cargo_bin("forest-tool")
         .unwrap()
+        .arg("config")
+        .arg("dump")
         .arg("--rpc")
         .arg("true")
         .arg("--token")
         .arg("Azazello")
         .arg("--metrics-address")
         .arg(&randomized_metrics_host)
-        .arg("config")
-        .arg("dump")
         .assert()
         .success();
 
@@ -74,16 +74,16 @@ fn test_reading_configuration_from_file() {
         .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    let cmd = Command::cargo_bin("forest-cli")
+    let cmd = Command::cargo_bin("forest-tool")
         .unwrap()
+        .arg("config")
+        .arg("dump")
         .arg("--rpc")
         .arg("true")
         .arg("--token")
         .arg("Azazello")
         .arg("--config")
         .arg(config_file.path())
-        .arg("config")
-        .arg("dump")
         .assert()
         .success();
 
@@ -110,7 +110,7 @@ fn test_config_env_var() -> Result<()> {
         .write_all(toml::to_string(&expected_config)?.as_bytes())
         .context("Failed writing configuration!")?;
 
-    let cmd = Command::cargo_bin("forest-cli")
+    let cmd = Command::cargo_bin("forest-tool")
         .unwrap()
         .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("config")
