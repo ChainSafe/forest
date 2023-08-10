@@ -18,7 +18,6 @@ use crate::cli::subcommands::{handle_rpc_err, prompt_confirm};
 pub enum DBCommands {
     /// Run DB garbage collection
     GC,
-
     // Those subcommands are hidden and only here to help users migrating to forest-tool
     #[command(hide = true)]
     Stats,
