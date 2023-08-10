@@ -97,8 +97,8 @@ impl SettingsStore for RollingDB {
 
     fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
         let mut set = HashSet::default();
-        for db in self.db_queue().iter() {
-            set.extend(SettingsStore::setting_keys(db)?);
+        for db in self.db_queue() {
+            set.extend(SettingsStore::setting_keys(db.as_ref())?);
         }
         Ok(set.into_iter().collect_vec())
     }
