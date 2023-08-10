@@ -87,6 +87,6 @@ USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
 
 # Basic verification of dynamically linked dependencies
-RUN forest -V && forest-cli -V
+RUN forest -V && forest-cli -V && forest-tool -V
 
 ENTRYPOINT ["forest"]
