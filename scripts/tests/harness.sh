@@ -20,7 +20,7 @@ function forest_download_and_import_snapshot {
 
 function forest_check_db_stats {
   echo "Checking DB stats"
-  $FOREST_CLI_PATH --chain calibnet db stats
+  $FOREST_TOOL_PATH db stats --chain calibnet
 }
 
 function forest_query_epoch {
