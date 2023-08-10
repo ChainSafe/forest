@@ -37,10 +37,6 @@ impl<WriterT> ManyCar<WriterT> {
     pub fn writer(&self) -> RwLockReadGuard<WriterT> {
         self.writer.read()
     }
-
-    pub fn replace_writer(&self, writer: WriterT) -> WriterT {
-        std::mem::replace(&mut self.writer.write(), writer)
-    }
 }
 
 impl<WriterT: Default> Default for ManyCar<WriterT> {

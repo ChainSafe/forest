@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use super::SettingsStore;
 
@@ -229,26 +229,6 @@ impl BitswapStoreReadWrite for ParityDb {
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-}
-
-impl BitswapStoreRead for Arc<ParityDb> {
-    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        BitswapStoreRead::contains(self.as_ref(), cid)
-    }
-
-    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        BitswapStoreRead::get(self.as_ref(), cid)
-    }
-}
-
-impl BitswapStoreReadWrite for Arc<ParityDb> {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
-    /// [`libipld::DefaultParams`] under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
-
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
-        BitswapStoreReadWrite::insert(self.as_ref(), block)
     }
 }
 

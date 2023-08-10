@@ -38,7 +38,7 @@ pub struct RollingDB {
     db_config: DbConfig,
     db_index: RwLock<FileBacked<DbIndex>>,
     /// The current writable DB
-    current: RwLock<Arc<ManyCar<Arc<Db>>>>,
+    current: RwLock<Arc<Db>>,
     /// The old writable DB
     old: RwLock<Arc<Db>>,
 }

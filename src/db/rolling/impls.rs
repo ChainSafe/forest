@@ -14,8 +14,8 @@ use crate::db::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        for db in self.blockstore_queue().iter() {
-            if Blockstore::has(db.as_ref(), k)? {
+        for db in self.db_queue() {
+            if Blockstore::has(&db, k)? {
                 return Ok(true);
             }
         }
@@ -24,8 +24,8 @@ impl Blockstore for RollingDB {
     }
 
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.blockstore_queue().iter() {
-            if let Some(v) = Blockstore::get(db.as_ref(), k)? {
+        for db in self.db_queue() {
+            if let Some(v) = Blockstore::get(&db, k)? {
                 return Ok(Some(v));
             }
         }
@@ -70,8 +70,7 @@ impl Blockstore for RollingDB {
 
 impl SettingsStore for RollingDB {
     fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        let dbs = [self.current().writer().clone(), self.old()];
-        for db in dbs {
+        for db in self.db_queue() {
             if let Some(v) = SettingsStore::read_bin(db.as_ref(), key)? {
                 return Ok(Some(v));
             }
@@ -81,12 +80,11 @@ impl SettingsStore for RollingDB {
     }
 
     fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
-        SettingsStore::write_bin(self.current.read().writer().as_ref(), key, value)
+        SettingsStore::write_bin(self.current.read().as_ref(), key, value)
     }
 
     fn exists(&self, key: &str) -> anyhow::Result<bool> {
-        let dbs = [self.current().writer().clone(), self.old()];
-        for db in dbs {
+        for db in self.db_queue() {
             if SettingsStore::exists(db.as_ref(), key)? {
                 return Ok(true);
             }
@@ -98,8 +96,8 @@ impl SettingsStore for RollingDB {
 
 impl BitswapStoreRead for RollingDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        for db in self.bitswapstore_queue().iter() {
-            if BitswapStoreRead::contains(db.as_ref(), cid)? {
+        for db in self.db_queue() {
+            if BitswapStoreRead::contains(&db, cid)? {
                 return Ok(true);
             }
         }
@@ -108,8 +106,8 @@ impl BitswapStoreRead for RollingDB {
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.bitswapstore_queue().iter() {
-            if let Some(v) = BitswapStoreRead::get(db.as_ref(), cid)? {
+        for db in self.db_queue() {
+            if let Some(v) = BitswapStoreRead::get(&db, cid)? {
                 return Ok(Some(v));
             }
         }
@@ -128,7 +126,7 @@ impl BitswapStoreReadWrite for RollingDB {
 
 impl DBStatistics for RollingDB {
     fn get_statistics(&self) -> Option<String> {
-        DBStatistics::get_statistics(self.current.read().writer().as_ref())
+        DBStatistics::get_statistics(self.current.read().as_ref())
     }
 }
 
@@ -153,7 +151,7 @@ impl RollingDB {
             db_root,
             db_config,
             db_index: RwLock::new(db_index),
-            current: RwLock::new(ManyCar::new(current.into()).into()),
+            current: RwLock::new(current.into()),
             old: RwLock::new(old.into()),
         })
     }
@@ -164,7 +162,7 @@ impl RollingDB {
         let new_db_name = Uuid::new_v4().simple().to_string();
         info!("Setting {new_db_name} as current db");
         let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
-        *self.old.write() = self.current.write().replace_writer(db.into());
+        *self.old.write() = std::mem::replace(&mut self.current.write(), db.into());
 
         let mut db_index = self.db_index.write();
         let db_index_inner_mut = db_index.inner_mut();
@@ -194,21 +192,11 @@ impl RollingDB {
         )?)
     }
 
-    pub fn current(&self) -> Arc<ManyCar<Arc<Db>>> {
+    pub fn current(&self) -> Arc<Db> {
         self.current.read().clone()
     }
 
-    fn old(&self) -> Arc<Db> {
-        self.old.read().clone()
-    }
-
-    fn blockstore_queue(&self) -> [Arc<dyn Blockstore>; 2] {
-        [self.current.read().clone(), self.old.read().clone()]
-    }
-
-    fn bitswapstore_queue(
-        &self,
-    ) -> [Arc<dyn BitswapStoreReadWrite<Params = <Db as BitswapStoreReadWrite>::Params>>; 2] {
+    fn db_queue(&self) -> [Arc<Db>; 2] {
         [self.current.read().clone(), self.old.read().clone()]
     }
 }
