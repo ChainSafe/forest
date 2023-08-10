@@ -32,8 +32,11 @@
 - [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
   port from 1234 to 2345.
 - [#3336](https://github.com/ChainSafe/forest/pull/3336) Moved following
-  forest-cli subcommands to forest-tool: archive info, fetch-params, snapshot
-  fetch, snapshot validate
+  `forest-cli` subcommands to `forest-tool`
+  - `archive info`
+  - `fetch-params`
+  - `snapshot fetch`
+  - `snapshot validate`
 
 ### Added
 
