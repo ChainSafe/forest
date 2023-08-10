@@ -14,8 +14,6 @@ use seed_forest_archive::archive::{
 fn main() -> Result<()> {
     which("forest").context("Failed to find the 'forest' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
 
-    let mut threads = vec![];
-
     let snapshots = HistoricalSnapshot::new()?;
     let highest_epoch = snapshots
         .iter()
@@ -27,8 +25,9 @@ fn main() -> Result<()> {
     let mut rng = rand::thread_rng();
     let mut store = Store::new(snapshots.clone());
     loop {
+        let mut threads = vec![];
+
         let round = rng.gen::<ChainEpoch>() % max_round;
-        let round = 3;
         println!("Round {round}");
         let epoch = round * EPOCH_STEP;
         let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
@@ -62,37 +61,9 @@ fn main() -> Result<()> {
                 println!("Diff snapshot already uploaded - skipping");
             }
         }
-        break;
+        for thread in threads {
+            thread.join().unwrap()?;
+        }
     }
-    for thread in threads {
-        thread.join().unwrap()?;
-    }
-    // for snapshot in snapshots {
-    //     println!("{:?}", snapshot);
-    // }
-
-    // Pick incomplete range (x*30000 - (x+1)*30000)
-    // Get snapshots to emit lite snapshot.
-    // Get snapshtos to emit diff snapshots.
-    // Repeat
-
-    // forest_snapshot_calibnet_2023-05-12_height_30000.forest.car.zst
-    // forest_diff_calibnet_2023-05-12_height_30000+3000.forest.car.zst
-    // Snapshot at epoch 0
-    //  1 diff 00000+3000
-    //  2 diff 03000+3000
-    //  3 diff 06000+3000
-    //  4 diff 09000+3000
-    //  5 diff 12000+3000
-    //  6 diff 15000+3000
-    //  7 diff 18000+3000
-    //  8 diff 21000+3000
-    //  9 diff 24000+3000
-    // 10 diff 27000+3000
-    // Snapshot at epoch 30000
-    // roughly 2880 in a day.
-    // 00000-29999
-    // 30000-59999
-
-    Ok(())
+    // Ok(())
 }

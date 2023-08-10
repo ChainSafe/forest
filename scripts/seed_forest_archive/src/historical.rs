@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use nom::{
     bytes::complete::tag,
     character::complete::digit1,
