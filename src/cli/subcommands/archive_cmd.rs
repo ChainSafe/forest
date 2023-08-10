@@ -96,7 +96,7 @@ impl ArchiveCommands {
             Self::Checkpoints {
                 snapshot_files: snapshot,
             } => print_checkpoints(snapshot),
-            Self::Info { snapshot: _ } => crate::bail_moved_cmd!("archive info"),
+            Self::Info { .. } => crate::bail_moved_cmd!("archive info"),
         }
     }
 }
