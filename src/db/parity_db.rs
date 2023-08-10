@@ -60,6 +60,8 @@ impl DbColumn {
                         // explicitly disable preimage for settings column
                         // othewise we are not able to overwrite entries
                         preimage: false,
+                        // This is needed for key retrieval.
+                        btree_index: true,
                         compression,
                         ..Default::default()
                     },
@@ -153,6 +155,15 @@ impl SettingsStore for ParityDb {
             .get_size(DbColumn::Settings as u8, key.as_bytes())
             .map(|size| size.is_some())
             .context("error checking if key exists")
+    }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        let mut iter = self.db.iter(DbColumn::Settings as u8)?;
+        let mut keys = vec![];
+        while let Some((key, _)) = iter.next()? {
+            keys.push(String::from_utf8(key)?);
+        }
+        Ok(keys)
     }
 }
 

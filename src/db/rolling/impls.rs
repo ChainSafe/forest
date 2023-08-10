@@ -3,9 +3,11 @@
 
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::utils::db::file_backed_obj::FileBackedObject;
+use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
+use itertools::Itertools;
 use parking_lot::RwLock;
 use uuid::Uuid;
 
@@ -91,6 +93,14 @@ impl SettingsStore for RollingDB {
         }
 
         Ok(false)
+    }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        let mut set = HashSet::default();
+        for db in self.db_queue().iter() {
+            set.extend(SettingsStore::setting_keys(db)?);
+        }
+        Ok(set.into_iter().collect_vec())
     }
 }
 
@@ -205,10 +215,10 @@ impl RollingDB {
 
     fn transfer_settings(&self) -> anyhow::Result<()> {
         let current = self.current.read();
-        for key in setting_keys::all_keys() {
-            if !current.exists(key)? {
-                if let Some(v) = self.read_bin(key)? {
-                    current.write_bin(key, &v)?;
+        for key in self.setting_keys()? {
+            if !current.exists(&key)? {
+                if let Some(v) = self.read_bin(&key)? {
+                    current.write_bin(&key, &v)?;
                 }
             }
         }

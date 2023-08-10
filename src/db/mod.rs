@@ -20,10 +20,6 @@ pub mod setting_keys {
     pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
-
-    pub fn all_keys<'a>() -> &'a [&'a str] {
-        [HEAD_KEY, ESTIMATED_RECORDS_KEY, MPOOL_CONFIG_KEY].as_slice()
-    }
 }
 
 /// Interface used to store and retrieve settings from the database.
@@ -37,8 +33,11 @@ pub trait SettingsStore {
     /// non-serializable data. For serializable data, use [`SettingsStoreExt::write_obj`].
     fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()>;
 
-    /// Returns `Ok(true)` if key exists in store
+    /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &str) -> anyhow::Result<bool>;
+
+    /// Returns all setting keys.
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
 }
 
 /// Extension trait for the [`SettingsStore`] trait. It is implemented for all types that implement
