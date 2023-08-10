@@ -21,9 +21,9 @@ where
         .block_on(async {
             // Run command
             match cmd {
+                Subcommand::Benchmark(cmd) => cmd.run().await,
                 Subcommand::Snapshot(cmd) => cmd.run().await,
                 Subcommand::Fetch(cmd) => cmd.run().await,
-                Subcommand::Benchmark(cmd) => cmd.run().await,
                 Subcommand::Archive(cmd) => cmd.run().await,
             }
         })

@@ -24,21 +24,21 @@ pub struct Cli {
 /// forest-tool sub-commands
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
-    /// Download parameters for generating and verifying proofs for given size
-    #[command(name = "fetch-params")]
-    Fetch(fetch_params_cmd::FetchCommands),
+    /// Benchmark various Forest subsystems
+    #[command(subcommand)]
+    Benchmark(benchmark_cmd::BenchmarkCommands),
 
     /// Manage snapshots
     #[command(subcommand)]
     Snapshot(snapshot_cmd::SnapshotCommands),
 
+    /// Download parameters for generating and verifying proofs for given size
+    #[command(name = "fetch-params")]
+    Fetch(fetch_params_cmd::FetchCommands),
+
     /// Manage archives
     #[command(subcommand)]
     Archive(archive_cmd::ArchiveCommands),
-
-    /// Benchmark various Forest subsystems
-    #[command(subcommand)]
-    Benchmark(benchmark_cmd::BenchmarkCommands),
 }
 
 fn read_config(config: &Option<String>) -> anyhow::Result<Config> {
