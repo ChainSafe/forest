@@ -42,8 +42,7 @@ pub enum Subcommand {
 }
 
 fn read_config(config: &Option<String>) -> anyhow::Result<Config> {
-    let path = find_config_path(config);
-    let cfg: Config = match &path {
+    Ok(match find_config_path(config) {
         Some(path) => {
             // Read from config file
             let toml = read_file_to_string(path.to_path_buf())?;
@@ -51,6 +50,5 @@ fn read_config(config: &Option<String>) -> anyhow::Result<Config> {
             read_toml(&toml)?
         }
         None => Config::default(),
-    };
-    Ok(cfg)
+    })
 }
