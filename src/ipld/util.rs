@@ -377,7 +377,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                             return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
                     }
-                    // This also schedules `Iterate` tasks to avoid code duplication.
+                    // This also schedules `Iterate` tasks to avoid code duplication. Those have
+                    // to be run immediately after Prefetch, with the same vector of Cid.
                     Prefetch(_) => {
                         if let Some(Prefetch(cid_vec)) = this.dfs.pop_front() {
                             let cid_vec_prefetch = cid_vec.clone();
