@@ -10,36 +10,28 @@ use std::ops::RangeInclusive;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
-use url::Url;
 
-use super::ChainEpoch;
-use super::FOREST_PROJECT;
+use super::{ChainEpoch, R2_ENDPOINT};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HistoricalSnapshot {
-    pub url: Url,
+    pub path: String,
     pub epoch_range: RangeInclusive<ChainEpoch>,
     pub size: u64,
 }
 
 impl HistoricalSnapshot {
-    // Parse strings such as '25952343569  gs://fil-mainnet-archival-snapshots/historical-exports/snapshot_930240_933122_1667057892.car.zst'
-    fn parse(du_string: &str) -> Result<HistoricalSnapshot> {
-        match du_string.split_whitespace().collect::<Vec<_>>().as_slice() {
-            [bytes, url] => {
+    // 2023-08-08 15:31:03 26394404409 snapshot_950400_953282_1667057812.car.zst
+    fn parse(ls_string: &str) -> Result<HistoricalSnapshot> {
+        match ls_string.split_whitespace().collect::<Vec<_>>().as_slice() {
+            [_date, _time, bytes, path] => {
                 let bytes: u64 = bytes.parse()?;
-                let url = Url::parse(url)?;
-                let last_segment = url
-                    .path_segments()
-                    .context("unexpected base url")?
-                    .last()
-                    .context("unexpected url with no filename")?;
                 let (_, start_epoch, _, end_epoch) = enter_nom(
                     tuple((tag("snapshot_"), number::<u64>, tag("_"), number)),
-                    last_segment,
+                    path,
                 )?;
                 Ok(HistoricalSnapshot {
-                    url,
+                    path: path.to_string(),
                     epoch_range: RangeInclusive::new(start_epoch, end_epoch),
                     size: bytes,
                 })
@@ -49,11 +41,12 @@ impl HistoricalSnapshot {
     }
 
     pub fn new() -> Result<Vec<HistoricalSnapshot>> {
-        let output = Command::new("gsutil")
-            .arg("-u")
-            .arg(FOREST_PROJECT)
-            .arg("du")
-            .arg("gs://fil-mainnet-archival-snapshots/historical-exports/*")
+        let output = Command::new("aws")
+            .arg("--endpoint")
+            .arg(R2_ENDPOINT)
+            .arg("s3")
+            .arg("ls")
+            .arg("s3://forest-archive/historical/")
             .output()?;
         ensure!(
             output.status.success(),
@@ -71,11 +64,12 @@ impl HistoricalSnapshot {
     }
 
     pub fn download(&self, dst: &Path) -> Result<()> {
-        let status = Command::new("gsutil")
-            .arg("-u")
-            .arg(FOREST_PROJECT)
-            .arg("cp")
-            .arg(self.url.to_string())
+        let status = Command::new("wget")
+            .arg(format!(
+                "https://forest-archive.chainsafe.dev/historical/{}",
+                self.path
+            ))
+            .arg("--output-document")
             .arg(dst)
             .status()?;
         anyhow::ensure!(status.success());
@@ -83,7 +77,7 @@ impl HistoricalSnapshot {
     }
 
     pub fn path(&self) -> &str {
-        self.url.path_segments().unwrap().last().unwrap()
+        &self.path
     }
 }
 

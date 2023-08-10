@@ -39,7 +39,7 @@ pub fn upload_lite_snapshot(path: &Path) -> Result<()> {
         .arg("s3")
         .arg("cp")
         .arg(path)
-        .arg("s3://mainnet/lite/")
+        .arg("s3://forest-archive/mainnet/lite/")
         .status()?;
     anyhow::ensure!(status.success(), "failed to upload lite snapshot");
     Ok(())
@@ -52,7 +52,7 @@ pub fn upload_diff_snapshot(path: &Path) -> Result<()> {
         .arg("s3")
         .arg("cp")
         .arg(path)
-        .arg("s3://mainnet/diff/")
+        .arg("s3://forest-archive/mainnet/diff/")
         .status()?;
     anyhow::ensure!(status.success(), "failed to upload diff snapshot");
     Ok(())
@@ -86,7 +86,7 @@ pub fn upload_historical_snapshot(path: &Path) -> Result<()> {
         .arg("s3")
         .arg("cp")
         .arg(path)
-        .arg("s3://historical/")
+        .arg("s3://forest-archive/historical/")
         .status()?;
     anyhow::ensure!(status.success(), "failed to upload diff snapshot");
     Ok(())

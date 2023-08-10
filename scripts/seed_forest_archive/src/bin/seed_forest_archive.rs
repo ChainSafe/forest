@@ -13,7 +13,6 @@ use seed_forest_archive::archive::{
 
 fn main() -> Result<()> {
     which("forest").context("Failed to find the 'forest' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
-    which("gsutil").context("Failed to find the 'gsutil' binary.\nSee installation instructions: https://cloud.google.com/storage/docs/gsutil_install")?;
 
     let mut threads = vec![];
 
@@ -29,12 +28,9 @@ fn main() -> Result<()> {
     let mut store = Store::new(snapshots.clone());
     loop {
         let round = rng.gen::<ChainEpoch>() % max_round;
+        let round = 3;
         println!("Round {round}");
         let epoch = round * EPOCH_STEP;
-        // Avoid older epochs for now. This due to corrupt CBOR data.
-        if epoch < 1594680 {
-            continue;
-        }
         let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
 
         if !has_lite_snapshot(epoch)? {

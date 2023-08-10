@@ -35,7 +35,7 @@ impl Store {
         });
         for required_snapshot in required_snapshots {
             if self.local.get(&required_snapshot.epoch_range).is_none() {
-                println!("Downloading snapshot: {}", required_snapshot.url);
+                println!("Downloading snapshot: {}", required_snapshot.path());
                 let base_name = format!(
                     "snapshot_{}_to_{}.car.zst",
                     required_snapshot.epoch_range.start(),
