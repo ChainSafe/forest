@@ -102,12 +102,14 @@ async fn forest_cli_car_concat_same_file_3_times() -> Result<()> {
 
 async fn new_car(size: usize, path: impl AsRef<Path>) -> Result<()> {
     let rng = SmallRng::seed_from_u64(0xdeadbeef);
-    let header = new_block(&mut rng.clone());
-    let roots = vec![header.cid];
-    let block_stream = futures::stream::unfold(rng, |mut rng| async {
-        Some((Ok(new_block(&mut rng)), rng))
-    })
-    .take(size);
+    let root_block = new_block(&mut rng.clone());
+    let roots = vec![root_block.cid];
+    let block_stream = futures::stream::iter(vec![Ok(root_block)]).chain(
+        futures::stream::unfold(rng, |mut rng| async {
+            Some((Ok(new_block(&mut rng)), rng))
+        })
+        .take(size.saturating_sub(1)),
+    );
     let frames = forest_filecoin::db::car::forest::Encoder::compress_stream(
         8000_usize.next_power_of_two(),
         zstd::DEFAULT_COMPRESSION_LEVEL as _,
