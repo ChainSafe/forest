@@ -19,7 +19,6 @@ use crate::{
     utils::encoding::from_slice_with_fallback,
 };
 use cid::Cid;
-use dashmap::DashSet;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
 use lazy_static::lazy_static;
@@ -271,176 +270,17 @@ enum Task {
     // Yield the block, don't visit it.
     Emit(Cid),
     // Visit all the elements, recursively.
-    Iterate(DfsIter),
-}
-
-pin_project! {
-    pub struct ChainStream<DB, T> {
-        #[pin]
-        tipset_iter: T,
-        db: DB,
-        dfs: VecDeque<Task>, // Depth-first work queue.
-        seen: CidHashSet,
-        stateroot_limit: ChainEpoch,
-        fail_on_dead_links: bool,
-    }
-}
-
-impl<DB, T> ChainStream<DB, T> {
-    pub fn with_seen(self, seen: CidHashSet) -> Self {
-        ChainStream { seen, ..self }
-    }
-
-    pub fn into_seen(self) -> CidHashSet {
-        self.seen
-    }
-}
-
-/// Stream all blocks that are reachable before the `stateroot_limit` epoch. After this limit, only
-/// block headers are streamed. Any dead links are reported as errors.
-///
-/// # Arguments
-///
-/// * `db` - A database that implements [`Blockstore`] interface.
-/// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
-/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
-/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
-/// `$depth` is the number of `[`Tipset`]` that needs inspection.
-pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
-    db: DB,
-    tipset_iter: T,
-    stateroot_limit: ChainEpoch,
-) -> ChainStream<DB, T> {
-    ChainStream {
-        tipset_iter,
-        db,
-        dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
-        stateroot_limit,
-        fail_on_dead_links: true,
-    }
-}
-
-// Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
-// are ignored.
-pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
-    db: DB,
-    tipset_iter: T,
-) -> ChainStream<DB, T> {
-    ChainStream {
-        tipset_iter,
-        db,
-        dfs: VecDeque::new(),
-        seen: CidHashSet::default(),
-        stateroot_limit: 0,
-        fail_on_dead_links: false,
-    }
-}
-
-impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
-    type Item = anyhow::Result<Block>;
-
-    fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        use Task::*;
-        let mut this = self.project();
-
-        let stateroot_limit = *this.stateroot_limit;
-        loop {
-            while let Some(task) = this.dfs.front_mut() {
-                match task {
-                    Emit(cid) => {
-                        let cid = *cid;
-                        this.dfs.pop_front();
-                        if let Some(data) = this.db.get(&cid)? {
-                            return Poll::Ready(Some(Ok(Block { cid, data })));
-                        } else if *this.fail_on_dead_links {
-                            return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
-                        }
-                    }
-                    Iterate(dfs_iter) => {
-                        while let Some(ipld) = dfs_iter.next() {
-                            if let Ipld::Link(cid) = ipld {
-                                // The link traversal implementation assumes there are three types of encoding:
-                                // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
-                                // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
-                                // 3. _: ignore all other links
-                                // Don't revisit what's already been visited.
-                                if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
-                                    if let Some(data) = this.db.get(&cid)? {
-                                        if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                            let ipld: Ipld = from_slice_with_fallback(&data)?;
-                                            dfs_iter.walk_next(ipld);
-                                        }
-                                        return Poll::Ready(Some(Ok(Block { cid, data })));
-                                    } else if *this.fail_on_dead_links {
-                                        return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                            "missing key: {}",
-                                            cid
-                                        ))));
-                                    }
-                                }
-                            }
-                        }
-                        this.dfs.pop_front();
-                    }
-                }
-            }
-
-            // This consumes a [`Tipset`] from the iterator one at a time. The next iteration of the
-            // enclosing loop is processing the queue. Once the desired depth has been reached -
-            // yield the block without walking the graph it represents.
-            if let Some(tipset) = this.tipset_iter.as_mut().next() {
-                for block in tipset.into_blocks().into_iter() {
-                    if this.seen.insert(*block.cid()) {
-                        // Make sure we always yield a block otherwise.
-                        this.dfs.push_back(Emit(*block.cid()));
-
-                        if block.epoch() == 0 {
-                            // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents().cids() {
-                                this.dfs.push_back(Emit(*p));
-                            }
-                        }
-
-                        // Process block messages.
-                        if block.epoch() > stateroot_limit {
-                            this.dfs
-                                .push_back(Iterate(DfsIter::from(*block.messages())));
-                        }
-
-                        // Visit the block if it's within required depth. And a special case for `0`
-                        // epoch to match Lotus' implementation.
-                        if block.epoch() == 0 || block.epoch() > stateroot_limit {
-                            // NOTE: In the original `walk_snapshot` implementation we walk the dag
-                            // immediately. Which is what we do here as well, but using a queue.
-                            this.dfs
-                                .push_back(Iterate(DfsIter::from(*block.state_root())));
-                        }
-                    }
-                }
-            } else {
-                // That's it, nothing else to do. End of stream.
-                return Poll::Ready(None);
-            }
-        }
-    }
-}
-
-enum PrefetchingTask {
-    // Yield the block, don't visit it.
-    Emit(Cid),
-    // Visit all the elements, recursively.
     Iterate(VecDeque<Cid>),
     // Prefetch the top level for each tipset.
     Prefetch(VecDeque<Cid>),
 }
 
 pin_project! {
-    pub struct PrefetchingChainStream<DB, T> {
+    pub struct ChainStream<DB, T> {
         #[pin]
         tipset_iter: T,
         db: Arc<DB>,
-        dfs: VecDeque<PrefetchingTask>, // Depth-first work queue.
+        dfs: VecDeque<Task>, // Depth-first work queue.
         seen: Arc<RwLock<CidHashSet>>,
         prefetch_worker_count: Arc<AtomicI8>,
         max_prefetch_worker_count: i8,
@@ -449,7 +289,7 @@ pin_project! {
     }
 }
 
-impl<DB, T> PrefetchingChainStream<DB, T> {
+impl<DB, T> ChainStream<DB, T> {
     pub fn with_seen(self, seen: CidHashSet) -> Self {
         Self {
             seen: Arc::new(RwLock::new(seen)),
@@ -472,26 +312,20 @@ impl<DB, T> PrefetchingChainStream<DB, T> {
 /// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
 /// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
 /// `$depth` is the number of `[`Tipset`]` that needs inspection.
-pub fn stream_chain_prefetching<
-    DB: Blockstore + Send + Sync,
-    T: Iterator<Item = Tipset> + Unpin,
->(
+pub fn stream_chain<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
     db: Arc<DB>,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
-) -> PrefetchingChainStream<DB, T> {
+) -> ChainStream<DB, T> {
     new(db, tipset_iter, stateroot_limit, true)
 }
 
-// Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
-// are ignored.
-pub fn stream_graph_prefetching<
-    DB: Blockstore + Send + Sync,
-    T: Iterator<Item = Tipset> + Unpin,
->(
+/// Stream available graph in a depth-first search. All reachable nodes are touched and dead-links
+/// are ignored.
+pub fn stream_graph<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
     db: Arc<DB>,
     tipset_iter: T,
-) -> PrefetchingChainStream<DB, T> {
+) -> ChainStream<DB, T> {
     new(db, tipset_iter, 0, false)
 }
 
@@ -500,8 +334,8 @@ fn new<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
     fail_on_dead_links: bool,
-) -> PrefetchingChainStream<DB, T> {
-    PrefetchingChainStream {
+) -> ChainStream<DB, T> {
+    ChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
@@ -515,12 +349,12 @@ fn new<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
 }
 
 impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
-    for PrefetchingChainStream<DB, T>
+    for ChainStream<DB, T>
 {
     type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        use PrefetchingTask::*;
+        use Task::*;
         let mut this = self.project();
 
         // Ignore everything that is not an [`Ipld::Link`] for further traversal.
@@ -581,7 +415,6 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                         let mut new_vec = DfsIter::new(ipld)
                                             .flat_map(ipld_to_cid)
                                             .collect::<VecDeque<Cid>>();
-                                        let prefetch_vec = new_vec.clone();
 
                                         // Since there's no way to add a whole Vec to the front,
                                         // just add an old one to a new one and reassign the

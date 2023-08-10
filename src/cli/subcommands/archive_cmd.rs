@@ -97,7 +97,7 @@ impl ArchiveCommands {
                 depth,
                 diff,
             } => {
-                let store = ManyCar::try_from(snapshot_files)?;
+                let store = Arc::new(ManyCar::try_from(snapshot_files)?);
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(store, heaviest_tipset, output_path, epoch, depth, diff).await
             }
@@ -134,7 +134,7 @@ fn build_output_path(
 }
 
 async fn do_export(
-    store: impl Blockstore + Send + Sync + 'static,
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -175,7 +175,7 @@ async fn do_export(
             .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
-        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store));
+        let mut stream = stream_graph(store.clone(), diff_ts.clone().chain(&store));
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
@@ -395,7 +395,7 @@ mod tests {
     #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
-        let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
+        let store = Arc::new(AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap());
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
             store,
