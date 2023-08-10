@@ -16,7 +16,7 @@ pub enum DBCommands {
         /// Optional TOML file containing forest daemon configuration
         #[arg(short, long)]
         config: Option<String>,
-        /// Optional chain, will override the chain section of config if used
+        /// Optional chain, will override the chain section of configuration file if used
         #[arg(long)]
         chain: Option<NetworkChain>,
     },
@@ -28,7 +28,7 @@ pub enum DBCommands {
         /// Optional TOML file containing forest daemon configuration
         #[arg(short, long)]
         config: Option<String>,
-        /// Optional chain, will override the chain section of config if used
+        /// Optional chain, will override the chain section of configuration file if used
         #[arg(long)]
         chain: Option<NetworkChain>,
     },
