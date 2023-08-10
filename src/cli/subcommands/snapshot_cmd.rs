@@ -8,7 +8,7 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
 use crate::utils::db::car_stream::CarStream;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -130,7 +130,7 @@ impl SnapshotCommands {
 
                 let finality = config.chain.policy.chain_finality.min(epoch);
                 if params.recent_roots < finality {
-                    anyhow::bail!(
+                    bail!(
                         "For {}, depth has to be at least {finality}.",
                         config.chain.network
                     );
@@ -178,6 +178,8 @@ impl SnapshotCommands {
                 println!("Export completed.");
                 Ok(())
             }
+            Self::Fetch { .. } => crate::bail_moved_cmd!("snapshot fetch"),
+            Self::Validate { .. } => crate::bail_moved_cmd!("snapshot validate"),
             Self::Compress {
                 source,
                 output,
@@ -240,16 +242,6 @@ impl SnapshotCommands {
                 dest.flush().await?;
                 Ok(())
             }
-            Self::Fetch {
-                directory: _,
-                vendor: _,
-            } => crate::bail_moved_cmd!("snapshot fetch"),
-            Self::Validate {
-                check_links: _,
-                check_network: _,
-                check_stateroots: _,
-                snapshot_files: _,
-            } => crate::bail_moved_cmd!("snapshot validate"),
         }
     }
 }

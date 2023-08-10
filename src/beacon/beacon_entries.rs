@@ -28,6 +28,11 @@ impl BeaconEntry {
     pub fn data(&self) -> &[u8] {
         &self.data
     }
+
+    pub fn into_parts(self) -> (u64, Vec<u8>) {
+        let Self { round, data } = self;
+        (round, data)
+    }
 }
 
 pub mod json {
