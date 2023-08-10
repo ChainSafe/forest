@@ -278,7 +278,6 @@ mod tests {
     #[quickcheck]
     fn ensure_settings_are_transferred(keys: Vec<String>) -> Result<()> {
         let db_root = TempDir::new()?;
-        println!("Creating rolling db under {}", db_root.path().display());
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
         // Write settings
         for key in keys.iter() {
@@ -301,7 +300,6 @@ mod tests {
     #[test]
     fn rolling_db_behaviour_tests() -> Result<()> {
         let db_root = TempDir::new()?;
-        println!("Creating rolling db under {}", db_root.path().display());
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
         println!("Generating random blocks");
         let pairs: Vec<_> = (0..1000)
