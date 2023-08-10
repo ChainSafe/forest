@@ -30,6 +30,7 @@ pub enum DBCommands {
 impl DBCommands {
     pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
+            Self::Stats => crate::bail_moved_cmd!("db stats"),
             Self::GC => {
                 let start = Utc::now();
 
@@ -71,7 +72,6 @@ impl DBCommands {
 
                 Ok(())
             }
-            Self::Stats => crate::bail_moved_cmd!("db stats"),
             Self::Clean { force: _ } => crate::bail_moved_cmd!("db clean", "db destroy"),
         }
     }
