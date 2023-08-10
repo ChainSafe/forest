@@ -114,7 +114,13 @@ use {pretty_assertions::assert_eq, quickcheck::quickcheck};
 pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
     /// The struct representing JSON. You should `#[derive(Deserialize, Serialize)]` on it.
     type LotusJson: Into<Self> + Serialize + DeserializeOwned;
-    /// You MUST add snapshot tests
+    /// To ensure code quality, conversion to/from lotus JSON MUST be tested.
+    /// Provide snapshots of the JSON, and the domain type it should serialize to.
+    ///
+    /// Serialization and de-serialization of the domain type should match the snapshot.
+    ///
+    /// If using [`decl_and_test`], this test is automatically run for you, but if the test
+    /// is out-of-module, you must call [`assert_all_snapshots`] manually.
     fn snapshots() -> Vec<(serde_json::Value, Self)>;
 }
 
@@ -178,7 +184,7 @@ mod vec; // can't make snapshots of generic type
 pub use self::raw_bytes::RawBytesLotusJson;
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 
-#[cfg(test)]
+#[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
 where
     T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
