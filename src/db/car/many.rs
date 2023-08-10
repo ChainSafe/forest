@@ -22,7 +22,7 @@ use std::{io, path::PathBuf, sync::Arc};
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
     read_only: Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>,
-    writer: RwLock<WriterT>,
+    writer: WriterT,
 }
 
 impl<WriterT> ManyCar<WriterT> {
