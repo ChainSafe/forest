@@ -99,7 +99,7 @@ mod tests {
             let frames = crate::db::car::forest::Encoder::compress_stream(
                 8000_usize.next_power_of_two(),
                 zstd::DEFAULT_COMPRESSION_LEVEL as _,
-                futures::stream::iter(self.0).map(Ok),
+                self.into_stream().map_err(anyhow::Error::from),
             );
             let mut writer = vec![];
             crate::db::car::forest::Encoder::write(&mut writer, roots, frames)
@@ -109,7 +109,7 @@ mod tests {
         }
 
         fn into_stream(self) -> impl Stream<Item = std::io::Result<Block>> {
-            futures::stream::iter(self.0.into_iter().map(Ok::<_, std::io::Error>))
+            futures::stream::iter(self.0).map(Ok)
         }
 
         /// Implicit clone is performed inside to simplify caller code
