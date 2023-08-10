@@ -33,6 +33,7 @@ mod json;
 mod key_management;
 mod libp2p;
 mod libp2p_bitswap;
+mod lotus_json;
 mod message;
 mod message_pool;
 mod metrics;

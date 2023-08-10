@@ -5,10 +5,10 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
+use crate::blocks::VRFProof;
 use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
 use crate::ipld::CidHashMap;
-use crate::json::vrf::VRFProof;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;

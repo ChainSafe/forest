@@ -41,6 +41,7 @@ daemonize-me = "2.0"
 data-encoding = "2.3"
 data-encoding-macro = "0.1"
 derive_builder = "0.12"
+derive_more = "0.99.17"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "5"
@@ -72,7 +73,7 @@ fvm_shared2 = { package = "fvm_shared", version = "~2.5" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.4", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
-hex = "0.4"
+hex = { version = "0.4", features = ["serde"] }
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"

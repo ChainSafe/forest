@@ -117,8 +117,25 @@ impl From<SectorInfo> for SectorInfoV2 {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct RegisteredPoStProof(RegisteredPoStProofV3);
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for RegisteredPoStProof {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        // RegisteredPoStProofV3: ::arbitrary::Arbitrary
+        // RegisteredPoStProofV3: !::quickcheck::Arbitrary
+        Self(RegisteredPoStProofV3::from(i64::arbitrary(g)))
+    }
+}
 
 impl Deref for RegisteredPoStProof {
     type Target = RegisteredPoStProofV3;
@@ -132,12 +149,6 @@ impl TryFrom<RegisteredPoStProof> for filecoin_proofs_api::RegisteredPoStProof {
 
     fn try_from(value: RegisteredPoStProof) -> Result<Self, Self::Error> {
         value.0.try_into().map_err(|e: String| anyhow::anyhow!(e))
-    }
-}
-
-impl From<RegisteredPoStProofV3> for RegisteredPoStProof {
-    fn from(value: RegisteredPoStProofV3) -> Self {
-        RegisteredPoStProof(value)
     }
 }
 
@@ -213,7 +224,15 @@ impl From<SectorSize> for SectorSizeV3 {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    derive_more::From,
+    derive_more::Into,
+)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct PoStProof(PoStProofV3);
 
