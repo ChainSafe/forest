@@ -424,44 +424,6 @@ where
     Ok(())
 }
 
-pub mod tipset_keys_json {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    use super::*;
-
-    #[derive(Clone, Debug, Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
-
-    impl From<TipsetKeysJson> for TipsetKeys {
-        fn from(wrapper: TipsetKeysJson) -> Self {
-            wrapper.0
-        }
-    }
-
-    impl From<TipsetKeys> for TipsetKeysJson {
-        fn from(wrapper: TipsetKeys) -> Self {
-            TipsetKeysJson(wrapper)
-        }
-    }
-
-    pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        crate::json::cid::vec::serialize(&Vec::<Cid>::from(&m.cids), serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(TipsetKeys {
-            cids: crate::json::cid::vec::deserialize(deserializer)?.into(),
-        })
-    }
-}
-
 pub mod lotus_json {
     //! [Tipset] isn't just plain old data - it has an invariant (all [BlockHeader]s are valid)
     //! So there is custom deserialization here

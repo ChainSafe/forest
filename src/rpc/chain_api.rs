@@ -4,9 +4,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{
-    header::json::BlockHeaderJson, tipset_keys_json::TipsetKeysJson, BlockHeader, Tipset,
-};
+use crate::blocks::{header::json::BlockHeaderJson, BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
 use crate::json::{cid::CidJson, message::json::MessageJson};
@@ -46,7 +44,7 @@ pub(in crate::rpc) async fn chain_export<DB>(
         epoch,
         recent_roots,
         output_path,
-        tipset_keys: TipsetKeysJson(tsk),
+        tipset_keys: tsk,
         skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
@@ -227,7 +225,7 @@ pub(in crate::rpc) async fn chain_get_tipset<DB>(
 where
     DB: Blockstore,
 {
-    let (TipsetKeysJson(tsk),) = params;
+    let tsk = params.0.into();
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok((*ts).clone().into())
 }

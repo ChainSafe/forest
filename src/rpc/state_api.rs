@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::tipset_keys_json::TipsetKeysJson;
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
 use crate::json::address::json::AddressJson;
@@ -85,8 +84,8 @@ pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<StateNetworkVersionParams>,
 ) -> Result<StateNetworkVersionResult, JsonRpcError> {
-    let (TipsetKeysJson(tsk),) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let (tsk_json,) = params;
+    let ts = data.chain_store.tipset_from_keys(&(tsk_json.into()))?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
@@ -94,7 +93,8 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<StateGetActorParams>,
 ) -> Result<StateGetActorResult, JsonRpcError> {
-    let (AddressJson(addr), TipsetKeysJson(tsk)) = params;
+    let (AddressJson(addr), tsk_json) = params;
+    let tsk = tsk_json.into();
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state
@@ -123,8 +123,8 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<StateMarketDealsParams>,
 ) -> Result<StateMarketDealsResult, JsonRpcError> {
-    let (TipsetKeysJson(tsk),) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let (tsk_json,) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk_json.into())?;
     let actor = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
@@ -190,7 +190,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
     };
     Ok(MessageLookup {
         receipt: receipt.into(),
-        tipset: tipset.key().clone().into(),
+        tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: CidJson(cid),
         return_dec: IpldJson(ipld),

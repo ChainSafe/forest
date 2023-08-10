@@ -3,9 +3,7 @@
 
 use super::BlockHeader;
 use crate::beacon::{beacon_entries, BeaconEntry};
-use crate::blocks::{
-    election_proof, ticket, tipset::tipset_keys_json, ElectionProof, Ticket, TipsetKeys,
-};
+use crate::blocks::{election_proof, ticket, ElectionProof, Ticket, TipsetKeys};
 use crate::json::{sector, signature};
 use crate::shim::{crypto::Signature, econ::TokenAmount, sector::PoStProof};
 use cid::Cid;
@@ -44,8 +42,8 @@ where
         beacon_entries: &'a [BeaconEntry],
         #[serde(rename = "WinPoStProof", with = "sector::json::vec")]
         winning_post_proof: &'a [PoStProof],
-        #[serde(rename = "Parents", with = "tipset_keys_json")]
-        parents: &'a TipsetKeys,
+        #[serde(rename = "Parents", with = "crate::lotus_json")]
+        parents: TipsetKeys,
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: &'a i64,
@@ -70,7 +68,7 @@ where
         ticket: &m.ticket,
         election_proof: &m.election_proof,
         winning_post_proof: m.winning_post_proof.as_slice(),
-        parents: &m.parents,
+        parents: m.parents.clone(),
         weight: m.weight.to_string(),
         height: &m.epoch,
         state_root: &m.state_root,
@@ -102,7 +100,7 @@ where
         beacon_entries: Vec<BeaconEntry>,
         #[serde(default, rename = "WinPoStProof", with = "sector::json::vec")]
         winning_post_proof: Vec<PoStProof>,
-        #[serde(rename = "Parents", with = "tipset_keys_json")]
+        #[serde(rename = "Parents", with = "crate::lotus_json")]
         parents: TipsetKeys,
         #[serde(rename = "ParentWeight")]
         weight: String,

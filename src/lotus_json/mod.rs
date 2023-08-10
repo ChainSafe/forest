@@ -316,3 +316,10 @@ where
 {
     T::LotusJson::deserialize(deserializer).map(Into::into)
 }
+
+macro_rules! lotus_json {
+    ($domain_ty:ty) => {
+        <$domain_ty as crate::lotus_json::HasLotusJson>::LotusJson
+    };
+}
+pub(crate) use lotus_json;

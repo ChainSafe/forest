@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use crate::beacon::BeaconSchedule;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use crate::beacon::{Beacon, BeaconSchedule};
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::ipld::json::IpldJson;
@@ -84,8 +84,8 @@ pub struct MarketDeal {
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
     pub receipt: ReceiptJson,
-    #[serde(rename = "TipSet")]
-    pub tipset: TipsetKeysJson,
+    #[serde(rename = "TipSet", with = "crate::lotus_json")]
+    pub tipset: TipsetKeys,
     pub height: i64,
     pub message: CidJson,
     pub return_dec: IpldJson,

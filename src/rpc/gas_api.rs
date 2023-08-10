@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+use crate::blocks::TipsetKeys;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use crate::json::{address::json::AddressJson, message::json::MessageJson};
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -28,9 +28,10 @@ pub(in crate::rpc) async fn gas_estimate_fee_cap<DB>(
 where
     DB: Blockstore,
 {
-    let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
+    let (MessageJson(msg), max_queue_blks, tsk_json) = params;
 
-    estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
+    estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk_json.into())
+        .map(|n| TokenAmount::to_string(&n))
 }
 
 fn estimate_fee_cap<DB>(
@@ -64,7 +65,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_premium<DB>(
 where
     DB: Blockstore,
 {
-    let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
+    let (nblocksincl, AddressJson(_sender), _gas_limit, _) = params;
     estimate_gas_premium::<DB>(&data, nblocksincl)
         .await
         .map(|n| TokenAmount::to_string(&n))
@@ -163,8 +164,8 @@ pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
-    estimate_gas_limit::<DB>(&data, msg, tsk).await
+    let (MessageJson(msg), tsk_json) = params;
+    estimate_gas_limit::<DB>(&data, msg, tsk_json.into()).await
 }
 
 async fn estimate_gas_limit<DB>(
@@ -217,8 +218,8 @@ pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
-    estimate_message_gas::<DB>(&data, msg, spec, tsk)
+    let (MessageJson(msg), spec, tsk_json) = params;
+    estimate_message_gas::<DB>(&data, msg, spec, tsk_json.into())
         .await
         .map(MessageJson::from)
 }
