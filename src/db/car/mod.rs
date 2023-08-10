@@ -70,6 +70,14 @@ impl ZstdFrameCache {
         }
     }
 
+    /// Return a flag that indicated whether the value associated with `cid` is found. Unlike `get`,
+    /// this function does not update the LRU list.
+    pub fn has(&mut self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<bool> {
+        self.lru
+            .peek(&(offset, key))
+            .map(|index| index.contains_key(&cid))
+    }
+
     /// Return a clone of the value associated with `cid`. If a value is found,
     /// the cache entry is moved to the top of the queue.
     pub fn get(&mut self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Vec<u8>>> {

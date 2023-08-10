@@ -166,7 +166,24 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        Ok(self.write_cache.read().contains_key(k) || !self.indexed.lookup(*k)?.is_empty())
+        if self.write_cache.read().contains_key(k) {
+            return Ok(true);
+        }
+
+        let indexed = &self.indexed;
+        for position in indexed.lookup(*k)?.into_iter() {
+            let cache_query = self.frame_cache.lock().has(position, self.cache_key, *k);
+            match cache_query {
+                // Frame cache hit, found value.
+                Some(true) => return Ok(true),
+                // Frame cache hit, no value. This only happens when hashes collide
+                Some(false) => {}
+                // Getting the same key might fail due to decoding errors or hash collisions
+                None => return Ok(true),
+            }
+        }
+
+        Ok(false)
     }
 
     #[tracing::instrument(level = "trace", skip(self))]
@@ -178,7 +195,6 @@ where
 
         let indexed = &self.indexed;
         for position in indexed.lookup(*k)?.into_iter() {
-            let reader = indexed.reader();
             let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
@@ -186,6 +202,7 @@ where
                 // Frame cache hit, no value. This only happens when hashes collide
                 Some(None) => {}
                 None => {
+                    let reader = indexed.reader();
                     // Decode entire frame into memory, "position" arg is the frame start offset.
                     let cursor = Cursor::new_pos(reader, position);
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
@@ -430,6 +447,7 @@ mod tests {
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone())).unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
+            assert!(forest_car.has(&block.cid).unwrap());
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
         }
     }
@@ -454,6 +472,7 @@ mod tests {
         .unwrap();
         assert_eq!(forest_car.roots(), roots);
         for block in tail {
+            assert!(forest_car.has(&block.cid).unwrap());
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
         }
     }
