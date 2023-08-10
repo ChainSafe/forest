@@ -73,15 +73,12 @@ fn dedup_block_stream(
 
 #[cfg(test)]
 mod tests {
-    use std::pin::pin;
-
     use super::*;
     use ahash::HashSet;
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
     use futures::executor::{block_on, block_on_stream};
-    use fvm_ipld_car::CarHeader;
     use fvm_ipld_encoding::DAG_CBOR;
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
@@ -97,16 +94,18 @@ mod tests {
     }
 
     impl Blocks {
-        async fn into_car_bytes(self) -> Vec<u8> {
-            // Dummy root
-            let writer = CarHeader::from(vec![self.0[0].cid]);
-            let mut car = vec![];
-            let mut stream = pin!(futures::stream::iter(self.0).map(|b| (b.cid, b.data)));
-            writer
-                .write_stream_async(&mut car, &mut stream)
+        async fn into_forest_car_zst_bytes(self) -> Vec<u8> {
+            let roots = vec![self.0[0].cid];
+            let frames = crate::db::car::forest::Encoder::compress_stream(
+                8000_usize.next_power_of_two(),
+                zstd::DEFAULT_COMPRESSION_LEVEL as _,
+                futures::stream::iter(self.0).map(Ok),
+            );
+            let mut writer = vec![];
+            crate::db::car::forest::Encoder::write(&mut writer, roots, frames)
                 .await
                 .unwrap();
-            car
+            writer
         }
 
         fn into_stream(self) -> impl Stream<Item = std::io::Result<Block>> {
@@ -141,12 +140,10 @@ mod tests {
     #[quickcheck]
     fn blocks_roundtrip(blocks: Blocks) -> anyhow::Result<()> {
         block_on(async move {
-            let car = blocks.into_car_bytes().await;
-            let mut reader = CarStream::new(std::io::Cursor::new(&car)).await?;
-            let mut blocks2 = vec![];
+            let car = blocks.into_forest_car_zst_bytes().await;
+            let reader = CarStream::new(std::io::Cursor::new(&car)).await?;
             let blocks2 = Blocks(reader.try_collect().await?);
-            let blocks2 = Blocks(blocks2);
-            let car2 = blocks2.into_car_bytes().await;
+            let car2 = blocks2.into_forest_car_zst_bytes().await;
 
             assert_eq!(car, car2);
 
@@ -189,17 +186,14 @@ mod tests {
         let cid_union = HashSet::from_iter(HashSet::from(&a).union(&HashSet::from(&b)).cloned());
 
         block_on(async move {
-            let car_a = std::io::Cursor::new(a.into_car_bytes().await);
-            let car_b = std::io::Cursor::new(b.into_car_bytes().await);
-            let mut deduped = pin!(dedup_block_stream(merge_car_streams(vec![
+            let car_a = std::io::Cursor::new(a.into_forest_car_zst_bytes().await);
+            let car_b = std::io::Cursor::new(b.into_forest_car_zst_bytes().await);
+            let deduped = dedup_block_stream(merge_car_streams(vec![
                 CarStream::new(car_a).await?,
                 CarStream::new(car_b).await?,
-            ])));
+            ]));
 
             let cid_union2: HashSet<Cid> = deduped.map_ok(|block| block.cid).try_collect().await?;
-            while let Some(Block { cid, data: _ }) = deduped.try_next().await? {
-                cid_union2.insert(cid);
-            }
 
             assert_eq!(cid_union, cid_union2);
 
