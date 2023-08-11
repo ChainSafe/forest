@@ -41,7 +41,7 @@ cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHO
 cov forest-cli sync wait
 cov forest-cli sync status
 cov forest-cli --chain calibnet db gc
-cov forest-cli --chain calibnet db stats
+cov forest-tool db stats --chain calibnet
 cov forest-cli snapshot export
 cov forest-cli snapshot export
 cov forest-cli attach --exec 'showPeers()'

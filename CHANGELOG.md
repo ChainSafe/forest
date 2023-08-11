@@ -37,6 +37,9 @@
   - `fetch-params`
   - `snapshot fetch`
   - `snapshot validate`
+- [#3355](https://github.com/ChainSafe/forest/pull/3355) Moved commands
+  - `forest-cli db stats` to `forest-tool db stats`
+  - `forest-cli db clean` to `forest-tool db destroy`
 
 ### Added
 

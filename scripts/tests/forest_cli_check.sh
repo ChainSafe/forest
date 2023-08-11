@@ -21,9 +21,9 @@ function num-files-here() {
 
 "$FOREST_TOOL_PATH" fetch-params --keys
 
-: "cleaning an empty database doesn't fail (see #2811)"
-"$FOREST_CLI_PATH" --chain calibnet db clean --force
-"$FOREST_CLI_PATH" --chain calibnet db clean --force
+: "destroying an empty database doesn't fail (see #2811)"
+"$FOREST_TOOL_PATH" db destroy --chain calibnet --force
+"$FOREST_TOOL_PATH" db destroy --chain calibnet --force
 
 
 : fetch snapshot
