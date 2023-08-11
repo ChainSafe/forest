@@ -55,7 +55,7 @@ pub struct Cli {
     pub cmd: Subcommand,
 }
 
-// Those subcommands are hidden and only here to help users migrating to forest-tool
+// This subcommand is hidden and only here to help users migrating to forest-tool
 #[derive(Debug, clap::Args)]
 pub struct FetchCommands {
     #[arg(short, long)]
