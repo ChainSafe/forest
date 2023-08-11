@@ -3,6 +3,7 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::json::cid::CidJson;
+use crate::lotus_json::LotusJson;
 use crate::rpc_client::chain_ops::*;
 use anyhow::bail;
 use cid::Cid;
@@ -81,7 +82,7 @@ impl ChainCommands {
                 tipset_by_epoch_or_offset(*epoch, &config.client.rpc_token)
                     .and_then(|tipset_json| {
                         chain_set_head(
-                            (Tipset::from(tipset_json).key().clone(),),
+                            (tipset_json.into_inner().key().clone(),),
                             &config.client.rpc_token,
                         )
                     })
@@ -107,8 +108,8 @@ impl ChainCommands {
 async fn tipset_by_epoch_or_offset(
     epoch_or_offset: i64,
     auth_token: &Option<String>,
-) -> Result<TipsetLotusJson, JsonRpcError> {
-    let current_head: Tipset = chain_head(auth_token).await?.into();
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let current_head = chain_head(auth_token).await?.into_inner();
 
     let target_epoch = match epoch_or_offset.is_negative() {
         true => current_head.epoch() + epoch_or_offset, // adding negative number

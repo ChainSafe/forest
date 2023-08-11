@@ -8,11 +8,12 @@ use ::cid::Cid;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateLotusJson {
-    pub code: LotusJson<Cid>,
-    pub head: LotusJson<Cid>,
-    pub nonce: LotusJson<u64>,
-    pub balance: LotusJson<TokenAmount>,
-    pub delegated_address: Option<LotusJson<Address>>,
+    code: LotusJson<Cid>,
+    head: LotusJson<Cid>,
+    nonce: LotusJson<u64>,
+    balance: LotusJson<TokenAmount>,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    delegated_address: LotusJson<Option<Address>>,
 }
 
 impl HasLotusJson for ActorState {
@@ -25,7 +26,6 @@ impl HasLotusJson for ActorState {
                 "Code": {
                     "/": "baeaaaaa"
                 },
-                "DelegatedAddress": null,
                 "Head": {
                     "/": "baeaaaaa"
                 },
@@ -40,44 +40,40 @@ impl HasLotusJson for ActorState {
             ),
         )]
     }
-}
 
-impl From<ActorStateLotusJson> for ActorState {
-    fn from(value: ActorStateLotusJson) -> Self {
-        let ActorStateLotusJson {
-            code: LotusJson(code),
-            head: LotusJson(head),
-            nonce: LotusJson(nonce),
-            balance: LotusJson(balance),
-            delegated_address,
-        } = value;
-        Self::new(
-            code,
-            head,
-            balance,
-            nonce,
-            delegated_address.map(LotusJson::into_inner),
-        )
-    }
-}
-
-impl From<ActorState> for ActorStateLotusJson {
-    fn from(value: ActorState) -> Self {
+    fn into_lotus_json(self) -> Self::LotusJson {
         let fvm3::state_tree::ActorState {
             code,
             state,
             sequence,
             balance,
             delegated_address,
-        } = From::from(value);
-        Self {
+        } = From::from(self);
+        Self::LotusJson {
             code: code.into(),
             head: state.into(),
             nonce: sequence.into(),
             balance: crate::shim::econ::TokenAmount::from(balance).into(),
             delegated_address: delegated_address
                 .map(crate::shim::address::Address::from)
-                .map(Into::into),
+                .into(),
         }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let ActorStateLotusJson {
+            code,
+            head,
+            nonce,
+            balance,
+            delegated_address,
+        } = lotus_json;
+        Self::new(
+            code.into_inner(),
+            head.into_inner(),
+            balance.into_inner(),
+            nonce.into_inner(),
+            delegated_address.into_inner(),
+        )
     }
 }

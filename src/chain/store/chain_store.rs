@@ -498,7 +498,7 @@ where
 }
 
 pub mod headchange_json {
-    use crate::blocks::lotus_json::TipsetLotusJson;
+    use crate::lotus_json::LotusJson;
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -507,7 +507,7 @@ pub mod headchange_json {
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
-        Apply(TipsetLotusJson),
+        Apply(LotusJson<Tipset>),
     }
 
     impl From<HeadChange> for HeadChangeJson {

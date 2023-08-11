@@ -3,24 +3,26 @@
 
 use super::*;
 
-use crate::shim::message::Message;
+use crate::shim::{address::Address, econ::TokenAmount, message::Message};
+use ::cid::Cid;
+use fvm_ipld_encoding::RawBytes;
 
-// TODO(aatifsyed): derive
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLotusJson {
-    version: u64,
-    to: AddressLotusJson,
-    from: AddressLotusJson,
-    nonce: u64,
-    value: TokenAmountLotusJson,
-    gas_limit: u64,
-    gas_fee_cap: TokenAmountLotusJson,
-    gas_premium: TokenAmountLotusJson,
-    method: u64,
-    params: Option<RawBytesLotusJson>,
-    #[serde(rename = "CID", skip_serializing_if = "Option::is_none")]
-    cid: Option<CidLotusJson>,
+    version: LotusJson<u64>,
+    to: LotusJson<Address>,
+    from: LotusJson<Address>,
+    nonce: LotusJson<u64>,
+    value: LotusJson<TokenAmount>,
+    gas_limit: LotusJson<u64>,
+    gas_fee_cap: LotusJson<TokenAmount>,
+    gas_premium: LotusJson<TokenAmount>,
+    method: LotusJson<u64>,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    params: LotusJson<Option<RawBytes>>,
+    #[serde(rename = "CID", skip_serializing_if = "LotusJson::is_none", default)]
+    cid: LotusJson<Option<Cid>>,
 }
 
 impl HasLotusJson for Message {
@@ -43,42 +45,9 @@ impl HasLotusJson for Message {
             Message::default(),
         )]
     }
-}
 
-// TODO(aatifsyed): derive
-impl From<MessageLotusJson> for Message {
-    fn from(value: MessageLotusJson) -> Self {
-        let MessageLotusJson {
-            version,
-            to,
-            from,
-            nonce,
-            value,
-            gas_limit,
-            gas_fee_cap,
-            gas_premium,
-            method,
-            params,
-            cid: _ignored, // TODO(aatifsyed): is this an error?
-        } = value;
-        Self {
-            version,
-            from: from.into(),
-            to: to.into(),
-            sequence: nonce,
-            value: value.into(),
-            method_num: method,
-            params: params.map(Into::into).unwrap_or_default(),
-            gas_limit,
-            gas_fee_cap: gas_fee_cap.into(),
-            gas_premium: gas_premium.into(),
-        }
-    }
-}
-
-impl From<Message> for MessageLotusJson {
-    fn from(value: Message) -> Self {
-        let Message {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self {
             version,
             from,
             to,
@@ -89,19 +58,47 @@ impl From<Message> for MessageLotusJson {
             gas_limit,
             gas_fee_cap,
             gas_premium,
-        } = value;
-        Self {
-            version,
+        } = self;
+        Self::LotusJson {
+            version: version.into(),
             to: to.into(),
             from: from.into(),
-            nonce: sequence,
+            nonce: sequence.into(),
             value: value.into(),
-            gas_limit,
+            gas_limit: gas_limit.into(),
             gas_fee_cap: gas_fee_cap.into(),
             gas_premium: gas_premium.into(),
-            method: method_num,
-            params: Some(params.into()),
-            cid: None, // TODO(aatifsyed): is this an error?
+            method: method_num.into(),
+            params: Some(params).into(),
+            cid: None.into(),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson {
+            version,
+            to,
+            from,
+            nonce,
+            value,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+            method,
+            params,
+            cid: _ignored, // BUG?(aatifsyed)
+        } = lotus_json;
+        Self {
+            version: version.into_inner(),
+            from: from.into_inner(),
+            to: to.into_inner(),
+            sequence: nonce.into_inner(),
+            value: value.into_inner(),
+            method_num: method.into_inner(),
+            params: params.into_inner().unwrap_or_default(),
+            gas_limit: gas_limit.into_inner(),
+            gas_fee_cap: gas_fee_cap.into_inner(),
+            gas_premium: gas_premium.into_inner(),
         }
     }
 }

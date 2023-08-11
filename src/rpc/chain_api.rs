@@ -8,6 +8,7 @@ use crate::blocks::{header::json::BlockHeaderJson, BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
 use crate::json::{cid::CidJson, message::json::MessageJson};
+use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -220,12 +221,11 @@ where
 
 pub(in crate::rpc) async fn chain_get_tipset<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetTipSetParams>,
+    Params((LotusJson(tsk),)): Params<ChainGetTipSetParams>,
 ) -> Result<ChainGetTipSetResult, JsonRpcError>
 where
     DB: Blockstore,
 {
-    let tsk = params.0.into();
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok((*ts).clone().into())
 }

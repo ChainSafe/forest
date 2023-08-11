@@ -4,7 +4,7 @@ use super::*;
 
 use crate::chain_sync::SyncStage;
 
-#[derive(Serialize, Deserialize, From, Into)]
+#[derive(Serialize, Deserialize)]
 pub struct SyncStageLotusJson(#[serde(with = "crate::lotus_json::stringify")] SyncStage);
 
 impl HasLotusJson for SyncStage {
@@ -12,5 +12,13 @@ impl HasLotusJson for SyncStage {
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("idle worker"), Self::Idle)]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        SyncStageLotusJson(self)
+    }
+
+    fn from_lotus_json(SyncStageLotusJson(sync_stage): Self::LotusJson) -> Self {
+        sync_stage
     }
 }

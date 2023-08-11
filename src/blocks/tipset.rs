@@ -432,15 +432,16 @@ pub mod lotus_json {
     use crate::lotus_json::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    #[derive(derive_more::From, derive_more::Into)]
+    use super::TipsetKeys;
+
     pub struct TipsetLotusJson(Tipset);
 
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
-        cids: TipsetKeysLotusJson,
-        blocks: VecLotusJson<<BlockHeader as HasLotusJson>::LotusJson>,
-        height: i64,
+        cids: LotusJson<TipsetKeys>,
+        blocks: LotusJson<Vec<BlockHeader>>,
+        height: LotusJson<i64>,
     }
 
     impl<'de> Deserialize<'de> for TipsetLotusJson {
@@ -453,7 +454,7 @@ pub mod lotus_json {
                 blocks,
                 height: _ignored1,
             } = Deserialize::deserialize(deserializer)?;
-            Tipset::new(blocks.into())
+            Tipset::new(blocks.into_inner())
                 .map_err(serde::de::Error::custom)
                 .map(Self)
         }
@@ -468,7 +469,7 @@ pub mod lotus_json {
             TipsetLotusJsonInner {
                 cids: tipset.key().clone().into(),
                 blocks: tipset.clone().into_blocks().into(),
-                height: tipset.epoch(),
+                height: tipset.epoch().into(),
             }
             .serialize(serializer)
         }
@@ -504,6 +505,14 @@ pub mod lotus_json {
                 }),
                 Self::new(vec![BlockHeader::default()]).unwrap(),
             )]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            TipsetLotusJson(self)
+        }
+
+        fn from_lotus_json(TipsetLotusJson(tipset): Self::LotusJson) -> Self {
+            tipset
         }
     }
 

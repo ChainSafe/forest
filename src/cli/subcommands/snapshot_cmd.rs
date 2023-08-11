@@ -107,7 +107,7 @@ impl SnapshotCommands {
                 depth,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
-                    Ok(head) => Tipset::from(head),
+                    Ok(LotusJson(head)) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 

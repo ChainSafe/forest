@@ -14,4 +14,12 @@ impl HasLotusJson for Address {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("f00"), Address::default())]
     }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        AddressLotusJson(self)
+    }
+
+    fn from_lotus_json(AddressLotusJson(address): Self::LotusJson) -> Self {
+        address
+    }
 }

@@ -5,6 +5,7 @@
 use crate::blocks::TipsetKeys;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use crate::json::{address::json::AddressJson, message::json::MessageJson};
+use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::rpc_api::{
     data_types::{MessageSendSpec, RPCState},
@@ -28,10 +29,9 @@ pub(in crate::rpc) async fn gas_estimate_fee_cap<DB>(
 where
     DB: Blockstore,
 {
-    let (MessageJson(msg), max_queue_blks, tsk_json) = params;
+    let (MessageJson(msg), max_queue_blks, LotusJson(tsk)) = params;
 
-    estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk_json.into())
-        .map(|n| TokenAmount::to_string(&n))
+    estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
 
 fn estimate_fee_cap<DB>(
@@ -164,8 +164,8 @@ pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(msg), tsk_json) = params;
-    estimate_gas_limit::<DB>(&data, msg, tsk_json.into()).await
+    let (MessageJson(msg), LotusJson(tsk)) = params;
+    estimate_gas_limit::<DB>(&data, msg, tsk).await
 }
 
 async fn estimate_gas_limit<DB>(
@@ -218,8 +218,8 @@ pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(msg), spec, tsk_json) = params;
-    estimate_message_gas::<DB>(&data, msg, spec, tsk_json.into())
+    let (MessageJson(msg), spec, LotusJson(tsk)) = params;
+    estimate_message_gas::<DB>(&data, msg, spec, tsk)
         .await
         .map(MessageJson::from)
 }

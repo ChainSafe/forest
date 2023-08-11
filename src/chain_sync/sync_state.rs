@@ -132,8 +132,10 @@ impl SyncState {
 }
 
 mod lotus_json {
-    use super::{DateTime, SyncState, Utc};
-    use crate::{blocks::lotus_json::TipsetLotusJson, lotus_json::*};
+    use super::SyncState;
+    use crate::{blocks::Tipset, chain_sync::SyncStage, lotus_json::*};
+    use chrono::{DateTime, Utc};
+    use std::sync::Arc;
 
     use serde::{Deserialize, Serialize};
     use serde_json::json;
@@ -141,15 +143,19 @@ mod lotus_json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     pub struct SyncStateLotusJson {
-        base: Option<TipsetLotusJson>,
-        target: Option<TipsetLotusJson>,
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        base: LotusJson<Option<Tipset>>,
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        target: LotusJson<Option<Tipset>>,
 
-        stage: SyncStageLotusJson,
-        epoch: i64,
+        stage: LotusJson<SyncStage>,
+        epoch: LotusJson<i64>,
 
-        start: Option<DateTime<Utc>>,
-        end: Option<DateTime<Utc>>,
-        message: String,
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        start: LotusJson<Option<DateTime<Utc>>>,
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        end: LotusJson<Option<DateTime<Utc>>>,
+        message: LotusJson<String>,
     }
 
     impl HasLotusJson for SyncState {
@@ -158,16 +164,54 @@ mod lotus_json {
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             vec![(
                 json!({
-                    "Base": null,
-                    "End": null,
                     "Epoch": 0,
                     "Message": "",
                     "Stage": "header sync",
-                    "Start": null,
-                    "Target": null
                 }),
                 Self::default(),
             )]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            let Self {
+                base,
+                target,
+                stage,
+                epoch,
+                start,
+                end,
+                message,
+            } = self;
+            Self::LotusJson {
+                base: base.as_deref().cloned().into(),
+                target: target.as_deref().cloned().into(),
+                stage: stage.into(),
+                epoch: epoch.into(),
+                start: start.into(),
+                end: end.into(),
+                message: message.into(),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            let Self::LotusJson {
+                base,
+                target,
+                stage,
+                epoch,
+                start,
+                end,
+                message,
+            } = lotus_json;
+            Self {
+                base: base.into_inner().map(Arc::new),
+                target: target.into_inner().map(Arc::new),
+                stage: stage.into_inner(),
+                epoch: epoch.into_inner(),
+                start: start.into_inner(),
+                end: end.into_inner(),
+                message: message.into_inner(),
+            }
         }
     }
 
@@ -180,53 +224,6 @@ mod lotus_json {
     quickcheck::quickcheck! {
         fn quickcheck(val: SyncState) -> () {
             assert_unchanged_via_json(val)
-        }
-    }
-
-    impl From<SyncState> for SyncStateLotusJson {
-        fn from(value: SyncState) -> Self {
-            let SyncState {
-                base,
-                target,
-                stage,
-                epoch,
-                start,
-                end,
-                message,
-            } = value;
-            Self {
-                base: base.as_deref().cloned().map(Into::into),
-                target: target.as_deref().cloned().map(Into::into),
-                stage: stage.into(),
-                epoch,
-                start,
-                end,
-                message,
-            }
-        }
-    }
-
-    impl From<SyncStateLotusJson> for SyncState {
-        fn from(value: SyncStateLotusJson) -> Self {
-            use std::sync::Arc;
-            let SyncStateLotusJson {
-                base,
-                target,
-                stage,
-                epoch,
-                start,
-                end,
-                message,
-            } = value;
-            Self {
-                base: base.map(Into::into).map(Arc::new),
-                target: target.map(Into::into).map(Arc::new),
-                stage: stage.into(),
-                epoch,
-                start,
-                end,
-                message,
-            }
         }
     }
 }

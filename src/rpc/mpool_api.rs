@@ -9,7 +9,7 @@ use crate::json::{
     cid::{vec::CidJsonVec, CidJson},
     message::json::MessageJson,
 };
-use crate::lotus_json::SignedMessageLotusJson;
+use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc_api::{data_types::RPCState, mpool_api::*};
 use crate::shim::address::Protocol;
@@ -39,10 +39,7 @@ where
     }
 
     if mpts.epoch() > ts.epoch() {
-        return Ok(pending
-            .into_iter()
-            .map(SignedMessageLotusJson::from)
-            .collect());
+        return Ok(pending.into_iter().collect::<Vec<_>>().into());
     }
 
     loop {
@@ -79,25 +76,18 @@ where
             .chain_store()
             .tipset_from_keys(ts.parents())?;
     }
-    Ok(pending
-        .into_iter()
-        .map(SignedMessageLotusJson::from)
-        .collect())
+    Ok(pending.into_iter().collect::<Vec<_>>().into())
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
 pub(in crate::rpc) async fn mpool_push<DB>(
     data: Data<RPCState<DB>>,
-    Params((signed_message_lotus_json,)): Params<MpoolPushParams>,
+    Params((LotusJson(signed_message),)): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let cid = data
-        .mpool
-        .as_ref()
-        .push(signed_message_lotus_json.into())
-        .await?;
+    let cid = data.mpool.as_ref().push(signed_message).await?;
 
     Ok(CidJson(cid))
 }
