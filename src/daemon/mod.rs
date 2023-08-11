@@ -93,6 +93,27 @@ fn unblock_parent_process() -> anyhow::Result<()> {
         .map_err(|err| anyhow::anyhow!("{err}"))
 }
 
+/// Increase the file descriptor limit to a reasonable number.
+/// This prevents the node from failing if the default soft limit is too low.
+/// Note that the value is only increased, never decreased.
+fn maybe_increase_fd_limit() -> anyhow::Result<()> {
+    static DESIRED_SOFT_LIMIT: u64 = 8192;
+    let (soft_before, _) = rlimit::Resource::NOFILE.get()?;
+
+    let soft_after = rlimit::increase_nofile_limit(DESIRED_SOFT_LIMIT)?;
+    if soft_before < soft_after {
+        debug!("Increased file descriptor limit from {soft_before} to {soft_after}");
+    }
+    if soft_after < DESIRED_SOFT_LIMIT {
+        warn!(
+            "File descriptor limit is too low: {soft_after} < {DESIRED_SOFT_LIMIT}. \
+            You may encounter 'too many open files' errors.",
+        );
+    }
+
+    Ok(())
+}
+
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
 pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
@@ -131,6 +152,7 @@ pub(super) async fn start(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
+    maybe_increase_fd_limit()?;
 
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
