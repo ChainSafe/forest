@@ -8,7 +8,7 @@ use crate::blocks::BlockHeader;
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple, Default)]
 pub struct GossipBlock {
     pub header: BlockHeader,
     pub bls_messages: Vec<Cid>,

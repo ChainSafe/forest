@@ -49,12 +49,14 @@ pushd "$(mktemp --directory)"
     BASE_EPOCH=$(forest_query_epoch base_snapshot.forest.car.zst)
     assert_eq "$BASE_EPOCH" $((EPOCH-1100))
 
-    BASE_STATE_ROOTS=$(forest_query_state_roots base_snapshot.forest.car.zst)
-    assert_eq "$BASE_STATE_ROOTS" 900
+    # This assertion is not true in the presence of null tipsets
+    #BASE_STATE_ROOTS=$(forest_query_state_roots base_snapshot.forest.car.zst)
+    #assert_eq "$BASE_STATE_ROOTS" 900
 
     "$FOREST_CLI_PATH" archive export --diff "$BASE_EPOCH" -o diff_snapshot.forest.car.zst exported_snapshot.car.zst
-    DIFF_STATE_ROOTS=$(forest_query_state_roots diff_snapshot.forest.car.zst)
-    assert_eq "$DIFF_STATE_ROOTS" 1100
+    # This assertion is not true in the presence of null tipsets
+    #DIFF_STATE_ROOTS=$(forest_query_state_roots diff_snapshot.forest.car.zst)
+    #assert_eq "$DIFF_STATE_ROOTS" 1100
 
     : Validate the union of a snapshot and a diff
     "$FOREST_CLI_PATH" snapshot validate --check-network calibnet base_snapshot.forest.car.zst diff_snapshot.forest.car.zst

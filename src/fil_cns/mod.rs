@@ -83,10 +83,6 @@ where
     ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
         validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
     }
-
-    // pub fn weight<DB>(&self, db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error> where DB: Blockstore {
-    //     weight::weight(db, ts).map_err(|s| anyhow!(s))
-    // }
 }
 
 impl<B> Debug for FilecoinConsensus<B> {
@@ -97,18 +93,9 @@ impl<B> Debug for FilecoinConsensus<B> {
     }
 }
 
-// impl<B> Scale for FilecoinB> {
-//     fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
-//     where
-//         DB: Blockstore,
-//     {
-//         weight::weight(db, ts).map_err(|s| anyhow!(s))
-//     }
-// }
-
 pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
 where
     DB: Blockstore,
 {
-    weight::weight(db, ts).map_err(|s| anyhow!(s))
+    weight::weight(&Arc::new(db), ts).map_err(|s| anyhow!(s))
 }

@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::io::{Read, Result};
+use positioned_io::ReadAt;
+use std::io::Result;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -21,9 +22,9 @@ impl IndexHeader {
     // 0xdeadbeef + 0 used a different hash algorithm
     pub const MAGIC_NUMBER: u64 = 0xdeadbeef + 1;
 
-    pub fn read(reader: &mut impl Read) -> Result<IndexHeader> {
+    pub fn read(reader: impl ReadAt, offset: u64) -> Result<IndexHeader> {
         let mut buffer = [0; Self::SIZE];
-        reader.read_exact(&mut buffer)?;
+        reader.read_exact_at(offset, &mut buffer)?;
         Ok(IndexHeader::from_le_bytes(buffer))
     }
 

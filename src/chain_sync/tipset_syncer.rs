@@ -1409,12 +1409,9 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     // check block message and signatures in them
     let mut pub_keys = Vec::new();
     let mut cids = Vec::new();
+    let db = state_manager.blockstore_owned();
     for m in block.bls_msgs() {
-        let pk = StateManager::get_bls_public_key(
-            state_manager.blockstore(),
-            &m.from,
-            *base_tipset.parent_state(),
-        )?;
+        let pk = StateManager::get_bls_public_key(&db, &m.from, *base_tipset.parent_state())?;
         pub_keys.push(pk);
         cids.push(m.cid().unwrap().to_bytes());
     }
@@ -1447,7 +1444,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     // Check messages for validity
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
-                         tree: &StateTree<&DB>|
+                         tree: &StateTree<DB>|
      -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
@@ -1491,16 +1488,16 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     };
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
-    let block_store = state_manager.blockstore();
     let (state_root, _) = state_manager
         .tipset_state(&base_tipset)
         .await
         .map_err(|e| TipsetRangeSyncerError::Calculation(format!("Could not update state: {e}")))?;
-    let tree = StateTree::new_from_root(block_store, &state_root).map_err(|e| {
-        TipsetRangeSyncerError::Calculation(format!(
-            "Could not load from new state root in state manager: {e}"
-        ))
-    })?;
+    let tree =
+        StateTree::new_from_root(state_manager.blockstore_owned(), &state_root).map_err(|e| {
+            TipsetRangeSyncerError::Calculation(format!(
+                "Could not load from new state root in state manager: {e}"
+            ))
+        })?;
 
     // Check validity for BLS messages
     for (i, msg) in block.bls_msgs().iter().enumerate() {
@@ -1530,9 +1527,12 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     }
 
     // Validate message root from header matches message root
-    let msg_root =
-        TipsetValidator::compute_msg_root(block_store, block.bls_msgs(), block.secp_msgs())
-            .map_err(|err| TipsetRangeSyncerError::ComputingMessageRoot(err.to_string()))?;
+    let msg_root = TipsetValidator::compute_msg_root(
+        state_manager.blockstore(),
+        block.bls_msgs(),
+        block.secp_msgs(),
+    )
+    .map_err(|err| TipsetRangeSyncerError::ComputingMessageRoot(err.to_string()))?;
     if block.header().messages() != &msg_root {
         return Err(TipsetRangeSyncerError::BlockMessageRootInvalid(
             format!("{:?}", block.header().messages()),
@@ -1600,8 +1600,8 @@ fn validate_tipset_against_cache(
 
 #[cfg(test)]
 mod test {
+    use crate::blocks::VRFProof;
     use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use crate::json::vrf::VRFProof;
     use crate::shim::address::Address;
     use cid::Cid;
     use num_bigint::BigInt;

@@ -3,6 +3,7 @@
 
 pub mod progress_bar;
 pub mod progress_log;
+pub mod random_access;
 mod tempfile;
 mod writer_checksum;
 

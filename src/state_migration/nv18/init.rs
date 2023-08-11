@@ -27,7 +27,7 @@ pub(in crate::state_migration) fn init_migrator<BS: Blockstore>(
 impl<BS: Blockstore> ActorMigration<BS> for InitMigrator {
     fn migrate_state(
         &self,
-        store: BS,
+        store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: InitStateOld = store

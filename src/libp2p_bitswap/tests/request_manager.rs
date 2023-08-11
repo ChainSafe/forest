@@ -14,8 +14,12 @@ mod tests {
         Block, Cid,
     };
     use libp2p::{
-        core, identity::Keypair, multiaddr::Protocol, noise, swarm::SwarmEvent, tcp, yamux,
-        Multiaddr, PeerId, Swarm, Transport,
+        core,
+        identity::Keypair,
+        multiaddr::Protocol,
+        noise,
+        swarm::{SwarmBuilder, SwarmEvent},
+        tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
     };
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
@@ -41,7 +45,7 @@ mod tests {
         for i in 0..N_SERVER {
             let (server, server_peer_id, server_peer_addr) = create_swarm().await?;
             println!("Server peer id: {server_peer_id}, address: {server_peer_addr}");
-            server_addr_vec.push(server_peer_addr.with(Protocol::P2p(server_peer_id.into())));
+            server_addr_vec.push(server_peer_addr.with(Protocol::P2p(server_peer_id)));
 
             let server_store = TestStore::default();
             if i == server_index_with_block {
@@ -108,10 +112,8 @@ mod tests {
             .multiplex(yamux::Config::default())
             .timeout(TIMEOUT)
             .boxed();
-        let behaviour = BitswapBehaviour::new(&[b"/test/ipfs/bitswap/1.0.0"], Default::default());
-        // https://github.com/ChainSafe/forest/issues/2762
-        #[allow(deprecated)]
-        let mut swarm = Swarm::with_tokio_executor(transport, behaviour, peer_id);
+        let behaviour = BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default());
+        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, peer_id).build();
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let peer_addr = loop {
             let event = swarm.select_next_some().await;
