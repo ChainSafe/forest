@@ -99,9 +99,7 @@ pub enum WalletCommands {
 }
 
 impl WalletCommands {
-    pub async fn run(&self) -> anyhow::Result<()> {
-        let config: Config = Config::default();
-
+    pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
