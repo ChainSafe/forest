@@ -50,6 +50,8 @@ pub struct ZstdFrameCache {
     pub max_size: usize,
     current_size: usize,
     lru: LruCache<(FrameOffset, CacheKey), HashMap<Cid, Vec<u8>>>,
+    hits: usize,
+    misses: usize,
 }
 
 impl Default for ZstdFrameCache {
@@ -67,15 +69,28 @@ impl ZstdFrameCache {
             max_size,
             current_size: 0,
             lru: LruCache::unbounded(),
+            misses: 0,
+            hits: 0,
         }
     }
 
     /// Return a clone of the value associated with `cid`. If a value is found,
     /// the cache entry is moved to the top of the queue.
     pub fn get(&mut self, offset: FrameOffset, key: CacheKey, cid: Cid) -> Option<Option<Vec<u8>>> {
-        self.lru
+        let res = self
+            .lru
             .get(&(offset, key))
-            .map(|index| index.get(&cid).cloned())
+            .map(|index| index.get(&cid).cloned());
+        match res {
+            Some(val) => {
+                self.hits += 1;
+                Some(val)
+            }
+            _ => {
+                self.misses += 1;
+                None
+            }
+        }
     }
 
     /// Insert entry into lru-cache and evict pages if `max_size` has been exceeded.
@@ -94,5 +109,11 @@ impl ZstdFrameCache {
                 break;
             }
         }
+    }
+}
+
+impl Drop for ZstdFrameCache {
+    fn drop(&mut self) {
+        println!("hits {}, misses {}", self.hits, self.misses);
     }
 }
