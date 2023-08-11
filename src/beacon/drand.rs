@@ -60,10 +60,6 @@ pub struct DrandConfig<'a> {
 pub struct BeaconSchedule(pub Vec<BeaconPoint>);
 
 impl BeaconSchedule {
-    // pub fn into_dyn(self: BeaconSchedule<T>) -> BeaconSchedule<Box<dyn Beacon>> {
-    //     BeaconSchedule(self.0.into_iter().map(BeaconPoint::into_dyn).collect())
-    // }
-
     /// Constructs a new, empty `BeaconSchedule<T>` with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         BeaconSchedule(Vec::with_capacity(capacity))
@@ -135,15 +131,6 @@ pub struct BeaconPoint {
     pub height: ChainEpoch,
     pub beacon: Box<dyn Beacon>,
 }
-
-// impl BeaconPoint {
-//     fn into_dyn(self) -> BeaconPoint {
-//         BeaconPoint {
-//             height: self.height,
-//             beacon: Box::new(self.beacon),
-//         }
-//     }
-// }
 
 #[async_trait]
 /// Trait used as the interface to be able to retrieve bytes from a randomness

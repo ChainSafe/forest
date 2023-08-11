@@ -80,9 +80,8 @@ mod tests {
         let beacon = Arc::new(
             BeaconSchedule(vec![BeaconPoint {
                 height: 0,
-                beacon: MockBeacon::default(),
+                beacon: Box::new(MockBeacon::default()),
             }])
-            .into_dyn(),
         );
 
         let (network_send, network_rx) = flume::bounded(5);
