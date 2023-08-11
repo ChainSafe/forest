@@ -425,8 +425,8 @@ where
 }
 
 pub mod lotus_json {
-    //! [Tipset] isn't just plain old data - it has an invariant (all [BlockHeader]s are valid)
-    //! So there is custom deserialization here
+    //! [Tipset] isn't just plain old data - it has an invariant (all [`BlockHeader`]s are valid)
+    //! So there is custom de-serialization here
 
     use crate::blocks::{BlockHeader, Tipset};
     use crate::lotus_json::*;

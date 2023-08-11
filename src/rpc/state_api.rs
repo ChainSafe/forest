@@ -192,7 +192,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
 //     242,150 bafy2bzaceb522vvt3wo7xhleo2dvb7wb7pyydmzlahc4aqd7lmvg3afreejiw
 //     630,932 bafy2bzacedidwdsd7ds73t3z76hcjfsaisoxrangkxsqlzih67ulqgtxnypqk
 //
-/// Traverse an IPLD directed acyclic graph and use libp2p-bitswap to git drequest any missing nodes.
+/// Traverse an IPLD directed acyclic graph and use libp2p-bitswap to request any missing nodes.
 /// This function has two primary uses: (1) Downloading specific state-roots when Forest deviates
 /// from the mainline blockchain, (2) fetching historical state-trees to verify past versions of the
 /// consensus rules.

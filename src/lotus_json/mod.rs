@@ -61,6 +61,10 @@
 //!   This attaches a separate JSON type, which should implement (`#[derive(...)]`) [`serde::Serialize`] and [`serde::Deserialize`] AND conversions to and from the domain object
 //!   E.g [`gossip_block`]
 //!
+//! Whenever you need the lotus JSON of an object, use the [`LotusJson`] wrapper.
+//! Note that the actual [`HasLotusJson::LotusJson`] types should be private - we don't want these names
+//! proliferating over the codebase.
+//!
 //! ## Implementation notes
 //! ### Illegal states are unrepresentable
 //! Consider [Address](crate::shim::address::Address) - it is represented as a simple string in JSON,
@@ -96,6 +100,15 @@
 //! - Implementations of [`HasLotusJson::into_lotus_json`] and [`HasLotusJson::from_lotus_json`]
 //!   should use [`Into`] and [`LotusJson::into_inner`] calls
 //! - Use destructuring to ensure exhaustiveness
+//!
+//! ### Optional fields
+//! Optional fields must have the following annotations:
+//! ```rust,ignore
+//! # struct Foo {
+//! #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+//! foo: LotusJson<Option<usize>>,
+//! # }
+//! ```
 //!
 //! # API hazards
 //! - Avoid using `#[serde(with = ...)]` except for leaf types
@@ -155,7 +168,7 @@ macro_rules! decl_and_test {
     }
 }
 #[cfg(doc)]
-pub(crate) use {decl_and_test, gossip_block};
+pub(crate) use decl_and_test;
 
 decl_and_test!(
     actor_state for crate::shim::state_tree::ActorState,
