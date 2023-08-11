@@ -24,6 +24,13 @@ macro_rules! bail_moved_cmd {
             $src
         )
     };
+    ($src:literal, $dst:literal) => {
+        anyhow::bail!(
+            "Invalid subcommand: {}. It has been moved to forest-tool {}.",
+            $src,
+            $dst
+        )
+    };
 }
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>

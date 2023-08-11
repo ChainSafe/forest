@@ -3,16 +3,14 @@
 
 use std::sync::Arc;
 
-use crate::cli_shared::{chain_path, cli::Config};
-use crate::db::db_engine::db_root;
+use crate::cli_shared::cli::Config;
 use crate::rpc_api::progress_api::GetProgressType;
 use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
 use crate::utils::io::ProgressBar;
 use chrono::Utc;
 use clap::Subcommand;
-use tracing::error;
 
-use crate::cli::subcommands::{handle_rpc_err, prompt_confirm};
+use crate::cli::subcommands::handle_rpc_err;
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {
@@ -31,15 +29,7 @@ pub enum DBCommands {
 impl DBCommands {
     pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
-            Self::Stats => {
-                use human_repr::HumanCount;
-
-                let dir = db_root(&chain_path(config));
-                println!("Database path: {}", dir.display());
-                let size = fs_extra::dir::get_size(dir).unwrap_or_default();
-                println!("Database size: {}", size.human_count_bytes());
-                Ok(())
-            }
+            Self::Stats => crate::bail_moved_cmd!("db stats"),
             Self::GC => {
                 let start = Utc::now();
 
@@ -81,31 +71,7 @@ impl DBCommands {
 
                 Ok(())
             }
-            Self::Clean { force } => {
-                let dir = chain_path(config);
-                if !dir.is_dir() {
-                    println!(
-                        "Aborted. Database path {} is not a valid directory",
-                        dir.display()
-                    );
-                    return Ok(());
-                }
-                println!("Deleting {}", dir.display());
-                if !force && !prompt_confirm() {
-                    println!("Aborted.");
-                    return Ok(());
-                }
-                match fs_extra::dir::remove(&dir) {
-                    Ok(_) => {
-                        println!("Deleted {}", dir.display());
-                        Ok(())
-                    }
-                    Err(err) => {
-                        error!("{err}");
-                        Ok(())
-                    }
-                }
-            }
+            Self::Clean { force: _ } => crate::bail_moved_cmd!("db clean", "db destroy"),
         }
     }
 }

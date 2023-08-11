@@ -3,14 +3,17 @@
 
 pub mod archive_cmd;
 pub mod benchmark_cmd;
+pub mod db_cmd;
 pub mod fetch_params_cmd;
 pub mod snapshot_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::utils::version::FOREST_VERSION_STRING;
 use crate::utils::{io::read_file_to_string, io::read_toml};
 use clap::Parser;
+use std::sync::Arc;
 
 /// Command-line options for the `forest-tool` binary
 #[derive(Parser)]
@@ -39,10 +42,15 @@ pub enum Subcommand {
     /// Manage archives
     #[command(subcommand)]
     Archive(archive_cmd::ArchiveCommands),
+
+    /// Database management
+    #[command(subcommand)]
+    DB(db_cmd::DBCommands),
 }
 
-fn read_config(config: &Option<String>) -> anyhow::Result<Config> {
-    Ok(match find_config_path(config) {
+fn read_config(config: &Option<String>, chain: &Option<NetworkChain>) -> anyhow::Result<Config> {
+    let path = find_config_path(config);
+    let mut cfg: Config = match &path {
         Some(path) => {
             // Read from config file
             let toml = read_file_to_string(path.to_path_buf())?;
@@ -50,5 +58,15 @@ fn read_config(config: &Option<String>) -> anyhow::Result<Config> {
             read_toml(&toml)?
         }
         None => Config::default(),
-    })
+    };
+
+    // Override config with chain if some
+    match chain {
+        Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
+        Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
+        Some(NetworkChain::Devnet(_)) => cfg.chain = Arc::new(ChainConfig::devnet()),
+        None => (),
+    }
+
+    Ok(cfg)
 }
