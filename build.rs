@@ -29,8 +29,10 @@ const PROTO_DIR: &str = "proto";
 const CARGO_OUT_DIR: &str = "proto";
 
 // Using a local path instead of `OUT_DIR` to reuse the cache as much as possible
-static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> =
-    Lazy::new(|| Path::new("target/actor_bundles/").to_owned());
+static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> = Lazy::new(|| {
+    let target_dir = PathBuf::from(env::var("CARGO_TARGET_DIR").unwrap_or("target".into()));
+    target_dir.join("actor_bundles")
+});
 
 pub fn global_http_client() -> reqwest::Client {
     static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
