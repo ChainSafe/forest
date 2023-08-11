@@ -22,7 +22,7 @@ mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
-mod wallet_cmd;
+//mod wallet_cmd;
 
 use std::io::{self, Write};
 
@@ -41,7 +41,7 @@ pub(super) use self::{
     car_cmd::CarCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
     fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
     send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -75,9 +75,9 @@ pub enum Subcommand {
     #[command(subcommand)]
     Net(NetCommands),
 
-    /// Manage wallet
-    #[command(subcommand)]
-    Wallet(WalletCommands),
+    // /// Manage wallet
+    // #[command(subcommand)]
+    // Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
     #[command(subcommand)]

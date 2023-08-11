@@ -54,7 +54,7 @@ where
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
-                        Subcommand::Wallet(cmd) => cmd.run(config).await,
+                        //Subcommand::Wallet(cmd) => cmd.run(config).await,
                         Subcommand::Sync(cmd) => cmd.run(config).await,
                         Subcommand::Mpool(cmd) => cmd.run(config).await,
                         Subcommand::State(cmd) => cmd.run(config).await,

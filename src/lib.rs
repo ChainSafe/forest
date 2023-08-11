@@ -50,6 +50,7 @@ mod statediff;
 mod test_utils;
 mod tool;
 mod utils;
+mod wallet;
 
 pub mod build {
     pub use super::r#mod::*;
@@ -96,3 +97,4 @@ pub use key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
 pub use tool::main::main as forest_tool_main;
+pub use wallet::main::main as forest_wallet_main;
