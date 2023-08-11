@@ -331,6 +331,8 @@ mod tests {
     }
 
     fn cli() -> Result<Command> {
-        Ok(Command::cargo_bin("forest-cli")?)
+        let bin = escargot::CargoBuild::new().bin("forest-cli").run()?;
+        println!("bin: {}", bin.path().display());
+        Ok(Command::from_std(bin.command()))
     }
 }
