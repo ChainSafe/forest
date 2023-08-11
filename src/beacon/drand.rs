@@ -111,6 +111,7 @@ impl BeaconSchedule {
         Ok(out)
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn beacon_for_epoch(
         &self,
         epoch: ChainEpoch,
