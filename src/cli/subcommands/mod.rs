@@ -56,6 +56,51 @@ pub struct Cli {
     pub cmd: Subcommand,
 }
 
+// Those subcommands are hidden and only here to help users migrating to forest-wallet
+#[derive(Debug, clap::Subcommand)]
+pub enum WalletCommands {
+    New {
+        #[arg(default_value = "secp256k1")]
+        signature_type: String,
+    },
+    Balance {
+        address: String,
+    },
+    Default,
+    Export {
+        address: String,
+    },
+    Has {
+        key: String,
+    },
+    Import {
+        path: Option<String>,
+    },
+    List {
+        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        no_round: bool,
+        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        no_abbrev: bool,
+    },
+    SetDefault {
+        key: String,
+    },
+    Sign {
+        #[arg(short)]
+        message: String,
+        #[arg(short)]
+        address: String,
+    },
+    Verify {
+        #[arg(short)]
+        address: String,
+        #[arg(short)]
+        message: String,
+        #[arg(short)]
+        signature: String,
+    },
+}
+
 /// Forest binary sub-commands available.
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
@@ -75,9 +120,10 @@ pub enum Subcommand {
     #[command(subcommand)]
     Net(NetCommands),
 
-    // /// Manage wallet
-    // #[command(subcommand)]
-    // Wallet(WalletCommands),
+    // Those subcommands are hidden and only here to help users migrating to forest-wallet
+    #[command(hide = true)]
+    #[command(subcommand)]
+    Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
     #[command(subcommand)]
