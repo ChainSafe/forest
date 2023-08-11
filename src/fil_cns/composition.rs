@@ -1,17 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::sync::Arc;
-
-use crate::beacon::DrandBeacon;
 use crate::chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
 use crate::key_management::KeyStore;
 use crate::state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
+use std::sync::Arc;
 use tokio::{sync::RwLock, task::JoinSet};
 
 use crate::fil_cns::FilecoinConsensus;
 
-pub type FullConsensus = FilecoinConsensus<DrandBeacon>;
+pub type FullConsensus = FilecoinConsensus;
 
 pub const FETCH_PARAMS: bool = true;
 

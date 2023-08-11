@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::beacon::{Beacon, BeaconSchedule};
+use crate::beacon::BeaconSchedule;
 use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
@@ -42,7 +42,7 @@ where
     pub network_name: String,
     pub start_time: chrono::DateTime<Utc>,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
-    pub beacon: Arc<BeaconSchedule<Box<dyn Beacon>>>,
+    pub beacon: Arc<BeaconSchedule>,
     pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 

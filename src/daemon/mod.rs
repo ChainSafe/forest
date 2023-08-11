@@ -358,8 +358,7 @@ pub(super) async fn start(
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
-                    .get_beacon_schedule(chain_store.genesis().timestamp())
-                    .into_dyn(),
+                    .get_beacon_schedule(chain_store.genesis().timestamp()), // .into_dyn(),
             );
             start_rpc(
                 Arc::new(RPCState {

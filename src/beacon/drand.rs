@@ -57,15 +57,12 @@ pub struct DrandConfig<'a> {
 
 /// Contains the vector of `BeaconPoint`, which are mappings of epoch to the
 /// `Randomness` beacons used.
-pub struct BeaconSchedule<T>(pub Vec<BeaconPoint<T>>);
+pub struct BeaconSchedule(pub Vec<BeaconPoint>);
 
-impl<T> BeaconSchedule<T>
-where
-    T: Beacon,
-{
-    pub fn into_dyn(self: BeaconSchedule<T>) -> BeaconSchedule<Box<dyn Beacon>> {
-        BeaconSchedule(self.0.into_iter().map(BeaconPoint::into_dyn).collect())
-    }
+impl BeaconSchedule {
+    // pub fn into_dyn(self: BeaconSchedule<T>) -> BeaconSchedule<Box<dyn Beacon>> {
+    //     BeaconSchedule(self.0.into_iter().map(BeaconPoint::into_dyn).collect())
+    // }
 
     /// Constructs a new, empty `BeaconSchedule<T>` with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
@@ -118,7 +115,10 @@ where
         Ok(out)
     }
 
-    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &T)> {
+    pub fn beacon_for_epoch(
+        &self,
+        epoch: ChainEpoch,
+    ) -> anyhow::Result<(ChainEpoch, &Box<dyn Beacon>)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
             .iter()
@@ -131,19 +131,19 @@ where
 
 /// Contains height at which the beacon is activated, as well as the beacon
 /// itself.
-pub struct BeaconPoint<T> {
+pub struct BeaconPoint {
     pub height: ChainEpoch,
-    pub beacon: T,
+    pub beacon: Box<dyn Beacon>,
 }
 
-impl<T: Beacon> BeaconPoint<T> {
-    fn into_dyn(self) -> BeaconPoint<Box<dyn Beacon>> {
-        BeaconPoint {
-            height: self.height,
-            beacon: Box::new(self.beacon),
-        }
-    }
-}
+// impl BeaconPoint {
+//     fn into_dyn(self) -> BeaconPoint {
+//         BeaconPoint {
+//             height: self.height,
+//             beacon: Box::new(self.beacon),
+//         }
+//     }
+// }
 
 #[async_trait]
 /// Trait used as the interface to be able to retrieve bytes from a randomness

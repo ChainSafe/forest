@@ -252,10 +252,10 @@ impl BlockHeader {
 
     /// Validates if the current header's Beacon entries are valid to ensure
     /// randomness was generated correctly
-    pub fn validate_block_drand<B: Beacon>(
+    pub fn validate_block_drand(
         &self,
         network_version: NetworkVersion,
-        b_schedule: &BeaconSchedule<B>,
+        b_schedule: &BeaconSchedule,
         parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {

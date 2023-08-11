@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{fmt::Debug, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconSchedule};
+use crate::beacon::BeaconSchedule;
 use crate::blocks::{Block, Tipset};
 use crate::chain::{Error as ChainStoreError, Weight};
 use crate::state_manager::{Error as StateManagerError, StateManager};
@@ -59,20 +59,17 @@ pub enum FilecoinConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
-pub struct FilecoinConsensus<B> {
+pub struct FilecoinConsensus {
     /// `Drand` randomness beacon
     ///
     /// NOTE: The `StateManager` makes available a beacon as well,
     /// but it potentially has a different type.
     /// Not sure where this is utilized.
-    beacon: Arc<BeaconSchedule<B>>,
+    beacon: Arc<BeaconSchedule>,
 }
 
-impl<B> FilecoinConsensus<B>
-where
-    B: Beacon,
-{
-    pub fn new(beacon: Arc<BeaconSchedule<B>>) -> Self {
+impl FilecoinConsensus {
+    pub fn new(beacon: Arc<BeaconSchedule>) -> Self {
         Self { beacon }
     }
 
@@ -81,11 +78,11 @@ where
         state_manager: Arc<StateManager<DB>>,
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
-        validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
+        validation::validate_block::<_>(state_manager, self.beacon.clone(), block).await
     }
 }
 
-impl<B> Debug for FilecoinConsensus<B> {
+impl Debug for FilecoinConsensus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FilecoinConsensus")
             .field("beacon", &self.beacon.0.len())

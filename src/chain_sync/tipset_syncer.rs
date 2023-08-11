@@ -23,7 +23,6 @@ use crate::shim::{
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use crate::utils::io::WithProgressRaw;
 use crate::{
-    beacon::DrandBeacon,
     blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
 };
@@ -248,7 +247,7 @@ pub(in crate::chain_sync) struct TipsetProcessor<DB> {
     /// Tipsets pushed into this stream _must_ be validated beforehand by the
     /// `TipsetValidator`
     tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
@@ -264,7 +263,7 @@ where
     pub fn new(
         tracker: crate::chain_sync::chain_muxer::WorkerState,
         tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
-        consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+        consensus: Arc<FilecoinConsensus>,
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -627,7 +626,7 @@ pub(in crate::chain_sync) struct TipsetRangeSyncer<DB> {
     chain_store: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
 }
 
 impl<DB> TipsetRangeSyncer<DB>
@@ -639,7 +638,7 @@ where
         tracker: crate::chain_sync::chain_muxer::WorkerState,
         proposed_head: Arc<Tipset>,
         current_head: Arc<Tipset>,
-        consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+        consensus: Arc<FilecoinConsensus>,
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -759,7 +758,7 @@ fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     current_head: Arc<Tipset>,
     tracker: crate::chain_sync::chain_muxer::WorkerState,
     tipset_range_length: u64,
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
@@ -961,7 +960,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
 #[allow(clippy::too_many_arguments)]
 fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     proposed_head: Arc<Tipset>,
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
@@ -1074,7 +1073,7 @@ async fn fetch_batch<DB: Blockstore>(
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
     tracker: crate::chain_sync::chain_muxer::WorkerState,
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chainstore: Arc<ChainStore<DB>>,
@@ -1124,7 +1123,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
 /// ones to the bad block cache, depending on strategy. Any bad block fails
 /// validation.
 async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
     bad_block_cache: &BadBlockCache,
@@ -1208,7 +1207,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
 ///   total ordering
 /// * That the block is a deterministic derivative of the underlying consensus
 async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {

@@ -17,7 +17,6 @@ use crate::message_pool::{MessagePool, Provider};
 use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
 use crate::state_manager::StateManager;
 use crate::{
-    beacon::DrandBeacon,
     blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys},
     fil_cns::FilecoinConsensus,
 };
@@ -127,7 +126,7 @@ pub struct ChainMuxer<DB, M> {
     worker_state: WorkerState,
 
     /// Custom consensus rules.
-    consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+    consensus: Arc<FilecoinConsensus>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -166,7 +165,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        consensus: Arc<FilecoinConsensus<DrandBeacon>>,
+        consensus: Arc<FilecoinConsensus>,
         state_manager: Arc<StateManager<DB>>,
         peer_manager: Arc<PeerManager>,
         mpool: Arc<MessagePool<M>>,
