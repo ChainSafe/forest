@@ -13,6 +13,7 @@ use seed_forest_archive::archive::{
 
 fn main() -> Result<()> {
     which("forest").context("Failed to find the 'forest' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
+    which("aws").context("Failed to find the 'aws' binary.")?;
 
     let snapshots = HistoricalSnapshot::new()?;
     let highest_epoch = snapshots
@@ -42,6 +43,7 @@ fn main() -> Result<()> {
             }));
         } else {
             println!("Lite snapshot already uploaded - skipping");
+            continue;
         }
 
         for n in 0..EPOCH_STEP / DIFF_STEP {
@@ -52,6 +54,9 @@ fn main() -> Result<()> {
             if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                 store.get_range(&diff_range)?;
                 let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
+                for thread in threads.drain(..) {
+                    thread.join().unwrap()?;
+                }
                 threads.push(std::thread::spawn(move || {
                     upload_diff_snapshot(&diff_snapshot)?;
                     std::fs::remove_file(&diff_snapshot)?;
@@ -61,7 +66,7 @@ fn main() -> Result<()> {
                 println!("Diff snapshot already uploaded - skipping");
             }
         }
-        for thread in threads {
+        for thread in threads.drain(..) {
             thread.join().unwrap()?;
         }
     }

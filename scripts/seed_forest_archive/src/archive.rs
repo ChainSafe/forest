@@ -38,6 +38,7 @@ pub fn upload_lite_snapshot(path: &Path) -> Result<()> {
         .arg(super::R2_ENDPOINT)
         .arg("s3")
         .arg("cp")
+        .arg("--quiet")
         .arg(path)
         .arg("s3://forest-archive/mainnet/lite/")
         .status()?;
