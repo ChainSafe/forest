@@ -25,6 +25,7 @@ crypto
 daemon
 daemonize
 DB/S
+destructuring
 DNS
 Enum
 EOF
@@ -62,13 +63,14 @@ RPC
 SECP
 SECP256k1
 seekable
-skippable
 serializable
 serializer/SM
+skippable
 statediff
 stateful
 stderr
 stdout
+struct/SM
 synchronizer
 syscall/S
 TCP
@@ -79,8 +81,9 @@ TOML
 trie
 TTY
 uncompress
-URL
+unrepresentable
 untrusted
+URL
 validator/S
 varint
 verifier

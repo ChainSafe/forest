@@ -71,7 +71,7 @@ pub enum ArchiveCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
-        /// Do not include any values reachable from epoch-diff.
+        /// Do not include any values reachable from this epoch.
         #[arg(short, long)]
         diff: Option<ChainEpoch>,
         /// How many state-roots to include when computing the diff set. All
