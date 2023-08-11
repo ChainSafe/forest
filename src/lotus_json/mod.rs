@@ -59,7 +59,7 @@
 //!   This corresponds to the CBOR representation.
 //! - Implement [`HasLotusJson`] on the domain object.
 //!   This attaches a separate JSON type, which should implement (`#[derive(...)]`) [`serde::Serialize`] and [`serde::Deserialize`] AND conversions to and from the domain object
-//!   E.g [`GossipBlockLotusJson`]
+//!   E.g [`gossip_block`]
 //!
 //! ## Implementation notes
 //! ### Illegal states are unrepresentable
@@ -155,7 +155,7 @@ macro_rules! decl_and_test {
     }
 }
 #[cfg(doc)]
-pub(crate) use decl_and_test;
+pub(crate) use {decl_and_test, gossip_block};
 
 decl_and_test!(
     actor_state for crate::shim::state_tree::ActorState,
