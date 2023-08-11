@@ -11,6 +11,7 @@ use chrono::Utc;
 use clap::Subcommand;
 
 use crate::cli::subcommands::handle_rpc_err;
+use crate::utils::bail_moved_cmd;
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {
@@ -29,7 +30,7 @@ pub enum DBCommands {
 impl DBCommands {
     pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
-            Self::Stats => crate::bail_moved_cmd!("db stats"),
+            Self::Stats => bail_moved_cmd("db stats", "forest-tool db stats"),
             Self::GC => {
                 let start = Utc::now();
 
@@ -71,7 +72,7 @@ impl DBCommands {
 
                 Ok(())
             }
-            Self::Clean { force: _ } => crate::bail_moved_cmd!("db clean", "db destroy"),
+            Self::Clean { .. } => bail_moved_cmd("db clean", "forest-tool db destroy"),
         }
     }
 }

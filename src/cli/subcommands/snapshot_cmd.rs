@@ -7,6 +7,7 @@ use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
+use crate::utils::bail_moved_cmd;
 use crate::utils::db::car_stream::CarStream;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
@@ -178,8 +179,10 @@ impl SnapshotCommands {
                 println!("Export completed.");
                 Ok(())
             }
-            Self::Fetch { .. } => crate::bail_moved_cmd!("snapshot fetch"),
-            Self::Validate { .. } => crate::bail_moved_cmd!("snapshot validate"),
+            Self::Fetch { .. } => bail_moved_cmd("snapshot fetch", "forest-tool snapshot fetch"),
+            Self::Validate { .. } => {
+                bail_moved_cmd("snapshot validate", "forest-tool snapshot validate")
+            }
             Self::Compress {
                 source,
                 output,

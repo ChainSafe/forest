@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::cli_shared::logger;
 use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
+use crate::utils::bail_moved_cmd;
 use crate::utils::io::ProgressBar;
 use crate::{
     cli::subcommands::{cli_error_and_die, Cli},
@@ -15,23 +16,6 @@ use crate::{
 use clap::Parser;
 
 use super::subcommands::Subcommand;
-
-#[macro_export]
-macro_rules! bail_moved_cmd {
-    ($src:literal) => {
-        anyhow::bail!(
-            "Invalid subcommand: {}. It has been moved to forest-tool binary.",
-            $src
-        )
-    };
-    ($src:literal, $dst:literal) => {
-        anyhow::bail!(
-            "Invalid subcommand: {}. It has been moved to forest-tool {}.",
-            $src,
-            $dst
-        )
-    };
-}
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
@@ -67,7 +51,9 @@ where
                     }
                     // Run command
                     match cmd {
-                        Subcommand::Fetch(_cmd) => bail_moved_cmd!("fetch-params"),
+                        Subcommand::Fetch(_cmd) => {
+                            bail_moved_cmd("fetch-params", "forest-tool fetch-params")
+                        }
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,

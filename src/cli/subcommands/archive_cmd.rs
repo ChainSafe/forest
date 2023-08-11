@@ -36,6 +36,7 @@ use crate::db::car::ManyCar;
 use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
+use crate::utils::bail_moved_cmd;
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
@@ -86,7 +87,7 @@ pub enum ArchiveCommands {
 impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
-            Self::Info { .. } => crate::bail_moved_cmd!("archive info"),
+            Self::Info { .. } => bail_moved_cmd("archive info", "forest-tool archive info"),
             Self::Export {
                 snapshot_files,
                 output_path,
