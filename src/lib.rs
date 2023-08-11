@@ -24,7 +24,7 @@ mod chain_sync;
 mod cli;
 mod cli_shared;
 mod daemon;
-pub mod db;
+mod db;
 mod fil_cns;
 mod genesis;
 mod interpreter;
@@ -49,7 +49,7 @@ mod statediff;
 #[cfg(test)]
 mod test_utils;
 mod tool;
-pub mod utils;
+mod utils;
 
 pub mod build {
     pub use super::r#mod::*;
