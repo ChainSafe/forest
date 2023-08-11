@@ -1369,7 +1369,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
                 // But there's no reason `validate_block` couldn't return a list of all
                 // errors instead of a single one that has all the error messages,
                 // removing the caller's ability to distinguish between them.
-                let errs = errs.map(|err| TipsetRangeSyncerError::ConsensusError(err));
+                let errs = errs.map(TipsetRangeSyncerError::ConsensusError);
 
                 TipsetRangeSyncerError::concat(errs)
             })
