@@ -1981,18 +1981,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "escargot"
-version = "0.5.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "768064bd3a0e2bedcba91dc87ace90beea91acc41b6a01a3ca8e9aa8827461bf"
-dependencies = [
- "log",
- "once_cell",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2573,7 +2561,6 @@ dependencies = [
  "dialoguer",
  "digest 0.10.7",
  "directories",
- "escargot",
  "fil_actor_account_state",
  "fil_actor_cron_state",
  "fil_actor_datacap_state",
