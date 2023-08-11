@@ -36,6 +36,10 @@ fn main() -> Result<()> {
         if !has_lite_snapshot(epoch)? {
             store.get_range(&initial_range)?;
             let lite_snapshot = forest::export(epoch, store.files())?;
+            // check again after we've downloaded/converted the snapshot.
+            if has_lite_snapshot(epoch)? {
+                continue;
+            }
             threads.push(std::thread::spawn(move || {
                 upload_lite_snapshot(&lite_snapshot)?;
                 std::fs::remove_file(&lite_snapshot)?;
