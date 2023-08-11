@@ -79,7 +79,7 @@ mod tests {
     fn state_setup() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
-            beacon: Box::new(MockBeacon::default()),
+            beacon: Box::<MockBeacon>::default(),
         }]));
 
         let (network_send, network_rx) = flume::bounded(5);
