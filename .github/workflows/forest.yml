@@ -87,8 +87,6 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -112,8 +110,6 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -141,8 +137,6 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -166,8 +160,6 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -193,8 +185,6 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -216,8 +206,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-        with:
-          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
