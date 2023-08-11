@@ -343,7 +343,7 @@ fn new<DB: Blockstore + Send + Sync, T: Iterator<Item = Tipset> + Unpin>(
         stateroot_limit,
         fail_on_dead_links,
         prefetch_worker_count: Arc::new(AtomicI8::default()),
-        max_prefetch_worker_count: (num_cpus::get() * 3) as i8,
+        max_prefetch_worker_count: 2,
     }
 }
 
@@ -391,6 +391,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 let db = this.db.clone();
                                 let count = this.prefetch_worker_count.clone();
                                 let seen = this.seen.clone();
+                                this.prefetch_worker_count.fetch_add(1, Ordering::SecCst);
                                 task::spawn_blocking(move || {
                                     for cid in cid_vec_prefetch {
                                         if seen.read().exists(cid) {
@@ -398,7 +399,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                         }
                                         let _ = db.get(&cid);
                                     }
-                                    count.fetch_sub(1, Ordering::Relaxed);
+                                    count.fetch_sub(1, Ordering::SecCst);
                                 });
                             }
                         }
