@@ -50,53 +50,58 @@ async fn main() -> anyhow::Result<()> {
 
 async fn generate_compressed_actor_bundles() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=src/mod.rs");
-    println!(
-        "cargo:rerun-if-changed={}",
-        ACTOR_BUNDLE_CACHE_DIR.display()
-    );
+    let merged_bundle_path = Path::new(&env::var("OUT_DIR")?).join("actor_bundles.car.zst");
+    if is_docs_rs_build() {
+        // Creates a dummy file for docs.rs build
+        std::fs::write(merged_bundle_path, "dummy bundle for docs.rs")?;
+    } else {
+        println!(
+            "cargo:rerun-if-changed={}",
+            ACTOR_BUNDLE_CACHE_DIR.display()
+        );
 
-    let mut tasks = JoinSet::new();
-    for ActorBundleInfo { manifest, url } in ACTOR_BUNDLES.iter() {
-        tasks.spawn(async move {
-            download_bundle_if_needed(manifest, url)
-                .await
-                .with_context(|| format!("Failed to get {manifest}.car from {url}"))
-        });
+        let mut tasks = JoinSet::new();
+        for ActorBundleInfo { manifest, url } in ACTOR_BUNDLES.iter() {
+            tasks.spawn(async move {
+                download_bundle_if_needed(manifest, url)
+                    .await
+                    .with_context(|| format!("Failed to get {manifest}.car from {url}"))
+            });
+        }
+
+        let mut car_roots = vec![];
+        let mut car_readers = vec![];
+        while let Some(path) = tasks.join_next().await {
+            let car_reader = fvm_ipld_car::CarReader::new(futures::io::BufReader::new(
+                async_fs::File::open(path??).await?,
+            ))
+            .await?;
+            car_roots.extend_from_slice(car_reader.header.roots.as_slice());
+            car_readers.push(car_reader);
+        }
+
+        let car_writer = CarHeader::from(
+            car_readers
+                .iter()
+                .flat_map(|it| it.header.roots.iter())
+                .unique()
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+
+        let mut zstd_encoder = ZstdEncoder::with_quality(
+            async_fs::File::create(merged_bundle_path).await?,
+            if cfg!(debug_assertions) {
+                async_compression::Level::Default
+            } else {
+                async_compression::Level::Precise(17)
+            },
+        );
+
+        car_writer
+            .write_stream_async(&mut zstd_encoder, &mut pin!(merge_car_readers(car_readers)))
+            .await?;
     }
-
-    let mut car_roots = vec![];
-    let mut car_readers = vec![];
-    while let Some(path) = tasks.join_next().await {
-        let car_reader = fvm_ipld_car::CarReader::new(futures::io::BufReader::new(
-            async_fs::File::open(path??).await?,
-        ))
-        .await?;
-        car_roots.extend_from_slice(car_reader.header.roots.as_slice());
-        car_readers.push(car_reader);
-    }
-
-    let car_writer = CarHeader::from(
-        car_readers
-            .iter()
-            .flat_map(|it| it.header.roots.iter())
-            .unique()
-            .cloned()
-            .collect::<Vec<_>>(),
-    );
-
-    let mut zstd_encoder = ZstdEncoder::with_quality(
-        async_fs::File::create(Path::new(&env::var("OUT_DIR")?).join("actor_bundles.car.zst"))
-            .await?,
-        if cfg!(debug_assertions) {
-            async_compression::Level::Default
-        } else {
-            async_compression::Level::Precise(17)
-        },
-    );
-
-    car_writer
-        .write_stream_async(&mut zstd_encoder, &mut pin!(merge_car_readers(car_readers)))
-        .await?;
 
     Ok(())
 }
@@ -196,4 +201,9 @@ fn get_proto_inputs() -> anyhow::Result<Vec<PathBuf>> {
         }
     }
     Ok(inputs)
+}
+
+/// https://docs.rs/about/builds#detecting-docsrs
+fn is_docs_rs_build() -> bool {
+    std::env::var("DOCS_RS").is_ok()
 }
