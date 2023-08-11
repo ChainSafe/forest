@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -56,6 +58,8 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -83,6 +87,8 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -106,6 +112,8 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -133,6 +141,8 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -156,6 +166,8 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -181,6 +193,8 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -202,6 +216,8 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}

@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+        with:
+          lfs: true
       - name: Apt Dependencies
         if: contains(matrix.os, 'ubuntu')
         uses: nick-fields/retry@v2
