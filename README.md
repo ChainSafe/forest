@@ -60,6 +60,7 @@ Install [rustup](https://rustup.rs/)
 
 - OS Base-Devel/Build-Essential
 - Clang compiler
+- [git-lfs](https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md)
 
 ### Ubuntu (20.04)
 
