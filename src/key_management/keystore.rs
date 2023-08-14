@@ -73,7 +73,6 @@ impl KeyInfo {
 }
 
 pub mod json {
-    use crate::json::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     use super::*;
@@ -95,8 +94,8 @@ pub mod json {
     }
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
-        #[serde(rename = "Type")]
-        sig_type: SignatureTypeJson,
+        #[serde(rename = "Type", with = "crate::lotus_json")]
+        sig_type: SignatureType,
         #[serde(rename = "PrivateKey")]
         private_key: String,
     }
@@ -106,7 +105,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: SignatureTypeJson(k.key_type),
+            sig_type: k.key_type,
             private_key: BASE64_STANDARD.encode(&k.private_key),
         }
         .serialize(serializer)
@@ -121,7 +120,7 @@ pub mod json {
             private_key,
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
-            key_type: sig_type.0,
+            key_type: sig_type,
             private_key: BASE64_STANDARD
                 .decode(private_key)
                 .map_err(de::Error::custom)?,

@@ -279,11 +279,10 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use crate::json::{
-        address::json::AddressJson,
-        signature::json::{signature_type::SignatureTypeJson, SignatureJson},
-    };
+    use crate::json::address::json::AddressJson;
     use crate::key_management::json::KeyInfoJson;
+    use crate::lotus_json::LotusJson;
+    use crate::shim::crypto::{Signature, SignatureType};
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);
@@ -310,7 +309,7 @@ pub mod wallet_api {
     pub type WalletListResult = Vec<AddressJson>;
 
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-    pub type WalletNewParams = (SignatureTypeJson,);
+    pub type WalletNewParams = (LotusJson<SignatureType>,);
     pub type WalletNewResult = String;
 
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
@@ -319,10 +318,10 @@ pub mod wallet_api {
 
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
     pub type WalletSignParams = (AddressJson, Vec<u8>);
-    pub type WalletSignResult = SignatureJson;
+    pub type WalletSignResult = LotusJson<Signature>;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (AddressJson, Vec<u8>, SignatureJson);
+    pub type WalletVerifyParams = (AddressJson, Vec<u8>, LotusJson<Signature>);
     pub type WalletVerifyResult = bool;
 }
 
