@@ -10,10 +10,10 @@ use futures::{Stream, StreamExt};
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use std::io::{self, Cursor, SeekFrom};
+use std::io::{self, Cursor};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead};
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
 
@@ -75,42 +75,26 @@ pin_project! {
     }
 }
 
-impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
+// This method checks the header in order to see whether or not we are operating on a zstd
+// archive. The zstd header has a maximum size of 18 bytes:
+// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
+fn is_zstd(buf: &[u8]) -> bool {
+    zstd_safe::get_frame_content_size(buf).is_ok()
+}
+
+impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
     pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
-        let start_position = reader.stream_position().await?;
-        if let Some(header) = read_header(&mut reader).await {
-            reader.seek(SeekFrom::Start(start_position)).await?;
-            let mut framed_reader = FramedRead::new(Either::Left(reader), UviBytes::default());
-            let _ = framed_reader.next().await;
-            Ok(CarStream {
-                reader: framed_reader,
-                header,
-            })
-        } else {
-            reader.seek(SeekFrom::Start(start_position)).await?;
+        let is_compressed = is_zstd(reader.fill_buf().await?);
+        let mut reader = if is_compressed {
             let mut zstd = ZstdDecoder::new(reader);
             zstd.multiple_members(true);
-            if let Some(header) = read_header(&mut zstd).await {
-                let mut reader = zstd.into_inner();
-
-                reset_bufread(&mut reader).await?;
-
-                reader.seek(SeekFrom::Start(start_position)).await?;
-                let mut zstd = ZstdDecoder::new(reader);
-                zstd.multiple_members(true);
-                let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
-                let _ = framed_reader.next().await;
-                Ok(CarStream {
-                    reader: framed_reader,
-                    header,
-                })
-            } else {
-                Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "CAR data not recognized",
-                ))
-            }
-        }
+            FramedRead::new(Either::Right(zstd), UviBytes::default())
+        } else {
+            FramedRead::new(Either::Left(reader), UviBytes::default())
+        };
+        let header = read_header(&mut reader).await.ok_or(io::Error::new(io::ErrorKind::InvalidData, "invalid header block"))?;
+        // TODO: Parse the first block and check if it is valid.
+        Ok(CarStream { reader, header })
     }
 }
 
@@ -137,30 +121,17 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
     }
 }
 
-async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option<CarHeader> {
-    let mut framed_reader = FramedRead::new(reader, UviBytes::default());
+async fn read_header<ReaderT: AsyncRead + Unpin>(framed_reader: &mut FramedRead<ReaderT, UviBytes>) -> Option<CarHeader> {
     let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
     if header.version != 1 {
         return None;
     }
-    let first_block = Block::from_bytes(framed_reader.next().await?.ok()?)?;
-    if !first_block.valid() {
-        return None;
-    }
+    // let first_block = Block::from_bytes(framed_reader.next().await?.ok()?)?;
+    // if !first_block.valid() {
+    //     return None;
+    // }
 
     Some(header)
-}
-
-// Seeking fails after we've used the Reader for zstd decoding. Flushing the
-// buffer "fixes" the problem.
-async fn reset_bufread<ReaderT: AsyncBufRead + Unpin>(mut reader: &mut ReaderT) -> io::Result<()> {
-    let size = futures::future::poll_fn(|cx| {
-        let buf = futures::ready!(Pin::new(&mut reader).poll_fill_buf(cx))?;
-        Poll::Ready(Ok::<usize, io::Error>(buf.len()))
-    })
-    .await?;
-    Pin::new(&mut reader).consume(size);
-    Ok(())
 }
 
 #[cfg(test)]
