@@ -73,27 +73,6 @@ pub mod json {
             ),
         })
     }
-
-    pub mod opt {
-        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-        use super::*;
-
-        pub fn serialize<S>(v: &Option<Ticket>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            v.as_ref().map(TicketJsonRef).serialize(serializer)
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Ticket>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let s: Option<TicketJson> = Deserialize::deserialize(deserializer)?;
-            Ok(s.map(|v| v.0))
-        }
-    }
 }
 
 #[cfg(test)]

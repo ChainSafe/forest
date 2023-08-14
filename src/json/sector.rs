@@ -76,32 +76,6 @@ pub mod json {
         let post_proof = PoStProof::new(reg_post_proof, proof_bytes);
         Ok(post_proof)
     }
-
-    pub mod vec {
-        use crate::shim::sector::PoStProof;
-        use crate::utils::json::GoVecVisitor;
-        use serde::ser::SerializeSeq;
-
-        use super::*;
-
-        pub fn serialize<S>(m: &[PoStProof], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let mut seq = serializer.serialize_seq(Some(m.len()))?;
-            for e in m {
-                seq.serialize_element(&PoStProofJsonRef(e))?;
-            }
-            seq.end()
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PoStProof>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_any(GoVecVisitor::<PoStProof, PoStProofJson>::new())
-        }
-    }
 }
 
 #[cfg(test)]

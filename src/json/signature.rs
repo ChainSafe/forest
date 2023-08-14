@@ -46,27 +46,6 @@ pub mod json {
         ))
     }
 
-    pub mod opt {
-        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-        use super::{Signature, SignatureJson, SignatureJsonRef};
-
-        pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            v.as_ref().map(SignatureJsonRef).serialize(serializer)
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let s: Option<SignatureJson> = Deserialize::deserialize(deserializer)?;
-            Ok(s.map(|v| v.0))
-        }
-    }
-
     pub mod signature_type {
         use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

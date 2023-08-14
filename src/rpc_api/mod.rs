@@ -158,7 +158,7 @@ pub mod beacon_api {
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use crate::blocks::{header::json::BlockHeaderJson, Tipset, TipsetKeys};
+    use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
     use crate::json::{cid::CidJson, message::json::MessageJson};
     use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
@@ -213,7 +213,7 @@ pub mod chain_api {
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub type ChainGetBlockParams = (CidJson,);
-    pub type ChainGetBlockResult = BlockHeaderJson;
+    pub type ChainGetBlockResult = LotusJson<BlockHeader>;
 
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
     pub type ChainGetTipSetParams = (LotusJson<TipsetKeys>,);

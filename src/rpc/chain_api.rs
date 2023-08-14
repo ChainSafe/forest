@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{header::json::BlockHeaderJson, BlockHeader, Tipset};
+use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
 use crate::json::{cid::CidJson, message::json::MessageJson};
@@ -216,7 +216,7 @@ where
         .blockstore()
         .get_cbor(&blk_cid)?
         .ok_or("can't find BlockHeader with that cid")?;
-    Ok(BlockHeaderJson(blk))
+    Ok(blk.into())
 }
 
 pub(in crate::rpc) async fn chain_get_tipset<DB>(

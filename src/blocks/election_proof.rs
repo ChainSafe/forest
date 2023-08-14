@@ -238,27 +238,6 @@ pub mod json {
             vrfproof,
         })
     }
-
-    pub mod opt {
-        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-        use super::{ElectionProof, ElectionProofJson, ElectionProofJsonRef};
-
-        pub fn serialize<S>(v: &Option<ElectionProof>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            v.as_ref().map(ElectionProofJsonRef).serialize(serializer)
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<ElectionProof>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let s: Option<ElectionProofJson> = Deserialize::deserialize(deserializer)?;
-            Ok(s.map(|v| v.0))
-        }
-    }
 }
 
 #[cfg(test)]
