@@ -6,8 +6,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
 pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>> {
-    pub const ACTOR_BUNDLES_CAR_ZST: &[u8] =
-        include_bytes!(concat!(env!("OUT_DIR"), "/actor_bundles.car.zst"));
+    pub const ACTOR_BUNDLES_CAR_ZST: &[u8] = include_bytes!("../../assets/actor_bundles.car.zst");
 
     Ok(fvm_ipld_car::load_car(
         db,
