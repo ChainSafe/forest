@@ -220,3 +220,19 @@ where
     let ret = sig.verify(&msg, &address).is_ok();
     Ok(ret)
 }
+
+/// Deletes a wallet given its address.
+pub(in crate::rpc) async fn wallet_delete<DB>(
+    data: Data<RPCState<DB>>,
+    Params(params): Params<WalletDeleteParams>,
+) -> Result<WalletDeleteResult, JsonRpcError>
+where
+    DB: Blockstore,
+{
+    let (addr_str,) = params;
+    let mut keystore = data.keystore.write().await;
+    let addr = Address::from_str(&addr_str)?;
+    crate::key_management::remove_key(&addr, &mut keystore)?;
+
+    Ok(())
+}

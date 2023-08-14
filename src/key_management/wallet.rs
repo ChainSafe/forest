@@ -194,6 +194,16 @@ pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
     Ok(new_key)
 }
 
+/// Returns a key corresponding to given address
+pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> {
+    let key_string = format!("wallet-{addr}");
+    keystore
+        .remove(key_string)
+        .map_err(|_| Error::KeyNotExists)?;
+    println!("wallet {} deleted", addr.to_string());
+    Ok(())
+}
+
 pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
     let key_string = format!("wallet-{addr}");
     match keystore.get(&key_string) {

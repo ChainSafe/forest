@@ -96,6 +96,12 @@ pub enum WalletCommands {
         #[arg(short)]
         signature: String,
     },
+    /// Deletes the wallet assoicated with the given address.
+    Delete {
+        /// The address used to sign the message
+        #[arg(short)]
+        address: String,
+    },
 }
 
 impl WalletCommands {
@@ -144,6 +150,13 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("{response}");
+                Ok(())
+            }
+            Self::Delete { address } => {
+                wallet_delete((address.to_string(),), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                println!("deleted {address}.");
                 Ok(())
             }
             Self::Import { path } => {
