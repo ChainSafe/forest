@@ -776,7 +776,11 @@ async fn import_chain_as_forest_car(
         writer.flush().await?;
     }
 
-    info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    info!(
+        "Imported snapshot in: {}s, tipset epoch: {}",
+        stopwatch.elapsed().as_secs(),
+        ts.epoch()
+    );
     Ok(ts)
 }
 
