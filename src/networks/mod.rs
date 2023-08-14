@@ -292,7 +292,7 @@ impl ChainConfig {
     }
 
     pub fn is_testnet(&self) -> bool {
-        !matches!(self.network, NetworkChain::Mainnet)
+        self.network.is_testnet()
     }
 }
 
