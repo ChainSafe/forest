@@ -4,7 +4,6 @@
 pub mod address;
 pub mod cid;
 pub mod message;
-pub mod sector;
 pub mod signature;
 pub mod token_amount;
 pub mod vrf;
