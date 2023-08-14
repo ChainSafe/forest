@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKeys;
+use crate::ipld::FrozenCids;
+use ::cid::Cid;
 
 use super::*;
 
@@ -15,7 +17,7 @@ impl HasLotusJson for TipsetKeys {
         vec![(
             json!([{"/": "baeaaaaa"}]),
             TipsetKeys {
-                cids: vec![::cid::Cid::default()],
+                cids: FrozenCids::from(vec![::cid::Cid::default()]),
             },
         )]
     }
@@ -24,13 +26,13 @@ impl HasLotusJson for TipsetKeys {
 impl From<TipsetKeys> for TipsetKeysLotusJson {
     fn from(value: TipsetKeys) -> Self {
         let TipsetKeys { cids } = value;
-        Self(cids.into())
+        Self(VecLotusJson::<CidLotusJson>::from(Vec::<Cid>::from(cids)))
     }
 }
 
 impl From<TipsetKeysLotusJson> for TipsetKeys {
     fn from(value: TipsetKeysLotusJson) -> Self {
         let TipsetKeysLotusJson(cids) = value;
-        Self { cids: cids.into() }
+        Self { cids: FrozenCids::from(Vec::<Cid>::from(cids)) }
     }
 }

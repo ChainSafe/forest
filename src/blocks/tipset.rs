@@ -564,8 +564,8 @@ mod property_tests {
 
 #[cfg(test)]
 mod test {
-    use crate::ipld::FrozenCids;
     use crate::blocks::VRFProof;
+    use crate::ipld::FrozenCids;
     use crate::shim::address::Address;
     use cid::{
         multihash::{Code::Identity, MultihashDigest},
