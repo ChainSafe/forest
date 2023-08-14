@@ -146,12 +146,13 @@ pub mod auth_api {
 
 /// Beacon API
 pub mod beacon_api {
-    use crate::beacon::json::BeaconEntryJson;
+    use crate::beacon::BeaconEntry;
+    use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
     pub type BeaconGetEntryParams = (ChainEpoch,);
-    pub type BeaconGetEntryResult = BeaconEntryJson;
+    pub type BeaconGetEntryResult = LotusJson<BeaconEntry>;
 }
 
 /// Chain API
