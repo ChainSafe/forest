@@ -11,7 +11,3 @@ pub mod signature;
 pub mod signed_message;
 pub mod token_amount;
 pub mod vrf;
-#[cfg(test)]
-mod tests {
-    mod address_test;
-}
