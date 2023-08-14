@@ -24,6 +24,15 @@ impl Store {
         self.local.values().map(|tmp| tmp.deref()).collect()
     }
 
+    pub fn in_range<'a>(&'a self, range: &'a RangeInclusive<ChainEpoch>) -> impl Iterator<Item = &'a HistoricalSnapshot> + 'a {
+        self.known_snapshots.iter().filter(|snapshot| {
+            range.contains(snapshot.epoch_range.start())
+                || range.contains(snapshot.epoch_range.end())
+                || snapshot.epoch_range.contains(range.start())
+                || snapshot.epoch_range.contains(range.end())
+        })
+    }
+
     pub fn get_range(&mut self, range: &RangeInclusive<ChainEpoch>) -> Result<()> {
         self.drop_before(*range.start())?;
         println!("Get range: {:?}", range);

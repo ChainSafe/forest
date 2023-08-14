@@ -8,7 +8,7 @@ use nom::{
 };
 use std::ops::RangeInclusive;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Stdio, Command, Child};
 use std::str::FromStr;
 
 use super::{ChainEpoch, R2_ENDPOINT};
@@ -74,6 +74,26 @@ impl HistoricalSnapshot {
             .status()?;
         anyhow::ensure!(status.success());
         Ok(())
+    }
+
+    // Download and encode
+    pub fn encode(&self) -> Result<Child> {
+        let mut curl = Command::new("curl")
+            .arg(format!(
+                "https://forest-archive.chainsafe.dev/historical/{}",
+                self.path
+            ))
+            .arg("--silent")
+            .stdout(Stdio::piped())
+            .spawn()?;
+        Ok(Command::new("forest-cli")
+            .arg("snapshot")
+            .arg("compress")
+            .arg("-")
+            .arg("--output")
+            .arg(&self.path)
+            .stdin(curl.stdout.take().unwrap())
+            .spawn()?)
     }
 
     pub fn path(&self) -> &str {

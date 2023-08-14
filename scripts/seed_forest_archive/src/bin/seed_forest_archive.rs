@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let mut rng = rand::thread_rng();
     let mut store = Store::new(snapshots.clone());
     loop {
-        let mut threads = vec![];
+        // let mut threads = vec![];
 
         let round = rng.gen::<ChainEpoch>() % max_round;
         println!("Round {round}");
@@ -35,16 +35,16 @@ fn main() -> Result<()> {
 
         if !has_lite_snapshot(epoch)? {
             store.get_range(&initial_range)?;
-            let lite_snapshot = forest::export(epoch, store.files())?;
+            // let lite_snapshot = forest::export(epoch, store.files())?;
             // check again after we've downloaded/converted the snapshot.
             if has_lite_snapshot(epoch)? {
                 continue;
             }
-            threads.push(std::thread::spawn(move || {
-                upload_lite_snapshot(&lite_snapshot)?;
-                std::fs::remove_file(&lite_snapshot)?;
-                anyhow::Ok(())
-            }));
+            // threads.push(std::thread::spawn(move || {
+            //     upload_lite_snapshot(&lite_snapshot)?;
+            //     std::fs::remove_file(&lite_snapshot)?;
+            //     anyhow::Ok(())
+            // }));
         } else {
             println!("Lite snapshot already uploaded - skipping");
             continue;
@@ -58,20 +58,15 @@ fn main() -> Result<()> {
             if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                 store.get_range(&diff_range)?;
                 let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
-                for thread in threads.drain(..) {
-                    thread.join().unwrap()?;
-                }
-                threads.push(std::thread::spawn(move || {
-                    upload_diff_snapshot(&diff_snapshot)?;
-                    std::fs::remove_file(&diff_snapshot)?;
-                    anyhow::Ok(())
-                }));
+                // for thread in threads.drain(..) {
+                //     thread.join().unwrap()?;
+                // }
+
+                upload_diff_snapshot(&diff_snapshot)?;
+                std::fs::remove_file(&diff_snapshot)?;
             } else {
                 println!("Diff snapshot already uploaded - skipping");
             }
-        }
-        for thread in threads.drain(..) {
-            thread.join().unwrap()?;
         }
     }
     // Ok(())

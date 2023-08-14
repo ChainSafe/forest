@@ -2,21 +2,29 @@ use super::archive::{diff_snapshot_name, lite_snapshot_name};
 use super::{ChainEpoch, ChainEpochDelta};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Stdio};
 
-pub fn export(epoch: ChainEpoch, files: Vec<&Path>) -> Result<PathBuf> {
+pub fn export(epoch: ChainEpoch, files: Vec<&str>) -> Result<Child> {
     let output_path = lite_snapshot_name(epoch);
-    let status = Command::new("forest-cli")
+    let mut export = Command::new("forest-cli")
         .arg("archive")
         .arg("export")
         .arg("--epoch")
         .arg(epoch.to_string())
         .arg("--output-path")
-        .arg(&output_path)
+        .arg("-")
         .args(files)
-        .status()?;
-    anyhow::ensure!(status.success(), "failed to export lite snapshot");
-    Ok(PathBuf::from(output_path))
+        .stdout(Stdio::piped())
+        .spawn()?;
+    Ok(Command::new("aws")
+        .arg("--endpoint")
+        .arg(super::R2_ENDPOINT)
+        .arg("s3")
+        .arg("cp")
+        .arg("-")
+        .arg(format!("s3://forest-archive/mainnet/lite/{output_path}"))
+        .stdin(export.stdout.take().unwrap())
+        .spawn()?)
 }
 
 pub fn export_diff(
