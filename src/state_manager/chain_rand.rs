@@ -3,7 +3,7 @@
 
 use std::{io::Write, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule};
+use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;

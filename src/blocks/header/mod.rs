@@ -4,7 +4,7 @@
 use std::fmt;
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule};
+use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, crypto::Signature, econ::TokenAmount, sector::PoStProof,

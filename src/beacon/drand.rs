@@ -111,17 +111,13 @@ impl BeaconSchedule {
         Ok(out)
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn beacon_for_epoch(
-        &self,
-        epoch: ChainEpoch,
-    ) -> anyhow::Result<(ChainEpoch, &Box<dyn Beacon>)> {
+    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &dyn Beacon)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
             .iter()
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
-            .map(|upgrade| (upgrade.height, &upgrade.beacon))
+            .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
             .context("Invalid beacon schedule, no valid beacon")
     }
 }
