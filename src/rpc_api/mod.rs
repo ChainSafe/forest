@@ -331,11 +331,9 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::TipsetKeys;
-    use crate::json::{
-        address::json::AddressJson, cid::CidJson, message::json::MessageJson,
-        message_receipt::json::ReceiptJson,
-    };
+    use crate::json::{address::json::AddressJson, cid::CidJson, message::json::MessageJson};
     use crate::lotus_json::LotusJson;
+    use crate::shim::executor::Receipt;
     use crate::shim::{state_tree::ActorState, version::NetworkVersion};
     use crate::state_manager::{InvocResult, MarketBalance};
     use ahash::HashMap;
@@ -373,7 +371,7 @@ pub mod state_api {
 
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub type StateGetReceiptParams = (CidJson, LotusJson<TipsetKeys>);
-    pub type StateGetReceiptResult = ReceiptJson;
+    pub type StateGetReceiptResult = LotusJson<Receipt>;
 
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub type StateWaitMsgParams = (CidJson, i64);

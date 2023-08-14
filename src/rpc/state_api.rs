@@ -174,7 +174,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         receipt.return_data().deserialize()?
     };
     Ok(MessageLookup {
-        receipt: receipt.into(),
+        receipt,
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: CidJson(cid),

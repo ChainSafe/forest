@@ -8,12 +8,13 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::ipld::json::IpldJson;
-use crate::json::{cid::CidJson, message_receipt::json::ReceiptJson, token_amount::json};
+use crate::json::{cid::CidJson, token_amount::json};
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::shim::executor::Receipt;
 use crate::shim::{econ::TokenAmount, message::Message};
 use crate::state_manager::StateManager;
 use ahash::HashSet;
@@ -83,7 +84,8 @@ pub struct MarketDeal {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
-    pub receipt: ReceiptJson,
+    #[serde(with = "crate::lotus_json")]
+    pub receipt: Receipt,
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
     pub tipset: TipsetKeys,
     pub height: i64,
