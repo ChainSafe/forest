@@ -4,10 +4,22 @@
 pub mod wallet_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
-use crate::cli_shared::cli::*;
+use crate::networks::NetworkChain;
 use crate::utils::version::FOREST_VERSION_STRING;
 use clap::Parser;
 use jsonrpc_v2::Error as JsonRpcError;
+
+/// CLI RPC options
+#[derive(Default, Debug, Parser)]
+pub struct CliRpcOpts {
+    /// Choose network chain to connect to
+    #[arg(long)]
+    pub chain: Option<NetworkChain>,
+
+    /// Admin token to interact with the node
+    #[arg(long)]
+    pub token: Option<String>,
+}
 
 /// Command-line options for the `forest-wallet` binary
 #[derive(Parser)]
@@ -15,7 +27,7 @@ use jsonrpc_v2::Error as JsonRpcError;
 #[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
     #[clap(flatten)]
-    pub opts: CliOpts,
+    pub opts: CliRpcOpts,
 
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,
