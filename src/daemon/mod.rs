@@ -740,9 +740,12 @@ async fn import_chain_as_forest_car(
             .context("`forest_car_path` should have a parent directory.")?,
     )?
     .into_temp_path();
-    let mut tmp_snapshot_writer =
-        tokio::io::BufWriter::new(tokio::fs::File::create(&forest_car_db_temp_path).await?);
-    tokio::io::copy(&mut reader, &mut tmp_snapshot_writer).await?;
+    {
+        let mut temp_snapshot_writer =
+            tokio::io::BufWriter::new(tokio::fs::File::create(&forest_car_db_temp_path).await?);
+        tokio::io::copy(&mut reader, &mut temp_snapshot_writer).await?;
+        temp_snapshot_writer.flush().await?;
+    }
 
     let (is_forest_car, ts) = {
         let car = AnyCar::new(RandomAccessFile::open(&forest_car_db_temp_path)?)?;
