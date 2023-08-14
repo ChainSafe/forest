@@ -11,6 +11,8 @@ pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
         .arg("export")
         .arg("--epoch")
         .arg(epoch.to_string())
+        .arg("--depth")
+        .arg("900")
         .arg("--output-path")
         .arg("-")
         .args(files)
