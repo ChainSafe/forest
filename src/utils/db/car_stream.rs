@@ -92,7 +92,10 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
         } else {
             FramedRead::new(Either::Left(reader), UviBytes::default())
         };
-        let header = read_header(&mut reader).await.ok_or(io::Error::new(io::ErrorKind::InvalidData, "invalid header block"))?;
+        let header = read_header(&mut reader).await.ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid header block",
+        ))?;
         // TODO: Parse the first block and check if it is valid.
         Ok(CarStream { reader, header })
     }
@@ -121,7 +124,9 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
     }
 }
 
-async fn read_header<ReaderT: AsyncRead + Unpin>(framed_reader: &mut FramedRead<ReaderT, UviBytes>) -> Option<CarHeader> {
+async fn read_header<ReaderT: AsyncRead + Unpin>(
+    framed_reader: &mut FramedRead<ReaderT, UviBytes>,
+) -> Option<CarHeader> {
     let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
     if header.version != 1 {
         return None;

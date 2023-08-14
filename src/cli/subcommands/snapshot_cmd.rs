@@ -29,6 +29,7 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use tokio_util::either::Either;
 
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
@@ -229,7 +230,11 @@ impl SnapshotCommands {
                 let destination = match output.is_dir() {
                     true => {
                         let mut destination = output;
-                        destination.push(source.clone());
+                        if source.to_string_lossy() == "-" {
+                            destination.push("stdin.car");
+                        } else {
+                            destination.push(source.clone());
+                        }
                         while let Some(ext) = destination.extension() {
                             if !(ext == "zst" || ext == "car" || ext == "forest") {
                                 break;
@@ -258,14 +263,26 @@ impl SnapshotCommands {
 
                 println!("Generating ForestCAR.zst file: {:?}", &destination);
 
-                let file = File::open(&source).await?;
-                let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
-                    ProgressStyle::with_template("{bar} {percent}%, eta: {eta}")
-                        .expect("infallible"),
-                );
-                let file = tokio::io::BufReader::new(pb.wrap_async_read(file));
+                let input = if source.to_string_lossy() == "-" {
+                    let file = tokio::io::stdin();
+                    let pb = indicatif::ProgressBar::new_spinner().with_style(
+                        indicatif::ProgressStyle::with_template(
+                            "{spinner} {total_bytes} with {binary_bytes_per_sec} in {elapsed}",
+                        )
+                        .expect("indicatif template must be valid"),
+                    );
+                    pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
+                    Either::Left(pb.wrap_async_read(file))
+                } else {
+                    let file = File::open(&source).await?;
+                    let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
+                        ProgressStyle::with_template("{bar} {percent}%, eta: {eta}")
+                            .expect("infallible"),
+                    );
+                    Either::Right(pb.wrap_async_read(file))
+                };
 
-                let mut block_stream = CarStream::new(file).await?;
+                let mut block_stream = CarStream::new(tokio::io::BufReader::new(input)).await?;
                 let roots = std::mem::take(&mut block_stream.header.roots);
 
                 let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
