@@ -56,8 +56,6 @@ pub enum FilecoinConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
-pub const FETCH_PARAMS: bool = true;
-
 pub struct FilecoinConsensus {
     /// `Drand` randomness beacon
     ///

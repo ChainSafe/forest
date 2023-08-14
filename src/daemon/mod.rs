@@ -18,7 +18,6 @@ use crate::db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
 };
-use crate::fil_cns::FETCH_PARAMS;
 use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -382,11 +381,9 @@ pub(super) async fn start(
 
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    if FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &config.client.data_dir,
-        );
-    }
+    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        &config.client.data_dir,
+    );
 
     let mut config = config;
     fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
