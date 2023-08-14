@@ -5,17 +5,19 @@ use super::*;
 use crate::shim::crypto::SignatureType;
 
 impl HasLotusJson for SignatureType {
-    type LotusJson = Self; // serialization happens to be the same here
+    // TODO: Lotus also accepts ints when deserializing this from JSON
+    //       https://github.com/filecoin-project/lotus/blob/v1.23.3/chain/types/keystore.go#L47
+    type LotusJson = Stringify<Self>;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(json!(2), SignatureType::Bls)]
+        vec![(json!("bls"), SignatureType::Bls)]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        self
+        self.into()
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        lotus_json
+        lotus_json.into_inner()
     }
 }

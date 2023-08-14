@@ -341,6 +341,17 @@ impl<T> LotusJson<Option<T>> {
     }
 }
 
+/// A struct that is (de) serialized through its [Display] and [FromStr] implementations.
+#[derive(Serialize, Deserialize, From, Default)]
+#[serde(bound = "T: Display + FromStr, T::Err: Display")]
+pub struct Stringify<T>(#[serde(with = "stringify")] pub T);
+
+impl<T> Stringify<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 macro_rules! lotus_json_with_self {
     ($($domain_ty:ty),* $(,)?) => {
         $(

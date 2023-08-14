@@ -167,12 +167,35 @@ pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str>
 
 /// Signature variants for Filecoin signatures.
 #[derive(
-    Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr, Hash,
+    Clone,
+    Debug,
+    PartialEq,
+    FromPrimitive,
+    Copy,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    Hash,
+    strum::Display,
+    strum::EnumString,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u8)]
+#[strum(serialize_all = "lowercase")]
 pub enum SignatureType {
     Secp256k1 = 1,
     Bls = 2,
     Delegated = 3,
+}
+
+#[test]
+fn test() {
+    #[track_caller]
+    fn t(t: SignatureType, s: &str) {
+        assert_eq!(t.to_string(), s);
+        assert_eq!(s.parse::<SignatureType>().unwrap(), t);
+    }
+    t(SignatureType::Bls, "bls");
+    t(SignatureType::Delegated, "delegated");
+    t(SignatureType::Secp256k1, "secp256k1")
 }
