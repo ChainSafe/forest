@@ -2,7 +2,7 @@
 # This script checks wallet features of the forest node and the forest-cli.
 # It requires both `forest` and `forest-cli` to be in the PATH.
 
-set -e
+set -euxo pipefail
 
 source "$(dirname "$0")/harness.sh"
 
