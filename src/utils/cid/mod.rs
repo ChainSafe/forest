@@ -6,6 +6,8 @@ use cid::{
     Cid, Version,
 };
 use fvm_ipld_encoding::{Error, DAG_CBOR};
+#[cfg(test)]
+use quickcheck::Arbitrary;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Extension methods for constructing `dag-cbor` [Cid]
@@ -40,10 +42,14 @@ pub const BLAKE2B256_SIZE: usize = 32;
 ///
 /// The `Generic` variant is used for CIDs that do not fit into the other variants.
 /// These variants are used for optimizing storage of CIDs in the `FrozenCids` structure.
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CidVariant {
     Generic(Box<Cid>),
-    V1DagCborBlake2b([u8; BLAKE2B256_SIZE]),
+    V1DagCborBlake2b(
+        #[cfg_attr(test, arbitrary(gen(|g: &mut quickcheck::Gen| std::array::from_fn(|_ix| Arbitrary::arbitrary(g)))))]
+         [u8; BLAKE2B256_SIZE],
+    ),
 }
 
 impl Serialize for CidVariant {
@@ -105,26 +111,12 @@ mod tests {
     use crate::utils::db::CborStoreExt;
     use anyhow::*;
     use cid::{
-        multihash::{self, Code, MultihashDigest},
+        multihash::{Code, MultihashDigest},
         Cid,
     };
     use fvm_ipld_encoding::DAG_CBOR;
-    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::mem::size_of;
-
-    impl Arbitrary for CidVariant {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs, but we can manually create them. This method will generate each variant of `CidVariant` with equal probability.
-            match bool::arbitrary(g) {
-                true => CidVariant::Generic(Box::new(Cid::arbitrary(g))),
-                false => CidVariant::from(Cid::new_v1(
-                    DAG_CBOR,
-                    multihash::Code::Blake2b256.digest(&u64::arbitrary(g).to_be_bytes()),
-                )),
-            }
-        }
-    }
 
     #[quickcheck]
     fn test_cid_cbor_ext(s: String) -> Result<()> {
