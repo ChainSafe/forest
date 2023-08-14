@@ -177,6 +177,7 @@ decl_and_test!(
     big_int for num::BigInt,
     election_proof for crate::blocks::ElectionProof,
     gossip_block for crate::blocks::GossipBlock,
+    key_info for crate::key_management::KeyInfo,
     message for crate::shim::message::Message,
     po_st_proof for crate::shim::sector::PoStProof,
     registered_po_st_proof for crate::shim::sector::RegisteredPoStProof,

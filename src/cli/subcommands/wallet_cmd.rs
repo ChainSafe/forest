@@ -6,7 +6,7 @@ use std::{
     str::{self, FromStr},
 };
 
-use crate::key_management::json::KeyInfoJson;
+use crate::key_management::KeyInfo;
 use crate::rpc_client::wallet_ops::*;
 use crate::shim::{
     address::{Protocol, StrictAddress},
@@ -163,10 +163,10 @@ impl WalletCommands {
 
                 let key_str = str::from_utf8(&decoded_key)?;
 
-                let key: KeyInfoJson =
-                    serde_json::from_str(key_str).context("invalid key format")?;
+                let LotusJson(key) = serde_json::from_str::<LotusJson<KeyInfo>>(key_str)
+                    .context("invalid key format")?;
 
-                let key = wallet_import(vec![KeyInfoJson(key.0)], &config.client.rpc_token)
+                let key = wallet_import(vec![key].into(), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 

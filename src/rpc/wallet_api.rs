@@ -4,7 +4,7 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use crate::json::address::json::AddressJson;
-use crate::key_management::{json::KeyInfoJson, Error, Key};
+use crate::key_management::{Error, Key};
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, wallet_api::*};
 use crate::shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
@@ -68,7 +68,7 @@ where
     let keystore = data.keystore.read().await;
 
     let key_info = crate::key_management::export_key_info(&addr, &keystore)?;
-    Ok(KeyInfoJson(key_info))
+    Ok(key_info.into())
 }
 
 /// Return whether or not a Key is in the Wallet
@@ -96,10 +96,11 @@ pub(in crate::rpc) async fn wallet_import<DB>(
 where
     DB: Blockstore,
 {
-    let key_info: crate::key_management::KeyInfo = match params.first().cloned() {
-        Some(key_info) => key_info.into(),
-        None => return Err(JsonRpcError::INTERNAL_ERROR),
-    };
+    let key_info = params
+        .into_inner()
+        .into_iter()
+        .next()
+        .ok_or(JsonRpcError::INTERNAL_ERROR)?;
 
     let key = Key::try_from(key_info)?;
 

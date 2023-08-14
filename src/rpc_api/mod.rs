@@ -279,7 +279,7 @@ pub mod sync_api {
 /// Wallet API
 pub mod wallet_api {
     use crate::json::address::json::AddressJson;
-    use crate::key_management::json::KeyInfoJson;
+    use crate::key_management::KeyInfo;
     use crate::lotus_json::LotusJson;
     use crate::shim::crypto::{Signature, SignatureType};
 
@@ -293,14 +293,14 @@ pub mod wallet_api {
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
     pub type WalletExportParams = (String,);
-    pub type WalletExportResult = KeyInfoJson;
+    pub type WalletExportResult = LotusJson<KeyInfo>;
 
     pub const WALLET_HAS: &str = "Filecoin.WalletHas";
     pub type WalletHasParams = (String,);
     pub type WalletHasResult = bool;
 
     pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-    pub type WalletImportParams = Vec<KeyInfoJson>;
+    pub type WalletImportParams = LotusJson<Vec<KeyInfo>>;
     pub type WalletImportResult = String;
 
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
