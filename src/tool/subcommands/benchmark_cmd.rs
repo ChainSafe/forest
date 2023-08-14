@@ -33,7 +33,7 @@ pub enum BenchmarkCommands {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
-        /// Whether or not we want to expect IPLD data for each block.
+        /// Whether or not we want to expect [`Ipld`] data for each block.
         #[arg(long)]
         inspect: bool,
     },
