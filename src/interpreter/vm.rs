@@ -67,8 +67,6 @@ pub struct BlockMessages {
 }
 
 impl BlockMessages {
-    // FIXME: This function doesn't use the chain store at all.
-    //        Tracking issue: https://github.com/ChainSafe/forest/issues/3208
     /// Retrieves block messages to be passed through the VM and removes duplicate messages which appear in multiple blocks.
     pub fn for_tipset(db: impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
