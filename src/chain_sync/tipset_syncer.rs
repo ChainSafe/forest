@@ -1075,7 +1075,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
         // Chunk tipsets in batches (default batch size is 8)
         .chunks(request_window)
         // Request batches from the p2p network
-        .map(|batch| fetch_batch::<_>(batch, &network, db))
+        .map(|batch| fetch_batch(batch, &network, db))
         // run 64 batches concurrently
         .buffered(64)
         // validate each full tipset in each batch
@@ -1083,7 +1083,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
             for full_tipset in batch {
                 let current_epoch = full_tipset.epoch();
                 let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
-                validate_tipset::<_>(
+                validate_tipset(
                     state_manager.clone(),
                     &chainstore,
                     bad_block_cache,
@@ -1132,8 +1132,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     for b in blocks {
-        let validation_fn =
-            tokio::task::spawn(validate_block::<_>(state_manager.clone(), Arc::new(b)));
+        let validation_fn = tokio::task::spawn(validate_block(state_manager.clone(), Arc::new(b)));
         validations.push(validation_fn);
     }
 
@@ -1248,7 +1247,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     let validations = FuturesUnordered::new();
 
     // Check block messages
-    validations.push(tokio::task::spawn(check_block_messages::<_>(
+    validations.push(tokio::task::spawn(check_block_messages(
         Arc::clone(&state_manager),
         Arc::clone(&block),
         Arc::clone(&base_tipset),
