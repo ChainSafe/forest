@@ -12,8 +12,14 @@ use serde::{Deserialize, Serialize};
 /// `Generic(Box<Cid>)` variant of `CidVariant`.
 ///
 /// We use `Box<[...]>` to save memory, avoiding vector overallocation.
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct FrozenCids(Box<[CidVariant]>);
+pub struct FrozenCids(
+    #[cfg_attr(test, arbitrary(gen(
+    |g| Box::new([CidVariant::arbitrary(g)]))
+))]
+    Box<[CidVariant]>,
+);
 
 impl Default for FrozenCids {
     fn default() -> Self {
@@ -98,30 +104,7 @@ impl FrozenCids {
 #[cfg(test)]
 mod test {
     use super::*;
-    use cid::multihash::{self, MultihashDigest};
-    use fvm_ipld_encoding::DAG_CBOR;
-    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
-
-    impl Arbitrary for FrozenCids {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            // Although the vast majority of CIDs are V1DagCborBlake2b, we want to generate the variants of FrozenCids with equal probability.
-            if bool::arbitrary(g) {
-                Vec::arbitrary(g).into_iter().collect()
-            } else {
-                // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs, but we can manually create them from an arbitrary Vec<u32>.
-                let vec: Vec<u32> = Vec::arbitrary(g);
-                vec.into_iter()
-                    .map(|bytes| {
-                        Cid::new_v1(
-                            DAG_CBOR,
-                            multihash::Code::Blake2b256.digest(&bytes.to_be_bytes()),
-                        )
-                    })
-                    .collect()
-            }
-        }
-    }
 
     #[quickcheck]
     fn cidvec_to_vec_of_cids_to_cidvec(cidvec: FrozenCids) {
