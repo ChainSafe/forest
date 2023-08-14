@@ -27,7 +27,7 @@ bls-signatures = { version = "0.13", default-features = false, features = [
 boa_engine = { version = "0.16.0", features = ["console"] }
 byteorder = "1.4.3"
 bytes = "1.2"
-cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }
+cbor4ii = { version = "0.3.1", default-features = false, features = ["use_alloc", "use_std"] }
 cfg-if = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
