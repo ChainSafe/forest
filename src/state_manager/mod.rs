@@ -170,7 +170,7 @@ impl TipsetStateCache {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "crate::json::message::json")]
+    #[serde(with = "crate::lotus_json")]
     pub msg: Message,
     #[serde(with = "crate::lotus_json")]
     pub msg_rct: Option<Receipt>,

@@ -5,10 +5,7 @@
 use std::convert::TryFrom;
 
 use crate::blocks::TipsetKeys;
-use crate::json::{
-    cid::{vec::CidJsonVec, CidJson},
-    message::json::MessageJson,
-};
+use crate::json::cid::{vec::CidJsonVec, CidJson};
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc_api::{data_types::RPCState, mpool_api::*};
@@ -100,7 +97,7 @@ pub(in crate::rpc) async fn mpool_push_message<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(umsg), spec) = params;
+    let (LotusJson(umsg), spec) = params;
 
     let from = umsg.from;
 

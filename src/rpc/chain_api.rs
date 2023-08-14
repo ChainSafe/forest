@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
-use crate::json::{cid::CidJson, message::json::MessageJson};
+use crate::json::cid::CidJson;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,
@@ -36,7 +36,7 @@ where
         .blockstore()
         .get_cbor(&msg_cid)?
         .ok_or("can't find message with that cid")?;
-    Ok(MessageJson(ret))
+    Ok(LotusJson(ret))
 }
 
 pub(in crate::rpc) async fn chain_export<DB>(

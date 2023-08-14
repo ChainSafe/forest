@@ -3,6 +3,5 @@
 
 pub mod address;
 pub mod cid;
-pub mod message;
 pub mod token_amount;
 pub mod vrf;

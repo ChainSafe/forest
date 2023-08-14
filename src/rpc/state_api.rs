@@ -38,7 +38,7 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
 ) -> Result<StateCallResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (message_json, LotusJson(key)) = params;
-    let mut message = message_json.into();
+    let mut message = message_json.into_inner();
     let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
     Ok(state_manager.call(&mut message, Some(tipset))?)
 }

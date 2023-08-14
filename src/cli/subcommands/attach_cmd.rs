@@ -7,6 +7,14 @@ use std::{
     str::FromStr,
 };
 
+use super::Config;
+use crate::chain_sync::SyncStage;
+use crate::cli::humantoken;
+use crate::lotus_json::LotusJson;
+use crate::rpc_api::mpool_api::MpoolPushMessageResult;
+use crate::rpc_client::node_ops::node_status;
+use crate::rpc_client::*;
+use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
 use boa_engine::{
     object::{builtins::JsArray, FunctionObjectBuilder},
     prelude::JsObject,
@@ -22,15 +30,6 @@ use rustyline::{config::Config as RustyLineConfig, history::FileHistory, EditMod
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::time;
-
-use super::Config;
-use crate::chain_sync::SyncStage;
-use crate::cli::humantoken;
-use crate::json::message::json::MessageJson;
-use crate::rpc_api::mpool_api::MpoolPushMessageResult;
-use crate::rpc_client::node_ops::node_status;
-use crate::rpc_client::*;
-use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
 
 #[derive(Debug, clap::Args)]
 pub struct AttachCommand {
@@ -234,7 +233,7 @@ async fn send_message(
         humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
     );
 
-    let json_message = MessageJson(message);
+    let json_message = LotusJson(message);
     mpool_push_message((json_message, None), auth_token).await
 }
 

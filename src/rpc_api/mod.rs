@@ -160,16 +160,17 @@ pub mod chain_api {
     use std::path::PathBuf;
 
     use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
-    use crate::json::{cid::CidJson, message::json::MessageJson};
+    use crate::json::cid::CidJson;
     use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
+    use crate::shim::message::Message;
     use serde::{Deserialize, Serialize};
 
     use crate::rpc_api::data_types::BlockMessages;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
-    pub type ChainGetMessageResult = MessageJson;
+    pub type ChainGetMessageResult = LotusJson<Message>;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
 
@@ -236,11 +237,9 @@ pub mod chain_api {
 /// Message Pool API
 pub mod mpool_api {
     use crate::rpc_api::data_types::MessageSendSpec;
+    use crate::shim::message::Message;
     use crate::{
-        json::{
-            cid::{vec::CidJsonVec, CidJson},
-            message::json::MessageJson,
-        },
+        json::cid::{vec::CidJsonVec, CidJson},
         lotus_json::LotusJson,
         message::SignedMessage,
     };
@@ -254,7 +253,7 @@ pub mod mpool_api {
     pub type MpoolPushResult = CidJson;
 
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-    pub type MpoolPushMessageParams = (MessageJson, Option<MessageSendSpec>);
+    pub type MpoolPushMessageParams = (LotusJson<Message>, Option<MessageSendSpec>);
     pub type MpoolPushMessageResult = LotusJson<SignedMessage>;
 }
 
@@ -330,9 +329,10 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::TipsetKeys;
-    use crate::json::{address::json::AddressJson, cid::CidJson, message::json::MessageJson};
+    use crate::json::{address::json::AddressJson, cid::CidJson};
     use crate::lotus_json::LotusJson;
     use crate::shim::executor::Receipt;
+    use crate::shim::message::Message;
     use crate::shim::{state_tree::ActorState, version::NetworkVersion};
     use crate::state_manager::{InvocResult, MarketBalance};
     use ahash::HashMap;
@@ -340,7 +340,7 @@ pub mod state_api {
     use crate::rpc_api::data_types::{MarketDeal, MessageLookup};
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
-    pub type StateCallParams = (MessageJson, LotusJson<TipsetKeys>);
+    pub type StateCallParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
     pub type StateCallResult = InvocResult;
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
@@ -384,13 +384,14 @@ pub mod state_api {
 /// Gas API
 pub mod gas_api {
     use crate::blocks::TipsetKeys;
-    use crate::json::{address::json::AddressJson, message::json::MessageJson};
+    use crate::json::address::json::AddressJson;
     use crate::lotus_json::LotusJson;
 
     use crate::rpc_api::data_types::MessageSendSpec;
+    use crate::shim::message::Message;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub type GasEstimateFeeCapParams = (MessageJson, i64, LotusJson<TipsetKeys>);
+    pub type GasEstimateFeeCapParams = (LotusJson<Message>, i64, LotusJson<TipsetKeys>);
     pub type GasEstimateFeeCapResult = String;
 
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
@@ -398,13 +399,16 @@ pub mod gas_api {
     pub type GasEstimateGasPremiumResult = String;
 
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-    pub type GasEstimateGasLimitParams = (MessageJson, LotusJson<TipsetKeys>);
+    pub type GasEstimateGasLimitParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
     pub type GasEstimateGasLimitResult = i64;
 
     pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
-    pub type GasEstimateMessageGasParams =
-        (MessageJson, Option<MessageSendSpec>, LotusJson<TipsetKeys>);
-    pub type GasEstimateMessageGasResult = MessageJson;
+    pub type GasEstimateMessageGasParams = (
+        LotusJson<Message>,
+        Option<MessageSendSpec>,
+        LotusJson<TipsetKeys>,
+    );
+    pub type GasEstimateMessageGasResult = LotusJson<Message>;
 }
 
 /// Common API
