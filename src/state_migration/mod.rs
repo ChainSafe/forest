@@ -20,17 +20,17 @@ mod nv18;
 mod nv19;
 mod type_migrations;
 
-type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
+type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
 
 /// Run state migrations
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
     chain_config: &Arc<ChainConfig>,
-    db: &DB,
+    db: &Arc<DB>,
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
 where
-    DB: 'static + Blockstore + Clone + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let mappings: [(_, RunMigration<DB>); 3] = [
         (Height::Shark, nv17::run_migration::<DB>),

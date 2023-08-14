@@ -1,8 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
 use num::BigInt;
+use std::sync::Arc;
 
 pub type Weight = BigInt;
 
@@ -12,7 +14,7 @@ pub type Weight = BigInt;
 /// a `Nakamoto` style consensus.
 pub trait Scale {
     /// Calculate the weight of a tipset.
-    fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+    fn weight<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<Weight, anyhow::Error>
     where
         DB: Blockstore;
 }
