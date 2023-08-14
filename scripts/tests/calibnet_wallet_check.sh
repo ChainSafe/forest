@@ -29,15 +29,15 @@ echo "Wallet tests"
 FIL_AMT="500 atto FIL"
 
 echo "Importing preloaded wallet key"
-$FOREST_WALLET_PATH wallet import preloaded_wallet.key
+$FOREST_WALLET_PATH import preloaded_wallet.key
 
 # The preloaded address
-ADDR_ONE=$($FOREST_WALLET_PATH wallet list | tail -1 | cut -d ' ' -f1)
+ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
 
 sleep 5s
 
 echo "Exporting key"
-$FOREST_WALLET_PATH wallet export "$ADDR_ONE" > preloaded_wallet.test.key
+$FOREST_WALLET_PATH export "$ADDR_ONE" > preloaded_wallet.test.key
 if ! cmp -s preloaded_wallet.key preloaded_wallet.test.key; then
     echo ".key files should match"
     exit 1
@@ -50,18 +50,18 @@ sleep 5s
 
 # Show balances
 echo "Listing wallet balances"
-$FOREST_WALLET_PATH wallet list
+$FOREST_WALLET_PATH list
 
 echo "Creating a new address to send FIL to"
-ADDR_TWO=$($FOREST_WALLET_PATH wallet new)
+ADDR_TWO=$($FOREST_WALLET_PATH new)
 echo "$ADDR_TWO"
-$FOREST_WALLET_PATH wallet set-default "$ADDR_ONE"
+$FOREST_WALLET_PATH set-default "$ADDR_ONE"
 
 echo "Listing wallet balances"
-$FOREST_WALLET_PATH wallet list
+$FOREST_WALLET_PATH list
 
 echo "Sending FIL to the above address"
-MSG=$($FOREST_WALLET_PATH send "$ADDR_TWO" "$FIL_AMT")
+MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
 echo "Message cid:"
 echo "$MSG"
 
@@ -74,11 +74,11 @@ while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   
   echo "Checking balance $i/20"
   sleep 30s
-  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH wallet balance "$ADDR_TWO")
+  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO")
 done
 
 # wallet list should contain address two with transfered FIL amount
-$FOREST_WALLET_PATH wallet list
+$FOREST_WALLET_PATH list
 
 # TODO: Uncomment this check once the send command is fixed
 # # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
