@@ -39,7 +39,7 @@ impl TipsetKeys {
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
         let mut bytes = Vec::new();
-        for cid in Vec::<Cid>::from(&self.cids) {
+        for cid in &self.cids {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)

@@ -186,7 +186,7 @@ async fn benchmark_exporting(
     );
     crate::db::car::forest::Encoder::write(
         &mut dest,
-        Vec::<Cid>::from(ts.key().cids.clone()),
+        Vec::<Cid>::from(&ts.key().cids),
         frames,
     )
     .await?;

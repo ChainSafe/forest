@@ -38,15 +38,7 @@ impl<'a> IntoIterator for &'a FrozenCids {
 impl<'a> Iterator for Iter<'a> {
     type Item = Cid;
     fn next(&mut self) -> Option<Self::Item> {
-        match self.cids.next() {
-            Some(cid) => match cid {
-                CidVariant::V1DagCborBlake2b(bytes) => {
-                    Some(Cid::from(CidVariant::V1DagCborBlake2b(*bytes)))
-                }
-                CidVariant::Generic(cid) => Some(*cid.clone()),
-            },
-            None => None,
-        }
+        self.cids.next().map(Cid::from)
     }
 }
 

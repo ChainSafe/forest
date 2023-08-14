@@ -882,7 +882,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static, C: Cons
         }
         // Attempt to load the parent tipset from local store
         if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()) {
-            parent_blocks.extend(&tipset.key().cids);
+            parent_blocks.extend(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
         }
