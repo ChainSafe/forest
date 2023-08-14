@@ -4,21 +4,18 @@ use super::*;
 
 use crate::chain_sync::SyncStage;
 
-#[derive(Serialize, Deserialize)]
-pub struct SyncStageLotusJson(#[serde(with = "crate::lotus_json::stringify")] SyncStage);
-
 impl HasLotusJson for SyncStage {
-    type LotusJson = SyncStageLotusJson;
+    type LotusJson = Stringify<SyncStage>;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("idle worker"), Self::Idle)]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        SyncStageLotusJson(self)
+        self.into()
     }
 
-    fn from_lotus_json(SyncStageLotusJson(sync_stage): Self::LotusJson) -> Self {
+    fn from_lotus_json(Stringify(sync_stage): Self::LotusJson) -> Self {
         sync_stage
     }
 }

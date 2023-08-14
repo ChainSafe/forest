@@ -5,21 +5,18 @@ use super::*;
 
 use crate::shim::address::Address;
 
-#[derive(Serialize, Deserialize, From, Into)]
-pub struct AddressLotusJson(#[serde(with = "stringify")] Address);
-
 impl HasLotusJson for Address {
-    type LotusJson = AddressLotusJson;
+    type LotusJson = Stringify<Address>;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("f00"), Address::default())]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        AddressLotusJson(self)
+        self.into()
     }
 
-    fn from_lotus_json(AddressLotusJson(address): Self::LotusJson) -> Self {
+    fn from_lotus_json(Stringify(address): Self::LotusJson) -> Self {
         address
     }
 }

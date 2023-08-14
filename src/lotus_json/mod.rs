@@ -118,7 +118,7 @@
 //! - use [`proptest`](https://docs.rs/proptest/) to test the parser pipeline
 //! - use a derive macro for simple compound structs
 
-use derive_more::{From, Into};
+use derive_more::From;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
