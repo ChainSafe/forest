@@ -22,7 +22,6 @@ mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
-//mod wallet_cmd;
 
 use std::io::{self, Write};
 
