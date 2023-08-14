@@ -1,42 +1,38 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::blocks::{header, BlockHeader};
-use crate::json::{message, signature};
+
+/// These tests use the `serialization-vectors` submodule at the root of this repo
+use crate::blocks::BlockHeader;
 use crate::message::signed_message::SignedMessage;
 use crate::shim::{crypto::Signature, message::Message};
-/// These tests use the `serialization-vectors` submodule at the root of this repo
-use base64::{prelude::BASE64_STANDARD, Engine};
-use bls_signatures::{PrivateKey, Serialize};
+use bls_signatures::{PrivateKey, Serialize as _};
 use cid::Cid;
-use fvm_ipld_encoding::to_vec;
-use hex::encode;
 use serde::Deserialize;
-use std::str::FromStr as _;
 
 #[test]
 fn header_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {
-        #[serde(with = "header::json")]
+        #[serde(with = "crate::lotus_json")]
         block: BlockHeader,
-        cbor_hex: String,
-        cid: String,
+        #[serde(with = "hex")]
+        cbor_hex: Vec<u8>,
+        #[serde(with = "crate::lotus_json::stringify")] // yes this isn't CidLotusJson...
+        cid: Cid,
     }
 
     let s = include_str!("../../../serialization-vectors/block_headers.json");
 
-    let vectors: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
+    let cases: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
 
-    for tv in vectors {
-        let header = &tv.block;
-        let expected: &str = &tv.cbor_hex;
-        let cid = &tv.cid.parse().unwrap();
-        let enc_bz: Vec<u8> = to_vec(header).expect("Cbor serialization failed");
-
-        // Assert the header is encoded in same format
-        assert_eq!(encode(enc_bz.as_slice()), expected);
-        // Assert decoding from those bytes goes back to unsigned header
-        assert_eq!(header.cid(), cid);
+    for Case {
+        block,
+        cbor_hex,
+        cid,
+    } in cases
+    {
+        assert_eq!(cbor_hex, fvm_ipld_encoding::to_vec(&block).unwrap());
+        assert_eq!(*block.cid(), cid);
     }
 }
 
@@ -45,33 +41,38 @@ fn signing_test() {
     #[derive(Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct Case {
-        #[serde(with = "message::json")]
+        #[serde(with = "crate::lotus_json")]
         unsigned: Message,
-        cid: String,
-        private_key: String,
-        #[serde(with = "signature::json")]
+        #[serde(with = "crate::lotus_json::stringify")] // yes this isn't CidLotusJson...
+        cid: Cid,
+        #[serde(with = "crate::lotus_json::base64_standard")]
+        private_key: Vec<u8>,
+        #[serde(with = "crate::lotus_json")]
         signature: Signature,
     }
 
     let s = include_str!("../../../serialization-vectors/message_signing.json");
 
-    let vectors: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
+    let cases: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
 
-    for test_vec in vectors {
-        let test = BASE64_STANDARD.decode(test_vec.private_key).unwrap();
+    for Case {
+        unsigned,
+        cid: expected_cid,
+        private_key,
+        signature,
+    } in cases
+    {
         // TODO set up a private key based on sig type
-        let priv_key = PrivateKey::from_bytes(&test).unwrap();
-        let msg_sign_bz = test_vec.unsigned.cid().unwrap().to_bytes();
+        let priv_key = PrivateKey::from_bytes(&private_key).unwrap();
+        let msg_sign_bz = unsigned.cid().unwrap().to_bytes();
         let bls_sig = priv_key.sign(&msg_sign_bz);
         let sig = Signature::new_bls(bls_sig.as_bytes());
-        assert_eq!(sig, test_vec.signature);
+        assert_eq!(sig, signature);
 
-        let smsg = SignedMessage::new_from_parts(test_vec.unsigned, sig).unwrap();
-        let cid = smsg.cid().unwrap();
+        let smsg = SignedMessage::new_from_parts(unsigned, sig).unwrap();
+        let actual_cid = smsg.cid().unwrap();
 
-        let cid_test = Cid::from_str(&test_vec.cid).unwrap();
-
-        assert_eq!(cid, cid_test);
+        assert_eq!(actual_cid, expected_cid);
     }
 }
 
@@ -79,19 +80,21 @@ fn signing_test() {
 fn unsigned_message_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {
-        #[serde(with = "message::json")]
+        #[serde(with = "crate::lotus_json")]
         message: Message,
-        hex_cbor: String,
+        #[serde(with = "hex")]
+        hex_cbor: Vec<u8>,
     }
 
     let s = include_str!("../../../serialization-vectors/unsigned_messages.json");
 
     let vectors: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
-    for Case { message, hex_cbor } in vectors {
-        let expected: &str = &hex_cbor;
-        let enc_bz: Vec<u8> = to_vec(&message).expect("Cbor serialization failed");
-
-        // Assert the message is encoded in same format
-        assert_eq!(encode(enc_bz.as_slice()), expected);
+    for Case {
+        message,
+        hex_cbor: expected_cbor,
+    } in vectors
+    {
+        let actual_cbor: Vec<u8> = fvm_ipld_encoding::to_vec(&message).unwrap();
+        assert_eq!(expected_cbor, actual_cbor);
     }
 }

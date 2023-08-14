@@ -3,9 +3,11 @@
 
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::utils::db::file_backed_obj::FileBackedObject;
+use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
+use itertools::Itertools;
 use parking_lot::RwLock;
 use uuid::Uuid;
 
@@ -14,8 +16,8 @@ use crate::db::*;
 
 impl Blockstore for RollingDB {
     fn has(&self, k: &Cid) -> anyhow::Result<bool> {
-        for db in self.db_queue().iter() {
-            if Blockstore::has(db, k)? {
+        for db in self.db_queue() {
+            if Blockstore::has(&db, k)? {
                 return Ok(true);
             }
         }
@@ -24,8 +26,8 @@ impl Blockstore for RollingDB {
     }
 
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue().iter() {
-            if let Some(v) = Blockstore::get(db, k)? {
+        for db in self.db_queue() {
+            if let Some(v) = Blockstore::get(&db, k)? {
                 return Ok(Some(v));
             }
         }
@@ -70,8 +72,8 @@ impl Blockstore for RollingDB {
 
 impl SettingsStore for RollingDB {
     fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue().iter() {
-            if let Some(v) = SettingsStore::read_bin(db, key)? {
+        for db in self.db_queue() {
+            if let Some(v) = SettingsStore::read_bin(db.as_ref(), key)? {
                 return Ok(Some(v));
             }
         }
@@ -80,24 +82,32 @@ impl SettingsStore for RollingDB {
     }
 
     fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
-        SettingsStore::write_bin(&self.current(), key, value)
+        SettingsStore::write_bin(self.current.read().as_ref(), key, value)
     }
 
     fn exists(&self, key: &str) -> anyhow::Result<bool> {
-        for db in self.db_queue().iter() {
-            if SettingsStore::exists(db, key)? {
+        for db in self.db_queue() {
+            if SettingsStore::exists(db.as_ref(), key)? {
                 return Ok(true);
             }
         }
 
         Ok(false)
     }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        let mut set = HashSet::default();
+        for db in self.db_queue() {
+            set.extend(SettingsStore::setting_keys(db.as_ref())?);
+        }
+        Ok(set.into_iter().collect_vec())
+    }
 }
 
 impl BitswapStoreRead for RollingDB {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        for db in self.db_queue().iter() {
-            if BitswapStoreRead::contains(db, cid)? {
+        for db in self.db_queue() {
+            if BitswapStoreRead::contains(&db, cid)? {
                 return Ok(true);
             }
         }
@@ -106,8 +116,8 @@ impl BitswapStoreRead for RollingDB {
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        for db in self.db_queue().iter() {
-            if let Some(v) = BitswapStoreRead::get(db, cid)? {
+        for db in self.db_queue() {
+            if let Some(v) = BitswapStoreRead::get(&db, cid)? {
                 return Ok(Some(v));
             }
         }
@@ -120,13 +130,13 @@ impl BitswapStoreReadWrite for RollingDB {
     type Params = <Db as BitswapStoreReadWrite>::Params;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
-        BitswapStoreReadWrite::insert(&self.current(), block)
+        BitswapStoreReadWrite::insert(self.current().as_ref(), block)
     }
 }
 
 impl DBStatistics for RollingDB {
     fn get_statistics(&self) -> Option<String> {
-        DBStatistics::get_statistics(&self.current())
+        DBStatistics::get_statistics(self.current.read().as_ref())
     }
 }
 
@@ -148,11 +158,11 @@ impl RollingDB {
         let (db_index, current, old) = load_dbs(&db_root, &db_config)?;
 
         Ok(Self {
-            db_root: db_root.into(),
-            db_config: db_config.into(),
-            db_index: RwLock::new(db_index).into(),
-            current: RwLock::new(current).into(),
-            old: RwLock::new(old).into(),
+            db_root,
+            db_config,
+            db_index: RwLock::new(db_index),
+            current: RwLock::new(current.into()),
+            old: RwLock::new(old.into()),
         })
     }
 
@@ -162,8 +172,8 @@ impl RollingDB {
         let new_db_name = Uuid::new_v4().simple().to_string();
         info!("Setting {new_db_name} as current db");
         let db = open_db(&self.db_root.join(&new_db_name), &self.db_config)?;
-        *self.old.write() = self.current.read().clone();
-        *self.current.write() = db;
+        *self.old.write() = std::mem::replace(&mut self.current.write(), db.into());
+
         let mut db_index = self.db_index.write();
         let db_index_inner_mut = db_index.inner_mut();
         let old_db_path = self.db_root.join(&db_index_inner_mut.old);
@@ -171,7 +181,10 @@ impl RollingDB {
         db_index_inner_mut.current = new_db_name;
         db_index_inner_mut.current_creation_epoch = current_epoch;
         db_index.sync()?;
+
         delete_db(&old_db_path);
+
+        self.transfer_settings()?;
 
         Ok(())
     }
@@ -181,7 +194,16 @@ impl RollingDB {
     }
 
     pub fn total_size_in_bytes(&self) -> anyhow::Result<u64> {
-        Ok(fs_extra::dir::get_size(self.db_root.as_path())?)
+        // Sum old and current in case forest CAR files are stored under DB root
+        Ok(self.current_size_in_bytes()? + self.old_size_in_bytes()?)
+    }
+
+    pub fn old_size_in_bytes(&self) -> anyhow::Result<u64> {
+        Ok(fs_extra::dir::get_size(
+            self.db_root
+                .as_path()
+                .join(self.db_index.read().inner().old.as_str()),
+        )?)
     }
 
     pub fn current_size_in_bytes(&self) -> anyhow::Result<u64> {
@@ -192,12 +214,25 @@ impl RollingDB {
         )?)
     }
 
-    pub fn current(&self) -> Db {
+    pub fn current(&self) -> Arc<Db> {
         self.current.read().clone()
     }
 
-    fn db_queue(&self) -> [Db; 2] {
+    fn db_queue(&self) -> [Arc<Db>; 2] {
         [self.current.read().clone(), self.old.read().clone()]
+    }
+
+    fn transfer_settings(&self) -> anyhow::Result<()> {
+        let current = self.current.read();
+        for key in self.setting_keys()? {
+            if !current.exists(&key)? {
+                if let Some(v) = self.read_bin(&key)? {
+                    current.write_bin(&key, &v)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -238,19 +273,42 @@ fn delete_db(db_path: &Path) {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    use crate::libp2p_bitswap::BitswapStoreRead;
     use anyhow::*;
     use cid::{multihash::MultihashDigest, Cid};
     use fvm_ipld_blockstore::Blockstore;
+    use pretty_assertions::assert_eq;
+    use quickcheck_macros::quickcheck;
     use rand::Rng;
     use tempfile::TempDir;
 
     use super::*;
+    use crate::libp2p_bitswap::BitswapStoreRead;
+
+    #[quickcheck]
+    fn ensure_settings_are_transferred(keys: Vec<String>) -> Result<()> {
+        let db_root = TempDir::new()?;
+        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+        // Write settings
+        for key in keys.iter() {
+            rolling_db.write_obj(key, key)?;
+        }
+
+        // Roll DB twice
+        rolling_db.next_current(1)?;
+        rolling_db.next_current(2)?;
+
+        // Check if settings are rolled over
+        for key in keys.iter() {
+            let v: String = rolling_db.read_obj(key)?.unwrap();
+            assert_eq!(&v, key);
+        }
+
+        Ok(())
+    }
 
     #[test]
     fn rolling_db_behaviour_tests() -> Result<()> {
         let db_root = TempDir::new()?;
-        println!("Creating rolling db under {}", db_root.path().display());
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
         println!("Generating random blocks");
         let pairs: Vec<_> = (0..1000)
