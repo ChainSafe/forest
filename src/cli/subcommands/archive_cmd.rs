@@ -43,6 +43,7 @@ use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
+use tokio_util::either::Either;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -207,12 +208,16 @@ async fn do_export(
     let output_path =
         build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
 
-    let writer = tokio::fs::File::create(&output_path)
+    let writer = if output_path.to_string_lossy() == "-" {
+        Either::Left(tokio::io::stdout())
+    } else {
+        Either::Right(tokio::fs::File::create(&output_path)
         .await
         .context(format!(
             "unable to create a snapshot - is the output path '{}' correct?",
             output_path.to_str().unwrap_or_default()
-        ))?;
+        ))?)
+    };
 
     info!(
         "exporting snapshot at location: {}",
