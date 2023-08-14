@@ -31,6 +31,12 @@ pub struct Block {
     pub data: Vec<u8>,
 }
 
+#[derive(Debug, Clone)]
+pub struct BlockBytes {
+    pub cid: Cid,
+    pub data: Bytes,
+}
+
 impl Block {
     // Write a varint frame containing the cid and the data
     pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
@@ -149,6 +155,75 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option
     }
 
     Some(header)
+}
+
+pin_project! {
+    /// Stream of CAR blocks. If the input data is compressed with zstd, it will
+    /// automatically be decompressed.
+    pub struct CarStreamBytes<ReaderT> {
+        #[pin]
+        reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
+        pub header: CarHeader,
+    }
+}
+
+impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStreamBytes<ReaderT> {
+    pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
+        let start_position = reader.stream_position().await?;
+        if let Some(header) = read_header(&mut reader).await {
+            reader.seek(SeekFrom::Start(start_position)).await?;
+            let mut framed_reader = FramedRead::new(Either::Left(reader), UviBytes::default());
+            let _ = framed_reader.next().await;
+            Ok(CarStreamBytes {
+                reader: framed_reader,
+                header,
+            })
+        } else {
+            reader.seek(SeekFrom::Start(start_position)).await?;
+            let mut zstd = ZstdDecoder::new(reader);
+            zstd.multiple_members(true);
+            if let Some(header) = read_header(&mut zstd).await {
+                let mut reader = zstd.into_inner();
+
+                reset_bufread(&mut reader).await?;
+
+                reader.seek(SeekFrom::Start(start_position)).await?;
+                let mut zstd = ZstdDecoder::new(reader);
+                zstd.multiple_members(true);
+                let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
+                let _ = framed_reader.next().await;
+                Ok(CarStreamBytes {
+                    reader: framed_reader,
+                    header,
+                })
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "CAR data not recognized",
+                ))
+            }
+        }
+    }
+}
+
+impl<ReaderT: AsyncBufRead> Stream for CarStreamBytes<ReaderT> {
+    type Item = io::Result<BlockBytes>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        let item = futures::ready!(this.reader.poll_next(cx));
+        Poll::Ready(item.map(|ret| {
+            ret.and_then(|bytes| {
+                let mut cursor = Cursor::new(bytes);
+                let cid = Cid::read_bytes(&mut cursor)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+                let data_offset = cursor.position();
+                let mut bytes = cursor.into_inner();
+                bytes.advance(data_offset as usize);
+                Ok(BlockBytes { cid, data: bytes })
+            })
+        }))
+    }
 }
 
 // Seeking fails after we've used the Reader for zstd decoding. Flushing the

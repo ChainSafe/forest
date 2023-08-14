@@ -8,7 +8,7 @@ use crate::chain::{
 use crate::db::car::ManyCar;
 use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
-use crate::utils::db::car_stream::CarStream;
+use crate::utils::db::car_stream::{CarStream, CarStreamBytes};
 use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
 use clap::Subcommand;
@@ -101,7 +101,7 @@ async fn benchmark_car_streaming(input: Vec<PathBuf>) -> Result<()> {
         futures::stream::iter(input)
             .then(File::open)
             .map_ok(BufReader::new)
-            .and_then(CarStream::new)
+            .and_then(CarStreamBytes::new)
             .try_flatten(),
     );
     while let Some(block) = s.try_next().await? {
