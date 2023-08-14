@@ -31,6 +31,8 @@
   internal settings from files to the database.
 - [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
   port from 1234 to 2345.
+- [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
+  `forest-cli wallet` subcommands to `forest-wallet`
 
 ### Added
 
