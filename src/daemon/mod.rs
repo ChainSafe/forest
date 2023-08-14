@@ -13,12 +13,12 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
     snapshot,
 };
-use crate::db::car::ManyCar;
+use crate::db::car::{AnyCar, ManyCar};
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
 };
-use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
@@ -32,6 +32,9 @@ use crate::shim::{
     version::NetworkVersion,
 };
 use crate::state_manager::StateManager;
+use crate::utils::db::car_stream::CarStream;
+use crate::utils::io::random_access::RandomAccessFile;
+use crate::utils::net;
 use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
     version::FOREST_VERSION_STRING, RetryArgs,
@@ -39,10 +42,11 @@ use crate::utils::{
 use anyhow::{bail, Context};
 use bundle::load_actor_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
-use futures::{select, Future, FutureExt};
+use futures::{select, Future, FutureExt, TryStreamExt};
 use lazy_static::lazy_static;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
+use std::fs;
 use std::{
     cell::RefCell,
     net::TcpListener,
@@ -52,6 +56,7 @@ use std::{
     time::Duration,
 };
 use tempfile::{Builder, TempPath};
+use tokio::io::AsyncWriteExt;
 use tokio::{
     signal::{
         ctrl_c,
@@ -174,10 +179,32 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
-        db_root(&chain_data_path),
-        config.db_config().clone(),
-    )?)));
+    let (db, heaviest_tipset_from_imported_snapshot) = {
+        let mut heaviest_tipset = None;
+        let db_root_dir = db_root(&chain_data_path);
+        if !db_root_dir.is_dir() {
+            fs::create_dir_all(&db_root_dir)?;
+        }
+        let forest_car_db_path = db_root_dir.join("snapshot.forest.car.zst");
+
+        if let Some(path) = &config.client.snapshot_path {
+            heaviest_tipset = Some(
+                import_chain_as_forest_car(&path.display().to_string(), &forest_car_db_path)
+                    .await?,
+            );
+        }
+
+        let mut store = ManyCar::new(Arc::new(open_proxy_db(
+            db_root_dir,
+            config.db_config().clone(),
+        )?));
+
+        if forest_car_db_path.is_file() {
+            store.read_only_files(std::iter::once(forest_car_db_path))?;
+        }
+
+        (Arc::new(store), heaviest_tipset)
+    };
 
     let mut services = JoinSet::new();
 
@@ -224,6 +251,10 @@ pub(super) async fn start(
         config.chain.clone(),
         genesis_header.clone(),
     )?);
+
+    if let Some(ts) = heaviest_tipset_from_imported_snapshot {
+        chain_store.set_heaviest_tipset(ts.into())?;
+    }
 
     let db_garbage_collector = {
         let db = db.clone();
@@ -401,20 +432,6 @@ pub(super) async fn start(
 
     let mut config = config;
     fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
-
-    if let Some(path) = &config.client.snapshot_path {
-        let stopwatch = time::Instant::now();
-        import_chain(
-            &state_manager,
-            &path.display().to_string(),
-            config.client.skip_load,
-            config.client.chunk_size,
-            config.client.buffer_size,
-        )
-        .await
-        .context("Failed miserably while importing chain from snapshot")?;
-        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-    }
 
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
         // We've been provided a snapshot and asked to validate it
@@ -707,6 +724,57 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
             "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
         )
         .interact_on(&term)
+}
+
+async fn import_chain_as_forest_car(
+    from_path: &str,
+    forest_car_path: &Path,
+) -> anyhow::Result<Tipset> {
+    info!("Importing chain from snapshot at: {from_path}");
+
+    let stopwatch = time::Instant::now();
+    let mut reader = net::reader(from_path).await?;
+    let forest_car_db_temp_path = tempfile::NamedTempFile::new_in(
+        forest_car_path
+            .parent()
+            .context("`forest_car_path` should have a parent directory.")?,
+    )?
+    .into_temp_path();
+    let mut tmp_snapshot_writer =
+        tokio::io::BufWriter::new(tokio::fs::File::create(&forest_car_db_temp_path).await?);
+    tokio::io::copy(&mut reader, &mut tmp_snapshot_writer).await?;
+
+    let (is_forest_car, ts) = {
+        let car = AnyCar::new(RandomAccessFile::open(&forest_car_db_temp_path)?)?;
+        let ts = car.heaviest_tipset()?;
+        (
+            match car {
+                AnyCar::Forest(_) => true,
+                _ => false,
+            },
+            ts,
+        )
+    };
+    if is_forest_car {
+        forest_car_db_temp_path.persist(forest_car_path)?;
+    } else {
+        let car_stream = CarStream::new(tokio::io::BufReader::new(
+            tokio::fs::File::open(&forest_car_db_temp_path).await?,
+        ))
+        .await?;
+        let roots = car_stream.header.roots.clone();
+        let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(forest_car_path).await?);
+        let frames = crate::db::car::forest::Encoder::compress_stream(
+            8000usize.next_power_of_two(),
+            zstd::DEFAULT_COMPRESSION_LEVEL as _,
+            car_stream.map_err(anyhow::Error::from),
+        );
+        crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
+        writer.flush().await?;
+    }
+
+    info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    Ok(ts)
 }
 
 #[cfg(test)]
