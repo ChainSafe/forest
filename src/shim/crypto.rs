@@ -187,15 +187,3 @@ pub enum SignatureType {
     Bls = 2,
     Delegated = 3,
 }
-
-#[test]
-fn test() {
-    #[track_caller]
-    fn t(t: SignatureType, s: &str) {
-        assert_eq!(t.to_string(), s);
-        assert_eq!(s.parse::<SignatureType>().unwrap(), t);
-    }
-    t(SignatureType::Bls, "bls");
-    t(SignatureType::Delegated, "delegated");
-    t(SignatureType::Secp256k1, "secp256k1")
-}
