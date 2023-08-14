@@ -249,7 +249,10 @@ impl MpoolCommands {
                     if cids {
                         println!("{}", msg.cid().unwrap());
                     } else {
-                        println!("{}", serde_json::to_string_pretty(&msg)?);
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&crate::lotus_json::LotusJson(msg))?
+                        );
                     }
                 }
 
