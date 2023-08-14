@@ -14,6 +14,7 @@ use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
+use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use libipld_core::ipld::Ipld;
@@ -143,8 +144,10 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
     );
     while let Some(block) = s.try_next().await? {
         let block: Block = block;
-        let ipld: Ipld = from_slice_with_fallback(&block.data).unwrap_or(Ipld::Null);
-        let _ = DfsIter::new(ipld).filter_map(ipld_to_cid).unique().count();
+        if block.cid.codec() == DAG_CBOR {
+            let ipld: Ipld = from_slice_with_fallback(&block.data)?;
+            let _ = DfsIter::new(ipld).filter_map(ipld_to_cid).unique().count();
+        }
         sink.write_all(&block.data).await?
     }
     Ok(())
