@@ -12,6 +12,7 @@ LOG_DIRECTORY=$TMP_DIR/logs
 
 export TMP_DIR
 export LOG_DIRECTORY
+export FOREST_WALLET_PATH
 
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
