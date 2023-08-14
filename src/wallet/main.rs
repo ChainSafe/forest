@@ -21,15 +21,10 @@ where
         .enable_all()
         .build()?
         .block_on(async {
-            let chain = match opts.chain {
-                None => {
-                    if let Ok(name) = chain_get_name((), &opts.token).await {
-                        NetworkChain::from_str(&name)?
-                    } else {
-                        NetworkChain::Mainnet
-                    }
-                }
-                Some(name) => name,
+            let chain = if let Ok(name) = chain_get_name((), &opts.token).await {
+                NetworkChain::from_str(&name)?
+            } else {
+                NetworkChain::Mainnet
             };
             if chain.is_testnet() {
                 CurrentNetwork::set_global(Network::Testnet);
