@@ -247,7 +247,6 @@ pub(in crate::chain_sync) struct TipsetProcessor<DB> {
     /// Tipsets pushed into this stream _must_ be validated beforehand by the
     /// `TipsetValidator`
     tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
-    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
@@ -263,7 +262,6 @@ where
     pub fn new(
         tracker: crate::chain_sync::chain_muxer::WorkerState,
         tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
-        consensus: Arc<FilecoinConsensus>,
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -274,7 +272,6 @@ where
             state: TipsetProcessorState::Idle,
             tracker,
             tipsets,
-            consensus,
             state_manager,
             network,
             chain_store,
@@ -287,7 +284,6 @@ where
         &self,
         mut tipset_group: TipsetGroup,
     ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError> {
-        let consensus = self.consensus.clone();
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
         let network = self.network.clone();
@@ -310,7 +306,6 @@ where
                 tracker,
                 proposed_head,
                 current_head,
-                consensus,
                 state_manager,
                 network,
                 chain_store,
@@ -626,7 +621,6 @@ pub(in crate::chain_sync) struct TipsetRangeSyncer<DB> {
     chain_store: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
-    consensus: Arc<FilecoinConsensus>,
 }
 
 impl<DB> TipsetRangeSyncer<DB>
@@ -638,7 +632,6 @@ where
         tracker: crate::chain_sync::chain_muxer::WorkerState,
         proposed_head: Arc<Tipset>,
         current_head: Arc<Tipset>,
-        consensus: Arc<FilecoinConsensus>,
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -660,7 +653,6 @@ where
             // Casting from i64 -> u64 is safe because we ensured that
             // the value is greater than 0
             tipset_range_length as u64,
-            consensus.clone(),
             state_manager.clone(),
             chain_store.clone(),
             network.clone(),
@@ -674,7 +666,6 @@ where
             current_head,
             tipsets_included,
             tipset_tasks,
-            consensus,
             state_manager,
             network,
             chain_store,
@@ -711,7 +702,6 @@ where
 
         self.tipset_tasks.push(sync_tipset(
             additional_head,
-            self.consensus.clone(),
             self.state_manager.clone(),
             self.chain_store.clone(),
             self.network.clone(),
@@ -758,7 +748,6 @@ fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     current_head: Arc<Tipset>,
     tracker: crate::chain_sync::chain_muxer::WorkerState,
     tipset_range_length: u64,
-    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
@@ -800,7 +789,6 @@ fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         tracker.write().set_stage(SyncStage::Messages);
         if let Err(why) = sync_messages_check_state(
             tracker.clone(),
-            consensus.clone(),
             state_manager,
             network,
             chain_store.clone(),
@@ -960,7 +948,6 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
 #[allow(clippy::too_many_arguments)]
 fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     proposed_head: Arc<Tipset>,
-    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
@@ -976,7 +963,6 @@ fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         if let Err(e) = sync_messages_check_state(
             // Include a dummy WorkerState
             crate::chain_sync::chain_muxer::WorkerState::default(),
-            consensus.clone(),
             state_manager,
             network,
             chain_store.clone(),
@@ -1073,7 +1059,6 @@ async fn fetch_batch<DB: Blockstore>(
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
     tracker: crate::chain_sync::chain_muxer::WorkerState,
-    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chainstore: Arc<ChainStore<DB>>,
@@ -1099,7 +1084,6 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
                 let current_epoch = full_tipset.epoch();
                 let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
                 validate_tipset::<_>(
-                    consensus.clone(),
                     state_manager.clone(),
                     &chainstore,
                     bad_block_cache,
@@ -1123,7 +1107,6 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
 /// ones to the bad block cache, depending on strategy. Any bad block fails
 /// validation.
 async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
-    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
     bad_block_cache: &BadBlockCache,
@@ -1149,11 +1132,8 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     for b in blocks {
-        let validation_fn = tokio::task::spawn(validate_block::<_>(
-            consensus.clone(),
-            state_manager.clone(),
-            Arc::new(b),
-        ));
+        let validation_fn =
+            tokio::task::spawn(validate_block::<_>(state_manager.clone(), Arc::new(b)));
         validations.push(validation_fn);
     }
 
@@ -1207,10 +1187,10 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
 ///   total ordering
 /// * That the block is a deterministic derivative of the underlying consensus
 async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
-    consensus: Arc<FilecoinConsensus>,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
+    let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());
     trace!(
         "Validating block: epoch = {}, weight = {}, key = {}",
         block.header().epoch(),
@@ -1300,7 +1280,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     let v_block_store = state_manager.blockstore_owned();
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
-    // let consensus = Arc::clone(&consensus);
     validations.push(tokio::task::spawn_blocking(move || {
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
             .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
@@ -1358,7 +1337,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     }));
 
     let v_block = block.clone();
-    // let consensus = consensus.clone();
     validations.push(tokio::task::spawn(async move {
         consensus
             .validate_block(state_manager, v_block)

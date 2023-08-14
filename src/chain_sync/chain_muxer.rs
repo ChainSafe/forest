@@ -8,6 +8,9 @@ use std::{
     time::SystemTime,
 };
 
+use crate::blocks::{
+    Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
+};
 use crate::chain::{ChainStore, Error as ChainStoreError};
 use crate::libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
@@ -16,10 +19,6 @@ use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
 use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
 use crate::state_manager::StateManager;
-use crate::{
-    blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys},
-    fil_cns::FilecoinConsensus,
-};
 use cid::Cid;
 use futures::{
     future::{try_join_all, Future},
@@ -125,9 +124,6 @@ pub struct ChainMuxer<DB, M> {
     /// Syncing state of chain sync workers.
     worker_state: WorkerState,
 
-    /// Custom consensus rules.
-    consensus: Arc<FilecoinConsensus>,
-
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
 
@@ -165,7 +161,6 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        consensus: Arc<FilecoinConsensus>,
         state_manager: Arc<StateManager<DB>>,
         peer_manager: Arc<PeerManager>,
         mpool: Arc<MessagePool<M>>,
@@ -184,7 +179,6 @@ where
             worker_state: Default::default(),
             network,
             genesis,
-            consensus,
             state_manager,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
@@ -603,7 +597,6 @@ where
         local_head: Arc<Tipset>,
     ) -> ChainMuxerFuture<(), ChainMuxerError> {
         // Instantiate a TipsetRangeSyncer
-        let trs_consensus = self.consensus.clone();
         let trs_state_manager = self.state_manager.clone();
         let trs_bad_block_cache = self.bad_blocks.clone();
         let trs_chain_store = self.state_manager.chain_store().clone();
@@ -616,7 +609,6 @@ where
                 trs_tracker,
                 Arc::new(network_head.into_tipset()),
                 local_head,
-                trs_consensus,
                 trs_state_manager,
                 trs_network,
                 trs_chain_store,
@@ -701,7 +693,6 @@ where
 
     fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError> {
         // Instantiate a TipsetProcessor
-        let tp_consensus = self.consensus.clone();
         let tp_state_manager = self.state_manager.clone();
         let tp_network = self.network.clone();
         let tp_chain_store = self.state_manager.chain_store().clone();
@@ -717,7 +708,6 @@ where
                 TipsetProcessor::new(
                     tp_tracker,
                     Box::pin(tp_tipset_receiver.into_stream()),
-                    tp_consensus,
                     tp_state_manager,
                     tp_network,
                     tp_chain_store,

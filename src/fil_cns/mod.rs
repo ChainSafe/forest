@@ -16,9 +16,6 @@ mod metrics;
 mod validation;
 mod weight;
 
-// Shim to work with daemon.rs
-pub mod composition;
-
 #[derive(Debug, Error)]
 pub enum FilecoinConsensusError {
     #[error("Block must have an election proof included in tipset")]
@@ -58,6 +55,8 @@ pub enum FilecoinConsensusError {
     #[error("Encoding error: {0}")]
     ForestEncoding(#[from] ForestEncodingError),
 }
+
+pub const FETCH_PARAMS: bool = true;
 
 pub struct FilecoinConsensus {
     /// `Drand` randomness beacon
