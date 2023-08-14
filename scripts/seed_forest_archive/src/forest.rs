@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
-pub fn export(epoch: ChainEpoch, files: Vec<&str>) -> Result<Child> {
+pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
     let output_path = lite_snapshot_name(epoch);
     let mut export = Command::new("forest-cli")
         .arg("archive")
