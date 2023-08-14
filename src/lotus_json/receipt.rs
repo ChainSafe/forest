@@ -1,5 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use fvm_ipld_encoding::RawBytes;
 
 use super::*;
@@ -60,9 +61,44 @@ fn shapshots() {
     assert_all_snapshots::<Receipt>()
 }
 
-// #[cfg(test)]
-// quickcheck! {
-//     fn quickcheck(val: Receipt) -> () {
-//         assert_unchanged_via_json(val)
-//     }
-// }
+/// [Receipt] knows if it is V2 or V3, but there's no way for
+/// the serialized representation to retain that information,
+/// so [assert_unchanged_via_json] tests with arbitrary input will fail.
+///
+/// This can only be fixed by rewriting [Receipt].
+#[test]
+#[should_panic]
+fn cannot_call_arbitrary_tests_on_receipt() {
+    use pretty_assertions::assert_eq;
+
+    let v2 = Receipt::V2(fvm_shared2::receipt::Receipt {
+        exit_code: fvm_shared2::error::ExitCode::new(0),
+        return_data: RawBytes::new(Vec::from_iter(*b"hello world!")),
+        gas_used: 0,
+    });
+    let v3 = Receipt::V3(fvm_shared3::receipt::Receipt {
+        exit_code: fvm_shared3::error::ExitCode::new(0),
+        return_data: RawBytes::new(Vec::from_iter(*b"hello world!")),
+        gas_used: 0,
+        events_root: None,
+    });
+    let json = json!({
+        "ExitCode": 0,
+        "Return": "aGVsbG8gd29ybGQh",
+        "GasUsed": 0,
+    });
+
+    // they serialize to the same thing...
+    assert_eq!(
+        serde_json::to_value(v2.clone().into_lotus_json()).unwrap(),
+        json
+    );
+    assert_eq!(
+        serde_json::to_value(v3.clone().into_lotus_json()).unwrap(),
+        json
+    );
+
+    // both of these cannot pass at the same time...
+    assert_eq!(v2, serde_json::from_value(json.clone()).unwrap());
+    assert_eq!(v3, serde_json::from_value(json).unwrap());
+}

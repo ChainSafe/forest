@@ -197,7 +197,7 @@ decl_and_test!(
 mod cid; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
-mod receipt; // shim type roundtrip is wrong - shim::executor::Receipt should be rewritten
+mod receipt; // shim type roundtrip is wrong - see module
 mod vec; // can't make snapshots of generic type
 
 #[cfg(any(test, doc))]
@@ -238,7 +238,7 @@ where
     assert_eq!(deserialized, val);
 }
 
-#[cfg(test)]
+#[cfg(any(test, doc))]
 pub fn assert_unchanged_via_json<T>(val: T)
 where
     T: HasLotusJson + Clone + PartialEq + std::fmt::Debug,
