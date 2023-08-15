@@ -4,8 +4,11 @@
 use std::sync::Arc;
 
 use crate::blocks::Tipset;
+use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
+use crate::chain::store::Error;
 use crate::message::ChainMessage;
+use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -17,7 +20,7 @@ use crate::shim::{
     state_tree::ActorState,
     version::NetworkVersion,
 };
-use ahash::HashSet;
+use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::bail;
 use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
@@ -61,6 +64,52 @@ pub struct BlockMessages {
     pub miner: Address,
     pub messages: Vec<ChainMessage>,
     pub win_count: i64,
+}
+
+impl BlockMessages {
+    /// Retrieves block messages to be passed through the VM and removes duplicate messages which appear in multiple blocks.
+    pub fn for_tipset(db: impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
+        let mut applied = HashMap::new();
+        let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
+            // The first match for a sender is guaranteed to have correct nonce
+            // the block isn't valid otherwise.
+            let entry = applied.entry(m.from()).or_insert_with(|| m.sequence());
+
+            if *entry != m.sequence() {
+                return None;
+            }
+
+            *entry += 1;
+            Some(m)
+        };
+
+        ts.blocks()
+            .iter()
+            .map(|b| {
+                let (usm, sm) = block_messages(&db, b)?;
+
+                let mut messages = Vec::with_capacity(usm.len() + sm.len());
+                messages.extend(
+                    usm.into_iter()
+                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m))),
+                );
+                messages.extend(
+                    sm.into_iter()
+                        .filter_map(|m| select_msg(ChainMessage::Signed(m))),
+                );
+
+                Ok(BlockMessages {
+                    miner: *b.miner_address(),
+                    messages,
+                    win_count: b
+                        .election_proof()
+                        .as_ref()
+                        .map(|e| e.win_count)
+                        .unwrap_or_default(),
+                })
+            })
+            .collect()
+    }
 }
 
 /// Interpreter which handles execution of state transitioning messages and

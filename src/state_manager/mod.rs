@@ -17,6 +17,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
+use crate::interpreter::BlockMessages;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -1296,7 +1297,7 @@ where
         }
     }
 
-    let block_messages = ChainStore::block_msgs_for_tipset(&chain_index.db, &tipset)
+    let block_messages = BlockMessages::for_tipset(&chain_index.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
