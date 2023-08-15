@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// - Uses [`CidVariant`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
 /// - Uses `Box<[...]>`, over `Vec<...>` avoiding vector overallocation
 ///
-/// There will be MANY small collections of [FrozenCids] over the codebase, so these space savings matter
+/// There will be MANY small collections of [`FrozenCids`] over the codebase, so these space savings matter
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct FrozenCids(
