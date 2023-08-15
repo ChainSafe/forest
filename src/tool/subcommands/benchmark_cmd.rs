@@ -129,13 +129,6 @@ async fn benchmark_car_streaming(input: Vec<PathBuf>) -> Result<()> {
 // realistic expectations in terms of DFS graph travels, for example.
 async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
     let mut sink = indicatif_sink("traversed");
-    let ipld_to_cid = |ipld| {
-        if let Ipld::Link(cid) = ipld {
-            return Some((cid, ()));
-        }
-        None
-    };
-
     let mut s = Box::pin(
         futures::stream::iter(input)
             .then(File::open)
