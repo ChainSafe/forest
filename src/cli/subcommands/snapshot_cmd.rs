@@ -274,12 +274,14 @@ impl SnapshotCommands {
                     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
                     Either::Left(pb.wrap_async_read(file))
                 } else {
-                    let file = File::open(&source).await?;
-                    let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
-                        ProgressStyle::with_template("{bar} {percent}%, eta: {eta}")
-                            .expect("infallible"),
-                    );
-                    Either::Right(pb.wrap_async_read(file))
+                    let file = crate::utils::net::reader(&source.to_string_lossy()).await?;
+                    // let file = File::open(&source).await?;
+                    // let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
+                    //     ProgressStyle::with_template("{bar} {percent}%, eta: {eta}")
+                    //         .expect("infallible"),
+                    // );
+                    // Either::Right(pb.wrap_async_read(file))
+                    Either::Right(file)
                 };
 
                 let mut block_stream = CarStream::new(tokio::io::BufReader::new(input)).await?;

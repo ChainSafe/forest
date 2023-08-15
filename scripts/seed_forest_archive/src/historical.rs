@@ -78,34 +78,37 @@ impl HistoricalSnapshot {
 
     // Download and encode
     pub fn encode(&self) -> Result<Child> {
-        let mut curl = Command::new("curl")
+        // let mut curl = Command::new("curl")
+        //     .arg(format!(
+        //         "https://forest-archive.chainsafe.dev/historical/{}",
+        //         self.path
+        //     ))
+        //     .arg("--silent")
+        //     .arg("--retry")
+        //     .arg("5")
+        //     .arg("--retry-all-errors")
+        //     .stdout(Stdio::piped())
+        //     .stderr(Stdio::piped())
+        //     .spawn()?;
+        // let curl_stdout = curl.stdout.take().unwrap();
+        // std::thread::spawn(|| {
+        //     let output = curl.wait_with_output().unwrap();
+        //     if !output.status.success() {
+        //         eprintln!("Failed to download snapshot. Error message:");
+        //         eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap_or_default());
+        //         std::process::exit(1);
+        //     }
+        // });
+        Ok(Command::new("forest-cli")
+            .arg("snapshot")
+            .arg("compress")
             .arg(format!(
                 "https://forest-archive.chainsafe.dev/historical/{}",
                 self.path
             ))
-            .arg("--silent")
-            .arg("--retry")
-            .arg("5")
-            .arg("--retry-all-errors")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let curl_stdout = curl.stdout.take().unwrap();
-        std::thread::spawn(|| {
-            let output = curl.wait_with_output().unwrap();
-            if !output.status.success() {
-                eprintln!("Failed to download snapshot. Error message:");
-                eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap_or_default());
-                std::process::exit(1);
-            }
-        });
-        Ok(Command::new("forest-cli")
-            .arg("snapshot")
-            .arg("compress")
-            .arg("-")
+            .arg("--force")
             .arg("--output")
             .arg(&self.path)
-            .stdin(curl_stdout)
             .stderr(Stdio::piped())
             .spawn()?)
     }
