@@ -341,7 +341,7 @@ impl<T> LotusJson<Option<T>> {
     }
 }
 
-/// A struct that is (de) serialized through its [Display] and [FromStr] implementations.
+/// A struct that is (de) serialized through its [`Display`] and [`FromStr`] implementations.
 #[derive(Serialize, Deserialize, From, Default)]
 #[serde(bound = "T: Display + FromStr, T::Err: Display")]
 pub struct Stringify<T>(#[serde(with = "stringify")] pub T);

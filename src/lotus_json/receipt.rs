@@ -61,9 +61,9 @@ fn shapshots() {
     assert_all_snapshots::<Receipt>()
 }
 
-/// [Receipt] knows if it is V2 or V3, but there's no way for
+/// [Receipt] knows if it is `V2` or `V3`, but there's no way for
 /// the serialized representation to retain that information,
-/// so [assert_unchanged_via_json] tests with arbitrary input will fail.
+/// so [`assert_unchanged_via_json`] tests with arbitrary input will fail.
 ///
 /// This can only be fixed by rewriting [Receipt].
 #[test]
