@@ -48,7 +48,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
         daemon = daemon.pid_file(path, Some(false))
     }
 
-    daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
+    daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, child_pid| {
         let mut shmem = ipc_shmem_conf().open().expect("open must succeed");
         shmem.set_owner(true);
         let (event, _) =
@@ -61,7 +61,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
                 1,
             );
         }
-        info!("Forest has been detached and runs in the background.");
+        info!("Forest has been detached and runs in the background (PID: {child_pid}).");
         process::exit(0);
     });
 

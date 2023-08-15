@@ -160,6 +160,10 @@ pub(super) async fn start(
     );
     maybe_increase_fd_limit()?;
 
+    if opts.detach {
+        unblock_parent_process()?;
+    }
+
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
@@ -438,9 +442,6 @@ pub(super) async fn start(
     } else {
         debug!("RPC disabled.");
     };
-    if opts.detach {
-        unblock_parent_process()?;
-    }
 
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
