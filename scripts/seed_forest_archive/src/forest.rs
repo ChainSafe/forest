@@ -19,6 +19,7 @@ pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
         .args(files)
         .env("RUST_LOG", "error")
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
     let export_stdout = export.stdout.take().unwrap();
     spawn(|| {
@@ -39,6 +40,7 @@ pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
         .arg("-")
         .arg(format!("s3://forest-archive/mainnet/lite/{output_path}"))
         .stdin(export_stdout)
+        .stderr(Stdio::piped())
         .spawn()?)
 }
 

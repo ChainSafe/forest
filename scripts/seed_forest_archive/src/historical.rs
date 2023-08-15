@@ -88,6 +88,7 @@ impl HistoricalSnapshot {
             .arg("5")
             .arg("--retry-all-errors")
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()?;
         let curl_stdout = curl.stdout.take().unwrap();
         std::thread::spawn(|| {
@@ -105,6 +106,7 @@ impl HistoricalSnapshot {
             .arg("--output")
             .arg(&self.path)
             .stdin(curl_stdout)
+            .stderr(Stdio::piped())
             .spawn()?)
     }
 
