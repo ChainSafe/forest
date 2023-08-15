@@ -3,9 +3,7 @@
 
 use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
 use ahash::{HashMap, HashMapExt};
-use cid::multihash::{self, Code::Blake2b256};
 use cid::Cid;
-use fvm_ipld_encoding::DAG_CBOR;
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -66,17 +64,7 @@ impl<V> Iterator for IntoIter<V> {
     fn next(&mut self) -> Option<Self::Item> {
         self.small
             .next()
-            .map(|(bytes, v)| {
-                (
-                    // TODO: use `Cid::from(CidVariant)` when PR #3275 is merged.
-                    Cid::new_v1(
-                        DAG_CBOR,
-                        multihash::Multihash::wrap(Blake2b256.into(), &bytes)
-                            .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
-                    ),
-                    v,
-                )
-            })
+            .map(|(bytes, v)| (Cid::from(CidVariant::V1DagCborBlake2b(bytes)), v))
             .or_else(|| self.fallback.next().map(|(cid, v)| (cid, v)))
     }
 }
