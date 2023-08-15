@@ -65,7 +65,7 @@ impl<V> Iterator for IntoIter<V> {
         self.small
             .next()
             .map(|(bytes, v)| (Cid::from(CidVariant::V1DagCborBlake2b(bytes)), v))
-            .or_else(|| self.fallback.next().map(|(cid, v)| (cid, v)))
+            .or_else(|| self.fallback.next())
     }
 }
 
