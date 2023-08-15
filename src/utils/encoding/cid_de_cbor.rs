@@ -6,6 +6,8 @@ use serde::{Deserialize, Deserializer};
 use std::fmt::Write;
 use std::ops::{Deref, DerefMut};
 
+/// [`CidVec`] allows for efficient zero-copy deserialization of `DAG_CBOR`-encoded nodes into a
+/// vector of [`Cid`].
 #[derive(Default)]
 pub struct CidVec(Vec<Cid>);
 
@@ -23,6 +25,8 @@ impl DerefMut for CidVec {
     }
 }
 
+// [`CollectCid`] struct allows for recursive traversal of [`Ipld`] in order to retrieve all the
+// CIDs it encounters, using a preallocated vector.
 struct CollectCid<'a>(&'a mut Vec<Cid>);
 
 impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
@@ -119,6 +123,8 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 V: de::MapAccess<'de>,
             {
                 self.0.reserve(visitor.size_hint().unwrap_or(0));
+                // This is where recursion happens, we unravel each [`Ipld`] till we reach all
+                // the nodes.
                 while let Some(_) =
                     visitor.next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
                 {
@@ -132,7 +138,8 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 A: SeqAccess<'de>,
             {
                 self.0.reserve(seq.size_hint().unwrap_or(0));
-                // This is where the recursion happens, we unravel [`Ipld`] till we reach all the nodes.
+                // This is where recursion happens, we unravel each [`Ipld`] till we reach all
+                // the nodes.
                 while let Some(()) = seq.next_element_seed(CollectCid(self.0))? {
                     // Nothing to do; inner array has been appended into `vec`.
                 }
@@ -249,6 +256,7 @@ impl<'de> de::Deserialize<'de> for CidVec {
             {
                 let mut vec = Vec::with_capacity(visitor.size_hint().unwrap_or(0));
 
+                // This is where we delegate parsing to a recursive deserializer.
                 while let Some(()) = visitor.next_element_seed(CollectCid(&mut vec))? {}
 
                 Ok(CidVec(vec))
@@ -261,6 +269,8 @@ impl<'de> de::Deserialize<'de> for CidVec {
             {
                 let mut vec = Vec::with_capacity(visitor.size_hint().unwrap_or(0));
 
+                // This is where we delegate parsing to a recursive deserializer.
+                // NOTE: We are not really interested in map keys, that's essentially a noop.
                 while let Some(_) =
                     visitor.next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(&mut vec))?
                 {
