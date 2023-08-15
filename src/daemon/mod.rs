@@ -228,8 +228,9 @@ pub(super) async fn start(
             );
         }
 
-        store.read_only_files(WalkDir::new(&forest_car_db_dir).into_iter().filter_map(
-            |entry| {
+        for file in WalkDir::new(&forest_car_db_dir)
+            .into_iter()
+            .filter_map(|entry| {
                 if let Ok(entry) = entry {
                     if let Some(filename) = entry.file_name().to_str() {
                         if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
@@ -238,8 +239,23 @@ pub(super) async fn start(
                     }
                 }
                 None
-            },
-        ))?;
+            })
+        {
+            match AnyCar::new(RandomAccessFile::open(&file)?) {
+                Ok(car) => {
+                    if matches!(car, AnyCar::Forest(_)) {
+                        store.read_only(car);
+                        info!("Loaded car DB at {}", file.display());
+                    } else {
+                        info!(
+                            "Skip loading car DB at {}: invalid .forest.car.zst format",
+                            file.display()
+                        );
+                    }
+                }
+                Err(err) => warn!("Error loading car DB at {}: {err}", file.display()),
+            };
+        }
 
         (Arc::new(store), heaviest_tipset)
     };
