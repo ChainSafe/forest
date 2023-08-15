@@ -2680,7 +2680,6 @@ dependencies = [
  "walkdir",
  "xsalsa20poly1305",
  "zstd",
- "zstd-safe",
 ]
 
 [[package]]

@@ -178,7 +178,6 @@ uuid = { version = "1.3", features = ['v4'] }
 walkdir = "2"
 xsalsa20poly1305 = "0.9"
 zstd = "0.12.3"
-zstd-safe = "6.0.5"
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"
