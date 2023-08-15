@@ -259,7 +259,7 @@ where
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
-                heaviest_tip_set: heaviest.cids().to_vec(),
+                heaviest_tip_set: heaviest.cids(),
                 heaviest_tipset_height: heaviest.epoch(),
                 heaviest_tipset_weight: heaviest.weight().clone().into(),
                 genesis_cid: genesis_block_cid,
@@ -372,7 +372,7 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
-                let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
+                let tipset_keys = TipsetKeys::from(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),

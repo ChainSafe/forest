@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::interpreter::BlockMessages;
+use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
@@ -114,7 +115,7 @@ where
             .read_obj::<TipsetKeys>(HEAD_KEY)?
             .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
         {
-            let tipset_keys = TipsetKeys::new(vec![*genesis_block_header.cid()]);
+            let tipset_keys = TipsetKeys::new(FrozenCids::from_iter([*genesis_block_header.cid()]));
             settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 
@@ -206,7 +207,7 @@ where
     /// Returns Tipset from key-value store from provided CIDs
     #[tracing::instrument(skip_all)]
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        if tsk.cids().is_empty() {
+        if tsk.cids.is_empty() {
             return Ok(self.heaviest_tipset());
         }
         self.chain_index.load_tipset(tsk)

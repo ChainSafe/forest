@@ -198,7 +198,8 @@ pub(super) async fn start(
             let epoch = {
                 if !forest_car_db_path.is_file() {
                     0
-                } else if let Ok(Some(ts)) = Tipset::load_heaviest(store.writer().as_ref()) {
+                } else if let Ok(Some(ts)) = Tipset::load_heaviest(&store, store.writer().as_ref())
+                {
                     ts.epoch()
                 } else {
                     0

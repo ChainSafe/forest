@@ -28,7 +28,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let (CidJsonVec(cid_vec),) = params;
-    let tsk = TipsetKeys::new(cid_vec);
+    let tsk = TipsetKeys::new(cid_vec.into());
     let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending()?;
