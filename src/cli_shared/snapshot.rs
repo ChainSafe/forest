@@ -76,11 +76,11 @@ pub async fn fetch(
 }
 
 pub async fn download_file(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
-    match download_aria2c(&url, directory, &filename).await {
+    match download_aria2c(&url, directory, filename).await {
         Ok(path) => Ok(path),
         Err(AriaErr::CouldNotExec(reason)) => {
             warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
-            download_http(url, directory, &filename).await
+            download_http(url, directory, filename).await
         }
         Err(AriaErr::Other(o)) => Err(o),
     }

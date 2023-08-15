@@ -218,7 +218,7 @@ pub(super) async fn start(
 
         if let Some(path) = &config.client.snapshot_path {
             heaviest_tipset = Some(
-                import_chain_as_forest_car(&path, &forest_car_db_path, consume_snapshot_file)
+                import_chain_as_forest_car(path, &forest_car_db_path, consume_snapshot_file)
                     .await?,
             );
         }
@@ -788,8 +788,7 @@ async fn import_chain_as_forest_car(
                 forest_car_dir,
                 forest_car_db_temp_path
                     .file_name()
-                    .map(OsStr::to_str)
-                    .flatten()
+                    .and_then(OsStr::to_str)
                     .context("Infallible getting file name")?,
             )
             .await?;
@@ -799,13 +798,7 @@ async fn import_chain_as_forest_car(
     let (is_forest_car, ts) = {
         let car = AnyCar::new(RandomAccessFile::open(&forest_car_db_temp_path)?)?;
         let ts = car.heaviest_tipset()?;
-        (
-            match car {
-                AnyCar::Forest(_) => true,
-                _ => false,
-            },
-            ts,
-        )
+        (matches!(car, AnyCar::Forest(_)), ts)
     };
 
     if is_forest_car {
@@ -836,98 +829,43 @@ async fn import_chain_as_forest_car(
 
 #[cfg(test)]
 mod test {
-    use crate::blocks::BlockHeader;
-    use crate::cli_shared::cli::{BufferSize, ChunkSize};
-    use crate::db::MemoryDB;
-    use crate::networks::ChainConfig;
-    use crate::shim::address::Address;
-
     use super::*;
 
-    // #[tokio::test]
-    // async fn import_snapshot_from_file_valid() {
-    //     import_snapshot_from_file("test-snapshots/chain4.car")
-    //         .await
-    //         .unwrap();
-    // }
+    #[tokio::test]
+    async fn import_snapshot_from_file_valid() {
+        import_snapshot_from_file("test-snapshots/chain4.car")
+            .await
+            .unwrap();
+    }
 
-    // #[tokio::test]
-    // async fn import_snapshot_from_compressed_file_valid() {
-    //     import_snapshot_from_file("test-snapshots/chain4.car.zst")
-    //         .await
-    //         .unwrap()
-    // }
+    #[tokio::test]
+    async fn import_snapshot_from_compressed_file_valid() {
+        import_snapshot_from_file("test-snapshots/chain4.car.zst")
+            .await
+            .unwrap()
+    }
 
-    // #[tokio::test]
-    // async fn import_snapshot_from_file_invalid() {
-    //     import_snapshot_from_file("Cargo.toml").await.unwrap_err();
-    // }
+    #[tokio::test]
+    async fn import_snapshot_from_file_invalid() {
+        import_snapshot_from_file("Cargo.toml").await.unwrap_err();
+    }
 
-    // #[tokio::test]
-    // async fn import_snapshot_from_file_not_found() {
-    //     import_snapshot_from_file("dummy.car").await.unwrap_err();
-    // }
+    #[tokio::test]
+    async fn import_snapshot_from_file_not_found() {
+        import_snapshot_from_file("dummy.car").await.unwrap_err();
+    }
 
-    // #[tokio::test]
-    // async fn import_snapshot_from_url_not_found() {
-    //     import_snapshot_from_file("https://dummy.com/dummy.car")
-    //         .await
-    //         .unwrap_err();
-    // }
+    #[tokio::test]
+    async fn import_snapshot_from_url_not_found() {
+        import_snapshot_from_file("https://dummy.com/dummy.car")
+            .await
+            .unwrap_err();
+    }
 
-    // async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
-    //     let db = Arc::new(MemoryDB::default());
-    //     let chain_config = Arc::new(ChainConfig::default());
-
-    //     let genesis_header = BlockHeader::builder()
-    //         .miner_address(Address::new_id(0))
-    //         .timestamp(7777)
-    //         .build()?;
-
-    //     let cs = Arc::new(ChainStore::new(
-    //         db.clone(),
-    //         db,
-    //         chain_config.clone(),
-    //         genesis_header,
-    //     )?);
-    //     let sm = Arc::new(StateManager::new(cs, chain_config)?);
-    //     import_chain(
-    //         &sm,
-    //         file_path,
-    //         false,
-    //         ChunkSize::default(),
-    //         BufferSize::default(),
-    //     )
-    //     .await?;
-    //     Ok(())
-    // }
-
-    // #[tokio::test]
-    // async fn import_chain_from_file() -> anyhow::Result<()> {
-    //     let db = Arc::new(MemoryDB::default());
-    //     let chain_config = Arc::new(ChainConfig::default());
-    //     let genesis_header = BlockHeader::builder()
-    //         .miner_address(Address::new_id(0))
-    //         .timestamp(7777)
-    //         .build()?;
-
-    //     let cs = Arc::new(ChainStore::new(
-    //         db.clone(),
-    //         db,
-    //         chain_config.clone(),
-    //         genesis_header,
-    //     )?);
-    //     let sm = Arc::new(StateManager::new(cs, chain_config)?);
-    //     import_chain(
-    //         &sm,
-    //         "test-snapshots/chain4.car",
-    //         false,
-    //         ChunkSize::default(),
-    //         BufferSize::default(),
-    //     )
-    //     .await
-    //     .context("Failed to import chain")?;
-
-    //     Ok(())
-    // }
+    async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
+        let temp = tempfile::Builder::new().tempfile()?.into_temp_path();
+        let ts = import_chain_as_forest_car(Path::new(file_path), &temp, false).await?;
+        assert!(ts.epoch() > 0);
+        Ok(())
+    }
 }

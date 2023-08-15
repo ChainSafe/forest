@@ -162,7 +162,7 @@ impl Tipset {
                 Some(tsk) => tsk
                     .cids
                     .into_iter()
-                    .map(|key| BlockHeader::load(&store, key))
+                    .map(|key| BlockHeader::load(store, key))
                     .collect::<anyhow::Result<Option<_>>>()?
                     .map(Tipset::new)
                     .transpose()?,
