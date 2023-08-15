@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FrozenCids(
     #[cfg_attr(test, arbitrary(gen(
-    |g| Box::new([CidVariant::arbitrary(g)]))
-))]
+        |g| Vec::arbitrary(g).into_boxed_slice()
+    )))]
     Box<[CidVariant]>,
 );
 
