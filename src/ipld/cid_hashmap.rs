@@ -221,16 +221,6 @@ impl<V> CidHashMap<V> {
     }
 }
 
-impl<V> FromIterator<(Cid, V)> for CidHashMap<V> {
-    fn from_iter<T: IntoIterator<Item = (Cid, V)>>(iter: T) -> Self {
-        let mut map = Self::new();
-        for (k, v) in iter {
-            map.insert(k, v);
-        }
-        map
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
