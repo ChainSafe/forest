@@ -242,8 +242,8 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
             let bh_3 = from_slice_with_fallback::<BlockHeader>(extra)?;
             if bh_1.parents() == bh_3.parents()
                 && bh_1.epoch() == bh_3.epoch()
-                && bh_2.parents().cids().contains(bh_3.cid())
-                && !bh_2.parents().cids().contains(bh_1.cid())
+                && bh_2.parents().cids.contains(*bh_3.cid())
+                && !bh_2.parents().cids.contains(*bh_1.cid())
             {
                 fault_type = Some(ConsensusFaultType::ParentGrinding);
             }
