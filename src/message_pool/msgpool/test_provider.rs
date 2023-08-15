@@ -203,7 +203,7 @@ impl Provider for TestApi {
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         let inner = self.inner.lock();
         for ts in &inner.tipsets {
-            if tsk.cids == ts.cids() {
+            if tsk == ts.key() {
                 return Ok(ts.clone().into());
             }
         }

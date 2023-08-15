@@ -33,32 +33,30 @@ impl<V> CidHashMap<V> {
 
     /// Returns `true` if the map contains a value for the specified key.
     pub fn contains_key(&self, k: Cid) -> bool {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => {
                 self.v1_dagcbor_blake2b_hash_map.contains_key(&bytes)
             }
-            Err(()) => self.fallback_hash_map.contains_key(&k),
+            CidVariant::Generic(_) => self.fallback_hash_map.contains_key(&k),
         }
     }
 
     /// Inserts a key-value pair into the map; if the map did not have this key present, [`None`] is returned.
     pub fn insert(&mut self, k: Cid, v: V) -> Option<V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => {
                 self.v1_dagcbor_blake2b_hash_map.insert(bytes, v)
             }
-            Err(()) => self.fallback_hash_map.insert(k, v),
+            CidVariant::Generic(_) => self.fallback_hash_map.insert(k, v),
         }
     }
 
     /// Removes a key from the map, returning the value at the key if the key
     /// was previously in the map.
     pub fn remove(&mut self, k: Cid) -> Option<V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
-                self.v1_dagcbor_blake2b_hash_map.remove(&bytes)
-            }
-            Err(()) => self.fallback_hash_map.remove(&k),
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.remove(&bytes),
+            CidVariant::Generic(_) => self.fallback_hash_map.remove(&k),
         }
     }
 
@@ -69,9 +67,9 @@ impl<V> CidHashMap<V> {
 
     /// Returns a reference to the value corresponding to the key.
     pub fn get(&self, k: Cid) -> Option<&V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
-            Err(()) => self.fallback_hash_map.get(&k),
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
+            CidVariant::Generic(_) => self.fallback_hash_map.get(&k),
         }
     }
 

@@ -55,6 +55,7 @@ milliGas
 multihash
 multisig
 mutex
+overallocation
 P2P
 parsable
 pointer/SM
