@@ -6,7 +6,6 @@ use cid::Cid;
 use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
-use std::fmt::Write;
 use std::ops::{Deref, DerefMut};
 
 /// [`CidVec`] allows for efficient zero-copy deserialization of `DAG_CBOR`-encoded nodes into a

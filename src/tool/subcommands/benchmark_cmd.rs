@@ -18,7 +18,6 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use libipld_core::ipld::Ipld;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
