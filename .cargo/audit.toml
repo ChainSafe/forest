@@ -19,10 +19,6 @@ ignore = [
   # https://github.com/filecoin-project/ref-fvm/issues/1843
   "RUSTSEC-2020-0168", # mach is unmaintained
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
-
-  # TODO: Take renamed crate
-  # https://github.com/ChainSafe/forest/issues/3374
-  "RUSTSEC-2023-0037",
 ]
 
 [output]
