@@ -9,7 +9,7 @@ use crate::db::car::ManyCar;
 use crate::ipld::{stream_chain, stream_graph, DfsIter};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{Block, CarStream};
-use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::encoding::{from_slice_with_fallback, CidVec};
 use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
 use cid::Cid;
@@ -146,8 +146,8 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
     while let Some(block) = s.try_next().await? {
         let block: Block = block;
         if block.cid.codec() == DAG_CBOR {
-            let ipld: Ipld = from_slice_with_fallback(&block.data)?;
-            let _ = DfsIter::new(ipld).filter_map(ipld_to_cid).unique().count();
+            let cid_vec: CidVec = serde_ipld_dagcbor::from_slice(&block.data)?;
+            let _ = cid_vec.iter().unique().count();
         }
         sink.write_all(&block.data).await?
     }
