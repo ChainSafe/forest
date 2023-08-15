@@ -146,7 +146,7 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
-    config: Config,
+    mut config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
@@ -180,28 +180,48 @@ pub(super) async fn start(
 
     let chain_data_path = chain_path(&config);
     let (db, heaviest_tipset_from_imported_snapshot) = {
-        let mut heaviest_tipset = None;
+        let mut heaviest_tipset: Option<Tipset> = None;
         let db_root_dir = db_root(&chain_data_path);
         if !db_root_dir.is_dir() {
             fs::create_dir_all(&db_root_dir)?;
         }
         let forest_car_db_path = db_root_dir.join("snapshot.forest.car.zst");
 
+        let mut store = ManyCar::new(Arc::new(open_proxy_db(
+            db_root_dir.clone(),
+            config.db_config().clone(),
+        )?));
+
+        // TODO: use `--consume-snapshot` CLI option once it's implemented
+        let mut consume_snapshot_file = false;
+        if config.client.snapshot_path.is_none() {
+            let epoch = {
+                if !forest_car_db_path.is_file() {
+                    0
+                } else if let Ok(Some(ts)) = Tipset::load_heaviest(store.writer().as_ref()) {
+                    ts.epoch()
+                } else {
+                    0
+                }
+            };
+            fetch_snapshot_if_required(
+                &mut config,
+                epoch,
+                opts.auto_download_snapshot,
+                &db_root_dir,
+            )
+            .await?;
+            consume_snapshot_file = true;
+        }
+
         if let Some(path) = &config.client.snapshot_path {
             heaviest_tipset = Some(
-                import_chain_as_forest_car(&path.display().to_string(), &forest_car_db_path)
+                import_chain_as_forest_car(&path, &forest_car_db_path, consume_snapshot_file)
                     .await?,
             );
         }
 
-        let mut store = ManyCar::new(Arc::new(open_proxy_db(
-            db_root_dir,
-            config.db_config().clone(),
-        )?));
-
-        if forest_car_db_path.is_file() {
-            store.read_only_files(std::iter::once(forest_car_db_path))?;
-        }
+        store.read_only_files(std::iter::once(forest_car_db_path))?;
 
         (Arc::new(store), heaviest_tipset)
     };
@@ -310,8 +330,6 @@ pub(super) async fn start(
     if opts.exit_after_init {
         return Ok(());
     }
-
-    let epoch = chain_store.heaviest_tipset().epoch();
 
     load_actor_bundles(&db).await?;
 
@@ -430,9 +448,6 @@ pub(super) async fn start(
         );
     }
 
-    let mut config = config;
-    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
-
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
         // We've been provided a snapshot and asked to validate it
         ensure_params_downloaded().await?;
@@ -476,9 +491,16 @@ async fn fetch_snapshot_if_required(
     config: &mut Config,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
+    download_directory: &Path,
 ) -> anyhow::Result<()> {
+    if !download_directory.is_dir() {
+        anyhow::bail!(
+            "`download_directory` does not exist: {}",
+            download_directory.display()
+        );
+    }
+
     let vendor = snapshot::TrustedVendor::default();
-    let path = Path::new(".");
     let chain = &config.chain.network;
 
     // What height is our chain at right now, and what network version does that correspond to?
@@ -502,7 +524,7 @@ async fn fetch_snapshot_if_required(
                     max_retries: Some(max_retries),
                     delay: Some(Duration::from_secs(60)),
                 },
-                || crate::cli_shared::snapshot::fetch(path, chain, vendor),
+                || crate::cli_shared::snapshot::fetch(download_directory, chain, vendor),
             )
             .await
             {
@@ -539,7 +561,7 @@ async fn fetch_snapshot_if_required(
             if !have_permission {
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
-            match crate::cli_shared::snapshot::fetch(path, chain, vendor).await {
+            match crate::cli_shared::snapshot::fetch(download_directory, chain, vendor).await {
                 Ok(path) => {
                     config.client.snapshot_path = Some(path);
                     config.client.snapshot = true;
@@ -727,20 +749,33 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
 }
 
 async fn import_chain_as_forest_car(
-    from_path: &str,
+    from_path: &Path,
     forest_car_path: &Path,
+    consume_snapshot_file: bool,
 ) -> anyhow::Result<Tipset> {
-    info!("Importing chain from snapshot at: {from_path}");
+    info!("Importing chain from snapshot at: {}", from_path.display());
 
     let stopwatch = time::Instant::now();
-    let mut reader = net::reader(from_path).await?;
+
     let forest_car_db_temp_path = tempfile::NamedTempFile::new_in(
         forest_car_path
             .parent()
             .context("`forest_car_path` should have a parent directory.")?,
     )?
     .into_temp_path();
-    {
+
+    if from_path.is_file() && consume_snapshot_file {
+        if let Err(err) = fs::rename(from_path, &forest_car_db_temp_path) {
+            warn!(
+                "Failed to rename file from {} to {}: {err}",
+                from_path.display(),
+                forest_car_db_temp_path.display()
+            );
+        }
+    }
+
+    if !forest_car_db_temp_path.is_file() {
+        let mut reader = net::reader(&from_path.display().to_string()).await?;
         let mut temp_snapshot_writer =
             tokio::io::BufWriter::new(tokio::fs::File::create(&forest_car_db_temp_path).await?);
         tokio::io::copy(&mut reader, &mut temp_snapshot_writer).await?;

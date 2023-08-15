@@ -3,6 +3,7 @@
 
 use std::{fmt, sync::OnceLock};
 
+use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::networks::{calibnet, mainnet};
 use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
@@ -147,6 +148,24 @@ impl Tipset {
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
+    }
+
+    /// Load the heaviest tipset from the blockstore
+    pub fn load_heaviest<DB: Blockstore + SettingsStore>(
+        store: &DB,
+    ) -> anyhow::Result<Option<Tipset>> {
+        Ok(
+            match store.read_obj::<TipsetKeys>(crate::db::setting_keys::HEAD_KEY)? {
+                Some(tsk) => tsk
+                    .cids()
+                    .iter()
+                    .map(|key| BlockHeader::load(&store, *key))
+                    .collect::<anyhow::Result<Option<_>>>()?
+                    .map(Tipset::new)
+                    .transpose()?,
+                None => None,
+            },
+        )
     }
 
     /// Fetch a tipset from the blockstore. This calls fails if the tipset is
