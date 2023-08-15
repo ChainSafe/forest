@@ -3,6 +3,7 @@ use super::{ChainEpoch, ChainEpochDelta};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::thread::spawn;
 
 pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
     let output_path = lite_snapshot_name(epoch);
@@ -16,16 +17,28 @@ pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
         .arg("--output-path")
         .arg("-")
         .args(files)
+        .env("RUST_LOG", "error")
         .stdout(Stdio::piped())
         .spawn()?;
+    let export_stdout = export.stdout.take().unwrap();
+    spawn(|| {
+        let output = export.wait_with_output().unwrap();
+        if !output.status.success() {
+            eprintln!("Failed to export snapshot. Error message:");
+            eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap_or_default());
+            std::process::exit(1);
+        }
+    });
     Ok(Command::new("aws")
         .arg("--endpoint")
         .arg(super::R2_ENDPOINT)
         .arg("s3")
         .arg("cp")
+        .arg("--content-type")
+        .arg("application/zstd")
         .arg("-")
         .arg(format!("s3://forest-archive/mainnet/lite/{output_path}"))
-        .stdin(export.stdout.take().unwrap())
+        .stdin(export_stdout)
         .spawn()?)
 }
 

@@ -35,21 +35,22 @@ fn main() -> Result<()> {
         let epoch = round * EPOCH_STEP;
         let initial_range = RangeInclusive::new(epoch.saturating_sub(900), epoch);
 
-        if !has_lite_snapshot(epoch)? {
+        if !has_lite_snapshot(epoch)? || true {
             let mut downloads = vec![];
             let mut paths = vec![];
             for snapshot in store.in_range(&initial_range) {
                 println!("Downloading: {}", snapshot.path());
                 paths.push(snapshot.path().to_owned());
-                downloads.push(snapshot.encode()?);
+                downloads.push((snapshot.path().to_owned(), snapshot.encode()?));
             }
-            for download in downloads {
+            for (path, download) in downloads {
                 let output = download.wait_with_output()?;
                 if !output.status.success() {
                     eprintln!("Failed to download snapshot. Error message:");
                     eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap_or_default());
                     std::process::exit(1);
                 }
+                println!("Download complete: {path}");
             }
             if let Some(prev_upload) = background_task.take() {
                 let output = prev_upload.wait_with_output()?;
@@ -58,6 +59,7 @@ fn main() -> Result<()> {
                     eprintln!("{}", std::str::from_utf8(&output.stderr).unwrap_or_default());
                     std::process::exit(1);
                 }
+                println!("Upload complete: {:?}", prev_files);
                 for file in prev_files.drain(..) {
                     std::fs::remove_file(file)?;
                 }
