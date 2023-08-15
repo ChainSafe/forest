@@ -13,6 +13,7 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
     snapshot,
 };
+use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
@@ -67,6 +68,7 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 use url::Url;
+use walkdir::WalkDir;
 
 lazy_static! {
     static ref IPC_PATH: TempPath = Builder::new()
@@ -187,10 +189,10 @@ pub(super) async fn start(
     let (db, heaviest_tipset_from_imported_snapshot) = {
         let mut heaviest_tipset: Option<Tipset> = None;
         let db_root_dir = db_root(&chain_data_path);
-        if !db_root_dir.is_dir() {
-            fs::create_dir_all(&db_root_dir)?;
+        let forest_car_db_dir = db_root_dir.join("car_db");
+        if !forest_car_db_dir.is_dir() {
+            fs::create_dir_all(&forest_car_db_dir)?;
         }
-        let forest_car_db_path = db_root_dir.join("snapshot.forest.car.zst");
 
         let mut store = ManyCar::new(Arc::new(open_proxy_db(
             db_root_dir.clone(),
@@ -201,7 +203,7 @@ pub(super) async fn start(
         let mut consume_snapshot_file = false;
         if config.client.snapshot_path.is_none() {
             let epoch = {
-                if !forest_car_db_path.is_file() {
+                if !forest_car_db_dir.is_file() {
                     0
                 } else if let Ok(Some(ts)) = Tipset::load_heaviest(&store, store.writer().as_ref())
                 {
@@ -222,12 +224,22 @@ pub(super) async fn start(
 
         if let Some(path) = &config.client.snapshot_path {
             heaviest_tipset = Some(
-                import_chain_as_forest_car(path, &forest_car_db_path, consume_snapshot_file)
-                    .await?,
+                import_chain_as_forest_car(path, &forest_car_db_dir, consume_snapshot_file).await?,
             );
         }
 
-        store.read_only_files(std::iter::once(forest_car_db_path))?;
+        store.read_only_files(WalkDir::new(&forest_car_db_dir).into_iter().filter_map(
+            |entry| {
+                if let Ok(entry) = entry {
+                    if let Some(filename) = entry.file_name().to_str() {
+                        if filename.ends_with(FOREST_CAR_FILE_EXTENSION) {
+                            return Some(entry.into_path());
+                        }
+                    }
+                }
+                None
+            },
+        ))?;
 
         (Arc::new(store), heaviest_tipset)
     };
@@ -753,23 +765,21 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
 
 async fn import_chain_as_forest_car(
     from_path: &Path,
-    forest_car_path: &Path,
+    forest_car_db_dir: &Path,
     consume_snapshot_file: bool,
 ) -> anyhow::Result<Tipset> {
     info!("Importing chain from snapshot at: {}", from_path.display());
 
     let stopwatch = time::Instant::now();
 
-    let forest_car_dir = forest_car_path
-        .parent()
-        .context("`forest_car_path` should have a parent directory.")?;
-    let forest_car_db_temp_path = tempfile::NamedTempFile::new_in(forest_car_dir)?.into_temp_path();
+    let downloaded_car_temp_path =
+        tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
     let temp_file_ready = if from_path.is_file() && consume_snapshot_file {
-        if let Err(err) = fs::rename(from_path, &forest_car_db_temp_path) {
+        if let Err(err) = fs::rename(from_path, &downloaded_car_temp_path) {
             warn!(
                 "Failed to rename file from {} to {}: {err}",
                 from_path.display(),
-                forest_car_db_temp_path.display()
+                downloaded_car_temp_path.display()
             );
             false
         } else {
@@ -781,13 +791,13 @@ async fn import_chain_as_forest_car(
 
     if !temp_file_ready {
         if from_path.is_file() {
-            std::fs::copy(from_path, &forest_car_db_temp_path)?;
+            std::fs::copy(from_path, &downloaded_car_temp_path)?;
         } else {
             let url = Url::parse(&from_path.display().to_string())?;
             snapshot::download_file(
                 url,
-                forest_car_dir,
-                forest_car_db_temp_path
+                forest_car_db_dir,
+                downloaded_car_temp_path
                     .file_name()
                     .and_then(OsStr::to_str)
                     .context("Infallible getting file name")?,
@@ -797,27 +807,37 @@ async fn import_chain_as_forest_car(
     }
 
     let (is_forest_car, ts) = {
-        let car = AnyCar::new(RandomAccessFile::open(&forest_car_db_temp_path)?)?;
+        let car = AnyCar::new(RandomAccessFile::open(&downloaded_car_temp_path)?)?;
         let ts = car.heaviest_tipset()?;
         (matches!(car, AnyCar::Forest(_)), ts)
     };
 
+    let forest_car_db_path =
+        forest_car_db_dir.join(format!("{}{FOREST_CAR_FILE_EXTENSION}", ts.epoch()));
+
     if is_forest_car {
-        forest_car_db_temp_path.persist(forest_car_path)?;
+        downloaded_car_temp_path.persist(&forest_car_db_path)?;
     } else {
         let car_stream = CarStream::new(tokio::io::BufReader::new(
-            tokio::fs::File::open(&forest_car_db_temp_path).await?,
+            tokio::fs::File::open(&downloaded_car_temp_path).await?,
         ))
         .await?;
         let roots = car_stream.header.roots.clone();
-        let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(forest_car_path).await?);
-        let frames = crate::db::car::forest::Encoder::compress_stream(
-            8000usize.next_power_of_two(),
-            zstd::DEFAULT_COMPRESSION_LEVEL as _,
-            car_stream.map_err(anyhow::Error::from),
-        );
-        crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
-        writer.flush().await?;
+        // Use another temp file to make sure all final `.forest.car.zst` files are complete and valid.
+        let forest_car_db_temp_path =
+            tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
+        {
+            let mut writer =
+                tokio::io::BufWriter::new(tokio::fs::File::create(&forest_car_db_temp_path).await?);
+            let frames = crate::db::car::forest::Encoder::compress_stream(
+                8000usize.next_power_of_two(),
+                zstd::DEFAULT_COMPRESSION_LEVEL as _,
+                car_stream.map_err(anyhow::Error::from),
+            );
+            crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
+            writer.shutdown().await?;
+        }
+        forest_car_db_temp_path.persist(&forest_car_db_path)?;
     }
 
     info!(
@@ -864,8 +884,8 @@ mod test {
     }
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
-        let temp = tempfile::Builder::new().tempfile()?.into_temp_path();
-        let ts = import_chain_as_forest_car(Path::new(file_path), &temp, false).await?;
+        let temp = tempfile::Builder::new().tempdir()?;
+        let ts = import_chain_as_forest_car(Path::new(file_path), temp.path(), false).await?;
         assert!(ts.epoch() > 0);
         Ok(())
     }
