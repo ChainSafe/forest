@@ -60,7 +60,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
             where
                 E: de::Error,
             {
-                self.visit_byte_buf(v.to_owned())
+                Ok(())
             }
 
             #[inline]
