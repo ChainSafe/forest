@@ -20,10 +20,10 @@ use super::{
     SystemStateOld,
 };
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
-impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
+impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv18_migrations(
         &mut self,
-        store: BS,
+        store: Arc<BS>,
         state: &Cid,
         new_manifest: &Cid,
     ) -> anyhow::Result<()> {
@@ -67,12 +67,12 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 /// Runs the migration for `NV18`. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
-    blockstore: &DB,
+    blockstore: &Arc<DB>,
     state: &Cid,
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: 'static + Blockstore + Clone + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let new_manifest_cid = chain_config
         .height_infos
@@ -97,8 +97,7 @@ where
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
-    let new_state =
-        migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
+    let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
 
     Ok(new_state)
 }

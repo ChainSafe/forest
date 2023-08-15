@@ -19,12 +19,14 @@ CID/SM
 CIDs
 CLI
 clonable
+codebase
 codec
 cron
 crypto
 daemon
 daemonize
 DB/S
+destructuring
 DNS
 Enum
 EOF
@@ -54,6 +56,7 @@ milliGas
 multihash
 multisig
 mutex
+overallocation
 P2P
 parsable
 pointer/SM
@@ -62,13 +65,14 @@ RPC
 SECP
 SECP256k1
 seekable
-skippable
 serializable
 serializer/SM
+skippable
 statediff
 stateful
 stderr
 stdout
+struct/SM
 synchronizer
 syscall/S
 TCP
@@ -79,6 +83,8 @@ TOML
 trie
 TTY
 uncompress
+unrepresentable
+untrusted
 URL
 validator/S
 varint

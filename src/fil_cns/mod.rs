@@ -85,7 +85,7 @@ impl<B> Debug for FilecoinConsensus<B> {
 }
 
 impl<B> Scale for FilecoinConsensus<B> {
-    fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+    fn weight<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<Weight, anyhow::Error>
     where
         DB: Blockstore,
     {

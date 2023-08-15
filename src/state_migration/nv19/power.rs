@@ -33,7 +33,7 @@ pub(in crate::state_migration) fn power_migrator<BS: Blockstore>(
 impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
     fn migrate_state(
         &self,
-        store: BS,
+        store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: StateV10 = store
@@ -42,10 +42,9 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
 
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 
-        let empty_claims = make_empty_map::<BS, ()>(&store, HAMT_BIT_WIDTH).flush()?;
+        let empty_claims = make_empty_map::<BS, ()>(store, HAMT_BIT_WIDTH).flush()?;
 
-        let mut out_claims =
-            make_map_with_root_and_bitwidth(&empty_claims, &store, HAMT_BIT_WIDTH)?;
+        let mut out_claims = make_map_with_root_and_bitwidth(&empty_claims, store, HAMT_BIT_WIDTH)?;
 
         in_claims.for_each(|key, claim: &ClaimV10| {
             let new_proof_type = convert_window_post_proof_v1_to_v1p1(claim.window_post_proof_type)

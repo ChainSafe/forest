@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::json::vrf::VRFProof;
+use crate::blocks::VRFProof;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source

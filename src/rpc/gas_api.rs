@@ -100,7 +100,7 @@ where
             .chain_store()
             .tipset_from_keys(ts.parents())?;
         blocks += pts.blocks().len();
-        let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
+        let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
 
         prices.append(
             &mut msgs

@@ -8,22 +8,24 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::shim::crypto::SignatureType;
+use crate::{shim::crypto::SignatureType, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashMapExt};
 use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
+use crypto_secretbox::{
+    aead::{generic_array::GenericArray, Aead},
+    KeyInit, SecretBox, XSalsa20Poly1305,
+};
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{error, warn};
-use xsalsa20poly1305::{
-    aead::{generic_array::GenericArray, Aead},
-    KeyInit, XSalsa20Poly1305, NONCE_SIZE,
-};
 
 use super::errors::Error;
+
+const NONCE_SIZE: usize = SecretBox::<Box<dyn std::any::Any>>::NONCE_SIZE;
 
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
@@ -282,7 +284,7 @@ impl KeyStore {
                             let decrypted_data = EncryptedKeyStore::decrypt(&encryption_key, &data)
                                 .map_err(|error| Error::Other(error.to_string()))?;
 
-                            let key_info = serde_ipld_dagcbor::from_slice(&decrypted_data)
+                            let key_info = from_slice_with_fallback(&decrypted_data)
                                 .map_err(|e| {
                                     error!("Failed to deserialize keyfile, initializing new");
                                     e

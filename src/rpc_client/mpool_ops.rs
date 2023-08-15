@@ -12,3 +12,10 @@ pub async fn mpool_push_message(
 ) -> Result<MpoolPushMessageResult, Error> {
     call(MPOOL_PUSH_MESSAGE, params, auth_token).await
 }
+
+pub async fn mpool_pending(
+    params: MpoolPendingParams,
+    auth_token: &Option<String>,
+) -> Result<MpoolPendingResult, Error> {
+    call(MPOOL_PENDING, params, auth_token).await
+}

@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use crate::ipld::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use cid::Cid;
@@ -21,7 +23,7 @@ pub(in crate::state_migration) struct StateMigration<BS> {
     post_migrators: Vec<PostMigratorArc<BS>>,
 }
 
-impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
+impl<BS: Blockstore> StateMigration<BS> {
     pub(in crate::state_migration) fn new(verifier: Option<MigrationVerifier<BS>>) -> Self {
         Self {
             migrations: CidHashMap::new(),
@@ -46,17 +48,19 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     ) {
         self.post_migrators.push(post_migrator);
     }
+}
 
+impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
     pub(in crate::state_migration) fn migrate_state_tree(
         &self,
-        store: BS,
+        store: &Arc<BS>,
         prior_epoch: ChainEpoch,
         actors_in: StateTree<BS>,
         mut actors_out: StateTree<BS>,
     ) -> anyhow::Result<Cid> {
         // Checks if the migration specification is correct
         if let Some(verifier) = &self.verifier {
-            verifier.verify_migration(&store, &self.migrations, &actors_in)?;
+            verifier.verify_migration(store, &self.migrations, &actors_in)?;
         }
 
         // we need at least 3 threads for the migration to work
@@ -74,8 +78,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
 
         pool.scope(|s| {
-            let store_clone = store.clone();
-
             s.spawn(move |_| {
                 actors_in
                     .for_each(|addr, state| {
@@ -90,7 +92,6 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             s.spawn(move |scope| {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
-                    let store_clone = store_clone.clone();
                     let migrator = self.migrations.get(state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
                     scope.spawn(move |_| {
                         let job = MigrationJob {
@@ -99,7 +100,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                             actor_migration: migrator,
                         };
 
-                        let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
+                        let job_output = job.run(store, prior_epoch).unwrap_or_else(|e| {
                             panic!(
                                 "failed executing job for address: {address}, Reason: {e}"
                             )
@@ -131,7 +132,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
         // execute post migration actions, e.g., create new actors
         for post_migrator in self.post_migrators.iter() {
-            post_migrator.post_migrate_state(&store, &mut actors_out)?;
+            post_migrator.post_migrate_state(store, &mut actors_out)?;
         }
 
         actors_out.flush()
