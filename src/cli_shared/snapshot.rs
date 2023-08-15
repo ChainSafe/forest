@@ -72,6 +72,10 @@ pub async fn fetch(
         .date_and_height_and_forest();
     let filename = filename(vendor, chain, date, height, forest_format);
 
+    download_file(url, directory, &filename).await
+}
+
+pub async fn download_file(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
     match download_aria2c(&url, directory, &filename).await {
         Ok(path) => Ok(path),
         Err(AriaErr::CouldNotExec(reason)) => {
