@@ -8,7 +8,7 @@ use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
 use std::ops::{Deref, DerefMut};
 
-/// [`CidVec`] allows for efficient zero-copy deserialization of `DAG_CBOR`-encoded nodes into a
+/// [`CidVec`] allows for efficient zero-copy de-serialization of `DAG_CBOR`-encoded nodes into a
 /// vector of [`Cid`].
 #[derive(Default)]
 pub struct CidVec(Vec<Cid>);
@@ -150,7 +150,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 Ok(())
             }
 
-            /// Newtype structs are only used to deserialize CIDs.
+            /// "New-type" structs are only used to de-serialize CIDs.
             #[inline]
             fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
             where
