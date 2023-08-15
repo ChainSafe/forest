@@ -130,6 +130,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 while let Some(_) =
                     visitor.next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
                 {
+                    // Nothing to do; inner map values have been into `vec`.
                 }
 
                 Ok(())
