@@ -9,13 +9,17 @@ ignore = [
   # Waiting on libp2p to update ed25519-dalek 1.x -> 2.x
   # https://github.com/ChainSafe/forest/issues/3371
   "RUSTSEC-2022-0093",
+
   # TODO: ???
   # https://github.com/ChainSafe/forest/issues/3372
   "RUSTSEC-2020-0071",
-  # Waiting on fvm2 to update unmaintained deps
-  # https://github.com/ChainSafe/forest/issues/3373
-  "RUSTSEC-2020-0168",
-  "RUSTSEC-2022-0061",
+
+  # Unmaintained crates that fvm2 requires, and will not change for
+  # compatability/consensus reasons - see
+  # https://github.com/filecoin-project/ref-fvm/issues/1843
+  "RUSTSEC-2020-0168", # mach is unmaintained
+  "RUSTSEC-2022-0061", # parity-wasm is deprecated
+
   # TODO: Take renamed crate
   # https://github.com/ChainSafe/forest/issues/3374
   "RUSTSEC-2023-0037",
