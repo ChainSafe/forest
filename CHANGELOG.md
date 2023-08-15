@@ -34,6 +34,8 @@
 
 ### Added
 
+- [#3379](https://github.com/ChainSafe/forest/pull/3379): Zero-copy DAG_CBOR
+  into Vec<Cid> parser.
 - [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
   multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
