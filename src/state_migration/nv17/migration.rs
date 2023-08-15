@@ -25,10 +25,10 @@ use super::{
     verifreg_market::VerifregMarketPostMigrator, SystemStateOld,
 };
 
-impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
+impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
     pub fn add_nv17_migrations(
         &mut self,
-        store: BS,
+        store: &Arc<BS>,
         actors_in: &mut StateTree<BS>,
         new_manifest: &Manifest,
         prior_epoch: ChainEpoch,
@@ -90,7 +90,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
             *miner_v8_actor_code,
             miner::miner_migrator(
                 *miner_v9_actor_code,
-                &store,
+                store,
                 market_state_v8.proposals,
                 chain_config,
             )?,
@@ -133,12 +133,12 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 /// Runs the migration for `NV17`. Returns the new state root.
 pub fn run_migration<DB>(
     chain_config: &ChainConfig,
-    blockstore: &DB,
+    blockstore: &Arc<DB>,
     state: &Cid,
     epoch: ChainEpoch,
 ) -> anyhow::Result<Cid>
 where
-    DB: Blockstore + Clone + Send + Sync,
+    DB: Blockstore + Send + Sync,
 {
     let new_manifest_cid = chain_config
         .height_infos
@@ -164,7 +164,7 @@ where
 
     let mut migration = StateMigration::<DB>::new(Some(verifier));
     migration.add_nv17_migrations(
-        blockstore.clone(),
+        blockstore,
         &mut actors_in,
         &new_manifest,
         epoch,
@@ -173,8 +173,7 @@ where
 
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;
 
-    let new_state =
-        migration.migrate_state_tree(blockstore.clone(), epoch, actors_in, actors_out)?;
+    let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
 
     Ok(new_state)
 }

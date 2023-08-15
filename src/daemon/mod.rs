@@ -13,6 +13,7 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
     snapshot,
 };
+use crate::db::car::ManyCar;
 use crate::db::{
     db_engine::{db_root, open_proxy_db},
     rolling::DbGarbageCollector,
@@ -92,6 +93,27 @@ fn unblock_parent_process() -> anyhow::Result<()> {
         .map_err(|err| anyhow::anyhow!("{err}"))
 }
 
+/// Increase the file descriptor limit to a reasonable number.
+/// This prevents the node from failing if the default soft limit is too low.
+/// Note that the value is only increased, never decreased.
+fn maybe_increase_fd_limit() -> anyhow::Result<()> {
+    static DESIRED_SOFT_LIMIT: u64 = 8192;
+    let (soft_before, _) = rlimit::Resource::NOFILE.get()?;
+
+    let soft_after = rlimit::increase_nofile_limit(DESIRED_SOFT_LIMIT)?;
+    if soft_before < soft_after {
+        debug!("Increased file descriptor limit from {soft_before} to {soft_after}");
+    }
+    if soft_after < DESIRED_SOFT_LIMIT {
+        warn!(
+            "File descriptor limit is too low: {soft_after} < {DESIRED_SOFT_LIMIT}. \
+            You may encounter 'too many open files' errors.",
+        );
+    }
+
+    Ok(())
+}
+
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
 pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
@@ -130,6 +152,7 @@ pub(super) async fn start(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
+    maybe_increase_fd_limit()?;
 
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
@@ -151,10 +174,10 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db = Arc::new(open_proxy_db(
+    let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
         db_root(&chain_data_path),
         config.db_config().clone(),
-    )?);
+    )?)));
 
     let mut services = JoinSet::new();
 
@@ -176,7 +199,7 @@ pub(super) async fn start(
             config.client.metrics_address
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(&config));
-        let db = db.clone();
+        let db = db.writer().clone();
         services.spawn(async {
             crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
                 .await
@@ -197,7 +220,7 @@ pub(super) async fn start(
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
-        db.clone(),
+        db.writer().clone(),
         config.chain.clone(),
         genesis_header.clone(),
     )?);
@@ -207,7 +230,7 @@ pub(super) async fn start(
         let chain_store = chain_store.clone();
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
-            db.as_ref().clone(),
+            db,
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
             get_tipset,
@@ -272,7 +295,7 @@ pub(super) async fn start(
         net_keypair,
         &network_name,
         genesis_cid,
-    );
+    )?;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -283,7 +306,7 @@ pub(super) async fn start(
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(db.as_ref())?,
+        MpoolConfig::load_config(db.writer().as_ref())?,
         state_manager.chain_config(),
         &mut services,
     )?;
@@ -381,7 +404,7 @@ pub(super) async fn start(
 
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
-        import_chain::<_>(
+        import_chain(
             &state_manager,
             &path.display().to_string(),
             config.client.skip_load,
@@ -743,7 +766,7 @@ mod test {
             genesis_header,
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
-        import_chain::<_>(
+        import_chain(
             &sm,
             file_path,
             false,
@@ -770,7 +793,7 @@ mod test {
             genesis_header,
         )?);
         let sm = Arc::new(StateManager::new(cs, chain_config)?);
-        import_chain::<_>(
+        import_chain(
             &sm,
             "test-snapshots/chain4.car",
             false,

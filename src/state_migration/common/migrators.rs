@@ -15,7 +15,7 @@ pub(in crate::state_migration) struct NilMigrator(Cid);
 impl<BS: Blockstore> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
-        _store: BS,
+        _store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         Ok(Some(ActorMigrationOutput {
@@ -39,7 +39,7 @@ pub(in crate::state_migration) struct DeferredMigrator;
 impl<BS: Blockstore> ActorMigration<BS> for DeferredMigrator {
     fn migrate_state(
         &self,
-        _store: BS,
+        _store: &BS,
         _input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         Ok(None)

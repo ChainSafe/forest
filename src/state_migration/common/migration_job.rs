@@ -25,7 +25,7 @@ pub(in crate::state_migration) struct MigrationJob<BS: Blockstore> {
 impl<BS: Blockstore> MigrationJob<BS> {
     pub(in crate::state_migration) fn run(
         &self,
-        store: BS,
+        store: &Arc<BS>,
         prior_epoch: ChainEpoch,
     ) -> anyhow::Result<Option<MigrationJobOutput>> {
         if let Some(result) = self

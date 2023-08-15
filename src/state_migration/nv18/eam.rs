@@ -15,7 +15,7 @@ use super::SystemStateNew;
 
 pub struct EamPostMigrator;
 
-impl<BS: Blockstore + Clone> PostMigrator<BS> for EamPostMigrator {
+impl<BS: Blockstore> PostMigrator<BS> for EamPostMigrator {
     /// Creates the Ethereum Account Manager actor in the state tree.
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         let sys_actor = actors_out

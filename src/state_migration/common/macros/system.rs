@@ -42,7 +42,7 @@ macro_rules! impl_system {
             impl<BS: Blockstore> ActorMigration<BS> for SystemMigrator {
                 fn migrate_state(
                     &self,
-                    store: BS,
+                    store: &BS,
                     _input: ActorMigrationInput,
                 ) -> anyhow::Result<Option<ActorMigrationOutput>> {
                     let state = super::SystemStateNew {

@@ -43,7 +43,7 @@ pub(in crate::state_migration) struct ActorMigrationOutput {
 pub(in crate::state_migration) trait ActorMigration<BS: Blockstore> {
     fn migrate_state(
         &self,
-        store: BS,
+        store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>>;
 }
