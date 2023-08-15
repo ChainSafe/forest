@@ -35,7 +35,7 @@ fn main() -> Result<()> {
         let epoch = round * EPOCH_STEP;
         let initial_range = RangeInclusive::new(epoch.saturating_sub(900), epoch);
 
-        if !has_lite_snapshot(epoch)? || true {
+        if !has_lite_snapshot(epoch)? {
             let mut downloads = vec![];
             let mut paths = vec![];
             for snapshot in store.in_range(&initial_range) {
