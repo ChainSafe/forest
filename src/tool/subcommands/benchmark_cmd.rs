@@ -12,6 +12,7 @@ use crate::utils::db::car_stream::{Block, CarStream};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
+use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
@@ -226,7 +227,8 @@ async fn benchmark_exporting(
         compression_level,
         par_buffer(1024, blocks.map_err(anyhow::Error::from)),
     );
-    crate::db::car::forest::Encoder::write(&mut dest, ts.key().cids.clone(), frames).await?;
+    crate::db::car::forest::Encoder::write(&mut dest, Vec::<Cid>::from(&ts.key().cids), frames)
+        .await?;
     dest.flush().await?;
     Ok(())
 }

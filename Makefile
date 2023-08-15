@@ -55,7 +55,7 @@ clean:
 lint-all: lint audit spellcheck
 
 audit:
-	cargo audit --ignore RUSTSEC-2020-0071
+	cargo audit || (echo "See .config/audit.toml"; false)
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)

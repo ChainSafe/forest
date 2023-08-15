@@ -128,7 +128,7 @@ where
     let wp = WithProgressRaw::new(message, estimated_total_records);
 
     let mut seen = CidHashSet::default();
-    let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
+    let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().into();
     let mut current_min_height = tipset.epoch();
     let incl_roots_epoch = tipset.epoch() - recent_roots;
 
@@ -171,12 +171,12 @@ where
         }
 
         if h.epoch() > 0 {
-            for p in h.parents().cids() {
-                blocks_to_walk.push_back(*p);
+            for p in &h.parents().cids {
+                blocks_to_walk.push_back(p);
             }
         } else {
-            for p in h.parents().cids() {
-                load_block(*p).await?;
+            for p in &h.parents().cids {
+                load_block(p).await?;
             }
         }
 
@@ -393,8 +393,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents().cids() {
-                                this.dfs.push_back(Emit(*p));
+                            for p in &block.parents().cids {
+                                this.dfs.push_back(Emit(p));
                             }
                         }
 
