@@ -60,11 +60,11 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
+use crate::ipld::{CidHashMap, CidHashMapEntry};
 use crate::{
     blocks::{Tipset, TipsetKeys},
     utils::encoding::from_slice_with_fallback,
 };
-use crate::ipld::{CidHashMap, CidHashMapEntry};
 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;

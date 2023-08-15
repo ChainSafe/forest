@@ -67,12 +67,6 @@ impl<V> Occupied<'_, V> {
         };
         ret
     }
-    pub fn remove(self) -> V {
-        match self.inner {
-            OccupiedInner::V1(o) => o.remove(),
-            OccupiedInner::Fallback(o) => o.remove(),
-        }
-    }
 }
 
 pub struct Vacant<'a, V> {
@@ -151,18 +145,16 @@ impl<V> CidHashMap<V> {
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
     pub fn entry(&mut self, key: Cid) -> CidHashMapEntry<'_, V> {
-        match CidVariant::try_from(key) {
-            Ok(CidVariant::V1DagCborBlake2b(v1)) => {
-                match self.v1_dagcbor_blake2b_hash_map.entry(v1) {
-                    Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
-                        inner: OccupiedInner::V1(occupied),
-                    }),
-                    Entry::Vacant(vacant) => CidHashMapEntry::Vacant(Vacant {
-                        inner: VacantInner::V1(vacant),
-                    }),
-                }
-            }
-            Err(_must_use_fallback) => match self.fallback_hash_map.entry(key) {
+        match CidVariant::from(key) {
+            CidVariant::V1DagCborBlake2b(v1) => match self.v1_dagcbor_blake2b_hash_map.entry(v1) {
+                Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
+                    inner: OccupiedInner::V1(occupied),
+                }),
+                Entry::Vacant(vacant) => CidHashMapEntry::Vacant(Vacant {
+                    inner: VacantInner::V1(vacant),
+                }),
+            },
+            CidVariant::Generic(generic) => match self.fallback_hash_map.entry(*generic) {
                 Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
                     inner: OccupiedInner::Fallback(occupied),
                 }),
