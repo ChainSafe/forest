@@ -56,7 +56,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
             }
 
             #[inline]
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            fn visit_bytes<E>(self, _v: &[u8]) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
@@ -127,8 +127,9 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 self.0.reserve(visitor.size_hint().unwrap_or(0));
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
-                while let Some(_) =
-                    visitor.next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
+                while visitor
+                    .next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
+                    .is_some()
                 {
                     // Nothing to do; inner map values have been into `vec`.
                 }
@@ -143,7 +144,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 self.0.reserve(seq.size_hint().unwrap_or(0));
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
-                while let Some(()) = seq.next_element_seed(CollectCid(self.0))? {
+                while seq.next_element_seed(CollectCid(self.0))?.is_some() {
                     // Nothing to do; inner array has been appended into `vec`.
                 }
                 Ok(())
