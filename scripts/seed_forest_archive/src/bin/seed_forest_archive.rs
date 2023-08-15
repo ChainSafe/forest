@@ -8,7 +8,7 @@ use seed_forest_archive::store::Store;
 use seed_forest_archive::{forest, ChainEpoch, DIFF_STEP, EPOCH_STEP};
 
 use seed_forest_archive::archive::{
-    has_diff_snapshot, has_lite_snapshot, upload_diff_snapshot, upload_lite_snapshot,
+    has_diff_snapshot, has_lite_snapshot, upload_diff_snapshot,
 };
 
 fn main() -> Result<()> {
