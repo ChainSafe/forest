@@ -163,10 +163,6 @@ pub(super) async fn start(
     );
     maybe_increase_fd_limit()?;
 
-    if opts.detach {
-        unblock_parent_process()?;
-    }
-
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
@@ -185,6 +181,10 @@ pub(super) async fn start(
     handle_admin_token(&opts, &config, &keystore)?;
 
     let keystore = Arc::new(RwLock::new(keystore));
+
+    if opts.detach {
+        unblock_parent_process()?;
+    }
 
     let (db, heaviest_tipset_from_imported_snapshot) =
         open_forest_car_union_db(&mut config, &opts).await?;
