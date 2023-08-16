@@ -117,7 +117,7 @@ where
         sm.chain_store().set_estimated_records(n_records as u64)?;
     }
 
-    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::from(cids))?;
 
     if !skip_load {
         let gb = sm.chain_store().chain_index.tipset_by_height(

@@ -256,10 +256,10 @@ where
     let new_head = data.state_manager.chain_store().tipset_from_keys(&params)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
-        for cid in current.key().cids() {
+        for cid in &current.key().cids {
             data.state_manager
                 .chain_store()
-                .unmark_block_as_validated(cid);
+                .unmark_block_as_validated(&cid);
         }
         let parents = current.blocks()[0].parents();
         current = data.state_manager.chain_store().tipset_from_keys(parents)?;
