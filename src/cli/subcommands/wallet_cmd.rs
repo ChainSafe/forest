@@ -96,7 +96,7 @@ pub enum WalletCommands {
         #[arg(short)]
         signature: String,
     },
-    /// Deletes the wallet assoicated with the given address.
+    /// Deletes the wallet associated with the given address.
     Delete {
         /// The address of the wallet to delete
         #[arg(short)]
