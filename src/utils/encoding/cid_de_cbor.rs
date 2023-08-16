@@ -47,6 +47,56 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 fmt.write_str("any valid IPLD kind")
             }
 
+            // Recursively visit a map, equivalent to `filter_map` that finds all the `Ipld::Link`
+            // and extracts a CID from them.
+            #[inline]
+            fn visit_map<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                self.0.reserve(visitor.size_hint().unwrap_or(0));
+                // This is where recursion happens, we unravel each [`Ipld`] till we reach all
+                // the nodes.
+                while visitor
+                    .next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
+                    .is_some()
+                {
+                    // Nothing to do; inner map values have been into `vec`.
+                }
+
+                Ok(())
+            }
+
+            // Recursively visit a list, equivalent to `filter_map` that finds all the `Ipld::Link`
+            // and extracts a CID from them.
+            #[inline]
+            fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                self.0.reserve(seq.size_hint().unwrap_or(0));
+                // This is where recursion happens, we unravel each [`Ipld`] till we reach all
+                // the nodes.
+                while seq.next_element_seed(CollectCid(self.0))?.is_some() {
+                    // Nothing to do; inner array has been appended into `vec`.
+                }
+                Ok(())
+            }
+
+            // "New-type" structs are only used to de-serialize CIDs.
+            #[inline]
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                let cid = deserializer.deserialize_bytes(BytesToCidVisitor)?;
+                self.0.push(cid);
+
+                Ok(())
+            }
+
+            // We don't care about anything else as the CIDs could only be found in "new-type"
+            // structs. So we visit only lists, maps and said structs.
             #[inline]
             fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E>
             where
@@ -116,49 +166,6 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
             where
                 E: de::Error,
             {
-                Ok(())
-            }
-
-            #[inline]
-            fn visit_map<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
-            where
-                V: de::MapAccess<'de>,
-            {
-                self.0.reserve(visitor.size_hint().unwrap_or(0));
-                // This is where recursion happens, we unravel each [`Ipld`] till we reach all
-                // the nodes.
-                while visitor
-                    .next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
-                    .is_some()
-                {
-                    // Nothing to do; inner map values have been into `vec`.
-                }
-
-                Ok(())
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                self.0.reserve(seq.size_hint().unwrap_or(0));
-                // This is where recursion happens, we unravel each [`Ipld`] till we reach all
-                // the nodes.
-                while seq.next_element_seed(CollectCid(self.0))?.is_some() {
-                    // Nothing to do; inner array has been appended into `vec`.
-                }
-                Ok(())
-            }
-
-            /// "New-type" structs are only used to de-serialize CIDs.
-            #[inline]
-            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-            where
-                D: de::Deserializer<'de>,
-            {
-                let cid = deserializer.deserialize_bytes(BytesToCidVisitor)?;
-                self.0.push(cid);
-
                 Ok(())
             }
         }
