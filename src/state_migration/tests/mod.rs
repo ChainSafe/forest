@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::io::random_access::RandomAccessFile;
+use crate::utils::net::global_http_client;
+use crate::utils::{retry, RetryArgs};
 use crate::{
     daemon::bundle::load_actor_bundles,
     networks::{ChainConfig, Height, NetworkChain},
@@ -10,11 +12,12 @@ use crate::{
 };
 use anyhow::*;
 use cid::Cid;
+use futures::{AsyncWriteExt, TryStreamExt};
 use fvm_ipld_encoding::CborStore;
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::{str::FromStr, sync::Arc};
-use tokio::io::AsyncWriteExt;
 
 #[tokio::test]
 async fn test_nv17_state_migration_calibnet() -> Result<()> {
@@ -77,15 +80,30 @@ async fn test_state_migration(
     if !car_path.is_file() {
         let tmp: tempfile::TempPath =
             tempfile::NamedTempFile::new_in(car_path.parent().unwrap())?.into_temp_path();
-        {
-            let mut reader = crate::utils::net::reader(&format!(
-                "https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/state_migration/state/{old_state}.car"
-            ))
-            .await?;
-            let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&tmp).await?);
-            tokio::io::copy(&mut reader, &mut writer).await?;
-            writer.shutdown().await?;
-        }
+        let timeout = Duration::from_secs(5);
+        retry(
+            RetryArgs {
+                timeout: Some(timeout),
+                max_retries: Some(5),
+                ..Default::default()
+            },
+            || async {
+                let response = global_http_client().get(format!(
+                    "https://forest-continuous-integration.fra1.digitaloceanspaces.com/state_migration/state/{old_state}.car"
+                )).timeout(timeout).send().await?;
+                let reader = response
+                    .bytes_stream()
+                    .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
+                    .into_async_read();
+                let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
+                futures::io::copy(reader, &mut writer).await?;
+                writer.flush().await?;
+                writer.close().await?;
+
+                Ok(())
+            },
+        )
+        .await?;
         tmp.persist(&car_path)?;
     }
 
