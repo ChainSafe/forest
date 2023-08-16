@@ -7,29 +7,30 @@ use std::{
     str::FromStr,
 };
 
-use crate::chain_sync::SyncStage;
-use crate::json::message::json::MessageJson;
-use crate::rpc_api::mpool_api::MpoolPushMessageResult;
-use crate::rpc_client::node_ops::node_status;
-use crate::rpc_client::*;
-use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
 use boa_engine::{
-    object::{FunctionBuilder, JsArray},
+    object::{builtins::JsArray, FunctionObjectBuilder},
     prelude::JsObject,
     property::Attribute,
-    syntax::parser::ParseError,
-    Context, JsResult, JsValue,
+    Context, JsError, JsResult, JsValue, NativeFunction, Source,
 };
+use boa_interner::Interner;
+use boa_parser::Parser;
+use boa_runtime::Console;
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
-
 use rustyline::{config::Config as RustyLineConfig, history::FileHistory, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use tokio::time;
 
 use super::Config;
+use crate::chain_sync::SyncStage;
 use crate::cli::humantoken;
+use crate::json::message::json::MessageJson;
+use crate::rpc_api::mpool_api::MpoolPushMessageResult;
+use crate::rpc_client::node_ops::node_status;
+use crate::rpc_client::*;
+use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
 
 #[derive(Debug, clap::Args)]
 pub struct AttachCommand {
@@ -49,43 +50,42 @@ fn set_module(context: &mut Context) {
     module
         .set("exports", JsObject::default(), false, context)
         .unwrap();
-    context.register_global_property("module", JsValue::from(module), Attribute::default());
+    context
+        .register_global_property("module", JsValue::from(module), Attribute::default())
+        .expect("`register_global_property` should not fail");
 }
 
-fn to_position(err: ParseError) -> Option<(u32, u32)> {
+fn to_position(err: boa_parser::Error) -> Option<(u32, u32)> {
+    use boa_parser::Error::*;
+
     match err {
-        ParseError::Expected {
+        Expected {
             expected: _,
             found: _,
             span,
             context: _,
         } => Some((span.start().line_number(), span.start().column_number())),
-        ParseError::Unexpected {
+        Unexpected {
             found: _,
             span,
             message: _,
         } => Some((span.start().line_number(), span.start().column_number())),
-        ParseError::General {
+        General {
             message: _,
             position,
         } => Some((position.line_number(), position.column_number())),
-        ParseError::Unimplemented {
-            message: _,
-            position,
-        } => Some((position.line_number(), position.column_number())),
-        _ => None,
+        Lex { err: _ } | AbruptEnd => None,
     }
 }
 
 fn eval(code: &str, context: &mut Context) {
-    match context.eval(code) {
+    match context.eval(Source::from_bytes(code)) {
         Ok(v) => match v {
             JsValue::Undefined => (),
             _ => println!("{}", v.display()),
         },
-        Err(v) => {
-            let msg = v.to_string(context).expect("to_string must succeed");
-            eprintln!("Uncaught {msg}");
+        Err(err) => {
+            eprintln!("Uncaught {err}");
         }
     }
 }
@@ -99,11 +99,11 @@ fn require(
     let param = if let Some(p) = params.first() {
         p
     } else {
-        return context.throw_error("expecting string argument");
+        return Err(JsError::from_opaque("expecting string argument".into()));
     };
 
     // Resolve module path
-    let module_name = param.to_string(context)?.to_string();
+    let module_name = param.to_string(context)?.to_std_string_escaped();
     let mut path = if let Some(path) = jspath {
         path.join(module_name)
     } else {
@@ -118,11 +118,13 @@ fn require(
     } else if path == PathBuf::from("prelude.js") {
         Ok(PRELUDE_PATH.into())
     } else {
-        return context.throw_error("expecting valid module path");
+        return Err(JsError::from_opaque("expecting valid module path".into()));
     };
     match result {
         Ok(buffer) => {
-            if let Err(err) = context.parse(&buffer) {
+            let mut parser = Parser::new(Source::from_bytes(&buffer));
+            let mut interner = Interner::new();
+            if let Err(err) = parser.parse_eval(true, &mut interner) {
                 let canonical_path = canonicalize(path.clone()).unwrap_or(path.clone());
                 eprintln!("{}", canonical_path.display());
 
@@ -139,7 +141,7 @@ fn require(
                 }
                 println!();
             }
-            context.eval(&buffer)?;
+            context.eval(Source::from_bytes(&buffer))?;
 
             // Access module.exports and return as ResultValue
             let global_obj = context.global_object().to_owned();
@@ -149,8 +151,6 @@ fn require(
                 .expect("as_object must succeed")
                 .get("exports", context);
 
-            // Reset module to avoid side effects
-            set_module(context);
             exports
         }
         Err(err) => {
@@ -188,31 +188,35 @@ where
 macro_rules! bind_func {
     ($context:expr, $token:expr, $func:ident) => {
         let js_func_name = stringify!($func).to_case(Case::Camel);
-        let js_func = FunctionBuilder::closure_with_captures(
-            $context,
-            |_this, params, token, context| {
-                let handle = tokio::runtime::Handle::current();
+        let js_func = FunctionObjectBuilder::new($context, unsafe {
+            NativeFunction::from_closure_with_captures(
+                |_this, params, token, context| {
+                    let handle = tokio::runtime::Handle::current();
 
-                let result = tokio::task::block_in_place(|| {
-                    let value = if params.is_empty() {
-                        JsValue::Null
-                    } else {
-                        let arr = JsArray::from_iter(params.to_vec(), context);
-                        let obj: JsObject = arr.into();
-                        JsValue::from(obj)
-                    };
-                    // TODO: check if unwrap is safe here
-                    let args = serde_json::from_value(value.to_json(context).unwrap())?;
-                    handle.block_on($func(args, token))
-                });
-                check_result(context, result)
-            },
-            $token.clone(),
-        )
+                    let result = tokio::task::block_in_place(|| {
+                        let value = if params.is_empty() {
+                            JsValue::Null
+                        } else {
+                            let arr = JsArray::from_iter(params.to_vec(), context);
+                            let obj: JsObject = arr.into();
+                            JsValue::from(obj)
+                        };
+                        // TODO: check if unwrap is safe here
+                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        handle.block_on($func(args, token))
+                    });
+                    check_result(context, result)
+                },
+                $token.clone(),
+            )
+        })
         .name(js_func_name.clone())
         .build();
+
         let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
-        $context.register_global_property(js_func_name, js_func, attr);
+        $context
+            .register_global_property(js_func_name, js_func, attr)
+            .expect("`register_global_property` should not fail");
     };
 }
 
@@ -272,20 +276,25 @@ async fn sleep_tipsets(
 
 impl AttachCommand {
     fn setup_context(&self, context: &mut Context, token: &Option<String>) {
-        // Disable tracing
-        context.set_trace(false);
-
-        context.register_global_property("_BOA_VERSION", "0.16.0", Attribute::default());
+        let console = Console::init(context);
+        context
+            .register_global_property(Console::NAME, console, Attribute::all())
+            .expect("the console object shouldn't exist yet");
+        context
+            .register_global_property("_BOA_VERSION", "0.17.0", Attribute::default())
+            .expect("`register_global_property` should not fail");
 
         // Add custom implementation that mimics `require`
-        let require_func = FunctionBuilder::closure_with_captures(
-            context,
-            |_this, params, jspath, context| require(_this, params, context, jspath),
-            self.jspath.clone(),
-        )
-        .build();
-        let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
-        context.register_global_property("require", require_func, attr);
+        let require_func = unsafe {
+            NativeFunction::from_closure_with_captures(
+                |_this, params, jspath, context| require(_this, params, context, jspath),
+                self.jspath.clone(),
+            )
+        };
+
+        context
+            .register_global_builtin_callable("require", 1, require_func)
+            .expect("Registering the global`require` should succeed");
 
         // Add custom object that mimics `module.exports`
         set_module(context);
@@ -342,8 +351,8 @@ impl AttachCommand {
             if (Prelude.showSyncStatus) { showSyncStatus = Prelude.showSyncStatus; }
             if (Prelude.sendFIL) { sendFIL = Prelude.sendFIL; }
         ";
-        let result = context.eval(INIT);
-        if let Err(err) = result {
+
+        if let Err(err) = context.eval(Source::from_bytes(INIT)) {
             return Err(anyhow::anyhow!("error {err:?}"));
         }
 
@@ -410,15 +419,18 @@ impl AttachCommand {
                     }
                     Err(_) => break 'main,
                 }
-                match context.parse(buffer.trim_end()) {
-                    Ok(_v) => {
+
+                let mut parser = Parser::new(Source::from_bytes(&buffer));
+                let mut interner = Interner::new();
+                match parser.parse_eval(true, &mut interner) {
+                    Ok(_) => {
                         editor.add_history_entry(&buffer)?;
                         eval(buffer.trim_end(), &mut context);
                         break;
                     }
                     Err(err) => {
                         match err {
-                            ParseError::Lex { err: _ } | ParseError::AbruptEnd => {
+                            boa_parser::Error::Lex { err: _ } | boa_parser::Error::AbruptEnd => {
                                 // Continue reading input and append it to buffer
                                 buffer.push('\n');
                                 prompt = ">> ";
