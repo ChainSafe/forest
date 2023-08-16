@@ -18,8 +18,8 @@ impl CidVec {
     }
 }
 
-/// [`FilterCids`] traverses an [`Ipld`] tree, appending [`CID`]s (and only CIDs) to a single vector.
-/// This is much faster than constructing an [`Ipld`] tree and then performing the filtering.
+/// [`FilterCids`] traverses an [`libipld_core::ipld::Ipld`] tree, appending [`Cid`]s (and only CIDs) to a single vector.
+/// This is much faster than constructing an [`libipld_core::ipld::Ipld`] tree and then performing the filtering.
 struct FilterCids<'a>(&'a mut Vec<Cid>);
 
 impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
