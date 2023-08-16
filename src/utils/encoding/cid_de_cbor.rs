@@ -1,16 +1,24 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
 use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
 
+/// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
+/// intermediate recursive structures, eliminating unnecessary allocations.
+pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<Vec<Cid>> {
+    let cid_vec: CidVec = from_slice_with_fallback(cbor_blob)?;
+    Ok(cid_vec.into_inner())
+}
+
 /// [`CidVec`] allows for efficient zero-copy de-serialization of `DAG_CBOR`-encoded nodes into a
 /// vector of [`Cid`].
 #[derive(Default)]
-pub struct CidVec(Vec<Cid>);
+struct CidVec(Vec<Cid>);
 
 impl CidVec {
     pub fn into_inner(self) -> Vec<Cid> {
