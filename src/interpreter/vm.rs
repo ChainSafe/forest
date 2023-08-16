@@ -146,40 +146,34 @@ impl InvocResult {
 }
 
 fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
-    let exec_trace: Option<Trace> = if !exec_trace.is_empty() {
-        let mut trace_iter = exec_trace.into_iter();
-        let mut initial_gas_charges = Vec::new();
-        loop {
-            match trace_iter.next() {
-                Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
-                Some(ExecutionEvent_v3::Call {
+    let mut trace_iter = exec_trace.into_iter();
+    let mut initial_gas_charges = Vec::new();
+    loop {
+        match trace_iter.next() {
+            Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
+            Some(ExecutionEvent_v3::Call {
+                from,
+                to,
+                method,
+                params,
+                value,
+            }) => {
+                break build_lotus_trace(
                     from,
-                    to,
+                    to.into(),
                     method,
-                    params,
-                    value,
-                }) => {
-                    break build_lotus_trace(
-                        from,
-                        to.into(),
-                        method,
-                        params.clone(),
-                        value.into(),
-                        &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
-                    )
-                    .ok()
-                }
-                // Skip anything unexpected.
-                Some(_) => {}
-                // Return none if we don't even have a call.
-                None => break None,
+                    params.clone(),
+                    value.into(),
+                    &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
+                )
+                .ok()
             }
+            // Skip anything unexpected.
+            Some(_) => {}
+            // Return none if we don't even have a call.
+            None => break None,
         }
-    } else {
-        None
-    };
-
-    exec_trace
+    }
 }
 
 impl BlockMessages {
