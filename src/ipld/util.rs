@@ -13,7 +13,7 @@ use std::{
 use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::Block;
-use crate::utils::encoding::CidVec;
+use crate::utils::encoding::extract_cids;
 use crate::utils::io::progress_log::WithProgressRaw;
 use crate::{
     blocks::{BlockHeader, Tipset},
@@ -371,8 +371,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                             if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
                                 if let Some(data) = this.db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                        let new_values: CidVec = from_slice_with_fallback(&data)?;
-                                        let new_values = new_values.into_inner();
+                                        let new_values = extract_cids(&data)?;
                                         cid_vec.reserve(new_values.len());
 
                                         for v in new_values.into_iter().rev() {
