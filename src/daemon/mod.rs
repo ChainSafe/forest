@@ -745,7 +745,7 @@ pub async fn open_forest_car_union_db(
                     store.read_only(car);
                     info!("Loaded car DB at {}", file.display());
                 } else {
-                    info!(
+                    warn!(
                         "Skip loading car DB at {}: invalid .forest.car.zst format",
                         file.display()
                     );
