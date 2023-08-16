@@ -27,9 +27,9 @@ impl DerefMut for CidVec {
     }
 }
 
-// [`CollectCid`] struct allows for recursive traversal of [`Ipld`] in order to retrieve all the
-// CIDs it encounters, using a preallocated vector.
-struct CollectCid<'a>(&'a mut Vec<Cid>);
+/// [`FilterCids`] traverses an [`Ipld`] tree, appending [`CID`]s (and only CIDs) to a single vector.
+/// This is much faster than constructing an [`Ipld`] tree and then performing the filtering.
+struct FilterCids<'a>(&'a mut Vec<Cid>);
 
 impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
     type Value = ();
