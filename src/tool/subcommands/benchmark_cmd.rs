@@ -139,7 +139,7 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
         let block: Block = block;
         if block.cid.codec() == DAG_CBOR {
             let cid_vec: CidVec = from_slice_with_fallback(&block.data)?;
-            let _ = cid_vec.iter().unique().count();
+            let _ = cid_vec.into_inner().iter().unique().count();
         }
         sink.write_all(&block.data).await?
     }

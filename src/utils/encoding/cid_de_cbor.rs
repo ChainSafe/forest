@@ -6,24 +6,15 @@ use cid::Cid;
 use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
-use std::ops::{Deref, DerefMut};
 
 /// [`CidVec`] allows for efficient zero-copy de-serialization of `DAG_CBOR`-encoded nodes into a
 /// vector of [`Cid`].
 #[derive(Default)]
 pub struct CidVec(Vec<Cid>);
 
-impl Deref for CidVec {
-    type Target = Vec<Cid>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for CidVec {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+impl CidVec {
+    pub fn into_inner(self) -> Vec<Cid> {
+        self.0
     }
 }
 
@@ -31,16 +22,16 @@ impl DerefMut for CidVec {
 /// This is much faster than constructing an [`Ipld`] tree and then performing the filtering.
 struct FilterCids<'a>(&'a mut Vec<Cid>);
 
-impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
+impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
     type Value = ();
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct CollectCidVisitor<'a>(&'a mut Vec<Cid>);
+        struct FilterCidsVisitor<'a>(&'a mut Vec<Cid>);
 
-        impl<'de, 'a> Visitor<'de> for CollectCidVisitor<'a> {
+        impl<'de, 'a> Visitor<'de> for FilterCidsVisitor<'a> {
             type Value = ();
 
             fn expecting(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -58,7 +49,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
                 while visitor
-                    .next_entry_seed(CollectCid(&mut Vec::new()), CollectCid(self.0))?
+                    .next_entry_seed(FilterCids(&mut Vec::new()), FilterCids(self.0))?
                     .is_some()
                 {
                     // Nothing to do; inner map values have been into `vec`.
@@ -77,7 +68,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
                 self.0.reserve(seq.size_hint().unwrap_or(0));
                 // This is where recursion happens, we unravel each [`Ipld`] till we reach all
                 // the nodes.
-                while seq.next_element_seed(CollectCid(self.0))?.is_some() {
+                while seq.next_element_seed(FilterCids(self.0))?.is_some() {
                     // Nothing to do; inner array has been appended into `vec`.
                 }
                 Ok(())
@@ -170,7 +161,7 @@ impl<'de, 'a> DeserializeSeed<'de> for CollectCid<'a> {
             }
         }
 
-        deserializer.deserialize_any(CollectCidVisitor(self.0))
+        deserializer.deserialize_any(FilterCidsVisitor(self.0))
     }
 }
 
@@ -180,7 +171,7 @@ impl<'de> de::Deserialize<'de> for CidVec {
         D: de::Deserializer<'de>,
     {
         let mut vec = CidVec::default();
-        CollectCid(&mut vec.0).deserialize(deserializer)?;
+        FilterCids(&mut vec.0).deserialize(deserializer)?;
         Ok(vec)
     }
 }
