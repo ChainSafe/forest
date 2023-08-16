@@ -200,7 +200,7 @@ pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> 
     keystore
         .remove(key_string)
         .map_err(|_| Error::KeyNotExists)?;
-    println!("wallet {} deleted", addr.to_string());
+    println!("wallet {} deleted", addr);
     Ok(())
 }
 
