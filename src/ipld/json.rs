@@ -292,7 +292,7 @@ mod tests {
 /// [failing job]: https://github.com/ChainSafe/forest/actions/runs/5877726416/job/15938386821?pr=3382#step:9:1835
 /// [unhelpful]: https://github.com/ipld/libipld/blob/8478d6d66576636b9970cb3b00a232be7a88ea42/core/src/ipld.rs#L53-L63
 #[test]
-#[should_panic = "this bug is not fixed"]
+#[should_panic = "Input too short"]
 fn issue_3383() {
     let poison = Ipld::Map(BTreeMap::from_iter([(
         String::from("/"),
