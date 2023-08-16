@@ -5,27 +5,19 @@ use crate::utils::cid::CidVariant;
 use cid::Cid;
 use serde::{Deserialize, Serialize};
 
-/// Similar to the `CidHashMap` implementation, `FrozenCids` optimizes storage of
-/// CIDs that would normally be stored as a vector of CIDs. The `V1 DAG-CBOR Blake2b-256`
-/// variant (which can be stored in 32 bytes vs 96 bytes for a `Cid`
-/// type) is `+99.99%` of all CIDs, so very few CIDs need to be stored in the
-/// `Generic(Box<Cid>)` variant of `CidVariant`.
+/// A wrapper around `Box<[CidVariant]>` with a [`Cid`]-friendly API:
+/// - Uses [`CidVariant`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
+/// - Uses `Box<[...]>`, over `Vec<...>` avoiding vector overallocation
 ///
-/// We use `Box<[...]>` to save memory, avoiding vector overallocation.
+/// There will be MANY small collections of [`FrozenCids`] over the codebase, so these space savings matter
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct FrozenCids(
     #[cfg_attr(test, arbitrary(gen(
-    |g| Box::new([CidVariant::arbitrary(g)]))
-))]
+        |g| Vec::arbitrary(g).into_boxed_slice()
+    )))]
     Box<[CidVariant]>,
 );
-
-impl Default for FrozenCids {
-    fn default() -> Self {
-        FrozenCids(Box::new([]))
-    }
-}
 
 pub struct Iter<'a> {
     cids: std::slice::Iter<'a, CidVariant>,
