@@ -863,7 +863,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         }
         // Attempt to load the parent tipset from local store
         if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()) {
-            parent_blocks.extend_from_slice(tipset.cids());
+            parent_blocks.extend(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
         }
@@ -882,7 +882,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
                 break 'sync;
             }
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks)?;
-            parent_blocks.extend_from_slice(tipset.cids());
+            parent_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
         }
@@ -917,7 +917,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
                 // iterator is immediately dropped
                 let mut fork_tipsets = fork_tipsets;
                 fork_tipsets.drain((i + 1)..);
-                parent_tipsets.extend_from_slice(&fork_tipsets);
+                parent_tipsets.extend(fork_tipsets);
                 break;
             }
 
@@ -1561,14 +1561,12 @@ fn validate_tipset_against_cache(
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError> {
-    for cid in tipset.cids() {
-        if let Some(reason) = bad_block_cache.get(cid) {
+    for cid in &tipset.cids {
+        if let Some(reason) = bad_block_cache.get(&cid) {
             for block_cid in descendant_blocks {
                 bad_block_cache.put(*block_cid, format!("chain contained {cid}"));
             }
-            return Err(TipsetRangeSyncerError::TipsetRangeWithBadBlock(
-                *cid, reason,
-            ));
+            return Err(TipsetRangeSyncerError::TipsetRangeWithBadBlock(cid, reason));
         }
     }
     Ok(())

@@ -1473,6 +1473,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto_secretbox"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9d6cf87adf719ddf43a805e92c6870a531aedda35ff640442cbaf8674e141e1"
+dependencies = [
+ "aead 0.5.2",
+ "cipher 0.4.4",
+ "generic-array",
+ "poly1305 0.8.0",
+ "salsa20",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
 name = "cs_serde_bytes"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2551,6 +2566,7 @@ dependencies = [
  "criterion",
  "crossbeam",
  "crossbeam-channel",
+ "crypto_secretbox",
  "cs_serde_bytes",
  "daemonize-me",
  "data-encoding",
@@ -2678,7 +2694,6 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
- "xsalsa20poly1305",
  "zstd",
  "zstd-safe",
 ]
@@ -3221,6 +3236,7 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+ "zeroize",
 ]
 
 [[package]]
@@ -8550,19 +8566,6 @@ checksum = "5a0c105152107e3b96f6a00a65e86ce82d9b125230e1c4302940eca58ff71f4f"
 dependencies = [
  "curve25519-dalek 3.2.0",
  "rand_core 0.5.1",
- "zeroize",
-]
-
-[[package]]
-name = "xsalsa20poly1305"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02a6dad357567f81cd78ee75f7c61f1b30bb2fe4390be8fb7c69e2ac8dffb6c7"
-dependencies = [
- "aead 0.5.2",
- "poly1305 0.8.0",
- "salsa20",
- "subtle",
  "zeroize",
 ]
 

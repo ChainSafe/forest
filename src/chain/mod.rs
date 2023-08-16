@@ -8,6 +8,7 @@ use crate::ipld::{stream_chain, CidHashSet};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::stream::par_buffer;
 use anyhow::{Context, Result};
+use cid::Cid;
 use digest::Digest;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
@@ -25,7 +26,7 @@ pub async fn export<D: Digest>(
 ) -> Result<Option<digest::Output<D>>, Error> {
     let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
-    let roots = tipset.key().cids().to_vec();
+    let roots = Vec::<Cid>::from(&tipset.key().cids);
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
