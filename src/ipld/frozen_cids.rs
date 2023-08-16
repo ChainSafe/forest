@@ -6,7 +6,7 @@ use cid::Cid;
 use serde::{Deserialize, Serialize};
 
 /// A wrapper around `Box<[CidVariant]>` with a [`Cid`]-friendly API:
-/// - Uses [`CidVariant`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
+/// - Uses [`SmallCid`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
 /// - Uses `Box<[...]>`, over `Vec<...>` avoiding vector overallocation
 ///
 /// There will be MANY small collections of [`FrozenCids`] over the codebase, so these space savings matter
