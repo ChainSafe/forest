@@ -8,7 +8,6 @@ use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::ManyCar;
-use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -453,11 +452,10 @@ where
     load_actor_bundles(&db).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
-    if cns::FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &Config::default().client.data_dir,
-        );
-    }
+    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        &Config::default().client.data_dir,
+    );
+
     ensure_params_downloaded().await?;
 
     let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));

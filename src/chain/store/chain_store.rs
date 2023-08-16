@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
+use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -31,7 +32,6 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::chain::Scale;
 use crate::db::setting_keys::{ESTIMATED_RECORDS_KEY, HEAD_KEY};
 use crate::db::{SettingsStore, SettingsStoreExt};
 
@@ -157,10 +157,7 @@ where
 
     /// Writes tipset block headers to data store and updates heaviest tipset
     /// with other compatible tracked headers.
-    pub fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
-    where
-        S: Scale,
-    {
+    pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
         // `blockstore` reads
@@ -168,7 +165,7 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.update_heaviest::<S>(Arc::new(expanded))?;
+        self.update_heaviest(Arc::new(expanded))?;
         Ok(())
     }
 
@@ -215,14 +212,11 @@ where
 
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
-    fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
-    where
-        S: Scale,
-    {
+    fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = S::weight(&self.db, &self.heaviest_tipset())?;
+        let heaviest_weight = fil_cns::weight(self.blockstore(), &self.heaviest_tipset())?;
 
-        let new_weight = S::weight(&self.db, ts.as_ref())?;
+        let new_weight = fil_cns::weight(self.blockstore(), ts.as_ref())?;
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
