@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::Context;
 use async_compression::futures::bufread::ZstdDecoder;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -12,11 +13,11 @@ pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>
         "Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>"
     );
 
-    Ok(fvm_ipld_car::load_car(
+    fvm_ipld_car::load_car(
         db,
         ZstdDecoder::new(futures::io::BufReader::new(ACTOR_BUNDLES_CAR_ZST)),
     )
-    .await?)
+    .await.context("Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>")
 }
 
 #[cfg(test)]
