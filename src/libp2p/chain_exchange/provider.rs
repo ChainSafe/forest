@@ -27,7 +27,7 @@ where
 
     loop {
         let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids)) {
+        let tipset = match cs.tipset_from_keys(&TipsetKeys::from(curr_tipset_cids)) {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
@@ -55,7 +55,7 @@ where
             }
         }
 
-        curr_tipset_cids = tipset.parents().cids().to_vec();
+        curr_tipset_cids = Vec::<Cid>::from(&tipset.parents().cids);
         let tipset_epoch = tipset.epoch();
 
         if request.include_blocks() {

@@ -1,0 +1,34 @@
+# Keys and default values are documented here:
+# https://github.com/rustsec/rustsec/blob/f70e5bc4252ab7f7801d127aeee4a7486e4c07e5/cargo-audit/audit.toml.example
+
+[advisories]
+# These should all have either:
+# - tracking issues with the "security" label
+# - reasons why they're ignored
+ignore = [
+  # Waiting on libp2p to update ed25519-dalek 1.x -> 2.x
+  # https://github.com/ChainSafe/forest/issues/3371
+  "RUSTSEC-2022-0093",
+
+  # - We only depend on time 0.1.x through chrono 0.4.x:
+  #   time 0.1.45
+  #   └── chrono 0.4.26
+  #       ├── serde_with 3.2.0
+  #       │   └── forest-filecoin 0.12.1
+  #       ├── forest-filecoin 0.12.1
+  #       └── boa_engine 0.16.0
+  #           └── forest-filecoin 0.12.1
+  # - chrono 0.4.x does not use the vulnerable APIS:
+  #   https://github.com/chronotope/chrono/issues/602#issuecomment-1075915577
+  "RUSTSEC-2020-0071",
+
+  # Unmaintained crates that fvm2 requires, and will not change for
+  # compatability/consensus reasons - see
+  # https://github.com/filecoin-project/ref-fvm/issues/1843
+  "RUSTSEC-2020-0168", # mach is unmaintained
+  "RUSTSEC-2022-0061", # parity-wasm is deprecated
+]
+
+[output]
+deny = ["unmaintained"]
+quiet = false

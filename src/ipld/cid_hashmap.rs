@@ -22,6 +22,53 @@ pub struct CidHashMap<V> {
     fallback_hash_map: HashMap<Cid, V>,
 }
 
+impl<V> Extend<(Cid, V)> for CidHashMap<V> {
+    fn extend<T: IntoIterator<Item = (Cid, V)>>(&mut self, iter: T) {
+        for (k, v) in iter {
+            self.insert(k, v);
+        }
+    }
+}
+
+impl<V> FromIterator<(Cid, V)> for CidHashMap<V> {
+    fn from_iter<T: IntoIterator<Item = (Cid, V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+        map.extend(iter);
+        map
+    }
+}
+
+pub struct IntoIter<V> {
+    small: std::collections::hash_map::IntoIter<[u8; BLAKE2B256_SIZE], V>,
+    fallback: std::collections::hash_map::IntoIter<Cid, V>,
+}
+
+impl<V> IntoIterator for CidHashMap<V> {
+    type Item = (Cid, V);
+    type IntoIter = IntoIter<V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let CidHashMap {
+            v1_dagcbor_blake2b_hash_map,
+            fallback_hash_map,
+        } = self;
+        Self::IntoIter {
+            small: v1_dagcbor_blake2b_hash_map.into_iter(),
+            fallback: fallback_hash_map.into_iter(),
+        }
+    }
+}
+
+impl<V> Iterator for IntoIter<V> {
+    type Item = (Cid, V);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.small
+            .next()
+            .map(|(bytes, v)| (Cid::from(CidVariant::V1DagCborBlake2b(bytes)), v))
+            .or_else(|| self.fallback.next())
+    }
+}
+
 impl<V> CidHashMap<V> {
     /// Creates an empty `HashMap` with CID type keys.
     pub fn new() -> Self {
@@ -33,32 +80,30 @@ impl<V> CidHashMap<V> {
 
     /// Returns `true` if the map contains a value for the specified key.
     pub fn contains_key(&self, k: Cid) -> bool {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => {
                 self.v1_dagcbor_blake2b_hash_map.contains_key(&bytes)
             }
-            Err(()) => self.fallback_hash_map.contains_key(&k),
+            CidVariant::Generic(_) => self.fallback_hash_map.contains_key(&k),
         }
     }
 
     /// Inserts a key-value pair into the map; if the map did not have this key present, [`None`] is returned.
     pub fn insert(&mut self, k: Cid, v: V) -> Option<V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => {
                 self.v1_dagcbor_blake2b_hash_map.insert(bytes, v)
             }
-            Err(()) => self.fallback_hash_map.insert(k, v),
+            CidVariant::Generic(_) => self.fallback_hash_map.insert(k, v),
         }
     }
 
     /// Removes a key from the map, returning the value at the key if the key
     /// was previously in the map.
     pub fn remove(&mut self, k: Cid) -> Option<V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => {
-                self.v1_dagcbor_blake2b_hash_map.remove(&bytes)
-            }
-            Err(()) => self.fallback_hash_map.remove(&k),
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.remove(&bytes),
+            CidVariant::Generic(_) => self.fallback_hash_map.remove(&k),
         }
     }
 
@@ -69,9 +114,9 @@ impl<V> CidHashMap<V> {
 
     /// Returns a reference to the value corresponding to the key.
     pub fn get(&self, k: Cid) -> Option<&V> {
-        match k.try_into() {
-            Ok(CidVariant::V1DagCborBlake2b(bytes)) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
-            Err(()) => self.fallback_hash_map.get(&k),
+        match k.into() {
+            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
+            CidVariant::Generic(_) => self.fallback_hash_map.get(&k),
         }
     }
 
@@ -163,5 +208,13 @@ mod tests {
     fn len(cid_vector: Vec<(Cid, u64)>) {
         let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
         assert_eq!(cid_hash_map.len(), hash_map.len());
+    }
+
+    #[quickcheck]
+    fn cidhashmap_to_hashmap_to_cidhashmap(cid_vector: Vec<(Cid, u64)>) {
+        let (cid_hash_map, _) = generate_hash_maps(cid_vector);
+        let hash_map: HashMap<Cid, u64> = cid_hash_map.clone().into_iter().collect();
+        let cid_hash_map_2: CidHashMap<u64> = hash_map.into_iter().collect();
+        assert_eq!(cid_hash_map, cid_hash_map_2);
     }
 }

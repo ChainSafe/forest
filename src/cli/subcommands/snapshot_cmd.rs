@@ -533,7 +533,7 @@ async fn print_computed_state(
     let store = Arc::new(AnyCar::try_from(snapshot)?);
 
     // Prepare call to apply_block_messages
-    let ts = Tipset::load_required(&store, &TipsetKeys::new(roots))?;
+    let ts = Tipset::load_required(&store, &TipsetKeys::new(roots.into()))?;
 
     let genesis = ts.genesis(&store)?;
     let network = if genesis.cid() == &*calibnet::GENESIS_CID {
