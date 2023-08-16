@@ -34,8 +34,6 @@
 
 ### Added
 
-- [#3379](https://github.com/ChainSafe/forest/pull/3379): Zero-copy DAG_CBOR
-  into Vec<Cid> parser.
 - [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
   multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
@@ -49,6 +47,8 @@
 
 - [#3331](https://github.com/ChainSafe/forest/pull/3331): Use multiple cores
   when exporting snapshots.
+- [#3379](https://github.com/ChainSafe/forest/pull/3379): Improved state graph
+  walking performance.
 
 ### Removed
 
