@@ -11,7 +11,7 @@ use serde_ipld_dagcbor::from_slice;
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
 pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<Vec<Cid>> {
-    let CidVec(v) = from_slice(cbor_blob)?;
+    let CidVec(v) = from_slice_with_fallback(cbor_blob)?;
     Ok(v)
 }
 
