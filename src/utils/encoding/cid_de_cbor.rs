@@ -200,8 +200,9 @@ mod test {
         fn arbitrary(g: &mut Gen) -> Self {
             let mut ipld = Ipld::arbitrary(g);
 
-            fn substitute_cid(ipld: &mut Ipld, g: &mut Gen) {
+            fn cleanup_ipld(ipld: &mut Ipld, g: &mut Gen) {
                 match ipld {
+                    // [`Cid`]s have to be valid in order to be decodable.
                     Ipld::Link(cid) => {
                         *cid = Cid::new_v1(
                             DAG_CBOR,
@@ -212,14 +213,18 @@ mod test {
                             ]),
                         )
                     }
-                    Ipld::Map(map) => map.values_mut().for_each(|val| substitute_cid(val, g)),
-                    Ipld::List(vec) => vec.iter_mut().for_each(|val| substitute_cid(val, g)),
+                    Ipld::Map(map) => map.values_mut().for_each(|val| cleanup_ipld(val, g)),
+                    Ipld::List(vec) => vec.iter_mut().for_each(|val| cleanup_ipld(val, g)),
+                    // Cleaning up Integer and Float in order to avoid parser mistakes that result
+                    // in tag detection and a subsequent Cid decoding failure.
+                    // See https://github.com/ipld/serde_ipld_dagcbor/blob/master/src/de.rs#L178 and
+                    // https://github.com/ipld/serde_ipld_dagcbor/blob/master/src/de.rs#L119 .
                     Ipld::Integer(int) => *int = 0,
                     Ipld::Float(float) => *float = 0.0,
                     _ => (),
                 }
             }
-            substitute_cid(&mut ipld, g);
+            cleanup_ipld(&mut ipld, g);
             IpldWrapper { inner: ipld }
         }
     }
