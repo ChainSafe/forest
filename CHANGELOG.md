@@ -47,6 +47,8 @@
 
 - [#3331](https://github.com/ChainSafe/forest/pull/3331): Use multiple cores
   when exporting snapshots.
+- [#3178](https://github.com/ChainSafe/forest/issues/3178): Removed inaccurate
+  progress log ETA; now only the elapsed time is displayed.
 
 ### Removed
 
