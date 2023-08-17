@@ -64,11 +64,7 @@ impl From<FrozenCids> for Vec<Cid> {
 
 impl From<&FrozenCids> for Vec<Cid> {
     fn from(frozen_cids: &FrozenCids) -> Self {
-        let mut cids = Vec::with_capacity(frozen_cids.0.len());
-        for cid in frozen_cids.into_iter() {
-            cids.push(cid);
-        }
-        cids
+        Vec::from_iter(frozen_cids.into_iter())
     }
 }
 
