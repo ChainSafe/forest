@@ -280,9 +280,9 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use crate::json::address::json::AddressJson;
     use crate::key_management::KeyInfo;
     use crate::lotus_json::LotusJson;
+    use crate::shim::address::Address;
     use crate::shim::crypto::{Signature, SignatureType};
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
@@ -307,22 +307,22 @@ pub mod wallet_api {
 
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
     pub type WalletListParams = ();
-    pub type WalletListResult = Vec<AddressJson>;
+    pub type WalletListResult = LotusJson<Vec<Address>>;
 
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
     pub type WalletNewParams = (LotusJson<SignatureType>,);
     pub type WalletNewResult = String;
 
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-    pub type WalletSetDefaultParams = (AddressJson,);
+    pub type WalletSetDefaultParams = (LotusJson<Address>,);
     pub type WalletSetDefaultResult = ();
 
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-    pub type WalletSignParams = (AddressJson, Vec<u8>);
+    pub type WalletSignParams = (LotusJson<Address>, Vec<u8>);
     pub type WalletSignResult = LotusJson<Signature>;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (AddressJson, Vec<u8>, LotusJson<Signature>);
+    pub type WalletVerifyParams = (LotusJson<Address>, Vec<u8>, LotusJson<Signature>);
     pub type WalletVerifyResult = bool;
 }
 
@@ -331,8 +331,9 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::TipsetKeys;
-    use crate::json::{address::json::AddressJson, cid::CidJson};
+    use crate::json::cid::CidJson;
     use crate::lotus_json::LotusJson;
+    use crate::shim::address::Address;
     use crate::shim::executor::Receipt;
     use crate::shim::message::Message;
     use crate::shim::{state_tree::ActorState, version::NetworkVersion};
@@ -359,11 +360,11 @@ pub mod state_api {
     pub type StateNetworkVersionResult = NetworkVersion;
 
     pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-    pub type StateGetActorParams = (AddressJson, LotusJson<TipsetKeys>);
+    pub type StateGetActorParams = (LotusJson<Address>, LotusJson<TipsetKeys>);
     pub type StateGetActorResult = LotusJson<Option<ActorState>>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-    pub type StateMarketBalanceParams = (AddressJson, LotusJson<TipsetKeys>);
+    pub type StateMarketBalanceParams = (LotusJson<Address>, LotusJson<TipsetKeys>);
     pub type StateMarketBalanceResult = MarketBalance;
 
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
@@ -386,10 +387,10 @@ pub mod state_api {
 /// Gas API
 pub mod gas_api {
     use crate::blocks::TipsetKeys;
-    use crate::json::address::json::AddressJson;
     use crate::lotus_json::LotusJson;
 
     use crate::rpc_api::data_types::MessageSendSpec;
+    use crate::shim::address::Address;
     use crate::shim::message::Message;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
@@ -397,7 +398,7 @@ pub mod gas_api {
     pub type GasEstimateFeeCapResult = String;
 
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-    pub type GasEstimateGasPremiumParams = (u64, AddressJson, i64, LotusJson<TipsetKeys>);
+    pub type GasEstimateGasPremiumParams = (u64, LotusJson<Address>, i64, LotusJson<TipsetKeys>);
     pub type GasEstimateGasPremiumResult = String;
 
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";

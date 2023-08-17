@@ -4,7 +4,6 @@
 
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
-use crate::json::address::json::AddressJson;
 use crate::json::cid::CidJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
@@ -87,7 +86,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<StateGetActorParams>,
 ) -> Result<StateGetActorResult, JsonRpcError> {
-    let (AddressJson(addr), LotusJson(tsk)) = params;
+    let (LotusJson(addr), LotusJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state.map(Into::into).map_err(|e| e.into())
@@ -100,7 +99,7 @@ pub(in crate::rpc) async fn state_market_balance<DB: Blockstore + Send + Sync + 
     Params(params): Params<StateMarketBalanceParams>,
 ) -> Result<StateMarketBalanceResult, JsonRpcError> {
     let (address, LotusJson(key)) = params;
-    let address = address.into();
+    let address = address.into_inner();
     let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
     data.state_manager
         .market_balance(&address, &tipset)
