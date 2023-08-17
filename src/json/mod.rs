@@ -5,5 +5,4 @@ pub mod address;
 pub mod bytes;
 pub mod cid;
 
-pub mod message_receipt;
 pub mod token_amount;

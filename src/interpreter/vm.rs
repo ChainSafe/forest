@@ -114,7 +114,7 @@ pub struct InvocResult {
     pub msg_cid: Cid,
     #[serde(with = "crate::lotus_json")]
     pub msg: Message,
-    #[serde(with = "crate::json::message_receipt::json")]
+    #[serde(with = "crate::lotus_json")]
     #[serde(rename = "MsgRct")]
     pub msg_receipt: Receipt,
     #[serde(with = "crate::lotus_json")]
