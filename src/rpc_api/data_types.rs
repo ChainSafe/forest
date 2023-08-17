@@ -8,7 +8,6 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::ipld::json::IpldJson;
-use crate::json::token_amount::json;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
@@ -70,7 +69,7 @@ pub struct BlockMessages {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    #[serde(with = "json")]
+    #[serde(with = "crate::lotus_json")]
     max_fee: TokenAmount,
 }
 
