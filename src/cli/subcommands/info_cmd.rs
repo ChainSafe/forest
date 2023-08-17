@@ -3,6 +3,7 @@
 
 use crate::blocks::Tipset;
 use crate::cli_shared::cli::CliOpts;
+use crate::lotus_json::LotusJson;
 use crate::rpc_client::{
     chain_get_name, chain_head, node_ops::node_status, start_time, wallet_balance,
     wallet_default_address,
@@ -170,7 +171,7 @@ impl InfoCommand {
         );
 
         match res {
-            Ok((node_status, head, network, start_time, default_wallet_address)) => {
+            Ok((node_status, LotusJson(head), network, start_time, default_wallet_address)) => {
                 let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
                 let blocks_per_tipset_last_finality =
                     node_status.chain_status.blocks_per_tipset_last_finality;
@@ -188,7 +189,7 @@ impl InfoCommand {
                 let node_status_info = NodeStatusInfo::new(
                     cur_duration,
                     blocks_per_tipset_last_finality,
-                    head.0.as_ref(),
+                    &head,
                     start_time,
                     network,
                     default_wallet_address.clone(),

@@ -5,11 +5,8 @@ use crate::blocks::VRFProof;
 
 use super::*;
 
-#[derive(Serialize, Deserialize)]
-pub struct VRFProofLotusJson(VecU8LotusJson);
-
 impl HasLotusJson for VRFProof {
-    type LotusJson = VRFProofLotusJson;
+    type LotusJson = LotusJson<Vec<u8>>;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
@@ -17,16 +14,13 @@ impl HasLotusJson for VRFProof {
             VRFProof(Vec::from_iter(*b"hello world!")),
         )]
     }
-}
 
-impl From<VRFProofLotusJson> for VRFProof {
-    fn from(VRFProofLotusJson(value): VRFProofLotusJson) -> Self {
-        Self(value.into())
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self(vec) = self;
+        vec.into()
     }
-}
 
-impl From<VRFProof> for VRFProofLotusJson {
-    fn from(VRFProof(value): VRFProof) -> Self {
-        Self(value.into())
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Self(lotus_json.into_inner())
     }
 }

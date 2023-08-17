@@ -59,7 +59,11 @@
 //!   This corresponds to the CBOR representation.
 //! - Implement [`HasLotusJson`] on the domain object.
 //!   This attaches a separate JSON type, which should implement (`#[derive(...)]`) [`serde::Serialize`] and [`serde::Deserialize`] AND conversions to and from the domain object
-//!   E.g [`GossipBlockLotusJson`]
+//!   E.g [`gossip_block`]
+//!
+//! Whenever you need the lotus JSON of an object, use the [`LotusJson`] wrapper.
+//! Note that the actual [`HasLotusJson::LotusJson`] types should be private - we don't want these names
+//! proliferating over the codebase.
 //!
 //! ## Implementation notes
 //! ### Illegal states are unrepresentable
@@ -92,9 +96,19 @@
 //!   If you do this, you MUST manually add snapshot and `quickcheck` tests.
 //!
 //! ### Compound structs
-//! - Each field of a struct should be transformed into its `LotusJson` equivalent.
-//! - Each [From] implementation should use only [From]/[Into] calls for each field
+//! - Each field of a struct should be wrapped with [`LotusJson`].
+//! - Implementations of [`HasLotusJson::into_lotus_json`] and [`HasLotusJson::from_lotus_json`]
+//!   should use [`Into`] and [`LotusJson::into_inner`] calls
 //! - Use destructuring to ensure exhaustiveness
+//!
+//! ### Optional fields
+//! Optional fields must have the following annotations:
+//! ```rust,ignore
+//! # struct Foo {
+//! #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+//! foo: LotusJson<Option<usize>>,
+//! # }
+//! ```
 //!
 //! # API hazards
 //! - Avoid using `#[serde(with = ...)]` except for leaf types
@@ -104,16 +118,16 @@
 //! - use [`proptest`](https://docs.rs/proptest/) to test the parser pipeline
 //! - use a derive macro for simple compound structs
 
-use derive_more::{From, Into};
+use derive_more::From;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
 #[cfg(test)]
 use {pretty_assertions::assert_eq, quickcheck::quickcheck};
 
-pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
+pub trait HasLotusJson: Sized {
     /// The struct representing JSON. You should `#[derive(Deserialize, Serialize)]` on it.
-    type LotusJson: Into<Self> + Serialize + DeserializeOwned;
+    type LotusJson: Serialize + DeserializeOwned;
     /// To ensure code quality, conversion to/from lotus JSON MUST be tested.
     /// Provide snapshots of the JSON, and the domain type it should serialize to.
     ///
@@ -122,13 +136,13 @@ pub trait HasLotusJson: Sized + Into<Self::LotusJson> {
     /// If using [`decl_and_test`], this test is automatically run for you, but if the test
     /// is out-of-module, you must call [`assert_all_snapshots`] manually.
     fn snapshots() -> Vec<(serde_json::Value, Self)>;
+    fn into_lotus_json(self) -> Self::LotusJson;
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self;
 }
 
 macro_rules! decl_and_test {
-    ($($mod_name:ident -> $lotus_json_ty:ident for $domain_ty:ty),* $(,)?) => {
+    ($($mod_name:ident for $domain_ty:ty),* $(,)?) => {
         $(
-            #[allow(unused)]
-            pub use self::$mod_name::$lotus_json_ty; // convenience for other structs
             mod $mod_name;
         )*
         #[test]
@@ -157,32 +171,34 @@ macro_rules! decl_and_test {
 pub(crate) use decl_and_test;
 
 decl_and_test!(
-    address -> AddressLotusJson for crate::shim::address::Address,
-    beacon_entry -> BeaconEntryLotusJson for crate::beacon::BeaconEntry,
-    big_int -> BigIntLotusJson for num::BigInt,
-    gossip_block -> GossipBlockLotusJson for crate::blocks::GossipBlock,
-    election_proof -> ElectionProofLotusJson for crate::blocks::ElectionProof,
-    message -> MessageLotusJson for crate::shim::message::Message,
-    po_st_proof -> PoStProofLotusJson for crate::shim::sector::PoStProof,
-    registered_po_st_proof -> RegisteredPoStProofLotusJson for crate::shim::sector::RegisteredPoStProof,
-    signature -> SignatureLotusJson for crate::shim::crypto::Signature,
-    signature_type -> SignatureTypeLotusJson for crate::shim::crypto::SignatureType,
-    signed_message -> SignedMessageLotusJson for  crate::message::SignedMessage,
-    ticket -> TicketLotusJson for crate::blocks::Ticket,
-    tipset_keys ->  TipsetKeysLotusJson for crate::blocks::TipsetKeys,
-    token_amount -> TokenAmountLotusJson for crate::shim::econ::TokenAmount,
-    vec_u8 -> VecU8LotusJson for Vec<u8>,
-    vrf_proof -> VRFProofLotusJson for crate::blocks::VRFProof,
+    actor_state for crate::shim::state_tree::ActorState,
+    address for crate::shim::address::Address,
+    beacon_entry for crate::beacon::BeaconEntry,
+    big_int for num::BigInt,
+    election_proof for crate::blocks::ElectionProof,
+    gossip_block for crate::blocks::GossipBlock,
+    key_info for crate::key_management::KeyInfo,
+    message for crate::shim::message::Message,
+    po_st_proof for crate::shim::sector::PoStProof,
+    registered_po_st_proof for crate::shim::sector::RegisteredPoStProof,
+    registered_seal_proof for crate::shim::sector::RegisteredSealProof,
+    sector_info for crate::shim::sector::SectorInfo,
+    signature for crate::shim::crypto::Signature,
+    signature_type for crate::shim::crypto::SignatureType,
+    signed_message for  crate::message::SignedMessage,
+    sync_stage for crate::chain_sync::SyncStage,
+    ticket for crate::blocks::Ticket,
+    tipset_keys for crate::blocks::TipsetKeys,
+    token_amount for crate::shim::econ::TokenAmount,
+    vec_u8 for Vec<u8>,
+    vrf_proof for crate::blocks::VRFProof,
 );
 
-pub use self::cid::CidLotusJson;
 mod cid; // can't make snapshots of generic type
-
-pub use self::vec::VecLotusJson;
-mod vec; // can't make snapshots of generic type
-
-pub use self::raw_bytes::RawBytesLotusJson;
+mod opt; // can't make snapshots of generic type
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
+mod receipt; // shim type roundtrip is wrong - see module
+mod vec; // can't make snapshots of generic type
 
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
@@ -202,7 +218,7 @@ where
     T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
 {
     // T -> T::LotusJson -> lotus_json
-    let serialized = serde_json::to_value(Into::<T::LotusJson>::into(val.clone())).unwrap();
+    let serialized = serde_json::to_value(val.clone().into_lotus_json()).unwrap();
     assert_eq!(
         serialized.to_string(),
         lotus_json.to_string(),
@@ -212,7 +228,7 @@ where
 
     // lotus_json -> T::LotusJson -> T
     let deserialized = match serde_json::from_value::<T::LotusJson>(lotus_json.clone()) {
-        Ok(lotus_json) => Into::<T>::into(lotus_json),
+        Ok(lotus_json) => T::from_lotus_json(lotus_json),
         Err(e) => panic!(
             "couldn't deserialize a {} from {}: {e}",
             std::any::type_name::<T::LotusJson>(),
@@ -222,22 +238,22 @@ where
     assert_eq!(deserialized, val);
 }
 
-#[cfg(test)]
+#[cfg(any(test, doc))]
 pub fn assert_unchanged_via_json<T>(val: T)
 where
-    T: HasLotusJson + Clone + Into<T::LotusJson> + PartialEq + std::fmt::Debug,
-    T::LotusJson: Into<T> + Serialize + serde::de::DeserializeOwned,
+    T: HasLotusJson + Clone + PartialEq + std::fmt::Debug,
+    T::LotusJson: Serialize + serde::de::DeserializeOwned,
 {
     // T -> T::LotusJson -> lotus_json -> T::LotusJson -> T
 
     // T -> T::LotusJson
-    let temp = Into::<T::LotusJson>::into(val.clone());
+    let temp = val.clone().into_lotus_json();
     // T::LotusJson -> lotus_json
     let temp = serde_json::to_value(temp).unwrap();
     // lotus_json -> T::LotusJson
     let temp = serde_json::from_value::<T::LotusJson>(temp).unwrap();
     // T::LotusJson -> T
-    let temp = Into::<T>::into(temp);
+    let temp = T::from_lotus_json(temp);
 
     assert_eq!(val, temp);
 }
@@ -289,12 +305,70 @@ pub mod base64_standard {
     }
 }
 
+/// MUST NOT be used in any `LotusJson` structs
+pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    T: HasLotusJson + Clone,
+{
+    value.clone().into_lotus_json().serialize(serializer)
+}
+
 /// MUST NOT be used in any `LotusJson` structs.
-#[cfg(test)]
 pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
     T: HasLotusJson,
 {
-    T::LotusJson::deserialize(deserializer).map(Into::into)
+    Ok(T::from_lotus_json(Deserialize::deserialize(deserializer)?))
 }
+
+/// A domain struct that is (de) serialized through its lotus JSON representation.
+#[derive(Serialize, Deserialize, From, Default)]
+#[serde(bound = "T: HasLotusJson + Clone")]
+pub struct LotusJson<T>(#[serde(with = "self")] pub T);
+
+impl<T> LotusJson<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> LotusJson<Option<T>> {
+    // don't want to impl Deref<T> for LotusJson<T>
+    pub fn is_none(&self) -> bool {
+        self.0.is_none()
+    }
+}
+
+/// A struct that is (de) serialized through its [`Display`] and [`FromStr`] implementations.
+#[derive(Serialize, Deserialize, From, Default)]
+#[serde(bound = "T: Display + FromStr, T::Err: Display")]
+pub struct Stringify<T>(#[serde(with = "stringify")] pub T);
+
+impl<T> Stringify<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+macro_rules! lotus_json_with_self {
+    ($($domain_ty:ty),* $(,)?) => {
+        $(
+            impl HasLotusJson for $domain_ty {
+                type LotusJson = Self;
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                    unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+                }
+                fn into_lotus_json(self) -> Self::LotusJson {
+                    self
+                }
+                fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                    lotus_json
+                }
+            }
+        )*
+    }
+}
+
+lotus_json_with_self!(u32, u64, i64, String, chrono::DateTime<chrono::Utc>);

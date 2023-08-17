@@ -14,16 +14,18 @@ use argon2::{
     password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
 };
 use base64::{prelude::BASE64_STANDARD, Engine};
+use crypto_secretbox::{
+    aead::{generic_array::GenericArray, Aead},
+    KeyInit, SecretBox, XSalsa20Poly1305,
+};
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{error, warn};
-use xsalsa20poly1305::{
-    aead::{generic_array::GenericArray, Aead},
-    KeyInit, XSalsa20Poly1305, NONCE_SIZE,
-};
 
 use super::errors::Error;
+
+const NONCE_SIZE: usize = SecretBox::<Box<dyn std::any::Any>>::NONCE_SIZE;
 
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
@@ -37,6 +39,7 @@ type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
 // save keys like jwt secret
 /// `KeyInfo` structure, this contains the type of key (stored as a string) and
 /// the private key. Note how the private key is stored as a byte vector
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
@@ -67,63 +70,6 @@ impl KeyInfo {
     /// Return a reference to the private key
     pub fn private_key(&self) -> &Vec<u8> {
         &self.private_key
-    }
-}
-
-pub mod json {
-    use crate::json::signature::json::signature_type::SignatureTypeJson;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
-    use super::*;
-
-    /// Wrapper for serializing and de-serializing a `KeyInfo` from JSON.
-    #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
-    #[serde(transparent)]
-    pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
-
-    /// Wrapper for serializing a `KeyInfo` reference to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
-
-    impl From<KeyInfoJson> for KeyInfo {
-        fn from(key: KeyInfoJson) -> KeyInfo {
-            key.0
-        }
-    }
-    #[derive(Serialize, Deserialize)]
-    struct JsonHelper {
-        #[serde(rename = "Type")]
-        sig_type: SignatureTypeJson,
-        #[serde(rename = "PrivateKey")]
-        private_key: String,
-    }
-
-    pub fn serialize<S>(k: &KeyInfo, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        JsonHelper {
-            sig_type: SignatureTypeJson(k.key_type),
-            private_key: BASE64_STANDARD.encode(&k.private_key),
-        }
-        .serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<KeyInfo, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let JsonHelper {
-            sig_type,
-            private_key,
-        } = Deserialize::deserialize(deserializer)?;
-        Ok(KeyInfo {
-            key_type: sig_type.0,
-            private_key: BASE64_STANDARD
-                .decode(private_key)
-                .map_err(de::Error::custom)?,
-        })
     }
 }
 
@@ -492,13 +438,9 @@ fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
 mod test {
     use anyhow::*;
     use base64::{prelude::BASE64_STANDARD, Engine};
-    use quickcheck_macros::quickcheck;
 
     use super::*;
-    use crate::key_management::{
-        json::{KeyInfoJson, KeyInfoJsonRef},
-        wallet,
-    };
+    use crate::key_management::wallet;
 
     const PASSPHRASE: &str = "foobarbaz";
 
@@ -598,27 +540,5 @@ mod test {
         ensure!(ks == ks_read);
 
         Ok(())
-    }
-
-    impl quickcheck::Arbitrary for KeyInfo {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let sigtype = g
-                .choose(&[
-                    crate::shim::crypto::SignatureType::Bls,
-                    crate::shim::crypto::SignatureType::Secp256k1,
-                ])
-                .unwrap();
-            KeyInfo {
-                key_type: *sigtype,
-                private_key: Vec::arbitrary(g),
-            }
-        }
-    }
-
-    #[quickcheck]
-    fn keyinfo_roundtrip(keyinfo: KeyInfo) {
-        let serialized: String = serde_json::to_string(&KeyInfoJsonRef(&keyinfo)).unwrap();
-        let parsed: KeyInfoJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(keyinfo, parsed.0);
     }
 }

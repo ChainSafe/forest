@@ -3,8 +3,7 @@
 
 use super::*;
 
-#[derive(Serialize, Deserialize, From, Into)]
-#[serde(transparent)]
+#[derive(Serialize, Deserialize)]
 pub struct VecU8LotusJson(#[serde(with = "base64_standard")] Vec<u8>);
 
 impl HasLotusJson for Vec<u8> {
@@ -12,5 +11,13 @@ impl HasLotusJson for Vec<u8> {
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("aGVsbG8gd29ybGQh"), Vec::from_iter(*b"hello world!"))]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        VecU8LotusJson(self)
+    }
+
+    fn from_lotus_json(VecU8LotusJson(vec): Self::LotusJson) -> Self {
+        vec
     }
 }
