@@ -233,15 +233,15 @@ pub struct Trace {
 #[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TraceMessage {
-    #[serde(with = "crate::json::address::json")]
+    #[serde(with = "crate::lotus_json")]
     pub from: Address,
-    #[serde(with = "crate::json::address::json")]
+    #[serde(with = "crate::lotus_json")]
     pub to: Address,
-    #[serde(with = "crate::json::token_amount::json")]
+    #[serde(with = "crate::lotus_json")]
     pub value: TokenAmount,
     #[serde(rename = "Method")]
     pub method_num: MethodNum,
-    #[serde(with = "crate::json::bytes::json")]
+    #[serde(with = "crate::lotus_json")]
     pub params: Vec<u8>,
     pub params_codec: u64,
 }
@@ -264,8 +264,7 @@ impl quickcheck::Arbitrary for TraceMessage {
 #[serde(rename_all = "PascalCase")]
 pub struct TraceReturn {
     pub exit_code: ExitCode,
-    #[serde(rename = "Return")]
-    #[serde(with = "crate::json::bytes::json")]
+    #[serde(rename = "Return", with = "crate::lotus_json")]
     pub return_data: Vec<u8>,
     pub return_codec: u64,
 }
