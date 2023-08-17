@@ -1,11 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
 use core::fmt;
-use serde::de::{self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, Visitor};
+use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
 use serde_ipld_dagcbor::from_slice;
 
@@ -181,17 +180,16 @@ impl<'de> de::Deserialize<'de> for CidVec {
 #[cfg(test)]
 mod test {
     use crate::ipld::DfsIter;
-    use crate::networks::mainnet;
+
     use crate::utils::encoding::extract_cids;
-    use cid::multihash::Code::{Blake2b256, Identity, Sha2_256};
+    use cid::multihash::Code::Blake2b256;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
-    use futures::SinkExt;
+
     use fvm_ipld_encoding::DAG_CBOR;
     use libipld_core::ipld::Ipld;
-    use quickcheck::{empty_shrinker, Arbitrary, Gen, QuickCheck};
+    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
-    use tokio_test::assert_ok;
 
     #[derive(Debug, Clone)]
     pub struct IpldWrapper {
