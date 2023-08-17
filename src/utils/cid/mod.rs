@@ -176,7 +176,7 @@ mod tests {
         ));
     }
 
-    // If this test fails, the default encoding is no longer v1+dagcbor+blake2b. Add the new default
+    // If this test fails, the default encoding is no longer v1+dagcbor+blake2b. Consider adding the new default
     // CID type to `SmallCid`.
     #[test]
     fn default_is_v1_dagcbor() {
