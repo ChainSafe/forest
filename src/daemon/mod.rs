@@ -7,7 +7,7 @@ pub mod main;
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
-use crate::chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
+use crate::chain_sync::ChainMuxer;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
@@ -80,8 +80,6 @@ pub fn ipc_shmem_conf() -> ShmemConf {
         .force_create_flink()
         .flink(IPC_PATH.as_os_str())
 }
-
-use crate::fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = ipc_shmem_conf().open()?;
@@ -313,18 +311,9 @@ pub(super) async fn start(
 
     let mpool = Arc::new(mpool);
 
-    // For consensus types that do mining, create a component to submit their
-    // proposals.
-    let submitter = SyncGossipSubmitter::new();
-
-    // Initialize Consensus. Mining may or may not happen, depending on type.
-    let consensus =
-        cns::consensus(&state_manager, &keystore, &mpool, submitter, &mut services).await?;
-
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
-        Arc::new(consensus),
         Arc::clone(&state_manager),
         peer_manager,
         mpool.clone(),
@@ -358,8 +347,7 @@ pub(super) async fn start(
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
-                    .get_beacon_schedule(chain_store.genesis().timestamp())
-                    .into_dyn(),
+                    .get_beacon_schedule(chain_store.genesis().timestamp()),
             );
             start_rpc(
                 Arc::new(RPCState {
@@ -393,11 +381,9 @@ pub(super) async fn start(
 
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    if cns::FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &config.client.data_dir,
-        );
-    }
+    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        &config.client.data_dir,
+    );
 
     let mut config = config;
     fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;

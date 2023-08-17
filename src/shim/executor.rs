@@ -114,3 +114,45 @@ impl From<Receipt_v3> for Receipt {
         Receipt::V3(other)
     }
 }
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for Receipt {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        #[derive(derive_quickcheck_arbitrary::Arbitrary, Clone)]
+        enum Helper {
+            V2 {
+                exit_code: u32,
+                return_data: Vec<u8>,
+                gas_used: i64,
+            },
+            V3 {
+                exit_code: u32,
+                return_data: Vec<u8>,
+                gas_used: u64,
+                events_root: Option<::cid::Cid>,
+            },
+        }
+        match Helper::arbitrary(g) {
+            Helper::V2 {
+                exit_code,
+                return_data,
+                gas_used,
+            } => Self::V2(Receipt_v2 {
+                exit_code: exit_code.into(),
+                return_data: return_data.into(),
+                gas_used,
+            }),
+            Helper::V3 {
+                exit_code,
+                return_data,
+                gas_used,
+                events_root,
+            } => Self::V3(Receipt_v3 {
+                exit_code: exit_code.into(),
+                return_data: return_data.into(),
+                gas_used,
+                events_root,
+            }),
+        }
+    }
+}

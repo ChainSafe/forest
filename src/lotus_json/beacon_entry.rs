@@ -8,8 +8,8 @@ use super::*;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct BeaconEntryLotusJson {
-    round: u64,
-    data: VecU8LotusJson,
+    round: LotusJson<u64>,
+    data: LotusJson<Vec<u8>>,
 }
 
 impl HasLotusJson for BeaconEntry {
@@ -18,21 +18,17 @@ impl HasLotusJson for BeaconEntry {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!({"Round": 0, "Data": ""}), BeaconEntry::default())]
     }
-}
 
-impl From<BeaconEntry> for BeaconEntryLotusJson {
-    fn from(value: BeaconEntry) -> Self {
-        let (round, data) = value.into_parts();
-        Self {
-            round,
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let (round, data) = self.into_parts();
+        Self::LotusJson {
+            round: round.into(),
             data: data.into(),
         }
     }
-}
 
-impl From<BeaconEntryLotusJson> for BeaconEntry {
-    fn from(value: BeaconEntryLotusJson) -> Self {
-        let BeaconEntryLotusJson { round, data } = value;
-        Self::new(round, data.into())
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson { round, data } = lotus_json;
+        Self::new(round.into_inner(), data.into_inner())
     }
 }

@@ -258,7 +258,7 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule<DrandBeacon> {
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
@@ -269,7 +269,11 @@ impl ChainConfig {
             ds_iter
                 .map(|dc| BeaconPoint {
                     height: dc.height,
-                    beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config),
+                    beacon: Box::new(DrandBeacon::new(
+                        genesis_ts,
+                        self.block_delay_secs,
+                        dc.config,
+                    )),
                 })
                 .collect(),
         )

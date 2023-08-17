@@ -1,82 +1,42 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fmt, sync::Arc};
+use std::sync::Arc;
 
-use crate::blocks::{
-    tipset::tipset_json::{TipsetJson, TipsetJsonRef},
-    Tipset,
-};
+use crate::blocks::Tipset;
 use crate::shim::clock::ChainEpoch;
 #[cfg(test)]
 use chrono::TimeZone;
 use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, strum::Display, strum::EnumString)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum SyncStage {
     /// Idle state.
+    #[strum(to_string = "idle worker")]
     Idle,
     /// Syncing headers from the heaviest tipset to genesis.
+    #[strum(to_string = "header sync")]
     Headers,
     /// Persisting headers on chain from heaviest to genesis.
+    #[strum(to_string = "persisting headers")]
     PersistHeaders,
     /// Syncing messages and performing state transitions.
+    #[strum(to_string = "message sync")]
     Messages,
     /// `ChainSync` completed and is following chain.
+    #[strum(to_string = "complete")]
     Complete,
     #[cfg_attr(test, arbitrary(skip))]
     /// Error has occurred while syncing.
+    #[strum(to_string = "error")]
     Error,
 }
 
 impl Default for SyncStage {
     fn default() -> Self {
         Self::Headers
-    }
-}
-
-impl fmt::Display for SyncStage {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SyncStage::Idle => write!(f, "idle worker"),
-            SyncStage::Headers => write!(f, "header sync"),
-            SyncStage::PersistHeaders => write!(f, "persisting headers"),
-            SyncStage::Messages => write!(f, "message sync"),
-            SyncStage::Complete => write!(f, "complete"),
-            SyncStage::Error => write!(f, "error"),
-        }
-    }
-}
-
-impl Serialize for SyncStage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for SyncStage {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let stage: &str = Deserialize::deserialize(deserializer)?;
-
-        let output = match stage {
-            "idle worker" => SyncStage::Idle,
-            "header sync" => SyncStage::Headers,
-            "persisting headers" => SyncStage::PersistHeaders,
-            "message sync" => SyncStage::Messages,
-            "complete" => SyncStage::Complete,
-            _ => SyncStage::Error,
-        };
-
-        Ok(output)
     }
 }
 
@@ -171,130 +131,99 @@ impl SyncState {
     }
 }
 
-impl Serialize for SyncState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        #[derive(Serialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct SyncStateJson<'a> {
-            base: Option<TipsetJsonRef<'a>>,
-            target: Option<TipsetJsonRef<'a>>,
-
-            stage: SyncStage,
-            epoch: ChainEpoch,
-
-            start: &'a Option<DateTime<Utc>>,
-            end: &'a Option<DateTime<Utc>>,
-            message: &'a str,
-        }
-
-        SyncStateJson {
-            base: self.base.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
-            target: self.target.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
-            stage: self.stage,
-            epoch: self.epoch,
-            start: &self.start,
-            end: &self.end,
-            message: &self.message,
-        }
-        .serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for SyncState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct SyncStateDe {
-            base: Option<TipsetJson>,
-            target: Option<TipsetJson>,
-
-            #[serde(with = "super::SyncStage")]
-            stage: SyncStage,
-            epoch: ChainEpoch,
-
-            start: Option<DateTime<Utc>>,
-            end: Option<DateTime<Utc>>,
-            message: String,
-        }
-
-        let SyncStateDe {
-            base,
-            target,
-            stage,
-            epoch,
-            start,
-            end,
-            message,
-        } = Deserialize::deserialize(deserializer)?;
-        Ok(SyncState {
-            base: base.map(Into::into),
-            target: target.map(Into::into),
-            stage,
-            epoch,
-            start,
-            end,
-            message,
-        })
-    }
-}
-
-pub mod json {
-    use serde::{Deserialize, Serialize};
-
+mod lotus_json {
     use super::SyncState;
+    use crate::{blocks::Tipset, chain_sync::SyncStage, lotus_json::*};
+    use chrono::{DateTime, Utc};
+    use std::sync::Arc;
 
-    #[derive(Serialize, Deserialize, Debug)]
-    #[serde(transparent)]
-    pub struct SyncStateJson(pub SyncState);
+    use serde::{Deserialize, Serialize};
+    use serde_json::json;
 
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct SyncStateRef<'a>(pub &'a SyncState);
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct SyncStateLotusJson {
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        base: LotusJson<Option<Tipset>>,
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        target: LotusJson<Option<Tipset>>,
 
-    impl From<SyncStateJson> for SyncState {
-        fn from(wrapper: SyncStateJson) -> Self {
-            wrapper.0
+        stage: LotusJson<SyncStage>,
+        epoch: LotusJson<i64>,
+
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        start: LotusJson<Option<DateTime<Utc>>>,
+        #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+        end: LotusJson<Option<DateTime<Utc>>>,
+        message: LotusJson<String>,
+    }
+
+    impl HasLotusJson for SyncState {
+        type LotusJson = SyncStateLotusJson;
+
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![(
+                json!({
+                    "Epoch": 0,
+                    "Message": "",
+                    "Stage": "header sync",
+                }),
+                Self::default(),
+            )]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            let Self {
+                base,
+                target,
+                stage,
+                epoch,
+                start,
+                end,
+                message,
+            } = self;
+            Self::LotusJson {
+                base: base.as_deref().cloned().into(),
+                target: target.as_deref().cloned().into(),
+                stage: stage.into(),
+                epoch: epoch.into(),
+                start: start.into(),
+                end: end.into(),
+                message: message.into(),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            let Self::LotusJson {
+                base,
+                target,
+                stage,
+                epoch,
+                start,
+                end,
+                message,
+            } = lotus_json;
+            Self {
+                base: base.into_inner().map(Arc::new),
+                target: target.into_inner().map(Arc::new),
+                stage: stage.into_inner(),
+                epoch: epoch.into_inner(),
+                start: start.into_inner(),
+                end: end.into_inner(),
+                message: message.into_inner(),
+            }
         }
     }
-}
 
-pub mod vec {
-    use serde::ser::SerializeSeq;
-
-    use super::{json::SyncStateRef, *};
-
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct SyncStateJsonVec(#[serde(with = "self")] pub Vec<SyncState>);
-
-    pub fn serialize<S>(m: &[SyncState], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(m.len()))?;
-        for e in m {
-            seq.serialize_element(&SyncStateRef(e))?;
-        }
-        seq.end()
+    #[test]
+    fn snapshots() {
+        assert_all_snapshots::<SyncState>()
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use quickcheck_macros::quickcheck;
-
-    use super::*;
-
-    #[quickcheck]
-    fn sync_state_roundtrip(ss: SyncState) {
-        let serialized = serde_json::to_string(&ss).unwrap();
-        let parsed = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(ss, parsed);
+    #[cfg(test)]
+    quickcheck::quickcheck! {
+        fn quickcheck(val: SyncState) -> () {
+            assert_unchanged_via_json(val)
+        }
     }
 }
