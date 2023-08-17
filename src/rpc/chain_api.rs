@@ -4,13 +4,11 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{
-    header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-    BlockHeader, Tipset,
-};
+use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
-use crate::json::{cid::CidJson, message::json::MessageJson};
+use crate::json::cid::CidJson;
+use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -38,7 +36,7 @@ where
         .blockstore()
         .get_cbor(&msg_cid)?
         .ok_or("can't find message with that cid")?;
-    Ok(MessageJson(ret))
+    Ok(LotusJson(ret))
 }
 
 pub(in crate::rpc) async fn chain_export<DB>(
@@ -47,7 +45,7 @@ pub(in crate::rpc) async fn chain_export<DB>(
         epoch,
         recent_roots,
         output_path,
-        tipset_keys: TipsetKeysJson(tsk),
+        tipset_keys: tsk,
         skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
@@ -182,7 +180,7 @@ where
         .chain_store()
         .chain_index
         .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-    Ok(TipsetJson(tss))
+    Ok((*tss).clone().into())
 }
 
 pub(in crate::rpc) async fn chain_get_genesis<DB>(
@@ -192,8 +190,7 @@ where
     DB: Blockstore,
 {
     let genesis = data.state_manager.chain_store().genesis();
-    let gen_ts = Arc::new(Tipset::from(genesis));
-    Ok(Some(TipsetJson(gen_ts)))
+    Ok(Some(Tipset::from(genesis).into()))
 }
 
 pub(in crate::rpc) async fn chain_head<DB>(
@@ -203,7 +200,7 @@ where
     DB: Blockstore,
 {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
-    Ok(TipsetJson(heaviest))
+    Ok((*heaviest).clone().into())
 }
 
 pub(in crate::rpc) async fn chain_get_block<DB>(
@@ -219,19 +216,18 @@ where
         .blockstore()
         .get_cbor(&blk_cid)?
         .ok_or("can't find BlockHeader with that cid")?;
-    Ok(BlockHeaderJson(blk))
+    Ok(blk.into())
 }
 
 pub(in crate::rpc) async fn chain_get_tipset<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetTipSetParams>,
+    Params((LotusJson(tsk),)): Params<ChainGetTipSetParams>,
 ) -> Result<ChainGetTipSetResult, JsonRpcError>
 where
     DB: Blockstore,
 {
-    let (TipsetKeysJson(tsk),) = params;
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
-    Ok(TipsetJson(ts))
+    Ok((*ts).clone().into())
 }
 
 pub(in crate::rpc) async fn chain_get_name<DB>(

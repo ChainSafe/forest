@@ -2,16 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::message::SignedMessage;
+use crate::shim::{crypto::Signature, message::Message};
+use ::cid::Cid;
 
 use super::*;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SignedMessageLotusJson {
-    message: MessageLotusJson,
-    signature: SignatureLotusJson,
-    #[serde(rename = "CID", skip_serializing_if = "Option::is_none")]
-    cid: Option<CidLotusJson>,
+    message: LotusJson<Message>,
+    signature: LotusJson<Signature>,
+    #[serde(rename = "CID", skip_serializing_if = "LotusJson::is_none", default)]
+    cid: LotusJson<Option<Cid>>,
 }
 
 impl HasLotusJson for SignedMessage {
@@ -32,7 +34,7 @@ impl HasLotusJson for SignedMessage {
                     "Value": "0",
                     "Version": 0
                 },
-                "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"}
+                "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
             }),
             SignedMessage {
                 message: crate::shim::message::Message::default(),
@@ -43,29 +45,25 @@ impl HasLotusJson for SignedMessage {
             },
         )]
     }
-}
 
-impl From<SignedMessage> for SignedMessageLotusJson {
-    fn from(value: SignedMessage) -> Self {
-        let SignedMessage { message, signature } = value;
-        Self {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self { message, signature } = self;
+        Self::LotusJson {
             message: message.into(),
             signature: signature.into(),
-            cid: None, // BUG?(aatifsyed)
+            cid: None.into(), // BUG?(aatifsyed)
         }
     }
-}
 
-impl From<SignedMessageLotusJson> for SignedMessage {
-    fn from(value: SignedMessageLotusJson) -> Self {
-        let SignedMessageLotusJson {
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson {
             message,
             signature,
             cid: _ignored, // BUG?(aatifsyed)
-        } = value;
+        } = lotus_json;
         Self {
-            message: message.into(),
-            signature: signature.into(),
+            message: message.into_inner(),
+            signature: signature.into_inner(),
         }
     }
 }

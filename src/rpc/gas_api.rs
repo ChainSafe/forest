@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+use crate::blocks::TipsetKeys;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use crate::json::{address::json::AddressJson, message::json::MessageJson};
+use crate::json::address::json::AddressJson;
+use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::rpc_api::{
     data_types::{MessageSendSpec, RPCState},
@@ -28,7 +29,7 @@ pub(in crate::rpc) async fn gas_estimate_fee_cap<DB>(
 where
     DB: Blockstore,
 {
-    let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
+    let (LotusJson(msg), max_queue_blks, LotusJson(tsk)) = params;
 
     estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
@@ -64,7 +65,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_premium<DB>(
 where
     DB: Blockstore,
 {
-    let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
+    let (nblocksincl, AddressJson(_sender), _gas_limit, _) = params;
     estimate_gas_premium::<DB>(&data, nblocksincl)
         .await
         .map(|n| TokenAmount::to_string(&n))
@@ -163,7 +164,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
+    let (LotusJson(msg), LotusJson(tsk)) = params;
     estimate_gas_limit::<DB>(&data, msg, tsk).await
 }
 
@@ -217,10 +218,10 @@ pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
+    let (LotusJson(msg), spec, LotusJson(tsk)) = params;
     estimate_message_gas::<DB>(&data, msg, spec, tsk)
         .await
-        .map(MessageJson::from)
+        .map(Into::into)
 }
 
 pub(in crate::rpc) async fn estimate_message_gas<DB>(

@@ -48,7 +48,7 @@ fn beacon_entry_exists() {
         .unwrap();
     let beacon_schedule = BeaconSchedule(vec![BeaconPoint {
         height: 0,
-        beacon: MockBeacon::default(),
+        beacon: Box::<MockBeacon>::default(),
     }]);
     let chain_epoch = 0;
     let beacon_entry = BeaconEntry::new(1, vec![]);
