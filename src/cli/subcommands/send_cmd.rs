@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use crate::json::message::json::MessageJson;
+use crate::lotus_json::LotusJson;
 use crate::rpc_client::{mpool_push_message, wallet_default_address};
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
@@ -60,12 +60,12 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg_json =
-            mpool_push_message((MessageJson(message), None), &config.client.rpc_token)
-                .await
-                .map_err(handle_rpc_err)?;
+        let signed_msg = mpool_push_message((LotusJson(message), None), &config.client.rpc_token)
+            .await
+            .map_err(handle_rpc_err)?
+            .into_inner();
 
-        println!("{}", signed_msg_json.0.cid().unwrap());
+        println!("{}", signed_msg.cid().unwrap());
 
         Ok(())
     }

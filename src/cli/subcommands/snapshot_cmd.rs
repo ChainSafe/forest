@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use crate::blocks::Tipset;
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -107,7 +107,7 @@ impl SnapshotCommands {
                 depth,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
-                    Ok(head) => head.0,
+                    Ok(LotusJson(head)) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
@@ -135,7 +135,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(config.chain.recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: TipsetKeysJson(chain_head.key().clone()),
+                    tipset_keys: chain_head.key().clone(),
                     skip_checksum,
                     dry_run,
                 };

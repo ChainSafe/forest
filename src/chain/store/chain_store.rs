@@ -498,24 +498,22 @@ where
 }
 
 pub mod headchange_json {
-    use crate::blocks::tipset_json::TipsetJson;
+    use crate::lotus_json::LotusJson;
     use serde::{Deserialize, Serialize};
 
     use super::*;
 
-    #[derive(Debug, Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize)]
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
-        Current(TipsetJson),
-        Apply(TipsetJson),
-        Revert(TipsetJson),
+        Apply(LotusJson<Tipset>),
     }
 
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
+                HeadChange::Apply(arc) => Self::Apply((*arc).clone().into()),
             }
         }
     }

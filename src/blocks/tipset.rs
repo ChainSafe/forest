@@ -424,141 +424,108 @@ where
     Ok(())
 }
 
-pub mod tipset_keys_json {
+pub mod lotus_json {
+    //! [Tipset] isn't just plain old data - it has an invariant (all [`BlockHeader`]s are valid)
+    //! So there is custom de-serialization here
+
+    use crate::blocks::{BlockHeader, Tipset};
+    use crate::lotus_json::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use super::*;
+    use super::TipsetKeys;
 
-    #[derive(Clone, Debug, Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
+    pub struct TipsetLotusJson(Tipset);
 
-    impl From<TipsetKeysJson> for TipsetKeys {
-        fn from(wrapper: TipsetKeysJson) -> Self {
-            wrapper.0
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct TipsetLotusJsonInner {
+        cids: LotusJson<TipsetKeys>,
+        blocks: LotusJson<Vec<BlockHeader>>,
+        height: LotusJson<i64>,
+    }
+
+    impl<'de> Deserialize<'de> for TipsetLotusJson {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let TipsetLotusJsonInner {
+                cids: _ignored0,
+                blocks,
+                height: _ignored1,
+            } = Deserialize::deserialize(deserializer)?;
+            Tipset::new(blocks.into_inner())
+                .map_err(serde::de::Error::custom)
+                .map(Self)
         }
     }
 
-    impl From<TipsetKeys> for TipsetKeysJson {
-        fn from(wrapper: TipsetKeys) -> Self {
-            TipsetKeysJson(wrapper)
+    impl Serialize for TipsetLotusJson {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let Self(tipset) = self;
+            TipsetLotusJsonInner {
+                cids: tipset.key().clone().into(),
+                blocks: tipset.clone().into_blocks().into(),
+                height: tipset.epoch().into(),
+            }
+            .serialize(serializer)
         }
     }
 
-    pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        crate::json::cid::vec::serialize(&Vec::<Cid>::from(&m.cids), serializer)
-    }
+    impl HasLotusJson for Tipset {
+        type LotusJson = TipsetLotusJson;
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(TipsetKeys {
-            cids: crate::json::cid::vec::deserialize(deserializer)?.into(),
-        })
-    }
-}
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            use serde_json::json;
+            vec![(
+                json!({
+                    "Blocks": [
+                        {
+                            "BeaconEntries": null,
+                            "ForkSignaling": 0,
+                            "Height": 0,
+                            "Messages": { "/": "baeaaaaa" },
+                            "Miner": "f00",
+                            "ParentBaseFee": "0",
+                            "ParentMessageReceipts": { "/": "baeaaaaa" },
+                            "ParentStateRoot": { "/":"baeaaaaa" },
+                            "ParentWeight": "0",
+                            "Parents": null,
+                            "Timestamp": 0,
+                            "WinPoStProof": null
+                        }
+                    ],
+                    "Cids": [
+                        { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                    ],
+                    "Height": 0
+                }),
+                Self::new(vec![BlockHeader::default()]).unwrap(),
+            )]
+        }
 
-pub mod tipset_json {
-    use std::sync::Arc;
+        fn into_lotus_json(self) -> Self::LotusJson {
+            TipsetLotusJson(self)
+        }
 
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
-    use super::*;
-
-    /// Wrapper for serializing and de-serializing a `Tipset` from JSON.
-    #[derive(Debug, Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct TipsetJson(#[serde(with = "self")] pub Arc<Tipset>);
-
-    /// Wrapper for serializing a `Tipset` reference to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
-
-    impl From<TipsetJson> for Arc<Tipset> {
-        fn from(wrapper: TipsetJson) -> Self {
-            wrapper.0
+        fn from_lotus_json(TipsetLotusJson(tipset): Self::LotusJson) -> Self {
+            tipset
         }
     }
 
-    impl From<Arc<Tipset>> for TipsetJson {
-        fn from(wrapper: Arc<Tipset>) -> Self {
-            TipsetJson(wrapper)
-        }
+    #[test]
+    fn snapshots() {
+        assert_all_snapshots::<Tipset>()
     }
 
-    impl<'a> From<&'a Tipset> for TipsetJsonRef<'a> {
-        fn from(wrapper: &'a Tipset) -> Self {
-            TipsetJsonRef(wrapper)
+    #[cfg(test)]
+    quickcheck::quickcheck! {
+        fn quickcheck(val: Tipset) -> () {
+            assert_unchanged_via_json(val)
         }
-    }
-
-    pub fn serialize<S>(m: &Tipset, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        #[derive(Serialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct TipsetSer<'a> {
-            #[serde(with = "super::tipset_keys_json")]
-            cids: &'a TipsetKeys,
-            #[serde(with = "super::super::header::json::vec")]
-            blocks: &'a [BlockHeader],
-            height: ChainEpoch,
-        }
-        TipsetSer {
-            blocks: &m.headers,
-            cids: m.key(),
-            height: m.epoch(),
-        }
-        .serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Arc<Tipset>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Serialize, Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct TipsetDe {
-            #[serde(with = "super::tipset_keys_json")]
-            cids: TipsetKeys,
-            #[serde(with = "super::super::header::json::vec")]
-            blocks: Vec<BlockHeader>,
-            height: ChainEpoch,
-        }
-        let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
-        Tipset::new(blocks).map(Arc::new).map_err(de::Error::custom)
-    }
-}
-
-#[cfg(test)]
-mod property_tests {
-    use quickcheck_macros::quickcheck;
-    use serde_json;
-
-    use super::{
-        tipset_json::{TipsetJson, TipsetJsonRef},
-        tipset_keys_json::TipsetKeysJson,
-        Tipset, TipsetKeys,
-    };
-
-    #[quickcheck]
-    fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
-        let serialized = serde_json::to_string(&TipsetKeysJson(tipset_keys.clone())).unwrap();
-        let parsed: TipsetKeysJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(tipset_keys, parsed.0);
-    }
-
-    #[quickcheck]
-    fn tipset_roundtrip(tipset: Tipset) {
-        let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
-        let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(&tipset, parsed.0.as_ref());
     }
 }
 

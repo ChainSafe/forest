@@ -19,7 +19,6 @@ use crate::chain::{
 };
 use crate::interpreter::BlockMessages;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
-use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -171,9 +170,9 @@ impl TipsetStateCache {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "crate::json::message::json")]
+    #[serde(with = "crate::lotus_json")]
     pub msg: Message,
-    #[serde(with = "message_receipt::json::opt")]
+    #[serde(with = "crate::lotus_json")]
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
