@@ -63,7 +63,7 @@ type Trace = Vec<crate::interpreter::InvocResult>;
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ComputeStateOutput {
-    #[serde(with = "crate::json::cid")]
+    #[serde(with = "crate::lotus_json")]
     root: Cid,
     trace: Trace,
 }
@@ -626,7 +626,7 @@ where
     ///
     /// For details, see the documentation for [`apply_block_messages`].
     ///
-    #[instrument(skip(self, tipset, callback, enable_tracing))]
+    #[instrument(skip_all)]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,

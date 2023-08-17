@@ -246,20 +246,6 @@ pub struct TraceMessage {
     pub params_codec: u64,
 }
 
-#[cfg(test)]
-impl quickcheck::Arbitrary for TraceMessage {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Self {
-            from: Address::arbitrary(g),
-            to: Address::arbitrary(g),
-            value: TokenAmount::arbitrary(g),
-            method_num: u32::arbitrary(g).into(),
-            params: Vec::arbitrary(g),
-            params_codec: u64::arbitrary(g),
-        }
-    }
-}
-
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct TraceReturn {
