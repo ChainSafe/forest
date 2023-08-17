@@ -67,7 +67,7 @@ fn shapshots() {
 ///
 /// This can only be fixed by rewriting [Receipt].
 #[test]
-#[should_panic]
+#[should_panic = "cannot serialize to v2 AND v3 from the same input"]
 fn cannot_call_arbitrary_tests_on_receipt() {
     use pretty_assertions::assert_eq;
 
@@ -99,6 +99,18 @@ fn cannot_call_arbitrary_tests_on_receipt() {
     );
 
     // both of these cannot pass at the same time...
-    assert_eq!(v2, serde_json::from_value(json.clone()).unwrap());
-    assert_eq!(v3, serde_json::from_value(json).unwrap());
+    assert_eq!(
+        v2,
+        serde_json::from_value::<LotusJson<_>>(json.clone())
+            .unwrap()
+            .into_inner(),
+        "cannot serialize to v2 AND v3 from the same input"
+    );
+    assert_eq!(
+        v3,
+        serde_json::from_value::<LotusJson<_>>(json)
+            .unwrap()
+            .into_inner(),
+        "cannot serialize to v2 AND v3 from the same input"
+    );
 }
