@@ -42,7 +42,8 @@
   `forest-cli snapshot export`.
 - [#3348](https://github.com/ChainSafe/forest/pull/3348): Add `--diff-depth`
   flag to `forest-cli archive export`.
-- [#3387](https://github.com/ChainSafe/forest/pull/3387): Add `wallet delete` RPC command.
+- [#3387](https://github.com/ChainSafe/forest/pull/3387): Add `wallet delete`
+  RPC command.
 
 ### Changed
 
