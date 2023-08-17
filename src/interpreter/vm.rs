@@ -72,6 +72,7 @@ pub struct BlockMessages {
 }
 
 #[derive(PartialEq, Clone, Debug)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct MessageGasCost {
     pub message: Option<Cid>,
     pub gas_used: BigInt,
@@ -116,7 +117,7 @@ pub struct InvocResult {
     #[serde(with = "crate::json::message_receipt::json")]
     #[serde(rename = "MsgRct")]
     pub msg_receipt: Receipt,
-    #[serde(with = "crate::json::message_gas_cost::json")]
+    #[serde(with = "crate::lotus_json")]
     pub gas_cost: MessageGasCost,
     pub execution_trace: Option<Trace>,
     pub error: String,
