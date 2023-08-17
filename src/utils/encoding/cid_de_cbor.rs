@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
 use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
-use serde_ipld_dagcbor::from_slice;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
