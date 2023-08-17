@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::beacon::{Beacon, BeaconSchedule};
+use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};

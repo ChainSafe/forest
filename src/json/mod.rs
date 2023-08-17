@@ -4,4 +4,3 @@
 pub mod address;
 pub mod cid;
 pub mod token_amount;
-pub mod vrf;
