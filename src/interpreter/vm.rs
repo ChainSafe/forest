@@ -110,7 +110,7 @@ impl MessageGasCost {
 #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(default, with = "crate::json::cid")]
+    #[serde(with = "crate::lotus_json")]
     pub msg_cid: Cid,
     #[serde(with = "crate::lotus_json")]
     pub msg: Message,
