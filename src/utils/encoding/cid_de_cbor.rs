@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
 use core::fmt;
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
+use serde_ipld_dagcbor::from_slice;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
@@ -174,5 +174,74 @@ impl<'de> de::Deserialize<'de> for CidVec {
         let mut vec = CidVec(Vec::new());
         FilterCids(&mut vec.0).deserialize(deserializer)?;
         Ok(vec)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ipld::DfsIter;
+
+    use crate::utils::encoding::extract_cids;
+    use cid::multihash::Code::Blake2b256;
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
+
+    use fvm_ipld_encoding::DAG_CBOR;
+    use libipld_core::ipld::Ipld;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    #[derive(Debug, Clone)]
+    pub struct IpldWrapper {
+        inner: Ipld,
+    }
+
+    impl Arbitrary for IpldWrapper {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut ipld = Ipld::arbitrary(g);
+
+            fn cleanup_ipld(ipld: &mut Ipld, g: &mut Gen) {
+                match ipld {
+                    // [`Cid`]s have to be valid in order to be decodable.
+                    Ipld::Link(cid) => {
+                        *cid = Cid::new_v1(
+                            DAG_CBOR,
+                            Blake2b256.digest(&[
+                                u8::arbitrary(g),
+                                u8::arbitrary(g),
+                                u8::arbitrary(g),
+                            ]),
+                        )
+                    }
+                    Ipld::Map(map) => map.values_mut().for_each(|val| cleanup_ipld(val, g)),
+                    Ipld::List(vec) => vec.iter_mut().for_each(|val| cleanup_ipld(val, g)),
+                    // Cleaning up Integer and Float in order to avoid parser mistakes that result
+                    // in tag detection and a subsequent Cid decoding failure.
+                    // See https://github.com/ipld/serde_ipld_dagcbor/blob/master/src/de.rs#L178 and
+                    // https://github.com/ipld/serde_ipld_dagcbor/blob/master/src/de.rs#L119 .
+                    Ipld::Integer(int) => *int = 0,
+                    Ipld::Float(float) => *float = 0.0,
+                    _ => (),
+                }
+            }
+            cleanup_ipld(&mut ipld, g);
+            IpldWrapper { inner: ipld }
+        }
+    }
+
+    #[quickcheck]
+    fn deserialize_various_blobs(ipld: IpldWrapper) {
+        let ipld_to_cid = |ipld| {
+            if let Ipld::Link(cid) = ipld {
+                return Some(cid);
+            }
+            None
+        };
+
+        let blob = serde_ipld_dagcbor::to_vec(&ipld.inner).unwrap();
+        let cid_vec: Vec<Cid> = DfsIter::new(ipld.inner).filter_map(ipld_to_cid).collect();
+        let extracted_cid_vec = extract_cids(&blob).unwrap();
+        assert_eq!(extracted_cid_vec.len(), cid_vec.len());
+        assert!(extracted_cid_vec.iter().all(|item| cid_vec.contains(item)));
     }
 }
