@@ -39,7 +39,7 @@ pub mod json {
         #[serde(with = "crate::json::bytes::json")]
         return_data: Vec<u8>,
         gas_used: u64,
-        #[serde(default, with = "crate::json::cid::opt")]
+        #[serde(default)]
         events_root: Option<cid::Cid>,
     }
 

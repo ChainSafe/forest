@@ -34,7 +34,7 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct JsonHelper {
-        #[serde(default, with = "crate::json::cid::opt")]
+        #[serde(default)]
         pub message: Option<Cid>,
         pub gas_used: String,
         #[serde(with = "crate::json::token_amount::json")]

@@ -1,6 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+use crate::beacon::BeaconEntry;
 use crate::lotus_json::*;
+use crate::shim::sector::PoStProof;
+use crate::{
+    blocks::{ElectionProof, Ticket, TipsetKeys},
+    shim::address::Address,
+    shim::{crypto::Signature, econ::TokenAmount},
+};
+use cid::Cid;
+use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
@@ -9,26 +19,26 @@ use super::BlockHeader;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct BlockHeaderLotusJson {
-    miner: AddressLotusJson,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ticket: Option<TicketLotusJson>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    election_proof: Option<ElectionProofLotusJson>,
-    beacon_entries: VecLotusJson<BeaconEntryLotusJson>,
-    win_po_st_proof: VecLotusJson<PoStProofLotusJson>,
-    parents: TipsetKeysLotusJson,
-    parent_weight: BigIntLotusJson,
-    height: i64,
-    parent_state_root: CidLotusJson,
-    parent_message_receipts: CidLotusJson,
-    messages: CidLotusJson,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    b_l_s_aggregate: Option<SignatureLotusJson>,
-    timestamp: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    block_sig: Option<SignatureLotusJson>,
-    fork_signaling: u64,
-    parent_base_fee: TokenAmountLotusJson,
+    miner: LotusJson<Address>,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    ticket: LotusJson<Option<Ticket>>,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    election_proof: LotusJson<Option<ElectionProof>>,
+    beacon_entries: LotusJson<Vec<BeaconEntry>>,
+    win_po_st_proof: LotusJson<Vec<PoStProof>>,
+    parents: LotusJson<TipsetKeys>,
+    parent_weight: LotusJson<BigInt>,
+    height: LotusJson<i64>,
+    parent_state_root: LotusJson<Cid>,
+    parent_message_receipts: LotusJson<Cid>,
+    messages: LotusJson<Cid>,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    b_l_s_aggregate: LotusJson<Option<Signature>>,
+    timestamp: LotusJson<u64>,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    block_sig: LotusJson<Option<Signature>>,
+    fork_signaling: LotusJson<u64>,
+    parent_base_fee: LotusJson<TokenAmount>,
 }
 
 impl HasLotusJson for BlockHeader {
@@ -61,23 +71,9 @@ impl HasLotusJson for BlockHeader {
             BlockHeader::default(),
         )]
     }
-}
 
-#[test]
-fn snapshots() {
-    assert_all_snapshots::<BlockHeader>()
-}
-
-#[cfg(test)]
-quickcheck::quickcheck! {
-    fn quickcheck(val: BlockHeader) -> () {
-        assert_unchanged_via_json(val)
-    }
-}
-
-impl From<BlockHeader> for BlockHeaderLotusJson {
-    fn from(value: BlockHeader) -> Self {
-        let BlockHeader {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self {
             parents,
             weight,
             epoch,
@@ -96,31 +92,29 @@ impl From<BlockHeader> for BlockHeaderLotusJson {
             parent_base_fee,
             cached_cid: _ignore_cache0,
             is_validated: _ignore_cache1,
-        } = value;
-        Self {
+        } = self;
+        Self::LotusJson {
             miner: miner_address.into(),
-            ticket: ticket.map(Into::into),
-            election_proof: election_proof.map(Into::into),
+            ticket: ticket.into(),
+            election_proof: election_proof.into(),
             beacon_entries: beacon_entries.into(),
             win_po_st_proof: winning_post_proof.into(),
             parents: parents.into(),
             parent_weight: weight.into(),
-            height: epoch,
+            height: epoch.into(),
             parent_state_root: state_root.into(),
             parent_message_receipts: message_receipts.into(),
             messages: messages.into(),
-            b_l_s_aggregate: bls_aggregate.map(Into::into),
-            timestamp,
-            block_sig: signature.map(Into::into),
-            fork_signaling: fork_signal,
+            b_l_s_aggregate: bls_aggregate.into(),
+            timestamp: timestamp.into(),
+            block_sig: signature.into(),
+            fork_signaling: fork_signal.into(),
             parent_base_fee: parent_base_fee.into(),
         }
     }
-}
 
-impl From<BlockHeaderLotusJson> for BlockHeader {
-    fn from(value: BlockHeaderLotusJson) -> Self {
-        let BlockHeaderLotusJson {
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson {
             miner,
             ticket,
             election_proof,
@@ -132,31 +126,43 @@ impl From<BlockHeaderLotusJson> for BlockHeader {
             parent_state_root,
             parent_message_receipts,
             messages,
-            b_l_s_aggregate: bls_aggregate,
+            b_l_s_aggregate,
             timestamp,
             block_sig,
             fork_signaling,
             parent_base_fee,
-        } = value;
+        } = lotus_json;
         Self {
-            parents: parents.into(),
-            weight: parent_weight.into(),
-            epoch: height,
-            beacon_entries: beacon_entries.into(),
-            winning_post_proof: win_po_st_proof.into(),
-            miner_address: miner.into(),
-            messages: messages.into(),
-            message_receipts: parent_message_receipts.into(),
-            state_root: parent_state_root.into(),
-            fork_signal: fork_signaling,
-            signature: block_sig.map(Into::into),
-            election_proof: election_proof.map(Into::into),
-            timestamp,
-            ticket: ticket.map(Into::into),
-            bls_aggregate: bls_aggregate.map(Into::into),
-            parent_base_fee: parent_base_fee.into(),
+            parents: parents.into_inner(),
+            weight: parent_weight.into_inner(),
+            epoch: height.into_inner(),
+            beacon_entries: beacon_entries.into_inner(),
+            winning_post_proof: win_po_st_proof.into_inner(),
+            miner_address: miner.into_inner(),
+            messages: messages.into_inner(),
+            message_receipts: parent_message_receipts.into_inner(),
+            state_root: parent_state_root.into_inner(),
+            fork_signal: fork_signaling.into_inner(),
+            signature: block_sig.into_inner(),
+            election_proof: election_proof.into_inner(),
+            timestamp: timestamp.into_inner(),
+            ticket: ticket.into_inner(),
+            bls_aggregate: b_l_s_aggregate.into_inner(),
+            parent_base_fee: parent_base_fee.into_inner(),
             cached_cid: OnceCell::new(),
             is_validated: OnceCell::new(),
         }
+    }
+}
+
+#[test]
+fn snapshots() {
+    assert_all_snapshots::<BlockHeader>()
+}
+
+#[cfg(test)]
+quickcheck::quickcheck! {
+    fn quickcheck(val: BlockHeader) -> () {
+        assert_unchanged_via_json(val)
     }
 }

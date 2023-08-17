@@ -1,17 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::*;
 use crate::blocks::TipsetKeys;
 use crate::ipld::FrozenCids;
 use ::cid::Cid;
 
-use super::*;
-
-#[derive(Serialize, Deserialize)]
-pub struct TipsetKeysLotusJson(VecLotusJson<CidLotusJson>);
-
 impl HasLotusJson for TipsetKeys {
-    type LotusJson = TipsetKeysLotusJson;
+    type LotusJson = LotusJson<Vec<Cid>>;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
@@ -21,18 +17,12 @@ impl HasLotusJson for TipsetKeys {
             },
         )]
     }
-}
 
-impl From<TipsetKeys> for TipsetKeysLotusJson {
-    fn from(value: TipsetKeys) -> Self {
-        let TipsetKeys { cids } = value;
-        Self(VecLotusJson::<CidLotusJson>::from(Vec::<Cid>::from(cids)))
+    fn into_lotus_json(self) -> Self::LotusJson {
+        LotusJson(self.cids.into_iter().collect::<Vec<Cid>>())
     }
-}
 
-impl From<TipsetKeysLotusJson> for TipsetKeys {
-    fn from(value: TipsetKeysLotusJson) -> Self {
-        let TipsetKeysLotusJson(cids) = value;
-        Self { cids: FrozenCids::from(Vec::<Cid>::from(cids)) }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Self::from(lotus_json.into_inner())
     }
 }

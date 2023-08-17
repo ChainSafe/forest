@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::beacon::json::BeaconEntryJson;
 use crate::rpc_api::{beacon_api::*, data_types::RPCState};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -21,5 +20,5 @@ where
     let rr =
         beacon.max_beacon_round_for_epoch(data.state_manager.get_network_version(first), first);
     let e = beacon.entry(rr).await?;
-    Ok(BeaconEntryJson(e))
+    Ok(e.into())
 }

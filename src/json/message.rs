@@ -50,7 +50,7 @@ pub mod json {
         method_num: u64,
         #[serde(with = "crate::json::bytes::json")]
         params: Vec<u8>,
-        #[serde(default, rename = "CID", with = "crate::json::cid::opt")]
+        #[serde(default, rename = "CID")]
         cid: Option<Cid>,
     }
 

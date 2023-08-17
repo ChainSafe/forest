@@ -29,16 +29,12 @@ impl HasLotusJson for RawBytes {
             RawBytes::new(Vec::from_iter(*b"hello world!")),
         )]
     }
-}
 
-impl From<RawBytes> for RawBytesLotusJson {
-    fn from(value: RawBytes) -> Self {
-        RawBytesLotusJson(Vec::from(value))
+    fn into_lotus_json(self) -> Self::LotusJson {
+        RawBytesLotusJson(Vec::from(self))
     }
-}
 
-impl From<RawBytesLotusJson> for RawBytes {
-    fn from(RawBytesLotusJson(value): RawBytesLotusJson) -> Self {
-        Self::from(value)
+    fn from_lotus_json(RawBytesLotusJson(vec): Self::LotusJson) -> Self {
+        Self::from(vec)
     }
 }

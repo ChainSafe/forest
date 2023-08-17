@@ -4,16 +4,17 @@
 use std::sync::Arc;
 
 use crate::beacon::BeaconSchedule;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::ipld::json::IpldJson;
-use crate::json::{cid::CidJson, message_receipt::json::ReceiptJson, token_amount::json};
+use crate::json::{cid::CidJson, token_amount::json};
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::shim::executor::Receipt;
 use crate::shim::{econ::TokenAmount, message::Message};
 use crate::state_manager::StateManager;
 use ahash::HashSet;
@@ -47,8 +48,9 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
-    #[serde(rename = "ActiveSyncs")]
+    #[serde(with = "crate::lotus_json")]
     pub active_syncs: Vec<SyncState>,
 }
 
@@ -57,12 +59,9 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::json::message::json::vec")]
+    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
     pub bls_msg: Vec<Message>,
-    #[serde(
-        rename = "SecpkMessages",
-        with = "crate::json::signed_message::json::vec"
-    )]
+    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "crate::json::cid::vec")]
     pub cids: Vec<Cid>,
@@ -85,9 +84,10 @@ pub struct MarketDeal {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
-    pub receipt: ReceiptJson,
-    #[serde(rename = "TipSet")]
-    pub tipset: TipsetKeysJson,
+    #[serde(with = "crate::lotus_json")]
+    pub receipt: Receipt,
+    #[serde(rename = "TipSet", with = "crate::lotus_json")]
+    pub tipset: TipsetKeys,
     pub height: i64,
     pub message: CidJson,
     pub return_dec: IpldJson,
