@@ -217,8 +217,15 @@ mod test {
                     Ipld::List(vec) => vec.iter_mut().for_each(|val| cleanup_ipld(val, g)),
                     // Cleaning up Integer and Float in order to avoid parser mistakes that result
                     // in tag detection and a subsequent Cid decoding failure.
-                    // See https://github.com/ipld/serde_ipld_dagcbor/blob/master/src/de.rs#L178 and
-                    // https://github.com/ipld/serde_ipld_dagcbor/blob/master/src/de.rs#L119 .
+                    // Otherwise the `serde_ipld_dagcbor` library incorrectly treats some of those
+                    // values as [`cbor4ii::core::major::TAG`] and tries to deserialize a [`Cid`]
+                    // from it.
+                    // See https://github.com/ipld/serde_ipld_dagcbor/blob/37f6f00408331b76c6dac8ec4dc08a85d7764cec/src/de.rs#L178 and
+                    // https://github.com/ipld/serde_ipld_dagcbor/blob/37f6f00408331b76c6dac8ec4dc08a85d7764cec/src/de.rs#L119.
+                    //
+                    // Note that we don't actually care about what integer or float contain for
+                    // these tests, because our deserializer ignores those as it only cares about
+                    // maps, lists and [`Cid`]s.
                     Ipld::Integer(int) => *int = 0,
                     Ipld::Float(float) => *float = 0.0,
                     _ => (),
