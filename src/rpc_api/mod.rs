@@ -162,16 +162,16 @@ pub mod chain_api {
     use std::path::PathBuf;
 
     use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
-    use crate::json::cid::CidJson;
     use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
     use crate::shim::message::Message;
+    use cid::Cid;
     use serde::{Deserialize, Serialize};
 
     use crate::rpc_api::data_types::BlockMessages;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
-    pub type ChainGetMessageParams = (CidJson,);
+    pub type ChainGetMessageParams = (LotusJson<Cid>,);
     pub type ChainGetMessageResult = LotusJson<Message>;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
@@ -190,15 +190,15 @@ pub mod chain_api {
     pub type ChainExportResult = Option<String>;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
-    pub type ChainReadObjParams = (CidJson,);
+    pub type ChainReadObjParams = (LotusJson<Cid>,);
     pub type ChainReadObjResult = String;
 
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
-    pub type ChainHasObjParams = (CidJson,);
+    pub type ChainHasObjParams = (LotusJson<Cid>,);
     pub type ChainHasObjResult = bool;
 
     pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
-    pub type ChainGetBlockMessagesParams = (CidJson,);
+    pub type ChainGetBlockMessagesParams = (LotusJson<Cid>,);
     pub type ChainGetBlockMessagesResult = BlockMessages;
 
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipsetByHeight";
@@ -216,7 +216,7 @@ pub mod chain_api {
     pub type ChainHeadResult = LotusJson<Tipset>;
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
-    pub type ChainGetBlockParams = (CidJson,);
+    pub type ChainGetBlockParams = (LotusJson<Cid>,);
     pub type ChainGetBlockResult = LotusJson<BlockHeader>;
 
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
@@ -238,21 +238,19 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
+    use cid::Cid;
+
     use crate::rpc_api::data_types::MessageSendSpec;
     use crate::shim::message::Message;
-    use crate::{
-        json::cid::{vec::CidJsonVec, CidJson},
-        lotus_json::LotusJson,
-        message::SignedMessage,
-    };
+    use crate::{lotus_json::LotusJson, message::SignedMessage};
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-    pub type MpoolPendingParams = (CidJsonVec,);
+    pub type MpoolPendingParams = (LotusJson<Vec<Cid>>,);
     pub type MpoolPendingResult = LotusJson<Vec<SignedMessage>>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub type MpoolPushParams = (LotusJson<SignedMessage>,);
-    pub type MpoolPushResult = CidJson;
+    pub type MpoolPushResult = LotusJson<Cid>;
 
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
     pub type MpoolPushMessageParams = (LotusJson<Message>, Option<MessageSendSpec>);
@@ -261,16 +259,17 @@ pub mod mpool_api {
 
 /// Sync API
 pub mod sync_api {
-    use crate::json::cid::CidJson;
 
-    use crate::rpc_api::data_types::RPCSyncState;
+    use cid::Cid;
+
+    use crate::{lotus_json::LotusJson, rpc_api::data_types::RPCSyncState};
 
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-    pub type SyncCheckBadParams = (CidJson,);
+    pub type SyncCheckBadParams = (LotusJson<Cid>,);
     pub type SyncCheckBadResult = String;
 
     pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-    pub type SyncMarkBadParams = (CidJson,);
+    pub type SyncMarkBadParams = (LotusJson<Cid>,);
     pub type SyncMarkBadResult = ();
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
@@ -331,7 +330,6 @@ pub mod state_api {
     use std::path::PathBuf;
 
     use crate::blocks::TipsetKeys;
-    use crate::json::cid::CidJson;
     use crate::lotus_json::LotusJson;
     use crate::shim::address::Address;
     use crate::shim::executor::Receipt;
@@ -339,6 +337,7 @@ pub mod state_api {
     use crate::shim::{state_tree::ActorState, version::NetworkVersion};
     use crate::state_manager::{InvocResult, MarketBalance};
     use ahash::HashMap;
+    use cid::Cid;
 
     use crate::rpc_api::data_types::{MarketDeal, MessageLookup};
 
@@ -347,7 +346,7 @@ pub mod state_api {
     pub type StateCallResult = InvocResult;
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-    pub type StateReplayParams = (CidJson, LotusJson<TipsetKeys>);
+    pub type StateReplayParams = (LotusJson<Cid>, LotusJson<TipsetKeys>);
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
@@ -372,15 +371,15 @@ pub mod state_api {
     pub type StateMarketDealsResult = HashMap<String, MarketDeal>;
 
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
-    pub type StateGetReceiptParams = (CidJson, LotusJson<TipsetKeys>);
+    pub type StateGetReceiptParams = (LotusJson<Cid>, LotusJson<TipsetKeys>);
     pub type StateGetReceiptResult = LotusJson<Receipt>;
 
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-    pub type StateWaitMsgParams = (CidJson, i64);
+    pub type StateWaitMsgParams = (LotusJson<Cid>, i64);
     pub type StateWaitMsgResult = MessageLookup;
 
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
-    pub type StateFetchRootParams = (CidJson, Option<PathBuf>);
+    pub type StateFetchRootParams = (LotusJson<Cid>, Option<PathBuf>);
     pub type StateFetchRootResult = String;
 }
 
