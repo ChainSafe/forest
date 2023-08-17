@@ -5,13 +5,14 @@ use crate::utils::encoding::from_slice_with_fallback;
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
 use core::fmt;
-use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
+use serde::de::{self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
+use serde_ipld_dagcbor::from_slice;
 
 /// Find and extract all the [`Cid`] from a `DAG_CBOR`-encoded blob without employing any
 /// intermediate recursive structures, eliminating unnecessary allocations.
 pub fn extract_cids(cbor_blob: &[u8]) -> anyhow::Result<Vec<Cid>> {
-    let CidVec(v) = from_slice_with_fallback(cbor_blob)?;
+    let CidVec(v) = from_slice(cbor_blob)?;
     Ok(v)
 }
 
@@ -160,6 +161,111 @@ impl<'de, 'a> DeserializeSeed<'de> for FilterCids<'a> {
             {
                 Ok(())
             }
+
+            fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                Ok(())
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(())
+            }
+
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            where
+                A: EnumAccess<'de>,
+            {
+                Ok(())
+            }
         }
 
         deserializer.deserialize_any(FilterCidsVisitor(self.0))
@@ -174,5 +280,53 @@ impl<'de> de::Deserialize<'de> for CidVec {
         let mut vec = CidVec(Vec::new());
         FilterCids(&mut vec.0).deserialize(deserializer)?;
         Ok(vec)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::networks::mainnet;
+    use crate::utils::encoding::extract_cids;
+    use cid::multihash::Code::{Blake2b256, Identity};
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use libipld_core::ipld::Ipld;
+    use quickcheck::{empty_shrinker, Arbitrary, Gen, QuickCheck};
+    use quickcheck_macros::quickcheck;
+
+    #[derive(Debug, Clone)]
+    pub struct IpldWrapper {
+        inner: Ipld,
+    }
+
+    impl Arbitrary for IpldWrapper {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut ipld = Ipld::arbitrary(g);
+
+            fn substitute_cid(ipld: &mut Ipld, g: &mut Gen) {
+                match ipld {
+                    Ipld::Link(cid) => *cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])),
+                    Ipld::Map(map) => map.values_mut().for_each(|val| substitute_cid(val, g)),
+                    Ipld::List(vec) => vec.iter_mut().for_each(|val| substitute_cid(val, g)),
+                    _ => (),
+                }
+            }
+            substitute_cid(&mut ipld, g);
+            IpldWrapper { inner: ipld }
+        }
+
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            empty_shrinker()
+        }
+    }
+
+    #[quickcheck]
+    fn deserialize_various_blobs(ipld: IpldWrapper) {
+        println!("{:#?}", ipld.inner);
+        // let ipld = Ipld::Link(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])));
+        if let Ok(blob) = serde_ipld_dagcbor::to_vec(&ipld.inner) {
+            extract_cids(&blob).unwrap();
+        }
     }
 }
