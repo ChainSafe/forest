@@ -4,7 +4,7 @@
 use cid::serde::BytesToCidVisitor;
 use cid::Cid;
 use core::fmt;
-use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserializer;
 use serde_ipld_dagcbor::from_slice;
 
