@@ -112,7 +112,7 @@ impl MessageGasCost {
 pub struct InvocResult {
     #[serde(default, with = "crate::json::cid")]
     pub msg_cid: Cid,
-    #[serde(with = "crate::json::message::json")]
+    #[serde(with = "crate::lotus_json")]
     pub msg: Message,
     #[serde(with = "crate::json::message_receipt::json")]
     #[serde(rename = "MsgRct")]
