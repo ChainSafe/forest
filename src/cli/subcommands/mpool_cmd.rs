@@ -5,7 +5,8 @@ use std::str::FromStr;
 
 use crate::blocks::Tipset;
 use crate::json::cid::vec::CidJsonVec;
-use crate::json::signed_message::json::SignedMessageJson;
+use crate::lotus_json::LotusJson;
+use crate::message::SignedMessage;
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
@@ -54,11 +55,11 @@ fn to_addr(value: &Option<String>) -> anyhow::Result<Option<StrictAddress>> {
 }
 
 fn filter_messages(
-    messages: Vec<SignedMessageJson>,
+    messages: Vec<SignedMessage>,
     local_addrs: Option<HashSet<Address>>,
     to: &Option<String>,
     from: &Option<String>,
-) -> anyhow::Result<Vec<SignedMessageJson>> {
+) -> anyhow::Result<Vec<SignedMessage>> {
     use crate::message::Message;
 
     let to = to_addr(to)?;
@@ -69,10 +70,10 @@ fn filter_messages(
         .filter(|msg| {
             local_addrs
                 .as_ref()
-                .map(|addrs| addrs.contains(&msg.0.from()))
+                .map(|addrs| addrs.contains(&msg.from()))
                 .unwrap_or(true)
-                && to.map(|addr| msg.0.to() == addr.into()).unwrap_or(true)
-                && from.map(|addr| msg.0.from() == addr.into()).unwrap_or(true)
+                && to.map(|addr| msg.to() == addr.into()).unwrap_or(true)
+                && from.map(|addr| msg.from() == addr.into()).unwrap_or(true)
         })
         .collect();
 
@@ -92,9 +93,9 @@ async fn get_actor_sequence(
     .await;
 
     let actor_state = match get_actor_result {
-        Ok(actor_json) => {
-            if let Some(state) = actor_json {
-                state.0
+        Ok(LotusJson(maybe_actor)) => {
+            if let Some(state) = maybe_actor {
+                state
             } else {
                 println!("{}, actor state not found", address);
                 return None;
@@ -241,13 +242,17 @@ impl MpoolCommands {
                     None
                 };
 
-                let filtered_messages = filter_messages(messages, local_addrs, &to, &from)?;
+                let filtered_messages =
+                    filter_messages(messages.into_inner(), local_addrs, &to, &from)?;
 
                 for msg in filtered_messages {
                     if cids {
-                        println!("{}", msg.0.cid().unwrap());
+                        println!("{}", msg.cid().unwrap());
                     } else {
-                        println!("{}", serde_json::to_string_pretty(&msg)?);
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&crate::lotus_json::LotusJson(msg))?
+                        );
                     }
                 }
 
@@ -259,9 +264,8 @@ impl MpoolCommands {
             } => {
                 let tipset = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)?
-                    .0;
-
+                    .map(|LotusJson(tipset)| Arc::new(tipset))
+                    .map_err(handle_rpc_err)?;
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
 
                 let atto_str =
@@ -283,10 +287,11 @@ impl MpoolCommands {
                     None
                 };
 
-                let messages: Vec<Message> = filter_messages(messages, local_addrs, &None, &None)?
-                    .into_iter()
-                    .map(|m| m.0.message)
-                    .collect();
+                let messages: Vec<Message> =
+                    filter_messages(messages.into_inner(), local_addrs, &None, &None)?
+                        .into_iter()
+                        .map(|it| it.message)
+                        .collect();
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
@@ -327,17 +332,12 @@ mod tests {
             smsg_vec.push(msg);
         }
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
-            .clone()
-            .into_iter()
-            .map(SignedMessageJson::from)
-            .collect();
+        let smsg_json_vec = smsg_vec.clone().into_iter().collect::<Vec<_>>();
 
         // No filtering is set up
         let smsg_filtered: Vec<SignedMessage> = filter_messages(smsg_json_vec, None, &None, &None)
             .unwrap()
             .into_iter()
-            .map(|m| m.0)
             .collect();
 
         assert_eq!(smsg_vec, smsg_filtered);
@@ -372,11 +372,7 @@ mod tests {
         );
         smsg_vec.push(msg);
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
-            .clone()
-            .into_iter()
-            .map(SignedMessageJson::from)
-            .collect();
+        let smsg_json_vec: Vec<SignedMessage> = smsg_vec.clone().into_iter().collect();
         let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap().into_iter());
 
         // Filter local addresses
@@ -384,7 +380,6 @@ mod tests {
             filter_messages(smsg_json_vec, Some(local_addrs), &None, &None)
                 .unwrap()
                 .into_iter()
-                .map(|m| m.0)
                 .collect();
 
         for smsg in smsg_filtered.iter() {
@@ -411,18 +406,13 @@ mod tests {
         let msg = create_smsg(&target, &sender2, wallet.borrow_mut(), 4, 1000000, 1);
         smsg_vec.push(msg);
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
-            .clone()
-            .into_iter()
-            .map(SignedMessageJson::from)
-            .collect();
+        let smsg_json_vec: Vec<SignedMessage> = smsg_vec.clone().into_iter().collect();
 
         // Filtering messages from sender2
         let smsg_filtered: Vec<SignedMessage> =
             filter_messages(smsg_json_vec, None, &None, &Some(sender2.to_string()))
                 .unwrap()
                 .into_iter()
-                .map(|m| m.0)
                 .collect();
 
         for smsg in smsg_filtered.iter() {
@@ -449,18 +439,14 @@ mod tests {
         let msg = create_smsg(&target2, &sender, wallet.borrow_mut(), 4, 1000000, 1);
         smsg_vec.push(msg);
 
-        let smsg_json_vec: Vec<SignedMessageJson> = smsg_vec
-            .clone()
-            .into_iter()
-            .map(SignedMessageJson::from)
-            .collect();
+        let smsg_json_vec: Vec<SignedMessage> = smsg_vec.clone().into_iter().collect();
 
         // Filtering messages to target2
         let smsg_filtered: Vec<SignedMessage> =
             filter_messages(smsg_json_vec, None, &Some(target2.to_string()), &None)
                 .unwrap()
                 .into_iter()
-                .map(|m| m.0)
+                .map(Into::into)
                 .collect();
 
         for smsg in smsg_filtered.iter() {

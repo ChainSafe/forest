@@ -26,9 +26,10 @@ mod wallet_cmd;
 
 use std::io::{self, Write};
 
-use crate::blocks::tipset_json::TipsetJson;
+use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
+use crate::lotus_json::LotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
@@ -162,13 +163,14 @@ pub(super) fn print_rpc_res_pretty<T: Serialize>(
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) -> anyhow::Result<()> {
-    let tipset = res.map_err(handle_rpc_err)?;
+pub(super) fn print_rpc_res_cids(
+    res: Result<LotusJson<Tipset>, JsonRpcError>,
+) -> anyhow::Result<()> {
+    let tipset = res.map_err(handle_rpc_err)?.into_inner();
     println!(
         "{}",
         serde_json::to_string_pretty(
             &tipset
-                .0
                 .cids()
                 .iter()
                 .map(|cid: &Cid| cid.to_string())

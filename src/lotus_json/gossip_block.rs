@@ -3,26 +3,15 @@
 
 use super::*;
 
-use crate::blocks::GossipBlock;
+use crate::blocks::{BlockHeader, GossipBlock};
+use ::cid::Cid;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GossipBlockLotusJson {
-    pub header: <crate::blocks::BlockHeader as HasLotusJson>::LotusJson,
-    pub bls_messages: VecLotusJson<CidLotusJson>,
-    pub secpk_messages: VecLotusJson<CidLotusJson>,
-}
-
-#[test]
-fn snapshots() {
-    assert_all_snapshots::<GossipBlock>()
-}
-
-#[cfg(test)]
-quickcheck! {
-    fn quickcheck(val: GossipBlock) -> () {
-        assert_unchanged_via_json(val)
-    }
+    header: LotusJson<BlockHeader>,
+    bls_messages: LotusJson<Vec<Cid>>,
+    secpk_messages: LotusJson<Vec<Cid>>,
 }
 
 impl HasLotusJson for GossipBlock {
@@ -59,34 +48,30 @@ impl HasLotusJson for GossipBlock {
             GossipBlock::default(),
         )]
     }
-}
 
-impl From<GossipBlockLotusJson> for GossipBlock {
-    fn from(value: GossipBlockLotusJson) -> Self {
-        let GossipBlockLotusJson {
+    fn into_lotus_json(self) -> Self::LotusJson {
+        let Self {
             header,
             bls_messages,
             secpk_messages,
-        } = value;
-        Self {
+        } = self;
+        Self::LotusJson {
             header: header.into(),
             bls_messages: bls_messages.into(),
             secpk_messages: secpk_messages.into(),
         }
     }
-}
 
-impl From<GossipBlock> for GossipBlockLotusJson {
-    fn from(value: GossipBlock) -> Self {
-        let GossipBlock {
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson {
             header,
             bls_messages,
             secpk_messages,
-        } = value;
+        } = lotus_json;
         Self {
-            header: header.into(),
-            bls_messages: bls_messages.into(),
-            secpk_messages: secpk_messages.into(),
+            header: header.into_inner(),
+            bls_messages: bls_messages.into_inner(),
+            secpk_messages: secpk_messages.into_inner(),
         }
     }
 }
