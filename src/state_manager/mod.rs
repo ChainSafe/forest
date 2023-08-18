@@ -11,14 +11,14 @@ use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
 mod vm_circ_supply;
 pub use self::errors::*;
-use crate::beacon::{BeaconSchedule, DrandBeacon};
+use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
+use crate::interpreter::BlockMessages;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
-use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -170,9 +170,9 @@ impl TipsetStateCache {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "crate::json::message::json")]
+    #[serde(with = "crate::lotus_json")]
     pub msg: Message,
-    #[serde(with = "message_receipt::json::opt")]
+    #[serde(with = "crate::lotus_json")]
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
@@ -200,7 +200,7 @@ pub struct StateManager<DB> {
     cache: TipsetStateCache,
     // Beacon can be cheaply crated from the `chain_config`. The only reason we
     // store it here is because it has a look-up cache.
-    beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
@@ -228,7 +228,7 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
+    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
         Arc::clone(&self.beacon)
     }
 
@@ -1092,7 +1092,7 @@ pub fn validate_tipsets<DB, T>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
@@ -1215,7 +1215,7 @@ pub fn apply_block_messages<DB, CB>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
@@ -1296,7 +1296,7 @@ where
         }
     }
 
-    let block_messages = ChainStore::block_msgs_for_tipset(&chain_index.db, &tipset)
+    let block_messages = BlockMessages::for_tipset(&chain_index.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;

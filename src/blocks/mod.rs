@@ -22,7 +22,6 @@ pub use vrf_proof::VRFProof;
 
 #[cfg(test)]
 mod tests {
-    mod header_json_test;
     mod serialization_vectors;
     mod ticket_test;
 }

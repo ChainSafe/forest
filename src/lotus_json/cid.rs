@@ -3,12 +3,10 @@
 
 use super::*;
 
-pub type CidLotusJson = CidLotusJsonGeneric<64>;
-
-#[derive(Serialize, Deserialize, From, Into)]
+#[derive(Serialize, Deserialize)]
 pub struct CidLotusJsonGeneric<const S: usize> {
-    #[serde(rename = "/", with = "stringify")]
-    slash: ::cid::CidGeneric<S>,
+    #[serde(rename = "/")]
+    slash: Stringify<::cid::CidGeneric<S>>,
 }
 
 impl<const S: usize> HasLotusJson for ::cid::CidGeneric<S> {
@@ -16,6 +14,15 @@ impl<const S: usize> HasLotusJson for ::cid::CidGeneric<S> {
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only Cid<64> is tested, below")
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        Self::LotusJson { slash: self.into() }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson { slash } = lotus_json;
+        slash.into_inner()
     }
 }
 

@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
+use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -31,7 +32,6 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::chain::Scale;
 use crate::db::setting_keys::{ESTIMATED_RECORDS_KEY, HEAD_KEY};
 use crate::db::{SettingsStore, SettingsStoreExt};
 
@@ -157,10 +157,7 @@ where
 
     /// Writes tipset block headers to data store and updates heaviest tipset
     /// with other compatible tracked headers.
-    pub fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
-    where
-        S: Scale,
-    {
+    pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
         // `blockstore` reads
@@ -168,7 +165,7 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
-        self.update_heaviest::<S>(Arc::new(expanded))?;
+        self.update_heaviest(Arc::new(expanded))?;
         Ok(())
     }
 
@@ -215,14 +212,11 @@ where
 
     /// Determines if provided tipset is heavier than existing known heaviest
     /// tipset
-    fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
-    where
-        S: Scale,
-    {
+    fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = S::weight(&self.db, &self.heaviest_tipset())?;
+        let heaviest_weight = fil_cns::weight(self.blockstore(), &self.heaviest_tipset())?;
 
-        let new_weight = S::weight(&self.db, ts.as_ref())?;
+        let new_weight = fil_cns::weight(self.blockstore(), ts.as_ref())?;
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
@@ -253,58 +247,10 @@ where
         let _did_work = file.remove(cid);
     }
 
-    // FIXME: This function doesn't use the chain store at all.
-    //        Tracking issue: https://github.com/ChainSafe/forest/issues/3208
-    /// Retrieves block messages to be passed through the VM.
-    ///
-    /// It removes duplicate messages which appear in multiple blocks.
-    pub fn block_msgs_for_tipset(db: DB, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
-        let mut applied = HashMap::new();
-        let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
-            // The first match for a sender is guaranteed to have correct nonce
-            // the block isn't valid otherwise.
-            let entry = applied.entry(m.from()).or_insert_with(|| m.sequence());
-
-            if *entry != m.sequence() {
-                return None;
-            }
-
-            *entry += 1;
-            Some(m)
-        };
-
-        ts.blocks()
-            .iter()
-            .map(|b| {
-                let (usm, sm) = block_messages(&db, b)?;
-
-                let mut messages = Vec::with_capacity(usm.len() + sm.len());
-                messages.extend(
-                    usm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m))),
-                );
-                messages.extend(
-                    sm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Signed(m))),
-                );
-
-                Ok(BlockMessages {
-                    miner: *b.miner_address(),
-                    messages,
-                    win_count: b
-                        .election_proof()
-                        .as_ref()
-                        .map(|e| e.win_count)
-                        .unwrap_or_default(),
-                })
-            })
-            .collect()
-    }
-
     /// Retrieves ordered valid messages from a `Tipset`. This will only include
     /// messages that will be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let bmsgs = ChainStore::block_msgs_for_tipset(&self.db, ts)?;
+        let bmsgs = BlockMessages::for_tipset(&self.db, ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
     }
 
@@ -552,24 +498,22 @@ where
 }
 
 pub mod headchange_json {
-    use crate::blocks::tipset_json::TipsetJson;
+    use crate::lotus_json::LotusJson;
     use serde::{Deserialize, Serialize};
 
     use super::*;
 
-    #[derive(Debug, Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize)]
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
-        Current(TipsetJson),
-        Apply(TipsetJson),
-        Revert(TipsetJson),
+        Apply(LotusJson<Tipset>),
     }
 
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
+                HeadChange::Apply(arc) => Self::Apply((*arc).clone().into()),
             }
         }
     }
