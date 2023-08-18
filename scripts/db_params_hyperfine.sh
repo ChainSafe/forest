@@ -22,4 +22,4 @@ hyperfine \
     ./target/release/forest \
       --chain ${CHAIN} --config /tmp/forest.conf --rpc false --no-gc --encrypt-keystore false --halt-after-import \
       --import-snapshot ${SNAPSHOT}; \
-    ./target/release/forest-cli --chain ${CHAIN} db clean --force"
+    ./target/release/forest-tool db destroy --chain ${CHAIN} --force"

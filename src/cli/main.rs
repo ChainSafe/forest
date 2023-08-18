@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::cli_shared::logger;
 use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
+use crate::utils::bail_moved_cmd;
 use crate::utils::io::ProgressBar;
 use crate::{
     cli::subcommands::{cli_error_and_die, Cli},
@@ -50,7 +51,9 @@ where
                     }
                     // Run command
                     match cmd {
-                        Subcommand::Fetch(cmd) => cmd.run(config).await,
+                        Subcommand::Fetch(_cmd) => {
+                            bail_moved_cmd("fetch-params", "forest-tool fetch-params")
+                        }
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
