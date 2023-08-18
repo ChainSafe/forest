@@ -108,7 +108,7 @@ where
 
     let mut keystore = data.keystore.write().await;
 
-    if let Err(error) = keystore.put(addr, key.key_info) {
+    if let Err(error) = keystore.put(&addr, key.key_info) {
         match error {
             Error::KeyExists => Err(JsonRpcError::Provided {
                 code: 1,
@@ -148,10 +148,10 @@ where
     let key = crate::key_management::generate_key(sig_raw.0)?;
 
     let addr = format!("wallet-{}", key.address);
-    keystore.put(addr, key.key_info.clone())?;
+    keystore.put(&addr, key.key_info.clone())?;
     let value = keystore.get("default");
     if value.is_err() {
-        keystore.put("default".to_string(), key.key_info)?
+        keystore.put("default", key.key_info)?
     }
 
     Ok(key.address.to_string())
@@ -170,8 +170,8 @@ where
 
     let addr_string = format!("wallet-{}", address.0);
     let key_info = keystore.get(&addr_string)?;
-    keystore.remove("default".to_string())?; // This line should unregister current default key then continue
-    keystore.put("default".to_string(), key_info)?;
+    keystore.remove("default")?; // This line should unregister current default key then continue
+    keystore.put("default", key_info)?;
     Ok(())
 }
 
@@ -237,4 +237,21 @@ where
     crate::key_management::remove_key(&addr, &mut keystore)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{shim::crypto::SignatureType, KeyStore};
+
+    #[tokio::test]
+    async fn wallet_delete() {
+        let key = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
+
+        let addr = format!("wallet-{}", key.address);
+        let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
+        keystore.put(&addr, key.key_info.clone()).unwrap();
+
+        keystore.remove(&addr).unwrap();
+        assert!(keystore.get(&addr).is_err());
+    }
 }
