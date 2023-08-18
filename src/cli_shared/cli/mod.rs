@@ -231,6 +231,14 @@ impl CliOpts {
     }
 }
 
+/// CLI RPC options
+#[derive(Default, Debug, Parser)]
+pub struct CliRpcOpts {
+    /// Admin token to interact with the node
+    #[arg(long)]
+    pub token: Option<String>,
+}
+
 pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),
