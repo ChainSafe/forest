@@ -56,7 +56,7 @@ pub struct CliOpts {
     /// localhost on port 6116.
     #[arg(long)]
     pub metrics_address: Option<SocketAddr>,
-    /// Address used for RPC. By defaults binds on localhost on port 1234.
+    /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
     /// Allow Kademlia (default: true)

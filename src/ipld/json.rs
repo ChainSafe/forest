@@ -275,3 +275,33 @@ mod tests {
         assert_eq!(ipld, parsed.0);
     }
 }
+
+/// [`quickcheck`] [found a round-trip bug in CI][failing job], tracked by [#3383][issue]
+///
+/// ```text
+/// thread 'ipld::json::tests::ipld_roundtrip' panicked at '[quickcheck] TEST FAILED (runtime error).
+/// Arguments: ([[{"": {"": [[[{"": [{"": [{"": [{"": [[{"": [[{"": {"/": ""}}]]}]]}]}]}]}]]]}}]])
+/// Error: "called `Result::unwrap()` on an `Err` value: Error(\"Input too short\", line: 1, column: 52)"',
+/// ```
+/// The actual error message is a little ambiguous with regards to the cause
+/// because [`libipld` has a custom debug implementation][unhelpful]
+///
+/// Here's what the minimal test case (or simply another bug) is after trying to understand the above.
+///
+/// [issue]: https://github.com/ChainSafe/forest/issues/3383
+/// [failing job]: https://github.com/ChainSafe/forest/actions/runs/5877726416/job/15938386821?pr=3382#step:9:1835
+/// [unhelpful]: https://github.com/ipld/libipld/blob/8478d6d66576636b9970cb3b00a232be7a88ea42/core/src/ipld.rs#L53-L63
+#[test]
+#[should_panic = "Input too short"]
+fn issue_3383() {
+    let poison = Ipld::Map(BTreeMap::from_iter([(
+        String::from("/"),
+        Ipld::String(String::from("")),
+    )]));
+    let serialized = serde_json::to_value(IpldJsonRef(&poison)).unwrap();
+
+    // we try and parse the map as a CID, even though it's meant to be a map...
+    let IpldJson(round_tripped) = serde_json::from_value(serialized).unwrap();
+
+    assert_eq!(round_tripped, poison); // we never make it here
+}

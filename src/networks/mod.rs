@@ -27,7 +27,7 @@ const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
-const DEFAULT_REQUEST_WINDOW: usize = 32;
+const DEFAULT_REQUEST_WINDOW: usize = 8;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
@@ -254,7 +254,7 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule<DrandBeacon> {
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
@@ -265,7 +265,11 @@ impl ChainConfig {
             ds_iter
                 .map(|dc| BeaconPoint {
                     height: dc.height,
-                    beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config),
+                    beacon: Box::new(DrandBeacon::new(
+                        genesis_ts,
+                        self.block_delay_secs,
+                        dc.config,
+                    )),
                 })
                 .collect(),
         )

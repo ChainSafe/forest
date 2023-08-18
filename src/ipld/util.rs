@@ -13,6 +13,7 @@ use std::{
 use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::Block;
+use crate::utils::encoding::extract_cids;
 use crate::utils::io::progress_log::WithProgressRaw;
 use crate::{
     blocks::{BlockHeader, Tipset},
@@ -128,7 +129,7 @@ where
     let wp = WithProgressRaw::new(message, estimated_total_records);
 
     let mut seen = CidHashSet::default();
-    let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
+    let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().into();
     let mut current_min_height = tipset.epoch();
     let incl_roots_epoch = tipset.epoch() - recent_roots;
 
@@ -171,12 +172,12 @@ where
         }
 
         if h.epoch() > 0 {
-            for p in h.parents().cids() {
-                blocks_to_walk.push_back(*p);
+            for p in &h.parents().cids {
+                blocks_to_walk.push_back(p);
             }
         } else {
-            for p in h.parents().cids() {
-                load_block(*p).await?;
+            for p in &h.parents().cids {
+                load_block(p).await?;
             }
         }
 
@@ -267,7 +268,7 @@ enum Task {
     // Yield the block, don't visit it.
     Emit(Cid),
     // Visit all the elements, recursively.
-    Iterate(DfsIter),
+    Iterate(VecDeque<Cid>),
 }
 
 pin_project! {
@@ -340,6 +341,13 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
         use Task::*;
         let mut this = self.project();
 
+        let ipld_to_cid = |ipld| {
+            if let Ipld::Link(cid) = ipld {
+                return Some(cid);
+            }
+            None
+        };
+
         let stateroot_limit = *this.stateroot_limit;
         loop {
             while let Some(task) = this.dfs.front_mut() {
@@ -353,27 +361,29 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                             return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
                     }
-                    Iterate(dfs_iter) => {
-                        while let Some(ipld) = dfs_iter.next() {
-                            if let Ipld::Link(cid) = ipld {
-                                // The link traversal implementation assumes there are three types of encoding:
-                                // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
-                                // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
-                                // 3. _: ignore all other links
-                                // Don't revisit what's already been visited.
-                                if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
-                                    if let Some(data) = this.db.get(&cid)? {
-                                        if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                            let ipld: Ipld = from_slice_with_fallback(&data)?;
-                                            dfs_iter.walk_next(ipld);
+                    Iterate(cid_vec) => {
+                        while let Some(cid) = cid_vec.pop_front() {
+                            // The link traversal implementation assumes there are three types of encoding:
+                            // 1. DAG_CBOR: needs to be reachable, so we add it to the queue and load.
+                            // 2. IPLD_RAW: WASM blocks, for example. Need to be loaded, but not traversed.
+                            // 3. _: ignore all other links
+                            // Don't revisit what's already been visited.
+                            if should_save_block_to_snapshot(cid) && this.seen.insert(cid) {
+                                if let Some(data) = this.db.get(&cid)? {
+                                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                        let new_values = extract_cids(&data)?;
+                                        cid_vec.reserve(new_values.len());
+
+                                        for v in new_values.into_iter().rev() {
+                                            cid_vec.push_front(v)
                                         }
-                                        return Poll::Ready(Some(Ok(Block { cid, data })));
-                                    } else if *this.fail_on_dead_links {
-                                        return Poll::Ready(Some(Err(anyhow::anyhow!(
-                                            "missing key: {}",
-                                            cid
-                                        ))));
                                     }
+                                    return Poll::Ready(Some(Ok(Block { cid, data })));
+                                } else if *this.fail_on_dead_links {
+                                    return Poll::Ready(Some(Err(anyhow::anyhow!(
+                                        "missing key: {}",
+                                        cid
+                                    ))));
                                 }
                             }
                         }
@@ -393,15 +403,18 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents().cids() {
-                                this.dfs.push_back(Emit(*p));
+                            for p in &block.parents().cids {
+                                this.dfs.push_back(Emit(p));
                             }
                         }
 
                         // Process block messages.
                         if block.epoch() > stateroot_limit {
-                            this.dfs
-                                .push_back(Iterate(DfsIter::from(*block.messages())));
+                            this.dfs.push_back(Iterate(
+                                DfsIter::from(*block.messages())
+                                    .filter_map(ipld_to_cid)
+                                    .collect(),
+                            ));
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`
@@ -409,8 +422,11 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         if block.epoch() == 0 || block.epoch() > stateroot_limit {
                             // NOTE: In the original `walk_snapshot` implementation we walk the dag
                             // immediately. Which is what we do here as well, but using a queue.
-                            this.dfs
-                                .push_back(Iterate(DfsIter::from(*block.state_root())));
+                            this.dfs.push_back(Iterate(
+                                DfsIter::from(*block.state_root())
+                                    .filter_map(ipld_to_cid)
+                                    .collect(),
+                            ));
                         }
                     }
                 }

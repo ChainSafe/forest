@@ -107,7 +107,6 @@ pub trait Proposer {
         // these for later refactoring and just use the same pattern.
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
-        submitter: SyncGossipSubmitter,
         services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
@@ -157,18 +156,5 @@ where
         self.select_messages_for_block(base)
             .map_err(|e| e.into())
             .map(|v| v.into_iter().map(Cow::Owned).collect())
-    }
-}
-
-/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the
-/// local chain synchronizer.
-///
-/// Similar to `sync_api::sync_submit_block` but assumes that the block is
-/// correct and already persisted.
-pub struct SyncGossipSubmitter {}
-
-impl SyncGossipSubmitter {
-    pub fn new() -> Self {
-        Self {}
     }
 }

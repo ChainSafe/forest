@@ -1,12 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-/// In general, `forest` wants to support the same RPC messages as `lotus` (go
-/// implementation of Filecoin). Current progress is tracked in
-/// `ARCHITECTURE.md`.
-///
-/// Follow the pattern set below, and don't forget to add an entry to the
-/// [`ACCESS_MAP`] with the relevant permissions (consult the go implementation,
-/// looking for a comment like `// perm: admin`)
+//! In general, `forest` wants to support the same RPC messages as `lotus` (go
+//! implementation of Filecoin).
+//!
+//! Follow the pattern set below, and don't forget to add an entry to the
+//! [`ACCESS_MAP`] with the relevant permissions (consult the go implementation,
+//! looking for a comment like `// perm: admin`)
+//!
+//! Future work:
+//! - Have an `RpcEndpoint` trait.
 use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
 
@@ -146,31 +148,31 @@ pub mod auth_api {
 
 /// Beacon API
 pub mod beacon_api {
-    use crate::beacon::json::BeaconEntryJson;
+    use crate::beacon::BeaconEntry;
+    use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
     pub type BeaconGetEntryParams = (ChainEpoch,);
-    pub type BeaconGetEntryResult = BeaconEntryJson;
+    pub type BeaconGetEntryResult = LotusJson<BeaconEntry>;
 }
 
 /// Chain API
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use crate::blocks::{
-        header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-        TipsetKeys,
-    };
-    use crate::json::{cid::CidJson, message::json::MessageJson};
+    use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+    use crate::json::cid::CidJson;
+    use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
+    use crate::shim::message::Message;
     use serde::{Deserialize, Serialize};
 
     use crate::rpc_api::data_types::BlockMessages;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
-    pub type ChainGetMessageResult = MessageJson;
+    pub type ChainGetMessageResult = LotusJson<Message>;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
 
@@ -179,7 +181,8 @@ pub mod chain_api {
         pub epoch: ChainEpoch,
         pub recent_roots: i64,
         pub output_path: PathBuf,
-        pub tipset_keys: TipsetKeysJson,
+        #[serde(with = "crate::lotus_json")]
+        pub tipset_keys: TipsetKeys,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }
@@ -200,25 +203,25 @@ pub mod chain_api {
 
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipsetByHeight";
     pub type ChainGetTipsetByHeightParams = (ChainEpoch, TipsetKeys);
-    pub type ChainGetTipsetByHeightResult = TipsetJson;
+    pub type ChainGetTipsetByHeightResult = LotusJson<Tipset>;
 
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
     #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainGetGenesisParams = ();
-    pub type ChainGetGenesisResult = Option<TipsetJson>;
+    pub type ChainGetGenesisResult = Option<LotusJson<Tipset>>;
 
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
     #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type ChainHeadParams = ();
-    pub type ChainHeadResult = TipsetJson;
+    pub type ChainHeadResult = LotusJson<Tipset>;
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub type ChainGetBlockParams = (CidJson,);
-    pub type ChainGetBlockResult = BlockHeaderJson;
+    pub type ChainGetBlockResult = LotusJson<BlockHeader>;
 
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
-    pub type ChainGetTipSetParams = (TipsetKeysJson,);
-    pub type ChainGetTipSetResult = TipsetJson;
+    pub type ChainGetTipSetParams = (LotusJson<TipsetKeys>,);
+    pub type ChainGetTipSetResult = LotusJson<Tipset>;
 
     pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
     pub type ChainGetNameParams = ();
@@ -235,24 +238,25 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
-    use crate::json::{
-        cid::{vec::CidJsonVec, CidJson},
-        message::json::MessageJson,
-        signed_message::json::SignedMessageJson,
-    };
     use crate::rpc_api::data_types::MessageSendSpec;
+    use crate::shim::message::Message;
+    use crate::{
+        json::cid::{vec::CidJsonVec, CidJson},
+        lotus_json::LotusJson,
+        message::SignedMessage,
+    };
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
-    pub type MpoolPendingResult = Vec<SignedMessageJson>;
+    pub type MpoolPendingResult = LotusJson<Vec<SignedMessage>>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-    pub type MpoolPushParams = (SignedMessageJson,);
+    pub type MpoolPushParams = (LotusJson<SignedMessage>,);
     pub type MpoolPushResult = CidJson;
 
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-    pub type MpoolPushMessageParams = (MessageJson, Option<MessageSendSpec>);
-    pub type MpoolPushMessageResult = SignedMessageJson;
+    pub type MpoolPushMessageParams = (LotusJson<Message>, Option<MessageSendSpec>);
+    pub type MpoolPushMessageResult = LotusJson<SignedMessage>;
 }
 
 /// Sync API
@@ -276,11 +280,10 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use crate::json::{
-        address::json::AddressJson,
-        signature::json::{signature_type::SignatureTypeJson, SignatureJson},
-    };
-    use crate::key_management::json::KeyInfoJson;
+    use crate::json::address::json::AddressJson;
+    use crate::key_management::KeyInfo;
+    use crate::lotus_json::LotusJson;
+    use crate::shim::crypto::{Signature, SignatureType};
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);
@@ -292,14 +295,14 @@ pub mod wallet_api {
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
     pub type WalletExportParams = (String,);
-    pub type WalletExportResult = KeyInfoJson;
+    pub type WalletExportResult = LotusJson<KeyInfo>;
 
     pub const WALLET_HAS: &str = "Filecoin.WalletHas";
     pub type WalletHasParams = (String,);
     pub type WalletHasResult = bool;
 
     pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-    pub type WalletImportParams = Vec<KeyInfoJson>;
+    pub type WalletImportParams = LotusJson<Vec<KeyInfo>>;
     pub type WalletImportResult = String;
 
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
@@ -307,7 +310,7 @@ pub mod wallet_api {
     pub type WalletListResult = Vec<AddressJson>;
 
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-    pub type WalletNewParams = (SignatureTypeJson,);
+    pub type WalletNewParams = (LotusJson<SignatureType>,);
     pub type WalletNewResult = String;
 
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
@@ -316,10 +319,10 @@ pub mod wallet_api {
 
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
     pub type WalletSignParams = (AddressJson, Vec<u8>);
-    pub type WalletSignResult = SignatureJson;
+    pub type WalletSignResult = LotusJson<Signature>;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (AddressJson, Vec<u8>, SignatureJson);
+    pub type WalletVerifyParams = (AddressJson, Vec<u8>, LotusJson<Signature>);
     pub type WalletVerifyResult = bool;
 }
 
@@ -327,24 +330,23 @@ pub mod wallet_api {
 pub mod state_api {
     use std::path::PathBuf;
 
-    use crate::blocks::tipset_keys_json::TipsetKeysJson;
-    use crate::json::actor_state::json::ActorStateJson;
-    use crate::json::{
-        address::json::AddressJson, cid::CidJson, message::json::MessageJson,
-        message_receipt::json::ReceiptJson,
-    };
-    use crate::shim::version::NetworkVersion;
+    use crate::blocks::TipsetKeys;
+    use crate::json::{address::json::AddressJson, cid::CidJson};
+    use crate::lotus_json::LotusJson;
+    use crate::shim::executor::Receipt;
+    use crate::shim::message::Message;
+    use crate::shim::{state_tree::ActorState, version::NetworkVersion};
     use crate::state_manager::{InvocResult, MarketBalance};
     use ahash::HashMap;
 
     use crate::rpc_api::data_types::{MarketDeal, MessageLookup};
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
-    pub type StateCallParams = (MessageJson, TipsetKeysJson);
+    pub type StateCallParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
     pub type StateCallResult = InvocResult;
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-    pub type StateReplayParams = (CidJson, TipsetKeysJson);
+    pub type StateReplayParams = (CidJson, LotusJson<TipsetKeys>);
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
@@ -353,24 +355,24 @@ pub mod state_api {
     pub type StateNetworkNameResult = String;
 
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
-    pub type StateNetworkVersionParams = (TipsetKeysJson,);
+    pub type StateNetworkVersionParams = (LotusJson<TipsetKeys>,);
     pub type StateNetworkVersionResult = NetworkVersion;
 
     pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-    pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
-    pub type StateGetActorResult = Option<ActorStateJson>;
+    pub type StateGetActorParams = (AddressJson, LotusJson<TipsetKeys>);
+    pub type StateGetActorResult = LotusJson<Option<ActorState>>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-    pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);
+    pub type StateMarketBalanceParams = (AddressJson, LotusJson<TipsetKeys>);
     pub type StateMarketBalanceResult = MarketBalance;
 
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-    pub type StateMarketDealsParams = (TipsetKeysJson,);
+    pub type StateMarketDealsParams = (LotusJson<TipsetKeys>,);
     pub type StateMarketDealsResult = HashMap<String, MarketDeal>;
 
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
-    pub type StateGetReceiptParams = (CidJson, TipsetKeysJson);
-    pub type StateGetReceiptResult = ReceiptJson;
+    pub type StateGetReceiptParams = (CidJson, LotusJson<TipsetKeys>);
+    pub type StateGetReceiptResult = LotusJson<Receipt>;
 
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub type StateWaitMsgParams = (CidJson, i64);
@@ -383,26 +385,32 @@ pub mod state_api {
 
 /// Gas API
 pub mod gas_api {
-    use crate::blocks::tipset_keys_json::TipsetKeysJson;
-    use crate::json::{address::json::AddressJson, message::json::MessageJson};
+    use crate::blocks::TipsetKeys;
+    use crate::json::address::json::AddressJson;
+    use crate::lotus_json::LotusJson;
 
     use crate::rpc_api::data_types::MessageSendSpec;
+    use crate::shim::message::Message;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub type GasEstimateFeeCapParams = (MessageJson, i64, TipsetKeysJson);
+    pub type GasEstimateFeeCapParams = (LotusJson<Message>, i64, LotusJson<TipsetKeys>);
     pub type GasEstimateFeeCapResult = String;
 
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-    pub type GasEstimateGasPremiumParams = (u64, AddressJson, i64, TipsetKeysJson);
+    pub type GasEstimateGasPremiumParams = (u64, AddressJson, i64, LotusJson<TipsetKeys>);
     pub type GasEstimateGasPremiumResult = String;
 
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-    pub type GasEstimateGasLimitParams = (MessageJson, TipsetKeysJson);
+    pub type GasEstimateGasLimitParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
     pub type GasEstimateGasLimitResult = i64;
 
     pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
-    pub type GasEstimateMessageGasParams = (MessageJson, Option<MessageSendSpec>, TipsetKeysJson);
-    pub type GasEstimateMessageGasResult = MessageJson;
+    pub type GasEstimateMessageGasParams = (
+        LotusJson<Message>,
+        Option<MessageSendSpec>,
+        LotusJson<TipsetKeys>,
+    );
+    pub type GasEstimateMessageGasResult = LotusJson<Message>;
 }
 
 /// Common API

@@ -6,11 +6,7 @@ use std::{
     str::{self, FromStr},
 };
 
-use crate::json::{
-    address::json::AddressJson,
-    signature::json::{signature_type::SignatureTypeJson, SignatureJson},
-};
-use crate::key_management::json::KeyInfoJson;
+use crate::key_management::KeyInfo;
 use crate::rpc_client::wallet_ops::*;
 use crate::shim::{
     address::{Protocol, StrictAddress},
@@ -18,6 +14,7 @@ use crate::shim::{
     econ::TokenAmount,
 };
 use crate::utils::io::read_file_to_string;
+use crate::{json::address::json::AddressJson, lotus_json::LotusJson};
 use anyhow::Context;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
@@ -107,7 +104,7 @@ impl WalletCommands {
                     _ => SignatureType::Bls,
                 };
 
-                let signature_type_json = SignatureTypeJson(signature_type);
+                let signature_type_json = LotusJson(signature_type);
 
                 let response = wallet_new((signature_type_json,), &config.client.rpc_token)
                     .await
@@ -166,10 +163,10 @@ impl WalletCommands {
 
                 let key_str = str::from_utf8(&decoded_key)?;
 
-                let key: KeyInfoJson =
-                    serde_json::from_str(key_str).context("invalid key format")?;
+                let LotusJson(key) = serde_json::from_str::<LotusJson<KeyInfo>>(key_str)
+                    .context("invalid key format")?;
 
-                let key = wallet_import(vec![KeyInfoJson(key.0)], &config.client.rpc_token)
+                let key = wallet_import(vec![key].into(), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
@@ -265,7 +262,7 @@ impl WalletCommands {
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
                 let response = wallet_verify(
-                    (AddressJson(address), msg, SignatureJson(signature)),
+                    (AddressJson(address), msg, LotusJson(signature)),
                     &config.client.rpc_token,
                 )
                 .await

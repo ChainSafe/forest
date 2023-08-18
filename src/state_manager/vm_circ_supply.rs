@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::{
@@ -66,10 +68,10 @@ impl GenesisInfo {
     pub fn get_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
-        db: &DB,
+        db: &Arc<DB>,
         root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
-        let state_tree = StateTree::new_from_root(db, root)?;
+        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
         let fil_vested = get_fil_vested(self, height);
         let fil_mined = get_fil_mined(&state_tree)?;
         let fil_burnt = get_fil_burnt(&state_tree)?;

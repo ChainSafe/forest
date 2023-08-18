@@ -36,12 +36,12 @@ pub struct MinerMigrator {
 
 pub(super) fn miner_migrator<BS>(
     out_code: Cid,
-    store: &BS,
+    store: &Arc<BS>,
     market_proposals: Cid,
     chain_config: &ChainConfig,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>>
 where
-    BS: Blockstore + Clone + Send + Sync,
+    BS: Blockstore + Send + Sync,
 {
     let empty_deadline_v8: fil_actor_miner_state::v8::Deadline =
         fil_actor_miner_state::v8::Deadline::new(store)?;
@@ -81,11 +81,11 @@ where
 
 impl<BS> ActorMigration<BS> for MinerMigrator
 where
-    BS: Blockstore + Clone + Send + Sync,
+    BS: Blockstore + Send + Sync,
 {
     fn migrate_state(
         &self,
-        store: BS,
+        store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let mut cache: HashMap<String, Cid> = Default::default();
@@ -388,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_nv17_miner_migration() -> Result<()> {
-        let store = crate::db::MemoryDB::default();
+        let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
         let system_actor_old = state_tree_old
             .get_actor(&fil_actor_interface::system::ADDRESS.into())?
@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn test_fip0029_miner_migration() -> Result<()> {
-        let store = crate::db::MemoryDB::default();
+        let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
         let addr = Address::new_id(10000);
         let worker_addr = Address::new_id(20000);
@@ -635,7 +635,7 @@ mod tests {
         Ok(())
     }
 
-    fn make_input_tree<BS: Blockstore + Clone>(store: BS) -> Result<(StateTree<BS>, Manifest)> {
+    fn make_input_tree<BS: Blockstore>(store: &Arc<BS>) -> Result<(StateTree<BS>, Manifest)> {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
 
         let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
@@ -776,7 +776,7 @@ mod tests {
         let mut verifreg_state =
             fil_actor_verifreg_state::v8::State::new(&store, verifreg_root.into())?;
         let mut verified_clients = fil_actors_shared::v8::make_empty_map::<BS, BigInt>(
-            &store,
+            store,
             fil_actors_shared::v8::builtin::HAMT_BIT_WIDTH,
         );
         // verified_clients is not set in the original go tests
@@ -835,7 +835,7 @@ mod tests {
         Ok((tree, manifest))
     }
 
-    fn init_actor<BS: Blockstore + Clone>(
+    fn init_actor<BS: Blockstore>(
         tree: &mut StateTree<BS>,
         state: Cid,
         code: Cid,

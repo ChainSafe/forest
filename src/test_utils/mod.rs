@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Ticket;
-use crate::json::vrf::VRFProof;
+use crate::blocks::VRFProof;
 use crate::message::SignedMessage;
 use crate::shim::{
     address::Address,

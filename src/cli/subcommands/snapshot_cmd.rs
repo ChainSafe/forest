@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use crate::blocks::Tipset;
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::ManyCar;
-use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -46,6 +45,9 @@ pub enum SnapshotCommands {
         /// Tipset to start the export from, default is the chain head
         #[arg(short, long)]
         tipset: Option<i64>,
+        /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
+        #[arg(short, long)]
+        depth: Option<crate::chain::ChainEpochDelta>,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
@@ -102,9 +104,10 @@ impl SnapshotCommands {
                 skip_checksum,
                 dry_run,
                 tipset,
+                depth,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
-                    Ok(head) => head.0,
+                    Ok(LotusJson(head)) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
@@ -130,12 +133,20 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: config.chain.recent_state_roots,
+                    recent_roots: depth.unwrap_or(config.chain.recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: TipsetKeysJson(chain_head.key().clone()),
+                    tipset_keys: chain_head.key().clone(),
                     skip_checksum,
                     dry_run,
                 };
+
+                let finality = config.chain.policy.chain_finality.min(epoch);
+                if params.recent_roots < finality {
+                    bail!(
+                        "For {}, depth has to be at least {finality}.",
+                        config.chain.network
+                    );
+                }
 
                 let handle = tokio::spawn({
                     let tmp_file = temp_path.to_owned();
@@ -441,11 +452,10 @@ where
     load_actor_bundles(&db).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
-    if cns::FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &Config::default().client.data_dir,
-        );
-    }
+    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        &Config::default().client.data_dir,
+    );
+
     ensure_params_downloaded().await?;
 
     let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));

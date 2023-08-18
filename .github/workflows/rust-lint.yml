@@ -39,6 +39,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: "recursive" # checkout the serialization vectors
+      - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -62,6 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - run: ./assets/ci_download.sh
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
