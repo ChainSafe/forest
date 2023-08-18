@@ -77,12 +77,6 @@ jobs:
   cargo-publish-dry-run:
     runs-on: ubuntu-latest
     steps:
-      # To help investigate transient test failures
-      - run: lscpu
-      # find the nearest S3 space for storing cache files
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v3
       - run: ./assets/ci_download.sh
