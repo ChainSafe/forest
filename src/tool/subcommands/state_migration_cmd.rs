@@ -113,6 +113,7 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
         )
         .await?;
         writer.flush().await?;
+        writer.close().await?;
     }
     if is_bundle_valid(root, BufReader::new(async_fs::File::open(&tmp).await?)).await? {
         tmp.persist(&cached_car_path)?;
