@@ -3,10 +3,8 @@
 
 use crate::utils::cid::SmallCid;
 use ahash::{HashMap, HashMapExt};
-use cid::multihash::{self};
 use cid::Cid;
-use fvm_ipld_encoding::DAG_CBOR;
-use std::collections::hash_map::{Entry, Keys, OccupiedEntry, VacantEntry};
+use std::collections::hash_map::{Keys, OccupiedEntry, VacantEntry};
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -57,22 +55,14 @@ impl<V> Iterator for IntoIter<V> {
 }
 
 pub struct CidHashMapKeys<'a, V> {
-    v1_dagcbor_blake2b_keys: Keys<'a, [u8; BLAKE2B256_SIZE], V>,
-    fallback_keys: Keys<'a, Cid, V>,
+    keys: Keys<'a, SmallCid, V>,
 }
 
 impl<V> Iterator for CidHashMapKeys<'_, V> {
     type Item = Cid;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.v1_dagcbor_blake2b_keys.next() {
-            Some(bytes) => Some(Cid::new_v1(
-                DAG_CBOR,
-                multihash::Multihash::wrap(multihash::Code::Blake2b256.into(), bytes)
-                    .expect("failed to convert digest to CID"),
-            )),
-            None => self.fallback_keys.next().copied(),
-        }
+        self.keys.next().map(|small_cid| small_cid.cid())
     }
 }
 
@@ -81,40 +71,19 @@ pub enum CidHashMapEntry<'a, V> {
     Vacant(Vacant<'a, V>),
 }
 
-pub struct Occupied<'a, V> {
-    inner: OccupiedInner<'a, V>,
-}
-
-enum OccupiedInner<'a, V> {
-    V1(OccupiedEntry<'a, [u8; 32], V>),
-    Fallback(OccupiedEntry<'a, Cid, V>),
-}
+pub struct Occupied<'a, V>(OccupiedEntry<'a, SmallCid, V>);
 
 impl<V> Occupied<'_, V> {
     pub fn get(&self) -> &V {
-        let ret = match &self.inner {
-            OccupiedInner::V1(o) => o.get(),
-            OccupiedInner::Fallback(o) => o.get(),
-        };
-        ret
+        self.0.get()
     }
 }
 
-pub struct Vacant<'a, V> {
-    inner: VacantInner<'a, V>,
-}
-
-enum VacantInner<'a, V> {
-    V1(VacantEntry<'a, [u8; 32], V>),
-    Fallback(VacantEntry<'a, Cid, V>),
-}
+pub struct Vacant<'a, V>(VacantEntry<'a, SmallCid, V>);
 
 impl<'a, V> Vacant<'a, V> {
     pub fn insert(self, value: V) -> &'a mut V {
-        match self.inner {
-            VacantInner::V1(v) => v.insert(value),
-            VacantInner::Fallback(v) => v.insert(value),
-        }
+        self.0.insert(value)
     }
 }
 
@@ -157,31 +126,20 @@ impl<V> CidHashMap<V> {
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
     pub fn entry(&mut self, key: Cid) -> CidHashMapEntry<'_, V> {
-        match CidVariant::from(key) {
-            CidVariant::V1DagCborBlake2b(v1) => match self.v1_dagcbor_blake2b_hash_map.entry(v1) {
-                Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
-                    inner: OccupiedInner::V1(occupied),
-                }),
-                Entry::Vacant(vacant) => CidHashMapEntry::Vacant(Vacant {
-                    inner: VacantInner::V1(vacant),
-                }),
-            },
-            CidVariant::Generic(generic) => match self.fallback_hash_map.entry(*generic) {
-                Entry::Occupied(occupied) => CidHashMapEntry::Occupied(Occupied {
-                    inner: OccupiedInner::Fallback(occupied),
-                }),
-                Entry::Vacant(vacant) => CidHashMapEntry::Vacant(Vacant {
-                    inner: VacantInner::Fallback(vacant),
-                }),
-            },
+        match self.0.entry(SmallCid::from(key)) {
+            std::collections::hash_map::Entry::Occupied(occupied) => {
+                CidHashMapEntry::Occupied(Occupied(occupied))
+            }
+            std::collections::hash_map::Entry::Vacant(vacant) => {
+                CidHashMapEntry::Vacant(Vacant(vacant))
+            }
         }
     }
 
     #[cfg(test)]
     pub fn keys(&self) -> CidHashMapKeys<'_, V> {
         CidHashMapKeys {
-            v1_dagcbor_blake2b_keys: self.v1_dagcbor_blake2b_hash_map.keys(),
-            fallback_keys: self.fallback_hash_map.keys(),
+            keys: self.0.keys(),
         }
     }
 }
@@ -189,7 +147,7 @@ impl<V> CidHashMap<V> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::MultihashDigest;
+    use cid::multihash::{self, MultihashDigest};
     use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck_macros::quickcheck;
 
