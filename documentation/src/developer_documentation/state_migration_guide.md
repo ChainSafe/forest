@@ -42,11 +42,13 @@ HeightInfo {
 ```rust
 ActorBundleInfo{
     manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
-    url: Url::parse("https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/calibnet/Shark.car").unwrap(),
+    url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap(),
 },
 ```
 
-- regenerate a merged actor bundle with `forest-tool state-migration actor-bundle` and replace `assets/actor_bundles.car.zst`
+- regenerate a merged actor bundle with
+  `forest-tool state-migration actor-bundle` and replace
+  `assets/actor_bundles.car.zst`
 
 ### Implement the migration
 
