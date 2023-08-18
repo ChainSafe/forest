@@ -75,7 +75,6 @@ jobs:
           if-no-files-found: error
 
   cargo-publish-dry-run:
-    name: cargo publish --dry-run
     runs-on: ubuntu-latest
     steps:
       # To help investigate transient test failures
