@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
+use crate::utils::cid::SmallCid;
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 
@@ -17,10 +17,7 @@ use cid::Cid;
 // length=32. Taking advantage of this knowledge, we can store the vast majority of CIDs (+99.99%)
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct CidHashMap<V> {
-    v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
-    fallback_hash_map: HashMap<Cid, V>,
-}
+pub struct CidHashMap<V>(HashMap<SmallCid, V>);
 
 impl<V> Extend<(Cid, V)> for CidHashMap<V> {
     fn extend<T: IntoIterator<Item = (Cid, V)>>(&mut self, iter: T) {
@@ -38,91 +35,59 @@ impl<V> FromIterator<(Cid, V)> for CidHashMap<V> {
     }
 }
 
-pub struct IntoIter<V> {
-    small: std::collections::hash_map::IntoIter<[u8; BLAKE2B256_SIZE], V>,
-    fallback: std::collections::hash_map::IntoIter<Cid, V>,
-}
+pub struct IntoIter<V>(std::collections::hash_map::IntoIter<SmallCid, V>);
 
 impl<V> IntoIterator for CidHashMap<V> {
     type Item = (Cid, V);
     type IntoIter = IntoIter<V>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let CidHashMap {
-            v1_dagcbor_blake2b_hash_map,
-            fallback_hash_map,
-        } = self;
-        Self::IntoIter {
-            small: v1_dagcbor_blake2b_hash_map.into_iter(),
-            fallback: fallback_hash_map.into_iter(),
-        }
+        IntoIter(self.0.into_iter())
     }
 }
 
 impl<V> Iterator for IntoIter<V> {
     type Item = (Cid, V);
     fn next(&mut self) -> Option<Self::Item> {
-        self.small
-            .next()
-            .map(|(bytes, v)| (Cid::from(CidVariant::V1DagCborBlake2b(bytes)), v))
-            .or_else(|| self.fallback.next())
+        self.0.next().map(|(small_cid, v)| (small_cid.cid(), v))
     }
 }
 
 impl<V> CidHashMap<V> {
     /// Creates an empty `HashMap` with CID type keys.
     pub fn new() -> Self {
-        Self {
-            v1_dagcbor_blake2b_hash_map: HashMap::new(),
-            fallback_hash_map: HashMap::new(),
-        }
+        Self(HashMap::new())
     }
 
     /// Returns `true` if the map contains a value for the specified key.
     pub fn contains_key(&self, k: Cid) -> bool {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => {
-                self.v1_dagcbor_blake2b_hash_map.contains_key(&bytes)
-            }
-            CidVariant::Generic(_) => self.fallback_hash_map.contains_key(&k),
-        }
+        self.0.contains_key(&SmallCid::from(k))
     }
 
     /// Inserts a key-value pair into the map; if the map did not have this key present, [`None`] is returned.
     pub fn insert(&mut self, k: Cid, v: V) -> Option<V> {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => {
-                self.v1_dagcbor_blake2b_hash_map.insert(bytes, v)
-            }
-            CidVariant::Generic(_) => self.fallback_hash_map.insert(k, v),
-        }
+        self.0.insert(SmallCid::from(k), v)
     }
 
     /// Removes a key from the map, returning the value at the key if the key
     /// was previously in the map.
     pub fn remove(&mut self, k: Cid) -> Option<V> {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.remove(&bytes),
-            CidVariant::Generic(_) => self.fallback_hash_map.remove(&k),
-        }
+        self.0.remove(&SmallCid::from(k))
     }
 
     /// Returns the number of elements the map can hold without reallocating.
     pub fn capacity(&self) -> usize {
-        self.v1_dagcbor_blake2b_hash_map.capacity() + self.fallback_hash_map.capacity()
+        self.0.capacity()
     }
 
     /// Returns a reference to the value corresponding to the key.
     pub fn get(&self, k: Cid) -> Option<&V> {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
-            CidVariant::Generic(_) => self.fallback_hash_map.get(&k),
-        }
+        self.0.get(&SmallCid::from(k))
     }
 
     /// Returns the number of elements in the map.
     pub fn len(&self) -> usize {
-        self.v1_dagcbor_blake2b_hash_map.len() + self.fallback_hash_map.len()
+        self.0.len()
     }
 }
 
