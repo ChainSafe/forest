@@ -74,6 +74,11 @@ impl<WriterT> ManyCar<WriterT> {
             .max_by_key(Tipset::epoch)
             .context("ManyCar store doesn't have a heaviest tipset")
     }
+
+    /// Number of readonly CARs
+    pub fn read_only_len(&self) -> usize {
+        self.read_only.len()
+    }
 }
 
 impl<ReaderT: super::RandomAccessFileReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {

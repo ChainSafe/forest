@@ -745,7 +745,9 @@ pub async fn open_forest_car_union_db(
     let mut consume_snapshot_file = false;
     if config.client.snapshot_path.is_none() {
         let epoch = {
-            if let Ok(Some(ts)) = Tipset::load_heaviest(&store, store.writer().as_ref()) {
+            if store.read_only_len() == 0 {
+                0
+            } else if let Ok(Some(ts)) = Tipset::load_heaviest(&store, store.writer().as_ref()) {
                 ts.epoch()
             } else {
                 0
