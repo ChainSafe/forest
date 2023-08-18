@@ -53,7 +53,7 @@ impl SmallCid {
             SmallCidInner::V1DagCborBlake2b(digest) => Cid::new_v1(
                 DAG_CBOR,
                 multihash::Multihash::wrap(Blake2b256.into(), digest)
-                    .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
+                    .expect("failed to convert Blake2b digest to Multihash for creation of V1 DAG-CBOR Blake2b CID"),
             ),
         }
     }
@@ -114,7 +114,7 @@ impl From<&SmallCid> for Cid {
             SmallCid(SmallCidInner::V1DagCborBlake2b(digest)) => Cid::new_v1(
                 DAG_CBOR,
                 multihash::Multihash::wrap(Blake2b256.into(), digest)
-                    .expect("failed to convert Blake2b digest to V1 DAG-CBOR Blake2b CID"),
+                    .expect("failed to convert Blake2b digest to Multihash for creation of V1 DAG-CBOR Blake2b CID"),
             ),
         }
     }

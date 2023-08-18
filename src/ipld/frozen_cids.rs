@@ -5,7 +5,7 @@ use crate::utils::cid::SmallCid;
 use cid::Cid;
 use serde::{Deserialize, Serialize};
 
-/// A wrapper around `Box<[CidVariant]>` with a [`Cid`]-friendly API:
+/// A wrapper around `Box<[SmallCid]>` with a [`Cid`]-friendly API:
 /// - Uses [`SmallCid`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
 /// - Uses `Box<[...]>`, over `Vec<...>` avoiding vector overallocation
 ///
