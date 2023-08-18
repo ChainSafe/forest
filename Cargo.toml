@@ -24,7 +24,10 @@ blake2b_simd = "1.0"
 bls-signatures = { version = "0.13", default-features = false, features = [
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
-boa_engine = { version = "0.16.0", features = ["console"] }
+boa_engine = "0.17.0"
+boa_interner = "0.17.0"
+boa_parser = "0.17.0"
+boa_runtime = "0.17.0"
 byteorder = "1.4.3"
 bytes = "1.2"
 cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }

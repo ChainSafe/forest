@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use crate::blocks::Tipset;
 use crate::chain::index::ChainIndex;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::ManyCar;
-use crate::fil_cns::composition as cns;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -108,7 +107,7 @@ impl SnapshotCommands {
                 depth,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
-                    Ok(head) => head.0,
+                    Ok(LotusJson(head)) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
@@ -136,7 +135,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(config.chain.recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: TipsetKeysJson(chain_head.key().clone()),
+                    tipset_keys: chain_head.key().clone(),
                     skip_checksum,
                     dry_run,
                 };
@@ -453,11 +452,10 @@ where
     load_actor_bundles(&db).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
-    if cns::FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &Config::default().client.data_dir,
-        );
-    }
+    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        &Config::default().client.data_dir,
+    );
+
     ensure_params_downloaded().await?;
 
     let chain_index = Arc::new(ChainIndex::new(Arc::new(db.clone())));

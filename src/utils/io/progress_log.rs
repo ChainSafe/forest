@@ -129,16 +129,10 @@ impl Progress {
             let elapsed_secs = (now - self.start).as_secs_f64();
             let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
 
-            let throughput = self.completed_items as f64 / elapsed_secs;
-
-            let eta_secs =
-                (self.total_items.saturating_sub(self.completed_items)) as f64 / throughput;
-            let eta_duration = format_duration(Duration::from_secs(eta_secs as u64));
-
             tracing::info!(
                 target: "forest::progress",
-                "{} {} (elapsed: {}, eta: {})",
-                self.message, self.completed_items, elapsed_duration, eta_duration
+                "{} {} (elapsed time: {})",
+                self.message, self.completed_items, elapsed_duration
             );
             self.last_logged = now;
         }

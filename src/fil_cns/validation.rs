@@ -3,7 +3,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
@@ -42,12 +42,9 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(in crate::fil_cns) async fn validate_block<
-    DB: Blockstore + Sync + Send + 'static,
-    B: Beacon,
->(
+pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
-    beacon_schedule: Arc<BeaconSchedule<B>>,
+    beacon_schedule: Arc<BeaconSchedule>,
     block: Arc<Block>,
 ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
     let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TIME.start_timer();

@@ -10,18 +10,6 @@ ignore = [
   # https://github.com/ChainSafe/forest/issues/3371
   "RUSTSEC-2022-0093",
 
-  # - We only depend on time 0.1.x through chrono 0.4.x:
-  #   time 0.1.45
-  #   └── chrono 0.4.26
-  #       ├── serde_with 3.2.0
-  #       │   └── forest-filecoin 0.12.1
-  #       ├── forest-filecoin 0.12.1
-  #       └── boa_engine 0.16.0
-  #           └── forest-filecoin 0.12.1
-  # - chrono 0.4.x does not use the vulnerable APIS:
-  #   https://github.com/chronotope/chrono/issues/602#issuecomment-1075915577
-  "RUSTSEC-2020-0071",
-
   # Unmaintained crates that fvm2 requires, and will not change for
   # compatability/consensus reasons - see
   # https://github.com/filecoin-project/ref-fvm/issues/1843

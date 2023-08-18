@@ -77,13 +77,10 @@ mod tests {
     const TEST_NET_NAME: &str = "test";
 
     fn state_setup() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
-        let beacon = Arc::new(
-            BeaconSchedule(vec![BeaconPoint {
-                height: 0,
-                beacon: MockBeacon::default(),
-            }])
-            .into_dyn(),
-        );
+        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Box::<MockBeacon>::default(),
+        }]));
 
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
