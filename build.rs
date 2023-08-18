@@ -9,7 +9,18 @@ const PROTO_DIR: &str = "proto";
 const CARGO_OUT_DIR: &str = "proto";
 
 fn main() -> anyhow::Result<()> {
+    ensure_required_bins_installed()?;
     generate_protobuf_code()
+}
+
+fn ensure_required_bins_installed() -> anyhow::Result<()> {
+    which::which("git-lfs").map(|_| ()).map_err(|_| {
+        anyhow::anyhow!(
+            "git lfs is not installed. Please install git lfs and \
+            run `git lfs pull`. \
+            See https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md"
+        )
+    })
 }
 
 fn generate_protobuf_code() -> anyhow::Result<()> {
