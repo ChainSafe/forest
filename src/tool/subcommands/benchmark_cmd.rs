@@ -6,10 +6,10 @@ use crate::chain::{
     ChainEpochDelta,
 };
 use crate::db::car::ManyCar;
-use crate::ipld::{stream_chain, stream_graph, DfsIter};
+use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{Block, CarStream};
-use crate::utils::encoding::from_slice_with_fallback;
+use crate::utils::encoding::extract_cids;
 use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
 use cid::Cid;
@@ -18,7 +18,6 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use libipld_core::ipld::Ipld;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -34,7 +33,7 @@ pub enum BenchmarkCommands {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
-        /// Whether or not we want to expect [`Ipld`] data for each block.
+        /// Whether or not we want to expect [`libipld_core::ipld::Ipld`] data for each block.
         #[arg(long)]
         inspect: bool,
     },
@@ -129,13 +128,6 @@ async fn benchmark_car_streaming(input: Vec<PathBuf>) -> Result<()> {
 // realistic expectations in terms of DFS graph travels, for example.
 async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
     let mut sink = indicatif_sink("traversed");
-    let ipld_to_cid = |ipld| {
-        if let Ipld::Link(cid) = ipld {
-            return Some((cid, ()));
-        }
-        None
-    };
-
     let mut s = Box::pin(
         futures::stream::iter(input)
             .then(File::open)
@@ -146,8 +138,8 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
     while let Some(block) = s.try_next().await? {
         let block: Block = block;
         if block.cid.codec() == DAG_CBOR {
-            let ipld: Ipld = from_slice_with_fallback(&block.data)?;
-            let _ = DfsIter::new(ipld).filter_map(ipld_to_cid).unique().count();
+            let cid_vec: Vec<Cid> = extract_cids(&block.data)?;
+            let _ = cid_vec.iter().unique().count();
         }
         sink.write_all(&block.data).await?
     }
