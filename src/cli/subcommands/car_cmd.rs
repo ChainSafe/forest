@@ -55,7 +55,7 @@ impl CarCommands {
     }
 }
 
-fn merge_car_streams<R>(
+pub fn merge_car_streams<R>(
     car_streams: Vec<CarStream<R>>,
 ) -> impl Stream<Item = std::io::Result<Block>>
 where
@@ -64,7 +64,7 @@ where
     futures::stream::iter(car_streams).flatten()
 }
 
-fn dedup_block_stream(
+pub fn dedup_block_stream(
     stream: impl Stream<Item = std::io::Result<Block>>,
 ) -> impl Stream<Item = std::io::Result<Block>> {
     let mut seen = CidHashSet::default();

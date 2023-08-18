@@ -37,7 +37,6 @@ mod lotus_json;
 mod message;
 mod message_pool;
 mod metrics;
-mod r#mod;
 mod networks;
 mod rpc;
 mod rpc_api;
@@ -50,10 +49,6 @@ mod statediff;
 mod test_utils;
 mod tool;
 mod utils;
-
-pub mod build {
-    pub use super::r#mod::*;
-}
 
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:

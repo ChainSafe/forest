@@ -36,7 +36,8 @@ HeightInfo {
 }
 ```
 
-- adding the bundle cid and url to the `ACTOR_BUNDLES` in the `src/mod.rs`.
+- adding the bundle cid and url to the `ACTOR_BUNDLES` in the
+  `src/networks/mod.rs`.
 
 ```rust
 ActorBundleInfo{
@@ -44,6 +45,8 @@ ActorBundleInfo{
     url: Url::parse("https://forest-continuous-integration.fra1.cdn.digitaloceanspaces.com/builtin-actors/calibnet/Shark.car").unwrap(),
 },
 ```
+
+- regenerate a merged actor bundle with `forest-tool state-migration actor-bundle` and replace `assets/actor_bundles.car.zst`
 
 ### Implement the migration
 

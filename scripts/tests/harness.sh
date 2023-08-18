@@ -5,6 +5,7 @@
 
 FOREST_PATH="forest"
 FOREST_CLI_PATH="forest-cli"
+FOREST_TOOL_PATH="forest-tool"
 
 TMP_DIR=$(mktemp --directory)
 LOG_DIRECTORY=$TMP_DIR/logs

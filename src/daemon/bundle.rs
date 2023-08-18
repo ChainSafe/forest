@@ -22,7 +22,7 @@ pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build::ACTOR_BUNDLES;
+    use crate::networks::ACTOR_BUNDLES;
     use ahash::HashSet;
     use pretty_assertions::assert_eq;
 

@@ -1,30 +1,32 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::build::{merge_car_readers, ActorBundleInfo, ACTOR_BUNDLES};
+use crate::cli::subcommands::car_cmd::merge_car_streams;
+use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
+use crate::utils::db::car_stream::CarStream;
 use crate::utils::net::global_http_client;
 use anyhow::{Context as _, Result};
 use async_compression::futures::write::ZstdEncoder;
 use cid::Cid;
 use clap::Subcommand;
 use futures::io::{BufReader, BufWriter};
-use futures::{AsyncRead, AsyncWriteExt, TryStreamExt};
+use futures::{AsyncRead, AsyncWriteExt, StreamExt, TryStreamExt};
 use fvm_ipld_car::{CarHeader, CarReader};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::pin::pin;
 use std::{fs, io};
-use tokio::task::JoinSet;
+
+const DEFAULT_BUNDLE_FILE_NAME: &str = "actor_bundles.car.zst";
 
 static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> =
     Lazy::new(|| env::temp_dir().join(".forest_actor_bundles/"));
 
 #[derive(Debug, Subcommand)]
 pub enum StateMigrationCommands {
-    /// Generate a merged actor bundle
+    /// Generate a merged actor bundle in `.car.zst` format under the current working directory.
     ActorBundle,
 }
 
@@ -39,47 +41,47 @@ impl StateMigrationCommands {
 }
 
 async fn generate_actor_bundle() -> Result<()> {
-    let mut tasks = JoinSet::new();
+    let mut tasks = Vec::with_capacity(ACTOR_BUNDLES.len());
     for ActorBundleInfo { manifest, url } in ACTOR_BUNDLES.iter() {
-        tasks.spawn(async move {
+        tasks.push(tokio::spawn(async move {
             download_bundle_if_needed(manifest, url)
                 .await
                 .with_context(|| format!("Failed to get {manifest}.car from {url}"))
-        });
+        }));
     }
 
-    let mut car_roots = vec![];
-    let mut car_readers = vec![];
-    while let Some(path) = tasks.join_next().await {
-        let car_reader = fvm_ipld_car::CarReader::new(futures::io::BufReader::new(
-            async_fs::File::open(path??).await?,
+    let mut car_streams = vec![];
+    for task in tasks {
+        let path = task.await??;
+        let car_stream = CarStream::new(tokio::io::BufReader::new(
+            tokio::fs::File::open(path).await?,
         ))
         .await?;
-        car_roots.extend_from_slice(car_reader.header.roots.as_slice());
-        car_readers.push(car_reader);
+        car_streams.push(car_stream);
     }
 
-    let car_writer = CarHeader::from(
-        car_readers
-            .iter()
-            .flat_map(|it| it.header.roots.iter())
-            .unique()
-            .cloned()
-            .collect::<Vec<_>>(),
-    );
+    let all_roots = car_streams
+        .iter()
+        .flat_map(|it| it.header.roots.iter())
+        .unique()
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let car_writer = CarHeader::from(all_roots);
 
     let mut zstd_encoder = ZstdEncoder::with_quality(
-        async_fs::File::create(Path::new(&env::var("OUT_DIR")?).join("actor_bundles.car.zst"))
-            .await?,
-        if cfg!(debug_assertions) {
-            async_compression::Level::Default
-        } else {
-            async_compression::Level::Precise(17)
-        },
+        async_fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
+        async_compression::Level::Precise(22),
     );
 
     car_writer
-        .write_stream_async(&mut zstd_encoder, &mut pin!(merge_car_readers(car_readers)))
+        .write_stream_async(
+            &mut zstd_encoder,
+            &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
+                let b = b.expect("There should be no invalid blocks");
+                (b.cid, b.data)
+            })),
+        )
         .await?;
 
     Ok(())

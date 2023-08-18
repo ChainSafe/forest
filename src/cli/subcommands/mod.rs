@@ -9,7 +9,7 @@
 mod archive_cmd;
 mod attach_cmd;
 mod auth_cmd;
-mod car_cmd;
+pub(crate) mod car_cmd;
 mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
@@ -17,7 +17,7 @@ mod fetch_params_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
-pub mod send_cmd;
+pub(crate) mod send_cmd;
 mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
