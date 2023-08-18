@@ -148,7 +148,7 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(self);
+        let path = find_config_path(&self.config);
         let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
@@ -255,8 +255,8 @@ impl ConfigPath {
     }
 }
 
-fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
-    if let Some(s) = &opts.config {
+pub fn find_config_path(config: &Option<String>) -> Option<ConfigPath> {
+    if let Some(s) = config {
         return Some(ConfigPath::Cli(PathBuf::from(s)));
     }
     if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {

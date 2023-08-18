@@ -21,6 +21,8 @@ use std::{pin::Pin, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
 
+// FIXME: Remove this function and hidden commands
+//        Tracking issue https://github.com/ChainSafe/forest/issues/3363
 /// Function used to bail on usage of migrated commands
 pub fn bail_moved_cmd(subcommand: &str, command: &str) -> anyhow::Result<()> {
     anyhow::bail!(

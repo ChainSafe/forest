@@ -31,17 +31,17 @@ function cov {
 cargo llvm-cov --workspace clean
 cargo llvm-cov --workspace --no-report
 cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch --aria2 --provider filecoin -s "$TMP_DIR"
+cov forest-tool snapshot fetch --chain calibnet --vendor filops -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.zst | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --halt-after-import --height=-200 --track-peak-rss
 cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
+cov forest-tool snapshot fetch --chain calibnet -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss --save-token "$TOKEN_PATH"
 cov forest-cli sync wait
 cov forest-cli sync status
 cov forest-cli --chain calibnet db gc
-cov forest-cli --chain calibnet db stats
+cov forest-tool db stats --chain calibnet
 cov forest-cli snapshot export
 cov forest-cli snapshot export
 cov forest-cli attach --exec 'showPeers()'

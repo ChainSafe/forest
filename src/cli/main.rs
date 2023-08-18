@@ -50,7 +50,9 @@ where
                     }
                     // Run command
                     match cmd {
-                        Subcommand::Fetch(cmd) => cmd.run(config).await,
+                        Subcommand::Fetch(_cmd) => {
+                            bail_moved_cmd("fetch-params", "forest-tool fetch-params")
+                        }
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
