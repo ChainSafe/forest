@@ -5,6 +5,6 @@
 
 set -euxo pipefail
 
-source "$(dirname "$0")/harness.sh"
+FOREST_TOOL_PATH="forest-tool"
 
 "$FOREST_TOOL_PATH" state-migration actor-bundle
