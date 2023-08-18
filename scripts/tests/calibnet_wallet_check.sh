@@ -71,6 +71,20 @@ done
 # wallet list should contain address two with transfered FIL amount
 $FOREST_CLI_PATH wallet list
 
+# wallet delete tests
+ADDR_DEL=$(forest-cli wallet new)
+
+echo $ADDR_DEL
+
+forest-cli wallet delete -a $ADDR_DEL
+
+WALLET_OUT=$(forest-cli wallet list)
+
+if [[ ${WALLET_OUT} == *"$ADDR_DEL"* ]];then
+    echo "Error: the created wallet address $ADDR_DEL was not deleted"; exit 1;
+fi
+
+
 # TODO: Uncomment this check once the send command is fixed
 # # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
 # # so we need to truncate units from `$FIL_AMT` for proper comparison
