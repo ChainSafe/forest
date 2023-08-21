@@ -11,12 +11,12 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::db::MemoryDB;
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
-use crate::utils::io::random_access::RandomAccessFile;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
+use positioned_io::RandomAccessFile;
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {

@@ -6,9 +6,8 @@ use std::{
     time::Duration,
 };
 
-use crate::chain_sync::SyncStage;
-use crate::json::cid::CidJson;
 use crate::rpc_client::*;
+use crate::{chain_sync::SyncStage, lotus_json::LotusJson};
 use cid::Cid;
 use clap::Subcommand;
 use ticker::Ticker;
@@ -136,7 +135,7 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                let response = sync_check_bad((CidJson(cid),), &config.client.rpc_token)
+                let response = sync_check_bad((LotusJson(cid),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
@@ -149,7 +148,7 @@ impl SyncCommands {
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                sync_mark_bad((CidJson(cid),), &config.client.rpc_token)
+                sync_mark_bad((LotusJson(cid),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("OK");

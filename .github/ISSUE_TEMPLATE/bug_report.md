@@ -10,7 +10,7 @@ assignees: ""
 
 <!-- A clear and concise description of what the bug is. -->
 
-**To Reproduce** Steps to reproduce the behavior:
+**To Reproduce** Steps to reproduce the behaviour:
 
 1. Go to '...'
 2. Run '....'
@@ -38,7 +38,6 @@ assignees: ""
 **Environment (please complete the following information):**
 
 - OS:
-- Rust version(e.g. `rustc --version`)
 - Branch/commit
 
 **Other information and links**

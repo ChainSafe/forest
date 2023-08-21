@@ -4,8 +4,8 @@
 use crate::shim::sector::SectorSize;
 use crate::utils::proofs_api::paramfetch::{get_params_default, SectorSizeOpt};
 
-use super::cli_error_and_die;
-use crate::cli::subcommands::Config;
+use super::read_config;
+use crate::cli::subcommands::cli_error_and_die;
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Args)]
@@ -21,10 +21,15 @@ pub struct FetchCommands {
     dry_run: bool,
     /// Size in bytes
     params_size: Option<String>,
+    /// Optional TOML file containing forest daemon configuration
+    #[arg(short, long)]
+    pub config: Option<String>,
 }
 
 impl FetchCommands {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<()> {
+        let config = read_config(&self.config, &None)?;
+
         let sizes = if self.all {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
