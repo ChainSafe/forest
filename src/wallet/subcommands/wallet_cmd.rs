@@ -150,7 +150,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Delete { address } => {
-                wallet_delete((address.to_string(),), &config.client.rpc_token)
+                wallet_delete((address.to_string(),), &token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("deleted {address}.");
