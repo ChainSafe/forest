@@ -28,14 +28,14 @@ forest_init
 # Amount to send to 2nd address (note: `send` command defaults to FIL if no units are specified)
 FIL_AMT="500 atto FIL"
 
-$FOREST_CLI_PATH wallet import preloaded_wallet.key
+$FOREST_WALLET_PATH import preloaded_wallet.key
 
 # The preloaded address
-ADDR_ONE=$($FOREST_CLI_PATH wallet list | tail -1 | cut -d ' ' -f1)
+ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
 
 sleep 5s
 
-$FOREST_CLI_PATH wallet export "$ADDR_ONE" > preloaded_wallet.test.key
+$FOREST_WALLET_PATH export "$ADDR_ONE" > preloaded_wallet.test.key
 if ! cmp -s preloaded_wallet.key preloaded_wallet.test.key; then
     echo ".key files should match"
     exit 1
@@ -46,14 +46,14 @@ wget -O metrics.log http://localhost:6116/metrics
 sleep 5s
 
 # Show balances
-$FOREST_CLI_PATH wallet list
+$FOREST_WALLET_PATH list
 
-: Create a new address to send FIL to
-ADDR_TWO=$($FOREST_CLI_PATH wallet new)
-: "$ADDR_TWO"
-$FOREST_CLI_PATH wallet set-default "$ADDR_ONE"
+echo "Creating a new address to send FIL to"
+ADDR_TWO=$($FOREST_WALLET_PATH new)
+echo "$ADDR_TWO"
+$FOREST_WALLET_PATH set-default "$ADDR_ONE"
 
-$FOREST_CLI_PATH wallet list
+$FOREST_WALLET_PATH list
 
 MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
 : "$MSG"
@@ -65,11 +65,11 @@ while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   
   : "Checking balance $i/20"
   sleep 30s
-  ADDR_TWO_BALANCE=$($FOREST_CLI_PATH wallet balance "$ADDR_TWO")
+  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO")
 done
 
 # wallet list should contain address two with transfered FIL amount
-$FOREST_CLI_PATH wallet list
+$FOREST_WALLET_PATH list
 
 # wallet delete tests
 ADDR_DEL=$(forest-cli wallet new)

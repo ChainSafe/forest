@@ -31,6 +31,17 @@
   internal settings from files to the database.
 - [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
   port from 1234 to 2345.
+- [#3336](https://github.com/ChainSafe/forest/pull/3336) Moved following
+  `forest-cli` subcommands to `forest-tool`
+  - `archive info`
+  - `fetch-params`
+  - `snapshot fetch`
+  - `snapshot validate`
+- [#3355](https://github.com/ChainSafe/forest/pull/3355) Moved commands
+  - `forest-cli db stats` to `forest-tool db stats`
+  - `forest-cli db clean` to `forest-tool db destroy`
+- [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
+  `forest-cli wallet` subcommands to `forest-wallet`
 
 ### Added
 
