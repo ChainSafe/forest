@@ -10,6 +10,7 @@ use crate::chain::store::Error;
 use crate::message::ChainMessage;
 use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::TraceAction;
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
@@ -270,7 +271,7 @@ where
             timestamp,
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
-        enable_tracing: bool,
+        enable_tracing: TraceAction,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
@@ -286,9 +287,7 @@ where
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
 
-            if enable_tracing {
-                context.enable_tracing();
-            }
+            enable_tracing.then(|| context.enable_tracing());
             let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
                 &context,
                 Arc::clone(&chain_index.db),
@@ -310,9 +309,8 @@ where
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
 
-            if enable_tracing {
-                context.enable_tracing();
-            }
+            enable_tracing.then(|| context.enable_tracing());
+
             let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
                 &engine,
                 &context,
@@ -406,7 +404,7 @@ where
         mut callback: Option<
             impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
-        enable_tracing: bool,
+        enable_tracing: TraceAction,
     ) -> Result<(Vec<Receipt>, Vec<InvocResult>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -434,9 +432,9 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                if enable_tracing {
+                enable_tracing.then(|| {
                     invoc_results.push(InvocResult::new(cid, msg.message(), &ret));
-                }
+                });
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -467,7 +465,7 @@ where
                     );
                 }
 
-                if enable_tracing {
+                if enable_tracing.is_accumulate() {
                     invoc_results.push(InvocResult::from_implicit(rew_msg.cid()?, &rew_msg, &ret));
                 }
 
@@ -479,7 +477,7 @@ where
 
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
-                if enable_tracing {
+                if enable_tracing.is_accumulate() {
                     invoc_results.push(InvocResult::from_implicit(
                         cron_msg.cid()?,
                         &cron_msg,

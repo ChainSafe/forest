@@ -16,6 +16,7 @@ use crate::rpc_client::chain_ops::*;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::machine::MultiEngine;
+use crate::shim::TraceAction;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
@@ -561,7 +562,10 @@ async fn print_computed_state(
         &MultiEngine::default(),
         tipset,
         NO_CALLBACK,
-        json, // enable traces if json flag is used
+        match json {
+            true => TraceAction::Accumulate,
+            false => TraceAction::Ignore,
+        }, // enable traces if json flag is used
     )?;
 
     if json {

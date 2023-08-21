@@ -11,6 +11,7 @@ use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::TraceAction;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::StateTree, version::NetworkVersion,
@@ -297,7 +298,7 @@ where
                 &crate::shim::machine::MultiEngine::default(),
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
-                false,
+                TraceAction::Ignore,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset, state));
