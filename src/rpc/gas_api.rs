@@ -4,7 +4,6 @@
 
 use crate::blocks::TipsetKeys;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use crate::json::address::json::AddressJson;
 use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::rpc_api::{
@@ -65,7 +64,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_premium<DB>(
 where
     DB: Blockstore,
 {
-    let (nblocksincl, AddressJson(_sender), _gas_limit, _) = params;
+    let (nblocksincl, _sender, _gas_limit, _) = params;
     estimate_gas_premium::<DB>(&data, nblocksincl)
         .await
         .map(|n| TokenAmount::to_string(&n))

@@ -10,7 +10,6 @@ use std::{
 };
 
 use crate::ipld::json::{IpldJson, IpldJsonRef};
-use crate::json::cid::CidJson;
 use crate::shim::{
     address::Address,
     state_tree::{ActorState, StateTree},
@@ -32,7 +31,8 @@ use similar::{ChangeTag, TextDiff};
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {
-    code: CidJson,
+    #[serde(with = "crate::lotus_json")]
+    code: Cid,
     sequence: u64,
     balance: String,
     state: IpldJson,
@@ -47,7 +47,7 @@ fn actor_to_resolved(
         resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
     ActorStateResolved {
         state: IpldJson(resolved),
-        code: CidJson(actor.code),
+        code: actor.code,
         balance: actor.balance.to_string(),
         sequence: actor.sequence,
     }

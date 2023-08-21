@@ -3,7 +3,7 @@
 #![allow(clippy::unused_async)]
 
 use crate::chain_sync::SyncState;
-use crate::json::cid::CidJson;
+use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     data_types::{RPCState, RPCSyncState},
     sync_api::*,
@@ -20,7 +20,7 @@ pub(in crate::rpc) async fn sync_check_bad<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(cid),) = params;
+    let (LotusJson(cid),) = params;
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
@@ -32,7 +32,7 @@ pub(in crate::rpc) async fn sync_mark_bad<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(cid),) = params;
+    let (LotusJson(cid),) = params;
     data.bad_blocks
         .put(cid, "Marked bad manually through RPC API".to_string());
     Ok(())
@@ -69,6 +69,7 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
+    use cid::Cid;
     use serde_json::from_str;
     use tokio::{sync::RwLock, task::JoinSet};
 
@@ -154,19 +155,21 @@ mod tests {
     async fn set_check_bad() {
         let (state, _) = state_setup();
 
-        let cid: CidJson =
-            from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
-                .unwrap();
-        match sync_check_bad(Data(state.clone()), Params((cid.clone(),))).await {
+        let cid = from_str::<LotusJson<Cid>>(
+            r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#,
+        )
+        .unwrap()
+        .into_inner();
+        match sync_check_bad(Data(state.clone()), Params((cid.into(),))).await {
             Ok(reason) => assert_eq!(reason, ""),
             Err(e) => std::panic::panic_any(e),
         }
 
         // Mark that block as bad manually and check again to verify
-        assert!(sync_mark_bad(Data(state.clone()), Params((cid.clone(),)))
+        assert!(sync_mark_bad(Data(state.clone()), Params((cid.into(),)))
             .await
             .is_ok());
-        match sync_check_bad(Data(state), Params((cid,))).await {
+        match sync_check_bad(Data(state), Params((LotusJson(cid),))).await {
             Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
             Err(e) => std::panic::panic_any(e),
         }
