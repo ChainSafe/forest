@@ -226,6 +226,37 @@ mod tests {
     }
 
     #[quickcheck]
+    fn check_entry(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
+        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+        // Insert key half of the time to ensure equal probability of entry being occupied or vacant; occasionally the key will already be present when quickcheck generates the maps, so we also remove the key with 50% probability.
+        if insert {
+            cid_hash_map.insert(cid, 0);
+            hash_map.insert(cid, 0);
+        } else {
+            cid_hash_map.remove(cid);
+            hash_map.remove(&cid);
+        }
+        match cid_hash_map.entry(cid) {
+            CidHashMapEntry::Occupied(occupied) => {
+                assert_eq!(occupied.get(), hash_map.get(&cid).unwrap());
+            }
+            CidHashMapEntry::Vacant(_) => {
+                assert_eq!(cid_hash_map.get(cid), hash_map.get(&cid));
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn keys(cid_vector: Vec<(Cid, u64)>) {
+        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+        // Hash maps are not required to be ordered, but it is important for vectors, so sort the vectors of keys before comparing.
+        assert_eq!(
+            cid_hash_map.keys().collect::<Vec<Cid>>().sort(),
+            hash_map.keys().cloned().collect::<Vec<Cid>>().sort()
+        );
+    }
+
+    #[quickcheck]
     fn cidhashmap_to_hashmap_to_cidhashmap(cid_vector: Vec<(Cid, u64)>) {
         let (cid_hash_map, _) = generate_hash_maps(cid_vector);
         let hash_map: HashMap<Cid, u64> = cid_hash_map.clone().into_iter().collect();
