@@ -68,6 +68,10 @@ impl NetworkChain {
     pub fn is_devnet(&self) -> bool {
         matches!(self, NetworkChain::Devnet(_))
     }
+
+    pub fn is_testnet(&self) -> bool {
+        !matches!(self, NetworkChain::Mainnet)
+    }
 }
 
 /// Defines the meaningful heights of the protocol.
@@ -295,7 +299,7 @@ impl ChainConfig {
     }
 
     pub fn is_testnet(&self) -> bool {
-        !matches!(self.network, NetworkChain::Mainnet)
+        self.network.is_testnet()
     }
 }
 

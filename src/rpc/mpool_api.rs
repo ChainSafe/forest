@@ -5,7 +5,6 @@
 use std::convert::TryFrom;
 
 use crate::blocks::TipsetKeys;
-use crate::json::cid::{vec::CidJsonVec, CidJson};
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc_api::{data_types::RPCState, mpool_api::*};
@@ -24,7 +23,7 @@ pub(in crate::rpc) async fn mpool_pending<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (CidJsonVec(cid_vec),) = params;
+    let (LotusJson(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec.into());
     let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
 
@@ -86,7 +85,7 @@ where
 {
     let cid = data.mpool.as_ref().push(signed_message).await?;
 
-    Ok(CidJson(cid))
+    Ok(cid.into())
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::json::cid::CidJson;
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::chain_ops::*;
 use anyhow::bail;
@@ -60,17 +59,17 @@ impl ChainCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => print_rpc_res_pretty(
-                chain_get_block((CidJson(*cid),), &config.client.rpc_token).await,
+                chain_get_block(((*cid).into(),), &config.client.rpc_token).await,
             ),
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
             }
             Self::Head => print_rpc_res_cids(chain_head(&config.client.rpc_token).await),
             Self::Message { cid } => print_rpc_res_pretty(
-                chain_get_message((CidJson(*cid),), &config.client.rpc_token).await,
+                chain_get_message(((*cid).into(),), &config.client.rpc_token).await,
             ),
             Self::ReadObj { cid } => {
-                print_rpc_res(chain_read_obj((CidJson(*cid),), &config.client.rpc_token).await)
+                print_rpc_res(chain_read_obj(((*cid).into(),), &config.client.rpc_token).await)
             }
             Self::SetHead {
                 cids,
