@@ -17,4 +17,9 @@ impl CidHashSet {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Checks whether or not the set contains a given [`Cid`].
+    pub fn contains(&self, cid: Cid) -> bool {
+        self.0.contains_key(cid)
+    }
 }
