@@ -35,7 +35,6 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
-use crate::utils::io::random_access::RandomAccessFile;
 use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
     version::FOREST_VERSION_STRING, RetryArgs,
@@ -45,6 +44,7 @@ use bundle::load_actor_bundles;
 use dialoguer::{console::Term, theme::ColorfulTheme};
 use futures::{select, Future, FutureExt, TryStreamExt};
 use lazy_static::lazy_static;
+use positioned_io::RandomAccessFile;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::ffi::OsStr;
