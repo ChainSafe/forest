@@ -215,7 +215,7 @@ async fn do_export(
     let output_path =
         build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
 
-    if output_path.exists() && !force {
+    if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())
             .with_prompt(format!(
                 "{} will be overwritten. Continue?",
