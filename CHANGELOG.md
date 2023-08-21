@@ -62,8 +62,6 @@
   walking performance.
 - [#3178](https://github.com/ChainSafe/forest/issues/3178): Removed inaccurate
   progress log ETA; now only the elapsed time is displayed.
-- [#3341](https://github.com/ChainSafe/forest/issues/3341): Bumped positioned-io
-  and removed redundant abstractions.
 
 ### Removed
 
