@@ -25,7 +25,7 @@ pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
-        #[arg(short, default_value = ".", verbatim_doc_comment)]
+        #[arg(short, long, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
         /// Skip creating the checksum file.
         #[arg(long)]
@@ -72,7 +72,7 @@ pub enum SnapshotCommands {
         /// Will reuse the source name (with new extension) if pointed to a
         /// directory.
         #[arg(short, long, default_value = ".")]
-        output: PathBuf,
+        output_path: PathBuf,
         #[arg(long, default_value_t = 3)]
         compression_level: u16,
         /// End zstd frames after they exceed this length
@@ -184,16 +184,16 @@ impl SnapshotCommands {
             }
             Self::Compress {
                 source,
-                output,
+                output_path,
                 compression_level,
                 frame_size,
                 force,
             } => {
                 // If input is 'snapshot.car.zst' and output is '.', set the
                 // destination to './snapshot.forest.car.zst'.
-                let destination = match output.is_dir() {
+                let destination = match output_path.is_dir() {
                     true => {
-                        let mut destination = output;
+                        let mut destination = output_path;
                         destination.push(source.clone());
                         while let Some(ext) = destination.extension() {
                             if !(ext == "zst" || ext == "car" || ext == "forest") {
@@ -203,7 +203,7 @@ impl SnapshotCommands {
                         }
                         destination.with_extension("forest.car.zst")
                     }
-                    false => output.clone(),
+                    false => output_path.clone(),
                 };
 
                 if !force && destination.exists() {
