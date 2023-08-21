@@ -250,10 +250,11 @@ mod tests {
     fn keys(cid_vector: Vec<(Cid, u64)>) {
         let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
         // Hash maps are not required to be ordered, but it is important for vectors, so sort the vectors of keys before comparing.
-        assert_eq!(
-            cid_hash_map.keys().collect::<Vec<Cid>>().sort(),
-            hash_map.keys().cloned().collect::<Vec<Cid>>().sort()
-        );
+        let mut cid_hash_map = cid_hash_map.keys().collect::<Vec<Cid>>();
+        cid_hash_map.sort();
+        let mut hash_map = hash_map.keys().cloned().collect::<Vec<Cid>>();
+        hash_map.sort();
+        assert_eq!(cid_hash_map, hash_map);
     }
 
     #[quickcheck]
