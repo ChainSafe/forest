@@ -75,7 +75,7 @@ impl<WriterT> ManyCar<WriterT> {
             .context("ManyCar store doesn't have a heaviest tipset")
     }
 
-    /// Number of readonly CARs
+    /// Number of read-only CARs
     pub fn read_only_len(&self) -> usize {
         self.read_only.len()
     }
