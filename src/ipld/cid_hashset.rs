@@ -19,6 +19,7 @@ impl CidHashSet {
     }
 
     /// Checks whether or not the set contains a given [`Cid`].
+    #[allow(dead_code)]
     pub fn contains(&self, cid: Cid) -> bool {
         self.0.contains_key(cid)
     }
