@@ -244,14 +244,43 @@ mod tests {
     use crate::{shim::crypto::SignatureType, KeyStore};
 
     #[tokio::test]
-    async fn wallet_delete() {
+    async fn wallet_delete_existing_key() {
         let key = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
-
         let addr = format!("wallet-{}", key.address);
         let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
         keystore.put(&addr, key.key_info.clone()).unwrap();
-
-        keystore.remove(&addr).unwrap();
+        crate::key_management::remove_key(&key.address, &mut keystore).unwrap();
         assert!(keystore.get(&addr).is_err());
+    }
+
+    #[tokio::test]
+    async fn wallet_delete_empty_keystore() {
+        let key = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
+        let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
+        assert!(crate::key_management::remove_key(&key.address, &mut keystore).is_err());
+    }
+
+    #[tokio::test]
+    async fn wallet_delete_non_existent_key() {
+        let key1 = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
+        let key2 = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
+        let addr1 = format!("wallet-{}", key1.address);
+        let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
+        keystore.put(&addr1, key1.key_info.clone()).unwrap();
+        assert!(crate::key_management::remove_key(&key2.address, &mut keystore).is_err());
+    }
+
+    #[tokio::test]
+    async fn wallet_delete_default_key() {
+        let key1 = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
+        let key2 = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
+        let addr1 = format!("wallet-{}", key1.address);
+        let addr2 = format!("wallet-{}", key2.address);
+        let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
+        keystore.put(&addr1, key1.key_info.clone()).unwrap();
+        keystore.put(&addr2, key2.key_info.clone()).unwrap();
+        keystore.put("default", key2.key_info.clone()).unwrap();
+        crate::key_management::remove_key(&key2.address, &mut keystore).unwrap();
+        assert!(crate::key_management::get_default(&keystore).unwrap() == None);
     }
 }
