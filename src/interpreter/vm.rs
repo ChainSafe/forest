@@ -296,7 +296,7 @@ where
             impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
         enable_tracing: TraceAction,
-    ) -> Result<(Vec<Receipt>, Vec<trace::InvocResult>), anyhow::Error> {
+    ) -> Result<(Vec<Receipt>, Vec<trace::TraceMessageInvocation>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
         let mut invoc_results = Vec::new();
@@ -324,7 +324,11 @@ where
                 receipts.push(msg_receipt.clone());
 
                 enable_tracing.then(|| {
-                    invoc_results.push(trace::InvocResult::new(cid, msg.message(), &ret));
+                    invoc_results.push(trace::TraceMessageInvocation::new(
+                        cid,
+                        msg.message(),
+                        &ret,
+                    ));
                 });
 
                 // Add processed Cid to set of processed messages
@@ -357,7 +361,7 @@ where
                 }
 
                 if enable_tracing.is_accumulate() {
-                    invoc_results.push(trace::InvocResult::from_implicit(
+                    invoc_results.push(trace::TraceMessageInvocation::from_implicit(
                         rew_msg.cid()?,
                         &rew_msg,
                         &ret,
@@ -373,7 +377,7 @@ where
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
                 if enable_tracing.is_accumulate() {
-                    invoc_results.push(trace::InvocResult::from_implicit(
+                    invoc_results.push(trace::TraceMessageInvocation::from_implicit(
                         cron_msg.cid()?,
                         &cron_msg,
                         &ret,
@@ -579,21 +583,21 @@ pub mod trace {
 
     #[derive(Default, Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
-    pub struct ComputeStateOutput {
+    pub struct TraceComputeState {
         #[serde(with = "crate::lotus_json")]
         root: Cid,
-        trace: Vec<InvocResult>,
+        trace: Vec<TraceMessageInvocation>,
     }
 
-    impl ComputeStateOutput {
-        pub fn new(root: Cid, trace: Vec<InvocResult>) -> Self {
+    impl TraceComputeState {
+        pub fn new(root: Cid, trace: Vec<TraceMessageInvocation>) -> Self {
             Self { root, trace }
         }
     }
 
     #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
     #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-    struct MessageGasCost {
+    struct TraceMessageGasCost {
         #[serde(with = "crate::lotus_json")]
         message: Option<Cid>,
         #[serde(with = "crate::lotus_json")]
@@ -612,7 +616,7 @@ pub mod trace {
         total_cost: TokenAmount,
     }
 
-    impl MessageGasCost {
+    impl TraceMessageGasCost {
         fn new(msg: &Message, ret: &ApplyRet) -> Self {
             Self {
                 message: Some(msg.cid().unwrap()),
@@ -637,7 +641,7 @@ pub mod trace {
 
     #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
-    pub struct InvocResult {
+    pub struct TraceMessageInvocation {
         #[serde(with = "crate::lotus_json")]
         msg_cid: Cid,
         #[serde(with = "crate::lotus_json")]
@@ -645,20 +649,20 @@ pub mod trace {
         #[serde(with = "crate::lotus_json")]
         #[serde(rename = "MsgRct")]
         msg_receipt: Receipt,
-        gas_cost: MessageGasCost,
+        gas_cost: TraceMessageGasCost,
         execution_trace: Option<Trace>,
         error: String,
         duration: u64,
     }
 
-    impl InvocResult {
+    impl TraceMessageInvocation {
         pub(super) fn new(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
             let trace = build_exec_trace(ret.exec_trace());
             Self {
                 msg_cid,
                 msg: msg.clone(),
                 msg_receipt: ret.msg_receipt(),
-                gas_cost: MessageGasCost::new(msg, ret),
+                gas_cost: TraceMessageGasCost::new(msg, ret),
                 execution_trace: trace,
                 error: ret.failure_info().unwrap_or_default(),
                 duration: 0,
@@ -667,7 +671,7 @@ pub mod trace {
 
         pub(super) fn from_implicit(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
             Self {
-                gas_cost: MessageGasCost::from_implicit(msg, ret),
+                gas_cost: TraceMessageGasCost::from_implicit(msg, ret),
                 ..Self::new(msg_cid, msg, ret)
             }
         }

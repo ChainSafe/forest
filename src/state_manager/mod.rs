@@ -615,7 +615,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: TraceAction,
-    ) -> Result<(CidPair, crate::interpreter::trace::ComputeStateOutput), Error>
+    ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -633,7 +633,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: TraceAction,
-    ) -> Result<(CidPair, crate::interpreter::trace::ComputeStateOutput), Error>
+    ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -1230,7 +1230,7 @@ pub fn apply_block_messages<DB, CB>(
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
     enable_tracing: TraceAction,
-) -> Result<(CidPair, crate::interpreter::trace::ComputeStateOutput), anyhow::Error>
+) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
@@ -1251,7 +1251,7 @@ where
         let message_receipts = tipset.min_ticket_block().message_receipts();
         return Ok((
             (*tipset.parent_state(), *message_receipts),
-            crate::interpreter::trace::ComputeStateOutput::default(),
+            crate::interpreter::trace::TraceComputeState::default(),
         ));
     }
 
@@ -1326,6 +1326,6 @@ where
 
     Ok((
         (state_root, receipt_root),
-        crate::interpreter::trace::ComputeStateOutput::new(state_root, trace),
+        crate::interpreter::trace::TraceComputeState::new(state_root, trace),
     ))
 }
