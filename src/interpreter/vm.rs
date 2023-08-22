@@ -8,10 +8,10 @@ use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
+use crate::interpreter::trace::TraceAction;
 use crate::message::ChainMessage;
 use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::shim::TraceAction;
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
@@ -491,8 +491,73 @@ where
     }
 }
 
+/// See documentation on [`trace::TraceAction`].
 pub mod trace {
     use super::*;
+
+    /// Several operations in the FVM can be "traced", e.g
+    /// - [`crate::interpreter::VM::apply_block_messages`]
+    ///
+    /// This involves _logical tracing_, where e.g message executions are accumulated
+    /// in-code, for displaying to the user e.g [`crate::cli::subcommands::snapshot_cmd::SnapshotCommands::ComputeState`]
+    ///
+    /// This enum indicates whether trace should be accumulated or not.
+    ///
+    /// # API Hazard
+    /// This needs careful redesign: <https://github.com/ChainSafe/forest/issues/3405>
+    #[derive(Default, Clone, Copy)]
+    pub enum TraceAction {
+        /// Collect trace for the givven operation
+        Accumulate,
+        /// Do not collect trace
+        #[default]
+        Ignore,
+    }
+
+    impl TraceAction {
+        /// Perform `f` if tracing should happen.
+        pub fn then<T>(&self, f: impl FnOnce() -> T) -> Option<T> {
+            match self {
+                TraceAction::Accumulate => Some(f()),
+                TraceAction::Ignore => None,
+            }
+        }
+        /// Should tracing be collected?
+        pub fn is_accumulate(&self) -> bool {
+            matches!(self, TraceAction::Accumulate)
+        }
+    }
+
+    fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
+        let mut trace_iter = exec_trace.into_iter();
+        let mut initial_gas_charges = Vec::new();
+        loop {
+            match trace_iter.next() {
+                Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
+                Some(ExecutionEvent_v3::Call {
+                    from,
+                    to,
+                    method,
+                    params,
+                    value,
+                }) => {
+                    break build_lotus_trace(
+                        from,
+                        to.into(),
+                        method,
+                        params.clone(),
+                        value.into(),
+                        &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
+                    )
+                    .ok()
+                }
+                // Skip anything unexpected.
+                Some(_) => {}
+                // Return none if we don't even have a call.
+                None => break None,
+            }
+        }
+    }
 
     #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
     #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -572,37 +637,6 @@ pub mod trace {
             Self {
                 gas_cost: MessageGasCost::from_implicit(msg, ret),
                 ..Self::new(msg_cid, msg, ret)
-            }
-        }
-    }
-
-    fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
-        let mut trace_iter = exec_trace.into_iter();
-        let mut initial_gas_charges = Vec::new();
-        loop {
-            match trace_iter.next() {
-                Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
-                Some(ExecutionEvent_v3::Call {
-                    from,
-                    to,
-                    method,
-                    params,
-                    value,
-                }) => {
-                    break build_lotus_trace(
-                        from,
-                        to.into(),
-                        method,
-                        params.clone(),
-                        value.into(),
-                        &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
-                    )
-                    .ok()
-                }
-                // Skip anything unexpected.
-                Some(_) => {}
-                // Return none if we don't even have a call.
-                None => break None,
             }
         }
     }

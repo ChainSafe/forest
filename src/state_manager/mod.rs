@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-use crate::shim::TraceAction;
+use crate::interpreter::trace::TraceAction;
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
 use rayon::prelude::ParallelBridge;

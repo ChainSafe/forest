@@ -5,13 +5,13 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::fil_cns;
+use crate::interpreter::trace::TraceAction;
 use crate::interpreter::BlockMessages;
 use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::TraceAction;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::StateTree, version::NetworkVersion,
