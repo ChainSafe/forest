@@ -57,8 +57,6 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
-type Trace = Vec<crate::interpreter::trace::InvocResult>;
-
 /// Structure to store the execution trace of a state transition.
 /// Useful for debugging purposes.
 #[derive(Default, Serialize, Deserialize)]
@@ -66,11 +64,11 @@ type Trace = Vec<crate::interpreter::trace::InvocResult>;
 pub struct ComputeStateOutput {
     #[serde(with = "crate::lotus_json")]
     root: Cid,
-    trace: Trace,
+    trace: Vec<crate::interpreter::trace::InvocResult>,
 }
 
 impl ComputeStateOutput {
-    pub fn new(root: Cid, trace: Trace) -> Self {
+    pub fn new(root: Cid, trace: Vec<crate::interpreter::trace::InvocResult>) -> Self {
         Self { root, trace }
     }
 }
