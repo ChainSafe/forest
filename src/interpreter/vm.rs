@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use self::trace::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
@@ -70,119 +71,6 @@ pub struct BlockMessages {
     pub miner: Address,
     pub messages: Vec<ChainMessage>,
     pub win_count: i64,
-}
-
-#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct MessageGasCost {
-    #[serde(with = "crate::lotus_json")]
-    pub message: Option<Cid>,
-    #[serde(with = "crate::lotus_json")]
-    pub gas_used: BigInt,
-    #[serde(with = "crate::lotus_json")]
-    pub base_fee_burn: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub over_estimation_burn: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub miner_penalty: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub miner_tip: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub refund: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub total_cost: TokenAmount,
-}
-
-impl MessageGasCost {
-    pub fn new(msg: &Message, ret: &ApplyRet) -> Self {
-        Self {
-            message: Some(msg.cid().unwrap()),
-            gas_used: BigInt::from(ret.msg_receipt().gas_used()),
-            base_fee_burn: ret.base_fee_burn(),
-            over_estimation_burn: ret.over_estimation_burn(),
-            miner_penalty: ret.penalty(),
-            miner_tip: ret.miner_tip(),
-            refund: ret.refund(),
-            total_cost: msg.required_funds() - &ret.refund(),
-        }
-    }
-
-    pub fn from_implicit(msg: &Message, ret: &ApplyRet) -> Self {
-        Self {
-            message: None,
-            gas_used: BigInt::default(),
-            ..Self::new(msg, ret)
-        }
-    }
-}
-
-#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
-    #[serde(with = "crate::lotus_json")]
-    pub msg_cid: Cid,
-    #[serde(with = "crate::lotus_json")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    #[serde(rename = "MsgRct")]
-    pub msg_receipt: Receipt,
-    pub gas_cost: MessageGasCost,
-    pub execution_trace: Option<Trace>,
-    pub error: String,
-    pub duration: u64,
-}
-
-impl InvocResult {
-    pub fn new(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
-        let trace = build_exec_trace(ret.exec_trace());
-        Self {
-            msg_cid,
-            msg: msg.clone(),
-            msg_receipt: ret.msg_receipt(),
-            gas_cost: MessageGasCost::new(msg, ret),
-            execution_trace: trace,
-            error: ret.failure_info().unwrap_or_default(),
-            duration: 0,
-        }
-    }
-
-    pub fn from_implicit(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
-        Self {
-            gas_cost: MessageGasCost::from_implicit(msg, ret),
-            ..Self::new(msg_cid, msg, ret)
-        }
-    }
-}
-
-fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
-    let mut trace_iter = exec_trace.into_iter();
-    let mut initial_gas_charges = Vec::new();
-    loop {
-        match trace_iter.next() {
-            Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
-            Some(ExecutionEvent_v3::Call {
-                from,
-                to,
-                method,
-                params,
-                value,
-            }) => {
-                break build_lotus_trace(
-                    from,
-                    to.into(),
-                    method,
-                    params.clone(),
-                    value.into(),
-                    &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
-                )
-                .ok()
-            }
-            // Skip anything unexpected.
-            Some(_) => {}
-            // Return none if we don't even have a call.
-            None => break None,
-        }
-    }
 }
 
 impl BlockMessages {
@@ -600,5 +488,122 @@ where
             gas_premium: Default::default(),
         };
         Ok(Some(rew_msg.into()))
+    }
+}
+
+pub mod trace {
+    use super::*;
+
+    #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+    #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+    pub struct MessageGasCost {
+        #[serde(with = "crate::lotus_json")]
+        pub message: Option<Cid>,
+        #[serde(with = "crate::lotus_json")]
+        pub gas_used: BigInt,
+        #[serde(with = "crate::lotus_json")]
+        pub base_fee_burn: TokenAmount,
+        #[serde(with = "crate::lotus_json")]
+        pub over_estimation_burn: TokenAmount,
+        #[serde(with = "crate::lotus_json")]
+        pub miner_penalty: TokenAmount,
+        #[serde(with = "crate::lotus_json")]
+        pub miner_tip: TokenAmount,
+        #[serde(with = "crate::lotus_json")]
+        pub refund: TokenAmount,
+        #[serde(with = "crate::lotus_json")]
+        pub total_cost: TokenAmount,
+    }
+
+    impl MessageGasCost {
+        pub fn new(msg: &Message, ret: &ApplyRet) -> Self {
+            Self {
+                message: Some(msg.cid().unwrap()),
+                gas_used: BigInt::from(ret.msg_receipt().gas_used()),
+                base_fee_burn: ret.base_fee_burn(),
+                over_estimation_burn: ret.over_estimation_burn(),
+                miner_penalty: ret.penalty(),
+                miner_tip: ret.miner_tip(),
+                refund: ret.refund(),
+                total_cost: msg.required_funds() - &ret.refund(),
+            }
+        }
+
+        pub fn from_implicit(msg: &Message, ret: &ApplyRet) -> Self {
+            Self {
+                message: None,
+                gas_used: BigInt::default(),
+                ..Self::new(msg, ret)
+            }
+        }
+    }
+
+    #[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct InvocResult {
+        #[serde(with = "crate::lotus_json")]
+        pub msg_cid: Cid,
+        #[serde(with = "crate::lotus_json")]
+        pub msg: Message,
+        #[serde(with = "crate::lotus_json")]
+        #[serde(rename = "MsgRct")]
+        pub msg_receipt: Receipt,
+        pub gas_cost: MessageGasCost,
+        pub execution_trace: Option<Trace>,
+        pub error: String,
+        pub duration: u64,
+    }
+
+    impl InvocResult {
+        pub fn new(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
+            let trace = build_exec_trace(ret.exec_trace());
+            Self {
+                msg_cid,
+                msg: msg.clone(),
+                msg_receipt: ret.msg_receipt(),
+                gas_cost: MessageGasCost::new(msg, ret),
+                execution_trace: trace,
+                error: ret.failure_info().unwrap_or_default(),
+                duration: 0,
+            }
+        }
+
+        pub fn from_implicit(msg_cid: Cid, msg: &Message, ret: &ApplyRet) -> Self {
+            Self {
+                gas_cost: MessageGasCost::from_implicit(msg, ret),
+                ..Self::new(msg_cid, msg, ret)
+            }
+        }
+    }
+
+    fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
+        let mut trace_iter = exec_trace.into_iter();
+        let mut initial_gas_charges = Vec::new();
+        loop {
+            match trace_iter.next() {
+                Some(gc @ ExecutionEvent_v3::GasCharge(_)) => initial_gas_charges.push(gc),
+                Some(ExecutionEvent_v3::Call {
+                    from,
+                    to,
+                    method,
+                    params,
+                    value,
+                }) => {
+                    break build_lotus_trace(
+                        from,
+                        to.into(),
+                        method,
+                        params.clone(),
+                        value.into(),
+                        &mut initial_gas_charges.into_iter().chain(&mut trace_iter),
+                    )
+                    .ok()
+                }
+                // Skip anything unexpected.
+                Some(_) => {}
+                // Return none if we don't even have a call.
+                None => break None,
+            }
+        }
     }
 }

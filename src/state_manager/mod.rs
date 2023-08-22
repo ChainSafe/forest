@@ -57,7 +57,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
-type Trace = Vec<crate::interpreter::InvocResult>;
+type Trace = Vec<crate::interpreter::trace::InvocResult>;
 
 /// Structure to store the execution trace of a state transition.
 /// Useful for debugging purposes.
