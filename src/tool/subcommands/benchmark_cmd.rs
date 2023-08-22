@@ -6,7 +6,7 @@ use crate::chain::{
     ChainEpochDelta,
 };
 use crate::db::car::ManyCar;
-use crate::ipld::{stream_chain, stream_graph};
+use crate::ipld::{should_save_block_to_snapshot, stream_chain, stream_graph, CidHashSet};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{Block, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -14,16 +14,21 @@ use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
 use cid::Cid;
 use clap::Subcommand;
-use futures::{StreamExt, TryStreamExt};
+use futures::{FutureExt, StreamExt, TryFutureExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
+use parallel_stream::IntoParallelStream;
+use parking_lot::{Mutex, RwLock};
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::{
     fs::File,
     io::{AsyncWrite, AsyncWriteExt, BufReader},
+    task,
 };
 
 #[derive(Debug, Subcommand)]
@@ -42,6 +47,12 @@ pub enum BenchmarkCommands {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
+    },
+    /// Unordered traversal of the Filecoin graph
+    UnorderedGraphTraversal {
+        /// Snapshot input file (`.car.`, `.car.zst`, `.forest.car.zst`)
+        #[arg(required = true)]
+        snapshot_file: Vec<PathBuf>,
     },
     /// Encoding of a `.forest.car.zst` file
     ForestEncoding {
@@ -85,6 +96,9 @@ impl BenchmarkCommands {
             },
             Self::GraphTraversal { snapshot_files } => {
                 benchmark_graph_traversal(snapshot_files).await
+            }
+            Self::UnorderedGraphTraversal { snapshot_file } => {
+                benchmark_parallel_car_streaming_inspect(snapshot_file).await
             }
             Self::ForestEncoding {
                 snapshot_file,
@@ -135,14 +149,76 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
             .and_then(CarStream::new)
             .try_flatten(),
     );
+    let mut seen = CidHashSet::default();
     while let Some(block) = s.try_next().await? {
         let block: Block = block;
         if block.cid.codec() == DAG_CBOR {
             let cid_vec: Vec<Cid> = extract_cids(&block.data)?;
-            let _ = cid_vec.iter().unique().count();
+            for cid in cid_vec {
+                if !should_save_block_to_snapshot(cid) {
+                    continue;
+                }
+                seen.insert(cid);
+            }
         }
         sink.write_all(&block.data).await?
     }
+    Ok(())
+}
+
+// Concatenate a set of CAR files and measure how quickly we can stream the
+// blocks, while inspecting them in parallel.
+// NOTE: when testing with `cargo forest-tool benchmark unordered-graph-traversal forest_snapshot_mainnet_2023-05-31_height_2908403.car`
+// there is a performance dip starting around 60+GB processed, that later fixes itself. I can see
+// this pattern for normal car streaming too of course. Would be nice to understand what's going on.
+async fn benchmark_parallel_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
+    let mut sink = indicatif_sink("traversed");
+    let mut s = Box::pin(
+        futures::stream::iter(input)
+            .then(File::open)
+            .map_ok(BufReader::new)
+            .and_then(CarStream::new)
+            .try_flatten(),
+    );
+
+    let (limit_sender, limit_receiver) = flume::bounded(num_cpus::get() * 5);
+    let (sender, receiver) = flume::bounded(4096);
+
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+
+    let seen_cloned = seen.clone();
+    let join = task::spawn(async move {
+        while let Ok(cid_vec) = receiver.recv_async().await {
+            let mut seen = seen_cloned.lock();
+            for cid in cid_vec {
+                if !should_save_block_to_snapshot(cid) {
+                    continue;
+                }
+                seen.insert(cid);
+            }
+        }
+    });
+
+    while let Some(block) = s.try_next().await? {
+        limit_sender.send(())?;
+        sink.write_all(&block.data).await.unwrap();
+        let sender = sender.clone();
+        let limit_receiver = limit_receiver.clone();
+        task::spawn(async move {
+            if block.cid.codec() == DAG_CBOR {
+                let cid_vec: Vec<Cid> = extract_cids(&block.data).unwrap();
+                sender.send_async(cid_vec).await.unwrap();
+            }
+            limit_receiver.recv_async().await.unwrap();
+        });
+    }
+
+    drop(sender);
+
+    join.await?;
+
+    println!("{}", seen.lock().len());
+
     Ok(())
 }
 
