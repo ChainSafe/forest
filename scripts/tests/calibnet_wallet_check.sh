@@ -72,12 +72,16 @@ done
 $FOREST_WALLET_PATH list
 
 # wallet delete tests
-ADDR_DEL=$(forest-cli wallet new)
+ADDR_DEL=$(forest-wallet new)
 
-forest-cli wallet delete -a "$ADDR_DEL"
+forest-wallet delete "$ADDR_DEL"
 
 # Validate that the wallet no longer exists.
-forest-cli wallet list | grep --null-data --invert-match "${$ADDR_DEL}"
+WALLET_OUT=$(forest-wallet list)
+
+if [[ ${WALLET_OUT} == *"$ADDR_DEL"* ]];then
+    echo "Error: the created wallet address $ADDR_DEL was not deleted"; exit 1;
+fi
 
 # TODO: Uncomment this check once the send command is fixed
 # # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
