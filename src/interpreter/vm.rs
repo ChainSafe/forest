@@ -491,7 +491,10 @@ where
     }
 }
 
-/// See documentation on [`trace::TraceAction`].
+/// Containers and helpers for user-readable FVM tracing.
+/// See the appropriate fields on [`ApplyRet`](https://docs.rs/fvm/2.2.0/fvm/executor/struct.ApplyRet.html#structfield.exec_trace) for more context.
+///
+/// See also [`trace::TraceAction`].
 pub mod trace {
     use super::*;
 
@@ -501,13 +504,13 @@ pub mod trace {
     /// This involves _logical tracing_, where e.g message executions are accumulated
     /// in-code, for displaying to the user e.g [`crate::cli::subcommands::snapshot_cmd::SnapshotCommands::ComputeState`]
     ///
-    /// This enum indicates whether trace should be accumulated or not.
+    /// This `enum` indicates whether trace should be accumulated or not.
     ///
     /// # API Hazard
     /// This needs careful redesign: <https://github.com/ChainSafe/forest/issues/3405>
     #[derive(Default, Clone, Copy)]
     pub enum TraceAction {
-        /// Collect trace for the givven operation
+        /// Collect trace for the given operation
         Accumulate,
         /// Do not collect trace
         #[default]
