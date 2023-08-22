@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::db::db_engine::db_root;
 use crate::db::db_engine::open_proxy_db;
-use crate::json::cid::CidJson;
+use crate::lotus_json::LotusJson;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
@@ -54,7 +54,7 @@ impl StateCommands {
             Self::Fetch { root, save_to_file } => {
                 println!(
                     "{}",
-                    state_fetch_root((CidJson(root), save_to_file), &config.client.rpc_token)
+                    state_fetch_root((LotusJson(root), save_to_file), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                 );

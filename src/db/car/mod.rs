@@ -19,27 +19,6 @@ use positioned_io::{ReadAt, Size};
 pub trait RandomAccessFileReader: ReadAt + Size + Send + Sync + 'static {}
 impl<X: ReadAt + Size + Send + Sync + 'static> RandomAccessFileReader for X {}
 
-// Something to be contributed upstream.
-// Similar to https://doc.rust-lang.org/1.38.0/src/std/io/impls.rs.html#122-143.
-impl ReadAt for Box<dyn RandomAccessFileReader> {
-    #[inline]
-    fn read_at(&self, pos: u64, buf: &mut [u8]) -> std::io::Result<usize> {
-        (**self).read_at(pos, buf)
-    }
-
-    #[inline]
-    fn read_exact_at(&self, pos: u64, buf: &mut [u8]) -> std::io::Result<()> {
-        (**self).read_exact_at(pos, buf)
-    }
-}
-
-impl Size for Box<dyn RandomAccessFileReader> {
-    #[inline]
-    fn size(&self) -> std::io::Result<Option<u64>> {
-        (**self).size()
-    }
-}
-
 /// Multiple `.forest.car.zst` archives may use the same cache, each with a
 /// unique cache key.
 pub type CacheKey = u64;

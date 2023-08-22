@@ -206,7 +206,7 @@ impl SnapshotCommands {
                     false => output.clone(),
                 };
 
-                if destination.exists() && !force {
+                if !force && destination.exists() {
                     let have_permission = Confirm::with_theme(&ColorfulTheme::default())
                         .with_prompt(format!(
                             "{} will be overwritten. Continue?",
