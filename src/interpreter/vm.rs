@@ -72,16 +72,24 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct MessageGasCost {
+    #[serde(with = "crate::lotus_json")]
     pub message: Option<Cid>,
+    #[serde(with = "crate::lotus_json")]
     pub gas_used: BigInt,
+    #[serde(with = "crate::lotus_json")]
     pub base_fee_burn: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     pub over_estimation_burn: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     pub miner_penalty: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     pub miner_tip: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     pub refund: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     pub total_cost: TokenAmount,
 }
 
@@ -118,7 +126,6 @@ pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
     #[serde(rename = "MsgRct")]
     pub msg_receipt: Receipt,
-    #[serde(with = "crate::lotus_json")]
     pub gas_cost: MessageGasCost,
     pub execution_trace: Option<Trace>,
     pub error: String,

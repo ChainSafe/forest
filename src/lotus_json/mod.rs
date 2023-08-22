@@ -179,7 +179,6 @@ decl_and_test!(
     gossip_block for crate::blocks::GossipBlock,
     key_info for crate::key_management::KeyInfo,
     message for crate::shim::message::Message,
-    message_gas_cost for crate::interpreter::MessageGasCost,
     po_st_proof for crate::shim::sector::PoStProof,
     registered_po_st_proof for crate::shim::sector::RegisteredPoStProof,
     registered_seal_proof for crate::shim::sector::RegisteredSealProof,

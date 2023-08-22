@@ -46,6 +46,7 @@ impl TraceAction {
             TraceAction::Ignore => None,
         }
     }
+    /// Should tracing be collected?
     pub fn is_accumulate(&self) -> bool {
         matches!(self, TraceAction::Accumulate)
     }
