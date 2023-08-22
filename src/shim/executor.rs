@@ -1,25 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Cow;
-
-use anyhow::anyhow;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
+use crate::shim::econ::TokenAmount;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 pub use fvm3::gas::GasCharge as GasChargeV3;
 pub use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
-use fvm_shared3::error::ErrorNumber;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
-
-use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
-
-use crate::shim::address::Address;
-use crate::shim::econ::TokenAmount;
-use crate::shim::message::MethodNum;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
@@ -195,163 +186,4 @@ impl quickcheck::Arbitrary for Receipt {
             }),
         }
     }
-}
-
-// We match Lotus structures and code to have similar json trace and an easier diff:
-// https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L391
-#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct TraceGasCharge {
-    pub name: Cow<'static, str>,
-    #[serde(rename = "tg")]
-    pub total_gas: u64,
-    #[serde(rename = "cg")]
-    pub compute_gas: u64,
-    #[serde(rename = "sg")]
-    pub other_gas: u64,
-    #[serde(rename = "tt")]
-    pub duration_nanos: u64,
-}
-
-#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Trace {
-    pub msg: TraceMessage,
-    #[serde(rename = "MsgRct")]
-    pub msg_ret: TraceReturn,
-    pub gas_charges: Vec<TraceGasCharge>,
-    pub subcalls: Vec<Trace>,
-}
-
-#[derive(Default, PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct TraceMessage {
-    #[serde(with = "crate::lotus_json")]
-    pub from: Address,
-    #[serde(with = "crate::lotus_json")]
-    pub to: Address,
-    #[serde(with = "crate::lotus_json")]
-    pub value: TokenAmount,
-    #[serde(rename = "Method")]
-    pub method_num: MethodNum,
-    #[serde(with = "crate::lotus_json")]
-    pub params: Vec<u8>,
-    pub params_codec: u64,
-}
-
-#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct TraceReturn {
-    pub exit_code: ExitCode,
-    #[serde(rename = "Return", with = "crate::lotus_json")]
-    pub return_data: Vec<u8>,
-    pub return_codec: u64,
-}
-
-impl Default for TraceReturn {
-    fn default() -> Self {
-        Self {
-            exit_code: ExitCode::OK,
-            return_data: vec![],
-            return_codec: 0,
-        }
-    }
-}
-
-pub fn build_lotus_trace(
-    from: u64,
-    to: Address,
-    method: u64,
-    params: Option<IpldBlock>,
-    value: TokenAmount,
-    trace_iter: &mut impl Iterator<Item = ExecutionEvent_v3>,
-) -> anyhow::Result<Trace> {
-    let params = params.unwrap_or_default();
-    let mut new_trace = Trace {
-        msg: TraceMessage {
-            from: Address::new_id(from),
-            to,
-            value,
-            method_num: method,
-            params: params.data,
-            params_codec: params.codec,
-        },
-        msg_ret: TraceReturn {
-            exit_code: ExitCode::OK,
-            return_data: Vec::new(),
-            return_codec: 0,
-        },
-        gas_charges: vec![],
-        subcalls: vec![],
-    };
-
-    while let Some(trace) = trace_iter.next() {
-        match trace {
-            ExecutionEvent_v3::Call {
-                from,
-                to,
-                method,
-                params,
-                value,
-            } => {
-                new_trace.subcalls.push(build_lotus_trace(
-                    from,
-                    to.into(),
-                    method,
-                    params,
-                    value.into(),
-                    trace_iter,
-                )?);
-            }
-            ExecutionEvent_v3::CallReturn(exit_code, return_data) => {
-                let return_data = return_data.unwrap_or_default();
-                new_trace.msg_ret = TraceReturn {
-                    exit_code,
-                    return_data: return_data.data,
-                    return_codec: return_data.codec,
-                };
-                return Ok(new_trace);
-            }
-            ExecutionEvent_v3::CallError(syscall_err) => {
-                // Errors indicate the message couldn't be dispatched at all
-                // (as opposed to failing during execution of the receiving actor).
-                // These errors are mapped to exit codes that persist on chain.
-                let exit_code = match syscall_err.1 {
-                    ErrorNumber::InsufficientFunds => ExitCode::SYS_INSUFFICIENT_FUNDS,
-                    ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER,
-                    _ => ExitCode::SYS_ASSERTION_FAILED,
-                };
-
-                new_trace.msg_ret = TraceReturn {
-                    exit_code,
-                    return_data: Default::default(),
-                    return_codec: 0,
-                };
-                return Ok(new_trace);
-            }
-            ExecutionEvent_v3::GasCharge(GasChargeV3 {
-                name,
-                compute_gas,
-                other_gas,
-                elapsed,
-            }) => {
-                new_trace.gas_charges.push(TraceGasCharge {
-                    name,
-                    total_gas: (compute_gas + other_gas).round_up(),
-                    compute_gas: compute_gas.round_up(),
-                    other_gas: other_gas.round_up(),
-                    duration_nanos: elapsed
-                        .get()
-                        .copied()
-                        .unwrap_or_default()
-                        .as_nanos()
-                        .try_into()
-                        .unwrap_or(u64::MAX),
-                });
-            }
-            _ => (), // ignore unknown events.
-        };
-    }
-
-    Err(anyhow!("should have returned on an ExecutionEvent:Return"))
 }

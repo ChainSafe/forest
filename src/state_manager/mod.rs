@@ -57,22 +57,6 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
-/// Structure to store the execution trace of a state transition.
-/// Useful for debugging purposes.
-#[derive(Default, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ComputeStateOutput {
-    #[serde(with = "crate::lotus_json")]
-    root: Cid,
-    trace: Vec<crate::interpreter::trace::InvocResult>,
-}
-
-impl ComputeStateOutput {
-    pub fn new(root: Cid, trace: Vec<crate::interpreter::trace::InvocResult>) -> Self {
-        Self { root, trace }
-    }
-}
-
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
@@ -631,7 +615,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: TraceAction,
-    ) -> Result<(CidPair, ComputeStateOutput), Error>
+    ) -> Result<(CidPair, crate::interpreter::trace::ComputeStateOutput), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -649,7 +633,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: TraceAction,
-    ) -> Result<(CidPair, ComputeStateOutput), Error>
+    ) -> Result<(CidPair, crate::interpreter::trace::ComputeStateOutput), Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
@@ -1246,7 +1230,7 @@ pub fn apply_block_messages<DB, CB>(
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
     enable_tracing: TraceAction,
-) -> Result<(CidPair, ComputeStateOutput), anyhow::Error>
+) -> Result<(CidPair, crate::interpreter::trace::ComputeStateOutput), anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
@@ -1267,7 +1251,7 @@ where
         let message_receipts = tipset.min_ticket_block().message_receipts();
         return Ok((
             (*tipset.parent_state(), *message_receipts),
-            ComputeStateOutput::default(),
+            crate::interpreter::trace::ComputeStateOutput::default(),
         ));
     }
 
@@ -1342,6 +1326,6 @@ where
 
     Ok((
         (state_root, receipt_root),
-        ComputeStateOutput::new(state_root, trace),
+        crate::interpreter::trace::ComputeStateOutput::new(state_root, trace),
     ))
 }
