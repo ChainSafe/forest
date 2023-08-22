@@ -277,6 +277,8 @@ mod tests {
         keystore.put(&addr2, key2.key_info.clone()).unwrap();
         keystore.put("default", key2.key_info.clone()).unwrap();
         crate::key_management::remove_key(&key2.address, &mut keystore).unwrap();
-        assert!(crate::key_management::get_default(&keystore).unwrap() == None);
+        assert!(crate::key_management::get_default(&keystore)
+            .unwrap()
+            .is_none());
     }
 }
