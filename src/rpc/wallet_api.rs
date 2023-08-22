@@ -3,7 +3,6 @@
 #![allow(clippy::unused_async)]
 use std::{convert::TryFrom, str::FromStr};
 
-use crate::json::address::json::AddressJson;
 use crate::key_management::{Error, Key};
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, wallet_api::*};
@@ -129,10 +128,7 @@ where
     DB: Blockstore,
 {
     let keystore = data.keystore.read().await;
-    Ok(crate::key_management::list_addrs(&keystore)?
-        .into_iter()
-        .map(AddressJson::from)
-        .collect())
+    Ok(crate::key_management::list_addrs(&keystore)?.into())
 }
 
 /// Generate a new Address that is stored in the Wallet

@@ -4,8 +4,6 @@
 
 use crate::ipld::json::IpldJson;
 use crate::ipld::CidHashSet;
-use crate::json::address::json::AddressJson;
-use crate::json::cid::CidJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
@@ -16,7 +14,6 @@ use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context;
-use cid::Cid;
 use fil_actor_interface::market;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -50,8 +47,7 @@ pub(in crate::rpc) async fn state_replay<DB: Blockstore + Send + Sync + 'static>
     Params(params): Params<StateReplayParams>,
 ) -> Result<StateReplayResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (cidjson, LotusJson(key)) = params;
-    let cid = cidjson.into();
+    let (LotusJson(cid), LotusJson(key)) = params;
     let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
     let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
@@ -87,7 +83,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<StateGetActorParams>,
 ) -> Result<StateGetActorResult, JsonRpcError> {
-    let (AddressJson(addr), LotusJson(tsk)) = params;
+    let (LotusJson(addr), LotusJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state.map(Into::into).map_err(|e| e.into())
@@ -100,7 +96,7 @@ pub(in crate::rpc) async fn state_market_balance<DB: Blockstore + Send + Sync + 
     Params(params): Params<StateMarketBalanceParams>,
 ) -> Result<StateMarketBalanceResult, JsonRpcError> {
     let (address, LotusJson(key)) = params;
-    let address = address.into();
+    let address = address.into_inner();
     let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
     data.state_manager
         .market_balance(&address, &tipset)
@@ -147,9 +143,8 @@ pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'st
     data: Data<RPCState<DB>>,
     Params(params): Params<StateGetReceiptParams>,
 ) -> Result<StateGetReceiptResult, JsonRpcError> {
-    let (cidjson, LotusJson(key)) = params;
+    let (LotusJson(cid), LotusJson(key)) = params;
     let state_manager = &data.state_manager;
-    let cid = cidjson.into();
     let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
     state_manager
         .get_receipt(tipset, cid)
@@ -162,9 +157,8 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
     data: Data<RPCState<DB>>,
     Params(params): Params<StateWaitMsgParams>,
 ) -> Result<StateWaitMsgResult, JsonRpcError> {
-    let (cidjson, confidence) = params;
+    let (LotusJson(cid), confidence) = params;
     let state_manager = &data.state_manager;
-    let cid: Cid = cidjson.into();
     let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
@@ -177,7 +171,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         receipt,
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
-        message: CidJson(cid),
+        message: cid,
         return_dec: IpldJson(ipld),
     })
 }
@@ -198,7 +192,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
 /// consensus rules.
 pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
     data: Data<RPCState<DB>>,
-    Params((CidJson(root_cid), save_to_file)): Params<StateFetchRootParams>,
+    Params((LotusJson(root_cid), save_to_file)): Params<StateFetchRootParams>,
 ) -> Result<StateFetchRootResult, JsonRpcError> {
     let network_send = data.network_send.clone();
     let db = data.chain_store.db.clone();

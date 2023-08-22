@@ -29,7 +29,6 @@ mod fil_cns;
 mod genesis;
 mod interpreter;
 mod ipld;
-mod json;
 mod key_management;
 mod libp2p;
 mod libp2p_bitswap;

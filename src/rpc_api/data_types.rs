@@ -8,7 +8,6 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::ipld::json::IpldJson;
-use crate::json::{cid::CidJson, token_amount::json};
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
@@ -63,14 +62,14 @@ pub struct BlockMessages {
     pub bls_msg: Vec<Message>,
     #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
     pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::json::cid::vec")]
+    #[serde(rename = "Cids", with = "crate::lotus_json")]
     pub cids: Vec<Cid>,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    #[serde(with = "json")]
+    #[serde(with = "crate::lotus_json")]
     max_fee: TokenAmount,
 }
 
@@ -89,7 +88,8 @@ pub struct MessageLookup {
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
     pub tipset: TipsetKeys,
     pub height: i64,
-    pub message: CidJson,
+    #[serde(with = "crate::lotus_json")]
+    pub message: Cid,
     pub return_dec: IpldJson,
 }
 

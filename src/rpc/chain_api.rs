@@ -7,7 +7,6 @@ use std::sync::Arc;
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
 use crate::ipld::CidHashSet;
-use crate::json::cid::CidJson;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,
@@ -30,7 +29,7 @@ pub(in crate::rpc) async fn chain_get_message<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(msg_cid),) = params;
+    let (LotusJson(msg_cid),) = params;
     let ret: Message = data
         .state_manager
         .blockstore()
@@ -112,7 +111,7 @@ pub(in crate::rpc) async fn chain_read_obj<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(obj_cid),) = params;
+    let (LotusJson(obj_cid),) = params;
     let ret = data
         .state_manager
         .blockstore()
@@ -128,7 +127,7 @@ pub(in crate::rpc) async fn chain_has_obj<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(obj_cid),) = params;
+    let (LotusJson(obj_cid),) = params;
     Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
@@ -139,7 +138,7 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(blk_cid),) = params;
+    let (LotusJson(blk_cid),) = params;
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
@@ -210,7 +209,7 @@ pub(in crate::rpc) async fn chain_get_block<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(blk_cid),) = params;
+    let (LotusJson(blk_cid),) = params;
     let blk: BlockHeader = data
         .state_manager
         .blockstore()

@@ -40,6 +40,7 @@ use crate::utils::bail_moved_cmd;
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use sha2::Sha256;
@@ -75,6 +76,9 @@ pub enum ArchiveCommands {
         /// state-roots are included if this flag is not set.
         #[arg(short, long)]
         diff_depth: Option<ChainEpochDelta>,
+        /// Overwrite output file without prompting.
+        #[arg(long, default_value_t = false)]
+        force: bool,
     },
     /// Print block headers at 30 day interval for a snapshot file
     Checkpoints {
@@ -95,6 +99,7 @@ impl ArchiveCommands {
                 depth,
                 diff,
                 diff_depth,
+                force,
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
                 let heaviest_tipset = store.heaviest_tipset()?;
@@ -106,6 +111,7 @@ impl ArchiveCommands {
                     depth,
                     diff,
                     diff_depth,
+                    force,
                 )
                 .await
             }
@@ -141,6 +147,7 @@ fn build_output_path(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn do_export(
     store: impl Blockstore + Send + Sync + 'static,
     root: Tipset,
@@ -149,6 +156,7 @@ async fn do_export(
     depth: ChainEpochDelta,
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
+    force: bool,
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
 
@@ -200,6 +208,21 @@ async fn do_export(
 
     let output_path =
         build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
+
+    if !force && output_path.exists() {
+        let have_permission = Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(format!(
+                "{} will be overwritten. Continue?",
+                output_path.to_string_lossy()
+            ))
+            .default(false)
+            .interact()
+            // e.g not a tty (or some other error), so haven't got permission.
+            .unwrap_or(false);
+        if !have_permission {
+            return Ok(());
+        }
+    }
 
     let writer = tokio::fs::File::create(&output_path)
         .await
@@ -294,6 +317,7 @@ mod tests {
             1,
             None,
             None,
+            false,
         )
         .await
         .unwrap();

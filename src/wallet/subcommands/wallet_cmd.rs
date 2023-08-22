@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::key_management::KeyInfo;
+use crate::lotus_json::LotusJson;
 use crate::rpc_client::wallet_ops::*;
 use crate::shim::{
     address::{Protocol, StrictAddress},
@@ -14,7 +15,6 @@ use crate::shim::{
     econ::TokenAmount,
 };
 use crate::utils::io::read_file_to_string;
-use crate::{json::address::json::AddressJson, lotus_json::LotusJson};
 use anyhow::Context;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
@@ -189,7 +189,10 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let response = wallet_list((), &token).await.map_err(handle_rpc_err)?;
+                let response = wallet_list((), &token)
+                    .await
+                    .map_err(handle_rpc_err)?
+                    .into_inner();
 
                 let default = wallet_default_address((), &token)
                     .await
@@ -200,7 +203,7 @@ impl WalletCommands {
                 println!("{title_address:41} {title_default_mark:7} {title_balance}");
 
                 for address in response {
-                    let addr = address.0.to_string();
+                    let addr = address.to_string();
                     let default_address_mark = if default.as_ref() == Some(&addr) {
                         "X"
                     } else {
@@ -233,8 +236,7 @@ impl WalletCommands {
                 let StrictAddress(key) = StrictAddress::from_str(key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
-                let key_json = AddressJson(key);
-                wallet_set_default((key_json,), &token)
+                wallet_set_default((key.into(),), &token)
                     .await
                     .map_err(handle_rpc_err)?;
                 Ok(())
@@ -246,7 +248,7 @@ impl WalletCommands {
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = BASE64_STANDARD.encode(message);
 
-                let response = wallet_sign((AddressJson(address), message.into_bytes()), &token)
+                let response = wallet_sign(((address).into(), message.into_bytes()), &token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("{}", hex::encode(response.0.bytes()));
@@ -268,10 +270,9 @@ impl WalletCommands {
                 };
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
-                let response =
-                    wallet_verify((AddressJson(address), msg, LotusJson(signature)), &token)
-                        .await
-                        .map_err(handle_rpc_err)?;
+                let response = wallet_verify(((address).into(), msg, LotusJson(signature)), &token)
+                    .await
+                    .map_err(handle_rpc_err)?;
 
                 println!("{response}");
                 Ok(())
