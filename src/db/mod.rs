@@ -10,13 +10,15 @@ pub use memory::MemoryDB;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 pub mod car;
+mod db_mode;
+pub mod migration;
 
 pub mod rolling;
 
 pub mod setting_keys {
-    /// Key used to store the heaviest tipset in the settings store.
+    /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKeys`]
     pub const HEAD_KEY: &str = "head";
-    /// Estimated number of IPLD records in the database.
+    /// Estimated number of IPLD records in the database. This is expected to be a `usize`
     pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
@@ -88,12 +90,14 @@ pub mod db_engine {
 
     use crate::db::rolling::*;
 
+    use super::db_mode::choose_db;
+
     pub type Db = crate::db::parity_db::ParityDb;
     pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
-    const DIR_NAME: &str = "paritydb";
 
-    pub fn db_root(chain_data_root: &Path) -> PathBuf {
-        chain_data_root.join(DIR_NAME)
+    /// Returns the path to the database directory to be used by the daemon.
+    pub fn db_root(chain_data_root: &Path) -> anyhow::Result<PathBuf> {
+        choose_db(chain_data_root)
     }
 
     pub(in crate::db) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
