@@ -161,6 +161,10 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
+    if opts.exit_after_init {
+        return Ok(());
+    }
+
     if opts.detach {
         unblock_parent_process()?;
     }
@@ -268,10 +272,6 @@ pub(super) async fn start(
     } else {
         config
     };
-
-    if opts.exit_after_init {
-        return Ok(());
-    }
 
     load_actor_bundles(&db).await?;
 

@@ -274,7 +274,7 @@ async fn fetch_snapshot_if_required(
             })
             .await;
             if !have_permission {
-                std::process::exit(0);
+                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
             }
             match crate::cli_shared::snapshot::fetch(download_directory, chain, vendor).await {
                 Ok(path) => {
