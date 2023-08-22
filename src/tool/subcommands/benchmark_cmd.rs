@@ -171,6 +171,8 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
 // NOTE: when testing with `cargo forest-tool benchmark unordered-graph-traversal forest_snapshot_mainnet_2023-05-31_height_2908403.car`
 // there is a performance dip starting around 60+GB processed, that later fixes itself. I can see
 // this pattern for normal car streaming too of course. Would be nice to understand what's going on.
+// Same pattern with `zst` version of this file, most likely has to do with cid extraction, perhaps
+// lots of nesting.
 async fn benchmark_parallel_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
     let mut sink = indicatif_sink("traversed");
     let mut s = Box::pin(
@@ -181,6 +183,7 @@ async fn benchmark_parallel_car_streaming_inspect(input: Vec<PathBuf>) -> Result
             .try_flatten(),
     );
 
+    // These numbers are set based on benchmarking locally.
     let (limit_sender, limit_receiver) = flume::bounded(num_cpus::get() * 5);
     let (sender, receiver) = flume::bounded(4096);
 
