@@ -75,3 +75,10 @@ pub async fn wallet_verify(
 ) -> Result<WalletVerifyResult, Error> {
     call(WALLET_VERIFY, message, auth_token).await
 }
+
+pub async fn wallet_delete(
+    message: WalletDeleteParams,
+    auth_token: &Option<String>,
+) -> Result<WalletDeleteResult, Error> {
+    call(WALLET_DELETE, message, auth_token).await
+}
