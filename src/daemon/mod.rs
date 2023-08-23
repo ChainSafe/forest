@@ -164,7 +164,7 @@ pub(super) async fn start(
     let mut keystore = load_or_create_keystore(&config).await?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
-        keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
+        keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
     }
 
     handle_admin_token(&opts, &config, &keystore)?;

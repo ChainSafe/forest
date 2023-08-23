@@ -105,7 +105,7 @@ impl Wallet {
     pub fn import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
         let k = Key::try_from(key_info)?;
         let addr = format!("wallet-{}", k.address);
-        self.keystore.put(addr, k.key_info)?;
+        self.keystore.put(&addr, k.key_info)?;
         Ok(k.address)
     }
 
@@ -127,12 +127,12 @@ impl Wallet {
         let addr_string = format!("wallet-{addr}");
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
-            self.keystore.remove("default".to_string())?; // This line should
-                                                          // unregister current
-                                                          // default key then
-                                                          // continue
+            self.keystore.remove("default")?; // This line should
+                                              // unregister current
+                                              // default key then
+                                              // continue
         }
-        self.keystore.put("default".to_string(), key_info)?;
+        self.keystore.put("default", key_info)?;
         Ok(())
     }
 
@@ -141,12 +141,12 @@ impl Wallet {
     pub fn generate_addr(&mut self, typ: SignatureType) -> anyhow::Result<Address> {
         let key = generate_key(typ)?;
         let addr = format!("wallet-{}", key.address);
-        self.keystore.put(addr, key.key_info.clone())?;
+        self.keystore.put(&addr, key.key_info.clone())?;
         self.keys.insert(key.address, key.clone());
         let value = self.keystore.get("default");
         if value.is_err() {
             self.keystore
-                .put("default".to_string(), key.key_info.clone())
+                .put("default", key.key_info.clone())
                 .map_err(|err| Error::Other(err.to_string()))?;
         }
 
@@ -192,6 +192,23 @@ pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
     let key_info = keystore.get(&key_string)?;
     let new_key = Key::try_from(key_info)?;
     Ok(new_key)
+}
+
+/// Removes a key corresponding to given address
+pub fn remove_key(addr: &Address, keystore: &mut KeyStore) -> Result<(), Error> {
+    let key_string = format!("wallet-{addr}");
+    let deleted_keyinfo = keystore
+        .remove(&key_string)
+        .map_err(|_| Error::KeyNotExists)?;
+    if let Ok(default_keyinfo) = keystore.get("default") {
+        if default_keyinfo == deleted_keyinfo {
+            keystore
+                .remove("default")
+                .map_err(|_| Error::KeyNotExists)?;
+        }
+    }
+    println!("wallet {} deleted", addr);
+    Ok(())
 }
 
 pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
@@ -354,7 +371,7 @@ mod tests {
             addr_string_vec.push(i.address.to_string());
 
             let addr_string = format!("wallet-{}", i.address);
-            key_store.put(addr_string, i.key_info.clone()).unwrap();
+            key_store.put(&addr_string, i.key_info.clone()).unwrap();
         }
 
         addr_string_vec.sort();
@@ -409,7 +426,7 @@ mod tests {
         let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
         let test_addr_string = format!("wallet-{test_addr}");
 
-        wallet.keystore.put(test_addr_string, key_info).unwrap();
+        wallet.keystore.put(&test_addr_string, key_info).unwrap();
 
         // check to make sure that the set_default function completed without error
         assert!(wallet.set_default(test_addr).is_ok());
