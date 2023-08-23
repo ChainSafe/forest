@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
@@ -533,16 +533,11 @@ async fn print_computed_state(
     epoch: ChainEpoch,
     json: bool,
 ) -> anyhow::Result<()> {
-    // Get header roots
-    let file = tokio::fs::File::open(&snapshot).await?;
-    let mut block_stream = CarStream::new(tokio::io::BufReader::new(file)).await?;
-    let roots = std::mem::take(&mut block_stream.header.roots);
-
     // Initialize Blockstore
     let store = Arc::new(AnyCar::try_from(snapshot)?);
 
     // Prepare call to apply_block_messages
-    let ts = Tipset::load_required(&store, &TipsetKeys::new(roots.into()))?;
+    let ts = store.heaviest_tipset()?;
 
     let genesis = ts.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
