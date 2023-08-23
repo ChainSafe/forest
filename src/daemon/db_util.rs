@@ -152,16 +152,36 @@ async fn import_chain_as_forest_car(
         }
     }
 
-    let get_car_db_file_path = |ts: &Tipset| -> PathBuf {
-        forest_car_db_dir.join(format!("{}{FOREST_CAR_FILE_EXTENSION}", ts.epoch()))
+    let forest_car_db_path = {
+        let current_id = std::fs::read_dir(forest_car_db_dir)?
+            .filter_map(|entry| {
+                if let Ok(entry) = entry {
+                    if entry.path().is_file() {
+                        if let Some(file_name) = entry.file_name().to_str() {
+                            if file_name.ends_with(FOREST_CAR_FILE_EXTENSION) {
+                                if let Ok(id) = file_name
+                                    .replace(FOREST_CAR_FILE_EXTENSION, "")
+                                    .parse::<usize>()
+                                {
+                                    return Some(id);
+                                }
+                            }
+                        }
+                    }
+                }
+                None
+            })
+            .max()
+            .map(|id| id + 1)
+            .unwrap_or_default();
+        forest_car_db_dir.join(format!("{current_id}{FOREST_CAR_FILE_EXTENSION}"))
     };
 
     let forest_car = ForestCar::new(RandomAccessFile::open(&downloaded_car_temp_path)?);
-    let (forest_car_db_path, ts) = if let Ok(car) = forest_car {
+    let ts = if let Ok(car) = forest_car {
         let ts = car.heaviest_tipset()?;
-        let forest_car_db_path = get_car_db_file_path(&ts);
         downloaded_car_temp_path.persist(&forest_car_db_path)?;
-        (forest_car_db_path, ts)
+        ts
     } else {
         let car_stream = CarStream::new(tokio::io::BufReader::new(
             tokio::fs::File::open(&downloaded_car_temp_path).await?,
@@ -184,9 +204,8 @@ async fn import_chain_as_forest_car(
         }
         let ts =
             ForestCar::new(RandomAccessFile::open(&forest_car_db_temp_path)?)?.heaviest_tipset()?;
-        let forest_car_db_path = get_car_db_file_path(&ts);
         forest_car_db_temp_path.persist(&forest_car_db_path)?;
-        (forest_car_db_path, ts)
+        ts
     };
 
     info!(
