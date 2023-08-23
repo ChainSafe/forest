@@ -23,8 +23,8 @@ impl ReadAt for Mmap {
             buf.copy_from_slice(&self.0[start..end]);
             Ok(buf.len())
         } else {
-            let len = self.0.len() - start as usize;
-            (&mut buf[..len]).copy_from_slice(&self.0[start..]);
+            let len = self.0.len() - start;
+            buf[..len].copy_from_slice(&self.0[start..]);
             Ok(len)
         }
     }
