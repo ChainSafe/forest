@@ -32,6 +32,12 @@ use tracing::{error, info, warn};
 use url::Url;
 use walkdir::WalkDir;
 
+/// This function tries to open the forest database directory as [`ManyCar<Arc<RollingDB>>`], it
+/// 1. loads `parity-db`
+/// 2. loads all existing CAR files in `.forest.car.zst` format
+/// 3. asks to fetch the latest snapshot when it's required to run forest.
+/// 4. imports the snapshot(from either CLI options or step 3) and stores it to the database in `.forest.car.zst` format
+
 pub async fn open_forest_car_union_db(
     config: &mut Config,
     opts: &CliOpts,
@@ -111,6 +117,8 @@ pub async fn open_forest_car_union_db(
     Ok((Arc::new(store), heaviest_tipset))
 }
 
+/// This function validates and stores the CAR binary from `from_path`(either local path or URL) into the `{DB_ROOT}/car_db/`
+/// (automatically trans-code into `.forest.car.zst` format when needed), and returns its final file path and the heaviest tipset.
 async fn import_chain_as_forest_car(
     from_path: &Path,
     forest_car_db_dir: &Path,
