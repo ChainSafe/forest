@@ -128,8 +128,7 @@ signature verifies message integrity, otherwise `false`. Usage:
 
 ### Delete:
 
-Deletes a wallet given its address. Usage:
-`forest-wallet delete <address>`
+Deletes a wallet given its address. Usage: `forest-wallet delete <address>`
 
 ## Chain-Sync
 
