@@ -71,6 +71,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
     access.insert(wallet_api::WALLET_SIGN, Access::Sign);
     access.insert(wallet_api::WALLET_VERIFY, Access::Read);
+    access.insert(wallet_api::WALLET_DELETE, Access::Write);
 
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
@@ -323,6 +324,10 @@ pub mod wallet_api {
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
     pub type WalletVerifyParams = (LotusJson<Address>, Vec<u8>, LotusJson<Signature>);
     pub type WalletVerifyResult = bool;
+
+    pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
+    pub type WalletDeleteParams = (String,);
+    pub type WalletDeleteResult = ();
 }
 
 /// State API

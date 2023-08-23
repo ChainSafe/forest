@@ -13,6 +13,7 @@ pub use libipld_core::ipld::Ipld;
 pub use util::*;
 
 pub use self::cid_hashmap::CidHashMap;
+pub use self::cid_hashmap::CidHashMapEntry;
 pub use self::cid_hashset::CidHashSet;
 pub use self::frozen_cids::FrozenCids;
 

@@ -338,11 +338,11 @@ impl KeyStore {
     }
 
     /// Save a key/`KeyInfo` pair to the `KeyStore`
-    pub fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
-        if self.key_info.contains_key(&key) {
+    pub fn put(&mut self, key: &str, key_info: KeyInfo) -> Result<(), Error> {
+        if self.key_info.contains_key(key) {
             return Err(Error::KeyExists);
         }
-        self.key_info.insert(key, key_info);
+        self.key_info.insert(key.to_string(), key_info);
 
         if self.persistence.is_some() {
             self.flush().map_err(|err| Error::Other(err.to_string()))?;
@@ -352,8 +352,8 @@ impl KeyStore {
     }
 
     /// Remove the key and corresponding `KeyInfo` from the `KeyStore`
-    pub fn remove(&mut self, key: String) -> anyhow::Result<KeyInfo> {
-        let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
+    pub fn remove(&mut self, key: &str) -> anyhow::Result<KeyInfo> {
+        let key_out = self.key_info.remove(key).ok_or(Error::KeyInfo)?;
 
         if self.persistence.is_some() {
             self.flush()?;
@@ -516,7 +516,7 @@ mod test {
         let key = wallet::generate_key(SignatureType::Bls)?;
 
         let addr = format!("wallet-{}", key.address);
-        ks.put(addr.clone(), key.key_info)?;
+        ks.put(&addr, key.key_info)?;
         ks.flush().unwrap();
 
         let default = ks.get(&addr).unwrap();
