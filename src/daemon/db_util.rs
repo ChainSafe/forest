@@ -152,30 +152,10 @@ async fn import_chain_as_forest_car(
         }
     }
 
-    let forest_car_db_path = {
-        let current_id = std::fs::read_dir(forest_car_db_dir)?
-            .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    if entry.path().is_file() {
-                        if let Some(file_name) = entry.file_name().to_str() {
-                            if file_name.ends_with(FOREST_CAR_FILE_EXTENSION) {
-                                if let Ok(id) = file_name
-                                    .replace(FOREST_CAR_FILE_EXTENSION, "")
-                                    .parse::<usize>()
-                                {
-                                    return Some(id);
-                                }
-                            }
-                        }
-                    }
-                }
-                None
-            })
-            .max()
-            .map(|id| id + 1)
-            .unwrap_or_default();
-        forest_car_db_dir.join(format!("{current_id}{FOREST_CAR_FILE_EXTENSION}"))
-    };
+    let forest_car_db_path = forest_car_db_dir.join(format!(
+        "{}{FOREST_CAR_FILE_EXTENSION}",
+        chrono::Utc::now().timestamp()
+    ));
 
     let forest_car = ForestCar::new(RandomAccessFile::open(&downloaded_car_temp_path)?);
     let ts = if let Ok(car) = forest_car {
