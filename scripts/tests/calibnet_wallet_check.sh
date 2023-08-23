@@ -77,11 +77,7 @@ ADDR_DEL=$(forest-wallet new)
 forest-wallet delete "$ADDR_DEL"
 
 # Validate that the wallet no longer exists.
-WALLET_OUT=$(forest-wallet list)
-
-if [[ ${WALLET_OUT} == *"$ADDR_DEL"* ]];then
-    echo "Error: the created wallet address $ADDR_DEL was not deleted"; exit 1;
-fi
+forest-cli wallet list | grep --null-data --invert-match "${ADDR_DEL}"
 
 # TODO: Uncomment this check once the send command is fixed
 # # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
