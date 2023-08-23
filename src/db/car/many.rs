@@ -11,13 +11,13 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::db::MemoryDB;
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
+use crate::utils::io::Mmap;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
-use positioned_io::RandomAccessFile;
-use std::{io, path::PathBuf, sync::Arc};
+use std::{fs, io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
@@ -57,7 +57,7 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn read_only_files(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
         for file in files {
-            let car = AnyCar::new(RandomAccessFile::open(file)?)?;
+            let car = AnyCar::new(Mmap::map(&fs::File::open(file)?)?)?;
             self.read_only(car);
         }
         Ok(())
