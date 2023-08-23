@@ -85,7 +85,7 @@ pub async fn open_forest_car_union_db(
         let epoch = {
             if store.read_only_len() == 0 {
                 0
-            } else if let Ok(Some(ts)) = Tipset::load_heaviest(&store, store.writer().as_ref()) {
+            } else if let Ok(Some(ts)) = Tipset::load_heaviest(&store, &store) {
                 ts.epoch()
             } else {
                 0

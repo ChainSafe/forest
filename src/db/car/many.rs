@@ -9,7 +9,7 @@
 //! A single z-frame cache is shared between all read-only stores.
 
 use super::{AnyCar, ZstdFrameCache};
-use crate::db::MemoryDB;
+use crate::db::{MemoryDB, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
@@ -131,6 +131,24 @@ impl<WriterT: BitswapStoreReadWrite + Blockstore> BitswapStoreReadWrite for Many
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         Blockstore::put_keyed(self, block.cid(), block.data())
+    }
+}
+
+impl<WriterT: SettingsStore> SettingsStore for ManyCar<WriterT> {
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        SettingsStore::read_bin(self.writer(), key)
+    }
+
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
+        SettingsStore::write_bin(self.writer(), key, value)
+    }
+
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
+        SettingsStore::exists(self.writer(), key)
+    }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        SettingsStore::setting_keys(self.writer())
     }
 }
 
