@@ -129,7 +129,7 @@ signature verifies message integrity, otherwise `false`. Usage:
 ### Delete:
 
 Deletes a wallet given its address. Usage:
-`forest-cli wallet delete -a <address>`
+`forest-wallet delete <address>`
 
 ## Chain-Sync
 
