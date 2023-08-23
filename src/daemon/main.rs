@@ -20,8 +20,6 @@ use std::ffi::OsString;
 use std::{fs::File, process, time::Duration};
 use tracing::info;
 
-const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
-
 // Initiate an Event object in shared memory.
 fn create_ipc_lock() -> anyhow::Result<()> {
     let mut shmem = ipc_shmem_conf().create()?;
@@ -53,7 +51,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
         shmem.set_owner(true);
         let (event, _) =
             unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
-        let ret = event.wait(EVENT_TIMEOUT);
+        let ret = event.wait(Timeout::Infinite);
         drop(shmem); // Delete the local link and the shared memory object.
         if ret.is_err() {
             cli_error_and_die(
