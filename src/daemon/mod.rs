@@ -161,6 +161,18 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
+    // Bind RPC endpoint before calling `unblock_parent_process`
+    let rpc_endpoint = if config.client.enable_rpc {
+        Some(
+            std::net::TcpListener::bind(config.client.rpc_address).context(format!(
+                "could not bind to rpc address {}",
+                config.client.rpc_address
+            ))?,
+        )
+    } else {
+        None
+    };
+
     if opts.exit_after_init {
         return Ok(());
     }
@@ -322,13 +334,8 @@ pub(super) async fn start(
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
     // Start services
-    if config.client.enable_rpc {
+    if let Some(rpc_endpoint) = rpc_endpoint {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen =
-            std::net::TcpListener::bind(config.client.rpc_address).context(format!(
-                "could not bind to rpc address {}",
-                config.client.rpc_address
-            ))?;
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
@@ -358,7 +365,7 @@ pub(super) async fn start(
                     new_mined_block_tx: tipset_sink,
                     gc_event_tx,
                 }),
-                rpc_listen,
+                rpc_endpoint,
                 FOREST_VERSION_STRING.as_str(),
                 shutdown_send,
             )
