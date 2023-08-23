@@ -11,7 +11,7 @@ use crate::db::car::AnyCar;
 use crate::db::car::ManyCar;
 use crate::interpreter::trace::TraceAction;
 use crate::ipld::{recurse_links_hash, CidHashSet};
-use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -435,26 +435,21 @@ where
 // short-circuits the search for the genesis block. If no genesis block can be
 // found or if the genesis block is unrecognizable, an error is returned.
 fn query_network(ts: &Tipset, db: impl Blockstore) -> Result<NetworkChain> {
-    let pb = validation_spinner("Identifying genesis block:").with_finish(
-        indicatif::ProgressFinish::AbandonWithMessage("✅ found!".into()),
-    );
+    let pb = validation_spinner("Identifying genesis block:");
 
-    fn match_genesis_block(block_cid: Cid) -> Result<NetworkChain> {
-        if block_cid == *calibnet::GENESIS_CID {
-            Ok(NetworkChain::Calibnet)
-        } else if block_cid == *mainnet::GENESIS_CID {
-            Ok(NetworkChain::Mainnet)
-        } else {
-            bail!("Unrecognizable genesis block");
+    match ts.genesis(db).and_then(|genesis| {
+        NetworkChain::from_genesis(genesis.cid())
+            .context("genesis block does not match known calibnet or mainnet genesis blocks")
+    }) {
+        Ok(devnet_or_mainnet) => {
+            pb.abandon_with_message("✅ found!");
+            Ok(devnet_or_mainnet)
+        }
+        Err(e) => {
+            pb.finish_with_message("❌ failed!");
+            Err(e)
         }
     }
-
-    if let Ok(genesis_block) = ts.genesis(db) {
-        return match_genesis_block(*genesis_block.cid());
-    }
-
-    pb.finish_with_message("❌ No valid genesis block!");
-    bail!("Snapshot does not contain a genesis block")
 }
 
 // Each tipset in the blockchain contains a set of messages. A message is a
@@ -550,13 +545,7 @@ async fn print_computed_state(
     let ts = Tipset::load_required(&store, &TipsetKeys::new(roots.into()))?;
 
     let genesis = ts.genesis(&store)?;
-    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        NetworkChain::Devnet("devnet".to_string())
-    };
+    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let timestamp = genesis.timestamp();
     let chain_index = ChainIndex::new(Arc::clone(&store));

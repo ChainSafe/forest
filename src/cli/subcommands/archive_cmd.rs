@@ -36,7 +36,7 @@ use crate::db::car::{AnyCar, ManyCar, RandomAccessFileReader};
 use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
-use anyhow::{bail, Context as _};
+use anyhow::{anyhow, bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
 use futures::TryStreamExt;
@@ -159,13 +159,7 @@ async fn do_export(
     let ts = Arc::new(root);
 
     let genesis = ts.genesis(&store)?;
-    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        NetworkChain::Devnet("devnet".to_string())
-    };
+    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
 
@@ -346,13 +340,8 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let root = store.heaviest_tipset()?;
 
     let genesis = root.genesis(&store)?;
-    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        bail!("Unrecognizable genesis block");
-    };
+    let chain_name =
+        NetworkChain::from_genesis(genesis.cid()).ok_or(anyhow!("Unrecognisable genesis block"))?;
 
     println!("{}:", chain_name);
     for (epoch, cid) in list_checkpoints(store, root) {
