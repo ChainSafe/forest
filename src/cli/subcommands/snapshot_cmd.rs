@@ -99,14 +99,29 @@ pub enum SnapshotCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
-    /// Compute a state transition.
+    /// Filecoin keeps track of "the state of the world", including:
+    /// wallets and their balances;
+    /// storage providers and their deals;
+    /// etc...
+    ///
+    /// It does this by (essentially) hashing the state of the world.
+    ///
+    /// The world can change when new blocks are mined and transmitted.
+    /// A block may contain a message to e.g transfer FIL between two parties.
+    /// Blocks are ordered by "epoch", which can be thought of as a timestamp.
+    ///
+    /// Snapshots contain (among other things) these messages.
+    ///
+    /// The command calculates the state of the world at EPOCH-1, applies all
+    /// the messages at EPOCH, and prints the resulting hash of the state of the world.
+    ///
+    /// If --json is supplied, details about each message execution will printed.
     ComputeState {
         /// Path to a snapshot CAR, which may be zstd compressed
-        #[arg(long)]
         snapshot: PathBuf,
-        /// Set the height that the VM will see
+        /// Which epoch to compute the state transition for
         #[arg(long)]
-        vm_height: ChainEpoch,
+        epoch: ChainEpoch,
         /// Generate JSON output
         #[arg(long)]
         json: bool,
@@ -296,9 +311,9 @@ impl SnapshotCommands {
             }
             Self::ComputeState {
                 snapshot,
-                vm_height,
+                epoch,
                 json,
-            } => print_computed_state(snapshot, vm_height, json).await,
+            } => print_computed_state(snapshot, epoch, json).await,
         }
     }
 }
@@ -520,7 +535,7 @@ fn validation_spinner(prefix: &'static str) -> indicatif::ProgressBar {
 
 async fn print_computed_state(
     snapshot: PathBuf,
-    vm_height: ChainEpoch,
+    epoch: ChainEpoch,
     json: bool,
 ) -> anyhow::Result<()> {
     // Get header roots
@@ -551,8 +566,8 @@ async fn print_computed_state(
     }
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
-        .tipset_by_height(vm_height, Arc::new(ts), ResolveNullTipset::TakeOlder)
-        .context(format!("couldn't get a tipset at height {}", vm_height))?;
+        .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
+        .context(format!("couldn't get a tipset at height {}", epoch))?;
 
     let ((st, _), output) = apply_block_messages(
         timestamp,
