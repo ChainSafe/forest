@@ -124,6 +124,18 @@ where
     }
 }
 
+impl<ReaderT> From<super::ForestCar<ReaderT>> for AnyCar<ReaderT> {
+    fn from(car: super::ForestCar<ReaderT>) -> Self {
+        Self::Forest(car)
+    }
+}
+
+impl<ReaderT> From<super::PlainCar<ReaderT>> for AnyCar<ReaderT> {
+    fn from(car: super::PlainCar<ReaderT>) -> Self {
+        Self::Plain(car)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
