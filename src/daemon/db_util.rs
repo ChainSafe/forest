@@ -317,32 +317,28 @@ async fn verify_tipsets_integrity(
 ) -> anyhow::Result<bool> {
     let start = Utc::now();
     info!("Verifying database integrity...");
-    let mut current = from;
-    while current.epoch() > 0 {
-        if let Some(parent) = Tipset::load(store, current.parents())? {
-            current = parent;
+    let is_valid = if let Some(oldest_ts) = from.chain(store).last() {
+        if let Some(genesis_bytes) = config.chain.genesis_bytes() {
+            let genesis_header = read_genesis_header(
+                config.client.genesis_file.as_ref(),
+                Some(genesis_bytes),
+                store,
+            )
+            .await?;
+            if let Some(genesis_ts) = Tipset::load(
+                store,
+                &TipsetKeys::new(FrozenCids::from_iter([*genesis_header.cid()])),
+            )? {
+                oldest_ts == genesis_ts
+            } else {
+                false
+            }
         } else {
-            break;
+            // For devnet where `config.chain.genesis_bytes()` returns None
+            oldest_ts.epoch() == 0
         }
-    }
-
-    let is_valid = if current.epoch() > 0 {
-        false
     } else {
-        let genesis_header = read_genesis_header(
-            config.client.genesis_file.as_ref(),
-            config.chain.genesis_bytes(),
-            store,
-        )
-        .await?;
-        if let Some(genesis_ts) = Tipset::load(
-            store,
-            &TipsetKeys::new(FrozenCids::from_iter([*genesis_header.cid()])),
-        )? {
-            current == genesis_ts
-        } else {
-            false
-        }
+        false
     };
 
     if !is_valid {
