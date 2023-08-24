@@ -60,7 +60,7 @@ pushd "$(mktemp --directory)"
     #assert_eq "$DIFF_STATE_ROOTS" 1100
 
     : Validate the union of a snapshot and a diff
-    "$FOREST_TOOL_PATH" snapshot validate --check-network calibnet base_snapshot.forest.car.zst diff_snapshot.forest.car.zst
+    "$FOREST_TOOL_PATH" snapshot validate --check-network calibnet --check-stateroots $((900+500)) base_snapshot.forest.car.zst diff_snapshot.forest.car.zst
 rm -- *
 popd
 
