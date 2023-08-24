@@ -102,7 +102,6 @@ libp2p = { version = "0.52.1", default-features = false, features = [
   'noise',
   'yamux',
   'tcp',
-  'websocket',
   'dns',
   'request-response',
   'metrics',

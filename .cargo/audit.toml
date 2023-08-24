@@ -17,7 +17,6 @@ ignore = [
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
 
   # https://github.com/ChainSafe/forest/issues/3410
-  "RUSTSEC-2023-0052", # No fixed upgrade is available!
   "RUSTSEC-2023-0053", # TODO: Upgrade to >=0.100.2, <0.101.0 OR >=0.101.4
 ]
 
