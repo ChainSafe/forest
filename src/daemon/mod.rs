@@ -9,12 +9,14 @@ use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainMuxer;
+use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
 };
 
 use crate::db::rolling::DbGarbageCollector;
+use crate::db::SettingsStore;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -24,22 +26,28 @@ use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
+use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
+use crate::utils::{retry, RetryArgs};
 
 use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
     version::FOREST_VERSION_STRING,
 };
-use anyhow::Context;
+use anyhow::{bail, Context};
 use bundle::load_actor_bundles;
 use db_util::open_forest_car_union_db;
 use dialoguer::console::Term;
+use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
+use fvm_ipld_blockstore::Blockstore;
 use lazy_static::lazy_static;
 
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 
+use std::path::Path;
+use std::time::Duration;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
@@ -408,6 +416,102 @@ pub(super) async fn start(
         .await
         .context("services failure")
         .map(|_| {})
+}
+
+/// If our current chain is below a supported height, we need a snapshot to bring it up
+/// to a supported height. If we've not been given a snapshot by the user, get one.
+///
+/// An [`Err`] should be considered fatal.
+async fn fetch_snapshot_if_required(
+    store: &impl Blockstore,
+    settings: &impl SettingsStore,
+    config: &mut Config,
+    auto_download_snapshot: bool,
+    download_directory: &Path,
+) -> anyhow::Result<()> {
+    if !download_directory.is_dir() {
+        anyhow::bail!(
+            "`download_directory` does not exist: {}",
+            download_directory.display()
+        );
+    }
+
+    let vendor = snapshot::TrustedVendor::default();
+    let chain = &config.chain.network;
+
+    let require_a_snapshot = {
+        if let Ok(Some(ts)) = Tipset::load_heaviest(store, settings) {
+            // What height is our chain at right now, and what network version does that correspond to?
+            let network_version = config.chain.network_version(ts.epoch());
+            // We don't support small network versions (we can't validate from e.g genesis).
+            // So we need a snapshot (which will be from a recent network version)
+            network_version < NetworkVersion::V16
+        } else {
+            true
+        }
+    };
+
+    let have_a_snapshot = config.client.snapshot_path.is_some();
+
+    match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
+        (false, _, _) => Ok(()),   // noop - don't need a snapshot
+        (true, true, _) => Ok(()), // noop - we need a snapshot, and we have one
+        (true, false, true) => {
+            // we need a snapshot, don't have one, and have permission to download one, so do that
+            let max_retries = 3;
+            match retry(
+                RetryArgs {
+                    timeout: None,
+                    max_retries: Some(max_retries),
+                    delay: Some(Duration::from_secs(60)),
+                },
+                || crate::cli_shared::snapshot::fetch(download_directory, chain, vendor),
+            )
+            .await
+            {
+                Ok(path) => {
+                    config.client.snapshot_path = Some(path);
+                    config.client.snapshot = true;
+                    Ok(())
+                }
+                Err(_) => bail!("failed to fetch snapshot after {max_retries} attempts"),
+            }
+        }
+        (true, false, false) => {
+            // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
+            let (num_bytes, _url) =
+                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
+                    .await
+                    .context("couldn't get snapshot size")?;
+            // dialoguer will double-print long lines, so manually print the first clause ourselves,
+            // then let `Confirm` handle the second.
+            println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
+            let message = format!(
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
+            );
+            let have_permission = asyncify(|| {
+                dialoguer::Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt(message)
+                    .default(false)
+                    .interact()
+                    // e.g not a tty (or some other error), so haven't got permission.
+                    .unwrap_or(false)
+            })
+            .await;
+            if !have_permission {
+                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
+            }
+            match crate::cli_shared::snapshot::fetch(download_directory, chain, vendor).await {
+                Ok(path) => {
+                    config.client.snapshot_path = Some(path);
+                    config.client.snapshot = true;
+                    Ok(())
+                }
+                Err(e) => Err(e).context("downloading required snapshot failed"),
+            }
+        }
+    }
 }
 
 /// Generates, prints and optionally writes to a file the administrator JWT
