@@ -44,7 +44,7 @@ pushd "$(mktemp --directory)"
 
     : verify that diff exports contain the expected number of state roots
     EPOCH=$(forest_query_epoch exported_snapshot.car.zst)
-    "$FOREST_CLI_PATH" archive export --epoch $((EPOCH-500)) --output-path base_snapshot.forest.car.zst exported_snapshot.car.zst
+    "$FOREST_CLI_PATH" archive export --epoch $((EPOCH-500)) --depth 900 --output-path base_snapshot.forest.car.zst exported_snapshot.car.zst
 
     BASE_EPOCH=$(forest_query_epoch base_snapshot.forest.car.zst)
     # This assertion is not true in the presence of null tipsets
