@@ -32,7 +32,6 @@ env:
 
 jobs:
   build-macos:
-    if: false
     name: Build MacOS
     runs-on: macos-latest
     steps:
@@ -76,7 +75,6 @@ jobs:
           if-no-files-found: error
 
   cargo-publish-dry-run:
-    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -93,7 +91,6 @@ jobs:
 
   # cli-specific tests
   forest-cli-check:
-    if: false
     needs:
       - build-ubuntu
     name: Forest CLI checks
@@ -117,7 +114,6 @@ jobs:
 
   # miscallenous tests done on calibnet
   calibnet-check:
-    if: false
     needs:
       - build-ubuntu
     name: Calibnet check
@@ -145,7 +141,6 @@ jobs:
 
   # state migration regression tests
   state-migrations-check:
-    if: false
     needs:
       - build-ubuntu
     name: State migrations
@@ -169,7 +164,6 @@ jobs:
 
   # Wallet checks (sending, exporting key, balances...)
   calibnet-wallet-check:
-    if: false
     needs:
       - build-ubuntu
     name: Wallet tests
@@ -195,7 +189,6 @@ jobs:
 
   # Snapshot export checks
   calibnet-export-check:
-    if: false
     needs:
       - build-ubuntu
     name: Snapshot export checks

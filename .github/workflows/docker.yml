@@ -18,7 +18,6 @@ on:
 
 jobs:
   build-and-push-docker-image:
-    if: false
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
