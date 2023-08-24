@@ -126,6 +126,10 @@ Verify the message's integrity with an address and signature. Outputs `true` if
 signature verifies message integrity, otherwise `false`. Usage:
 `forest-wallet verify -m <hex message> -a <address> -s <signature>`
 
+### Delete:
+
+Deletes a wallet given its address. Usage: `forest-wallet delete <address>`
+
 ## Chain-Sync
 
 The chain-sync CLI can mark blocks to never be synced, provide information about

@@ -55,6 +55,8 @@
   flag to `forest-cli archive export`.
 - [#3325](https://github.com/ChainSafe/forest/pull/3325): Add
   `forest-tool state-migration actor-bundle` subcommand.
+- [#3387](https://github.com/ChainSafe/forest/pull/3387): Add
+  `forest-wallet delete` RPC command.
 - [#3322](https://github.com/ChainSafe/forest/issues/3322): Added prompt to
   `forest-cli archive export` to overwrite file if the file specified with
   `--output-path` already exists and a `--force` flag to suppress the prompt.
@@ -67,6 +69,12 @@
   walking performance.
 - [#3178](https://github.com/ChainSafe/forest/issues/3178): Removed inaccurate
   progress log ETA; now only the elapsed time is displayed.
+- [#3322](https://github.com/ChainSafe/forest/issues/3322): The
+  `snapshot export` and `snapshot compress` subcommands for `forest-cli` are now
+  both consistent with `forest-cli archive export` in supporting a short-form
+  output path flag `-o` and a long-form output path flag `--output-path`. The
+  flag `--output` for the `snapshot compress` subcommand was replaced by
+  `--output-path`.
 
 ### Removed
 
