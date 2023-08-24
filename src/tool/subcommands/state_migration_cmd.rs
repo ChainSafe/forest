@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::subcommands::car_cmd::merge_car_streams;
 use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
 use crate::utils::db::car_stream::CarStream;
+use crate::utils::db::car_util::merge_car_streams;
 use crate::utils::net::global_http_client;
 use anyhow::{Context as _, Result};
 use async_compression::futures::write::ZstdEncoder;
