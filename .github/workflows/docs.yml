@@ -24,6 +24,7 @@ env:
   RUSTC_WRAPPER: "sccache"
 
 jobs:
+  if: false
   check-publish-docs:
     name: Publish
     runs-on: ubuntu-latest

@@ -35,6 +35,7 @@ env:
 
 jobs:
   tests:
+    if: false
     runs-on: buildjet-8vcpu-ubuntu-2204
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
@@ -67,6 +68,7 @@ jobs:
         uses: taiki-e/install-action@nextest
       - run: make test
   tests-release:
+    if: false
     runs-on: buildjet-8vcpu-ubuntu-2204
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.

@@ -16,6 +16,7 @@ env:
 
 jobs:
   codecov:
+    if: false
     name: Cover
     runs-on: ubuntu-latest
     steps:

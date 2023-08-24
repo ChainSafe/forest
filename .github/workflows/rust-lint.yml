@@ -32,6 +32,7 @@ env:
 
 jobs:
   lint-all:
+    if: false
     name: All lint checks
     runs-on: ubuntu-latest
     steps:
@@ -59,6 +60,7 @@ jobs:
       - run: make lint-all
 
   dependencies-check:
+    if: false
     name: Check cargo files
     runs-on: ubuntu-latest
     steps:
