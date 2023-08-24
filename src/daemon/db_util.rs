@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
@@ -12,12 +12,17 @@ use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
 use crate::db::db_engine::{db_root, open_proxy_db};
 use crate::db::rolling::RollingDB;
-use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
+use crate::db::SettingsStore;
+use crate::genesis::read_genesis_header;
+use crate::ipld::FrozenCids;
+use crate::shim::version::NetworkVersion;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::{retry, RetryArgs};
 use anyhow::{bail, Context};
+use chrono::Utc;
 use dialoguer::theme::ColorfulTheme;
 use futures::TryStreamExt;
+use fvm_ipld_blockstore::Blockstore;
 use positioned_io::RandomAccessFile;
 use std::ffi::OsStr;
 use std::fs;
@@ -90,17 +95,14 @@ pub async fn open_forest_car_union_db(
     // TODO: use `--consume-snapshot` CLI option once it's implemented
     let mut consume_snapshot_file = false;
     if config.client.snapshot_path.is_none() {
-        let epoch = {
-            if store.read_only_len() == 0 {
-                0
-            } else if let Ok(Some(ts)) = Tipset::load_heaviest(&store, &store) {
-                ts.epoch()
-            } else {
-                0
-            }
-        };
-        fetch_snapshot_if_required(config, epoch, opts.auto_download_snapshot, &db_root_dir)
-            .await?;
+        fetch_snapshot_if_required(
+            &store,
+            &store,
+            config,
+            opts.auto_download_snapshot,
+            &db_root_dir,
+        )
+        .await?;
         consume_snapshot_file = true;
     }
 
@@ -212,8 +214,9 @@ async fn import_chain_as_forest_car(
 ///
 /// An [`Err`] should be considered fatal.
 async fn fetch_snapshot_if_required(
+    store: &impl Blockstore,
+    settings: &impl SettingsStore,
     config: &mut Config,
-    epoch: ChainEpoch,
     auto_download_snapshot: bool,
     download_directory: &Path,
 ) -> anyhow::Result<()> {
@@ -227,13 +230,23 @@ async fn fetch_snapshot_if_required(
     let vendor = snapshot::TrustedVendor::default();
     let chain = &config.chain.network;
 
-    // What height is our chain at right now, and what network version does that correspond to?
-    let network_version = config.chain.network_version(epoch);
-    let network_version_is_small = network_version < NetworkVersion::V16;
+    let require_a_snapshot = {
+        if let Ok(Some(ts)) = Tipset::load_heaviest(store, settings) {
+            let epoch = ts.epoch();
+            if verify_tipsets_integrity(store, ts, config).await? {
+                // What height is our chain at right now, and what network version does that correspond to?
+                let network_version = config.chain.network_version(epoch);
+                // We don't support small network versions (we can't validate from e.g genesis).
+                // So we need a snapshot (which will be from a recent network version)
+                network_version < NetworkVersion::V16
+            } else {
+                true
+            }
+        } else {
+            true
+        }
+    };
 
-    // We don't support small network versions (we can't validate from e.g genesis).
-    // So we need a snapshot (which will be from a recent network version)
-    let require_a_snapshot = network_version_is_small;
     let have_a_snapshot = config.client.snapshot_path.is_some();
 
     match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
@@ -295,6 +308,53 @@ async fn fetch_snapshot_if_required(
             }
         }
     }
+}
+
+async fn verify_tipsets_integrity(
+    store: &impl Blockstore,
+    from: Tipset,
+    config: &Config,
+) -> anyhow::Result<bool> {
+    let start = Utc::now();
+    info!("Verifying database integrity...");
+    let mut current = from;
+    while current.epoch() > 0 {
+        if let Some(parent) = Tipset::load(store, current.parents())? {
+            current = parent;
+        } else {
+            break;
+        }
+    }
+
+    let is_valid = if current.epoch() > 0 {
+        false
+    } else {
+        let genesis_header = read_genesis_header(
+            config.client.genesis_file.as_ref(),
+            config.chain.genesis_bytes(),
+            store,
+        )
+        .await?;
+        if let Some(genesis_ts) = Tipset::load(
+            store,
+            &TipsetKeys::new(FrozenCids::from_iter([*genesis_header.cid()])),
+        )? {
+            current == genesis_ts
+        } else {
+            false
+        }
+    };
+
+    if !is_valid {
+        warn!("Failed to validate all tipsets back to genesis, database is likely corrupted.");
+    }
+
+    info!(
+        "Done verifying database integrity, took {}s",
+        (Utc::now() - start).num_seconds()
+    );
+
+    Ok(is_valid)
 }
 
 #[cfg(test)]
