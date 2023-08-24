@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::Tipset;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
@@ -13,13 +13,10 @@ use crate::db::car::{ForestCar, ManyCar};
 use crate::db::db_engine::{db_root, open_proxy_db};
 use crate::db::rolling::RollingDB;
 use crate::db::SettingsStore;
-use crate::genesis::read_genesis_header;
-use crate::ipld::FrozenCids;
 use crate::shim::version::NetworkVersion;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::{retry, RetryArgs};
 use anyhow::{bail, Context};
-use chrono::Utc;
 use dialoguer::theme::ColorfulTheme;
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -225,16 +222,11 @@ async fn fetch_snapshot_if_required(
 
     let require_a_snapshot = {
         if let Ok(Some(ts)) = Tipset::load_heaviest(store, settings) {
-            let epoch = ts.epoch();
-            if verify_tipsets_integrity(store, ts, config).await? {
-                // What height is our chain at right now, and what network version does that correspond to?
-                let network_version = config.chain.network_version(epoch);
-                // We don't support small network versions (we can't validate from e.g genesis).
-                // So we need a snapshot (which will be from a recent network version)
-                network_version < NetworkVersion::V16
-            } else {
-                true
-            }
+            // What height is our chain at right now, and what network version does that correspond to?
+            let network_version = config.chain.network_version(ts.epoch());
+            // We don't support small network versions (we can't validate from e.g genesis).
+            // So we need a snapshot (which will be from a recent network version)
+            network_version < NetworkVersion::V16
         } else {
             true
         }
@@ -301,49 +293,6 @@ async fn fetch_snapshot_if_required(
             }
         }
     }
-}
-
-async fn verify_tipsets_integrity(
-    store: &impl Blockstore,
-    from: Tipset,
-    config: &Config,
-) -> anyhow::Result<bool> {
-    let start = Utc::now();
-    info!("Verifying database integrity...");
-    let is_valid = if let Some(oldest_ts) = from.chain(store).last() {
-        if let Some(genesis_bytes) = config.chain.genesis_bytes() {
-            let genesis_header = read_genesis_header(
-                config.client.genesis_file.as_ref(),
-                Some(genesis_bytes),
-                store,
-            )
-            .await?;
-            if let Some(genesis_ts) = Tipset::load(
-                store,
-                &TipsetKeys::new(FrozenCids::from_iter([*genesis_header.cid()])),
-            )? {
-                oldest_ts == genesis_ts
-            } else {
-                false
-            }
-        } else {
-            // For devnet where `config.chain.genesis_bytes()` returns None
-            oldest_ts.epoch() == 0
-        }
-    } else {
-        false
-    };
-
-    if !is_valid {
-        warn!("Failed to validate all tipsets back to genesis, database is likely corrupted.");
-    }
-
-    info!(
-        "Done verifying database integrity, took {}s",
-        (Utc::now() - start).num_seconds()
-    );
-
-    Ok(is_valid)
 }
 
 #[cfg(test)]
