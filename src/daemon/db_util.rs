@@ -33,7 +33,7 @@ use std::{
     time::Duration,
 };
 use tokio::io::AsyncWriteExt;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use url::Url;
 use walkdir::WalkDir;
 
@@ -60,7 +60,6 @@ pub async fn open_forest_car_union_db(
         config.db_config().clone(),
     )?));
 
-    let mut has_errors = false;
     // Load existing CAR DB(s)
     for file in WalkDir::new(&forest_car_db_dir)
         .into_iter()
@@ -81,15 +80,9 @@ pub async fn open_forest_car_union_db(
                 info!("Loaded car DB at {}", file.display());
             }
             Err(err) => {
-                has_errors = true;
-                error!("Error loading car DB at {}: {err}", file.display())
+                bail!("Error loading car DB at {}: {err}", file.display())
             }
         };
-    }
-
-    // Let it check all DB files altogether instead of failing 1 by 1.
-    if has_errors {
-        bail!("Error loading DB file(s).");
     }
 
     // TODO: use `--consume-snapshot` CLI option once it's implemented
