@@ -5,11 +5,11 @@ pub mod cid;
 pub mod db;
 pub mod encoding;
 pub mod io;
-pub mod json;
 pub mod misc;
 pub mod monitoring;
 pub mod net;
 pub mod proofs_api;
+pub mod stream;
 pub mod version;
 
 use futures::{
@@ -19,6 +19,17 @@ use futures::{
 use std::{pin::Pin, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
+
+// FIXME: Remove this function and hidden commands
+//        Tracking issue https://github.com/ChainSafe/forest/issues/3363
+/// Function used to bail on usage of migrated commands
+pub fn bail_moved_cmd(subcommand: &str, command: &str) -> anyhow::Result<()> {
+    anyhow::bail!(
+        "Invalid subcommand: forest-cli {}. It has been moved to {}.",
+        subcommand,
+        command
+    )
+}
 
 /// Keep running the future created by `make_fut` until the timeout or retry
 /// limit in `args` is reached.

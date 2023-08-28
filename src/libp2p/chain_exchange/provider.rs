@@ -19,7 +19,7 @@ pub fn make_chain_exchange_response<DB>(
     request: &ChainExchangeRequest,
 ) -> ChainExchangeResponse
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 
@@ -27,7 +27,7 @@ where
 
     loop {
         let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids)) {
+        let tipset = match cs.tipset_from_keys(&TipsetKeys::from(curr_tipset_cids)) {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
@@ -55,7 +55,7 @@ where
             }
         }
 
-        curr_tipset_cids = tipset.parents().cids().to_vec();
+        curr_tipset_cids = Vec::<Cid>::from(&tipset.parents().cids);
         let tipset_epoch = tipset.epoch();
 
         if request.include_blocks() {
@@ -88,7 +88,7 @@ where
 // Builds CompactedMessages for given Tipset.
 fn compact_messages<DB>(db: &DB, tipset: &Tipset) -> Result<CompactedMessages, ChainError>
 where
-    DB: Blockstore + Clone,
+    DB: Blockstore,
 {
     let mut bls_messages_order = HashMap::new();
     let mut secp_messages_order = HashMap::new();
@@ -155,7 +155,6 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use fvm_ipld_car::load_car;
-    use tempfile::TempDir;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -181,15 +180,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let chain_store_root = TempDir::new().unwrap();
         let response = make_chain_exchange_response(
-            &ChainStore::new(
-                db,
-                Arc::new(ChainConfig::default()),
-                gen_block,
-                chain_store_root.path(),
-            )
-            .unwrap(),
+            &ChainStore::new(db.clone(), db, Arc::new(ChainConfig::default()), gen_block).unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

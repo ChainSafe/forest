@@ -15,6 +15,7 @@ use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
     version::NetworkVersion,
 };
+use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::{bail, Context as _};
 use cid::Cid;
 use fvm3::{
@@ -25,7 +26,6 @@ use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
-use fvm_ipld_encoding::from_slice;
 use fvm_shared3::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
@@ -88,7 +88,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
         }
 
         let prev_root = self.get_lookback_tipset_state_root_for_round(height)?;
-        let lb_state = StateTree::new_from_root(&self.chain_index.db, &prev_root)?;
+        let lb_state = StateTree::new_from_root(Arc::clone(&self.chain_index.db), &prev_root)?;
 
         let actor = lb_state
             .get_actor(miner_addr)?
@@ -100,7 +100,7 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
 
         let worker = ms.info(&tbs)?.worker.into();
 
-        let state = StateTree::new_from_root(&self.chain_index.db, &self.root)?;
+        let state = StateTree::new_from_root(Arc::clone(&self.chain_index.db), &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
@@ -191,8 +191,8 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
                 h2
             );
         };
-        let bh_1 = from_slice::<BlockHeader>(h1)?;
-        let bh_2 = from_slice::<BlockHeader>(h2)?;
+        let bh_1 = from_slice_with_fallback::<BlockHeader>(h1)?;
+        let bh_2 = from_slice_with_fallback::<BlockHeader>(h2)?;
 
         if bh_1.cid() == bh_2.cid() {
             bail!("no consensus fault: submitted blocks are the same");
@@ -239,11 +239,11 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
         // Specifically, since A is of lower height, it must be that B was mined
         // omitting A from its tipset
         if !extra.is_empty() {
-            let bh_3 = from_slice::<BlockHeader>(extra)?;
+            let bh_3 = from_slice_with_fallback::<BlockHeader>(extra)?;
             if bh_1.parents() == bh_3.parents()
                 && bh_1.epoch() == bh_3.epoch()
-                && bh_2.parents().cids().contains(bh_3.cid())
-                && !bh_2.parents().cids().contains(bh_1.cid())
+                && bh_2.parents().cids.contains(*bh_3.cid())
+                && !bh_2.parents().cids.contains(*bh_1.cid())
             {
                 fault_type = Some(ConsensusFaultType::ParentGrinding);
             }

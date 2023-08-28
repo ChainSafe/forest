@@ -3,7 +3,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, BlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
@@ -42,12 +42,9 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Sanity checks
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-pub(in crate::fil_cns) async fn validate_block<
-    DB: Blockstore + Clone + Sync + Send + 'static,
-    B: Beacon,
->(
+pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
-    beacon_schedule: Arc<BeaconSchedule<B>>,
+    beacon_schedule: Arc<BeaconSchedule>,
     block: Arc<Block>,
 ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
     let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TIME.start_timer();
@@ -213,7 +210,7 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: Blockstore + Clone + Send + Sync + 'static>(
+fn validate_miner<DB: Blockstore>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
     tipset_state: &Cid,
@@ -237,7 +234,7 @@ fn validate_miner<DB: Blockstore + Clone + Send + Sync + 'static>(
     Ok(())
 }
 
-fn validate_winner_election<DB: Blockstore + Clone + Sync + Send + 'static>(
+fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
@@ -347,7 +344,7 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: Blockstore + Clone + Send + Sync + 'static>(
+fn verify_winning_post_proof<DB: Blockstore>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,

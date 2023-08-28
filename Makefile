@@ -24,8 +24,10 @@ install-with-mimalloc:
 	cargo install --locked --path . --force --no-default-features --features mimalloc
 
 install-deps:
+	# https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md#1-adding-the-packagecloud-repository
+	curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang aria2
+	apt-get install --no-install-recommends -y git-lfs build-essential clang aria2
 
 install-lint-tools:
 	cargo install --locked taplo-cli
@@ -53,7 +55,7 @@ clean:
 lint-all: lint audit spellcheck
 
 audit:
-	cargo audit --ignore RUSTSEC-2020-0071
+	cargo audit || (echo "See .config/audit.toml"; false)
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
@@ -105,9 +107,6 @@ test-all: test test-release
 go-mod:
 	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor && go build -o /tmp/forest-go-compat-test) || \
 	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
-
-smoke-test:
-	./scripts/smoke_test.sh
 
 # Checks if all headers are present and adds if not
 license:

@@ -29,10 +29,10 @@ mod fil_cns;
 mod genesis;
 mod interpreter;
 mod ipld;
-mod json;
 mod key_management;
 mod libp2p;
 mod libp2p_bitswap;
+mod lotus_json;
 mod message;
 mod message_pool;
 mod metrics;
@@ -47,7 +47,9 @@ mod state_migration;
 mod statediff;
 #[cfg(test)]
 mod test_utils;
+mod tool;
 mod utils;
+mod wallet;
 
 pub mod build {
     pub use super::r#mod::*;
@@ -93,3 +95,5 @@ pub use daemon::main::main as forestd_main;
 pub use key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
+pub use tool::main::main as forest_tool_main;
+pub use wallet::main::main as forest_wallet_main;

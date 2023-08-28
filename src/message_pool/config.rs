@@ -3,11 +3,13 @@
 
 use std::time::Duration;
 
-use crate::{db::SettingsStore, shim::address::Address};
-use fvm_ipld_encoding::from_slice;
+use crate::{
+    db::{setting_keys::MPOOL_CONFIG_KEY, SettingsStore},
+    shim::address::Address,
+    utils::encoding::from_slice_with_fallback,
+};
 use serde::{Deserialize, Serialize};
 
-const MPOOL_CONFIG_KEY: &str = "/mpool/config";
 const SIZE_LIMIT_LOW: i64 = 20000;
 const SIZE_LIMIT_HIGH: i64 = 30000;
 const PRUNE_COOLDOWN: Duration = Duration::from_secs(60); // 1 minute
@@ -43,7 +45,7 @@ impl Default for MpoolConfig {
 impl MpoolConfig {
     /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: SettingsStore>(&self, store: &DB) -> Result<(), anyhow::Error> {
-        store.write_bin(MPOOL_CONFIG_KEY, fvm_ipld_encoding::to_vec(&self)?)
+        store.write_bin(MPOOL_CONFIG_KEY, &fvm_ipld_encoding::to_vec(&self)?)
     }
 
     /// Returns the low limit capacity of messages to allocate.
@@ -62,7 +64,7 @@ impl MpoolConfig {
     /// default.
     pub fn load_config<DB: SettingsStore>(store: &DB) -> Result<Self, anyhow::Error> {
         match store.read_bin(MPOOL_CONFIG_KEY)? {
-            Some(v) => Ok(from_slice(&v)?),
+            Some(v) => Ok(from_slice_with_fallback(&v)?),
             None => Ok(Default::default()),
         }
     }

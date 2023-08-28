@@ -12,14 +12,14 @@ use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
 mod vm_circ_supply;
 pub use self::errors::*;
-use crate::beacon::{BeaconSchedule, DrandBeacon};
+use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
+use crate::interpreter::BlockMessages;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
-use crate::json::message_receipt;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -171,9 +171,9 @@ impl TipsetStateCache {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "crate::json::message::json")]
+    #[serde(with = "crate::lotus_json")]
     pub msg: Message,
-    #[serde(with = "message_receipt::json::opt")]
+    #[serde(with = "crate::lotus_json")]
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
@@ -201,7 +201,7 @@ pub struct StateManager<DB> {
     cache: TipsetStateCache,
     // Beacon can be cheaply crated from the `chain_config`. The only reason we
     // store it here is because it has a look-up cache.
-    beacon: Arc<crate::beacon::BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
@@ -229,7 +229,7 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
+    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
         Arc::clone(&self.beacon)
     }
 
@@ -244,7 +244,7 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
         state.get_actor(addr)
     }
 
@@ -289,7 +289,7 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let act = state
@@ -704,7 +704,7 @@ where
             if current.epoch() == 0 {
                 return Ok(None);
             }
-            let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
+            let state = StateTree::new_from_root(self.blockstore_owned(), current.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
             if let Some(actor_state) = state
@@ -900,12 +900,12 @@ where
 
     /// Returns a BLS public key from provided address
     pub fn get_bls_public_key(
-        db: &DB,
+        db: &Arc<DB>,
         addr: &Address,
         state_cid: Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state =
-            StateTree::new_from_root(db, &state_cid).map_err(|e| Error::Other(e.to_string()))?;
+        let state = StateTree::new_from_root(Arc::clone(db), &state_cid)
+            .map_err(|e| Error::Other(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
@@ -919,7 +919,7 @@ where
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
+        let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         Ok(state_tree
             .lookup_id(addr)
@@ -982,14 +982,14 @@ where
 
         // First try to resolve the actor in the parent state, so we don't have to
         // compute anything.
-        let state = StateTree::new_from_root(self.blockstore(), ts.parent_state())?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())?;
         if let Ok(addr) = resolve_to_key_addr(&state, self.blockstore(), addr) {
             return Ok(addr);
         }
 
         // If that fails, compute the tip-set and try again.
         let (st, _) = self.tipset_state(ts).await?;
-        let state = StateTree::new_from_root(self.blockstore(), &st)?;
+        let state = StateTree::new_from_root(self.blockstore_owned(), &st)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
     }
@@ -1087,7 +1087,7 @@ pub fn validate_tipsets<DB, T>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipsets: T,
 ) -> anyhow::Result<()>
@@ -1210,7 +1210,7 @@ pub fn apply_block_messages<DB, CB>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
@@ -1291,7 +1291,7 @@ where
         }
     }
 
-    let block_messages = ChainStore::block_msgs_for_tipset(&chain_index.db, &tipset)
+    let block_messages = BlockMessages::for_tipset(&chain_index.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;

@@ -29,7 +29,7 @@ pub async fn read_genesis_header<DB>(
     db: &DB,
 ) -> Result<BlockHeader, anyhow::Error>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -55,7 +55,7 @@ pub fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: Blockstore + Clone + Send + Sync + 'static,
+    BS: Blockstore,
 {
     // Get network name from genesis state.
     let network_name = state_manager
@@ -67,7 +67,7 @@ where
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Send + Sync,
+    BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(db, reader).await?;
@@ -92,7 +92,7 @@ pub async fn import_chain<DB>(
     buffer_size: BufferSize,
 ) -> anyhow::Result<()>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     info!("Importing chain from snapshot at: {path}");
     // start import
@@ -100,7 +100,7 @@ where
     let reader = net::decompress_if_needed(net::reader(path).await?).await?;
 
     let (cids, n_records) = load_and_retrieve_header(
-        sm.blockstore().clone(),
+        sm.blockstore_owned(),
         reader.compat(),
         skip_load,
         chunk_size,
@@ -114,12 +114,10 @@ where
         stopwatch.elapsed().as_secs()
     );
     if let Some(n_records) = n_records {
-        let mut meta = sm.chain_store().file_backed_chain_meta().lock();
-        meta.inner_mut().estimated_reachable_records = n_records;
-        meta.sync()?;
+        sm.chain_store().set_estimated_records(n_records as u64)?;
     }
 
-    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::from(cids))?;
 
     if !skip_load {
         let gb = sm.chain_store().chain_index.tipset_by_height(

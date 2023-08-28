@@ -31,49 +31,51 @@ function cov {
 cargo llvm-cov --workspace clean
 cargo llvm-cov --workspace --no-report
 cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch --aria2 --provider filecoin -s "$TMP_DIR"
+cov forest-tool snapshot fetch --chain calibnet --vendor filops -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.zst | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --halt-after-import --height=-200 --track-peak-rss
 cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
+cov forest-tool snapshot fetch --chain calibnet -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
 cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach --track-peak-rss --save-token "$TOKEN_PATH"
 cov forest-cli sync wait
 cov forest-cli sync status
 cov forest-cli --chain calibnet db gc
-cov forest-cli --chain calibnet db stats
+cov forest-tool db stats --chain calibnet
 cov forest-cli snapshot export
 cov forest-cli snapshot export
 cov forest-cli attach --exec 'showPeers()'
 cov forest-cli net listen
 cov forest-cli net peers
+cov forest-cli mpool pending
+cov forest-cli mpool stats
 cov forest-cli net info
 
 # Load the admin token
 TOKEN=$(cat "$TOKEN_PATH")
 
 # Get default address
-DEFAULT_ADDR=$(cov forest-cli --token "$TOKEN" wallet default)
+DEFAULT_ADDR=$(cov forest-wallet --token "$TOKEN" default)
 
 # Check that the address exists
-cov forest-cli --token "$TOKEN" wallet has "$DEFAULT_ADDR" | grep "$DEFAULT_ADDR"
+cov forest-wallet --token "$TOKEN" has "$DEFAULT_ADDR" | grep "$DEFAULT_ADDR"
 
 # Check that the address is listed
-cov forest-cli --token "$TOKEN" wallet list | grep "$DEFAULT_ADDR"
+cov forest-wallet --token "$TOKEN" list | grep "$DEFAULT_ADDR"
 
 # Generate new address
-NEW_ADDR=$(cov forest-cli --token "$TOKEN" wallet new)
+NEW_ADDR=$(cov forest-wallet --token "$TOKEN" new)
 
 # Update default address
-cov forest-cli --token "$TOKEN" wallet set-default "$NEW_ADDR"
-cov forest-cli --token "$TOKEN" wallet default | grep "$NEW_ADDR"
+cov forest-wallet --token "$TOKEN" set-default "$NEW_ADDR"
+cov forest-wallet --token "$TOKEN" default | grep "$NEW_ADDR"
 
 # Sign a message
-SIGNATURE=$(cov forest-cli --token "$TOKEN" wallet sign -a "$NEW_ADDR" -m deadbeef)
-cov forest-cli --token "$TOKEN" wallet verify -a "$NEW_ADDR" -m deadbeef -s "$SIGNATURE" | grep true
+SIGNATURE=$(cov forest-wallet --token "$TOKEN" sign -a "$NEW_ADDR" -m deadbeef)
+cov forest-wallet --token "$TOKEN" verify -a "$NEW_ADDR" -m deadbeef -s "$SIGNATURE" | grep true
 
 # Check balance
-cov forest-cli --token "$TOKEN" wallet balance "$NEW_ADDR" | grep 0
+cov forest-wallet --token "$TOKEN" balance "$NEW_ADDR" | grep 0
 
 # Send funds
 cov forest-cli --token "$TOKEN" send --from "$DEFAULT_ADDR" "$NEW_ADDR" 10attoFIL
@@ -81,9 +83,9 @@ cov forest-cli --token "$TOKEN" send --from "$DEFAULT_ADDR" "$NEW_ADDR" 10attoFI
 # Create a read-only token
 READ_TOKEN=$(cov forest-cli --token "$TOKEN" auth create-token --perm read)
 # Make sure that viewing the wallet fails with the read-only token
-cov forest-cli --token "$READ_TOKEN" wallet list && { echo "must fail"; return 1; }
+cov forest-wallet --token "$READ_TOKEN" list && { echo "must fail"; return 1; }
 # Verifying a message should still work with the read-only token
-cov forest-cli --token "$READ_TOKEN" wallet verify -a "$NEW_ADDR" -m deadbeef -s "$SIGNATURE" | grep true
+cov forest-wallet --token "$READ_TOKEN" verify -a "$NEW_ADDR" -m deadbeef -s "$SIGNATURE" | grep true
 
 # Kill forest and generate coverage report
 timeout 15 killall --wait --signal SIGINT forest

@@ -33,7 +33,6 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
     bad_block_cache::BadBlockCache,
-    consensus::Consensus,
     metrics,
     network_context::SyncNetworkContext,
     sync_state::SyncState,
@@ -48,11 +47,11 @@ pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 #[derive(Debug, Error)]
-pub enum ChainMuxerError<C: Consensus> {
+pub enum ChainMuxerError {
     #[error("Tipset processor error: {0}")]
-    TipsetProcessor(#[from] TipsetProcessorError<C>),
+    TipsetProcessor(#[from] TipsetProcessorError),
     #[error("Tipset range syncer error: {0}")]
-    TipsetRangeSyncer(#[from] TipsetRangeSyncerError<C>),
+    TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset validation error: {0}")]
     TipsetValidator(#[from] Box<TipsetValidationError>),
     #[error("Sending tipset on channel failed: {0}")]
@@ -118,15 +117,12 @@ enum PubsubMessageProcessingStrategy {
 
 /// The `ChainMuxer` handles events from the P2P network and orchestrates the
 /// chain synchronization.
-pub struct ChainMuxer<DB, M, C: Consensus> {
+pub struct ChainMuxer<DB, M> {
     /// State of the `ChainSyncer` `Future` implementation
-    state: ChainMuxerState<C>,
+    state: ChainMuxerState,
 
     /// Syncing state of chain sync workers.
     worker_state: WorkerState,
-
-    /// Custom consensus rules.
-    consensus: Arc<C>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -158,15 +154,13 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
     sync_config: SyncConfig,
 }
 
-impl<DB, M, C> ChainMuxer<DB, M, C>
+impl<DB, M> ChainMuxer<DB, M>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
-    C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
         peer_manager: Arc<PeerManager>,
         mpool: Arc<MessagePool<M>>,
@@ -176,19 +170,15 @@ where
         tipset_sender: flume::Sender<Arc<Tipset>>,
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Result<Self, ChainMuxerError<C>> {
-        let network = SyncNetworkContext::new(
-            network_send,
-            peer_manager,
-            state_manager.blockstore().clone(),
-        );
+    ) -> Result<Self, ChainMuxerError> {
+        let network =
+            SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
 
         Ok(Self {
             state: ChainMuxerState::Idle,
             worker_state: Default::default(),
             network,
             genesis,
-            consensus,
             state_manager,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
@@ -215,7 +205,7 @@ where
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
         tipset_keys: TipsetKeys,
-    ) -> Result<FullTipset, ChainMuxerError<C>> {
+    ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
         if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
             return Ok(full_tipset);
@@ -230,7 +220,7 @@ where
     fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKeys,
-    ) -> Result<FullTipset, ChainMuxerError<C>> {
+    ) -> Result<FullTipset, ChainMuxerError> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
         let ts = chain_store.tipset_from_keys(&tipset_keys)?;
@@ -262,7 +252,7 @@ where
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
-                heaviest_tip_set: heaviest.cids().to_vec(),
+                heaviest_tip_set: heaviest.cids(),
                 heaviest_tipset_height: heaviest.epoch(),
                 heaviest_tipset_weight: heaviest.weight().clone().into(),
                 genesis_cid: genesis_block_cid,
@@ -299,7 +289,7 @@ where
         block: GossipBlock,
         source: PeerId,
         network: SyncNetworkContext<DB>,
-    ) -> Result<FullTipset, ChainMuxerError<C>> {
+    ) -> Result<FullTipset, ChainMuxerError> {
         debug!(
             "Received block over GossipSub: {} height {} from {}",
             block.header.cid(),
@@ -360,7 +350,7 @@ where
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u64,
-    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError<C>> {
+    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound { source, request } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -375,7 +365,7 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
-                let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
+                let tipset_keys = TipsetKeys::from(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
@@ -523,7 +513,7 @@ where
         Ok(Some((tipset, source)))
     }
 
-    fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError<C>> {
+    fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
@@ -605,22 +595,20 @@ where
         &self,
         network_head: FullTipset,
         local_head: Arc<Tipset>,
-    ) -> ChainMuxerFuture<(), ChainMuxerError<C>> {
+    ) -> ChainMuxerFuture<(), ChainMuxerError> {
         // Instantiate a TipsetRangeSyncer
-        let trs_consensus = self.consensus.clone();
         let trs_state_manager = self.state_manager.clone();
         let trs_bad_block_cache = self.bad_blocks.clone();
         let trs_chain_store = self.state_manager.chain_store().clone();
         let trs_network = self.network.clone();
         let trs_tracker = self.worker_state.clone();
         let trs_genesis = self.genesis.clone();
-        let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError<C>> = Box::pin(async move {
+        let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             let network_head_epoch = network_head.epoch();
             let tipset_range_syncer = match TipsetRangeSyncer::new(
                 trs_tracker,
                 Arc::new(network_head.into_tipset()),
                 local_head,
-                trs_consensus,
                 trs_state_manager,
                 trs_network,
                 trs_chain_store,
@@ -651,7 +639,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stream_processor: ChainMuxerFuture<(), ChainMuxerError<C>> = Box::pin(async move {
+        let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
@@ -703,9 +691,8 @@ where
         })
     }
 
-    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError<C>> {
+    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError> {
         // Instantiate a TipsetProcessor
-        let tp_consensus = self.consensus.clone();
         let tp_state_manager = self.state_manager.clone();
         let tp_network = self.network.clone();
         let tp_chain_store = self.state_manager.chain_store().clone();
@@ -716,12 +703,11 @@ where
         enum UnexpectedReturnKind {
             TipsetProcessor,
         }
-        let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError<C>> =
+        let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
             Box::pin(async move {
                 TipsetProcessor::new(
                     tp_tracker,
                     Box::pin(tp_tipset_receiver.into_stream()),
-                    tp_consensus,
                     tp_state_manager,
                     tp_network,
                     tp_chain_store,
@@ -744,7 +730,7 @@ where
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError<C>> = Box::pin(
+        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
                 if let Some(tipset) = tipset_opt {
@@ -836,20 +822,19 @@ where
     }
 }
 
-enum ChainMuxerState<C: Consensus> {
+enum ChainMuxerState {
     Idle,
-    Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError<C>>),
-    Bootstrap(ChainMuxerFuture<(), ChainMuxerError<C>>),
-    Follow(ChainMuxerFuture<(), ChainMuxerError<C>>),
+    Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>),
+    Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
+    Follow(ChainMuxerFuture<(), ChainMuxerError>),
 }
 
-impl<DB, M, C> Future for ChainMuxer<DB, M, C>
+impl<DB, M> Future for ChainMuxer<DB, M>
 where
-    DB: Blockstore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
-    C: Consensus,
 {
-    type Output = ChainMuxerError<C>;
+    type Output = ChainMuxerError;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
@@ -943,6 +928,7 @@ mod tests {
     use crate::networks::{ChainConfig, Height};
     use crate::shim::{address::Address, message::Message};
     use crate::test_utils::construct_messages;
+    use crate::utils::encoding::from_slice_with_fallback;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
 
@@ -967,9 +953,9 @@ mod tests {
     fn empty_msg_meta_vector() {
         let blockstore = MemoryDB::default();
         let usm: Vec<Message> =
-            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
+            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
         let sm: Vec<SignedMessage> =
-            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
+            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
             TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)

@@ -27,13 +27,62 @@
 
 ### Breaking
 
+- [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
+  internal settings from files to the database.
+- [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
+  port from 1234 to 2345.
+- [#3336](https://github.com/ChainSafe/forest/pull/3336) Moved following
+  `forest-cli` subcommands to `forest-tool`
+  - `archive info`
+  - `fetch-params`
+  - `snapshot fetch`
+  - `snapshot validate`
+- [#3355](https://github.com/ChainSafe/forest/pull/3355) Moved commands
+  - `forest-cli db stats` to `forest-tool db stats`
+  - `forest-cli db clean` to `forest-tool db destroy`
+- [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
+  `forest-cli wallet` subcommands to `forest-wallet`
+
 ### Added
 
+- [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
+  multi-threaded car-backed block stores.
+- [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
+  `forest-tool benchmark` commands.
+- [#3330](https://github.com/ChainSafe/forest/pull/3330): Add `--depth` flag to
+  `forest-cli snapshot export`.
+- [#3348](https://github.com/ChainSafe/forest/pull/3348): Add `--diff-depth`
+  flag to `forest-cli archive export`.
+- [#3387](https://github.com/ChainSafe/forest/pull/3387): Add
+  `forest-wallet delete` RPC command.
+- [#3322](https://github.com/ChainSafe/forest/issues/3322): Added prompt to
+  `forest-cli archive export` to overwrite file if the file specified with
+  `--output-path` already exists and a `--force` flag to suppress the prompt.
+
 ### Changed
+
+- [#3331](https://github.com/ChainSafe/forest/pull/3331): Use multiple cores
+  when exporting snapshots.
+- [#3379](https://github.com/ChainSafe/forest/pull/3379): Improved state graph
+  walking performance.
+- [#3178](https://github.com/ChainSafe/forest/issues/3178): Removed inaccurate
+  progress log ETA; now only the elapsed time is displayed.
+- [#3322](https://github.com/ChainSafe/forest/issues/3322): The
+  `snapshot export` and `snapshot compress` subcommands for `forest-cli` are now
+  both consistent with `forest-cli archive export` in supporting a short-form
+  output path flag `-o` and a long-form output path flag `--output-path`. The
+  flag `--output` for the `snapshot compress` subcommand was replaced by
+  `--output-path`.
 
 ### Removed
 
 ### Fixed
+
+- [#3319](https://github.com/ChainSafe/forest/pull/3319): Fix bug triggered by
+  re-encoding ForestCAR.zst files.
+
+- [#3322](https://github.com/ChainSafe/forest/pull/3332): Forest is now able to
+  parse data from epochs below 1_960_320 (on mainnet)
 
 ## Forest v0.12.1 "Carp++"
 
@@ -110,6 +159,10 @@ Notable updates:
 
 ### Added
 
+- [#2761](https://github.com/ChainSafe/forest/issues/2761): Add a per actor
+  limit of 1000 messages to Forest mpool for preventing spam attacks.
+- [#2728](https://github.com/ChainSafe/forest/issues/2728): Revive
+  `forest-cli mpool pending` and `forest-cli mpool stat` subcommands.
 - [#2816](https://github.com/ChainSafe/forest/issues/2816): Support `2k` devnet.
 - [#3026](https://github.com/ChainSafe/forest/pull/3026): Expose
   `forest-cli state diff ...`

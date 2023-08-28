@@ -3,7 +3,7 @@
 
 use std::{io::Write, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
+use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;
@@ -20,7 +20,7 @@ pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     tipset: Arc<Tipset>,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<BeaconSchedule>,
 }
 
 impl<DB> Clone for ChainRand<DB> {
@@ -36,13 +36,13 @@ impl<DB> Clone for ChainRand<DB> {
 
 impl<DB> ChainRand<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     pub fn new(
         chain_config: Arc<ChainConfig>,
         tipset: Arc<Tipset>,
         chain_index: Arc<ChainIndex<Arc<DB>>>,
-        beacon: Arc<BeaconSchedule<DrandBeacon>>,
+        beacon: Arc<BeaconSchedule>,
     ) -> Self {
         Self {
             chain_config,
@@ -191,7 +191,7 @@ where
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: Blockstore + Send + Sync,
+    DB: Blockstore,
 {
     fn get_chain_randomness(
         &self,

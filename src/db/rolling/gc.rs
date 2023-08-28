@@ -73,8 +73,10 @@ use std::{
 };
 
 use crate::blocks::Tipset;
+use crate::db::setting_keys::ESTIMATED_RECORDS_KEY;
+use crate::db::SettingsStoreExt;
 use crate::ipld::util::*;
-use crate::utils::db::{file_backed_obj::ChainMeta, BlockstoreBufferedWriteExt, DB_KEY_BYTES};
+use crate::utils::db::{BlockstoreBufferedWriteExt, DB_KEY_BYTES};
 use chrono::Utc;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
@@ -86,8 +88,7 @@ pub struct DbGarbageCollector<F>
 where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
-    db: RollingDB,
-    file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
+    db: Arc<ManyCar<Arc<RollingDB>>>,
     get_tipset: F,
     chain_finality: i64,
     recent_state_roots: i64,
@@ -102,8 +103,7 @@ where
     F: Fn() -> Tipset + Send + Sync + 'static,
 {
     pub fn new(
-        db: RollingDB,
-        file_backed_chain_meta: Arc<parking_lot::Mutex<FileBacked<ChainMeta>>>,
+        db: Arc<ManyCar<Arc<RollingDB>>>,
         chain_finality: i64,
         recent_state_roots: i64,
         get_tipset: F,
@@ -112,7 +112,6 @@ where
 
         Self {
             db,
-            file_backed_chain_meta,
             get_tipset,
             chain_finality,
             recent_state_roots,
@@ -150,8 +149,8 @@ where
             }
 
             if let (Ok(total_size), Ok(current_size), last_reachable_bytes) = (
-                self.db.total_size_in_bytes(),
-                self.db.current_size_in_bytes(),
+                self.db.writer().total_size_in_bytes(),
+                self.db.writer().current_size_in_bytes(),
                 self.last_reachable_bytes.load(atomic::Ordering::Relaxed),
             ) {
                 let should_collect = if last_reachable_bytes > 0 {
@@ -208,7 +207,7 @@ where
     async fn collect_once(&self) -> anyhow::Result<()> {
         let tipset = (self.get_tipset)();
 
-        if self.db.current_creation_epoch() + self.chain_finality >= tipset.epoch() {
+        if self.db.writer().current_creation_epoch() + self.chain_finality >= tipset.epoch() {
             anyhow::bail!("Cancelling GC: the old DB space contains unfinalized chain parts");
         }
 
@@ -226,15 +225,10 @@ where
         const BUFFER_CAPCITY_BYTES: usize = 128 * 1024 * 1024;
         let (tx, rx) = flume::bounded(100);
         let write_task = tokio::spawn({
-            let db = db.current();
+            let db = db.writer().current();
             async move { db.buffered_write(rx, BUFFER_CAPCITY_BYTES).await }
         });
-        let estimated_reachable_records = Some(
-            self.file_backed_chain_meta
-                .lock()
-                .inner()
-                .estimated_reachable_records as u64,
-        );
+        let estimated_reachable_records = self.db.writer().read_obj(ESTIMATED_RECORDS_KEY)?;
         let n_records = walk_snapshot(
             &tipset,
             self.recent_state_roots,
@@ -248,10 +242,13 @@ where
                         .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
 
                     let pair = (cid, block.clone());
-                    reachable_bytes
-                        .fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
-                    if !db.current().has(&cid)? {
-                        tx.send_async(pair).await?;
+                    if db.writer().has(&cid)? {
+                        reachable_bytes
+                            .fetch_add(DB_KEY_BYTES + pair.1.len(), atomic::Ordering::Relaxed);
+
+                        if !db.writer().current().has(&cid)? {
+                            tx.send_async(pair).await?;
+                        }
                     }
 
                     Ok(block)
@@ -264,11 +261,9 @@ where
         .await?;
         drop(tx);
 
-        {
-            let mut meta = self.file_backed_chain_meta.lock();
-            meta.inner_mut().estimated_reachable_records = n_records;
-            meta.sync()?;
-        }
+        self.db
+            .writer()
+            .write_obj(ESTIMATED_RECORDS_KEY, &n_records)?;
 
         write_task.await??;
 
@@ -276,14 +271,14 @@ where
         self.last_reachable_bytes
             .store(reachable_bytes as _, atomic::Ordering::Relaxed);
         info!(
-            "Garbage collection finished at epoch {}, took {}s, reachable data size: {}",
+            "Garbage collection finished at epoch {}, took {}s, paritydb reachable data size: {}",
             tipset.epoch(),
             (Utc::now() - start).num_seconds(),
             reachable_bytes.human_count_bytes(),
         );
 
         // Use the latest head here
-        self.db.next_current((self.get_tipset)().epoch())?;
+        self.db.writer().next_current((self.get_tipset)().epoch())?;
 
         Ok(())
     }

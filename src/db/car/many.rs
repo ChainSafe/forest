@@ -9,33 +9,44 @@
 //! A single z-frame cache is shared between all read-only stores.
 
 use super::{AnyCar, ZstdFrameCache};
-use crate::blocks::Tipset;
 use crate::db::MemoryDB;
+use crate::libp2p_bitswap::BitswapStoreReadWrite;
+use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use positioned_io::RandomAccessFile;
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
-    read_only: Vec<AnyCar<Box<dyn super::CarReader>>>,
+    read_only: Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>,
     writer: WriterT,
 }
 
-impl ManyCar {
-    pub fn new() -> Self {
+impl<WriterT> ManyCar<WriterT> {
+    pub fn new(writer: WriterT) -> Self {
         ManyCar {
             shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             read_only: Vec::new(),
-            writer: MemoryDB::default(),
+            writer,
         }
+    }
+
+    pub fn writer(&self) -> &WriterT {
+        &self.writer
+    }
+}
+
+impl<WriterT: Default> Default for ManyCar<WriterT> {
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }
 
 impl<WriterT> ManyCar<WriterT> {
-    pub fn read_only<ReaderT: super::CarReader>(&mut self, any_car: AnyCar<ReaderT>) {
+    pub fn read_only<ReaderT: super::RandomAccessFileReader>(&mut self, any_car: AnyCar<ReaderT>) {
         let key = self.read_only.len() as u64;
         self.read_only.push(
             any_car
@@ -46,7 +57,7 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn read_only_files(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
         for file in files {
-            let car = AnyCar::new(move || std::fs::File::open(&file))?;
+            let car = AnyCar::new(RandomAccessFile::open(file)?)?;
             self.read_only(car);
         }
         Ok(())
@@ -65,9 +76,9 @@ impl<WriterT> ManyCar<WriterT> {
     }
 }
 
-impl<ReaderT: super::CarReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
+impl<ReaderT: super::RandomAccessFileReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
     fn from(any_car: AnyCar<ReaderT>) -> Self {
-        let mut many_car = ManyCar::new();
+        let mut many_car = ManyCar::default();
         many_car.read_only(any_car);
         many_car
     }
@@ -76,7 +87,7 @@ impl<ReaderT: super::CarReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
 impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
     type Error = io::Error;
     fn try_from(files: Vec<PathBuf>) -> io::Result<Self> {
-        let mut many_car = ManyCar::new();
+        let mut many_car = ManyCar::default();
         many_car.read_only_files(files.into_iter())?;
         Ok(many_car)
     }
@@ -84,15 +95,37 @@ impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
 
 impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read_only
-            .par_iter()
-            .find_map_any(|reader| reader.get(k).transpose())
-            .or_else(|| self.writer.get(k).transpose())
-            .transpose()
+        // Theoretically it should be easily parallelizable with `rayon`.
+        // In practice, there is a massive performance loss when providing
+        // more than a single reader.
+        for reader in self.read_only.iter() {
+            if let Some(val) = reader.get(k)? {
+                return Ok(Some(val));
+            }
+        }
+        self.writer.get(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.writer.put_keyed(k, block)
+    }
+}
+
+impl<WriterT: BitswapStoreRead + Blockstore> BitswapStoreRead for ManyCar<WriterT> {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        Blockstore::has(self, cid)
+    }
+
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Blockstore::get(self, cid)
+    }
+}
+
+impl<WriterT: BitswapStoreReadWrite + Blockstore> BitswapStoreReadWrite for ManyCar<WriterT> {
+    type Params = libipld::DefaultParams;
+
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        Blockstore::put_keyed(self, block.cid(), block.data())
     }
 }
 
@@ -104,13 +137,13 @@ mod tests {
 
     #[test]
     fn many_car_empty() {
-        let many = ManyCar::new();
+        let many = ManyCar::new(MemoryDB::default());
         assert!(many.heaviest_tipset().is_err());
     }
 
     #[test]
     fn many_car_idempotent() {
-        let mut many = ManyCar::new();
+        let mut many = ManyCar::new(MemoryDB::default());
         many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
         many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
         assert_eq!(

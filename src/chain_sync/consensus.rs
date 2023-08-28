@@ -43,7 +43,7 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static;
+        DB: Blockstore + Sync + Send + 'static;
 }
 
 /// Helper function to collect errors from async validations.
@@ -107,11 +107,10 @@ pub trait Proposer {
         // these for later refactoring and just use the same pattern.
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
-        submitter: SyncGossipSubmitter,
         services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static,
+        DB: Blockstore + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;
 }
 
@@ -139,7 +138,7 @@ pub trait MessagePoolApi {
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static;
+        DB: Blockstore;
 }
 
 impl<P> MessagePoolApi for MessagePool<P>
@@ -152,23 +151,10 @@ where
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: Blockstore + Clone + Sync + Send + 'static,
+        DB: Blockstore,
     {
         self.select_messages_for_block(base)
             .map_err(|e| e.into())
             .map(|v| v.into_iter().map(Cow::Owned).collect())
-    }
-}
-
-/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the
-/// local chain synchronizer.
-///
-/// Similar to `sync_api::sync_submit_block` but assumes that the block is
-/// correct and already persisted.
-pub struct SyncGossipSubmitter {}
-
-impl SyncGossipSubmitter {
-    pub fn new() -> Self {
-        Self {}
     }
 }

@@ -14,10 +14,10 @@ use crate::utils::db::car_index::FrameOffset;
 use ahash::HashMap;
 use cid::Cid;
 use lru::LruCache;
-use std::io::{Read, Seek};
+use positioned_io::{ReadAt, Size};
 
-pub trait CarReader: Read + Seek + Send + Sync + 'static {}
-impl<X: Read + Seek + Send + Sync + 'static> CarReader for X {}
+pub trait RandomAccessFileReader: ReadAt + Size + Send + Sync + 'static {}
+impl<X: ReadAt + Size + Send + Sync + 'static> RandomAccessFileReader for X {}
 
 /// Multiple `.forest.car.zst` archives may use the same cache, each with a
 /// unique cache key.

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use super::SettingsStore;
 
@@ -44,15 +44,22 @@ impl DbColumn {
         DbColumn::iter()
             .map(|col| {
                 match col {
-                    DbColumn::GraphDagCborBlake2b256 | DbColumn::Settings => {
-                        parity_db::ColumnOptions {
-                            preimage: true,
-                            compression,
-                            ..Default::default()
-                        }
-                    }
+                    DbColumn::GraphDagCborBlake2b256 => parity_db::ColumnOptions {
+                        preimage: true,
+                        compression,
+                        ..Default::default()
+                    },
                     DbColumn::GraphFull => parity_db::ColumnOptions {
                         preimage: true,
+                        // This is needed for key retrieval.
+                        btree_index: true,
+                        compression,
+                        ..Default::default()
+                    },
+                    DbColumn::Settings => parity_db::ColumnOptions {
+                        // explicitly disable preimage for settings column
+                        // othewise we are not able to overwrite entries
+                        preimage: false,
                         // This is needed for key retrieval.
                         btree_index: true,
                         compression,
@@ -64,40 +71,28 @@ impl DbColumn {
     }
 }
 
-#[derive(Clone)]
 pub struct ParityDb {
-    pub db: Arc<parity_db::Db>,
+    pub db: parity_db::Db,
     statistics_enabled: bool,
 }
 
-/// Converts string to a compression `ParityDb` variant.
-fn compression_type_from_str(s: &str) -> anyhow::Result<CompressionType> {
-    match s.to_lowercase().as_str() {
-        "none" => Ok(CompressionType::NoCompression),
-        "lz4" => Ok(CompressionType::Lz4),
-        "snappy" => Ok(CompressionType::Snappy),
-        _ => Err(anyhow!("invalid compression option")),
-    }
-}
-
 impl ParityDb {
-    fn to_options(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Options> {
-        let compression = compression_type_from_str(&config.compression_type)?;
-        Ok(Options {
+    fn to_options(path: PathBuf, config: &ParityDbConfig) -> Options {
+        Options {
             path,
             sync_wal: true,
             sync_data: true,
             stats: config.enable_statistics,
             salt: None,
-            columns: DbColumn::create_column_options(compression),
+            columns: DbColumn::create_column_options(CompressionType::Lz4),
             compression_threshold: [(0, 128)].into_iter().collect(),
-        })
+        }
     }
 
     pub fn open(path: impl Into<PathBuf>, config: &ParityDbConfig) -> anyhow::Result<Self> {
-        let opts = Self::to_options(path.into(), config)?;
+        let opts = Self::to_options(path.into(), config);
         Ok(Self {
-            db: Arc::new(Db::open_or_create(&opts)?),
+            db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
         })
     }
@@ -135,29 +130,28 @@ impl ParityDb {
 }
 
 impl SettingsStore for ParityDb {
-    fn read_bin<K>(&self, key: K) -> anyhow::Result<Option<Vec<u8>>>
-    where
-        K: AsRef<str>,
-    {
-        self.read_from_column(key.as_ref().as_bytes(), DbColumn::Settings)
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(key.as_bytes(), DbColumn::Settings)
     }
 
-    fn write_bin<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
-    where
-        K: AsRef<str>,
-        V: AsRef<[u8]>,
-    {
-        self.write_to_column(key.as_ref().as_bytes(), value, DbColumn::Settings)
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(key.as_bytes(), value, DbColumn::Settings)
     }
 
-    fn exists<K>(&self, key: K) -> anyhow::Result<bool>
-    where
-        K: AsRef<str>,
-    {
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
         self.db
-            .get_size(DbColumn::Settings as u8, key.as_ref().as_bytes())
+            .get_size(DbColumn::Settings as u8, key.as_bytes())
             .map(|size| size.is_some())
             .context("error checking if key exists")
+    }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        let mut iter = self.db.iter(DbColumn::Settings as u8)?;
+        let mut keys = vec![];
+        while let Some((key, _)) = iter.next()? {
+            keys.push(String::from_utf8(key)?);
+        }
+        Ok(keys)
     }
 }
 
@@ -266,7 +260,6 @@ mod test {
     use cid::multihash::MultihashDigest;
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
-    use parity_db::CompressionType;
 
     use crate::db::tests::db_utils::parity::TempParityDB;
 
@@ -325,24 +318,6 @@ mod test {
         assert_eq!(b"bloop", actual.as_bytes());
 
         Ok(())
-    }
-
-    #[test]
-    fn compression_type_from_str_test() {
-        let test_cases = [
-            ("lz4", Ok(CompressionType::Lz4)),
-            ("SNAPPY", Ok(CompressionType::Snappy)),
-            ("none", Ok(CompressionType::NoCompression)),
-            ("cthulhu", Err(anyhow!("some error message"))),
-        ];
-        for (input, expected) in test_cases {
-            let actual = compression_type_from_str(input);
-            if let Ok(compression) = actual {
-                assert_eq!(expected.unwrap(), compression);
-            } else {
-                assert!(expected.is_err());
-            }
-        }
     }
 
     #[test]

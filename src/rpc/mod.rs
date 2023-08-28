@@ -48,7 +48,7 @@ pub async fn start_rpc<DB>(
     shutdown_send: Sender<()>,
 ) -> Result<(), JSONRPCError>
 where
-    DB: Blockstore + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
 {
     use auth_api::*;
     use chain_api::*;
@@ -78,6 +78,10 @@ where
             .with_method(CHAIN_HEAD, chain_head::<DB>)
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
             .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
+            .with_method(
+                CHAIN_GET_MIN_BASE_FEE,
+                chain_api::chain_get_min_base_fee::<DB>,
+            )
             // Message Pool API
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
@@ -97,12 +101,13 @@ where
             .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
             .with_method(WALLET_SIGN, wallet_sign::<DB>)
             .with_method(WALLET_VERIFY, wallet_verify::<DB>)
+            .with_method(WALLET_DELETE, wallet_delete::<DB>)
             // State API
             .with_method(STATE_CALL, state_call::<DB>)
             .with_method(STATE_REPLAY, state_replay::<DB>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
-            .with_method(STATE_REPLAY, state_replay::<DB>)
+            .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)

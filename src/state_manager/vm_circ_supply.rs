@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::{
@@ -63,13 +65,13 @@ impl GenesisInfo {
     }
 
     // Allows generation of the current circulating supply
-    pub fn get_circulating_supply<DB: Blockstore + Clone>(
+    pub fn get_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
-        db: &DB,
+        db: &Arc<DB>,
         root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
-        let state_tree = StateTree::new_from_root(db, root)?;
+        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
         let fil_vested = get_fil_vested(self, height);
         let fil_mined = get_fil_mined(&state_tree)?;
         let fil_burnt = get_fil_burnt(&state_tree)?;
@@ -107,7 +109,7 @@ impl GenesisInfoVesting {
     }
 }
 
-fn get_actor_state<DB: Blockstore + Clone>(
+fn get_actor_state<DB: Blockstore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
@@ -147,9 +149,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     return_value
 }
 
-fn get_fil_mined<DB: Blockstore + Clone>(
-    state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&Address::REWARD_ACTOR)?
         .context("Reward actor address could not be resolved")?;
@@ -158,7 +158,7 @@ fn get_fil_mined<DB: Blockstore + Clone>(
     Ok(state.into_total_storage_power_reward().into())
 }
 
-fn get_fil_market_locked<DB: Blockstore + Clone>(
+fn get_fil_market_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
@@ -169,7 +169,7 @@ fn get_fil_market_locked<DB: Blockstore + Clone>(
     Ok(state.total_locked().into())
 }
 
-fn get_fil_power_locked<DB: Blockstore + Clone>(
+fn get_fil_power_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
@@ -180,7 +180,7 @@ fn get_fil_power_locked<DB: Blockstore + Clone>(
     Ok(state.into_total_locked().into())
 }
 
-fn get_fil_reserve_disbursed<DB: Blockstore + Clone>(
+fn get_fil_reserve_disbursed<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: TokenAmount = TokenAmount::from_whole(300_000_000);
@@ -190,7 +190,7 @@ fn get_fil_reserve_disbursed<DB: Blockstore + Clone>(
     Ok(TokenAmount::from(&*fil_reserved - &reserve_actor.balance))
 }
 
-fn get_fil_locked<DB: Blockstore + Clone>(
+fn get_fil_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let market_locked = get_fil_market_locked(state_tree)?;
@@ -198,9 +198,7 @@ fn get_fil_locked<DB: Blockstore + Clone>(
     Ok(power_locked + market_locked)
 }
 
-fn get_fil_burnt<DB: Blockstore + Clone>(
-    state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_burnt<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, &Address::BURNT_FUNDS_ACTOR)?;
 
     Ok(TokenAmount::from(&burnt_actor.balance))
