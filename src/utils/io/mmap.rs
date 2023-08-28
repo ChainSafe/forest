@@ -35,3 +35,29 @@ impl Size for Mmap {
         Ok(Some(self.0.len() as _))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+    use anyhow::Result;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn test_mmap_read_at_and_size(bytes: Vec<u8>) -> Result<()> {
+        let tmp = tempfile::Builder::new().tempfile()?.into_temp_path();
+        fs::write(&tmp, &bytes)?;
+        let mmap = Mmap::map(&fs::File::open(&tmp)?)?;
+
+        assert_eq!(mmap.size()?.unwrap_or_default() as usize, bytes.len());
+
+        let mut buffer = [0; 128];
+        for pos in 0..bytes.len() {
+            let size = mmap.read_at(pos as _, &mut buffer)?;
+            assert_eq!(&bytes[pos..(pos + size)], &buffer[..size]);
+        }
+
+        Ok(())
+    }
+}
