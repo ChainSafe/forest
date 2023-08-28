@@ -364,13 +364,6 @@ impl From<state_tree_v0::ActorState> for ActorState {
     }
 }
 
-#[cfg(test)]
-impl quickcheck::Arbitrary for ActorState {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        ActorState(ActorStateV3::arbitrary(g))
-    }
-}
-
 // ported from commit hash b622af
 pub mod state_tree_v0 {
     use cid::Cid;
@@ -381,7 +374,9 @@ pub mod state_tree_v0 {
 
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
-    use fvm_ipld_hamt::{Hamtv0 as Hamt, DEFAULT_BIT_WIDTH_V0 as DEFAULT_BIT_WIDTH};
+    use fvm_ipld_hamt::Hamtv0 as Hamt;
+
+    const HAMTV0_BIT_WIDTH: u32 = 5;
 
     /// State of all actor implementations.
     #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -459,8 +454,7 @@ pub mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let hamt =
-                        Hamt::load_with_bit_width(&actors, store, DEFAULT_BIT_WIDTH).unwrap();
+                    let hamt = Hamt::load_with_bit_width(&actors, store, HAMTV0_BIT_WIDTH).unwrap();
 
                     Ok(Self {
                         hamt,

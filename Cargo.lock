@@ -2345,7 +2345,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "num-derive 0.3.3",
@@ -2401,7 +2401,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "libipld-core",
@@ -2426,7 +2426,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "itertools 0.10.5",
@@ -2451,7 +2451,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "indexmap 1.9.3",
@@ -2473,7 +2473,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "integer-encoding 3.0.4",
@@ -2543,7 +2543,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "multihash 0.18.1",
@@ -2743,7 +2743,7 @@ dependencies = [
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (git+https://github.com/creativcoder/ref-fvm?branch=creativcoder/hamtv0-forest)",
+ "fvm_ipld_hamt 0.8.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "gethostname",
@@ -3069,7 +3069,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "lazy_static",
  "log",
@@ -3104,7 +3104,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 3.4.0",
  "lazy_static",
  "log",
@@ -3268,8 +3268,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_ipld_hamt"
-version = "0.7.0"
-source = "git+https://github.com/creativcoder/ref-fvm?branch=creativcoder/hamtv0-forest#76d346fa2b6f63cb8e2e001d207a780ccae4d689"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03a53e14c789449cec999ca0e93d909490c921b967adb7a9ec8f12286fb809bd"
 dependencies = [
  "anyhow",
  "byteorder",
