@@ -2,7 +2,7 @@
 # This script is used to check the correctness
 # of the local devnet in the CI.
 
-set -euxo pipefail
+set -eux
 
 # Path to the directory containing this script.
 PARENT_PATH=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
