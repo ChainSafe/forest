@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::{bail, Context};
+use anyhow::Context as _;
 use protobuf_codegen::Customize;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -10,7 +10,7 @@ const PROTO_DIR: &str = "proto";
 const CARGO_OUT_DIR: &str = "proto";
 
 fn main() -> anyhow::Result<()> {
-    ensure_required_bins_installed()?;
+    ensure_actor_bundle_includable()?;
     generate_protobuf_code()
 }
 
@@ -20,16 +20,21 @@ fn ensure_actor_bundle_includable() -> anyhow::Result<()> {
     // There's a bit of complexity here because:
     // - We want users to `cargo install forest-filecoin`, which requires publishing the actor bundle to crates.io
     // - We want devs to use `git-lfs` for the actor bundle
-    let check_bundle= || {
-        let bundle_size = std::fs::metadata("assets/actor_bundles.car.zst").context("bundle doesn't exist")?.len();
-        anyhow::ensure!(bundle_size == 2_438_387, "downloaded bundle has the wrong size"); // update me if the bundle changes
+    let check_bundle = || {
+        let bundle_size = std::fs::metadata("assets/actor_bundles.car.zst")
+            .context("bundle doesn't exist")?
+            .len();
+        anyhow::ensure!(
+            bundle_size == 2_438_387,
+            "downloaded bundle has the wrong size"
+        ); // update me if the bundle changes
         anyhow::Ok(())
     };
-    
+
     if check_bundle().is_ok() {
         return Ok(()); // already have the right bundle
     }
-    
+
     println!("cargo:warning=fetching actor bundle with git-lfs");
     std::process::Command::new("git-lfs")
         .arg("pull")
@@ -39,7 +44,7 @@ fn ensure_actor_bundle_includable() -> anyhow::Result<()> {
             anyhow::ensure!(status.success(), "git-lfs exited with code {status:?}");
             Ok(())
         })?;
-    
+
     check_bundle()
 }
 
