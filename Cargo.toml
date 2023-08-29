@@ -205,7 +205,6 @@ tokio-test = "0.4.2"
 anyhow = "1"
 protobuf-codegen = "3"
 walkdir = "2"
-which = "4.4"
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can

@@ -2910,7 +2910,6 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
- "which",
  "zstd",
  "zstd-safe",
 ]
