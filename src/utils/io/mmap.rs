@@ -75,8 +75,8 @@ impl Size for EitherMmapOrRandomAccessFile {
     }
 }
 
-/// Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
 fn prefer_file_io_over_mmap() -> bool {
+    // Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
     match std::env::var("FOREST_CAR_LOADER_FILE_IO") {
         Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
         _ => false,
