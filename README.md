@@ -292,21 +292,6 @@ background:
 The command will block until the detached Forest process has started its RPC
 server, allowing you to chain some RPC command immediately after.
 
-### Database
-
-By default, Forest will create a database of its current version or try to
-migrate to it. This can be overridden with the `FOREST_DB_DEV_MODE`
-environmental variable.
-
-| Value                          | Description                                                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `current` or (unset)           | Forest will either create a new database with the current version or attempt a migration if possible. On failure, it will create a new database. |
-| `latest`                       | Forest will use the latest versioned database. No migration will be performed.                                                                   |
-| other values (e.g., `cthulhu`) | Forest will use the provided database (if it exists, otherwise it will create one under this name)                                               |
-
-The databases can be found, by default, under `<DATA_DIR>/<chain>/`, e.g.,
-`$HOME/.local/share/forest/calibnet`.
-
 ### Forest snapshot links
 
 - [calibration network](https://forest.chainsafe.io/calibnet/snapshot-latest)
