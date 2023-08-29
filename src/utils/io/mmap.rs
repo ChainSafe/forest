@@ -4,7 +4,7 @@
 use std::{fs, io, path::Path};
 
 use memmap2::MmapAsRawDesc;
-use positioned_io::{ReadAt, Size};
+use positioned_io::{RandomAccessFile, ReadAt, Size};
 
 /// Wrapper type of [`memmap2::Mmap`] that implements [`ReadAt`] and [`Size`]
 pub struct Mmap(memmap2::Mmap);
@@ -37,6 +37,49 @@ impl ReadAt for Mmap {
 impl Size for Mmap {
     fn size(&self) -> io::Result<Option<u64>> {
         Ok(Some(self.0.len() as _))
+    }
+}
+
+pub enum EitherMmapOrRandomAccessFile {
+    Mmap(Mmap),
+    RandomAccessFile(RandomAccessFile),
+}
+
+impl EitherMmapOrRandomAccessFile {
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
+        Ok(if prefer_file_io_over_mmap() {
+            Self::RandomAccessFile(RandomAccessFile::open(path)?)
+        } else {
+            Self::Mmap(Mmap::map_path(path)?)
+        })
+    }
+}
+
+impl ReadAt for EitherMmapOrRandomAccessFile {
+    fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
+        use EitherMmapOrRandomAccessFile::*;
+        match self {
+            Mmap(mmap) => mmap.read_at(pos, buf),
+            RandomAccessFile(file) => file.read_at(pos, buf),
+        }
+    }
+}
+
+impl Size for EitherMmapOrRandomAccessFile {
+    fn size(&self) -> io::Result<Option<u64>> {
+        use EitherMmapOrRandomAccessFile::*;
+        match self {
+            Mmap(mmap) => mmap.size(),
+            RandomAccessFile(file) => file.size(),
+        }
+    }
+}
+
+/// Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
+fn prefer_file_io_over_mmap() -> bool {
+    match std::env::var("FOREST_CAR_LOADER_FILE_IO") {
+        Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
+        _ => false,
     }
 }
 
