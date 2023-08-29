@@ -826,8 +826,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
     let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
     let build_dns_tcp = || libp2p::dns::TokioDnsConfig::system(build_tcp());
-    let transport =
-        libp2p::websocket::WsConfig::new(build_dns_tcp()?).or_transport(build_dns_tcp()?);
+    let transport = build_dns_tcp()?;
 
     let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;
 
