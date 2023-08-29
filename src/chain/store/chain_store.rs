@@ -456,12 +456,13 @@ where
         Ok(messages)
     };
 
-    ts.blocks().iter().fold(Ok(Vec::new()), |vec, b| {
-        let mut message_vec = vec?;
-        let mut messages = get_message_for_block_header(b)?;
-        message_vec.append(&mut messages);
-        Ok(message_vec)
-    })
+    ts.blocks()
+        .iter()
+        .try_fold(Vec::new(), |mut message_vec, b| {
+            let mut messages = get_message_for_block_header(b)?;
+            message_vec.append(&mut messages);
+            Ok(message_vec)
+        })
 }
 
 /// Returns messages from key-value store based on a slice of [`Cid`]s.
