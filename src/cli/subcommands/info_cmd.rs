@@ -156,7 +156,7 @@ impl NodeStatusInfo {
             )
         };
 
-        vec![network, uptime, chain, chain_health, wallet_info].join("\n")
+        [network, uptime, chain, chain_health, wallet_info].join("\n")
     }
 }
 
