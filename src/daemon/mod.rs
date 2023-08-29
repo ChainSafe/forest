@@ -168,9 +168,17 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
-    let db_root_dir = db_root(&chain_data_path);
+
+    // Try to migrate the database if needed. In case the migration fails, we fallback to creating a new database
+    // to avoid breaking the node.
+    let db_migration = crate::db::migration::DbMigration::new(chain_data_path.clone());
+    if let Err(e) = db_migration.migrate() {
+        warn!("Failed to migrate database: {e}");
+    }
+
+    let db_root_dir = db_root(&chain_data_path)?;
     let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
-        db_root_dir.clone().to_owned(),
+        db_root_dir.clone(),
         config.db_config().clone(),
     )?)));
     let forest_car_db_dir = db_root_dir.join("car_db");
@@ -195,7 +203,7 @@ pub(super) async fn start(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = crate::db::db_engine::db_root(&chain_path(&config));
+        let db_directory = crate::db::db_engine::db_root(&chain_path(&config))?;
         let db = db.writer().clone();
         services.spawn(async {
             crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
