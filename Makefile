@@ -1,4 +1,4 @@
-VENDORED_DOCS_TOOLCHAIN := "nightly-2023-04-19"
+VENDORED_DOCS_TOOLCHAIN := "nightly-2023-08-28"
 
 # Using https://github.com/tonistiigi/xx
 # Use in Docker images when cross-compiling.
