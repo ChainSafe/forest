@@ -14,40 +14,33 @@ fn main() -> anyhow::Result<()> {
     generate_protobuf_code()
 }
 
-fn ensure_required_bins_installed() -> anyhow::Result<()> {
+fn ensure_actor_bundle_includable() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=assets");
 
-    let is_bundle_size_correct = || -> anyhow::Result<bool> {
-        let bundle_size = std::fs::metadata("assets/actor_bundles.car.zst")?.len();
-        Ok(bundle_size == 2_438_387)
+    // There's a bit of complexity here because:
+    // - We want users to `cargo install forest-filecoin`, which requires publishing the actor bundle to crates.io
+    // - We want devs to use `git-lfs` for the actor bundle
+    let check_bundle= || {
+        let bundle_size = std::fs::metadata("assets/actor_bundles.car.zst").context("bundle doesn't exist")?.len();
+        anyhow::ensure!(bundle_size == 2_438_387, "downloaded bundle has the wrong size"); // update me if the bundle changes
+        anyhow::Ok(())
     };
-
-    // If the bundle size is correct, we don't need to pull the bundle.
-    // Don't bail on failure, e.g., in case the file is not present.
-    // We can still get it.
-    if let Ok(true) = is_bundle_size_correct() {
-        return Ok(());
+    
+    if check_bundle().is_ok() {
+        return Ok(()); // already have the right bundle
     }
-
+    
+    println!("cargo:warning=fetching actor bundle with git-lfs");
     std::process::Command::new("git-lfs")
         .arg("pull")
         .status()
-        .with_context(|| {
-            anyhow::anyhow!(
-                "failed to run git lfs pull. \
-            Please ensure git-lfs is installed."
-            )
+        .context("failed to exec git-lfs. Is it installed?")
+        .and_then(|status| {
+            anyhow::ensure!(status.success(), "git-lfs exited with code {status:?}");
+            Ok(())
         })?;
-
-    if is_bundle_size_correct()? {
-        Ok(())
-    } else {
-        bail!(
-            "actor bundle size is incorrect. \
-            Please run `git lfs pull` and try again. If this problem persists, \
-            please open an issue."
-        )
-    }
+    
+    check_bundle()
 }
 
 fn generate_protobuf_code() -> anyhow::Result<()> {
