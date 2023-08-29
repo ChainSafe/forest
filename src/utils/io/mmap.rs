@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::io;
+use std::{fs, io, path::Path};
 
 use memmap2::MmapAsRawDesc;
 use positioned_io::{ReadAt, Size};
@@ -12,6 +12,10 @@ pub struct Mmap(memmap2::Mmap);
 impl Mmap {
     pub fn map(file: impl MmapAsRawDesc) -> io::Result<Self> {
         Ok(Self(unsafe { memmap2::Mmap::map(file)? }))
+    }
+
+    pub fn map_path(path: impl AsRef<Path>) -> io::Result<Self> {
+        Self::map(&fs::File::open(path.as_ref())?)
     }
 }
 

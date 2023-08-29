@@ -13,9 +13,9 @@ use crate::db::car::{ForestCar, ManyCar};
 use crate::db::db_engine::{db_root, open_proxy_db};
 use crate::db::rolling::RollingDB;
 use crate::utils::db::car_stream::CarStream;
+use crate::utils::io::Mmap;
 use anyhow::{bail, Context};
 use futures::TryStreamExt;
-use positioned_io::RandomAccessFile;
 use std::ffi::OsStr;
 use std::fs;
 use std::{
@@ -65,7 +65,7 @@ pub async fn open_forest_car_union_db(
             None
         })
     {
-        match ForestCar::new(RandomAccessFile::open(&file)?) {
+        match ForestCar::new(Mmap::map_path(&file)?) {
             Ok(car) => {
                 store.read_only(car.into());
                 info!("Loaded car DB at {}", file.display());
@@ -127,7 +127,7 @@ async fn import_chain_as_forest_car(
         chrono::Utc::now().timestamp_millis()
     ));
 
-    if ForestCar::is_valid(&RandomAccessFile::open(&downloaded_car_temp_path)?) {
+    if ForestCar::is_valid(&Mmap::map_path(&downloaded_car_temp_path)?) {
         downloaded_car_temp_path.persist(&forest_car_db_path)?;
     } else {
         // Use another temp file to make sure all final `.forest.car.zst` files are complete and valid.
@@ -137,7 +137,7 @@ async fn import_chain_as_forest_car(
         forest_car_db_temp_path.persist(&forest_car_db_path)?;
     }
 
-    let ts = ForestCar::new(RandomAccessFile::open(&forest_car_db_path)?)?.heaviest_tipset()?;
+    let ts = ForestCar::new(Mmap::map_path(&forest_car_db_path)?)?.heaviest_tipset()?;
     info!(
         "Imported snapshot in: {}s, tipset epoch: {}",
         stopwatch.elapsed().as_secs(),

@@ -18,7 +18,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 use positioned_io::RandomAccessFile;
-use std::{fs, io, path::PathBuf, sync::Arc};
+use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
@@ -67,7 +67,7 @@ impl<WriterT> ManyCar<WriterT> {
             if use_file_io {
                 self.read_only(AnyCar::new(RandomAccessFile::open(file)?)?);
             } else {
-                self.read_only(AnyCar::new(Mmap::map(&fs::File::open(file)?)?)?);
+                self.read_only(AnyCar::new(Mmap::map_path(file)?)?);
             }
         }
 
