@@ -22,7 +22,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
-    read_only: Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>,
+    read_only: Mutex<Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>>,
     writer: WriterT,
 }
 
@@ -30,7 +30,7 @@ impl<WriterT> ManyCar<WriterT> {
     pub fn new(writer: WriterT) -> Self {
         ManyCar {
             shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
-            read_only: Vec::new(),
+            read_only: Mutex::new(Vec::new()),
             writer,
         }
     }
@@ -47,16 +47,30 @@ impl<WriterT: Default> Default for ManyCar<WriterT> {
 }
 
 impl<WriterT> ManyCar<WriterT> {
-    pub fn read_only<ReaderT: super::RandomAccessFileReader>(&mut self, any_car: AnyCar<ReaderT>) {
-        let key = self.read_only.len() as u64;
-        self.read_only.push(
+    pub fn with_read_only<ReaderT: super::RandomAccessFileReader>(
+        self,
+        any_car: AnyCar<ReaderT>,
+    ) -> Self {
+        self.read_only(any_car);
+        self
+    }
+
+    pub fn read_only<ReaderT: super::RandomAccessFileReader>(&self, any_car: AnyCar<ReaderT>) {
+        let mut read_only = self.read_only.lock();
+        let key = read_only.len() as u64;
+        read_only.push(
             any_car
                 .with_cache(self.shared_cache.clone(), key)
                 .into_dyn(),
         );
     }
 
-    pub fn read_only_files(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+    pub fn with_read_only_files(self, files: impl Iterator<Item = PathBuf>) -> io::Result<Self> {
+        self.read_only_files(files)?;
+        Ok(self)
+    }
+
+    pub fn read_only_files(&self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
         // Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
         let use_file_io = match std::env::var("FOREST_CAR_LOADER_FILE_IO") {
             Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
@@ -77,6 +91,7 @@ impl<WriterT> ManyCar<WriterT> {
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
         let tipsets = self
             .read_only
+            .lock()
             .iter()
             .map(AnyCar::heaviest_tipset)
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -89,18 +104,14 @@ impl<WriterT> ManyCar<WriterT> {
 
 impl<ReaderT: super::RandomAccessFileReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
     fn from(any_car: AnyCar<ReaderT>) -> Self {
-        let mut many_car = ManyCar::default();
-        many_car.read_only(any_car);
-        many_car
+        ManyCar::default().with_read_only(any_car)
     }
 }
 
 impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
     type Error = io::Error;
     fn try_from(files: Vec<PathBuf>) -> io::Result<Self> {
-        let mut many_car = ManyCar::default();
-        many_car.read_only_files(files.into_iter())?;
-        Ok(many_car)
+        ManyCar::default().with_read_only_files(files.into_iter())
     }
 }
 
@@ -109,7 +120,7 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
         // Theoretically it should be easily parallelizable with `rayon`.
         // In practice, there is a massive performance loss when providing
         // more than a single reader.
-        for reader in self.read_only.iter() {
+        for reader in self.read_only.lock().iter() {
             if let Some(val) = reader.get(k)? {
                 return Ok(Some(val));
             }
@@ -172,9 +183,9 @@ mod tests {
 
     #[test]
     fn many_car_idempotent() {
-        let mut many = ManyCar::new(MemoryDB::default());
-        many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
-        many.read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
+        let many = ManyCar::new(MemoryDB::default())
+            .with_read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap())
+            .with_read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
         assert_eq!(
             many.heaviest_tipset().unwrap(),
             AnyCar::try_from(mainnet::DEFAULT_GENESIS)

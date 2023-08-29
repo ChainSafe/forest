@@ -15,6 +15,9 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
 };
 
+use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
+use crate::db::car::ManyCar;
+use crate::db::db_engine::{db_root, open_proxy_db};
 use crate::db::rolling::DbGarbageCollector;
 use crate::db::SettingsStore;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
@@ -28,24 +31,19 @@ use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
-use crate::utils::{retry, RetryArgs};
-
 use crate::utils::{
-    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
-    version::FOREST_VERSION_STRING,
+    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
+    version::FOREST_VERSION_STRING, RetryArgs,
 };
 use anyhow::{bail, Context};
 use bundle::load_actor_bundles;
-use db_util::prepare_and_open_forest_car_union_db;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use lazy_static::lazy_static;
-
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
-
 use std::path::Path;
 use std::time::Duration;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
@@ -137,7 +135,7 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
-    mut config: Config,
+    config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
     if config.chain.is_testnet() {
@@ -169,12 +167,14 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
-    if opts.exit_after_init {
-        return Ok(());
-    }
-
-    let (db, heaviest_tipset_from_imported_snapshot) =
-        prepare_and_open_forest_car_union_db(&mut config, &opts).await?;
+    let chain_data_path = chain_path(&config);
+    let db_root_dir = db_root(&chain_data_path);
+    let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
+        db_root_dir.clone().to_owned(),
+        config.db_config().clone(),
+    )?)));
+    let forest_car_db_dir = db_root_dir.join("car_db");
+    load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     let mut services = JoinSet::new();
 
@@ -221,10 +221,6 @@ pub(super) async fn start(
         config.chain.clone(),
         genesis_header.clone(),
     )?);
-
-    if let Some(ts) = heaviest_tipset_from_imported_snapshot {
-        chain_store.set_heaviest_tipset(ts.into())?;
-    }
 
     let db_garbage_collector = {
         let db = db.clone();
@@ -276,6 +272,10 @@ pub(super) async fn start(
     } else {
         config
     };
+
+    if opts.exit_after_init {
+        return Ok(());
+    }
 
     load_actor_bundles(&db).await?;
 
@@ -382,6 +382,35 @@ pub(super) async fn start(
     crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
         &config.client.data_dir,
     );
+
+    // TODO: respect `--consume-snapshot` CLI option once it's implemented
+    let mut consume_snapshot_file = false;
+    // Fetch the latest snapshot if needed
+    let mut config = config;
+    if config.client.snapshot_path.is_none() {
+        fetch_snapshot_if_required(
+            &db,
+            &db,
+            &mut config,
+            opts.auto_download_snapshot,
+            &db_root_dir,
+        )
+        .await?;
+        consume_snapshot_file = true;
+    }
+
+    // Import chain if needed
+    if !opts.skip_load.unwrap_or_default() {
+        if let Some(path) = &config.client.snapshot_path {
+            let (car_db_path, ts) =
+                import_chain_as_forest_car(path, &forest_car_db_dir, consume_snapshot_file).await?;
+            db.read_only_files(std::iter::once(car_db_path.clone()))?;
+            info!("Loaded car DB at {}", car_db_path.display());
+            state_manager
+                .chain_store()
+                .set_heaviest_tipset(Arc::new(ts))?;
+        }
+    }
 
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
         // We've been provided a snapshot and asked to validate it
