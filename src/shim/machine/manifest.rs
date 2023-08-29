@@ -86,7 +86,7 @@ impl Manifest {
 
     /// Construct a new manifest from actor name/CID tuples.
     fn new(iter: impl IntoIterator<Item = (String, Cid)>, actors_cid: Cid) -> anyhow::Result<Self> {
-        let by_name = HashMap::from_iter(iter.into_iter());
+        let by_name = HashMap::from_iter(iter);
 
         let init_code = *by_name
             .get(INIT_ACTOR_NAME)

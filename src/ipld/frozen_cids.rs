@@ -64,7 +64,7 @@ impl From<FrozenCids> for Vec<Cid> {
 
 impl From<&FrozenCids> for Vec<Cid> {
     fn from(frozen_cids: &FrozenCids) -> Self {
-        Vec::from_iter(frozen_cids.into_iter())
+        Vec::from_iter(frozen_cids)
     }
 }
 
