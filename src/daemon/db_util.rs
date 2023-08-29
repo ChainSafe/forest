@@ -212,6 +212,20 @@ mod test {
     use super::*;
 
     #[tokio::test]
+    async fn test_prepare_and_open_forest_car_union_db() {
+        let tmp_dir = tempfile::Builder::new().tempdir().unwrap();
+        let mut config = Config::default();
+        config.client.snapshot_path = Some("test-snapshots/chain4.car.zst".into());
+        config.client.data_dir = tmp_dir.path().to_owned();
+        let opts = CliOpts::default();
+        let (_db, ts) = prepare_and_open_forest_car_union_db(&mut config, &opts)
+            .await
+            .unwrap();
+        assert!(ts.is_some());
+        assert!(ts.unwrap().epoch() > 0);
+    }
+
+    #[tokio::test]
     async fn import_snapshot_from_file_valid() {
         import_snapshot_from_file("test-snapshots/chain4.car")
             .await
