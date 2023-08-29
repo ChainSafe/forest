@@ -115,14 +115,13 @@ async fn download_to(url: Url, destination: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn move_or_copy_file(from: &Path, to: &Path, prefer_move: bool) -> anyhow::Result<()> {
-    if prefer_move && fs::rename(from, to).is_ok() {
-        return Ok(());
+fn move_or_copy_file(from: &Path, to: &Path, consume: bool) -> io::Result<()> {
+    if consume && fs::rename(from, to).is_ok() {
+        Ok(())
     } else {
         fs::copy(from, to)?;
+        if consume { fs::remove_file(from)? }
     }
-
-    Ok(())
 }
 
 async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()> {
