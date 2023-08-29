@@ -34,11 +34,10 @@ use walkdir::WalkDir;
 /// 3. asks to fetch the latest snapshot when it's required to run forest.
 /// 4. imports the snapshot(from either CLI options or step 3) and stores it to the database in `.forest.car.zst` format
 
-pub async fn open_forest_car_union_db(
+pub async fn prepare_and_open_forest_car_union_db(
     config: &mut Config,
     opts: &CliOpts,
 ) -> anyhow::Result<(Arc<ManyCar<Arc<RollingDB>>>, Option<Tipset>)> {
-    let mut heaviest_tipset: Option<Tipset> = None;
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path);
     let forest_car_db_dir = db_root_dir.join("car_db");
@@ -46,13 +45,53 @@ pub async fn open_forest_car_union_db(
         fs::create_dir_all(&forest_car_db_dir)?;
     }
 
+    // Opens parity-db
     let mut store = ManyCar::new(Arc::new(open_proxy_db(
         db_root_dir.clone(),
         config.db_config().clone(),
     )?));
 
     // Load existing CAR DB(s)
-    for file in WalkDir::new(&forest_car_db_dir)
+    load_forest_cars(&mut store, &forest_car_db_dir)?;
+
+    // Fetch the latest snapshot if needed
+    // TODO: use `--consume-snapshot` CLI option once it's implemented
+    let mut consume_snapshot_file = false;
+    if config.client.snapshot_path.is_none() {
+        fetch_snapshot_if_required(
+            &store,
+            &store,
+            config,
+            opts.auto_download_snapshot,
+            &db_root_dir,
+        )
+        .await?;
+        consume_snapshot_file = true;
+    }
+
+    // Import chain if needed
+    let heaviest_tipset = if !opts.skip_load.unwrap_or_default() {
+        if let Some(path) = &config.client.snapshot_path {
+            let (car_db_path, ts) =
+                import_chain_as_forest_car(path, &forest_car_db_dir, consume_snapshot_file).await?;
+            store.read_only_files(std::iter::once(car_db_path.clone()))?;
+            info!("Loaded car DB at {}", car_db_path.display());
+            Some(ts)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok((Arc::new(store), heaviest_tipset))
+}
+
+fn load_forest_cars<T>(
+    store: &mut ManyCar<T>,
+    forest_car_db_dir: impl AsRef<Path>,
+) -> anyhow::Result<()> {
+    for file in WalkDir::new(forest_car_db_dir)
         .into_iter()
         .filter_map(|entry| {
             if let Ok(entry) = entry {
@@ -76,31 +115,7 @@ pub async fn open_forest_car_union_db(
         };
     }
 
-    // TODO: use `--consume-snapshot` CLI option once it's implemented
-    let mut consume_snapshot_file = false;
-    if config.client.snapshot_path.is_none() {
-        fetch_snapshot_if_required(
-            &store,
-            &store,
-            config,
-            opts.auto_download_snapshot,
-            &db_root_dir,
-        )
-        .await?;
-        consume_snapshot_file = true;
-    }
-
-    if !opts.skip_load.unwrap_or_default() {
-        if let Some(path) = &config.client.snapshot_path {
-            let (car_db_path, ts) =
-                import_chain_as_forest_car(path, &forest_car_db_dir, consume_snapshot_file).await?;
-            heaviest_tipset = Some(ts);
-            store.read_only_files(std::iter::once(car_db_path.clone()))?;
-            info!("Loaded car DB at {}", car_db_path.display());
-        }
-    }
-
-    Ok((Arc::new(store), heaviest_tipset))
+    Ok(())
 }
 
 /// This function validates and stores the CAR binary from `from_path`(either local path or URL) into the `{DB_ROOT}/car_db/`
@@ -139,7 +154,7 @@ async fn import_chain_as_forest_car(
 
     let ts = ForestCar::new(Mmap::map_path(&forest_car_db_path)?)?.heaviest_tipset()?;
     info!(
-        "Imported snapshot in: {}s, tipset epoch: {}",
+        "Imported snapshot in: {}s, heaviest tipset epoch: {}",
         stopwatch.elapsed().as_secs(),
         ts.epoch()
     );

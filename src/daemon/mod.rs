@@ -36,7 +36,7 @@ use crate::utils::{
 };
 use anyhow::{bail, Context};
 use bundle::load_actor_bundles;
-use db_util::open_forest_car_union_db;
+use db_util::prepare_and_open_forest_car_union_db;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
@@ -174,7 +174,7 @@ pub(super) async fn start(
     }
 
     let (db, heaviest_tipset_from_imported_snapshot) =
-        open_forest_car_union_db(&mut config, &opts).await?;
+        prepare_and_open_forest_car_union_db(&mut config, &opts).await?;
 
     let mut services = JoinSet::new();
 
