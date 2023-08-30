@@ -37,6 +37,7 @@ use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::utils::bail_moved_cmd;
+use crate::utils::db::car_stream::CarStream;
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
@@ -76,6 +77,10 @@ pub enum ArchiveCommands {
         /// state-roots are included if this flag is not set.
         #[arg(short, long)]
         diff_depth: Option<ChainEpochDelta>,
+        /// Do not include any values present in this file. Supported formats:
+        /// `.car`, `.car.zst`, `.forest.car.zst`.
+        #[arg(long)]
+        diff_file: Option<PathBuf>,
         /// Overwrite output file without prompting.
         #[arg(long, default_value_t = false)]
         force: bool,
@@ -99,6 +104,7 @@ impl ArchiveCommands {
                 depth,
                 diff,
                 diff_depth,
+                diff_file,
                 force,
             } => {
                 let store = ManyCar::try_from(snapshot_files)?;
@@ -111,6 +117,7 @@ impl ArchiveCommands {
                     depth,
                     diff,
                     diff_depth,
+                    diff_file,
                     force,
                 )
                 .await
@@ -156,6 +163,7 @@ async fn do_export(
     depth: ChainEpochDelta,
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
+    diff_file: Option<PathBuf>,
     force: bool,
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
@@ -187,24 +195,28 @@ async fn do_export(
         .tipset_by_height(epoch, ts, ResolveNullTipset::TakeOlder)
         .context("unable to get a tipset at given height")?;
 
-    let seen = if let Some(diff) = diff {
+    let mut seen = if let Some(diff) = diff {
         let diff_ts: Arc<Tipset> = index
             .tipset_by_height(diff, ts.clone(), ResolveNullTipset::TakeOlder)
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = stream_graph(
-            &store,
-            diff_ts
-                .clone()
-                .chain(&store)
-                .take_while(|tipset| tipset.epoch() >= diff_limit),
-        );
+        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store), diff_limit);
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
         CidHashSet::default()
     };
+
+    if let Some(diff_file) = diff_file {
+        let mut stream = CarStream::new(tokio::io::BufReader::new(
+            tokio::fs::File::open(diff_file).await?,
+        ))
+        .await?;
+        while let Some(block) = stream.try_next().await? {
+            seen.insert(block.cid);
+        }
+    }
 
     let output_path =
         build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
@@ -315,6 +327,7 @@ mod tests {
             output_path.path().into(),
             Some(0),
             1,
+            None,
             None,
             None,
             false,
