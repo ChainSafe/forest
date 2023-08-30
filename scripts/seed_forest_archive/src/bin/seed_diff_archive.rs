@@ -12,7 +12,7 @@ use seed_forest_archive::archive::{
 };
 
 fn main() -> Result<()> {
-    which("forest").context("Failed to find the 'forest' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
+    which("forest-cli").context("Failed to find the 'forest-cli' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
     which("aws").context("Failed to find the 'aws' binary.")?;
 
     let snapshots = HistoricalSnapshot::new()?;
@@ -25,28 +25,15 @@ fn main() -> Result<()> {
     println!("Highest epoch: {highest_epoch}");
     let mut rng = rand::thread_rng();
     let mut store = Store::new(snapshots.clone());
+    let mut round = 0;
     loop {
-        // let mut threads = vec![];
-
-        let round = rng.gen::<ChainEpoch>() % max_round;
+        // let round = rng.gen::<ChainEpoch>() % max_round;
         println!("Round {round}");
         let epoch = round * EPOCH_STEP;
-        let initial_range = RangeInclusive::new(epoch.saturating_sub(2000), epoch);
+        round += 1;
 
         if !has_lite_snapshot(epoch)? {
-            store.get_range(&initial_range)?;
-            // let lite_snapshot = forest::export(epoch, store.files())?;
-            // check again after we've downloaded/converted the snapshot.
-            if has_lite_snapshot(epoch)? {
-                continue;
-            }
-            // threads.push(std::thread::spawn(move || {
-            //     upload_lite_snapshot(&lite_snapshot)?;
-            //     std::fs::remove_file(&lite_snapshot)?;
-            //     anyhow::Ok(())
-            // }));
-        } else {
-            println!("Lite snapshot already uploaded - skipping");
+            println!("Lite snapshot missing - skipping");
             continue;
         }
 
@@ -57,10 +44,8 @@ fn main() -> Result<()> {
 
             if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                 store.get_range(&diff_range)?;
-                let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, store.files())?;
-                // for thread in threads.drain(..) {
-                //     thread.join().unwrap()?;
-                // }
+                let depth = diff_epoch - epoch + 900;
+                let diff_snapshot = forest::export_diff(diff_epoch, DIFF_STEP, depth, store.files())?;
 
                 upload_diff_snapshot(&diff_snapshot)?;
                 std::fs::remove_file(&diff_snapshot)?;

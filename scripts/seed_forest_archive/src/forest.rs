@@ -47,6 +47,7 @@ pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
 pub fn export_diff(
     epoch: ChainEpoch,
     range: ChainEpochDelta,
+    depth: ChainEpochDelta,
     files: Vec<&Path>,
 ) -> Result<PathBuf> {
     let output_path = diff_snapshot_name(epoch, range);
@@ -60,7 +61,7 @@ pub fn export_diff(
         .arg("--diff")
         .arg(epoch.to_string())
         .arg("--diff-depth")
-        .arg("2000")
+        .arg(depth.to_string())
         .arg("--output-path")
         .arg(&output_path)
         .args(files)
@@ -74,7 +75,7 @@ pub fn compress(input: &Path, output: &Path) -> Result<()> {
         .arg("snapshot")
         .arg("compress")
         .arg("--force")
-        .arg("--output")
+        .arg("--output-path")
         .arg(output)
         .arg(input)
         .status()?;
