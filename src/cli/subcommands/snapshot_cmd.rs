@@ -9,13 +9,15 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::AnyCar;
 use crate::db::car::ManyCar;
-use crate::interpreter::VMTrace;
+use crate::interpreter::{CalledAt, VMTrace};
 use crate::ipld::{recurse_links_hash, CidHashSet};
+use crate::message::ChainMessage;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::ApplyRet;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use crate::utils::db::car_stream::CarStream;
@@ -553,6 +555,8 @@ async fn print_computed_state(
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", epoch))?;
 
+    let mut calls = vec![];
+
     let (st, _) = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
@@ -560,7 +564,12 @@ async fn print_computed_state(
         beacon,
         &MultiEngine::default(),
         tipset,
-        NO_CALLBACK,
+        Some(
+            |_: &Cid, message: &ChainMessage, ret: &ApplyRet, at: CalledAt| {
+                calls.push((message.clone(), ret.clone(), at));
+                anyhow::Ok(())
+            },
+        ),
         match json {
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
@@ -578,6 +587,56 @@ async fn print_computed_state(
 
 /// Parsed tree of [`fvm3::trace::ExecutionEvent`]s
 mod structured {
+    use cid::Cid;
+    use num_bigint::BigInt;
+    use serde_json::json;
+
+    use crate::{
+        interpreter::CalledAt,
+        lotus_json::LotusJson,
+        message::ChainMessage,
+        shim::{
+            address::Address,
+            econ::TokenAmount,
+            executor::{ApplyRet, Receipt},
+            message::Message,
+        },
+    };
+    use fvm_ipld_encoding::ipld_block::IpldBlock;
+
+    pub fn json(
+        state_root: Cid,
+        contexts: Vec<(ChainMessage, ApplyRet, CalledAt)>,
+    ) -> anyhow::Result<serde_json::Value> {
+        Ok(json!({
+        "Root": LotusJson(state_root),
+        "Trace": contexts
+            .into_iter()
+            .map(|(message, apply_ret, called_at)| context_json(message, apply_ret, called_at))
+            .collect::<Result<Vec<_>, _>>()?
+        }))
+    }
+
+    fn context_json(
+        message: ChainMessage,
+        apply_ret: ApplyRet,
+        called_at: CalledAt,
+    ) -> anyhow::Result<serde_json::Value> {
+        let cid = message.cid()?;
+        let Root {
+            gas_charges: _,
+            calls,
+        } = Root::from_events(apply_ret.exec_trace())?;
+        json!({
+            "MsgCid": LotusJson(cid),
+            "Msg": LotusJson(message.message().clone()),
+            "MsgRct": LotusJson(apply_ret.msg_receipt()),
+            "Error": apply_ret.failure_info().unwrap_or_default(),
+            // "ExecutionTrace":
+            // "Duration": unimplemented!(),
+        });
+        todo!()
+    }
 
     struct Root {
         gas_charges: Vec<fvm3::gas::GasCharge>,
@@ -585,7 +644,7 @@ mod structured {
     }
 
     impl Root {
-        pub fn from_events(
+        fn from_events(
             events: Vec<fvm3::trace::ExecutionEvent>,
         ) -> Result<Self, BuildCallTreeError> {
             let mut events = events.into_iter();
@@ -634,12 +693,92 @@ mod structured {
         sub_calls: Vec<CallTree>,
         r#return: CallTreeReturn,
     }
+
+    impl CallTree {
+        fn json(self) -> serde_json::Value {
+            let Self {
+                call:
+                    ExecutionEventCall {
+                        from,
+                        to,
+                        method,
+                        params,
+                        value,
+                    },
+                gas_charges,
+                sub_calls,
+                r#return,
+            } = self;
+
+            let IpldBlock { codec, data } = params.unwrap_or_default();
+
+            // Note: delegation to `serialize` on values in the below map,
+            //       which will panic if serialize fails.
+            json!({
+                "Msg": {
+                    "From": LotusJson(Address::new_id(from)),
+                    "To": LotusJson(Address::from(to)),
+                    "Value": LotusJson(TokenAmount::from(value)),
+                    "Method": method,
+                    "Params": LotusJson(data),
+                    "ParamsCodec": codec
+                },
+                "MsgRct": r#return.json(),
+                "GasCharges": gas_charges.into_iter().map(gas_charge_json).collect::<Vec<_>>(),
+                "SubCalls": sub_calls.into_iter().map(Self::json).collect::<Vec<_>>()
+            })
+        }
+    }
+
+    fn gas_charge_json(gas_charge: fvm3::gas::GasCharge) -> serde_json::Value {
+        let fvm3::gas::GasCharge {
+            name,
+            compute_gas,
+            other_gas,
+            elapsed,
+        } = gas_charge;
+        json!({
+            "Name": name,
+            // total gas
+            "tg": (compute_gas + other_gas).round_up(),
+            "cg": compute_gas.round_up(),
+            "sg": other_gas.round_up(),
+            "tt": elapsed.get()
+                    .map(std::time::Duration::as_nanos)
+                    .unwrap_or(u64::MAX as u128)
+        })
+    }
+
     enum CallTreeReturn {
-        Return(
-            fvm_shared3::error::ExitCode,
-            Option<fvm_ipld_encoding::ipld_block::IpldBlock>,
-        ),
+        Return(fvm_shared3::error::ExitCode, Option<IpldBlock>),
         SyscallError(fvm3::kernel::SyscallError),
+    }
+
+    impl CallTreeReturn {
+        fn json(self) -> serde_json::Value {
+            use fvm_shared3::error::ExitCode;
+            let (code, data, codec) = match self {
+                CallTreeReturn::Return(code, data) => {
+                    let IpldBlock { codec, data } = data.unwrap_or_default();
+                    (code, data, codec)
+                }
+                CallTreeReturn::SyscallError(fvm3::kernel::SyscallError(_, n)) => {
+                    let code = match n {
+                        fvm_shared3::error::ErrorNumber::InsufficientFunds => {
+                            ExitCode::SYS_INSUFFICIENT_FUNDS
+                        }
+                        fvm_shared3::error::ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER,
+                        _ => ExitCode::SYS_ASSERTION_FAILED,
+                    };
+                    (code, vec![], 0)
+                }
+            };
+            json!({
+                "ExitCode": code,
+                "Return": LotusJson(data),
+                "ReturnCodec": codec
+            })
+        }
     }
 
     /// Fields on [`fvm3::trace::ExecutionEvent::Call`]
