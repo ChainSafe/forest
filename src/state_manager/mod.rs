@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-use crate::interpreter::trace::TraceAction;
+use crate::interpreter::trace::VMTrace;
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
 use rayon::prelude::ParallelBridge;
@@ -18,8 +18,8 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::interpreter::BlockMessages;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
+use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -207,7 +207,8 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> anyhow::Result<()>> =
+    None;
 
 impl<DB> StateManager<DB>
 where
@@ -358,7 +359,7 @@ where
         self.cache
             .get_or_else(key, || async move {
                 let (ts_state, _) = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, TraceAction::Ignore)
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 debug!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
@@ -393,7 +394,7 @@ where
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
-            TraceAction::Ignore,
+            VMTrace::NotTraced,
         )?;
 
         if msg.gas_limit == 0 {
@@ -470,7 +471,7 @@ where
                 timestamp: ts.min_timestamp(),
             },
             &self.engine,
-            TraceAction::Ignore,
+            VMTrace::NotTraced,
         )?;
 
         for msg in prior_messages {
@@ -505,16 +506,17 @@ where
         // thread to avoid starving executor
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
-        let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
-            if *cid == mcid {
-                m_tx.send(unsigned.message().clone())?;
-                r_tx.send(apply_ret.clone())?;
-                anyhow::bail!(ERROR_MSG);
-            }
-            Ok(())
-        };
+        let callback =
+            move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet, _called_at| {
+                if *cid == mcid {
+                    m_tx.send(unsigned.message().clone())?;
+                    r_tx.send(apply_ret.clone())?;
+                    anyhow::bail!(ERROR_MSG);
+                }
+                Ok(())
+            };
         let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback), TraceAction::Ignore)
+            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::NotTraced)
             .await;
 
         if let Err(error_message) = result {
@@ -614,10 +616,10 @@ where
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         callback: Option<CB>,
-        enable_tracing: TraceAction,
+        enable_tracing: VMTrace,
     ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), Error>
     where
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error> + Send,
     {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
@@ -632,10 +634,10 @@ where
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         callback: Option<CB>,
-        enable_tracing: TraceAction,
+        enable_tracing: VMTrace,
     ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), Error>
     where
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error> + Send,
     {
         Ok(apply_block_messages(
             self.chain_store().genesis().timestamp(),
@@ -1122,7 +1124,7 @@ where
                 engine,
                 parent,
                 NO_CALLBACK,
-                TraceAction::Ignore,
+                VMTrace::NotTraced,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts();
@@ -1229,11 +1231,11 @@ pub fn apply_block_messages<DB, CB>(
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
-    enable_tracing: TraceAction,
+    enable_tracing: VMTrace,
 ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
-    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+    CB: FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
 {
     // This function will:
     // 1. handle the genesis block as a special case

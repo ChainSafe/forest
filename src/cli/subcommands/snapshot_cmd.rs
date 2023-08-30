@@ -9,7 +9,7 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::AnyCar;
 use crate::db::car::ManyCar;
-use crate::interpreter::trace::TraceAction;
+use crate::interpreter::trace::VMTrace;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -562,8 +562,8 @@ async fn print_computed_state(
         tipset,
         NO_CALLBACK,
         match json {
-            true => TraceAction::Accumulate,
-            false => TraceAction::Ignore,
+            true => VMTrace::Traced,
+            false => VMTrace::NotTraced,
         }, // enable traces if json flag is used
     )?;
 

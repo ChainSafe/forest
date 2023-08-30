@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::fil_cns;
-use crate::interpreter::trace::TraceAction;
+use crate::interpreter::trace::VMTrace;
 use crate::interpreter::BlockMessages;
 use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -298,7 +298,7 @@ where
                 &crate::shim::machine::MultiEngine::default(),
                 Arc::clone(&heaviest_tipset),
                 crate::state_manager::NO_CALLBACK,
-                TraceAction::Ignore,
+                VMTrace::NotTraced,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
             return Ok((heaviest_tipset, state));

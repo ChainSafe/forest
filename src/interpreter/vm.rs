@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use self::trace::TraceAction;
+use self::trace::VMTrace;
 use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
@@ -162,7 +162,7 @@ where
             timestamp,
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
-        enable_tracing: TraceAction,
+        enable_tracing: VMTrace,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
@@ -177,8 +177,8 @@ where
             let mut context = config.for_epoch(epoch, timestamp, state_tree_root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
+            context.tracing = enable_tracing.is_traced();
 
-            enable_tracing.then(|| context.enable_tracing());
             let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
                 &context,
                 Arc::clone(&chain_index.db),
@@ -199,8 +199,7 @@ where
             let mut context = config.for_epoch(epoch, state_tree_root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
-
-            enable_tracing.then(|| context.enable_tracing());
+            context.tracing = enable_tracing.is_traced();
 
             let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
                 &engine,
@@ -252,7 +251,7 @@ where
         &mut self,
         epoch: ChainEpoch,
         callback: Option<
-            &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+            &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
         >,
     ) -> Result<(Message, ApplyRet), anyhow::Error> {
         let cron_msg: Message = Message_v3 {
@@ -281,6 +280,7 @@ where
                 &(cron_msg.cid()?),
                 &ChainMessage::Unsigned(cron_msg.clone()),
                 &ret,
+                CalledAt::Cron,
             )?;
         }
         Ok((cron_msg, ret))
@@ -292,10 +292,14 @@ where
         &mut self,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
+        // JANK(aatifsyed):
+        // - why is this optional?
+        // - why does it allow breaking out of this function?
+        //   is it an observer or pluggable logic?
         mut callback: Option<
-            impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+            impl FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
         >,
-        enable_tracing: TraceAction,
+        enable_tracing: VMTrace,
     ) -> Result<(Vec<Receipt>, Vec<trace::TraceMessageInvocation>), anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -314,7 +318,7 @@ where
                 let ret = self.apply_message(msg)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(&cid, msg, &ret)?;
+                    cb(&cid, msg, &ret, CalledAt::Applied)?;
                 }
 
                 // Update totals
@@ -360,7 +364,7 @@ where
                     );
                 }
 
-                if enable_tracing.is_accumulate() {
+                if enable_tracing.is_traced() {
                     invoc_results.push(trace::TraceMessageInvocation::from_implicit(
                         rew_msg.cid()?,
                         &rew_msg,
@@ -369,14 +373,19 @@ where
                 }
 
                 if let Some(callback) = &mut callback {
-                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                    callback(
+                        &(rew_msg.cid()?),
+                        &ChainMessage::Unsigned(rew_msg),
+                        &ret,
+                        CalledAt::Reward,
+                    )?;
                 }
             }
         }
 
         match self.run_cron(epoch, callback.as_mut()) {
             Ok((cron_msg, ret)) => {
-                if enable_tracing.is_accumulate() {
+                if enable_tracing.is_traced() {
                     invoc_results.push(trace::TraceMessageInvocation::from_implicit(
                         cron_msg.cid()?,
                         &cron_msg,
@@ -495,6 +504,13 @@ where
     }
 }
 
+// TODO(aatifsyed): struct CallbackCtx<'a> { cid: &'a Cid, at: CalledAt, .. }
+pub enum CalledAt {
+    Applied,
+    Reward,
+    Cron,
+}
+
 /// Several operations in the FVM can be "traced", e.g
 /// - [`crate::interpreter::VM::apply_block_messages`]
 ///
@@ -524,28 +540,28 @@ pub mod trace {
     use serde::{Deserialize, Serialize};
     use std::borrow::Cow;
 
-    /// Whether trace should be accumulated or not.
-
+    /// Tracing a Filecoin VM has a performance penalty.
+    /// This enum controls whether a VM should be traced or not
     #[derive(Default, Clone, Copy)]
-    pub enum TraceAction {
+    pub enum VMTrace {
         /// Collect trace for the given operation
-        Accumulate,
+        Traced,
         /// Do not collect trace
         #[default]
-        Ignore,
+        NotTraced,
     }
 
-    impl TraceAction {
+    impl VMTrace {
         /// Perform `f` if tracing should happen.
         pub fn then<T>(&self, f: impl FnOnce() -> T) -> Option<T> {
             match self {
-                TraceAction::Accumulate => Some(f()),
-                TraceAction::Ignore => None,
+                VMTrace::Traced => Some(f()),
+                VMTrace::NotTraced => None,
             }
         }
         /// Should tracing be collected?
-        pub fn is_accumulate(&self) -> bool {
-            matches!(self, TraceAction::Accumulate)
+        pub fn is_traced(&self) -> bool {
+            matches!(self, VMTrace::Traced)
         }
     }
 
