@@ -61,7 +61,6 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
-
 use std::io::{Seek, SeekFrom};
 use std::sync::Arc;
 use std::task::Poll;
@@ -71,6 +70,9 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
+
+pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
+pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
 
 pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
 impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
@@ -278,8 +280,19 @@ impl Encoder {
         Ok(())
     }
 
-    // Consume stream of blocks, emit a new position of each block and a stream
-    // of zstd frames.
+    /// `compress_stream` with [`DEFAULT_FOREST_CAR_FRAME_SIZE`] as default frame size and [`DEFAULT_FOREST_CAR_COMPRESSION_LEVEL`] as default compression level.
+    pub fn compress_stream_default(
+        stream: impl TryStream<Ok = Block, Error = anyhow::Error>,
+    ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
+        Self::compress_stream(
+            DEFAULT_FOREST_CAR_FRAME_SIZE,
+            DEFAULT_FOREST_CAR_COMPRESSION_LEVEL,
+            stream,
+        )
+    }
+
+    /// Consume stream of blocks, emit a new position of each block and a stream
+    /// of zstd frames.
     pub fn compress_stream(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
