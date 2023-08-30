@@ -391,8 +391,6 @@ pub(super) async fn start(
         &config.client.data_dir,
     );
 
-    // TODO: respect `--consume-snapshot` CLI option once it's implemented
-    let mut consume_snapshot_file = false;
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;
     if config.client.snapshot_path.is_none() {
@@ -403,14 +401,14 @@ pub(super) async fn start(
             &db_root_dir,
         )
         .await?;
-        consume_snapshot_file = true;
     }
 
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
+            // TODO: respect `--consume-snapshot` CLI option once it's implemented
             let (car_db_path, ts) =
-                import_chain_as_forest_car(path, &forest_car_db_dir, consume_snapshot_file).await?;
+                import_chain_as_forest_car(path, &forest_car_db_dir, false).await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
             debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
