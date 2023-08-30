@@ -1,17 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::{HashMap, HashMapExt};
+use cid::Cid;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
-use std::io::Cursor;
-
 use forest_filecoin::benchmark_private::{
     car_index::{CarIndex, CarIndexBuilder, FrameOffset},
     cid::CidCborExt,
 };
-
-use ahash::{HashMap, HashMapExt};
-use cid::Cid;
+use std::hint::black_box;
 
 // Benchmark lookups in car-index vs. HashMap.
 // For car-index, lookups speed depends on bucket size. Bucket sizes from 0..=5
@@ -32,13 +29,16 @@ fn bench_car_index(c: &mut Criterion) {
 
     let builder = CarIndexBuilder::new((0..map_size).map(|i| {
         let i = i as u64;
-        (Cid::from_cbor_blake2b256(&i).unwrap(), i as FrameOffset)
+        (
+            Cid::from_cbor_blake2b256(&i).unwrap().into(),
+            i as FrameOffset,
+        )
     }));
 
     let mut index_vec = vec![];
     builder.write(&mut index_vec).unwrap();
 
-    let mut car_index = CarIndex::open(Cursor::new(index_vec), 0).unwrap();
+    let car_index = CarIndex::open(index_vec, 0).unwrap();
 
     assert!(map.contains_key(&live_key));
     assert!(!map.contains_key(&dead_key));

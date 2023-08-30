@@ -48,8 +48,8 @@ impl CarIndexBuilder {
         let mut best_hash = Hash::from(0_u64);
         for (nth, slot) in self.table.iter().enumerate() {
             if let Slot::Full(entry) = slot {
-                let dist = entry.hash.distance(nth as u64, self.len());
-                if dist > self.len() {
+                let dist = entry.hash.distance(nth as u64, self.size());
+                if dist > self.size() {
                     continue;
                 }
                 if dist.abs_diff(wanted_dist) < best_diff {
@@ -100,7 +100,7 @@ impl CarIndexBuilder {
             magic_number: IndexHeader::MAGIC_NUMBER,
             longest_distance: self.longest_distance,
             collisions: self.collisions,
-            buckets: self.len(),
+            buckets: self.size(),
         }
     }
 
@@ -138,7 +138,8 @@ impl CarIndexBuilder {
         len as u32
     }
 
-    pub fn len(&self) -> u64 {
+    // Name it `size` to get rid of `clippy::len-without-is-empty`
+    pub fn size(&self) -> u64 {
         self.table.len() as u64
     }
 }

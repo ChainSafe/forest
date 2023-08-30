@@ -72,6 +72,7 @@ lint: license clean lint-clippy
 lint-clippy:
 	cargo clippy --quiet --no-deps -- --deny=warnings
 	cargo clippy --tests --quiet --no-deps -- --deny=warnings
+	cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=warnings
 
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)
