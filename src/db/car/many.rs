@@ -11,13 +11,14 @@
 use super::{AnyCar, ZstdFrameCache};
 use crate::db::MemoryDB;
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
-use crate::utils::io::random_access::RandomAccessFile;
+use crate::utils::io::Mmap;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
-use std::{io, path::PathBuf, sync::Arc};
+use positioned_io::RandomAccessFile;
+use std::{fs, io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
@@ -56,10 +57,20 @@ impl<WriterT> ManyCar<WriterT> {
     }
 
     pub fn read_only_files(&mut self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+        // Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
+        let use_file_io = match std::env::var("FOREST_CAR_LOADER_FILE_IO") {
+            Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
+            _ => false,
+        };
+
         for file in files {
-            let car = AnyCar::new(RandomAccessFile::open(file)?)?;
-            self.read_only(car);
+            if use_file_io {
+                self.read_only(AnyCar::new(RandomAccessFile::open(file)?)?);
+            } else {
+                self.read_only(AnyCar::new(Mmap::map(&fs::File::open(file)?)?)?);
+            }
         }
+
         Ok(())
     }
 

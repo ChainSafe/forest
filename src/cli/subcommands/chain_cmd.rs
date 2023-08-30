@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::TipsetKeys;
-use crate::json::cid::CidJson;
+use crate::blocks::{Tipset, TipsetKeys};
+use crate::lotus_json::LotusJson;
 use crate::rpc_client::chain_ops::*;
 use anyhow::bail;
 use cid::Cid;
@@ -59,17 +59,17 @@ impl ChainCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => print_rpc_res_pretty(
-                chain_get_block((CidJson(*cid),), &config.client.rpc_token).await,
+                chain_get_block(((*cid).into(),), &config.client.rpc_token).await,
             ),
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
             }
             Self::Head => print_rpc_res_cids(chain_head(&config.client.rpc_token).await),
             Self::Message { cid } => print_rpc_res_pretty(
-                chain_get_message((CidJson(*cid),), &config.client.rpc_token).await,
+                chain_get_message(((*cid).into(),), &config.client.rpc_token).await,
             ),
             Self::ReadObj { cid } => {
-                print_rpc_res(chain_read_obj((CidJson(*cid),), &config.client.rpc_token).await)
+                print_rpc_res(chain_read_obj(((*cid).into(),), &config.client.rpc_token).await)
             }
             Self::SetHead {
                 cids,
@@ -79,8 +79,11 @@ impl ChainCommands {
                 maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
                 tipset_by_epoch_or_offset(*epoch, &config.client.rpc_token)
-                    .and_then(|tipset| {
-                        chain_set_head((tipset.0.key().clone(),), &config.client.rpc_token)
+                    .and_then(|tipset_json| {
+                        chain_set_head(
+                            (tipset_json.into_inner().key().clone(),),
+                            &config.client.rpc_token,
+                        )
                     })
                     .await
                     .map_err(handle_rpc_err)
@@ -91,12 +94,9 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(*no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                chain_set_head(
-                    (TipsetKeys { cids: cids.clone() },),
-                    &config.client.rpc_token,
-                )
-                .await
-                .map_err(handle_rpc_err)
+                chain_set_head((TipsetKeys::from(cids.clone()),), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
             }
         }
     }
@@ -107,15 +107,15 @@ impl ChainCommands {
 async fn tipset_by_epoch_or_offset(
     epoch_or_offset: i64,
     auth_token: &Option<String>,
-) -> Result<TipsetJson, JsonRpcError> {
-    let current_head = chain_head(auth_token).await?;
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let current_head = chain_head(auth_token).await?.into_inner();
 
     let target_epoch = match epoch_or_offset.is_negative() {
-        true => current_head.0.epoch() + epoch_or_offset, // adding negative number
+        true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
 
-    chain_get_tipset_by_height((target_epoch, current_head.0.key().clone()), auth_token).await
+    chain_get_tipset_by_height((target_epoch, current_head.key().clone()), auth_token).await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

@@ -3,7 +3,7 @@
 #![allow(clippy::unused_async)]
 
 use crate::chain_sync::SyncState;
-use crate::json::cid::CidJson;
+use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     data_types::{RPCState, RPCSyncState},
     sync_api::*,
@@ -20,7 +20,7 @@ pub(in crate::rpc) async fn sync_check_bad<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(cid),) = params;
+    let (LotusJson(cid),) = params;
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
@@ -32,7 +32,7 @@ pub(in crate::rpc) async fn sync_mark_bad<DB>(
 where
     DB: Blockstore,
 {
-    let (CidJson(cid),) = params;
+    let (LotusJson(cid),) = params;
     data.bad_blocks
         .put(cid, "Marked bad manually through RPC API".to_string());
     Ok(())
@@ -69,6 +69,7 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
+    use cid::Cid;
     use serde_json::from_str;
     use tokio::{sync::RwLock, task::JoinSet};
 
@@ -77,13 +78,10 @@ mod tests {
     const TEST_NET_NAME: &str = "test";
 
     fn state_setup() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
-        let beacon = Arc::new(
-            BeaconSchedule(vec![BeaconPoint {
-                height: 0,
-                beacon: MockBeacon::default(),
-            }])
-            .into_dyn(),
-        );
+        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Box::<MockBeacon>::default(),
+        }]));
 
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
@@ -97,7 +95,7 @@ mod tests {
             .unwrap();
 
         let cs_arc = Arc::new(
-            ChainStore::new(db.clone(), db, chain_config.clone(), genesis_header.clone()).unwrap(),
+            ChainStore::new(db.clone(), db, chain_config.clone(), genesis_header).unwrap(),
         );
 
         let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());
@@ -110,10 +108,12 @@ mod tests {
             let header = from_slice_with_fallback::<BlockHeader>(&bz).unwrap();
             let ts = Tipset::from(header);
             let db = cs_for_test.blockstore();
-            let tsk = ts.key().cids.clone();
-            cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
+            let tsk = ts.key();
+            cs_for_test
+                .set_heaviest_tipset(Arc::new(ts.clone()))
+                .unwrap();
 
-            for i in tsk {
+            for i in tsk.cids.into_iter() {
                 let bz2 = bz.clone();
                 db.put_keyed(&i, &bz2).unwrap();
             }
@@ -155,19 +155,21 @@ mod tests {
     async fn set_check_bad() {
         let (state, _) = state_setup();
 
-        let cid: CidJson =
-            from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
-                .unwrap();
-        match sync_check_bad(Data(state.clone()), Params((cid.clone(),))).await {
+        let cid = from_str::<LotusJson<Cid>>(
+            r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#,
+        )
+        .unwrap()
+        .into_inner();
+        match sync_check_bad(Data(state.clone()), Params((cid.into(),))).await {
             Ok(reason) => assert_eq!(reason, ""),
             Err(e) => std::panic::panic_any(e),
         }
 
         // Mark that block as bad manually and check again to verify
-        assert!(sync_mark_bad(Data(state.clone()), Params((cid.clone(),)))
+        assert!(sync_mark_bad(Data(state.clone()), Params((cid.into(),)))
             .await
             .is_ok());
-        match sync_check_bad(Data(state), Params((cid,))).await {
+        match sync_check_bad(Data(state), Params((LotusJson(cid),))).await {
             Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
             Err(e) => std::panic::panic_any(e),
         }

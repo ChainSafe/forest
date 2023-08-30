@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{fmt::Debug, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconSchedule};
+use crate::beacon::BeaconSchedule;
 use crate::blocks::{Block, Tipset};
-use crate::chain::{Error as ChainStoreError, Scale, Weight};
-use crate::chain_sync::Consensus;
+use crate::chain::{Error as ChainStoreError, Weight};
 use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
-use async_trait::async_trait;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
@@ -17,9 +15,6 @@ use thiserror::Error;
 mod metrics;
 mod validation;
 mod weight;
-
-// Shim to work with daemon.rs
-pub mod composition;
 
 #[derive(Debug, Error)]
 pub enum FilecoinConsensusError {
@@ -61,22 +56,30 @@ pub enum FilecoinConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
-pub struct FilecoinConsensus<B> {
+pub struct FilecoinConsensus {
     /// `Drand` randomness beacon
     ///
     /// NOTE: The `StateManager` makes available a beacon as well,
     /// but it potentially has a different type.
     /// Not sure where this is utilized.
-    beacon: Arc<BeaconSchedule<B>>,
+    beacon: Arc<BeaconSchedule>,
 }
 
-impl<B> FilecoinConsensus<B> {
-    pub fn new(beacon: Arc<BeaconSchedule<B>>) -> Self {
+impl FilecoinConsensus {
+    pub fn new(beacon: Arc<BeaconSchedule>) -> Self {
         Self { beacon }
+    }
+
+    pub async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
+        &self,
+        state_manager: Arc<StateManager<DB>>,
+        block: Arc<Block>,
+    ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
+        validation::validate_block::<_>(state_manager, self.beacon.clone(), block).await
     }
 }
 
-impl<B> Debug for FilecoinConsensus<B> {
+impl Debug for FilecoinConsensus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FilecoinConsensus")
             .field("beacon", &self.beacon.0.len())
@@ -84,30 +87,9 @@ impl<B> Debug for FilecoinConsensus<B> {
     }
 }
 
-impl<B> Scale for FilecoinConsensus<B> {
-    fn weight<DB>(db: &Arc<DB>, ts: &Tipset) -> Result<Weight, anyhow::Error>
-    where
-        DB: Blockstore,
-    {
-        weight::weight(db, ts).map_err(|s| anyhow!(s))
-    }
-}
-
-#[async_trait]
-impl<B> Consensus for FilecoinConsensus<B>
+pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
 where
-    B: Beacon,
+    DB: Blockstore,
 {
-    type Error = FilecoinConsensusError;
-
-    async fn validate_block<DB>(
-        &self,
-        state_manager: Arc<StateManager<DB>>,
-        block: Arc<Block>,
-    ) -> Result<(), NonEmpty<Self::Error>>
-    where
-        DB: Blockstore + Sync + Send + 'static,
-    {
-        validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
-    }
+    weight::weight(&Arc::new(db), ts).map_err(|s| anyhow!(s))
 }

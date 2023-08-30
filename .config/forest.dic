@@ -19,6 +19,7 @@ CID/SM
 CIDs
 CLI
 clonable
+codebase
 codec
 cron
 crypto
@@ -55,10 +56,13 @@ milliGas
 multihash
 multisig
 mutex
+overallocation
 P2P
 parsable
+ParityDb
 pointer/SM
 PoSt
+PoC
 RPC
 SECP
 SECP256k1

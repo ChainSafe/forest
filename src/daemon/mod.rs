@@ -7,7 +7,7 @@ pub mod main;
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
-use crate::chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
+use crate::chain_sync::ChainMuxer;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
@@ -80,8 +80,6 @@ pub fn ipc_shmem_conf() -> ShmemConf {
         .force_create_flink()
         .flink(IPC_PATH.as_os_str())
 }
-
-use crate::fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = ipc_shmem_conf().open()?;
@@ -166,7 +164,7 @@ pub(super) async fn start(
     let mut keystore = load_or_create_keystore(&config).await?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
-        keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
+        keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
     }
 
     handle_admin_token(&opts, &config, &keystore)?;
@@ -174,8 +172,16 @@ pub(super) async fn start(
     let keystore = Arc::new(RwLock::new(keystore));
 
     let chain_data_path = chain_path(&config);
+
+    // Try to migrate the database if needed. In case the migration fails, we fallback to creating a new database
+    // to avoid breaking the node.
+    let db_migration = crate::db::migration::DbMigration::new(chain_data_path.clone());
+    if let Err(e) = db_migration.migrate() {
+        warn!("Failed to migrate database: {e}");
+    }
+
     let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
-        db_root(&chain_data_path),
+        db_root(&chain_data_path)?,
         config.db_config().clone(),
     )?)));
 
@@ -198,7 +204,7 @@ pub(super) async fn start(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = crate::db::db_engine::db_root(&chain_path(&config));
+        let db_directory = crate::db::db_engine::db_root(&chain_path(&config))?;
         let db = db.writer().clone();
         services.spawn(async {
             crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -313,18 +319,9 @@ pub(super) async fn start(
 
     let mpool = Arc::new(mpool);
 
-    // For consensus types that do mining, create a component to submit their
-    // proposals.
-    let submitter = SyncGossipSubmitter::new();
-
-    // Initialize Consensus. Mining may or may not happen, depending on type.
-    let consensus =
-        cns::consensus(&state_manager, &keystore, &mpool, submitter, &mut services).await?;
-
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
-        Arc::new(consensus),
         Arc::clone(&state_manager),
         peer_manager,
         mpool.clone(),
@@ -358,8 +355,7 @@ pub(super) async fn start(
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
-                    .get_beacon_schedule(chain_store.genesis().timestamp())
-                    .into_dyn(),
+                    .get_beacon_schedule(chain_store.genesis().timestamp()),
             );
             start_rpc(
                 Arc::new(RPCState {
@@ -393,11 +389,9 @@ pub(super) async fn start(
 
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    if cns::FETCH_PARAMS {
-        crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-            &config.client.data_dir,
-        );
-    }
+    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+        &config.client.data_dir,
+    );
 
     let mut config = config;
     fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;

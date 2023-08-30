@@ -128,7 +128,7 @@ export JWT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3
 Create the wallet
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet new
+❯ docker exec -it forest forest-wallet --token $JWT_TOKEN new
 t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
 ```
 
@@ -144,14 +144,14 @@ from the faucet. Example from
 Verify that your account has 100 FIL . The result is in `attoFIL`.
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet balance t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
+❯ docker exec -it forest forest-wallet --token $JWT_TOKEN balance t1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i
 100000000000000000000
 ```
 
 Create another wallet
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet new
+❯ docker exec -it forest forest-wallet --token $JWT_TOKEN new
 t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
 ```
 
@@ -167,6 +167,6 @@ Verify the balance of the new address.
 for this wallet.
 
 ```shell
-❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet balance t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
+❯ docker exec -it forest forest-wallet --token $JWT_TOKEN balance t1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
 10000000000000000000
 ```

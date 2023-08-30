@@ -60,6 +60,7 @@ Install [rustup](https://rustup.rs/)
 
 - OS Base-Devel/Build-Essential
 - Clang compiler
+- [git-lfs](https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md)
 
 ### Ubuntu (20.04)
 
@@ -267,6 +268,17 @@ The admin token can also be set using `--token` flag.
 ```
 forest-cli --token <ADMIN_TOKEN>
 ```
+
+### Forest executable organization
+
+The binaries in the Forest repository are organized into the following
+categories:
+
+| Binary        | Role                                                     | Command example                                    |
+| ------------- | -------------------------------------------------------- | -------------------------------------------------- |
+| `forest`      | Forest daemon, used to connect to the Filecoin network   | `forest --chain calibnet --encrypt-keystore false` |
+| `forest-cli`  | Human-friendly wrappers around the Filecoin JSON-RPC API | `forest-cli info show`                             |
+| `forest-tool` | Handle tasks not involving the Forest daemon             | `forest-tool snapshot fetch`                       |
 
 ### Detaching Forest process
 

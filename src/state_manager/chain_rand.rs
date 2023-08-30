@@ -3,7 +3,7 @@
 
 use std::{io::Write, sync::Arc};
 
-use crate::beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
+use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::networks::ChainConfig;
@@ -20,7 +20,7 @@ pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     tipset: Arc<Tipset>,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
-    beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<BeaconSchedule>,
 }
 
 impl<DB> Clone for ChainRand<DB> {
@@ -42,7 +42,7 @@ where
         chain_config: Arc<ChainConfig>,
         tipset: Arc<Tipset>,
         chain_index: Arc<ChainIndex<Arc<DB>>>,
-        beacon: Arc<BeaconSchedule<DrandBeacon>>,
+        beacon: Arc<BeaconSchedule>,
     ) -> Self {
         Self {
             chain_config,

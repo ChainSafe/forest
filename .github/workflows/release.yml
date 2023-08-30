@@ -19,6 +19,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - run: ./assets/ci_download.sh
       - name: Apt Dependencies
         if: contains(matrix.os, 'ubuntu')
         uses: nick-fields/retry@v2
@@ -36,14 +37,15 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
       - name: Cargo Build
-        run: cargo build --release --bin forest --bin forest-cli
+        run: cargo build --release --bin forest --bin forest-cli --bin forest-tool
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}
-          cp -v target/release/forest target/release/forest-cli forest-${{ github.ref_name }}
+          cp -v target/release/forest target/release/forest-cli target/release/forest-tool forest-${{ github.ref_name }}
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
           sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
+          sha256sum forest-${{ github.ref_name }}/forest-tool > forest-${{ github.ref_name }}/forest-tool.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2

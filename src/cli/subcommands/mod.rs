@@ -13,7 +13,6 @@ mod car_cmd;
 mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
-mod fetch_params_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
@@ -22,13 +21,13 @@ mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
-mod wallet_cmd;
 
 use std::io::{self, Write};
 
-use crate::blocks::tipset_json::TipsetJson;
+use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
+use crate::lotus_json::LotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
@@ -39,9 +38,9 @@ use tracing::error;
 pub(super) use self::{
     archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
     car_cmd::CarCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
-    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
-    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
+    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -56,11 +55,68 @@ pub struct Cli {
     pub cmd: Subcommand,
 }
 
+// This subcommand is hidden and only here to help users migrating to forest-tool
+#[derive(Debug, clap::Args)]
+pub struct FetchCommands {
+    #[arg(short, long)]
+    all: bool,
+    #[arg(short, long)]
+    keys: bool,
+    #[arg(short, long)]
+    dry_run: bool,
+    params_size: Option<String>,
+}
+
+// Those subcommands are hidden and only here to help users migrating to forest-wallet
+#[derive(Debug, clap::Subcommand)]
+pub enum WalletCommands {
+    New {
+        #[arg(default_value = "secp256k1")]
+        signature_type: String,
+    },
+    Balance {
+        address: String,
+    },
+    Default,
+    Export {
+        address: String,
+    },
+    Has {
+        key: String,
+    },
+    Import {
+        path: Option<String>,
+    },
+    List {
+        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        no_round: bool,
+        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        no_abbrev: bool,
+    },
+    SetDefault {
+        key: String,
+    },
+    Sign {
+        #[arg(short)]
+        message: String,
+        #[arg(short)]
+        address: String,
+    },
+    Verify {
+        #[arg(short)]
+        address: String,
+        #[arg(short)]
+        message: String,
+        #[arg(short)]
+        signature: String,
+    },
+}
+
 /// Forest binary sub-commands available.
-#[derive(clap::Subcommand)]
+#[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
-    /// Download parameters for generating and verifying proofs for given size
-    #[command(name = "fetch-params")]
+    // This subcommand is hidden and only here to help users migrating to forest-tool
+    #[command(hide = true, name = "fetch-params")]
     Fetch(FetchCommands),
 
     /// Interact with Filecoin blockchain
@@ -75,7 +131,8 @@ pub enum Subcommand {
     #[command(subcommand)]
     Net(NetCommands),
 
-    /// Manage wallet
+    // Those subcommands are hidden and only here to help users migrating to forest-wallet
+    #[command(hide = true)]
     #[command(subcommand)]
     Wallet(WalletCommands),
 
@@ -162,13 +219,14 @@ pub(super) fn print_rpc_res_pretty<T: Serialize>(
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) -> anyhow::Result<()> {
-    let tipset = res.map_err(handle_rpc_err)?;
+pub(super) fn print_rpc_res_cids(
+    res: Result<LotusJson<Tipset>, JsonRpcError>,
+) -> anyhow::Result<()> {
+    let tipset = res.map_err(handle_rpc_err)?.into_inner();
     println!(
         "{}",
         serde_json::to_string_pretty(
             &tipset
-                .0
                 .cids()
                 .iter()
                 .map(|cid: &Cid| cid.to_string())
@@ -203,7 +261,7 @@ pub(super) fn print_stdout(out: String) {
         .unwrap();
 }
 
-fn prompt_confirm() -> bool {
+pub fn prompt_confirm() -> bool {
     print!("Do you want to continue? [y/n] ");
     std::io::stdout().flush().unwrap();
     let mut line = String::new();

@@ -1,0 +1,18 @@
+# Keys and default values are documented here:
+# https://github.com/rustsec/rustsec/blob/f70e5bc4252ab7f7801d127aeee4a7486e4c07e5/cargo-audit/audit.toml.example
+
+[advisories]
+# These should all have either:
+# - tracking issues with the "security" label
+# - reasons why they're ignored
+ignore = [
+  # Unmaintained crates that fvm2 requires, and will not change for
+  # compatability/consensus reasons - see
+  # https://github.com/filecoin-project/ref-fvm/issues/1843
+  "RUSTSEC-2020-0168", # mach is unmaintained
+  "RUSTSEC-2022-0061", # parity-wasm is deprecated
+]
+
+[output]
+deny = ["unmaintained"]
+quiet = false

@@ -60,11 +60,11 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
+use crate::ipld::{CidHashMap, CidHashMapEntry};
 use crate::{
     blocks::{Tipset, TipsetKeys},
     utils::encoding::from_slice_with_fallback,
 };
-use ahash::HashMapExt as _;
 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -76,7 +76,6 @@ use positioned_io::ReadAt;
 use std::ops::DerefMut;
 use std::{
     any::Any,
-    collections::hash_map::Entry::{Occupied, Vacant},
     io::{
         self, BufReader,
         ErrorKind::{InvalidData, UnexpectedEof, Unsupported},
@@ -86,6 +85,7 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tracing::{debug, trace};
+use CidHashMapEntry::{Occupied, Vacant};
 
 /// **Note that all operations on this store are blocking**.
 ///
@@ -110,8 +110,8 @@ use tracing::{debug, trace};
 /// See [module documentation](mod@self) for more.
 pub struct PlainCar<ReaderT> {
     reader: ReaderT,
-    write_cache: RwLock<ahash::HashMap<Cid, Vec<u8>>>,
-    index: RwLock<ahash::HashMap<Cid, UncompressedBlockDataLocation>>,
+    write_cache: RwLock<CidHashMap<Vec<u8>>>,
+    index: RwLock<CidHashMap<UncompressedBlockDataLocation>>,
     roots: Vec<Cid>,
 }
 
@@ -132,7 +132,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
         // now create the index
         let index =
             iter::from_fn(|| read_block_data_location_and_skip(&mut buf_reader).transpose())
-                .collect::<Result<ahash::HashMap<_, _>, _>>()?;
+                .collect::<Result<CidHashMap<_>, _>>()?;
 
         match index.len() {
             0 => Err(io::Error::new(
@@ -145,7 +145,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
                     reader,
                     index: RwLock::new(index),
                     roots,
-                    write_cache: RwLock::new(ahash::HashMap::new()),
+                    write_cache: RwLock::new(CidHashMap::new()),
                 })
             }
         }
@@ -156,13 +156,13 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::new(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::from(self.roots()))
     }
 
     /// In an arbitrary order
     #[cfg(test)]
     pub fn cids(&self) -> Vec<Cid> {
-        self.index.read().keys().cloned().collect()
+        self.index.read().keys().collect()
     }
 
     pub fn into_dyn(self) -> PlainCar<Box<dyn super::RandomAccessFileReader>> {
@@ -196,10 +196,10 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match (self.index.read().get(k), self.write_cache.read().get(k)) {
+        match (self.index.read().get(*k), self.write_cache.read().get(*k)) {
             (Some(_location), Some(_cached)) => {
                 trace!("evicting from write cache");
-                Ok(self.write_cache.write().remove(k))
+                Ok(self.write_cache.write().remove(*k))
             }
             (Some(UncompressedBlockDataLocation { offset, length }), None) => {
                 trace!("fetching from disk");
@@ -253,12 +253,12 @@ pub struct CompressedBlockDataLocation {
 /// Note: This could potentially be enhanced with fine-grained read/write
 /// locking, however the performance is acceptable for now.
 fn handle_write_cache(
-    write_cache: &mut ahash::HashMap<Cid, Vec<u8>>,
-    index: &mut ahash::HashMap<Cid, impl Any>,
+    write_cache: &mut CidHashMap<Vec<u8>>,
+    index: &mut CidHashMap<impl Any>,
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
-    match (index.get(k), write_cache.entry(*k)) {
+    match (index.get(*k), write_cache.entry(*k)) {
         (None, Occupied(already)) => match already.get() == block {
             true => {
                 trace!("already in cache");

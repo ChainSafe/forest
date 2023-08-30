@@ -65,6 +65,10 @@ impl NetworkChain {
     pub fn is_devnet(&self) -> bool {
         matches!(self, NetworkChain::Devnet(_))
     }
+
+    pub fn is_testnet(&self) -> bool {
+        !matches!(self, NetworkChain::Mainnet)
+    }
 }
 
 /// Defines the meaningful heights of the protocol.
@@ -254,7 +258,7 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule<DrandBeacon> {
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
@@ -265,7 +269,11 @@ impl ChainConfig {
             ds_iter
                 .map(|dc| BeaconPoint {
                     height: dc.height,
-                    beacon: DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config),
+                    beacon: Box::new(DrandBeacon::new(
+                        genesis_ts,
+                        self.block_delay_secs,
+                        dc.config,
+                    )),
                 })
                 .collect(),
         )
@@ -288,7 +296,7 @@ impl ChainConfig {
     }
 
     pub fn is_testnet(&self) -> bool {
-        !matches!(self.network, NetworkChain::Mainnet)
+        self.network.is_testnet()
     }
 }
 

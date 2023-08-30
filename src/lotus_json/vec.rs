@@ -3,7 +3,7 @@
 
 use super::*;
 
-pub struct VecLotusJson<T>(Vec<T>);
+pub struct VecLotusJson<T>(Vec<T>); // need a struct to handle the serialization of an empty vec as null
 
 impl<T> HasLotusJson for Vec<T>
 where
@@ -13,6 +13,14 @@ where
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only Vec<Cid> is tested, below")
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        VecLotusJson(self.into_iter().map(T::into_lotus_json).collect())
+    }
+
+    fn from_lotus_json(VecLotusJson(vec): Self::LotusJson) -> Self {
+        vec.into_iter().map(T::from_lotus_json).collect()
     }
 }
 
@@ -54,26 +62,5 @@ where
         Option::<Vec<T>>::deserialize(deserializer)
             .map(Option::unwrap_or_default)
             .map(Self)
-    }
-}
-
-// VecLotusJson<T::LotusJson> -> Vec<T>
-impl<T> From<VecLotusJson<T::LotusJson>> for Vec<T>
-where
-    T: HasLotusJson,
-    T::LotusJson: Into<T>,
-{
-    fn from(value: VecLotusJson<T::LotusJson>) -> Self {
-        value.0.into_iter().map(Into::into).collect()
-    }
-}
-
-// Vec<T> -> VecLotusJson<T::LotusJson>
-impl<T> From<Vec<T>> for VecLotusJson<T::LotusJson>
-where
-    T: HasLotusJson + Into<T::LotusJson>,
-{
-    fn from(value: Vec<T>) -> Self {
-        Self(value.into_iter().map(Into::into).collect())
     }
 }
