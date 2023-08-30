@@ -710,7 +710,10 @@ mod structured {
         }
 
         if !front_load_me.is_empty() {
-            return Err(BuildCallTreeError::TrailingGasCharges);
+            tracing::warn!(
+                "vm tracing: ignoring {} trailing gas charges",
+                front_load_me.len()
+            );
         }
 
         Ok(calls)
@@ -823,8 +826,6 @@ mod structured {
         NoReturn,
         #[error("unrecognised ExecutionEvent variant: {0:?}")]
         UnrecognisedEvent(fvm3::trace::ExecutionEvent),
-        #[error("there were trailing ExecutionEvent::GasCharge-s. These events must _precede_ an ExecutionEvent::Call, for attribution")]
-        TrailingGasCharges,
     }
 
     impl CallTree {
