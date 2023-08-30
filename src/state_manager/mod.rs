@@ -5,7 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
-use crate::interpreter::trace::VMTrace;
+use crate::interpreter::VMTrace;
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
 use rayon::prelude::ParallelBridge;
@@ -358,7 +358,7 @@ where
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
-                let (ts_state, _) = self
+                let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 debug!("Completed tipset state calculation {:?}", tipset.cids());
@@ -623,7 +623,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: VMTrace,
-    ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), Error>
+    ) -> Result<CidPair, Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error> + Send,
     {
@@ -641,7 +641,7 @@ where
         tipset: Arc<Tipset>,
         callback: Option<CB>,
         enable_tracing: VMTrace,
-    ) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), Error>
+    ) -> Result<CidPair, Error>
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error> + Send,
     {
@@ -1122,7 +1122,7 @@ where
         .par_bridge()
         .try_for_each(|(child, parent)| {
             info!(height = parent.epoch(), "compute parent state");
-            let ((actual_state, actual_receipt), _) = apply_block_messages(
+            let (actual_state, actual_receipt) = apply_block_messages(
                 genesis_timestamp,
                 chain_index.clone(),
                 chain_config.clone(),
@@ -1238,7 +1238,7 @@ pub fn apply_block_messages<DB, CB>(
     tipset: Arc<Tipset>,
     mut callback: Option<CB>,
     enable_tracing: VMTrace,
-) -> Result<(CidPair, crate::interpreter::trace::TraceComputeState), anyhow::Error>
+) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
     CB: FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
@@ -1257,10 +1257,7 @@ where
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
         let message_receipts = tipset.min_ticket_block().message_receipts();
-        return Ok((
-            (*tipset.parent_state(), *message_receipts),
-            crate::interpreter::trace::TraceComputeState::default(),
-        ));
+        return Ok((*tipset.parent_state(), *message_receipts));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1325,15 +1322,11 @@ where
     let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
     // step 4: apply tipset messages
-    let (receipts, trace) =
-        vm.apply_block_messages(&block_messages, epoch, callback, enable_tracing)?;
+    let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
     // step 5: construct receipt root from receipts and flush the state-tree
     let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
     let state_root = vm.flush()?;
 
-    Ok((
-        (state_root, receipt_root),
-        crate::interpreter::trace::TraceComputeState::new(state_root, trace),
-    ))
+    Ok((state_root, receipt_root))
 }

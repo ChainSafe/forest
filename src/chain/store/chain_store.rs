@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::fil_cns;
-use crate::interpreter::trace::VMTrace;
 use crate::interpreter::BlockMessages;
+use crate::interpreter::VMTrace;
 use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -286,7 +286,7 @@ where
             // state-root without caching.
             let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp();
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
-            let ((state, _), _) = crate::state_manager::apply_block_messages(
+            let (state, _) = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
                 Arc::clone(&chain_index),
                 Arc::clone(&chain_config),

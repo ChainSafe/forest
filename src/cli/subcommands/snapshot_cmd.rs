@@ -9,7 +9,7 @@ use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::AnyCar;
 use crate::db::car::ManyCar;
-use crate::interpreter::trace::VMTrace;
+use crate::interpreter::VMTrace;
 use crate::ipld::{recurse_links_hash, CidHashSet};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -553,7 +553,7 @@ async fn print_computed_state(
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", epoch))?;
 
-    let ((st, _), output) = apply_block_messages(
+    let (st, output) = apply_block_messages(
         timestamp,
         Arc::clone(&Arc::new(chain_index)),
         Arc::clone(&Arc::new(chain_config)),

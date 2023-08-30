@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use self::trace::VMTrace;
 use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
@@ -299,11 +298,9 @@ where
         mut callback: Option<
             impl FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
         >,
-        enable_tracing: VMTrace,
-    ) -> Result<(Vec<Receipt>, Vec<trace::TraceMessageInvocation>), anyhow::Error> {
+    ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
-        let mut invoc_results = Vec::new();
 
         for block in messages.iter() {
             let mut penalty = TokenAmount::zero();
@@ -327,20 +324,13 @@ where
                 let msg_receipt = ret.msg_receipt();
                 receipts.push(msg_receipt.clone());
 
-                enable_tracing.then(|| {
-                    invoc_results.push(trace::TraceMessageInvocation::new(
-                        cid,
-                        msg.message(),
-                        &ret,
-                    ));
-                });
-
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
                 Ok(())
             };
 
             for msg in block.messages.iter() {
+                // JANK(aatifsyed): why not inline the callback?
                 process_msg(msg)?;
             }
 
@@ -364,14 +354,6 @@ where
                     );
                 }
 
-                if enable_tracing.is_traced() {
-                    invoc_results.push(trace::TraceMessageInvocation::from_implicit(
-                        rew_msg.cid()?,
-                        &rew_msg,
-                        &ret,
-                    ));
-                }
-
                 if let Some(callback) = &mut callback {
                     callback(
                         &(rew_msg.cid()?),
@@ -383,22 +365,12 @@ where
             }
         }
 
-        match self.run_cron(epoch, callback.as_mut()) {
-            Ok((cron_msg, ret)) => {
-                if enable_tracing.is_traced() {
-                    invoc_results.push(trace::TraceMessageInvocation::from_implicit(
-                        cron_msg.cid()?,
-                        &cron_msg,
-                        &ret,
-                    ));
-                }
-            }
-            Err(e) => {
-                tracing::error!("End of epoch cron failed to run: {}", e);
-            }
+        if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
+            // BUG(aatifsyed): why are we ignoring this error?
+            tracing::error!("End of epoch cron failed to run: {}", e);
         }
 
-        Ok((receipts, invoc_results))
+        Ok(receipts)
     }
 
     /// Applies single message through VM and returns result from execution.
@@ -511,6 +483,24 @@ pub enum CalledAt {
     Cron,
 }
 
+/// Tracing a Filecoin VM has a performance penalty.
+/// This enum controls whether a VM should be traced or not
+#[derive(Default, Clone, Copy)]
+pub enum VMTrace {
+    /// Collect trace for the given operation
+    Traced,
+    /// Do not collect trace
+    #[default]
+    NotTraced,
+}
+
+impl VMTrace {
+    /// Should tracing be collected?
+    pub fn is_traced(&self) -> bool {
+        matches!(self, VMTrace::Traced)
+    }
+}
+
 /// Several operations in the FVM can be "traced", e.g
 /// - [`crate::interpreter::VM::apply_block_messages`]
 ///
@@ -521,8 +511,7 @@ pub enum CalledAt {
 ///
 /// # API Hazard
 /// This needs careful redesign: <https://github.com/ChainSafe/forest/issues/3405>
-pub mod trace {
-
+mod trace {
     use crate::message::Message as _;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
@@ -539,31 +528,6 @@ pub mod trace {
     use num_bigint::BigInt;
     use serde::{Deserialize, Serialize};
     use std::borrow::Cow;
-
-    /// Tracing a Filecoin VM has a performance penalty.
-    /// This enum controls whether a VM should be traced or not
-    #[derive(Default, Clone, Copy)]
-    pub enum VMTrace {
-        /// Collect trace for the given operation
-        Traced,
-        /// Do not collect trace
-        #[default]
-        NotTraced,
-    }
-
-    impl VMTrace {
-        /// Perform `f` if tracing should happen.
-        pub fn then<T>(&self, f: impl FnOnce() -> T) -> Option<T> {
-            match self {
-                VMTrace::Traced => Some(f()),
-                VMTrace::NotTraced => None,
-            }
-        }
-        /// Should tracing be collected?
-        pub fn is_traced(&self) -> bool {
-            matches!(self, VMTrace::Traced)
-        }
-    }
 
     /// Ported from <https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L207>
     fn build_exec_trace(exec_trace: Vec<ExecutionEvent_v3>) -> Option<Trace> {
