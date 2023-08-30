@@ -4,7 +4,7 @@
 use super::*;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
+use crate::db::car::forest::{DEFAULT_FOREST_CAR_FRAME_SIZE, FOREST_CAR_FILE_EXTENSION};
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::chain_ops::*;
 use crate::utils::bail_moved_cmd;
@@ -202,7 +202,7 @@ impl SnapshotCommands {
                             }
                             destination.set_extension("");
                         }
-                        destination.with_extension("forest.car.zst")
+                        destination.with_extension(FOREST_CAR_FILE_EXTENSION)
                     }
                     false => output_path.clone(),
                 };
