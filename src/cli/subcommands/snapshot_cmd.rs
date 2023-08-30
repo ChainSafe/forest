@@ -587,6 +587,8 @@ async fn print_computed_state(
 
 /// Parsed tree of [`fvm3::trace::ExecutionEvent`]s
 mod structured {
+    use std::collections::VecDeque;
+
     use cid::Cid;
     use serde_json::json;
 
@@ -668,14 +670,16 @@ mod structured {
     fn parse_events(
         events: Vec<fvm3::trace::ExecutionEvent>,
     ) -> Result<Vec<CallTree>, BuildCallTreeError> {
-        let mut events = events.into_iter();
-        let mut front_loaded = vec![];
+        let mut events = VecDeque::from(events);
+        let mut front_load_me = vec![];
         let mut calls = vec![];
 
         // we don't use a `for` loop so we can pass events them to inner parsers
-        while let Some(event) = events.next() {
+        while let Some(event) = events.pop_front() {
             match event {
-                fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => front_loaded.push(gas_charge),
+                fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => {
+                    front_load_me.push(gas_charge)
+                }
                 fvm3::trace::ExecutionEvent::Call {
                     from,
                     to,
@@ -690,10 +694,12 @@ mod structured {
                         params,
                         value,
                     },
-                    front_loaded
-                        .drain(..)
-                        .map(fvm3::trace::ExecutionEvent::GasCharge)
-                        .chain(&mut events),
+                    {
+                        for gc in front_load_me.drain(..).rev() {
+                            events.push_front(fvm3::trace::ExecutionEvent::GasCharge(gc))
+                        }
+                        &mut events
+                    },
                 )?),
                 fvm3::trace::ExecutionEvent::CallReturn(_, _)
                 | fvm3::trace::ExecutionEvent::CallError(_) => {
@@ -703,7 +709,7 @@ mod structured {
             }
         }
 
-        if !front_loaded.is_empty() {
+        if !front_load_me.is_empty() {
             return Err(BuildCallTreeError::TrailingGasCharges);
         }
 
@@ -835,13 +841,13 @@ mod structured {
         /// ```
         fn parse(
             call: ExecutionEventCall,
-            mut events: impl Iterator<Item = fvm3::trace::ExecutionEvent>,
+            events: &mut VecDeque<fvm3::trace::ExecutionEvent>,
         ) -> Result<Self, BuildCallTreeError> {
             let mut gas_charges = vec![];
             let mut sub_calls = vec![];
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
-            while let Some(event) = events.next() {
+            while let Some(event) = events.pop_front() {
                 match event {
                     fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => {
                         gas_charges.push(gas_charge)
@@ -860,7 +866,7 @@ mod structured {
                             params,
                             value,
                         },
-                        &mut events,
+                        events,
                     )?),
                     fvm3::trace::ExecutionEvent::CallReturn(exit_code, data) => {
                         return Ok(Self {
