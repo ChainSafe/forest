@@ -1,5 +1,3 @@
-2023-08-30T19:09:37.514579Z  WARN forest_filecoin::cli::subcommands::snapshot_cmd::structured: vm tracing: ignoring 1 trailing gas charges
-2023-08-30T19:09:37.515848Z  WARN forest_filecoin::cli::subcommands::snapshot_cmd::structured: vm tracing: ignoring 1 trailing gas charges
 {
   "Root": {
     "/": "bafy2bzaceapralxliryaxd7yo7q5pd7vktpaytrw2gkva7ung54j3lx66vzmm"
