@@ -43,9 +43,7 @@ impl CarCommands {
                     .cloned()
                     .collect::<Vec<_>>();
 
-                let frames = crate::db::car::forest::Encoder::compress_stream(
-                    8000_usize.next_power_of_two(),
-                    zstd::DEFAULT_COMPRESSION_LEVEL as _,
+                let frames = crate::db::car::forest::Encoder::compress_stream_default(
                     dedup_block_stream(merge_car_streams(car_streams)).map_err(anyhow::Error::from),
                 );
                 let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(&output).await?);

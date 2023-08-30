@@ -59,8 +59,10 @@ mutex
 overallocation
 P2P
 parsable
+ParityDb
 pointer/SM
 PoSt
+PoC
 RPC
 SECP
 SECP256k1
