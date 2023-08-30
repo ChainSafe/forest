@@ -575,3 +575,148 @@ async fn print_computed_state(
 
     Ok(())
 }
+
+/// Parsed tree of [`fvm3::trace::ExecutionEvent`]s
+mod structured {
+
+    struct Root {
+        gas_charges: Vec<fvm3::gas::GasCharge>,
+        calls: Vec<CallTree>,
+    }
+
+    impl Root {
+        pub fn from_events(
+            events: Vec<fvm3::trace::ExecutionEvent>,
+        ) -> Result<Self, BuildCallTreeError> {
+            let mut events = events.into_iter();
+            let mut gas_charges = vec![];
+            let mut calls = vec![];
+
+            // we don't use a `for` loop so we can pass events them to inner parsers
+            while let Some(event) = events.next() {
+                match event {
+                    fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => {
+                        gas_charges.push(gas_charge)
+                    }
+                    fvm3::trace::ExecutionEvent::Call {
+                        from,
+                        to,
+                        method,
+                        params,
+                        value,
+                    } => calls.push(CallTree::taking_events(
+                        ExecutionEventCall {
+                            from,
+                            to,
+                            method,
+                            params,
+                            value,
+                        },
+                        &mut events,
+                    )?),
+                    fvm3::trace::ExecutionEvent::CallReturn(_, _)
+                    | fvm3::trace::ExecutionEvent::CallError(_) => {
+                        return Err(BuildCallTreeError::UnexpectedReturn)
+                    }
+                    unrecognised => {
+                        return Err(BuildCallTreeError::UnrecognisedEvent(unrecognised))
+                    }
+                }
+            }
+
+            Ok(Self { gas_charges, calls })
+        }
+    }
+
+    struct CallTree {
+        call: ExecutionEventCall,
+        gas_charges: Vec<fvm3::gas::GasCharge>,
+        sub_calls: Vec<CallTree>,
+        r#return: CallTreeReturn,
+    }
+    enum CallTreeReturn {
+        Return(
+            fvm_shared3::error::ExitCode,
+            Option<fvm_ipld_encoding::ipld_block::IpldBlock>,
+        ),
+        SyscallError(fvm3::kernel::SyscallError),
+    }
+
+    /// Fields on [`fvm3::trace::ExecutionEvent::Call`]
+    struct ExecutionEventCall {
+        from: fvm_shared3::ActorID,
+        to: fvm_shared3::address::Address,
+        method: fvm_shared3::MethodNum,
+        params: Option<fvm_ipld_encoding::ipld_block::IpldBlock>,
+        value: fvm_shared3::econ::TokenAmount,
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    enum BuildCallTreeError {
+        #[error("every ExecutionEvent::Return | ExecutionEvent::CallError should be preceded by an ExecutionEvent::Call, but this one wasn't")]
+        UnexpectedReturn,
+        #[error("every ExecutionEvent::Call should have a corresponding ExecutionEvent::Return, but this one didn't")]
+        NoReturn,
+        #[error("unrecognised ExecutionEvent variant: {0:?}")]
+        UnrecognisedEvent(fvm3::trace::ExecutionEvent),
+    }
+
+    impl CallTree {
+        fn taking_events(
+            call: ExecutionEventCall,
+            mut events: impl Iterator<Item = fvm3::trace::ExecutionEvent>,
+        ) -> Result<Self, BuildCallTreeError> {
+            let mut gas_charges = vec![];
+            let mut sub_calls = vec![];
+
+            // we don't use a for loop over `events` so we can pass them to recursive calls
+            while let Some(event) = events.next() {
+                match event {
+                    fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => {
+                        gas_charges.push(gas_charge)
+                    }
+                    fvm3::trace::ExecutionEvent::Call {
+                        from,
+                        to,
+                        method,
+                        params,
+                        value,
+                    } => sub_calls.push(Self::taking_events(
+                        ExecutionEventCall {
+                            from,
+                            to,
+                            method,
+                            params,
+                            value,
+                        },
+                        &mut events,
+                    )?),
+                    fvm3::trace::ExecutionEvent::CallReturn(exit_code, data) => {
+                        return Ok(Self {
+                            call,
+                            gas_charges,
+                            sub_calls,
+                            r#return: CallTreeReturn::Return(exit_code, data),
+                        })
+                    }
+                    fvm3::trace::ExecutionEvent::CallError(syscall_error) => {
+                        return Ok(Self {
+                            call,
+                            gas_charges,
+                            sub_calls,
+                            r#return: CallTreeReturn::SyscallError(syscall_error),
+                        })
+                    }
+                    // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
+                    //       So that BuildCallTreeError::UnrecognisedEvent is never constructed
+                    //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
+                    unrecognised => {
+                        return Err(BuildCallTreeError::UnrecognisedEvent(unrecognised))
+                    }
+                }
+            }
+
+            Err(BuildCallTreeError::NoReturn)
+        }
+    }
+}
