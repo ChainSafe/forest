@@ -553,10 +553,10 @@ async fn print_computed_state(
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", epoch))?;
 
-    let (st, output) = apply_block_messages(
+    let (st, _) = apply_block_messages(
         timestamp,
-        Arc::clone(&Arc::new(chain_index)),
-        Arc::clone(&Arc::new(chain_config)),
+        Arc::new(chain_index),
+        Arc::new(chain_config),
         beacon,
         &MultiEngine::default(),
         tipset,
@@ -568,7 +568,7 @@ async fn print_computed_state(
     )?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        todo!()
     } else {
         println!("computed state cid: {}", st);
     }
