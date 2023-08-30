@@ -47,7 +47,7 @@ pub enum EitherMmapOrRandomAccessFile {
 
 impl EitherMmapOrRandomAccessFile {
     pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
-        Ok(if prefer_file_io_over_mmap() {
+        Ok(if should_use_file_io() {
             Self::RandomAccessFile(RandomAccessFile::open(path)?)
         } else {
             Self::Mmap(Mmap::map_path(path)?)
@@ -75,7 +75,7 @@ impl Size for EitherMmapOrRandomAccessFile {
     }
 }
 
-fn prefer_file_io_over_mmap() -> bool {
+fn should_use_file_io() -> bool {
     // Use mmap by default, switch to file-io when `FOREST_CAR_LOADER_FILE_IO` is set to `1` or `true`
     match std::env::var("FOREST_CAR_LOADER_FILE_IO") {
         Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
