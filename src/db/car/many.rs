@@ -16,12 +16,12 @@ use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
 use anyhow::Context;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use std::{io, path::PathBuf, sync::Arc};
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
-    read_only: Mutex<Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>>,
+    read_only: RwLock<Vec<AnyCar<Box<dyn super::RandomAccessFileReader>>>>,
     writer: WriterT,
 }
 
@@ -29,7 +29,7 @@ impl<WriterT> ManyCar<WriterT> {
     pub fn new(writer: WriterT) -> Self {
         ManyCar {
             shared_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
-            read_only: Mutex::new(Vec::new()),
+            read_only: RwLock::new(Vec::new()),
             writer,
         }
     }
@@ -55,7 +55,7 @@ impl<WriterT> ManyCar<WriterT> {
     }
 
     pub fn read_only<ReaderT: super::RandomAccessFileReader>(&self, any_car: AnyCar<ReaderT>) {
-        let mut read_only = self.read_only.lock();
+        let mut read_only = self.read_only.write();
         let key = read_only.len() as u64;
         read_only.push(
             any_car
@@ -80,7 +80,7 @@ impl<WriterT> ManyCar<WriterT> {
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
         let tipsets = self
             .read_only
-            .lock()
+            .read()
             .iter()
             .map(AnyCar::heaviest_tipset)
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -109,7 +109,7 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
         // Theoretically it should be easily parallelizable with `rayon`.
         // In practice, there is a massive performance loss when providing
         // more than a single reader.
-        for reader in self.read_only.lock().iter() {
+        for reader in self.read_only.read().iter() {
             if let Some(val) = reader.get(k)? {
                 return Ok(Some(val));
             }

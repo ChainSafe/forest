@@ -19,7 +19,6 @@ use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_proxy_db};
 use crate::db::rolling::DbGarbageCollector;
-use crate::db::SettingsStore;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -29,6 +28,7 @@ use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
+use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
 use crate::utils::{
@@ -40,7 +40,6 @@ use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
-use fvm_ipld_blockstore::Blockstore;
 use lazy_static::lazy_static;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
@@ -285,6 +284,8 @@ pub(super) async fn start(
         return Ok(());
     }
 
+    let epoch = chain_store.heaviest_tipset().epoch();
+
     load_actor_bundles(&db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
@@ -397,9 +398,8 @@ pub(super) async fn start(
     let mut config = config;
     if config.client.snapshot_path.is_none() {
         fetch_snapshot_if_required(
-            &db,
-            &db,
             &mut config,
+            epoch,
             opts.auto_download_snapshot,
             &db_root_dir,
         )
@@ -460,9 +460,8 @@ pub(super) async fn start(
 ///
 /// An [`Err`] should be considered fatal.
 async fn fetch_snapshot_if_required(
-    store: &impl Blockstore,
-    settings: &impl SettingsStore,
     config: &mut Config,
+    epoch: ChainEpoch,
     auto_download_snapshot: bool,
     download_directory: &Path,
 ) -> anyhow::Result<()> {
@@ -476,20 +475,13 @@ async fn fetch_snapshot_if_required(
     let vendor = snapshot::TrustedVendor::default();
     let chain = &config.chain.network;
 
-    // TODO: Add integrity check of the union DB to decide whether or not a snapshot is required.
-    // Checking the heaviest tipset that is only loaded from parity-db is insufficient
-    let require_a_snapshot = {
-        if let Ok(Some(ts)) = Tipset::load_heaviest(store, settings) {
-            // What height is our chain at right now, and what network version does that correspond to?
-            let network_version = config.chain.network_version(ts.epoch());
-            // We don't support small network versions (we can't validate from e.g genesis).
-            // So we need a snapshot (which will be from a recent network version)
-            network_version < NetworkVersion::V16
-        } else {
-            true
-        }
-    };
+    // What height is our chain at right now, and what network version does that correspond to?
+    let network_version = config.chain.network_version(epoch);
+    let network_version_is_small = network_version < NetworkVersion::V16;
 
+    // We don't support small network versions (we can't validate from e.g genesis).
+    // So we need a snapshot (which will be from a recent network version)
+    let require_a_snapshot = network_version_is_small;
     let have_a_snapshot = config.client.snapshot_path.is_some();
 
     match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
