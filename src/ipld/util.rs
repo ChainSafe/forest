@@ -323,13 +323,14 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
+    stateroot_limit: ChainEpoch,
 ) -> ChainStream<DB, T> {
     ChainStream {
         tipset_iter,
         db,
         dfs: VecDeque::new(),
         seen: CidHashSet::default(),
-        stateroot_limit: 0,
+        stateroot_limit,
         fail_on_dead_links: false,
     }
 }
