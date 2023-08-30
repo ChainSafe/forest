@@ -19,7 +19,7 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::ApplyRet;
 use crate::shim::machine::MultiEngine;
-use crate::state_manager::{apply_block_messages, NO_CALLBACK};
+use crate::state_manager::apply_block_messages;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
 use anyhow::{bail, Context, Result};
@@ -555,9 +555,9 @@ async fn print_computed_state(
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", epoch))?;
 
-    let mut calls = vec![];
+    let mut contexts = vec![];
 
-    let (st, _) = apply_block_messages(
+    let (state_root, _) = apply_block_messages(
         timestamp,
         Arc::new(chain_index),
         Arc::new(chain_config),
@@ -566,7 +566,7 @@ async fn print_computed_state(
         tipset,
         Some(
             |_: &Cid, message: &ChainMessage, ret: &ApplyRet, at: CalledAt| {
-                calls.push((message.clone(), ret.clone(), at));
+                contexts.push((message.clone(), ret.clone(), at));
                 anyhow::Ok(())
             },
         ),
@@ -577,9 +577,9 @@ async fn print_computed_state(
     )?;
 
     if json {
-        todo!()
+        println!("{:#}", structured::json(state_root, contexts)?);
     } else {
-        println!("computed state cid: {}", st);
+        println!("computed state cid: {}", state_root);
     }
 
     Ok(())
@@ -588,19 +588,13 @@ async fn print_computed_state(
 /// Parsed tree of [`fvm3::trace::ExecutionEvent`]s
 mod structured {
     use cid::Cid;
-    use num_bigint::BigInt;
     use serde_json::json;
 
     use crate::{
         interpreter::CalledAt,
         lotus_json::LotusJson,
-        message::ChainMessage,
-        shim::{
-            address::Address,
-            econ::TokenAmount,
-            executor::{ApplyRet, Receipt},
-            message::Message,
-        },
+        message::{ChainMessage, Message as _}, // JANK(aatifsyed): Message is overloaded
+        shim::{address::Address, econ::TokenAmount, executor::ApplyRet},
     };
     use fvm_ipld_encoding::ipld_block::IpldBlock;
 
@@ -620,18 +614,30 @@ mod structured {
     fn context_json(
         message: ChainMessage,
         apply_ret: ApplyRet,
-        called_at: CalledAt,
+        _called_at: CalledAt, // TODO(aatifsyed): all that implicit constructor stuff...
     ) -> anyhow::Result<serde_json::Value> {
         let cid = message.cid()?;
-        json!({
+        Ok(json!({
             "MsgCid": LotusJson(cid),
             "Msg": LotusJson(message.message().clone()),
             "MsgRct": LotusJson(apply_ret.msg_receipt()),
             "Error": apply_ret.failure_info().unwrap_or_default(),
-            // "ExecutionTrace":
+            "GasCost": {
+                "Message": LotusJson(cid),
+                "GasUsed": LotusJson(apply_ret.msg_receipt().gas_used()),
+                "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
+                "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
+                "MinerPenalty": LotusJson(apply_ret.penalty()),
+                "MinerTip": LotusJson(apply_ret.miner_tip()),
+                "Refund": LotusJson(apply_ret.refund()),
+                "TotalCost": LotusJson(message.message().required_funds() - &apply_ret.refund()) // JANK(aatifsyed): shouldn't need to borrow &TokenAmount for Sub
+            },
+            "ExecutionTrace": parse_events(apply_ret.exec_trace())?
+                                .into_iter()
+                                .map(CallTree::json)
+                                .collect::<Vec<_>>()
             // "Duration": unimplemented!(),
-        });
-        todo!()
+        }))
     }
 
     /// Construct a series of [`CallTree`]s from a linear array of [`ExecutionEvent`](fvm3::trace::ExecutionEvent)s.
@@ -676,7 +682,7 @@ mod structured {
                     method,
                     params,
                     value,
-                } => calls.push(CallTree::taking_events(
+                } => calls.push(CallTree::parse(
                     ExecutionEventCall {
                         from,
                         to,
@@ -816,7 +822,18 @@ mod structured {
     }
 
     impl CallTree {
-        fn taking_events(
+        /// ```text
+        ///    events: GasCharge Call CallError CallReturn ...
+        ///            ────┬──── ─┬── ───┬───── ────┬─────
+        ///                │      │      │          │
+        /// ┌──────┐       │      └─(T)──┘          │
+        /// │ Call ├───────┴───(T)───┴──────────────┘
+        /// └──────┘            |                   ▲
+        ///                     ▼                   │
+        ///              Returned CallTree          │
+        ///                                     parsing end
+        /// ```
+        fn parse(
             call: ExecutionEventCall,
             mut events: impl Iterator<Item = fvm3::trace::ExecutionEvent>,
         ) -> Result<Self, BuildCallTreeError> {
@@ -835,7 +852,7 @@ mod structured {
                         method,
                         params,
                         value,
-                    } => sub_calls.push(Self::taking_events(
+                    } => sub_calls.push(Self::parse(
                         ExecutionEventCall {
                             from,
                             to,
