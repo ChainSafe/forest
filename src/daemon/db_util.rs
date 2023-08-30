@@ -17,19 +17,16 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tracing::info;
+use tracing::{debug, info};
 use url::Url;
 use walkdir::WalkDir;
 
-pub fn load_all_forest_cars<T>(
-    store: &ManyCar<T>,
-    forest_car_db_dir: impl AsRef<Path>,
-) -> anyhow::Result<()> {
-    let forest_car_db_dir = forest_car_db_dir.as_ref();
+pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
     }
     for file in WalkDir::new(forest_car_db_dir)
+        .max_depth(1)
         .into_iter()
         .filter_map(|entry| {
             if let Ok(entry) = entry {
@@ -45,7 +42,7 @@ pub fn load_all_forest_cars<T>(
         let car = ForestCar::try_from(file.as_path())
             .with_context(|| format!("Error loading car DB at {}", file.display()))?;
         store.read_only(car.into());
-        info!("Loaded car DB at {}", file.display());
+        debug!("Loaded car DB at {}", file.display());
     }
 
     Ok(())
@@ -98,15 +95,18 @@ pub async fn import_chain_as_forest_car(
 }
 
 async fn download_to(url: Url, destination: &Path) -> anyhow::Result<()> {
-    snapshot::download_file(
+    snapshot::download_file_with_retry(
         url,
-        destination
-            .parent()
-            .context("Infallible getting the directory")?,
+        destination.parent().with_context(|| {
+            format!(
+                "Error getting the parent directory of {}",
+                destination.display()
+            )
+        })?,
         destination
             .file_name()
             .and_then(OsStr::to_str)
-            .context("Infallible getting the file name")?,
+            .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
     )
     .await?;
 

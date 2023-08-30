@@ -32,8 +32,8 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
 use crate::utils::{
-    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
-    version::FOREST_VERSION_STRING, RetryArgs,
+    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
+    version::FOREST_VERSION_STRING,
 };
 use anyhow::{bail, Context};
 use bundle::load_actor_bundles;
@@ -44,7 +44,6 @@ use lazy_static::lazy_static;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
-use std::time::Duration;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
@@ -394,10 +393,10 @@ pub(super) async fn start(
 
     // TODO: respect `--consume-snapshot` CLI option once it's implemented
     let mut consume_snapshot_file = false;
-    // Fetch the latest snapshot if needed
+    // Sets the latest snapshot if needed for downloading later
     let mut config = config;
     if config.client.snapshot_path.is_none() {
-        fetch_snapshot_if_required(
+        set_snapshot_path_if_needed(
             &mut config,
             epoch,
             opts.auto_download_snapshot,
@@ -413,7 +412,7 @@ pub(super) async fn start(
             let (car_db_path, ts) =
                 import_chain_as_forest_car(path, &forest_car_db_dir, consume_snapshot_file).await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
-            info!("Loaded car DB at {}", car_db_path.display());
+            debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
                 .chain_store()
                 .set_heaviest_tipset(Arc::new(ts))?;
@@ -459,7 +458,7 @@ pub(super) async fn start(
 /// to a supported height. If we've not been given a snapshot by the user, get one.
 ///
 /// An [`Err`] should be considered fatal.
-async fn fetch_snapshot_if_required(
+async fn set_snapshot_path_if_needed(
     config: &mut Config,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
@@ -485,35 +484,18 @@ async fn fetch_snapshot_if_required(
     let have_a_snapshot = config.client.snapshot_path.is_some();
 
     match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
-        (false, _, _) => Ok(()),   // noop - don't need a snapshot
-        (true, true, _) => Ok(()), // noop - we need a snapshot, and we have one
+        (false, _, _) => {}   // noop - don't need a snapshot
+        (true, true, _) => {} // noop - we need a snapshot, and we have one
         (true, false, true) => {
-            // we need a snapshot, don't have one, and have permission to download one, so do that
-            let max_retries = 3;
-            match retry(
-                RetryArgs {
-                    timeout: None,
-                    max_retries: Some(max_retries),
-                    delay: Some(Duration::from_secs(60)),
-                },
-                || crate::cli_shared::snapshot::fetch(download_directory, chain, vendor),
-            )
-            .await
-            {
-                Ok(path) => {
-                    config.client.snapshot_path = Some(path);
-                    config.client.snapshot = true;
-                    Ok(())
-                }
-                Err(_) => bail!("failed to fetch snapshot after {max_retries} attempts"),
-            }
+            let (_len, url) = crate::cli_shared::snapshot::peek(vendor, chain).await?;
+            config.client.snapshot_path = Some(url.to_string().into());
+            config.client.snapshot = true;
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let (num_bytes, _url) =
-                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
-                    .await
-                    .context("couldn't get snapshot size")?;
+            let (num_bytes, url) = crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
+                .await
+                .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
@@ -531,18 +513,14 @@ async fn fetch_snapshot_if_required(
             })
             .await;
             if !have_permission {
-                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
+                bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
-            match crate::cli_shared::snapshot::fetch(download_directory, chain, vendor).await {
-                Ok(path) => {
-                    config.client.snapshot_path = Some(path);
-                    config.client.snapshot = true;
-                    Ok(())
-                }
-                Err(e) => Err(e).context("downloading required snapshot failed"),
-            }
+            config.client.snapshot_path = Some(url.to_string().into());
+            config.client.snapshot = true;
         }
-    }
+    };
+
+    Ok(())
 }
 
 /// Generates, prints and optionally writes to a file the administrator JWT
