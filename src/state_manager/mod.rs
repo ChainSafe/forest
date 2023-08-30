@@ -507,19 +507,25 @@ where
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
         let callback =
-            move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet, _called_at| {
-                if *cid == mcid {
-                    m_tx.send(unsigned.message().clone())?;
-                    r_tx.send(apply_ret.clone())?;
-                    anyhow::bail!(ERROR_MSG);
+            move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet, called_at| {
+                match called_at {
+                    CalledAt::Applied | CalledAt::Reward => {
+                        if *cid == mcid {
+                            m_tx.send(unsigned.message().clone())?;
+                            r_tx.send(apply_ret.clone())?;
+                            anyhow::bail!(ERROR_MSG);
+                        }
+                        Ok(())
+                    }
+                    CalledAt::Cron => Ok(()), // ignored
                 }
-                Ok(())
             };
         let result = self
             .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::NotTraced)
             .await;
 
         if let Err(error_message) = result {
+            // JANK(aatifsyed): wth?
             if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {error_message:}"
