@@ -623,10 +623,6 @@ mod structured {
         called_at: CalledAt,
     ) -> anyhow::Result<serde_json::Value> {
         let cid = message.cid()?;
-        let Root {
-            gas_charges: _,
-            calls,
-        } = Root::from_events(apply_ret.exec_trace())?;
         json!({
             "MsgCid": LotusJson(cid),
             "Msg": LotusJson(message.message().clone()),
@@ -638,53 +634,74 @@ mod structured {
         todo!()
     }
 
-    struct Root {
-        gas_charges: Vec<fvm3::gas::GasCharge>,
-        calls: Vec<CallTree>,
-    }
+    /// Construct a series of [`CallTree`]s from a linear array of [`ExecutionEvent`](fvm3::trace::ExecutionEvent)s.
+    ///
+    /// This function is so-called because it similar to the parse step in a traditional compiler:
+    /// ```text
+    /// text --lex-->     tokens     --parse-->   AST
+    ///               ExecutionEvent --parse--> CallTree
+    /// ```
+    ///
+    /// This function is notable in that [`GasCharge`](fvm3::gas::GasCharge)s which precede a [`CallTree`] at the root level
+    /// are attributed to that node.
+    ///
+    /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)
+    ///
+    /// ```text
+    /// GasCharge GasCharge Call GasCharge Call CallError CallReturn ...
+    /// ────┬──── ────┬──── ─┬── ────┬──── ─┬── ───┬───── ────┬─────
+    ///     │         │      │       │      │      │          │
+    ///     │         │      │       │      └─(T)──┘          │
+    ///     │         │      └───────┴───(T)───┴──────────────┘
+    ///     └─────────┴──────────────────►│
+    ///     ("front loaded" GasCharges)   │
+    ///                                  (T)
+    ///
+    /// (T): a CallTree node
+    /// ```
+    fn parse_events(
+        events: Vec<fvm3::trace::ExecutionEvent>,
+    ) -> Result<Vec<CallTree>, BuildCallTreeError> {
+        let mut events = events.into_iter();
+        let mut front_loaded = vec![];
+        let mut calls = vec![];
 
-    impl Root {
-        fn from_events(
-            events: Vec<fvm3::trace::ExecutionEvent>,
-        ) -> Result<Self, BuildCallTreeError> {
-            let mut events = events.into_iter();
-            let mut gas_charges = vec![];
-            let mut calls = vec![];
-
-            // we don't use a `for` loop so we can pass events them to inner parsers
-            while let Some(event) = events.next() {
-                match event {
-                    fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => {
-                        gas_charges.push(gas_charge)
-                    }
-                    fvm3::trace::ExecutionEvent::Call {
+        // we don't use a `for` loop so we can pass events them to inner parsers
+        while let Some(event) = events.next() {
+            match event {
+                fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => front_loaded.push(gas_charge),
+                fvm3::trace::ExecutionEvent::Call {
+                    from,
+                    to,
+                    method,
+                    params,
+                    value,
+                } => calls.push(CallTree::taking_events(
+                    ExecutionEventCall {
                         from,
                         to,
                         method,
                         params,
                         value,
-                    } => calls.push(CallTree::taking_events(
-                        ExecutionEventCall {
-                            from,
-                            to,
-                            method,
-                            params,
-                            value,
-                        },
-                        &mut events,
-                    )?),
-                    fvm3::trace::ExecutionEvent::CallReturn(_, _)
-                    | fvm3::trace::ExecutionEvent::CallError(_) => {
-                        return Err(BuildCallTreeError::UnexpectedReturn)
-                    }
-                    unrecognised => {
-                        return Err(BuildCallTreeError::UnrecognisedEvent(unrecognised))
-                    }
+                    },
+                    front_loaded
+                        .drain(..)
+                        .map(fvm3::trace::ExecutionEvent::GasCharge)
+                        .chain(&mut events),
+                )?),
+                fvm3::trace::ExecutionEvent::CallReturn(_, _)
+                | fvm3::trace::ExecutionEvent::CallError(_) => {
+                    return Err(BuildCallTreeError::UnexpectedReturn)
                 }
+                unrecognised => return Err(BuildCallTreeError::UnrecognisedEvent(unrecognised)),
             }
-
-            Ok(Self { gas_charges, calls })
         }
+
+        if !front_loaded.is_empty() {
+            return Err(BuildCallTreeError::TrailingGasCharges);
+        }
+
+        Ok(calls)
     }
 
     struct CallTree {
@@ -696,6 +713,8 @@ mod structured {
 
     impl CallTree {
         fn json(self) -> serde_json::Value {
+            use fvm_shared3::error::ExitCode;
+
             let Self {
                 call:
                     ExecutionEventCall {
@@ -711,6 +730,23 @@ mod structured {
             } = self;
 
             let IpldBlock { codec, data } = params.unwrap_or_default();
+            let (return_code, return_data, return_codec) = match r#return {
+                // Ported from: https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L440
+                CallTreeReturn::Return(code, data) => {
+                    let IpldBlock { codec, data } = data.unwrap_or_default();
+                    (code, data, codec)
+                }
+                CallTreeReturn::SyscallError(fvm3::kernel::SyscallError(_, n)) => {
+                    let code = match n {
+                        fvm_shared3::error::ErrorNumber::InsufficientFunds => {
+                            ExitCode::SYS_INSUFFICIENT_FUNDS
+                        }
+                        fvm_shared3::error::ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER,
+                        _ => ExitCode::SYS_ASSERTION_FAILED,
+                    };
+                    (code, vec![], 0)
+                }
+            };
 
             // Note: delegation to `serialize` on values in the below map,
             //       which will panic if serialize fails.
@@ -723,7 +759,11 @@ mod structured {
                     "Params": LotusJson(data),
                     "ParamsCodec": codec
                 },
-                "MsgRct": r#return.json(),
+                "MsgRct": {
+                    "ExitCode": return_code,
+                    "Return": LotusJson(return_data),
+                    "ReturnCoded": return_codec
+                },
                 "GasCharges": gas_charges.into_iter().map(gas_charge_json).collect::<Vec<_>>(),
                 "SubCalls": sub_calls.into_iter().map(Self::json).collect::<Vec<_>>()
             })
@@ -754,33 +794,6 @@ mod structured {
         SyscallError(fvm3::kernel::SyscallError),
     }
 
-    impl CallTreeReturn {
-        fn json(self) -> serde_json::Value {
-            use fvm_shared3::error::ExitCode;
-            let (code, data, codec) = match self {
-                CallTreeReturn::Return(code, data) => {
-                    let IpldBlock { codec, data } = data.unwrap_or_default();
-                    (code, data, codec)
-                }
-                CallTreeReturn::SyscallError(fvm3::kernel::SyscallError(_, n)) => {
-                    let code = match n {
-                        fvm_shared3::error::ErrorNumber::InsufficientFunds => {
-                            ExitCode::SYS_INSUFFICIENT_FUNDS
-                        }
-                        fvm_shared3::error::ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER,
-                        _ => ExitCode::SYS_ASSERTION_FAILED,
-                    };
-                    (code, vec![], 0)
-                }
-            };
-            json!({
-                "ExitCode": code,
-                "Return": LotusJson(data),
-                "ReturnCodec": codec
-            })
-        }
-    }
-
     /// Fields on [`fvm3::trace::ExecutionEvent::Call`]
     struct ExecutionEventCall {
         from: fvm_shared3::ActorID,
@@ -798,6 +811,8 @@ mod structured {
         NoReturn,
         #[error("unrecognised ExecutionEvent variant: {0:?}")]
         UnrecognisedEvent(fvm3::trace::ExecutionEvent),
+        #[error("there were trailing ExecutionEvent::GasCharge-s. These events must _precede_ an ExecutionEvent::Call, for attribution")]
+        TrailingGasCharges,
     }
 
     impl CallTree {
