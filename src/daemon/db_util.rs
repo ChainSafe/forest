@@ -133,9 +133,7 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     let roots = car_stream.header.roots.clone();
 
     let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(to).await?);
-    let frames = crate::db::car::forest::Encoder::compress_stream(
-        8000usize.next_power_of_two(),
-        zstd::DEFAULT_COMPRESSION_LEVEL as _,
+    let frames = crate::db::car::forest::Encoder::compress_stream_default(
         car_stream.map_err(anyhow::Error::from),
     );
     crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
