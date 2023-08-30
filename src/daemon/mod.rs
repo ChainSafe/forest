@@ -476,6 +476,8 @@ async fn fetch_snapshot_if_required(
     let vendor = snapshot::TrustedVendor::default();
     let chain = &config.chain.network;
 
+    // TODO: Add integrity check of the union DB to decide whether or not a snapshot is required.
+    // Checking the heaviest tipset that is only loaded from parity-db is insufficient
     let require_a_snapshot = {
         if let Ok(Some(ts)) = Tipset::load_heaviest(store, settings) {
             // What height is our chain at right now, and what network version does that correspond to?
