@@ -251,6 +251,8 @@ mod parse {
     };
     use url::Url;
 
+    use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
+
     #[derive(PartialEq, Debug, Clone, Hash)]
     pub(super) enum ParsedFilename<'a> {
         Short {
@@ -358,7 +360,7 @@ mod parse {
                 ymd("-"),
                 tag("_height_"),
                 number,
-                alt((tag(".car.zst"), tag(".forest.car.zst"))),
+                alt((tag(".car.zst"), tag(FOREST_CAR_FILE_EXTENSION))),
             ))(input)?;
         Ok((
             rest,
@@ -367,7 +369,7 @@ mod parse {
                 chain,
                 date,
                 height,
-                forest_format: car_zst == ".forest.car.zst",
+                forest_format: car_zst == FOREST_CAR_FILE_EXTENSION,
             },
         ))
     }
