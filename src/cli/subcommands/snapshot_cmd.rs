@@ -614,28 +614,37 @@ mod structured {
     }
 
     fn context_json(
-        message: ChainMessage,
+        chain_message: ChainMessage,
         apply_ret: ApplyRet,
-        _called_at: CalledAt, // TODO(aatifsyed): all that implicit constructor stuff...
+        called_at: CalledAt,
     ) -> anyhow::Result<serde_json::Value> {
-        let cid = message.cid()?;
+        use crate::lotus_json::Stringify;
+
+        // TODO(aatifsyed): what does this even mean
+        let is_explicit = match called_at {
+            CalledAt::Applied => true,
+            CalledAt::Reward | CalledAt::Cron => false,
+        };
+
+        let chain_message_cid = chain_message.cid()?;
+        let unsiged_message_cid = chain_message.message().cid()?;
 
         Ok(json!({
-            "MsgCid": LotusJson(cid),
-            "Msg": LotusJson(message.message().clone()),
+            "MsgCid": LotusJson(chain_message_cid),
+            "Msg": LotusJson(chain_message.message().clone()),
             "MsgRct": LotusJson(apply_ret.msg_receipt()),
-            // TODO(aatifsyed): this should include the "EventsRoot": null
+            // TODO(aatifsyed): ^ this should include the "EventsRoot": null
             //                  but LotusJson<Receipt> currently ignores that field
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
-                "Message": LotusJson(cid),
-                "GasUsed": crate::lotus_json::Stringify(apply_ret.msg_receipt().gas_used()),
+                "Message": is_explicit.then_some(LotusJson(unsiged_message_cid)),
+                "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())),
                 "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
                 "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
                 "MinerPenalty": LotusJson(apply_ret.penalty()),
                 "MinerTip": LotusJson(apply_ret.miner_tip()),
                 "Refund": LotusJson(apply_ret.refund()),
-                "TotalCost": LotusJson(message.message().required_funds() - &apply_ret.refund()) // JANK(aatifsyed): shouldn't need to borrow &TokenAmount for Sub
+                "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund()) // JANK(aatifsyed): shouldn't need to borrow &TokenAmount for Sub
             },
             "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json)
             // "Duration": unimplemented!(),
@@ -783,9 +792,6 @@ mod structured {
                     (code, vec![], 0)
                 }
             };
-
-            // Note: delegation to `serialize` on values in the below map,
-            //       which will panic if serialize fails.
             json!({
                 "Msg": {
                     "From": LotusJson(Address::new_id(from)),
