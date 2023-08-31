@@ -524,6 +524,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
             let (filter_sender, filter_receiver) = flume::bounded(1024);
             let (worker_sender, worker_receiver) = flume::bounded(1024);
 
+            // To avoid confusion just use brackets and the same variable names instead. Otherwise
+            // there are too many variables responsible for the same thing.
             let filter_seen = seen.clone();
             let worker_sender_filter = worker_sender.clone();
 
@@ -533,6 +535,8 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
                     match task {
                         UnorderedFilterTask::Shutdown => {
                             // Explicitly drop the sender for visibility.
+                            // The idea here is to be able to let workers go once all the channels
+                            // are empty.
                             drop(worker_sender_filter);
                             break;
                         }
