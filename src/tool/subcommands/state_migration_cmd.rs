@@ -71,7 +71,7 @@ async fn generate_actor_bundle() -> Result<()> {
 
     let mut zstd_encoder = ZstdEncoder::with_quality(
         async_fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
-        async_compression::Level::Precise(zstd_safe::max_c_level()),
+        async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
     );
 
     car_writer
