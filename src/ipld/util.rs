@@ -532,7 +532,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
                 while let Ok(task) = filter_receiver.recv_async().await {
                     match task {
                         UnorderedFilterTask::Shutdown => {
-                            // Explicitly drop the filter for visibility.
+                            // Explicitly drop the sender for visibility.
                             drop(worker_sender_filter);
                             break;
                         }
