@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-pub use mmap::Mmap;
+pub use mmap::{EitherMmapOrRandomAccessFile, Mmap};
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
 pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;

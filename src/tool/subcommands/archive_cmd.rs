@@ -71,7 +71,10 @@ impl ArchiveCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
-                println!("{}", ArchiveInfo::from_store(AnyCar::try_from(snapshot)?)?);
+                println!(
+                    "{}",
+                    ArchiveInfo::from_store(AnyCar::try_from(snapshot.as_path())?)?
+                );
                 Ok(())
             }
             Self::Export {

@@ -7,7 +7,11 @@ set -e
 
 source "$(dirname "$0")/harness.sh"
 
+forest_import_non_calibnet_snapshot
 forest_init
+
+echo "Verifying the non calibnet snapshot (./test-snapshots/chain4.car) is being served properly."
+$FOREST_CLI_PATH chain read-obj -c bafy2bzacedjrqan2fwfvhfopi64yickki7miiksecglpeiavf7xueytnzevlu
 
 echo "Running database garbage collection"
 forest_check_db_stats
