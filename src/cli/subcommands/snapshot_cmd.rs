@@ -627,7 +627,7 @@ mod structured {
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": LotusJson(cid),
-                "GasUsed": LotusJson(apply_ret.msg_receipt().gas_used()),
+                "GasUsed": crate::lotus_json::Stringify(apply_ret.msg_receipt().gas_used()),
                 "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
                 "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
                 "MinerPenalty": LotusJson(apply_ret.penalty()),
@@ -789,17 +789,19 @@ mod structured {
                     "From": LotusJson(Address::new_id(from)),
                     "To": LotusJson(Address::from(to)),
                     "Value": LotusJson(TokenAmount::from(value)),
-                    "Method": method,
+                    "Method": LotusJson(method),
                     "Params": LotusJson(data),
-                    "ParamsCodec": codec
+                    "ParamsCodec": LotusJson(codec)
                 },
                 "MsgRct": {
-                    "ExitCode": return_code,
+                    "ExitCode": LotusJson(return_code),
                     "Return": LotusJson(return_data),
-                    "ReturnCoded": return_codec
+                    "ReturnCodec": LotusJson(return_codec),
+                    // FIXME(aatifsyed): See src/lotus_json/receipt.rs
+                    // "EventsRoot": ()
                 },
-                "GasCharges": gas_charges.into_iter().map(gas_charge_json).collect::<Vec<_>>(),
-                "SubCalls": sub_calls.into_iter().map(Self::json).collect::<Vec<_>>()
+                "GasCharges": LotusJson(gas_charges.into_iter().map(gas_charge_json).collect::<Vec<_>>()),
+                "Subcalls": LotusJson(sub_calls.into_iter().map(Self::json).collect::<Vec<_>>())
             })
         }
     }

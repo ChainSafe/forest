@@ -371,4 +371,12 @@ macro_rules! lotus_json_with_self {
     }
 }
 
-lotus_json_with_self!(u32, u64, i64, String, chrono::DateTime<chrono::Utc>);
+lotus_json_with_self!(
+    u32,
+    u64,
+    i64,
+    String,
+    chrono::DateTime<chrono::Utc>,
+    serde_json::Value,
+    fvm_shared3::error::ExitCode
+);
