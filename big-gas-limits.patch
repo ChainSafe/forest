@@ -1,0 +1,112 @@
+diff --git a/chain/types/message_test.go b/chain/types/message_test.go
+index abb9c946e..1a38ff157 100644
+--- a/chain/types/message_test.go
++++ b/chain/types/message_test.go
+@@ -4,6 +4,7 @@ package types
+ import (
+ 	"encoding/json"
+ 	"fmt"
++	"math"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+@@ -78,6 +79,99 @@ func TestEqualCall(t *testing.T) {
+ 	require.False(t, m1.EqualCall(m4))
+ }
+ 
++func TestGasLimitHalfMaxInt64(t *testing.T) {
++	m := &Message{
++		To:    builtin2.StoragePowerActorAddr,
++		From:  builtin2.SystemActorAddr,
++		Nonce: 0,
++		Value: big.Zero(),
++
++		GasLimit:   math.MaxInt64 / 2,
++		GasFeeCap:  big.Zero(),
++		GasPremium: big.Zero(),
++
++		Method: 0,
++		Params: []byte(""),
++	}
++
++	b, err := json.Marshal((*RawMessage)(m)) // Ignore the CID
++	require.NoError(t, err)
++
++	exp := []byte("{\"Version\":0,\"To\":\"f04\",\"From\":\"f00\",\"Nonce\":0,\"Value\":\"0\",\"GasLimit\":4611686018427387903,\"GasFeeCap\":\"0\",\"GasPremium\":\"0\",\"Method\":0,\"Params\":\"\"}")
++	fmt.Println(string(b))
++
++	//stm: @TYPES_MESSAGE_JSON_EQUAL_CALL_001
++	require.Equal(t, exp, b)
++
++	var um Message
++	require.NoError(t, json.Unmarshal(b, &um))
++
++	//stm: @TYPES_MESSAGE_JSON_EQUAL_CALL_002
++	require.EqualValues(t, *m, um)
++}
++
++func TestGasLimitHalfMaxInt64PlusOne(t *testing.T) {
++	m := &Message{
++		To:    builtin2.StoragePowerActorAddr,
++		From:  builtin2.SystemActorAddr,
++		Nonce: 0,
++		Value: big.Zero(),
++
++		GasLimit:   math.MaxInt64/2 + 1,
++		GasFeeCap:  big.Zero(),
++		GasPremium: big.Zero(),
++
++		Method: 0,
++		Params: []byte(""),
++	}
++
++	b, err := json.Marshal((*RawMessage)(m)) // Ignore the CID
++	require.NoError(t, err)
++
++	exp := []byte("{\"Version\":0,\"To\":\"f04\",\"From\":\"f00\",\"Nonce\":0,\"Value\":\"0\",\"GasLimit\":4611686018427387904,\"GasFeeCap\":\"0\",\"GasPremium\":\"0\",\"Method\":0,\"Params\":\"\"}")
++	fmt.Println(string(b))
++
++	//stm: @TYPES_MESSAGE_JSON_EQUAL_CALL_001
++	require.Equal(t, exp, b)
++
++	var um Message
++	require.NoError(t, json.Unmarshal(b, &um))
++
++	//stm: @TYPES_MESSAGE_JSON_EQUAL_CALL_002
++	require.EqualValues(t, *m, um)
++}
++
++func TestGasLimitMaxInt64(t *testing.T) {
++	m := &Message{
++		To:    builtin2.StoragePowerActorAddr,
++		From:  builtin2.SystemActorAddr,
++		Nonce: 0,
++		Value: big.Zero(),
++
++		GasLimit:   math.MaxInt64,
++		GasFeeCap:  big.Zero(),
++		GasPremium: big.Zero(),
++
++		Method: 0,
++		Params: []byte(""),
++	}
++
++	b, err := json.Marshal((*RawMessage)(m)) // Ignore the CID
++	require.NoError(t, err)
++
++	exp := []byte("{\"Version\":0,\"To\":\"f04\",\"From\":\"f00\",\"Nonce\":0,\"Value\":\"0\",\"GasLimit\":9223372036854775807,\"GasFeeCap\":\"0\",\"GasPremium\":\"0\",\"Method\":0,\"Params\":\"\"}")
++	fmt.Println(string(b))
++
++	//stm: @TYPES_MESSAGE_JSON_EQUAL_CALL_001
++	require.Equal(t, exp, b)
++
++	var um Message
++	require.NoError(t, json.Unmarshal(b, &um))
++
++	//stm: @TYPES_MESSAGE_JSON_EQUAL_CALL_002
++	require.EqualValues(t, *m, um)
++}
++
+ func TestMessageJson(t *testing.T) {
+ 	m := &Message{
+ 		To:    builtin2.StoragePowerActorAddr,
