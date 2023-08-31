@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-ofile=output-$(git-short).json
+ofile=${ofile:-output-$(git-short).json}
 
 cargo run --bin forest-cli -- \
     snapshot compute-state \

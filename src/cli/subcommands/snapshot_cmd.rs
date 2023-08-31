@@ -624,6 +624,8 @@ mod structured {
             "MsgCid": LotusJson(cid),
             "Msg": LotusJson(message.message().clone()),
             "MsgRct": LotusJson(apply_ret.msg_receipt()),
+            // TODO(aatifsyed): this should include the "EventsRoot": null
+            //                  but LotusJson<Receipt> currently ignores that field
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": LotusJson(cid),
@@ -793,12 +795,13 @@ mod structured {
                     "Params": LotusJson(data),
                     "ParamsCodec": LotusJson(codec)
                 },
+                // "MsgRct" might suggest that this is the right place to use LotusJson<crate::shim::executor::Receipt>
+                // But this is actually different information - e.g "GasUsed" isn't shown by Lotus
+                // And contructing a Receipt requires RawBytes, which is _not_ the same as the IpldBlock in CallTreeReturn::Return
                 "MsgRct": {
                     "ExitCode": LotusJson(return_code),
                     "Return": LotusJson(return_data),
                     "ReturnCodec": LotusJson(return_codec),
-                    // FIXME(aatifsyed): See src/lotus_json/receipt.rs
-                    // "EventsRoot": ()
                 },
                 "GasCharges": LotusJson(gas_charges.into_iter().map(gas_charge_json).collect::<Vec<_>>()),
                 "Subcalls": LotusJson(sub_calls.into_iter().map(Self::json).collect::<Vec<_>>())
