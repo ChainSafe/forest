@@ -21,6 +21,12 @@ pub struct MessageLotusJson {
     method: LotusJson<u64>,
     #[serde(skip_serializing_if = "LotusJson::is_none", default)]
     params: LotusJson<Option<RawBytes>>,
+    // This is a bit of a hack - `Message`s don't really store their CID, but they're
+    // serialized with it.
+    // However, getting a message's CID is fallible...
+    // So we keep this as an `Option`, and ignore it if it fails.
+    // We also ignore it when serializing from json.
+    // I wouldn't be surprised if this causes issues with arbitrary tests
     #[serde(rename = "CID", skip_serializing_if = "LotusJson::is_none", default)]
     cid: LotusJson<Option<Cid>>,
 }
@@ -40,13 +46,17 @@ impl HasLotusJson for Message {
                 "Params": null,
                 "To": "f00",
                 "Value": "0",
-                "Version": 0
+                "Version": 0,
+                "CID": {
+                    "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
+                }
             }),
             Message::default(),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
+        let cid = self.cid().ok();
         let Self {
             version,
             from,
@@ -70,7 +80,7 @@ impl HasLotusJson for Message {
             gas_premium: gas_premium.into(),
             method: method_num.into(),
             params: Some(params).into(),
-            cid: None.into(),
+            cid: cid.into(),
         }
     }
 
@@ -86,7 +96,7 @@ impl HasLotusJson for Message {
             gas_premium,
             method,
             params,
-            cid: _ignored, // BUG?(aatifsyed)
+            cid: _ignored,
         } = lotus_json;
         Self {
             version: version.into_inner(),
