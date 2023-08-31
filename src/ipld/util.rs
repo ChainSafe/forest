@@ -513,6 +513,7 @@ pub fn unordered_stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin
 }
 
 impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
+    // TODO: sort out the DB to be able to pass it on to the workers.
     fn start_workers(
         mut tipset_iter: T,
         block_sender: Sender<anyhow::Result<Block>>,
@@ -550,6 +551,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
                 }
             });
 
+            // TODO: bench to see what works best.
             for _ in 0..num_cpus::get() {
                 let block_sender = block_sender.clone();
                 let filter_sender = filter_sender.clone();
@@ -617,6 +619,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
             }
 
             // Wait till all the channels are empty, then initiate the shutdown procedure.
+            // TODO: See if we can improve the control flow here.
             while !(worker_sender.is_empty() && filter_sender.is_empty()) {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
