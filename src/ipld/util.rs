@@ -299,7 +299,8 @@ impl<DB, T> ChainStream<DB, T> {
     }
 }
 
-/// Stream all blocks that are reachable before the `stateroot_limit` epoch a depth-first fashion.
+/// Stream all blocks that are reachable before the `stateroot_limit` epoch  in a depth-first
+/// fashion.
 /// After this limit, only block headers are streamed. Any dead links are reported as errors.
 ///
 /// # Arguments
