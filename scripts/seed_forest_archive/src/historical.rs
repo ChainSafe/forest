@@ -8,7 +8,7 @@ use nom::{
 };
 use std::ops::RangeInclusive;
 use std::path::Path;
-use std::process::{Stdio, Command, Child};
+use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
 
 use super::{ChainEpoch, R2_ENDPOINT};
@@ -74,6 +74,13 @@ impl HistoricalSnapshot {
             .status()?;
         anyhow::ensure!(status.success());
         Ok(())
+    }
+
+    pub fn url(&self) -> String {
+        format!(
+            "https://forest-archive.chainsafe.dev/historical/{}",
+            self.path
+        )
     }
 
     // Download and encode

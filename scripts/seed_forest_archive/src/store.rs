@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
-use tempfile::TempPath;
 
 pub struct Store {
     known_snapshots: Vec<HistoricalSnapshot>,
@@ -24,7 +23,10 @@ impl Store {
         self.local.values().map(|tmp| tmp.deref()).collect()
     }
 
-    pub fn in_range<'a>(&'a self, range: &'a RangeInclusive<ChainEpoch>) -> impl Iterator<Item = &'a HistoricalSnapshot> + 'a {
+    pub fn in_range<'a>(
+        &'a self,
+        range: &'a RangeInclusive<ChainEpoch>,
+    ) -> impl Iterator<Item = &'a HistoricalSnapshot> + 'a {
         self.known_snapshots.iter().filter(|snapshot| {
             range.contains(snapshot.epoch_range.start())
                 || range.contains(snapshot.epoch_range.end())
@@ -45,20 +47,13 @@ impl Store {
         for required_snapshot in required_snapshots {
             if self.local.get(&required_snapshot.epoch_range).is_none() {
                 println!("Downloading snapshot: {}", required_snapshot.path());
-                let base_name = format!(
-                    "snapshot_{}_to_{}.car.zst",
-                    required_snapshot.epoch_range.start(),
-                    required_snapshot.epoch_range.end()
-                );
                 let compressed_name = format!(
                     "snapshot_{}_to_{}.forest.car.zst",
                     required_snapshot.epoch_range.start(),
                     required_snapshot.epoch_range.end()
                 );
-                let tmp_plain_file = TempPath::from_path(&base_name);
                 let tmp_forest_file = PathBuf::from(&compressed_name);
-                required_snapshot.download(&tmp_plain_file)?;
-                super::forest::compress(&tmp_plain_file, &tmp_forest_file)?;
+                super::forest::compress(&PathBuf::from(required_snapshot.url()), &tmp_forest_file)?;
                 self.local
                     .insert(required_snapshot.epoch_range.clone(), tmp_forest_file);
             }
