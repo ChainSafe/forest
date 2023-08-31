@@ -683,14 +683,14 @@ mod structured {
         events: Vec<fvm3::trace::ExecutionEvent>,
     ) -> Result<Option<CallTree>, BuildCallTreeError> {
         let mut events = VecDeque::from(events);
-        let mut front_load_me = vec![];
+        let mut root_gas_charges = vec![];
         let mut call_trees = vec![];
 
         // we don't use a `for` loop so we can pass events them to inner parsers
         while let Some(event) = events.pop_front() {
             match event {
                 fvm3::trace::ExecutionEvent::GasCharge(gas_charge) => {
-                    front_load_me.push(gas_charge)
+                    root_gas_charges.push(gas_charge)
                 }
                 fvm3::trace::ExecutionEvent::Call {
                     from,
@@ -711,7 +711,7 @@ mod structured {
                         // the compiler would infinitely recurse trying to resolve
                         // &mut &mut &mut ..: Iterator
                         // so use a VecDeque instead
-                        for gc in front_load_me.drain(..).rev() {
+                        for gc in root_gas_charges.drain(..).rev() {
                             events.push_front(fvm3::trace::ExecutionEvent::GasCharge(gc))
                         }
                         &mut events
@@ -725,19 +725,23 @@ mod structured {
             }
         }
 
-        if !front_load_me.is_empty() {
+        if !root_gas_charges.is_empty() {
             // FIXME(aatifsyed): tracing should go to stderr, but it doesn't.
             //                   this screws up `make_output.bash`, so comment out
             //                   for now.
             eprintln!(
                 "vm tracing: ignoring {} trailing gas charges",
-                front_load_me.len()
+                root_gas_charges.len()
             );
         }
 
         match call_trees.len() {
             0 => Ok(None),
-            1 => Ok(Some(call_trees.remove(0))),
+            1 => {
+                let mut call_tree = call_trees.remove(0);
+                call_tree.gas_charges.extend(root_gas_charges);
+                Ok(Some(call_tree))
+            }
             many => {
                 // FIXME(aatifsyed): as above
                 eprintln!(
