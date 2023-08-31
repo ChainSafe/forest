@@ -53,6 +53,7 @@ use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::encoding::uvibytes::UviBytes;
+use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::{HashMap, HashMapExt};
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
 use cid::Cid;
@@ -62,6 +63,7 @@ use fvm_ipld_encoding::to_vec;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
 use std::io::{Seek, SeekFrom};
+use std::path::Path;
 use std::sync::Arc;
 use std::task::Poll;
 use std::{
@@ -160,6 +162,13 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
             frame_cache: cache,
             ..self
         }
+    }
+}
+
+impl TryFrom<&Path> for ForestCar<EitherMmapOrRandomAccessFile> {
+    type Error = std::io::Error;
+    fn try_from(path: &Path) -> std::io::Result<Self> {
+        ForestCar::new(EitherMmapOrRandomAccessFile::open(path)?)
     }
 }
 
