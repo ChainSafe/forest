@@ -6,7 +6,6 @@ use std::{
     io,
     path::{Path, PathBuf},
     str::FromStr,
-    time::Duration,
 };
 
 use crate::{
@@ -76,19 +75,18 @@ pub async fn fetch(
         .date_and_height_and_forest();
     let filename = filename(vendor, chain, date, height, forest_format);
 
-    download_file_with_retry(url, directory, &filename).await
+    download_file_with_retry(&url, directory, &filename).await
 }
 
 pub async fn download_file_with_retry(
-    url: Url,
+    url: &Url,
     directory: &Path,
     filename: &str,
 ) -> anyhow::Result<PathBuf> {
     Ok(retry(
         RetryArgs {
             timeout: None,
-            max_retries: Some(3),
-            delay: Some(Duration::from_secs(60)),
+            ..Default::default()
         },
         || download_file(url.clone(), directory, filename),
     )

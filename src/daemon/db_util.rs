@@ -62,7 +62,7 @@ pub async fn import_chain_as_forest_car(
     let downloaded_car_temp_path =
         tempfile::NamedTempFile::new_in(forest_car_db_dir)?.into_temp_path();
     if let Ok(url) = Url::parse(&from_path.display().to_string()) {
-        download_to(url, &downloaded_car_temp_path).await?;
+        download_to(&url, &downloaded_car_temp_path).await?;
     } else {
         move_or_copy_file(from_path, &downloaded_car_temp_path, consume_snapshot_file)?;
     }
@@ -94,7 +94,7 @@ pub async fn import_chain_as_forest_car(
     Ok((forest_car_db_path, ts))
 }
 
-async fn download_to(url: Url, destination: &Path) -> anyhow::Result<()> {
+async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
     snapshot::download_file_with_retry(
         url,
         destination.parent().with_context(|| {
