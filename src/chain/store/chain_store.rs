@@ -32,7 +32,7 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::db::setting_keys::{ESTIMATED_RECORDS_KEY, HEAD_KEY};
+use crate::db::setting_keys::HEAD_KEY;
 use crate::db::{SettingsStore, SettingsStoreExt};
 
 // A cap on the size of the future_sink
@@ -148,11 +148,6 @@ where
     /// headers.
     pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
         self.tipset_tracker.add(header);
-    }
-
-    pub fn set_estimated_records(&self, records: u64) -> anyhow::Result<()> {
-        self.settings.write_obj(ESTIMATED_RECORDS_KEY, &records)?;
-        Ok(())
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
