@@ -42,6 +42,8 @@
   - `forest-cli db clean` to `forest-tool db destroy`
 - [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
   `forest-cli wallet` subcommands to `forest-wallet`
+- [#3431](https://github.com/ChainSafe/forest/pull/3431) Moved the following
+  `forest-cli snapshot compress` subcommand to `forest-tool`
 
 ### Added
 
