@@ -53,6 +53,8 @@
   `forest-cli snapshot export`.
 - [#3348](https://github.com/ChainSafe/forest/pull/3348): Add `--diff-depth`
   flag to `forest-cli archive export`.
+- [#3325](https://github.com/ChainSafe/forest/pull/3325): Add
+  `forest-tool state-migration actor-bundle` subcommand.
 - [#3387](https://github.com/ChainSafe/forest/pull/3387): Add
   `forest-wallet delete` RPC command.
 - [#3322](https://github.com/ChainSafe/forest/issues/3322): Added prompt to

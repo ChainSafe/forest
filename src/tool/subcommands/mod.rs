@@ -6,6 +6,7 @@ pub mod benchmark_cmd;
 pub mod db_cmd;
 pub mod fetch_params_cmd;
 pub mod snapshot_cmd;
+pub mod state_migration_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
@@ -30,6 +31,10 @@ pub enum Subcommand {
     /// Benchmark various Forest subsystems
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
+
+    /// State migration tools
+    #[command(subcommand)]
+    StateMigration(state_migration_cmd::StateMigrationCommands),
 
     /// Manage snapshots
     #[command(subcommand)]
