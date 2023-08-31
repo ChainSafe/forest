@@ -29,7 +29,7 @@ impl HasLotusJson for SignedMessage {
                     "GasPremium": "0",
                     "Method": 0,
                     "Nonce": 0,
-                    "Params": "",
+                    "Params": null,
                     "To": "f00",
                     "Value": "0",
                     "Version": 0

@@ -33,11 +33,11 @@ impl HasLotusJson for Message {
             json!({
                 "From": "f00",
                 "GasFeeCap": "0",
-                "GasLimit": 0, // BUG?(aatifsyed)
+                "GasLimit": 0,
                 "GasPremium": "0",
                 "Method": 0,
                 "Nonce": 0,
-                "Params": "", // BUG?(aatifsyed)
+                "Params": null,
                 "To": "f00",
                 "Value": "0",
                 "Version": 0
