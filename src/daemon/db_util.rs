@@ -16,14 +16,17 @@ use std::{
     path::{Path, PathBuf},
     time,
 };
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufRead, AsyncSeek, AsyncWriteExt};
 use tracing::{debug, info};
 use url::Url;
 use walkdir::WalkDir;
 
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
-        fs::create_dir_all(forest_car_db_dir)?;
+        anyhow::bail!(
+            "forest CAR db directory does not exist: {}",
+            forest_car_db_dir.display()
+        );
     }
     for file in WalkDir::new(forest_car_db_dir)
         .max_depth(1)
@@ -130,6 +133,13 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
         tokio::fs::File::open(from).await?,
     ))
     .await?;
+    transcode_car_stream_into_forest_car(car_stream, to).await
+}
+
+pub async fn transcode_car_stream_into_forest_car<ReaderT: AsyncSeek + AsyncBufRead + Unpin>(
+    car_stream: CarStream<ReaderT>,
+    to: &Path,
+) -> anyhow::Result<()> {
     let roots = car_stream.header.roots.clone();
 
     let mut writer = tokio::io::BufWriter::new(tokio::fs::File::create(to).await?);

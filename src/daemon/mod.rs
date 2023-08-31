@@ -15,6 +15,7 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
 };
 
+use crate::daemon::bundle::save_actor_bundles_as_forest_car;
 use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_proxy_db};
@@ -36,13 +37,13 @@ use crate::utils::{
     version::FOREST_VERSION_STRING,
 };
 use anyhow::{bail, Context};
-use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
+use std::fs;
 use std::path::Path;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
@@ -180,6 +181,11 @@ pub(super) async fn start(
         config.db_config().clone(),
     )?)));
     let forest_car_db_dir = db_root_dir.join("car_db");
+    if !forest_car_db_dir.is_dir() {
+        fs::create_dir_all(&forest_car_db_dir)?;
+    }
+    save_actor_bundles_as_forest_car(&forest_car_db_dir.join("actor_bundles.forest.car.zst"))
+        .await?;
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     let mut services = JoinSet::new();
@@ -284,8 +290,6 @@ pub(super) async fn start(
     }
 
     let epoch = chain_store.heaviest_tipset().epoch();
-
-    load_actor_bundles(&db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
