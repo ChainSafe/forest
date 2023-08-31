@@ -7,7 +7,7 @@ use seed_forest_archive::historical::HistoricalSnapshot;
 use seed_forest_archive::store::Store;
 use seed_forest_archive::{forest, ChainEpoch, DIFF_STEP, EPOCH_STEP};
 
-use seed_forest_archive::archive::{has_diff_snapshot, has_lite_snapshot};
+use seed_forest_archive::archive::{has_diff_snapshot, has_lite_snapshot, upload_diff_snapshot};
 
 fn main() -> Result<()> {
     which("forest-cli").context("Failed to find the 'forest-cli' binary.\nSee installation instructions: https://github.com/ChainSafe/forest")?;
@@ -41,7 +41,10 @@ fn main() -> Result<()> {
             if !has_diff_snapshot(diff_epoch, DIFF_STEP)? {
                 store.get_range(&diff_range)?;
                 let depth = diff_epoch - epoch + 900;
-                forest::export_diff(diff_epoch, DIFF_STEP, depth, store.files())?;
+                let diff_snapshot =
+                    forest::export_diff(diff_epoch, DIFF_STEP, depth, store.files())?;
+                upload_diff_snapshot(&diff_snapshot)?;
+                std::fs::remove_file(&diff_snapshot)?;
             } else {
                 println!("Diff snapshot already uploaded - skipping");
             }

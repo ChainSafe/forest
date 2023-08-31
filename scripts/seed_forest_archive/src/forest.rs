@@ -1,7 +1,7 @@
 use super::archive::{diff_snapshot_name, lite_snapshot_name};
 use super::{ChainEpoch, ChainEpochDelta};
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread::spawn;
 
@@ -10,6 +10,7 @@ pub fn export(epoch: ChainEpoch, files: Vec<String>) -> Result<Child> {
     let mut export = Command::new("forest-cli")
         .arg("archive")
         .arg("export")
+        .arg("--force")
         .arg("--epoch")
         .arg(epoch.to_string())
         .arg("--depth")
@@ -52,9 +53,9 @@ pub fn export_diff(
     range: ChainEpochDelta,
     depth: ChainEpochDelta,
     files: Vec<&Path>,
-) -> Result<()> {
+) -> Result<PathBuf> {
     let output_path = diff_snapshot_name(epoch, range);
-    let mut export = Command::new("forest-cli")
+    let status = Command::new("forest-cli")
         .arg("archive")
         .arg("export")
         .arg("--epoch")
@@ -66,36 +67,11 @@ pub fn export_diff(
         .arg("--diff-depth")
         .arg(depth.to_string())
         .arg("--output-path")
-        .arg("-")
+        .arg(&output_path)
         .args(files)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let export_stdout = export.stdout.take().unwrap();
-    spawn(|| {
-        let output = export.wait_with_output().unwrap();
-        if !output.status.success() {
-            eprintln!("Failed to export diff snapshot. Error message:");
-            eprintln!(
-                "{}",
-                std::str::from_utf8(&output.stderr).unwrap_or_default()
-            );
-            std::process::exit(1);
-        }
-    });
-    let status = Command::new("aws")
-        .arg("--endpoint")
-        .arg(super::R2_ENDPOINT)
-        .arg("s3")
-        .arg("cp")
-        .arg("--content-type")
-        .arg("application/zstd")
-        .arg("-")
-        .arg(format!("s3://forest-archive/mainnet/diff/{output_path}"))
-        .stdin(export_stdout)
         .status()?;
     anyhow::ensure!(status.success(), "failed to upload diff snapshot");
-    Ok(())
+    Ok(PathBuf::from(output_path))
 }
 
 pub fn compress(input: &Path, output: &Path) -> Result<()> {
