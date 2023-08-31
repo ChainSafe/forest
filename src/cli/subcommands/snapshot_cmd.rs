@@ -619,6 +619,7 @@ mod structured {
         _called_at: CalledAt, // TODO(aatifsyed): all that implicit constructor stuff...
     ) -> anyhow::Result<serde_json::Value> {
         let cid = message.cid()?;
+
         Ok(json!({
             "MsgCid": LotusJson(cid),
             "Msg": LotusJson(message.message().clone()),
@@ -634,15 +635,12 @@ mod structured {
                 "Refund": LotusJson(apply_ret.refund()),
                 "TotalCost": LotusJson(message.message().required_funds() - &apply_ret.refund()) // JANK(aatifsyed): shouldn't need to borrow &TokenAmount for Sub
             },
-            "ExecutionTrace": parse_events(apply_ret.exec_trace())?
-                                .into_iter()
-                                .map(CallTree::json)
-                                .collect::<Vec<_>>()
+            "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json)
             // "Duration": unimplemented!(),
         }))
     }
 
-    /// Construct a series of [`CallTree`]s from a linear array of [`ExecutionEvent`](fvm3::trace::ExecutionEvent)s.
+    /// Construct a single [`CallTree`]s from a linear array of [`ExecutionEvent`](fvm3::trace::ExecutionEvent)s.
     ///
     /// This function is so-called because it similar to the parse step in a traditional compiler:
     /// ```text
@@ -656,7 +654,7 @@ mod structured {
     /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)
     ///
     /// ```text
-    /// GasCharge GasCharge Call GasCharge Call CallError CallReturn ...
+    /// GasCharge GasCharge Call GasCharge Call CallError CallReturn
     /// ────┬──── ────┬──── ─┬── ────┬──── ─┬── ───┬───── ────┬─────
     ///     │         │      │       │      │      │          │
     ///     │         │      │       │      └─(T)──┘          │
@@ -667,12 +665,15 @@ mod structured {
     ///
     /// (T): a CallTree node
     /// ```
+    ///
+    /// Multiple call trees and trailing gas will be warned and ignored.
+    /// If no call tree is found, returns [`Ok(None)`]
     fn parse_events(
         events: Vec<fvm3::trace::ExecutionEvent>,
-    ) -> Result<Vec<CallTree>, BuildCallTreeError> {
+    ) -> Result<Option<CallTree>, BuildCallTreeError> {
         let mut events = VecDeque::from(events);
         let mut front_load_me = vec![];
-        let mut calls = vec![];
+        let mut call_trees = vec![];
 
         // we don't use a `for` loop so we can pass events them to inner parsers
         while let Some(event) = events.pop_front() {
@@ -686,7 +687,7 @@ mod structured {
                     method,
                     params,
                     value,
-                } => calls.push(CallTree::parse(
+                } => call_trees.push(CallTree::parse(
                     ExecutionEventCall {
                         from,
                         to,
@@ -695,6 +696,10 @@ mod structured {
                         value,
                     },
                     {
+                        // if CallTree::parse took impl Iterator<Item = ExecutionEvent>
+                        // the compiler would infinitely recurse trying to resolve
+                        // &mut &mut &mut ..: Iterator
+                        // so use a VecDeque instead
                         for gc in front_load_me.drain(..).rev() {
                             events.push_front(fvm3::trace::ExecutionEvent::GasCharge(gc))
                         }
@@ -710,13 +715,27 @@ mod structured {
         }
 
         if !front_load_me.is_empty() {
-            tracing::warn!(
+            // FIXME(aatifsyed): tracing should go to stderr, but it doesn't.
+            //                   this screws up `make_output.bash`, so comment out
+            //                   for now.
+            eprintln!(
                 "vm tracing: ignoring {} trailing gas charges",
                 front_load_me.len()
             );
         }
 
-        Ok(calls)
+        match call_trees.len() {
+            0 => Ok(None),
+            1 => Ok(Some(call_trees.remove(0))),
+            many => {
+                // FIXME(aatifsyed): as above
+                eprintln!(
+                    "vm tracing: ignoring {} call trees at the root level",
+                    many - 1
+                );
+                Ok(Some(call_trees.remove(0)))
+            }
+        }
     }
 
     struct CallTree {
