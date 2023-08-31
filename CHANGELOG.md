@@ -42,6 +42,10 @@
   - `forest-cli db clean` to `forest-tool db destroy`
 - [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
   `forest-cli wallet` subcommands to `forest-wallet`
+- [#3432](https://github.com/ChainSafe/forest/pull/3432) Moved following
+  `forest-cli` subcommands to `forest-tool`
+  - `archive export`
+  - `archive checkpoints`
 
 ### Added
 
