@@ -2,23 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod bundle;
+mod db_util;
 pub mod main;
 
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainMuxer;
+use crate::cli_shared::snapshot;
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
-    snapshot,
 };
+
+use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
 use crate::db::car::ManyCar;
-use crate::db::{
-    db_engine::{db_root, open_proxy_db},
-    rolling::DbGarbageCollector,
-};
-use crate::genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use crate::db::db_engine::{db_root, open_proxy_db};
+use crate::db::rolling::DbGarbageCollector;
+use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
@@ -26,31 +27,24 @@ use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
-use crate::shim::{
-    address::{CurrentNetwork, Network},
-    clock::ChainEpoch,
-    version::NetworkVersion,
-};
+use crate::shim::address::{CurrentNetwork, Network};
+use crate::shim::clock::ChainEpoch;
+use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
 use crate::utils::{
-    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded, retry,
-    version::FOREST_VERSION_STRING, RetryArgs,
+    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
+    version::FOREST_VERSION_STRING,
 };
 use anyhow::{bail, Context};
 use bundle::load_actor_bundles;
-use dialoguer::{console::Term, theme::ColorfulTheme};
+use dialoguer::console::Term;
+use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use lazy_static::lazy_static;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
-use std::{
-    cell::RefCell,
-    net::TcpListener,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time,
-    time::Duration,
-};
+use std::path::Path;
+use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
     signal::{
@@ -180,10 +174,13 @@ pub(super) async fn start(
         warn!("Failed to migrate database: {e}");
     }
 
+    let db_root_dir = db_root(&chain_data_path)?;
     let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
-        db_root(&chain_data_path)?,
+        db_root_dir.clone(),
         config.db_config().clone(),
     )?)));
+    let forest_car_db_dir = db_root_dir.join("car_db");
+    load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     let mut services = JoinSet::new();
 
@@ -383,6 +380,7 @@ pub(super) async fn start(
     } else {
         debug!("RPC disabled.");
     };
+
     if opts.detach {
         unblock_parent_process()?;
     }
@@ -393,21 +391,31 @@ pub(super) async fn start(
         &config.client.data_dir,
     );
 
+    // Sets the latest snapshot if needed for downloading later
     let mut config = config;
-    fetch_snapshot_if_required(&mut config, epoch, opts.auto_download_snapshot).await?;
-
-    if let Some(path) = &config.client.snapshot_path {
-        let stopwatch = time::Instant::now();
-        import_chain(
-            &state_manager,
-            &path.display().to_string(),
-            config.client.skip_load,
-            config.client.chunk_size,
-            config.client.buffer_size,
+    if config.client.snapshot_path.is_none() {
+        set_snapshot_path_if_needed(
+            &mut config,
+            epoch,
+            opts.auto_download_snapshot,
+            &db_root_dir,
         )
-        .await
-        .context("Failed miserably while importing chain from snapshot")?;
-        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+        .await?;
+    }
+
+    // Import chain if needed
+    if !opts.skip_load.unwrap_or_default() {
+        if let Some(path) = &config.client.snapshot_path {
+            // TODO: respect `--consume-snapshot` CLI option once it's implemented.
+            // See <https://github.com/ChainSafe/forest/issues/3334>.
+            let (car_db_path, ts) =
+                import_chain_as_forest_car(path, &forest_car_db_dir, false).await?;
+            db.read_only_files(std::iter::once(car_db_path.clone()))?;
+            debug!("Loaded car DB at {}", car_db_path.display());
+            state_manager
+                .chain_store()
+                .set_heaviest_tipset(Arc::new(ts))?;
+        }
     }
 
     if let (true, Some(validate_from)) = (config.client.snapshot, config.client.snapshot_height) {
@@ -449,13 +457,20 @@ pub(super) async fn start(
 /// to a supported height. If we've not been given a snapshot by the user, get one.
 ///
 /// An [`Err`] should be considered fatal.
-async fn fetch_snapshot_if_required(
+async fn set_snapshot_path_if_needed(
     config: &mut Config,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
+    download_directory: &Path,
 ) -> anyhow::Result<()> {
+    if !download_directory.is_dir() {
+        anyhow::bail!(
+            "`download_directory` does not exist: {}",
+            download_directory.display()
+        );
+    }
+
     let vendor = snapshot::TrustedVendor::default();
-    let path = Path::new(".");
     let chain = &config.chain.network;
 
     // What height is our chain at right now, and what network version does that correspond to?
@@ -468,35 +483,18 @@ async fn fetch_snapshot_if_required(
     let have_a_snapshot = config.client.snapshot_path.is_some();
 
     match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
-        (false, _, _) => Ok(()),   // noop - don't need a snapshot
-        (true, true, _) => Ok(()), // noop - we need a snapshot, and we have one
+        (false, _, _) => {}   // noop - don't need a snapshot
+        (true, true, _) => {} // noop - we need a snapshot, and we have one
         (true, false, true) => {
-            // we need a snapshot, don't have one, and have permission to download one, so do that
-            let max_retries = 3;
-            match retry(
-                RetryArgs {
-                    timeout: None,
-                    max_retries: Some(max_retries),
-                    delay: Some(Duration::from_secs(60)),
-                },
-                || crate::cli_shared::snapshot::fetch(path, chain, vendor),
-            )
-            .await
-            {
-                Ok(path) => {
-                    config.client.snapshot_path = Some(path);
-                    config.client.snapshot = true;
-                    Ok(())
-                }
-                Err(_) => bail!("failed to fetch snapshot after {max_retries} attempts"),
-            }
+            let (_len, url) = crate::cli_shared::snapshot::peek(vendor, chain).await?;
+            config.client.snapshot_path = Some(url.to_string().into());
+            config.client.snapshot = true;
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let (num_bytes, _url) =
-                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
-                    .await
-                    .context("couldn't get snapshot size")?;
+            let (num_bytes, url) = crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
+                .await
+                .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
@@ -516,16 +514,12 @@ async fn fetch_snapshot_if_required(
             if !have_permission {
                 bail!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.")
             }
-            match crate::cli_shared::snapshot::fetch(path, chain, vendor).await {
-                Ok(path) => {
-                    config.client.snapshot_path = Some(path);
-                    config.client.snapshot = true;
-                    Ok(())
-                }
-                Err(e) => Err(e).context("downloading required snapshot failed"),
-            }
+            config.client.snapshot_path = Some(url.to_string().into());
+            config.client.snapshot = true;
         }
-    }
+    };
+
+    Ok(())
 }
 
 /// Generates, prints and optionally writes to a file the administrator JWT
@@ -701,102 +695,4 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
             "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
         )
         .interact_on(&term)
-}
-
-#[cfg(test)]
-mod test {
-    use crate::blocks::BlockHeader;
-    use crate::cli_shared::cli::{BufferSize, ChunkSize};
-    use crate::db::MemoryDB;
-    use crate::networks::ChainConfig;
-    use crate::shim::address::Address;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn import_snapshot_from_file_valid() {
-        import_snapshot_from_file("test-snapshots/chain4.car")
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_compressed_file_valid() {
-        import_snapshot_from_file("test-snapshots/chain4.car.zst")
-            .await
-            .unwrap()
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_file_invalid() {
-        import_snapshot_from_file("Cargo.toml").await.unwrap_err();
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_file_not_found() {
-        import_snapshot_from_file("dummy.car").await.unwrap_err();
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_url_not_found() {
-        import_snapshot_from_file("https://dummy.com/dummy.car")
-            .await
-            .unwrap_err();
-    }
-
-    async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
-        let db = Arc::new(MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-
-        let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .timestamp(7777)
-            .build()?;
-
-        let cs = Arc::new(ChainStore::new(
-            db.clone(),
-            db,
-            chain_config.clone(),
-            genesis_header,
-        )?);
-        let sm = Arc::new(StateManager::new(cs, chain_config)?);
-        import_chain(
-            &sm,
-            file_path,
-            false,
-            ChunkSize::default(),
-            BufferSize::default(),
-        )
-        .await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn import_chain_from_file() -> anyhow::Result<()> {
-        let db = Arc::new(MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-        let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .timestamp(7777)
-            .build()?;
-
-        let cs = Arc::new(ChainStore::new(
-            db.clone(),
-            db,
-            chain_config.clone(),
-            genesis_header,
-        )?);
-        let sm = Arc::new(StateManager::new(cs, chain_config)?);
-        import_chain(
-            &sm,
-            "test-snapshots/chain4.car",
-            false,
-            ChunkSize::default(),
-            BufferSize::default(),
-        )
-        .await
-        .context("Failed to import chain")?;
-
-        Ok(())
-    }
 }

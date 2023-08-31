@@ -15,6 +15,11 @@ export TMP_DIR
 export LOG_DIRECTORY
 export FOREST_WALLET_PATH
 
+function forest_import_non_calibnet_snapshot {
+  echo "Importing a non calibnet snapshot"
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --import-snapshot ./test-snapshots/chain4.car
+}
+
 function forest_download_and_import_snapshot {
   echo "Downloading and importing snapshot"
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --auto-download-snapshot

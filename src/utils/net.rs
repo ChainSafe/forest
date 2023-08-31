@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::io::WithProgress;
-use async_compression::tokio::bufread::ZstdDecoder;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
 use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead};
+use tokio::io::AsyncBufRead;
 use tokio_util::{
     compat::TokioAsyncReadCompatExt,
     either::Either::{Left, Right},
@@ -91,24 +90,4 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
         stream,
         content_length,
     )))
-}
-
-pub async fn decompress_if_needed(
-    mut reader: impl AsyncBufRead + Unpin,
-) -> anyhow::Result<impl AsyncRead> {
-    Ok(match is_zstd(reader.fill_buf().await?) {
-        true => {
-            let mut decoder = ZstdDecoder::new(reader);
-            decoder.multiple_members(true);
-            Left(decoder)
-        }
-        false => Right(reader),
-    })
-}
-
-// This method checks the header in order to see whether or not we are operating on a zstd
-// archive. The zstd header has a maximum size of 18 bytes:
-// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
-fn is_zstd(buf: &[u8]) -> bool {
-    zstd_safe::get_frame_content_size(buf).is_ok()
 }
