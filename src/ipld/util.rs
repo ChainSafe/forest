@@ -10,6 +10,7 @@ use std::{
     },
 };
 
+use crate::ipld::util::UnorderedTask::{Emit, Extract, Shutdown};
 use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::Block;
@@ -20,12 +21,17 @@ use crate::{
     utils::encoding::from_slice_with_fallback,
 };
 use cid::Cid;
+use flume::Sender;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
+use tokio::task::JoinHandle;
+use tokio::{join, task};
 
 /// Traverses all Cid links, hashing and loading all unique values and using the
 /// callback function to interact with the data.
@@ -293,8 +299,8 @@ impl<DB, T> ChainStream<DB, T> {
     }
 }
 
-/// Stream all blocks that are reachable before the `stateroot_limit` epoch. After this limit, only
-/// block headers are streamed. Any dead links are reported as errors.
+/// Stream all blocks that are reachable before the `stateroot_limit` epoch a depth-first fashion.
+/// After this limit, only block headers are streamed. Any dead links are reported as errors.
 ///
 /// # Arguments
 ///
@@ -435,5 +441,208 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                 return Poll::Ready(None);
             }
         }
+    }
+}
+
+enum UnorderedWorkerTask {
+    // Write the current block and walk the graph it represents/
+    Extract(Cid),
+    // Write to block buffer.
+    Emit(Cid),
+}
+
+enum UnorderedFilterTask {
+    // Check if given blocks need to be emitted. This is a separate operation to avoid `seen`
+    // contention.
+    // The idea behind this is to filter out seen blocks in a single thread and send the rest as
+    // `Emit` to workers.
+    Filter(Vec<Cid>),
+    // Break from the loop and drop worker senders.
+    Shutdown,
+}
+
+pin_project! {
+    pub struct UnorderedChainStream<DB, T> {
+        db: DB,
+        seen: Arc<Mutex<CidHashSet>>,
+        worker_handle: JoinHandle,
+        block_receiver: flume::Receiver<anyhow::Result<Block>>,
+        fail_on_dead_links: bool,
+    }
+}
+
+impl<DB, T> UnorderedChainStream<DB, T> {
+    pub fn with_seen(self, seen: CidHashSet) -> Self {
+        ChainStream { seen, ..self }
+    }
+
+    pub fn into_seen(self) -> CidHashSet {
+        self.seen
+    }
+}
+
+/// Stream all blocks that are reachable before the `stateroot_limit` epoch in an unordered fashion.
+/// After this limit, only block headers are streamed. Any dead links are reported as errors.
+///
+/// # Arguments
+///
+/// * `db` - A database that implements [`Blockstore`] interface.
+/// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
+/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
+/// `$depth` is the number of `[`Tipset`]` that needs inspection.
+pub fn unordered_stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
+    db: DB,
+    mut tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+) -> UnorderedChainStream<DB, T> {
+    let (sender, receiver) = flume::bounded(1024);
+
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle =
+        UnorderedChainStream::start_workers(tipset_iter, sender, seen.clone(), stateroot_limit);
+
+    UnorderedChainStream {
+        db,
+        seen: Arc::new(Mutex::new(CidHashSet::default())),
+        fail_on_dead_links: true,
+        worker_handle: handle,
+        block_receiver: receiver,
+    };
+}
+
+impl<DB: Blockstore, T: Iterator<Item = Tipset>> UnorderedChainStream<DB, T> {
+    fn start_workers(
+        mut tipset_iter: T,
+        block_sender: Sender<anyhow::Result<Block>>,
+        seen: Arc<Mutex<CidHashSet>>,
+        stateroot_limit: ChainEpoch,
+    ) -> JoinHandle<()> {
+        let handle = task::spawn(async move {
+            let (filter_sender, filter_receiver) = flume::bounded(1024);
+            let (worker_sender, worker_receiver) = flume::bounded(1024);
+
+            let filter_seen = seen.clone();
+            let worker_sender_filter = worker_sender.clone();
+
+            // join that handle too
+            let filter_handle = task::spawn(async move {
+                while let Ok(task) = filter_receiver.recv_async().await {
+                    match task {
+                        UnorderedFilterTask::Shutdown => {
+                            // Explicitly drop the filter for visibility.
+                            drop(worker_sender_filter);
+                            break;
+                        }
+                        UnorderedFilterTask::Filter(cid_vec) => {
+                            let mut seen = filter_seen.lock();
+                            for cid in cid_vec {
+                                if should_save_block_to_snapshot(cid) && seen.insert(cid) {
+                                    worker_sender_filter
+                                        .send_async(UnorderedWorkerTask::Emit(cid))
+                                        .await
+                                        .expect("unreachable");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            for _ in 0..num_cpus::get() {
+                let block_sender = block_sender.clone();
+                let filter_sender = filter_sender.clone();
+                let worker_receiver = worker_receiver.clone();
+                // TODO: JoinHandle collect and then join all
+                task::spawn(async move {
+                    while let Ok(task) = worker_receiver.recv_async().await {
+                        match task {
+                            UnorderedWorkerTask::Extract(cid) => {
+                                // TODO: Parse CIDs
+                                // filter_sender.send_async(UnorderedFilterTask::Filter(cid_vec)).await
+                            }
+                            UnorderedWorkerTask::Emit(cid) => {
+                                //TODO: db.get
+                                // send to main thread
+                            }
+                        }
+                    }
+                })
+            }
+
+            // This consumes a [`Tipset`] from the iterator one at a time. Workers are then
+            // processing the queue . Once the desired depth has been reached yield a block without
+            // walking the graph it represents.
+            while let Some(tipset) = tipset_iter.next() {
+                for block in tipset.into_blocks().into_iter() {
+                    let mut seen = seen.lock();
+                    if seen.insert(*block.cid()) {
+                        // Make sure we always yield a block otherwise.
+                        worker_sender
+                            .send_async(UnorderedWorkerTask::Emit(*block.cid()))
+                            .await
+                            .expect("unreachable");
+
+                        if block.epoch() == 0 {
+                            // The genesis block has some kind of dummy parent that needs to be emitted.
+                            for p in &block.parents().cids {
+                                worker_sender
+                                    .send_async(UnorderedWorkerTask::Emit(p))
+                                    .await
+                                    .expect("unreachable");
+                            }
+                        }
+
+                        // Process block messages.
+                        if block.epoch() > stateroot_limit {
+                            worker_sender
+                                .send_async(UnorderedWorkerTask::Extract(*block.messages()))
+                                .await
+                                .expect("unreachable");
+                        }
+
+                        // Visit the block if it's within required depth. And a special case for `0`
+                        // epoch to match Lotus' implementation.
+                        if block.epoch() == 0 || block.epoch() > stateroot_limit {
+                            // NOTE: In the original `walk_snapshot` implementation we walk the dag
+                            // immediately. Which is what we do here as well, but using a queue.
+                            worker_sender
+                                .send_async(UnorderedWorkerTask::Extract(*block.state_root()))
+                                .await
+                                .expect("unreachable");
+                        }
+                    }
+                }
+            }
+
+            // Wait till all the channels are empty, then initiate the shutdown procedure.
+            while !(worker_sender.is_empty() && filter_sender.is_empty()) {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+
+            filter_sender
+                .send(UnorderedFilterTask::Shutdown)
+                .expect("unreachable");
+            drop(worker_sender);
+            drop(filter_sender);
+            // TODO: test that this does not kill a bounded channel if that still has values.
+            drop(block_sender);
+            // join all the handles to make sure everything shut down properly.
+        });
+    }
+}
+
+impl<DB: Blockstore, T: Iterator<Item = Tipset>> Stream for UnorderedChainStream<DB, T> {
+    type Item = anyhow::Result<Block>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut this = self.project();
+
+        if let Ok(item) = this.block_receiver.recv() {
+            return Poll::Ready(Some(item));
+        }
+
+        // That's it, nothing else to do. End of stream.
+        return Poll::Ready(None);
     }
 }

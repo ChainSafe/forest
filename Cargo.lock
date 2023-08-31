@@ -2629,10 +2629,18 @@ version = "0.10.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1657b4441c3403d9f7b3409e47575237dac27b1b5726df654a6ecbf92f0f7577"
 dependencies = [
+ "spin 0.9.8",
+]
+
+[[package]]
+name = "flume"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55ac459de2512911e4b674ce33cf20befaba382d05b62b008afc1c8b57cbf181"
+dependencies = [
  "futures-core",
  "futures-sink",
  "nanorand",
- "pin-project",
  "spin 0.9.8",
 ]
 
@@ -2702,7 +2710,7 @@ dependencies = [
  "fil_actor_verifreg_state",
  "fil_actors_shared",
  "filecoin-proofs-api",
- "flume",
+ "flume 0.11.0",
  "fs_extra",
  "futures",
  "fvm 2.5.0",
@@ -8836,7 +8844,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ca6c5a4d66c1a9ea261811cf4773c27343de7e5033e1b75ea3f297dc7db3c1a"
 dependencies = [
- "flume",
+ "flume 0.10.14",
  "scopeguard",
 ]
 
