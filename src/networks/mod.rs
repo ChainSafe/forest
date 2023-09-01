@@ -330,7 +330,7 @@ pub struct ActorBundleInfo {
     pub url: Url,
 }
 
-pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 8]> = Lazy::new(|| {
+pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 9]> = Lazy::new(|| {
     [
         // calibnet
         ActorBundleInfo{
@@ -344,6 +344,11 @@ pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 8]> = Lazy::new(|| {
         ActorBundleInfo{
             manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
             url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        // devnet 
+        ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-devnet.car").unwrap(),
         },
         // devnet
         ActorBundleInfo{

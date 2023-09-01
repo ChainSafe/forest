@@ -25,7 +25,7 @@ fn ensure_actor_bundle_includable() -> anyhow::Result<()> {
             .context("bundle doesn't exist")?
             .len();
         anyhow::ensure!(
-            bundle_size == 2_438_387,
+            bundle_size == 2_433_114,
             "downloaded bundle has the wrong size"
         ); // update me if the bundle changes
         anyhow::Ok(())
