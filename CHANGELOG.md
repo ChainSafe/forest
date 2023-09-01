@@ -62,6 +62,8 @@
 - [#3322](https://github.com/ChainSafe/forest/issues/3322): Added prompt to
   `forest-cli archive export` to overwrite file if the file specified with
   `--output-path` already exists and a `--force` flag to suppress the prompt.
+- [#3439](https://github.com/ChainSafe/forest/pull/3439): Add
+  `--consume-snapshot` option to `forest` command.
 
 ### Changed
 

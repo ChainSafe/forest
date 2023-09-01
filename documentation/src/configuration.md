@@ -21,6 +21,7 @@ use of the following flags:
 | --kademlia           | Boolean      | Determines whether Kademilia is allowed                                                             |
 | --mdns               | Boolean      | Determines whether MDNS is allowed                                                                  |
 | --import-snapshot    | OS File Path | Path to snapshot CAR file                                                                           |
+| --consume-snapshot   | OS File Path | Path to snapshot CAR file (delete after importing)                                                  |
 | --import-chain       | OS File Path | Path to chain CAR file                                                                              |
 | --skip-load          | Boolean      | Skips loading CAR File and uses header to index chain                                               |
 | --req-window         | Integer      | Sets the number of tipsets requested over chain exchange                                            |
