@@ -94,8 +94,11 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
 pub enum StateTree<S> {
+    // Version 0 is used to parse the genesis block.
     V0(state_tree_v0::StateTreeV0<Arc<S>>),
+    // fvm-2 support state tree versions 3 and 4.
     FvmV2(StateTreeV2<Arc<S>>),
+    // fvm-3 support state tree versions 5.
     FvmV3(StateTreeV3<Arc<S>>),
 }
 
