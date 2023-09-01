@@ -46,6 +46,8 @@ pub struct Client {
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
+    /// If this is true, delete the snapshot at `snapshot_path` if it's a local file.
+    pub consume_snapshot: bool,
     pub snapshot_height: Option<i64>,
     pub snapshot_head: Option<i64>,
     pub snapshot_path: Option<PathBuf>,
@@ -83,6 +85,7 @@ impl Default for Client {
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
+            consume_snapshot: false,
             snapshot_height: None,
             snapshot_head: None,
             skip_load: false,
