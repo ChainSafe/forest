@@ -12,7 +12,7 @@ ahash = "0.8"
 anes = "0.1.6"
 anyhow = "1.0"
 argon2 = "0.5"
-async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"] }
+async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "1"
 async-recursion = "1.0"
 async-trait = "0.1"

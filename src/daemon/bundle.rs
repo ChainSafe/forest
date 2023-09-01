@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Context;
-use async_compression::futures::bufread::ZstdDecoder;
+use async_compression::tokio::bufread::ZstdDecoder;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>> {
     const ERROR_MESSAGE: &str = "Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>";
@@ -13,7 +14,7 @@ pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>
 
     fvm_ipld_car::load_car(
         db,
-        ZstdDecoder::new(futures::io::BufReader::new(ACTOR_BUNDLES_CAR_ZST)),
+        ZstdDecoder::new(tokio::io::BufReader::new(ACTOR_BUNDLES_CAR_ZST)).compat(),
     )
     .await
     .context(ERROR_MESSAGE)
