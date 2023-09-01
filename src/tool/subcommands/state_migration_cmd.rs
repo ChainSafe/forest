@@ -6,7 +6,7 @@ use crate::utils::db::car_stream::CarStream;
 use crate::utils::db::car_util::merge_car_streams;
 use crate::utils::net::global_http_client;
 use anyhow::{Context as _, Result};
-use async_compression::futures::write::ZstdEncoder;
+use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use clap::Subcommand;
 use futures::io::{BufReader, BufWriter};
@@ -18,6 +18,7 @@ use reqwest::Url;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const DEFAULT_BUNDLE_FILE_NAME: &str = "actor_bundles.car.zst";
 
@@ -70,9 +71,10 @@ async fn generate_actor_bundle() -> Result<()> {
     let car_writer = CarHeader::from(all_roots);
 
     let mut zstd_encoder = ZstdEncoder::with_quality(
-        async_fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
+        tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
         async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
-    );
+    )
+    .compat_write();
 
     car_writer
         .write_stream_async(
