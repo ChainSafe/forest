@@ -638,7 +638,7 @@ mod structured {
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": is_explicit.then_some(LotusJson(unsiged_message_cid)),
-                "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())),
+                "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())).unwrap_or_default(),
                 "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
                 "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
                 "MinerPenalty": LotusJson(apply_ret.penalty()),
