@@ -17,4 +17,5 @@ pub mod piece;
 pub mod randomness;
 pub mod sector;
 pub mod state_tree;
+pub mod state_tree_v0;
 pub mod version;

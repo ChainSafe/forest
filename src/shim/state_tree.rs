@@ -97,7 +97,7 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// free to add those when necessary.
 pub enum StateTree<S> {
     // Version 0 is used to parse the genesis block.
-    V0(state_tree_v0::StateTreeV0<Arc<S>>),
+    V0(super::state_tree_v0::StateTreeV0<Arc<S>>),
     // fvm-2 support state tree versions 3 and 4.
     FvmV2(StateTreeV2<Arc<S>>),
     // fvm-3 support state tree versions 5.
@@ -124,7 +124,7 @@ where
             Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
             Ok(StateTree::FvmV2(st))
-        } else if let Ok(st) = state_tree_v0::StateTreeV0::new_from_root(store, c) {
+        } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store, c) {
             Ok(StateTree::V0(st))
         } else {
             bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version.")
@@ -353,80 +353,6 @@ impl From<&ActorState> for ActorStateV2 {
             state: other.state,
             sequence: other.sequence,
             balance: TokenAmount::from(&other.balance).into(),
-        }
-    }
-}
-
-// ported from commit hash b622af
-pub mod state_tree_v0 {
-    use cid::Cid;
-    use fvm_ipld_blockstore::Blockstore;
-    use fvm_ipld_encoding::CborStore;
-
-    use super::{StateRoot, StateTreeVersion};
-    use super::ActorStateV2;
-    use crate::shim::address::Address;
-    use fvm_ipld_hamt::Hamtv0 as Hamt;
-
-    const HAMTV0_BIT_WIDTH: u32 = 5;
-
-    // This is a read-only version of the earliest state trees.
-    /// State tree implementation using HAMT. This structure is not thread safe and should only be used
-    /// in sync contexts.
-    pub struct StateTreeV0<S> {
-        hamt: Hamt<S, ActorStateV2>,
-    }
-
-    impl<S> StateTreeV0<S>
-    where
-        S: Blockstore,
-    {
-        /// Constructor for a HAMT state tree given an IPLD store
-        pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
-            // Try to load state root, if versioned
-            let (version, actors) = if let Ok(Some(StateRoot {
-                version, actors, ..
-            })) = store.get_cbor(c)
-            {
-                (StateTreeVersion::from(version), actors)
-            } else {
-                // Fallback to v0 state tree if retrieval fails
-                (StateTreeVersion::V0, *c)
-            };
-
-            match version {
-                StateTreeVersion::V0 => {
-                    let hamt = Hamt::load_with_bit_width(&actors, store, HAMTV0_BIT_WIDTH)?;
-                    Ok(Self { hamt })
-                }
-                _ => anyhow::bail!("unsupported state tree version: {:?}", version),
-            }
-        }
-
-        /// Retrieve store reference to modify db.
-        pub fn store(&self) -> &S {
-            self.hamt.store()
-        }
-
-        /// Get actor state from an address. Will be resolved to ID address.
-        pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorStateV2>> {
-            let addr = match self.lookup_id(addr)? {
-                Some(addr) => addr,
-                None => return Ok(None),
-            };
-
-            // if state doesn't exist, find using hamt
-            let act = self.hamt.get(&addr.to_bytes())?.cloned();
-
-            Ok(act)
-        }
-
-        /// Get an ID address from any Address
-        pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<Address>> {
-            if addr.protocol() == fvm_shared3::address::Protocol::ID {
-                return Ok(Some(*addr));
-            }
-            anyhow::bail!("StateTreeV0::lookup_id is only defined for ID addresses")
         }
     }
 }
