@@ -175,7 +175,7 @@ where
         match self {
             StateTree::FvmV2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
             StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
-            _ => todo!(),
+            _ => bail!("StateTree::lookup_id not supported on old state trees"),
         }
     }
 
@@ -196,7 +196,7 @@ where
                 };
                 st.for_each(inner)
             }
-            _ => todo!(),
+            _ => bail!("StateTree::for_each not supported on old state trees"),
         }
     }
 
@@ -205,7 +205,7 @@ where
         match self {
             StateTree::FvmV2(st) => st.flush().map_err(|e| anyhow!("{e}")),
             StateTree::FvmV3(st) => Ok(st.flush()?),
-            _ => todo!(),
+            _ => bail!("StateTree::flush not supported on old state trees"),
         }
     }
 
@@ -222,7 +222,7 @@ where
                 st.set_actor(id, actor.into());
                 Ok(())
             }
-            _ => todo!(),
+            _ => bail!("StateTree::set_actor not supported on old state trees"),
         }
     }
 }
