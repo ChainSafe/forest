@@ -2646,7 +2646,7 @@
       },
       "GasCost": {
         "BaseFeeBurn": "0",
-        "GasUsed": null,
+        "GasUsed": "0",
         "Message": null,
         "MinerPenalty": "0",
         "MinerTip": "0",
@@ -10401,7 +10401,7 @@
       },
       "GasCost": {
         "BaseFeeBurn": "0",
-        "GasUsed": null,
+        "GasUsed": "0",
         "Message": null,
         "MinerPenalty": "0",
         "MinerTip": "0",
