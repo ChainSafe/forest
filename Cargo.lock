@@ -2408,7 +2408,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "num-derive 0.3.3",
@@ -2464,7 +2464,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "libipld-core",
@@ -2489,7 +2489,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "itertools 0.10.5",
@@ -2514,7 +2514,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "indexmap 1.9.3",
@@ -2536,7 +2536,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "integer-encoding 3.0.4",
@@ -2606,7 +2606,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "multihash 0.18.1",
@@ -2820,7 +2820,7 @@ dependencies = [
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.8.0",
  "fvm_shared 2.5.0",
  "fvm_shared 3.4.0",
  "gethostname",
@@ -3147,7 +3147,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 2.5.0",
  "lazy_static",
  "log",
@@ -3182,7 +3182,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_blockstore 0.2.0",
  "fvm_ipld_encoding 0.4.0",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.7.0",
  "fvm_shared 3.4.0",
  "lazy_static",
  "log",
@@ -3329,6 +3329,26 @@ name = "fvm_ipld_hamt"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f01c65915bd7ab95ff973bb0bb7e03e8d43a43642c8f4b15407e42e4ffcc0d98"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "cid 0.10.1",
+ "forest_hash_utils",
+ "fvm_ipld_blockstore 0.2.0",
+ "fvm_ipld_encoding 0.4.0",
+ "libipld-core",
+ "multihash 0.18.1",
+ "once_cell",
+ "serde",
+ "sha2 0.10.7",
+ "thiserror",
+]
+
+[[package]]
+name = "fvm_ipld_hamt"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03a53e14c789449cec999ca0e93d909490c921b967adb7a9ec8f12286fb809bd"
 dependencies = [
  "anyhow",
  "byteorder",

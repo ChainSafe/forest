@@ -45,7 +45,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_HEAD, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
-    access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
 
@@ -223,10 +222,6 @@ pub mod chain_api {
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
     pub type ChainGetTipSetParams = (LotusJson<TipsetKeys>,);
     pub type ChainGetTipSetResult = LotusJson<Tipset>;
-
-    pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
-    pub type ChainGetNameParams = ();
-    pub type ChainGetNameResult = String;
 
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub type ChainSetHeadParams = (TipsetKeys,);
