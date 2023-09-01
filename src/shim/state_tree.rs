@@ -34,13 +34,15 @@ pub enum StateTreeVersion {
     V5,
 }
 
-impl TryFrom<StateTreeVersionV3> for StateTreeVersion {
-    type Error = anyhow::Error;
-    fn try_from(value: StateTreeVersionV3) -> anyhow::Result<Self> {
-        if let Some(v) = FromPrimitive::from_u32(value as u32) {
-            Ok(v)
-        } else {
-            bail!("Invalid conversion");
+impl From<StateTreeVersionV3> for StateTreeVersion {
+    fn from(value: StateTreeVersionV3) -> Self {
+        match value {
+            StateTreeVersionV3::V0 => StateTreeVersion::V0,
+            StateTreeVersionV3::V1 => StateTreeVersion::V1,
+            StateTreeVersionV3::V2 => StateTreeVersion::V2,
+            StateTreeVersionV3::V3 => StateTreeVersion::V3,
+            StateTreeVersionV3::V4 => StateTreeVersion::V4,
+            StateTreeVersionV3::V5 => StateTreeVersion::V5,
         }
     }
 }
@@ -374,7 +376,7 @@ pub mod state_tree_v0 {
     use fvm_ipld_encoding::tuple::*;
     use fvm_ipld_encoding::CborStore;
 
-    use super::StateTreeVersion;
+    use super::{StateRoot, StateTreeVersion};
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
     use fvm_ipld_hamt::Hamtv0 as Hamt;
@@ -401,20 +403,6 @@ pub mod state_tree_v0 {
         hamt: Hamt<S, ActorState>,
     }
 
-    /// State root information. Contains information about the version of the state tree,
-    /// the root of the tree, and a link to the information about the tree.
-    #[derive(Deserialize_tuple, Serialize_tuple)]
-    pub struct StateRoot {
-        /// State tree version
-        pub version: StateTreeVersion,
-
-        /// Actors tree. The structure depends on the state root version.
-        pub actors: Cid,
-
-        /// Info. The structure depends on the state root version.
-        pub info: Cid,
-    }
-
     impl<S> StateTreeV0<S>
     where
         S: Blockstore,
@@ -426,7 +414,7 @@ pub mod state_tree_v0 {
                 version, actors, ..
             })) = store.get_cbor(c)
             {
-                (version, actors)
+                (StateTreeVersion::from(version), actors)
             } else {
                 // Fallback to v0 state tree if retrieval fails
                 (StateTreeVersion::V0, *c)
