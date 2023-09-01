@@ -77,7 +77,6 @@ where
             .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
             .with_method(CHAIN_HEAD, chain_head::<DB>)
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
-            .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB>)
             .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
             .with_method(
                 CHAIN_GET_MIN_BASE_FEE,

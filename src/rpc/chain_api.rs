@@ -233,15 +233,6 @@ where
     Ok((*ts).clone().into())
 }
 
-pub(in crate::rpc) async fn chain_get_name<DB>(
-    data: Data<RPCState<DB>>,
-) -> Result<ChainGetNameResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    Ok(data.state_manager.chain_config().network.to_string())
-}
-
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub(in crate::rpc) async fn chain_set_head<DB>(

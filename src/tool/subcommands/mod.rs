@@ -3,6 +3,7 @@
 
 pub mod archive_cmd;
 pub mod benchmark_cmd;
+pub mod car_cmd;
 pub mod db_cmd;
 pub mod fetch_params_cmd;
 pub mod snapshot_cmd;
@@ -51,6 +52,10 @@ pub enum Subcommand {
     /// Database management
     #[command(subcommand)]
     DB(db_cmd::DBCommands),
+
+    /// Utilities for manipulating CAR files
+    #[command(subcommand)]
+    Car(car_cmd::CarCommands),
 }
 
 fn read_config(config: &Option<String>, chain: &Option<NetworkChain>) -> anyhow::Result<Config> {
