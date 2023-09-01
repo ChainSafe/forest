@@ -371,10 +371,10 @@ pub mod state_tree_v0 {
     use fvm_ipld_encoding::tuple::*;
     use fvm_ipld_encoding::CborStore;
 
+    use super::StateTreeVersion;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
     use fvm_ipld_hamt::Hamtv0 as Hamt;
-    use super::StateTreeVersion;
 
     const HAMTV0_BIT_WIDTH: u32 = 5;
 
@@ -391,16 +391,11 @@ pub mod state_tree_v0 {
         pub balance: TokenAmount,
     }
 
+    // This is a read-only version of the earliest state trees.
     /// State tree implementation using HAMT. This structure is not thread safe and should only be used
     /// in sync contexts.
     pub struct StateTreeV0<S> {
         hamt: Hamt<S, ActorState>,
-
-        _version: StateTreeVersion,
-        _info: Option<Cid>,
-        // /// State cache
-        // snaps: StateSnapshots, // XXX: This is needed when reading writing state tree v0. As present we only implement the
-        // v0 version of state tree usable enough to support the STATE_NETWORK_NAME RPC API.
     }
 
     /// State root information. Contains information about the version of the state tree,
@@ -424,16 +419,14 @@ pub mod state_tree_v0 {
         /// Constructor for a HAMT state tree given an IPLD store
         pub fn new_from_root(store: S, c: &Cid) -> anyhow::Result<Self> {
             // Try to load state root, if versioned
-            let (version, info, actors) = if let Ok(Some(StateRoot {
-                version,
-                info,
-                actors,
+            let (version, actors) = if let Ok(Some(StateRoot {
+                version, actors, ..
             })) = store.get_cbor(c)
             {
-                (version, Some(info), actors)
+                (version, actors)
             } else {
                 // Fallback to v0 state tree if retrieval fails
-                (StateTreeVersion::V0, None, *c)
+                (StateTreeVersion::V0, *c)
             };
 
             match version {
@@ -442,8 +435,6 @@ pub mod state_tree_v0 {
 
                     Ok(Self {
                         hamt,
-                        _version: version,
-                        _info: info,
                     })
                 }
                 _ => unreachable!("expecting state tree version 0"),
