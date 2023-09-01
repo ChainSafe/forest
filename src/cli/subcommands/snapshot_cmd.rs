@@ -6,7 +6,7 @@ use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
-use crate::rpc_client::chain_ops::*;
+use crate::rpc_client::{chain_ops::*, state_network_name};
 use crate::utils::bail_moved_cmd;
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
@@ -91,8 +91,9 @@ impl SnapshotCommands {
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let chain_name = chain_get_name((), &config.client.rpc_token)
+                let chain_name = state_network_name((), &config.client.rpc_token)
                     .await
+                    .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
                     .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {

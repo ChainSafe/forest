@@ -5,7 +5,7 @@ use std::ffi::OsString;
 
 use super::subcommands::{handle_rpc_err, Cli};
 use crate::networks::NetworkChain;
-use crate::rpc_client::chain_get_name;
+use crate::rpc_client::state_network_name;
 use crate::shim::address::{CurrentNetwork, Network};
 use clap::Parser;
 use std::str::FromStr;
@@ -21,7 +21,7 @@ where
         .enable_all()
         .build()?
         .block_on(async {
-            let name = chain_get_name((), &opts.token)
+            let name = state_network_name((), &opts.token)
                 .await
                 .map_err(handle_rpc_err)?;
             let chain = NetworkChain::from_str(&name)?;

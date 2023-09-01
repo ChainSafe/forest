@@ -406,10 +406,12 @@ pub(super) async fn start(
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default() {
         if let Some(path) = &config.client.snapshot_path {
-            // TODO: respect `--consume-snapshot` CLI option once it's implemented.
-            // See <https://github.com/ChainSafe/forest/issues/3334>.
-            let (car_db_path, ts) =
-                import_chain_as_forest_car(path, &forest_car_db_dir, false).await?;
+            let (car_db_path, ts) = import_chain_as_forest_car(
+                path,
+                &forest_car_db_dir,
+                config.client.consume_snapshot,
+            )
+            .await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
             debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
@@ -553,7 +555,7 @@ async fn propagate_error(
     std::future::pending().await
 }
 
-fn get_actual_chain_name(internal_network_name: &str) -> &str {
+pub fn get_actual_chain_name(internal_network_name: &str) -> &str {
     match internal_network_name {
         "testnetnet" => "mainnet",
         "calibrationnet" => "calibnet",

@@ -298,9 +298,6 @@ impl AttachCommand {
         // Add custom object that mimics `module.exports`
         set_module(context);
 
-        // Chain API
-        bind_func!(context, token, chain_get_name);
-
         // Net API
         bind_func!(context, token, net_addrs_listen);
         bind_func!(context, token, net_peers);

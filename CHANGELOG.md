@@ -44,6 +44,8 @@
   `forest-cli wallet` subcommands to `forest-wallet`
 - [#3431](https://github.com/ChainSafe/forest/pull/3431) Moved the following
   `forest-cli snapshot compress` subcommand to `forest-tool`
+- [#3435](https://github.com/ChainSafe/forest/pull/3435) Moved subcommand
+  `forest-cli car concat` subcommands to `forest-tool`
 
 ### Added
 
@@ -62,6 +64,8 @@
 - [#3322](https://github.com/ChainSafe/forest/issues/3322): Added prompt to
   `forest-cli archive export` to overwrite file if the file specified with
   `--output-path` already exists and a `--force` flag to suppress the prompt.
+- [#3439](https://github.com/ChainSafe/forest/pull/3439): Add
+  `--consume-snapshot` option to `forest` command.
 
 ### Changed
 
