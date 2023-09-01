@@ -89,7 +89,8 @@ where
         .await
     } else {
         let file = tokio::fs::File::create(&output_path).await?;
-        crate::chain::export::<Sha256>(
+        let file_copy = file.try_clone().await?;
+        let res = crate::chain::export::<Sha256>(
             Arc::clone(&data.chain_store.db),
             &start_ts,
             recent_roots,
@@ -97,7 +98,10 @@ where
             CidHashSet::default(),
             skip_checksum,
         )
-        .await
+        .await;
+        // We might need to call `sync_all` as well before dropping
+        file_copy.sync_all().await?;
+        res
     } {
         Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
         Err(e) => Err(JsonRpcError::from(e)),

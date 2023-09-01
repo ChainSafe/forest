@@ -54,6 +54,7 @@ pub async fn export<D: Digest>(
 
     // Flush to ensure everything has been successfully written
     writer.flush().await.context("failed to flush")?;
+    writer.shutdown().await.context("failed to shutdown")?;
 
     let digest = writer.finalize().map_err(|e| Error::Other(e.to_string()))?;
 
