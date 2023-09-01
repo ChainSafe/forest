@@ -4,6 +4,7 @@
 use super::*;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
+use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::{chain_ops::*, state_network_name};
 use crate::utils::bail_moved_cmd;
@@ -76,7 +77,7 @@ pub enum SnapshotCommands {
         #[arg(long, default_value_t = 3)]
         compression_level: u16,
         /// End zstd frames after they exceed this length
-        #[arg(long, default_value_t = 8000usize.next_power_of_two())]
+        #[arg(long, default_value_t = DEFAULT_FOREST_CAR_FRAME_SIZE)]
         frame_size: usize,
         /// Overwrite output file without prompting.
         #[arg(long, default_value_t = false)]

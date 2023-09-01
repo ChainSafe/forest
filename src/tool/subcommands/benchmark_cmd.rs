@@ -5,6 +5,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainEpochDelta,
 };
+use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
 use crate::ipld::{stream_chain, stream_graph};
 use crate::shim::clock::ChainEpoch;
@@ -50,7 +51,7 @@ pub enum BenchmarkCommands {
         #[arg(long, default_value_t = 3)]
         compression_level: u16,
         /// End zstd frames after they exceed this length
-        #[arg(long, default_value_t = 8000usize.next_power_of_two())]
+        #[arg(long, default_value_t = DEFAULT_FOREST_CAR_FRAME_SIZE)]
         frame_size: usize,
     },
     /// Exporting a `.forest.car.zst` file from HEAD
@@ -61,7 +62,7 @@ pub enum BenchmarkCommands {
         #[arg(long, default_value_t = 3)]
         compression_level: u16,
         /// End zstd frames after they exceed this length
-        #[arg(long, default_value_t = 8000usize.next_power_of_two())]
+        #[arg(long, default_value_t = DEFAULT_FOREST_CAR_FRAME_SIZE)]
         frame_size: usize,
         /// Latest epoch that has to be exported for this snapshot, the upper bound. This value
         /// cannot be greater than the latest epoch available in the input snapshot.
@@ -154,7 +155,7 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = stream_graph(&store, heaviest.chain(&store));
+    let mut s = stream_graph(&store, heaviest.chain(&store), 0);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }

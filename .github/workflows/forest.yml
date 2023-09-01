@@ -210,8 +210,26 @@ jobs:
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
 
+  db-migration-checks:
+    needs:
+      - build-ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Database migration checks
+        run: ./scripts/tests/calibnet_db_migration.sh
+
   local-devnet-check:
-    if: false
     name: Devnet checks
     runs-on: ubuntu-latest
     needs:

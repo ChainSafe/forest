@@ -27,7 +27,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # install dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y build-essential clang curl git ca-certificates
+    apt-get install --no-install-recommends -y build-essential clang curl git git-lfs ca-certificates
 RUN update-ca-certificates
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal

@@ -1842,6 +1842,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "deprecate-until"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ec2e2a2d0c79afd023be50309ecf010f20bf4a2761f15e264f4ac9516aff58b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "semver",
+ "syn 2.0.29",
+]
+
+[[package]]
 name = "der"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2697,6 +2709,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fixedbitset"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
+
+[[package]]
 name = "flate2"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2727,7 +2745,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.12.1"
+version = "0.13.0"
 dependencies = [
  "ahash",
  "anes",
@@ -2822,6 +2840,7 @@ dependencies = [
  "memmap2 0.7.1",
  "memory-stats",
  "mimalloc",
+ "multimap",
  "nom",
  "nonempty",
  "nonzero_ext",
@@ -2834,6 +2853,7 @@ dependencies = [
  "once_cell",
  "parity-db",
  "parking_lot",
+ "pathfinding",
  "pbr",
  "pin-project-lite",
  "positioned-io",
@@ -4001,6 +4021,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "924df4f0e24e2e7f9cdd90babb0b96f93b20f3ecfa949ea9e6613756b8c8e1bf"
 
 [[package]]
+name = "integer-sqrt"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "276ec31bcb4a9ee45f58bec6f9ec700ae4cf4f4f8f2fa7e06cb406bd5ffdd770"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5087,6 +5116,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "multimap"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70db9248a93dc36a36d9a47898caa007a32755c7ad140ec64eeeb50d5a730631"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "multistream-select"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5604,6 +5642,21 @@ name = "pathdiff"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
+
+[[package]]
+name = "pathfinding"
+version = "4.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c246434cbaa32c6430ea09b0a7dd28c0f954143f7866cf551e42f2390d8a65ae"
+dependencies = [
+ "deprecate-until",
+ "fixedbitset",
+ "indexmap 2.0.0",
+ "integer-sqrt",
+ "num-traits",
+ "rustc-hash",
+ "thiserror",
+]
 
 [[package]]
 name = "pbr"

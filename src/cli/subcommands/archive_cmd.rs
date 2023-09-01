@@ -193,13 +193,7 @@ async fn do_export(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = stream_graph(
-            &store,
-            diff_ts
-                .clone()
-                .chain(&store)
-                .take_while(|tipset| tipset.epoch() >= diff_limit),
-        );
+        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store), diff_limit);
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
