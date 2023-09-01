@@ -422,8 +422,7 @@ pub mod state_tree_v0 {
 
             match version {
                 StateTreeVersion::V0 => {
-                    let hamt = Hamt::load_with_bit_width(&actors, store, HAMTV0_BIT_WIDTH).unwrap();
-
+                    let hamt = Hamt::load_with_bit_width(&actors, store, HAMTV0_BIT_WIDTH)?;
                     Ok(Self { hamt })
                 }
                 _ => anyhow::bail!("unsupported state tree version: {:?}", version),
