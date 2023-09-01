@@ -465,19 +465,7 @@ pub mod state_tree_v0 {
             if addr.protocol() == fvm_shared3::address::Protocol::ID {
                 return Ok(Some(*addr));
             }
-
-            let init_act = self
-                .get_actor(&Address::INIT_ACTOR)?
-                .ok_or(anyhow::anyhow!("Init actor address could not be resolved"))?;
-
-            let _state = fil_actor_interface::init::State::load(
-                self.hamt.store(),
-                init_act.code,
-                init_act.state,
-            )?;
-
-            // XXX: can be fixed by adding resolve_method in fil-actor-states
-            todo!("resolve_address method required on init state.")
+            anyhow::bail!("StateTreeV0::lookup_id is only defined for ID addresses")
         }
     }
 }
