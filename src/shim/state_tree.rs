@@ -95,8 +95,8 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// free to add those when necessary.
 pub enum StateTree<S> {
     V0(state_tree_v0::StateTreeV0<Arc<S>>),
-    V2(StateTreeV2<Arc<S>>),
-    V3(StateTreeV3<Arc<S>>),
+    FvmV2(StateTreeV2<Arc<S>>),
+    FvmV3(StateTreeV3<Arc<S>>),
 }
 
 impl<S> StateTree<S>
@@ -106,9 +106,9 @@ where
     /// Constructor for a HAMT state tree given an IPLD store
     pub fn new(store: Arc<S>, version: StateTreeVersion) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
-            Ok(StateTree::V3(st))
+            Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
-            Ok(StateTree::V2(st))
+            Ok(StateTree::FvmV2(st))
         } else {
             bail!("Can't create a valid state tree for the given version.");
         }
@@ -116,9 +116,9 @@ where
 
     pub fn new_from_root(store: Arc<S>, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
-            Ok(StateTree::V3(st))
+            Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
-            Ok(StateTree::V2(st))
+            Ok(StateTree::FvmV2(st))
         } else if let Ok(st) = state_tree_v0::StateTreeV0::new_from_root(store, c) {
             Ok(StateTree::V0(st))
         } else {
@@ -129,11 +129,11 @@ where
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
-            StateTree::V2(st) => Ok(st
+            StateTree::FvmV2(st) => Ok(st
                 .get_actor(&addr.into())
                 .map_err(|e| anyhow!("{e}"))?
                 .map(Into::into)),
-            StateTree::V3(st) => {
+            StateTree::FvmV3(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
                     Ok(st
@@ -161,8 +161,8 @@ where
     /// Retrieve store reference to modify db.
     pub fn store(&self) -> &S {
         match self {
-            StateTree::V2(st) => st.store(),
-            StateTree::V3(st) => st.store(),
+            StateTree::FvmV2(st) => st.store(),
+            StateTree::FvmV3(st) => st.store(),
             StateTree::V0(st) => st.store(),
         }
     }
@@ -170,8 +170,8 @@ where
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<ActorID>> {
         match self {
-            StateTree::V2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
-            StateTree::V3(st) => Ok(st.lookup_id(&addr.into())?),
+            StateTree::FvmV2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
             _ => todo!(),
         }
     }
@@ -181,13 +181,13 @@ where
         F: FnMut(Address, &ActorState) -> anyhow::Result<()>,
     {
         match self {
-            StateTree::V2(st) => {
+            StateTree::FvmV2(st) => {
                 let inner = |address: fvm_shared2::address::Address, actor_state: &ActorStateV2| {
                     f(address.into(), &actor_state.into())
                 };
                 st.for_each(inner)
             }
-            StateTree::V3(st) => {
+            StateTree::FvmV3(st) => {
                 let inner = |address: fvm_shared3::address::Address, actor_state: &ActorStateV3| {
                     f(address.into(), &actor_state.into())
                 };
@@ -200,8 +200,8 @@ where
     /// Flush state tree and return Cid root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         match self {
-            StateTree::V2(st) => st.flush().map_err(|e| anyhow!("{e}")),
-            StateTree::V3(st) => Ok(st.flush()?),
+            StateTree::FvmV2(st) => st.flush().map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV3(st) => Ok(st.flush()?),
             _ => todo!(),
         }
     }
@@ -209,10 +209,10 @@ where
     /// Set actor state with an actor ID.
     pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> anyhow::Result<()> {
         match self {
-            StateTree::V2(st) => st
+            StateTree::FvmV2(st) => st
                 .set_actor(&addr.into(), actor.into())
                 .map_err(|e| anyhow!("{e}")),
-            StateTree::V3(st) => {
+            StateTree::FvmV3(st) => {
                 let id = st
                     .lookup_id(&addr.into())?
                     .context("couldn't find actor id")?;
