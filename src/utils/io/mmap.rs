@@ -23,7 +23,7 @@ impl ReadAt for Mmap {
     fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
         let start = pos as usize;
         if start >= self.0.len() {
-            return Ok(0)
+            return Ok(0);
         }
         let end = start + buf.len();
         if end <= self.0.len() {
