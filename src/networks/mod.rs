@@ -35,6 +35,7 @@ const DEFAULT_REQUEST_WINDOW: usize = 8;
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
     Mainnet,
@@ -154,7 +155,7 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(default)]
 pub struct ChainConfig {
     pub network: NetworkChain,
@@ -170,6 +171,21 @@ pub struct ChainConfig {
     /// the exported snapshot.
     pub recent_state_roots: i64,
     pub request_window: usize,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for ChainConfig {
+    fn arbitrary(g: &mut quickcheck::Gen) -> ChainConfig {
+        use quickcheck::Arbitrary;
+        // Note: Not all `u64` values can be stored as TOML. Maybe we should use
+        // `u32` instead. Or maybe these values shouldn't be configurable at all.
+        ChainConfig {
+            network: Arbitrary::arbitrary(g),
+            genesis_cid: Arbitrary::arbitrary(g),
+            recent_state_roots: Arbitrary::arbitrary(g),
+            ..ChainConfig::default()
+        }
+    }
 }
 
 impl ChainConfig {

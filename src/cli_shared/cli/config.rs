@@ -12,6 +12,7 @@ use super::client::Client;
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct DaemonConfig {
     pub user: Option<String>,
     pub group: Option<String>,
@@ -37,6 +38,7 @@ impl Default for DaemonConfig {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct Config {
     pub client: Client,
@@ -59,32 +61,8 @@ mod test {
 
     use super::*;
 
-    /// Partial configuration, as some parts of the proper one don't implement
-    /// required traits (i.e. Debug)
-    // This should be removed in #2965
-    #[derive(Clone, Debug, derive_quickcheck_arbitrary::Arbitrary)]
-    struct ConfigPartial {
-        client: Client,
-        parity_db: crate::db::parity_db_config::ParityDbConfig,
-        network: crate::libp2p::Libp2pConfig,
-        sync: crate::chain_sync::SyncConfig,
-    }
-
-    impl From<ConfigPartial> for Config {
-        fn from(val: ConfigPartial) -> Self {
-            Config {
-                client: val.client,
-                parity_db: val.parity_db,
-                network: val.network,
-                sync: val.sync,
-                chain: Arc::new(ChainConfig::default()),
-                daemon: DaemonConfig::default(),
-            }
-        }
-    }
-
     #[quickcheck]
-    fn test_config_all_params_under_section(config: ConfigPartial) {
+    fn test_config_all_params_under_section(config: Config) {
         let config = Config::from(config);
         let serialized_config =
             toml::to_string(&config).expect("could not serialize the configuration");
