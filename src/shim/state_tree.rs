@@ -438,7 +438,7 @@ pub mod state_tree_v0 {
 
                     Ok(Self { hamt })
                 }
-                _ => unreachable!("expecting state tree version 0"),
+                _ => anyhow::bail!("unsupported state tree version: {:?}", version),
             }
         }
 
