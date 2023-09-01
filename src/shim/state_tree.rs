@@ -357,50 +357,24 @@ impl From<&ActorState> for ActorStateV2 {
     }
 }
 
-impl From<state_tree_v0::ActorState> for ActorState {
-    fn from(value: state_tree_v0::ActorState) -> Self {
-        ActorState(ActorStateV3 {
-            code: value.code,
-            state: value.state,
-            sequence: value.sequence,
-            balance: value.balance.into(),
-            delegated_address: None,
-        })
-    }
-}
-
 // ported from commit hash b622af
 pub mod state_tree_v0 {
     use cid::Cid;
     use fvm_ipld_blockstore::Blockstore;
-    use fvm_ipld_encoding::tuple::*;
     use fvm_ipld_encoding::CborStore;
 
     use super::{StateRoot, StateTreeVersion};
+    use super::ActorStateV2;
     use crate::shim::address::Address;
-    use crate::shim::econ::TokenAmount;
     use fvm_ipld_hamt::Hamtv0 as Hamt;
 
     const HAMTV0_BIT_WIDTH: u32 = 5;
-
-    /// State of all actor implementations.
-    #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-    pub struct ActorState {
-        /// Link to code for the actor.
-        pub code: Cid,
-        /// Link to the state of the actor.
-        pub state: Cid,
-        /// Sequence of the actor.
-        pub sequence: u64,
-        /// Tokens available to the actor.
-        pub balance: TokenAmount,
-    }
 
     // This is a read-only version of the earliest state trees.
     /// State tree implementation using HAMT. This structure is not thread safe and should only be used
     /// in sync contexts.
     pub struct StateTreeV0<S> {
-        hamt: Hamt<S, ActorState>,
+        hamt: Hamt<S, ActorStateV2>,
     }
 
     impl<S> StateTreeV0<S>
@@ -435,7 +409,7 @@ pub mod state_tree_v0 {
         }
 
         /// Get actor state from an address. Will be resolved to ID address.
-        pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
+        pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorStateV2>> {
             let addr = match self.lookup_id(addr)? {
                 Some(addr) => addr,
                 None => return Ok(None),
