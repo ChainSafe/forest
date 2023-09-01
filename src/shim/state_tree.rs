@@ -481,3 +481,46 @@ pub mod state_tree_v0 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::StateTree;
+    use crate::blocks::BlockHeader;
+    use crate::db::car::AnyCar;
+    use crate::networks::{calibnet, mainnet};
+    use cid::Cid;
+    use fil_actor_interface::init::{self, State};
+    use std::sync::Arc;
+
+    // refactored from `StateManager::get_network_name`
+    fn get_network_name(car: &'static [u8], genesis_cid: Cid) -> String {
+        let forest_car = AnyCar::new(car).unwrap();
+        let genesis_block = BlockHeader::load(&forest_car, genesis_cid)
+            .unwrap()
+            .unwrap();
+        let state =
+            StateTree::new_from_root(Arc::new(&forest_car), genesis_block.state_root()).unwrap();
+        let init_act = state.get_actor(&init::ADDRESS.into()).unwrap().unwrap();
+
+        let state = State::load(&forest_car, init_act.code, init_act.state).unwrap();
+
+        state.into_network_name()
+    }
+
+    #[test]
+    fn calibnet_network_name() {
+        assert_eq!(
+            get_network_name(calibnet::DEFAULT_GENESIS, *calibnet::GENESIS_CID),
+            "calibrationnet"
+        );
+    }
+
+    #[test]
+    fn mainnet_network_name() {
+        // Yes, the name of `mainnet` in the genesis block really is `testnetnet`.
+        assert_eq!(
+            get_network_name(mainnet::DEFAULT_GENESIS, *mainnet::GENESIS_CID),
+            "testnetnet"
+        );
+    }
+}
