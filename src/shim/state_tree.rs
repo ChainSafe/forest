@@ -436,9 +436,7 @@ pub mod state_tree_v0 {
                 StateTreeVersion::V0 => {
                     let hamt = Hamt::load_with_bit_width(&actors, store, HAMTV0_BIT_WIDTH).unwrap();
 
-                    Ok(Self {
-                        hamt,
-                    })
+                    Ok(Self { hamt })
                 }
                 _ => unreachable!("expecting state tree version 0"),
             }
