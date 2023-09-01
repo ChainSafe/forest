@@ -56,7 +56,7 @@ where
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
-                        Subcommand::Wallet(_cmd) => bail_moved_cmd("wallet", "forest-wallet"),
+                        Subcommand::Wallet(..) => bail_moved_cmd("wallet", "forest-wallet"),
                         Subcommand::Sync(cmd) => cmd.run(config).await,
                         Subcommand::Mpool(cmd) => cmd.run(config).await,
                         Subcommand::State(cmd) => cmd.run(config).await,
@@ -68,7 +68,7 @@ where
                         Subcommand::Archive(cmd) => cmd.run().await,
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
-                        Subcommand::Car(cmd) => cmd.run().await,
+                        Subcommand::Car(..) => bail_moved_cmd("car", "forest-tool"),
                     }
                 }
                 Err(e) => {
