@@ -368,13 +368,13 @@ impl From<state_tree_v0::ActorState> for ActorState {
 pub mod state_tree_v0 {
     use cid::Cid;
     use fvm_ipld_blockstore::Blockstore;
-    use fvm_ipld_encoding::repr::*;
     use fvm_ipld_encoding::tuple::*;
     use fvm_ipld_encoding::CborStore;
 
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
     use fvm_ipld_hamt::Hamtv0 as Hamt;
+    use super::StateTreeVersion;
 
     const HAMTV0_BIT_WIDTH: u32 = 5;
 
@@ -401,22 +401,6 @@ pub mod state_tree_v0 {
         // /// State cache
         // snaps: StateSnapshots, // XXX: This is needed when reading writing state tree v0. As present we only implement the
         // v0 version of state tree usable enough to support the STATE_NETWORK_NAME RPC API.
-    }
-
-    /// Specifies the version of the state tree
-    #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, Deserialize_repr)]
-    #[repr(u64)]
-    pub enum StateTreeVersion {
-        /// Corresponds to actors less than version 2
-        V0,
-        /// Corresponds to actors equal to version 2
-        V1,
-        /// Corresponds to actors equal to version 3
-        V2,
-        /// Corresponds to actors equal to version 4
-        V3,
-        /// Corresponds to actors greater than or equal to version 5
-        V4,
     }
 
     /// State root information. Contains information about the version of the state tree,
