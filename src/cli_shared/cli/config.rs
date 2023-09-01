@@ -63,7 +63,6 @@ mod test {
 
     #[quickcheck]
     fn test_config_all_params_under_section(config: Config) {
-        let config = Config::from(config);
         let serialized_config =
             toml::to_string(&config).expect("could not serialize the configuration");
         assert_eq!(
