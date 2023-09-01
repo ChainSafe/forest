@@ -1,5 +1,10 @@
 // ported from commit hash b622af
 
+// The FVM crates only support state tree versions 3,4 and 5. This module
+// contains read-only support for state tree version 0. This version is required
+// to parse genesis states. Ideally, we would have a library that supports _all_
+// state tree versions.
+
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
