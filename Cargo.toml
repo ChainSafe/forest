@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.12.1"
+version = "0.13.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -12,7 +12,7 @@ ahash = "0.8"
 anes = "0.1.6"
 anyhow = "1.0"
 argon2 = "0.5"
-async-compression = { version = "0.4", features = ["futures-io", "tokio", "zstd"] }
+async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "1"
 async-recursion = "1.0"
 async-trait = "0.1"
@@ -62,7 +62,7 @@ fil_actor_system_state = "6"
 fil_actor_verifreg_state = "6"
 fil_actors_shared = "6"
 filecoin-proofs-api = { version = "14.0", default-features = false }
-flume = "0.10"
+flume = "0.11"
 fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.5", default-features = false }
@@ -72,7 +72,7 @@ fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_car = "0.7"
 fvm_ipld_encoding = "0.4"
-fvm_ipld_hamt = "0.7"
+fvm_ipld_hamt = "0.8"
 fvm_shared2 = { package = "fvm_shared", version = "~2.5" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.4", features = ["testing", "proofs"] }
 gethostname = "0.4"
@@ -81,12 +81,12 @@ hex = { version = "0.4", features = ["serde"] }
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"
-indexmap = { version = "1.9", features = ["serde-1"] }
+indexmap = { version = "2.0", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.11.0"
-jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
+jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 jsonwebtoken = "8.1"
 lazy_static = "1.4"
 libc = "0.2"
@@ -102,7 +102,6 @@ libp2p = { version = "0.52.1", default-features = false, features = [
   'noise',
   'yamux',
   'tcp',
-  'websocket',
   'dns',
   'request-response',
   'metrics',
@@ -111,8 +110,10 @@ libp2p = { version = "0.52.1", default-features = false, features = [
 ] }
 libsecp256k1 = "0.7"
 lru = "0.11"
+memmap2 = "0.7"
 memory-stats = "1.1"
 mimalloc = { version = "0.1.34", optional = true, default-features = false }
+multimap = "0.9.0"
 nom = "7.1.3"
 nonempty = "0.8.0"
 nonzero_ext = "0.3.0"
@@ -125,9 +126,10 @@ num_cpus = "1.14"
 once_cell = "1.15"
 parity-db = { version = "0.4.6", default-features = false }
 parking_lot = "0.12"
+pathfinding = "4.3.1"
 pbr = "1.1"
 pin-project-lite = "0.2"
-positioned-io = "0.3.1"
+positioned-io = "0.3.2"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.21"
@@ -181,7 +183,6 @@ url = { version = "2.3", features = ["serde"] }
 uuid = { version = "1.3", features = ['v4'] }
 walkdir = "2"
 zstd = "0.12.3"
-zstd-safe = "6.0.5"
 
 [target.'cfg(unix)'.dependencies]
 termios = "0.3"

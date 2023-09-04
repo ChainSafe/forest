@@ -47,7 +47,7 @@ pub async fn export<D: Digest>(
     );
 
     // Encode Ipld key-value pairs in zstd frames
-    let frames = forest::Encoder::compress_stream(8000usize.next_power_of_two(), 3, blocks);
+    let frames = forest::Encoder::compress_stream_default(blocks);
 
     // Write zstd frames and include a skippable index
     forest::Encoder::write(&mut writer, roots, frames).await?;

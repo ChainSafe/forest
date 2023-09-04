@@ -10,7 +10,7 @@ remotely, you will need to provide the multiaddress information for the node.
 You will need to either set the environment variable `FULLNODE_API_INFO`, or
 prepend it to the command, like so:
 
-`FULLNODE_API_INFO="..." forest wallet new -s bls`
+`FULLNODE_API_INFO="..." forest-wallet new -s bls`
 
 On Linux, you can set the environment variable with the following syntax
 
@@ -73,58 +73,62 @@ logs or by including the flag `--save-token <PATH>` during `forest` invocation.
 ### Balance:
 
 Retrieve the FIL balance of a given address. Usage:
-`forest-cli --token <admin_token> wallet balance <address>`
+`forest-wallet --token <admin_token> balance <address>`
 
 ### Default:
 
 Get the default, persisted address from the keystore. Usage:
-`forest-cli --token <admin_token> wallet default`
+`forest-wallet --token <admin_token> default`
 
 ### Has:
 
 Check if an address exists in the keystore. Outputs `true` if address exists and
 `false` if address does not exist. Usage:
-`forest-cli --token <admin_token> wallet has <address>`
+`forest-wallet --token <admin_token> has <address>`
 
 ### List:
 
 Display the keys in the keystore. Usage:
-`forest-cli --token <admin_token> wallet list`
+`forest-wallet --token <admin_token> list`
 
 ### New:
 
 Create a new wallet. The signature type can either be secp256k1 or bls. Defaults
 to use secp256k1. Usage:
-`forest-cli --token <admin_token> wallet new [ bls | secp256k1 ]`
+`forest-wallet --token <admin_token> new [ bls | secp256k1 ]`
 
 ### Set-default:
 
 Set an address to be the default address of the keystore. Usage:
-`forest-cli --token <admin_token> wallet set-default <address>`
+`forest-wallet --token <admin_token> set-default <address>`
 
 ### Export:
 
 Export a key by address. Use a wallet address to export a key. Returns a
 formatted key to be used to import on another node, or into a new keystore.
-Usage: `forest-cli --token <admin_token> wallet export <address>`
+Usage: `forest-wallet --token <admin_token> export <address>`
 
 ### Import:
 
 Import a file containing a private key to the keystore and create a new address.
 The default format for importing keys is hex encoded JSON. Use the `export`
 command to get formatted keys for importing. Usage:
-`forest-cli --token <admin_token> wallet import <PATH>`
+`forest-wallet --token <admin_token> import <PATH>`
 
 ### Sign:
 
 Use an address to sign a vector of bytes. Usage:
-`forest-cli --token <admin_token> wallet sign -m <hex message> -a <address>`
+`forest-wallet --token <admin_token> sign -m <hex message> -a <address>`
 
 ### Verify:
 
 Verify the message's integrity with an address and signature. Outputs `true` if
 signature verifies message integrity, otherwise `false`. Usage:
-`forest-cli wallet verify -m <hex message> -a <address> -s <signature>`
+`forest-wallet verify -m <hex message> -a <address> -s <signature>`
+
+### Delete:
+
+Deletes a wallet given its address. Usage: `forest-wallet delete <address>`
 
 ## Chain-Sync
 

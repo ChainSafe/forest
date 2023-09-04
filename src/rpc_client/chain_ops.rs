@@ -51,13 +51,6 @@ pub async fn chain_read_obj(
     call(CHAIN_READ_OBJ, cid, auth_token).await
 }
 
-pub async fn chain_get_name(
-    params: ChainGetNameParams,
-    auth_token: &Option<String>,
-) -> Result<ChainGetNameResult, Error> {
-    call(CHAIN_GET_NAME, params, auth_token).await
-}
-
 pub async fn chain_set_head(
     params: ChainSetHeadParams,
     auth_token: &Option<String>,

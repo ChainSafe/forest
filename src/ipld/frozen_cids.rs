@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::cid::CidVariant;
+use crate::utils::cid::SmallCid;
 use cid::Cid;
 use serde::{Deserialize, Serialize};
 
-/// A wrapper around `Box<[CidVariant]>` with a [`Cid`]-friendly API:
-/// - Uses [`CidVariant`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
+/// A wrapper around `Box<[SmallCid]>` with a [`Cid`]-friendly API:
+/// - Uses [`SmallCid`] over [`Cid`] to save memory on common CIDs - see docs for that type for more
 /// - Uses `Box<[...]>`, over `Vec<...>` avoiding vector overallocation
 ///
 /// There will be MANY small collections of [`FrozenCids`] over the codebase, so these space savings matter
@@ -16,11 +16,11 @@ pub struct FrozenCids(
     #[cfg_attr(test, arbitrary(gen(
         |g| Vec::arbitrary(g).into_boxed_slice()
     )))]
-    Box<[CidVariant]>,
+    Box<[SmallCid]>,
 );
 
 pub struct Iter<'a> {
-    cids: std::slice::Iter<'a, CidVariant>,
+    cids: std::slice::Iter<'a, SmallCid>,
 }
 
 impl<'a> IntoIterator for &'a FrozenCids {
@@ -50,12 +50,7 @@ impl From<Vec<Cid>> for FrozenCids {
     fn from(cids: Vec<Cid>) -> Self {
         let mut small_cids = Vec::with_capacity(cids.len());
         for cid in cids {
-            match cid.into() {
-                CidVariant::V1DagCborBlake2b(bytes) => {
-                    small_cids.push(CidVariant::V1DagCborBlake2b(bytes))
-                }
-                _ => small_cids.push(CidVariant::Generic(Box::new(cid))),
-            }
+            small_cids.push(SmallCid::from(cid));
         }
         FrozenCids(small_cids.into_boxed_slice())
     }
@@ -69,16 +64,7 @@ impl From<FrozenCids> for Vec<Cid> {
 
 impl From<&FrozenCids> for Vec<Cid> {
     fn from(frozen_cids: &FrozenCids) -> Self {
-        let mut cids = Vec::with_capacity(frozen_cids.0.len());
-        for cid in frozen_cids.into_iter() {
-            match cid.into() {
-                CidVariant::V1DagCborBlake2b(bytes) => {
-                    cids.push(Cid::from(CidVariant::V1DagCborBlake2b(bytes)))
-                }
-                _ => cids.push(cid),
-            }
-        }
-        cids
+        Vec::from_iter(frozen_cids)
     }
 }
 
@@ -88,8 +74,7 @@ impl FrozenCids {
     }
 
     pub fn contains(&self, cid: Cid) -> bool {
-        let cid = CidVariant::from(cid);
-        self.0.contains(&cid)
+        self.0.contains(&SmallCid::from(cid))
     }
 }
 

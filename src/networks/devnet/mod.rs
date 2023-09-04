@@ -100,7 +100,10 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
         HeightInfo {
             height: Height::Shark,
             epoch: -20,
-            bundle: None,
+            bundle: Some(
+                Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk")
+                    .unwrap(),
+            ),
         },
         HeightInfo {
             height: Height::Hygge,

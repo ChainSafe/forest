@@ -29,7 +29,6 @@ mod fil_cns;
 mod genesis;
 mod interpreter;
 mod ipld;
-mod json;
 mod key_management;
 mod libp2p;
 mod libp2p_bitswap;
@@ -37,7 +36,6 @@ mod lotus_json;
 mod message;
 mod message_pool;
 mod metrics;
-mod r#mod;
 mod networks;
 mod rpc;
 mod rpc_api;
@@ -50,10 +48,7 @@ mod statediff;
 mod test_utils;
 mod tool;
 mod utils;
-
-pub mod build {
-    pub use super::r#mod::*;
-}
+mod wallet;
 
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:
@@ -96,3 +91,4 @@ pub use key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
 };
 pub use tool::main::main as forest_tool_main;
+pub use wallet::main::main as forest_wallet_main;

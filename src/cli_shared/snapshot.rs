@@ -8,7 +8,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::networks::NetworkChain;
+use crate::{
+    networks::NetworkChain,
+    utils::{retry, RetryArgs},
+};
 use anyhow::{anyhow, bail, Context as _};
 use chrono::NaiveDate;
 use tracing::{info, warn};
@@ -72,11 +75,30 @@ pub async fn fetch(
         .date_and_height_and_forest();
     let filename = filename(vendor, chain, date, height, forest_format);
 
-    match download_aria2c(&url, directory, &filename).await {
+    download_file_with_retry(&url, directory, &filename).await
+}
+
+pub async fn download_file_with_retry(
+    url: &Url,
+    directory: &Path,
+    filename: &str,
+) -> anyhow::Result<PathBuf> {
+    Ok(retry(
+        RetryArgs {
+            timeout: None,
+            ..Default::default()
+        },
+        || download_file(url.clone(), directory, filename),
+    )
+    .await?)
+}
+
+pub async fn download_file(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
+    match download_aria2c(&url, directory, filename).await {
         Ok(path) => Ok(path),
         Err(AriaErr::CouldNotExec(reason)) => {
             warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
-            download_http(url, directory, &filename).await
+            download_http(url, directory, filename).await
         }
         Err(AriaErr::Other(o)) => Err(o),
     }
@@ -227,6 +249,8 @@ mod parse {
     };
     use url::Url;
 
+    use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
+
     #[derive(PartialEq, Debug, Clone, Hash)]
     pub(super) enum ParsedFilename<'a> {
         Short {
@@ -334,7 +358,7 @@ mod parse {
                 ymd("-"),
                 tag("_height_"),
                 number,
-                alt((tag(".car.zst"), tag(".forest.car.zst"))),
+                alt((tag(".car.zst"), tag(FOREST_CAR_FILE_EXTENSION))),
             ))(input)?;
         Ok((
             rest,
@@ -343,7 +367,7 @@ mod parse {
                 chain,
                 date,
                 height,
-                forest_format: car_zst == ".forest.car.zst",
+                forest_format: car_zst == FOREST_CAR_FILE_EXTENSION,
             },
         ))
     }

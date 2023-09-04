@@ -3,16 +3,19 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
-use crate::shim::version::NetworkVersion;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
+use once_cell::sync::Lazy;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+
+use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
+use crate::shim::version::NetworkVersion;
 
 mod drand;
 
@@ -62,9 +65,6 @@ impl Display for NetworkChain {
 }
 
 impl NetworkChain {
-    pub fn is_devnet(&self) -> bool {
-        matches!(self, NetworkChain::Devnet(_))
-    }
     /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
     /// is the hard-coded genesis CID for either of those networks.
     pub fn from_genesis(cid: &Cid) -> Option<Self> {
@@ -78,12 +78,17 @@ impl NetworkChain {
             (false, false) => None,
         }
     }
+
     /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
     /// is the hard-coded genesis CID for either of those networks.
     ///
     /// Else returns a [`NetworkChain::Devnet`] with a placeholder name.
     pub fn from_genesis_or_devnet_placeholder(cid: &Cid) -> Self {
         Self::from_genesis(cid).unwrap_or(Self::Devnet(String::from("devnet")))
+    }
+
+    pub fn is_testnet(&self) -> bool {
+        !matches!(self, NetworkChain::Mainnet)
     }
 }
 
@@ -312,7 +317,7 @@ impl ChainConfig {
     }
 
     pub fn is_testnet(&self) -> bool {
-        !matches!(self.network, NetworkChain::Mainnet)
+        self.network.is_testnet()
     }
 }
 
@@ -336,3 +341,54 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
         })
         .collect()
 }
+
+#[derive(Debug)]
+pub struct ActorBundleInfo {
+    pub manifest: Cid,
+    pub url: Url,
+}
+
+pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 9]> = Lazy::new(|| {
+    [
+        // calibnet
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        // devnet 
+        ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-devnet.car").unwrap(),
+        },
+        // devnet
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-devnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-devnet.car").unwrap(),
+        },
+        // mainnet
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-mainnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-mainnet.car").unwrap(),
+        },
+    ]
+});

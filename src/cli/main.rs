@@ -5,12 +5,13 @@ use std::ffi::OsString;
 use std::sync::Arc;
 
 use crate::cli_shared::logger;
+use crate::daemon::get_actual_chain_name;
 use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
-use crate::utils::io::ProgressBar;
+use crate::utils::{bail_moved_cmd, io::ProgressBar};
 use crate::{
     cli::subcommands::{cli_error_and_die, Cli},
-    rpc_client::chain_get_name,
+    rpc_client::state_network_name,
 };
 use clap::Parser;
 
@@ -37,7 +38,8 @@ where
                     }
                     let opts = &opts;
                     if opts.chain.is_none() {
-                        if let Ok(name) = chain_get_name((), &config.client.rpc_token).await {
+                        if let Ok(name) = state_network_name((), &config.client.rpc_token).await {
+                            let name = get_actual_chain_name(&name);
                             if name == "calibnet" {
                                 config.chain = Arc::new(ChainConfig::calibnet());
                             } else if name == "devnet" {
@@ -50,11 +52,13 @@ where
                     }
                     // Run command
                     match cmd {
-                        Subcommand::Fetch(cmd) => cmd.run(config).await,
+                        Subcommand::Fetch(_cmd) => {
+                            bail_moved_cmd("fetch-params", "forest-tool fetch-params")
+                        }
                         Subcommand::Chain(cmd) => cmd.run(config).await,
                         Subcommand::Auth(cmd) => cmd.run(config).await,
                         Subcommand::Net(cmd) => cmd.run(config).await,
-                        Subcommand::Wallet(cmd) => cmd.run(config).await,
+                        Subcommand::Wallet(..) => bail_moved_cmd("wallet", "forest-wallet"),
                         Subcommand::Sync(cmd) => cmd.run(config).await,
                         Subcommand::Mpool(cmd) => cmd.run(config).await,
                         Subcommand::State(cmd) => cmd.run(config).await,
@@ -66,7 +70,7 @@ where
                         Subcommand::Archive(cmd) => cmd.run().await,
                         Subcommand::Attach(cmd) => cmd.run(config),
                         Subcommand::Shutdown(cmd) => cmd.run(config).await,
-                        Subcommand::Car(cmd) => cmd.run().await,
+                        Subcommand::Car(..) => bail_moved_cmd("car", "forest-tool"),
                     }
                 }
                 Err(e) => {

@@ -74,6 +74,21 @@ jobs:
             ~/.cargo/bin/forest*
           if-no-files-found: error
 
+  cargo-publish-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - run: ./assets/ci_download.sh
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - name: Install Apt Dependencies
+        run: |
+          sudo make install-deps
+      - run: cargo publish --dry-run --allow-dirty # assets are not pulled by git-lfs thus the repo is dirty.
+
   # cli-specific tests
   forest-cli-check:
     needs:
@@ -96,6 +111,29 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
+
+  # tool-specific tests
+  forest-tool-check:
+    needs:
+      - build-ubuntu
+    name: Forest TOOL checks
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: forest-tool check
+        run: ./scripts/tests/forest_tool_check.sh
 
   # miscallenous tests done on calibnet
   calibnet-check:
@@ -195,8 +233,26 @@ jobs:
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
 
+  db-migration-checks:
+    needs:
+      - build-ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Database migration checks
+        run: ./scripts/tests/calibnet_db_migration.sh
+
   local-devnet-check:
-    if: false
     name: Devnet checks
     runs-on: ubuntu-latest
     needs:

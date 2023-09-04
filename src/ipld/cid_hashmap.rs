@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::cid::{CidVariant, BLAKE2B256_SIZE};
+use crate::utils::cid::SmallCid;
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
+use std::collections::hash_map::{Keys, OccupiedEntry, VacantEntry};
 
 // The size of a CID is 96 bytes. A CID contains:
 //   - a version
@@ -17,10 +18,7 @@ use cid::Cid;
 // length=32. Taking advantage of this knowledge, we can store the vast majority of CIDs (+99.99%)
 // in one third of the usual space (32 bytes vs 96 bytes).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct CidHashMap<V> {
-    v1_dagcbor_blake2b_hash_map: HashMap<[u8; BLAKE2B256_SIZE], V>,
-    fallback_hash_map: HashMap<Cid, V>,
-}
+pub struct CidHashMap<V>(HashMap<SmallCid, V>);
 
 impl<V> Extend<(Cid, V)> for CidHashMap<V> {
     fn extend<T: IntoIterator<Item = (Cid, V)>>(&mut self, iter: T) {
@@ -38,101 +36,118 @@ impl<V> FromIterator<(Cid, V)> for CidHashMap<V> {
     }
 }
 
-pub struct IntoIter<V> {
-    small: std::collections::hash_map::IntoIter<[u8; BLAKE2B256_SIZE], V>,
-    fallback: std::collections::hash_map::IntoIter<Cid, V>,
-}
+pub struct IntoIter<V>(std::collections::hash_map::IntoIter<SmallCid, V>);
 
 impl<V> IntoIterator for CidHashMap<V> {
     type Item = (Cid, V);
     type IntoIter = IntoIter<V>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let CidHashMap {
-            v1_dagcbor_blake2b_hash_map,
-            fallback_hash_map,
-        } = self;
-        Self::IntoIter {
-            small: v1_dagcbor_blake2b_hash_map.into_iter(),
-            fallback: fallback_hash_map.into_iter(),
-        }
+        IntoIter(self.0.into_iter())
     }
 }
 
 impl<V> Iterator for IntoIter<V> {
     type Item = (Cid, V);
     fn next(&mut self) -> Option<Self::Item> {
-        self.small
-            .next()
-            .map(|(bytes, v)| (Cid::from(CidVariant::V1DagCborBlake2b(bytes)), v))
-            .or_else(|| self.fallback.next())
+        self.0.next().map(|(small_cid, v)| (small_cid.cid(), v))
+    }
+}
+
+pub struct CidHashMapKeys<'a, V> {
+    keys: Keys<'a, SmallCid, V>,
+}
+
+impl<V> Iterator for CidHashMapKeys<'_, V> {
+    type Item = Cid;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.keys.next().map(|small_cid| small_cid.cid())
+    }
+}
+
+pub enum CidHashMapEntry<'a, V> {
+    Occupied(Occupied<'a, V>),
+    Vacant(Vacant<'a, V>),
+}
+
+pub struct Occupied<'a, V>(OccupiedEntry<'a, SmallCid, V>);
+
+impl<V> Occupied<'_, V> {
+    pub fn get(&self) -> &V {
+        self.0.get()
+    }
+}
+
+pub struct Vacant<'a, V>(VacantEntry<'a, SmallCid, V>);
+
+impl<'a, V> Vacant<'a, V> {
+    pub fn insert(self, value: V) -> &'a mut V {
+        self.0.insert(value)
     }
 }
 
 impl<V> CidHashMap<V> {
     /// Creates an empty `HashMap` with CID type keys.
     pub fn new() -> Self {
-        Self {
-            v1_dagcbor_blake2b_hash_map: HashMap::new(),
-            fallback_hash_map: HashMap::new(),
-        }
+        Self(HashMap::new())
     }
 
     /// Returns `true` if the map contains a value for the specified key.
     pub fn contains_key(&self, k: Cid) -> bool {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => {
-                self.v1_dagcbor_blake2b_hash_map.contains_key(&bytes)
-            }
-            CidVariant::Generic(_) => self.fallback_hash_map.contains_key(&k),
-        }
+        self.0.contains_key(&SmallCid::from(k))
     }
 
     /// Inserts a key-value pair into the map; if the map did not have this key present, [`None`] is returned.
     pub fn insert(&mut self, k: Cid, v: V) -> Option<V> {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => {
-                self.v1_dagcbor_blake2b_hash_map.insert(bytes, v)
-            }
-            CidVariant::Generic(_) => self.fallback_hash_map.insert(k, v),
-        }
+        self.0.insert(SmallCid::from(k), v)
     }
 
     /// Removes a key from the map, returning the value at the key if the key
     /// was previously in the map.
     pub fn remove(&mut self, k: Cid) -> Option<V> {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.remove(&bytes),
-            CidVariant::Generic(_) => self.fallback_hash_map.remove(&k),
-        }
+        self.0.remove(&SmallCid::from(k))
     }
 
     /// Returns the number of elements the map can hold without reallocating.
     pub fn capacity(&self) -> usize {
-        self.v1_dagcbor_blake2b_hash_map.capacity() + self.fallback_hash_map.capacity()
+        self.0.capacity()
     }
 
     /// Returns a reference to the value corresponding to the key.
     pub fn get(&self, k: Cid) -> Option<&V> {
-        match k.into() {
-            CidVariant::V1DagCborBlake2b(bytes) => self.v1_dagcbor_blake2b_hash_map.get(&bytes),
-            CidVariant::Generic(_) => self.fallback_hash_map.get(&k),
-        }
+        self.0.get(&SmallCid::from(k))
     }
 
     /// Returns the number of elements in the map.
     pub fn len(&self) -> usize {
-        self.v1_dagcbor_blake2b_hash_map.len() + self.fallback_hash_map.len()
+        self.0.len()
+    }
+
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    pub fn entry(&mut self, key: Cid) -> CidHashMapEntry<'_, V> {
+        match self.0.entry(SmallCid::from(key)) {
+            std::collections::hash_map::Entry::Occupied(occupied) => {
+                CidHashMapEntry::Occupied(Occupied(occupied))
+            }
+            std::collections::hash_map::Entry::Vacant(vacant) => {
+                CidHashMapEntry::Vacant(Vacant(vacant))
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub fn keys(&self) -> CidHashMapKeys<'_, V> {
+        CidHashMapKeys {
+            keys: self.0.keys(),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::{
-        multihash::{self, MultihashDigest},
-        Cid,
-    };
+    use cid::multihash::{self, MultihashDigest};
     use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck_macros::quickcheck;
 
@@ -208,6 +223,38 @@ mod tests {
     fn len(cid_vector: Vec<(Cid, u64)>) {
         let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
         assert_eq!(cid_hash_map.len(), hash_map.len());
+    }
+
+    #[quickcheck]
+    fn check_entry(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
+        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+        // Insert key half of the time to ensure equal probability of entry being occupied or vacant; occasionally the key will already be present when quickcheck generates the maps, so we also remove the key with 50% probability.
+        if insert {
+            cid_hash_map.insert(cid, 0);
+            hash_map.insert(cid, 0);
+        } else {
+            cid_hash_map.remove(cid);
+            hash_map.remove(&cid);
+        }
+        match cid_hash_map.entry(cid) {
+            CidHashMapEntry::Occupied(occupied) => {
+                assert_eq!(occupied.get(), hash_map.get(&cid).unwrap());
+            }
+            CidHashMapEntry::Vacant(_) => {
+                assert_eq!(cid_hash_map.get(cid), hash_map.get(&cid));
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn keys(cid_vector: Vec<(Cid, u64)>) {
+        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+        // Hash maps are not required to be ordered, but it is important for vectors, so sort the vectors of keys before comparing.
+        let mut cid_hash_map = cid_hash_map.keys().collect::<Vec<Cid>>();
+        cid_hash_map.sort();
+        let mut hash_map = hash_map.keys().cloned().collect::<Vec<Cid>>();
+        hash_map.sort();
+        assert_eq!(cid_hash_map, hash_map);
     }
 
     #[quickcheck]

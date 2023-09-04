@@ -6,6 +6,7 @@
   - [Basic Usage](./basic_usage.md)
   - [Command-line interface](./cli.md)
   - [Configuration](./configuration.md)
+  - [Environment Variables](./environment_variables.md)
   - [Docker](./docker.md)
   - [Snapshot exporting](./snapshot_export.md)
   - [JavaScript Console](./js_console.md)

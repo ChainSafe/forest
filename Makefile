@@ -1,4 +1,4 @@
-VENDORED_DOCS_TOOLCHAIN := "nightly-2023-04-19"
+VENDORED_DOCS_TOOLCHAIN := "nightly-2023-08-28"
 
 # Using https://github.com/tonistiigi/xx
 # Use in Docker images when cross-compiling.
@@ -72,6 +72,7 @@ lint: license clean lint-clippy
 lint-clippy:
 	cargo clippy --quiet --no-deps -- --deny=warnings
 	cargo clippy --tests --quiet --no-deps -- --deny=warnings
+	cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=warnings
 
 DOCKERFILES=$(wildcard Dockerfile*)
 lint-docker: $(DOCKERFILES)

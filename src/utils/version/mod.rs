@@ -12,3 +12,6 @@ pub const GIT_HASH: &str =
 /// E.g., `0.8.0+git.e69baf3e4`
 pub static FOREST_VERSION_STRING: Lazy<String> =
     Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
+
+pub static FOREST_VERSION: Lazy<semver::Version> =
+    Lazy::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));

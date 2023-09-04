@@ -6,10 +6,6 @@
 # - tracking issues with the "security" label
 # - reasons why they're ignored
 ignore = [
-  # Waiting on libp2p to update ed25519-dalek 1.x -> 2.x
-  # https://github.com/ChainSafe/forest/issues/3371
-  "RUSTSEC-2022-0093",
-
   # Unmaintained crates that fvm2 requires, and will not change for
   # compatability/consensus reasons - see
   # https://github.com/filecoin-project/ref-fvm/issues/1843

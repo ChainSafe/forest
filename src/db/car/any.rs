@@ -10,13 +10,13 @@
 
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::Tipset;
-use crate::utils::io::random_access::RandomAccessFile;
+use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::Mutex;
 use positioned_io::ReadAt;
 use std::io::{Error, ErrorKind, Result};
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 pub enum AnyCar<ReaderT> {
@@ -97,10 +97,10 @@ impl TryFrom<&'static [u8]> for AnyCar<&'static [u8]> {
     }
 }
 
-impl TryFrom<PathBuf> for AnyCar<RandomAccessFile> {
+impl TryFrom<&Path> for AnyCar<EitherMmapOrRandomAccessFile> {
     type Error = std::io::Error;
-    fn try_from(path: PathBuf) -> std::io::Result<Self> {
-        AnyCar::new(RandomAccessFile::open(path)?)
+    fn try_from(path: &Path) -> std::io::Result<Self> {
+        AnyCar::new(EitherMmapOrRandomAccessFile::open(path)?)
     }
 }
 
@@ -122,6 +122,18 @@ where
             AnyCar::Plain(plain) => plain.put_keyed(k, block),
             AnyCar::Memory(mem) => mem.put_keyed(k, block),
         }
+    }
+}
+
+impl<ReaderT> From<super::ForestCar<ReaderT>> for AnyCar<ReaderT> {
+    fn from(car: super::ForestCar<ReaderT>) -> Self {
+        Self::Forest(car)
+    }
+}
+
+impl<ReaderT> From<super::PlainCar<ReaderT>> for AnyCar<ReaderT> {
+    fn from(car: super::PlainCar<ReaderT>) -> Self {
+        Self::Plain(car)
     }
 }
 

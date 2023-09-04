@@ -77,6 +77,9 @@ pub struct CliOpts {
     /// Import a snapshot from a local CAR file or URL
     #[arg(long)]
     pub import_snapshot: Option<String>,
+    /// Import a snapshot from a local CAR file and delete it, or from a URL
+    #[arg(long)]
+    pub consume_snapshot: Option<String>,
     /// Halt with exit code 0 after successfully importing a snapshot
     #[arg(long)]
     pub halt_after_import: bool,
@@ -148,7 +151,7 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(self);
+        let path = find_config_path(&self.config);
         let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
@@ -188,11 +191,20 @@ impl CliOpts {
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
+        } else if self.import_snapshot.is_some() && self.consume_snapshot.is_some() {
+            anyhow::bail!("Can't set import_snapshot and consume_snapshot at the same time!")
+        } else if self.consume_snapshot.is_some() && self.import_chain.is_some() {
+            anyhow::bail!("Can't set consume_snapshot and import_chain at the same time!")
         }
 
         if let Some(snapshot_path) = &self.import_snapshot {
             cfg.client.snapshot_path = Some(snapshot_path.into());
             cfg.client.snapshot = true;
+        }
+        if let Some(snapshot_path) = &self.consume_snapshot {
+            cfg.client.snapshot_path = Some(snapshot_path.into());
+            cfg.client.snapshot = true;
+            cfg.client.consume_snapshot = true;
         }
         if let Some(snapshot_path) = &self.import_chain {
             cfg.client.snapshot_path = Some(snapshot_path.into());
@@ -231,6 +243,14 @@ impl CliOpts {
     }
 }
 
+/// CLI RPC options
+#[derive(Default, Debug, Parser)]
+pub struct CliRpcOpts {
+    /// Admin token to interact with the node
+    #[arg(long)]
+    pub token: Option<String>,
+}
+
 pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),
@@ -247,8 +267,8 @@ impl ConfigPath {
     }
 }
 
-fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
-    if let Some(s) = &opts.config {
+pub fn find_config_path(config: &Option<String>) -> Option<ConfigPath> {
+    if let Some(s) = config {
         return Some(ConfigPath::Cli(PathBuf::from(s)));
     }
     if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {

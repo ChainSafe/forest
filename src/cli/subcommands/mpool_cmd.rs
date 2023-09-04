@@ -4,7 +4,6 @@
 use std::str::FromStr;
 
 use crate::blocks::Tipset;
-use crate::json::cid::vec::CidJsonVec;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
@@ -229,15 +228,16 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
+                let messages = mpool_pending((LotusJson(vec![]),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)?;
-                    Some(HashSet::from_iter(response.iter().map(|addr| addr.0)))
+                        .map_err(handle_rpc_err)?
+                        .into_inner();
+                    Some(HashSet::from_iter(response))
                 } else {
                     None
                 };
@@ -274,15 +274,16 @@ impl MpoolCommands {
                         .map_err(handle_rpc_err)?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
+                let messages = mpool_pending((LotusJson(vec![]),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
                     let response = wallet_list((), &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)?;
-                    Some(HashSet::from_iter(response.iter().map(|addr| addr.0)))
+                        .map_err(handle_rpc_err)?
+                        .into_inner();
+                    Some(HashSet::from_iter(response))
                 } else {
                     None
                 };
@@ -373,7 +374,7 @@ mod tests {
         smsg_vec.push(msg);
 
         let smsg_json_vec: Vec<SignedMessage> = smsg_vec.clone().into_iter().collect();
-        let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap().into_iter());
+        let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap());
 
         // Filter local addresses
         let smsg_filtered: Vec<SignedMessage> =
