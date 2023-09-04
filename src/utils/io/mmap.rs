@@ -117,7 +117,7 @@ mod tests {
         let mmap = Mmap::map(&fs::File::open(&temp_file).unwrap()).unwrap();
 
         let mut buffer = [];
-        // Make sure we do not panic.
+        // This matches the behaviour for seeking past the end of a file
         assert_eq!(mmap.read_at(u64::MAX, &mut buffer).unwrap(), 0);
     }
 }
