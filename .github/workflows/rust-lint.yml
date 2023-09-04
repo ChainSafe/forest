@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: "recursive" # checkout the serialization vectors
       - run: ./assets/ci_download.sh
@@ -62,7 +62,7 @@ jobs:
     name: Check cargo files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: ./assets/ci_download.sh
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1

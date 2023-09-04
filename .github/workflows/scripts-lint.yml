@@ -18,7 +18,7 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Run shellcheck
       uses: ludeeus/action-shellcheck@2.0.0
       env:
@@ -26,7 +26,7 @@ jobs:
   rubocop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -38,7 +38,7 @@ jobs:
   run-js-linters:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: |
         yarn install
         yarn js-lint
@@ -46,7 +46,7 @@ jobs:
   docker-lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: validate compose file
       run: docker-compose -f .maintain/monitoring/docker-compose.yml config
     - uses: hadolint/hadolint-action@v3.1.0
@@ -59,7 +59,7 @@ jobs:
   markdown-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           yarn install
           yarn run md-check

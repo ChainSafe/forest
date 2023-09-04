@@ -46,7 +46,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: "recursive" # checkout the serialization vectors
       - run: ./assets/ci_download.sh
@@ -78,7 +78,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: "recursive" # checkout the serialization vectors
       - run: ./assets/ci_download.sh
