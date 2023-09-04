@@ -172,7 +172,7 @@ pub struct ChainConfig {
     /// Number of default recent state roots to keep in memory and include in
     /// the exported snapshot.
     pub recent_state_roots: i64,
-    pub request_window: usize,
+    pub request_window: u32,
 }
 
 #[cfg(test)]
@@ -208,7 +208,7 @@ impl ChainConfig {
             policy: Policy::mainnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -224,7 +224,7 @@ impl ChainConfig {
             policy: Policy::calibnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -258,7 +258,7 @@ impl ChainConfig {
             policy,
             eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
