@@ -3,9 +3,11 @@
 
 pub mod archive_cmd;
 pub mod benchmark_cmd;
+pub mod car_cmd;
 pub mod db_cmd;
 pub mod fetch_params_cmd;
 pub mod snapshot_cmd;
+pub mod state_migration_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
@@ -31,6 +33,10 @@ pub enum Subcommand {
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
 
+    /// State migration tools
+    #[command(subcommand)]
+    StateMigration(state_migration_cmd::StateMigrationCommands),
+
     /// Manage snapshots
     #[command(subcommand)]
     Snapshot(snapshot_cmd::SnapshotCommands),
@@ -46,6 +52,10 @@ pub enum Subcommand {
     /// Database management
     #[command(subcommand)]
     DB(db_cmd::DBCommands),
+
+    /// Utilities for manipulating CAR files
+    #[command(subcommand)]
+    Car(car_cmd::CarCommands),
 }
 
 fn read_config(config: &Option<String>, chain: &Option<NetworkChain>) -> anyhow::Result<Config> {

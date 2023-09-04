@@ -45,7 +45,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_HEAD, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
-    access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
 
@@ -71,6 +70,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
     access.insert(wallet_api::WALLET_SIGN, Access::Sign);
     access.insert(wallet_api::WALLET_VERIFY, Access::Read);
+    access.insert(wallet_api::WALLET_DELETE, Access::Write);
 
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
@@ -223,10 +223,6 @@ pub mod chain_api {
     pub type ChainGetTipSetParams = (LotusJson<TipsetKeys>,);
     pub type ChainGetTipSetResult = LotusJson<Tipset>;
 
-    pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
-    pub type ChainGetNameParams = ();
-    pub type ChainGetNameResult = String;
-
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub type ChainSetHeadParams = (TipsetKeys,);
     pub type ChainSetHeadResult = ();
@@ -323,6 +319,10 @@ pub mod wallet_api {
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
     pub type WalletVerifyParams = (LotusJson<Address>, Vec<u8>, LotusJson<Signature>);
     pub type WalletVerifyResult = bool;
+
+    pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
+    pub type WalletDeleteParams = (String,);
+    pub type WalletDeleteResult = ();
 }
 
 /// State API

@@ -42,7 +42,7 @@ impl DBCommands {
 
                 let config = read_config(config, chain)?;
 
-                let dir = db_root(&chain_path(&config));
+                let dir = db_root(&chain_path(&config))?;
                 println!("Database path: {}", dir.display());
                 let size = fs_extra::dir::get_size(dir).unwrap_or_default();
                 println!("Database size: {}", size.human_count_bytes());

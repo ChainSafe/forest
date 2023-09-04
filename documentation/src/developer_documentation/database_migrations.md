@@ -26,14 +26,12 @@ flowchart TB
     end
     SameDbVersionExists -->|yes| Finish[Finish]
     SameDbVersionExists ==>|no| OlderDbVersionExists{Older DB version exists and migration possible?}:::Yellow
-    OlderDbVersionExists -->|no| NewerDbVersionExists{Newer DB version exists?}
+    OlderDbVersionExists -->|no| CreateVersionedDb
     OlderDbVersionExists ==>|yes| RunMigration[Run migration]:::Yellow
     RunMigration ==> RunChecks[Run checks]:::Yellow
     RunChecks ==> ChecksPassing{Checks passing?}:::Green
     ChecksPassing -->|yes| Finish
     ChecksPassing -->|no| CreateVersionedDb
-    NewerDbVersionExists -->|no| CreateVersionedDb[Create new versioned DB]
-    NewerDbVersionExists -->|yes| RunChecks
     CreateVersionedDb --> Finish
     CreateDevDb --> Finish
     OpenDevDb --> Finish[/Run daemon/]
@@ -43,9 +41,6 @@ classDef Yellow stroke:#ff0,stroke-width:2px;
 ```
 
 Expected migration path is marked in bold.
-
-Note: instead of creating a new database in case of errors, we can choose to
-fail the process completely (this will require manual interventions)
 
 ### Scenarios to cover
 
@@ -64,8 +59,8 @@ and not start the daemon.
 
 If migration succeeds and the checks are passing, the database is atomically
 renamed to `<DATA_DIR>/<NETWORK>/paritydb-vX.Y.Z` and the daemon is started. If
-the checks are not passing, the migration is cancelled and we either fail or
-start the daemon under a new database.
+the checks are not passing, the migration is cancelled, and we start the daemon
+under a new database.
 
 #### Scenario 3: DB exists and is the latest version
 
@@ -73,9 +68,7 @@ The daemon is started and the database path is not changed.
 
 #### Scenario 4: DB exists and is newer than the daemon version
 
-No migration is performed and the daemon is started. A warning is displayed.
-Basic checks are performed to ensure that the database is compatible with the
-daemon.
+The daemon is started with a new database as migrating down is not supported.
 
 ### Use cases
 

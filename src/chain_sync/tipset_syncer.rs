@@ -1073,7 +1073,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
     // Stream through the tipsets from lowest epoch to highest epoch
     stream::iter(tipsets.into_iter().rev())
         // Chunk tipsets in batches (default batch size is 8)
-        .chunks(request_window)
+        .chunks(request_window as usize)
         // Request batches from the p2p network
         .map(|batch| fetch_batch(batch, &network, db))
         // run 64 batches concurrently

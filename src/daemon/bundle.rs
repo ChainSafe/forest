@@ -2,22 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Context;
-use async_compression::futures::bufread::ZstdDecoder;
+use async_compression::tokio::bufread::ZstdDecoder;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use static_assertions::const_assert_eq;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>> {
     const ERROR_MESSAGE: &str = "Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>";
 
     const ACTOR_BUNDLES_CAR_ZST: &[u8] = include_bytes!("../../assets/actor_bundles.car.zst");
-    // Check bundle size at compile time, see `ERROR_MESSAGE` for details.
-    // Note: make sure the bundle size is updated with the bundle file.
-    const_assert_eq!(ACTOR_BUNDLES_CAR_ZST.len(), 2438387);
 
     fvm_ipld_car::load_car(
         db,
-        ZstdDecoder::new(futures::io::BufReader::new(ACTOR_BUNDLES_CAR_ZST)),
+        ZstdDecoder::new(tokio::io::BufReader::new(ACTOR_BUNDLES_CAR_ZST)).compat(),
     )
     .await
     .context(ERROR_MESSAGE)
@@ -26,7 +23,7 @@ pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build::ACTOR_BUNDLES;
+    use crate::networks::ACTOR_BUNDLES;
     use ahash::HashSet;
     use pretty_assertions::assert_eq;
 

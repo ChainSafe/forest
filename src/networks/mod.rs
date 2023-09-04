@@ -3,16 +3,19 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
-use crate::shim::version::NetworkVersion;
 use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
+use once_cell::sync::Lazy;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+
+use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
+use crate::shim::version::NetworkVersion;
 
 mod drand;
 
@@ -32,6 +35,7 @@ const DEFAULT_REQUEST_WINDOW: usize = 8;
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
     Mainnet,
@@ -73,6 +77,7 @@ impl NetworkChain {
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Height {
     Breeze,
     Smoke,
@@ -132,6 +137,7 @@ impl From<Height> for NetworkVersion {
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
     pub height: Height,
     pub epoch: ChainEpoch,
@@ -151,22 +157,31 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
+    #[cfg_attr(test, arbitrary(gen(
+        |g: &mut quickcheck::Gen| {
+            let addr = std::net::Ipv4Addr::arbitrary(&mut *g);
+            let n = u8::arbitrary(g) as usize;
+            vec![addr.into(); n]
+        }
+    )))]
     pub bootstrap_peers: Vec<Multiaddr>,
-    pub block_delay_secs: u64,
-    pub propagation_delay_secs: u64,
+    pub block_delay_secs: u32,
+    pub propagation_delay_secs: u32,
     pub height_infos: Vec<HeightInfo>,
+    #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
     #[serde(default = "default_policy")]
     pub policy: Policy,
-    pub eth_chain_id: u64,
+    pub eth_chain_id: u32,
     /// Number of default recent state roots to keep in memory and include in
     /// the exported snapshot.
     pub recent_state_roots: i64,
-    pub request_window: usize,
+    pub request_window: u32,
 }
 
 impl ChainConfig {
@@ -176,13 +191,13 @@ impl ChainConfig {
             network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -192,13 +207,13 @@ impl ChainConfig {
             network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -230,9 +245,9 @@ impl ChainConfig {
             propagation_delay_secs: 1,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy,
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -271,7 +286,7 @@ impl ChainConfig {
                     height: dc.height,
                     beacon: Box::new(DrandBeacon::new(
                         genesis_ts,
-                        self.block_delay_secs,
+                        self.block_delay_secs as u64,
                         dc.config,
                     )),
                 })
@@ -320,3 +335,54 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
         })
         .collect()
 }
+
+#[derive(Debug)]
+pub struct ActorBundleInfo {
+    pub manifest: Cid,
+    pub url: Url,
+}
+
+pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 9]> = Lazy::new(|| {
+    [
+        // calibnet
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap(),
+        },
+        // devnet 
+        ActorBundleInfo {
+            manifest: Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-devnet.car").unwrap(),
+        },
+        // devnet
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-devnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-devnet.car").unwrap(),
+        },
+        // mainnet
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-mainnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap(),
+        },
+        ActorBundleInfo{
+            manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
+            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-mainnet.car").unwrap(),
+        },
+    ]
+});

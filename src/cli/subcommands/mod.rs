@@ -9,14 +9,13 @@
 mod archive_cmd;
 mod attach_cmd;
 mod auth_cmd;
-mod car_cmd;
 mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
-pub mod send_cmd;
+pub(crate) mod send_cmd;
 mod shutdown_cmd;
 mod snapshot_cmd;
 mod state_cmd;
@@ -33,11 +32,12 @@ use cid::Cid;
 use clap::Parser;
 use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
+use std::path::PathBuf;
 use tracing::error;
 
 pub(super) use self::{
     archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
-    car_cmd::CarCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
+    chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
     mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
     shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
     sync_cmd::SyncCommands,
@@ -112,6 +112,16 @@ pub enum WalletCommands {
     },
 }
 
+// This subcommand is hidden and only here to help users migrating to forest-tool
+#[derive(Debug, clap::Subcommand)]
+pub enum CarCommands {
+    Concat {
+        car_files: Vec<PathBuf>,
+        #[arg(short, long)]
+        output: PathBuf,
+    },
+}
+
 /// Forest binary sub-commands available.
 #[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
@@ -177,7 +187,8 @@ pub enum Subcommand {
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
 
-    /// Utilities for manipulating CAR files
+    // This subcommand is hidden and only here to help users migrating to forest-tool
+    #[command(hide = true)]
     #[command(subcommand)]
     Car(CarCommands),
 }

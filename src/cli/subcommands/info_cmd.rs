@@ -5,7 +5,7 @@ use crate::blocks::Tipset;
 use crate::cli_shared::cli::CliOpts;
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::{
-    chain_get_name, chain_head, node_ops::node_status, start_time, wallet_balance,
+    chain_head, node_ops::node_status, start_time, state_network_name, wallet_balance,
     wallet_default_address,
 };
 use crate::shim::econ::TokenAmount;
@@ -156,7 +156,7 @@ impl NodeStatusInfo {
             )
         };
 
-        vec![network, uptime, chain, chain_health, wallet_info].join("\n")
+        [network, uptime, chain, chain_health, wallet_info].join("\n")
     }
 }
 
@@ -165,7 +165,7 @@ impl InfoCommand {
         let res = tokio::try_join!(
             node_status((), &config.client.rpc_token),
             chain_head(&config.client.rpc_token),
-            chain_get_name((), &config.client.rpc_token),
+            state_network_name((), &config.client.rpc_token),
             start_time(&config.client.rpc_token),
             wallet_default_address((), &config.client.rpc_token)
         );

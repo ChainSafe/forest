@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod mmap;
 pub mod progress_bar;
 pub mod progress_log;
 mod tempfile;
@@ -12,6 +13,7 @@ use std::{
     path::Path,
 };
 
+pub use mmap::{EitherMmapOrRandomAccessFile, Mmap};
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
 pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;

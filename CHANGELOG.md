@@ -42,6 +42,14 @@
   - `forest-cli db clean` to `forest-tool db destroy`
 - [#3362](https://github.com/ChainSafe/forest/pull/3362) Moved the following
   `forest-cli wallet` subcommands to `forest-wallet`
+- [#3432](https://github.com/ChainSafe/forest/pull/3432) Moved following
+  `forest-cli` subcommands to `forest-tool`
+  - `archive export`
+  - `archive checkpoints`
+- [#3431](https://github.com/ChainSafe/forest/pull/3431) Moved the following
+  `forest-cli snapshot compress` subcommand to `forest-tool`
+- [#3435](https://github.com/ChainSafe/forest/pull/3435) Moved subcommand
+  `forest-cli car concat` subcommands to `forest-tool`
 
 ### Added
 
@@ -53,9 +61,15 @@
   `forest-cli snapshot export`.
 - [#3348](https://github.com/ChainSafe/forest/pull/3348): Add `--diff-depth`
   flag to `forest-cli archive export`.
+- [#3325](https://github.com/ChainSafe/forest/pull/3325): Add
+  `forest-tool state-migration actor-bundle` subcommand.
+- [#3387](https://github.com/ChainSafe/forest/pull/3387): Add
+  `forest-wallet delete` RPC command.
 - [#3322](https://github.com/ChainSafe/forest/issues/3322): Added prompt to
   `forest-cli archive export` to overwrite file if the file specified with
   `--output-path` already exists and a `--force` flag to suppress the prompt.
+- [#3439](https://github.com/ChainSafe/forest/pull/3439): Add
+  `--consume-snapshot` option to `forest` command.
 
 ### Changed
 

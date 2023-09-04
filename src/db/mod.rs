@@ -1,22 +1,24 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod car;
 mod memory;
 mod metrics;
 pub mod parity_db;
 pub mod parity_db_config;
-
+pub mod rolling;
 pub use memory::MemoryDB;
+mod db_mode;
+pub mod migration;
+
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-pub mod car;
-
-pub mod rolling;
+use std::sync::Arc;
 
 pub mod setting_keys {
-    /// Key used to store the heaviest tipset in the settings store.
+    /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKeys`]
     pub const HEAD_KEY: &str = "head";
-    /// Estimated number of IPLD records in the database.
+    /// Estimated number of IPLD records in the database. This is expected to be a `usize`
     pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
@@ -38,6 +40,24 @@ pub trait SettingsStore {
 
     /// Returns all setting keys.
     fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
+}
+
+impl<T: SettingsStore> SettingsStore for Arc<T> {
+    fn read_bin(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        SettingsStore::read_bin(self.as_ref(), key)
+    }
+
+    fn write_bin(&self, key: &str, value: &[u8]) -> anyhow::Result<()> {
+        SettingsStore::write_bin(self.as_ref(), key, value)
+    }
+
+    fn exists(&self, key: &str) -> anyhow::Result<bool> {
+        SettingsStore::exists(self.as_ref(), key)
+    }
+
+    fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
+        SettingsStore::setting_keys(self.as_ref())
+    }
 }
 
 /// Extension trait for the [`SettingsStore`] trait. It is implemented for all types that implement
@@ -88,12 +108,14 @@ pub mod db_engine {
 
     use crate::db::rolling::*;
 
+    use super::db_mode::choose_db;
+
     pub type Db = crate::db::parity_db::ParityDb;
     pub type DbConfig = crate::db::parity_db_config::ParityDbConfig;
-    const DIR_NAME: &str = "paritydb";
 
-    pub fn db_root(chain_data_root: &Path) -> PathBuf {
-        chain_data_root.join(DIR_NAME)
+    /// Returns the path to the database directory to be used by the daemon.
+    pub fn db_root(chain_data_root: &Path) -> anyhow::Result<PathBuf> {
+        choose_db(chain_data_root)
     }
 
     pub(in crate::db) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {

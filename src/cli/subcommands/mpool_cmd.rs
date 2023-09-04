@@ -374,7 +374,7 @@ mod tests {
         smsg_vec.push(msg);
 
         let smsg_json_vec: Vec<SignedMessage> = smsg_vec.clone().into_iter().collect();
-        let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap().into_iter());
+        let local_addrs = HashSet::from_iter(wallet.list_addrs().unwrap());
 
         // Filter local addresses
         let smsg_filtered: Vec<SignedMessage> =

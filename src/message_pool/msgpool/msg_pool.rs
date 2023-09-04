@@ -558,7 +558,7 @@ where
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
-        let republish_interval = 10 * block_delay + chain_config.propagation_delay_secs;
+        let republish_interval = (10 * block_delay + chain_config.propagation_delay_secs) as u64;
         // Reacts to republishing requests
         services.spawn(async move {
             let mut repub_trigger_rx = repub_trigger_rx.stream();

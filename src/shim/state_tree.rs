@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use cid::Cid;
 pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
@@ -34,13 +34,15 @@ pub enum StateTreeVersion {
     V5,
 }
 
-impl TryFrom<StateTreeVersionV3> for StateTreeVersion {
-    type Error = anyhow::Error;
-    fn try_from(value: StateTreeVersionV3) -> anyhow::Result<Self> {
-        if let Some(v) = FromPrimitive::from_u32(value as u32) {
-            Ok(v)
-        } else {
-            bail!("Invalid conversion");
+impl From<StateTreeVersionV3> for StateTreeVersion {
+    fn from(value: StateTreeVersionV3) -> Self {
+        match value {
+            StateTreeVersionV3::V0 => StateTreeVersion::V0,
+            StateTreeVersionV3::V1 => StateTreeVersion::V1,
+            StateTreeVersionV3::V2 => StateTreeVersion::V2,
+            StateTreeVersionV3::V3 => StateTreeVersion::V3,
+            StateTreeVersionV3::V4 => StateTreeVersion::V4,
+            StateTreeVersionV3::V5 => StateTreeVersion::V5,
         }
     }
 }
@@ -94,8 +96,12 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 /// Not all the inner methods are implemented, only those that are needed. Feel
 /// free to add those when necessary.
 pub enum StateTree<S> {
-    V2(StateTreeV2<Arc<S>>),
-    V3(StateTreeV3<Arc<S>>),
+    // Version 0 is used to parse the genesis block.
+    V0(super::state_tree_v0::StateTreeV0<Arc<S>>),
+    // fvm-2 support state tree versions 3 and 4.
+    FvmV2(StateTreeV2<Arc<S>>),
+    // fvm-3 support state tree versions 5.
+    FvmV3(StateTreeV3<Arc<S>>),
 }
 
 impl<S> StateTree<S>
@@ -105,9 +111,9 @@ where
     /// Constructor for a HAMT state tree given an IPLD store
     pub fn new(store: Arc<S>, version: StateTreeVersion) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
-            Ok(StateTree::V3(st))
+            Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
-            Ok(StateTree::V2(st))
+            Ok(StateTree::FvmV2(st))
         } else {
             bail!("Can't create a valid state tree for the given version.");
         }
@@ -115,9 +121,11 @@ where
 
     pub fn new_from_root(store: Arc<S>, c: &Cid) -> anyhow::Result<Self> {
         if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
-            Ok(StateTree::V3(st))
-        } else if let Ok(st) = StateTreeV2::new_from_root(store, c) {
-            Ok(StateTree::V2(st))
+            Ok(StateTree::FvmV3(st))
+        } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
+            Ok(StateTree::FvmV2(st))
+        } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store, c) {
+            Ok(StateTree::V0(st))
         } else {
             bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version.")
         }
@@ -126,16 +134,27 @@ where
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
-            StateTree::V2(st) => Ok(st
+            StateTree::FvmV2(st) => Ok(st
                 .get_actor(&addr.into())
-                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .map_err(|e| anyhow!("{e}"))?
                 .map(Into::into)),
-            StateTree::V3(st) => {
+            StateTree::FvmV3(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
                     Ok(st
                         .get_actor(id)
-                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .map_err(|e| anyhow!("{e}"))?
+                        .map(Into::into))
+                } else {
+                    Ok(None)
+                }
+            }
+            StateTree::V0(st) => {
+                let id = st.lookup_id(addr)?;
+                if let Some(id) = id {
+                    Ok(st
+                        .get_actor(&id)
+                        .map_err(|e| anyhow!("{e}"))?
                         .map(Into::into))
                 } else {
                     Ok(None)
@@ -147,18 +166,18 @@ where
     /// Retrieve store reference to modify db.
     pub fn store(&self) -> &S {
         match self {
-            StateTree::V2(st) => st.store(),
-            StateTree::V3(st) => st.store(),
+            StateTree::FvmV2(st) => st.store(),
+            StateTree::FvmV3(st) => st.store(),
+            StateTree::V0(st) => st.store(),
         }
     }
 
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<ActorID>> {
         match self {
-            StateTree::V2(st) => st
-                .lookup_id(&addr.into())
-                .map_err(|e| anyhow::anyhow!("{e}")),
-            StateTree::V3(st) => Ok(st.lookup_id(&addr.into())?),
+            StateTree::FvmV2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
+            _ => bail!("StateTree::lookup_id not supported on old state trees"),
         }
     }
 
@@ -167,42 +186,45 @@ where
         F: FnMut(Address, &ActorState) -> anyhow::Result<()>,
     {
         match self {
-            StateTree::V2(st) => {
+            StateTree::FvmV2(st) => {
                 let inner = |address: fvm_shared2::address::Address, actor_state: &ActorStateV2| {
                     f(address.into(), &actor_state.into())
                 };
                 st.for_each(inner)
             }
-            StateTree::V3(st) => {
+            StateTree::FvmV3(st) => {
                 let inner = |address: fvm_shared3::address::Address, actor_state: &ActorStateV3| {
                     f(address.into(), &actor_state.into())
                 };
                 st.for_each(inner)
             }
+            _ => bail!("StateTree::for_each not supported on old state trees"),
         }
     }
 
     /// Flush state tree and return Cid root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         match self {
-            StateTree::V2(st) => st.flush().map_err(|e| anyhow::anyhow!("{e}")),
-            StateTree::V3(st) => Ok(st.flush()?),
+            StateTree::FvmV2(st) => st.flush().map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV3(st) => Ok(st.flush()?),
+            _ => bail!("StateTree::flush not supported on old state trees"),
         }
     }
 
     /// Set actor state with an actor ID.
     pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> anyhow::Result<()> {
         match self {
-            StateTree::V2(st) => st
+            StateTree::FvmV2(st) => st
                 .set_actor(&addr.into(), actor.into())
-                .map_err(|e| anyhow::anyhow!("{e}")),
-            StateTree::V3(st) => {
+                .map_err(|e| anyhow!("{e}")),
+            StateTree::FvmV3(st) => {
                 let id = st
                     .lookup_id(&addr.into())?
                     .context("couldn't find actor id")?;
                 st.set_actor(id, actor.into());
                 Ok(())
             }
+            _ => bail!("StateTree::set_actor not supported on old state trees"),
         }
     }
 }
@@ -332,5 +354,48 @@ impl From<&ActorState> for ActorStateV2 {
             sequence: other.sequence,
             balance: TokenAmount::from(&other.balance).into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StateTree;
+    use crate::blocks::BlockHeader;
+    use crate::db::car::AnyCar;
+    use crate::networks::{calibnet, mainnet};
+    use cid::Cid;
+    use fil_actor_interface::init::{self, State};
+    use std::sync::Arc;
+
+    // refactored from `StateManager::get_network_name`
+    fn get_network_name(car: &'static [u8], genesis_cid: Cid) -> String {
+        let forest_car = AnyCar::new(car).unwrap();
+        let genesis_block = BlockHeader::load(&forest_car, genesis_cid)
+            .unwrap()
+            .unwrap();
+        let state =
+            StateTree::new_from_root(Arc::new(&forest_car), genesis_block.state_root()).unwrap();
+        let init_act = state.get_actor(&init::ADDRESS.into()).unwrap().unwrap();
+
+        let state = State::load(&forest_car, init_act.code, init_act.state).unwrap();
+
+        state.into_network_name()
+    }
+
+    #[test]
+    fn calibnet_network_name() {
+        assert_eq!(
+            get_network_name(calibnet::DEFAULT_GENESIS, *calibnet::GENESIS_CID),
+            "calibrationnet"
+        );
+    }
+
+    #[test]
+    fn mainnet_network_name() {
+        // Yes, the name of `mainnet` in the genesis block really is `testnetnet`.
+        assert_eq!(
+            get_network_name(mainnet::DEFAULT_GENESIS, *mainnet::GENESIS_CID),
+            "testnetnet"
+        );
     }
 }

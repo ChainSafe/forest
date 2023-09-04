@@ -57,7 +57,7 @@ where
     use sync_api::*;
     use wallet_api::*;
 
-    let block_delay = state.state_manager.chain_config().block_delay_secs;
+    let block_delay = state.state_manager.chain_config().block_delay_secs as u64;
     let rpc_server = Arc::new(
         Server::new()
             .with_data(Data(state))
@@ -77,7 +77,6 @@ where
             .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
             .with_method(CHAIN_HEAD, chain_head::<DB>)
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
-            .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB>)
             .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
             .with_method(
                 CHAIN_GET_MIN_BASE_FEE,
@@ -102,6 +101,7 @@ where
             .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
             .with_method(WALLET_SIGN, wallet_sign::<DB>)
             .with_method(WALLET_VERIFY, wallet_verify::<DB>)
+            .with_method(WALLET_DELETE, wallet_delete::<DB>)
             // State API
             .with_method(STATE_CALL, state_call::<DB>)
             .with_method(STATE_REPLAY, state_replay::<DB>)
