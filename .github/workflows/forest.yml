@@ -112,29 +112,6 @@ jobs:
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
 
-  # tool-specific tests
-  forest-tool-check:
-    needs:
-      - build-ubuntu
-    name: Forest TOOL checks
-    runs-on: ubuntu-latest
-    steps:
-      # To help investigate transient test failures
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: forest-${{ runner.os }}
-          path: ~/.cargo/bin
-      # Permissions are lost during artifact-upload
-      # https://github.com/actions/upload-artifact#permission-loss
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: forest-tool check
-        run: ./scripts/tests/forest_tool_check.sh
-
   # miscallenous tests done on calibnet
   calibnet-check:
     needs:

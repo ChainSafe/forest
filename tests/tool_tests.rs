@@ -24,3 +24,14 @@ fn export_empty_archive() {
         "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)\n"
     )
 }
+
+// Exporting an empty archive should fail but not panic
+#[test]
+fn state_migration_actor_bundle_runs() {
+    tool()
+        .unwrap()
+        .arg("state-migration")
+        .arg("actor-bundle")
+        .assert()
+        .success();
+}
