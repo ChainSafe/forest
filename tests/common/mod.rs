@@ -11,6 +11,10 @@ pub fn cli() -> Result<Command> {
     Ok(Command::cargo_bin("forest-cli")?)
 }
 
+pub fn tool() -> Result<Command> {
+    Ok(Command::cargo_bin("forest-tool")?)
+}
+
 pub fn daemon() -> Result<Command> {
     Ok(Command::cargo_bin("forest")?)
 }
