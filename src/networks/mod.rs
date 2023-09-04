@@ -158,14 +158,23 @@ struct DrandPoint<'a> {
 
 /// Defines all network configuration parameters.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
+    #[cfg_attr(test, arbitrary(gen(
+        |g: &mut quickcheck::Gen| {
+            let addr = std::net::Ipv4Addr::arbitrary(&mut *g);
+            let n = u8::arbitrary(g) as usize;
+            vec![addr.into(); n]
+        }
+    )))]
     pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u32,
     pub propagation_delay_secs: u32,
     pub height_infos: Vec<HeightInfo>,
+    #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
     #[serde(default = "default_policy")]
     pub policy: Policy,
     pub eth_chain_id: u32,
@@ -173,26 +182,6 @@ pub struct ChainConfig {
     /// the exported snapshot.
     pub recent_state_roots: i64,
     pub request_window: u32,
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ChainConfig {
-    fn arbitrary(g: &mut quickcheck::Gen) -> ChainConfig {
-        use quickcheck::Arbitrary;
-        ChainConfig {
-            network: Arbitrary::arbitrary(g),
-            genesis_cid: Arbitrary::arbitrary(g),
-            block_delay_secs: Arbitrary::arbitrary(g),
-            propagation_delay_secs: Arbitrary::arbitrary(g),
-            height_infos: Arbitrary::arbitrary(g),
-            eth_chain_id: Arbitrary::arbitrary(g),
-            recent_state_roots: Arbitrary::arbitrary(g),
-            request_window: Arbitrary::arbitrary(g),
-            // Set `bootstrap_peers' and `policy` to their default values as
-            // they do not implement `Arbitrary`.
-            ..Default::default()
-        }
-    }
 }
 
 impl ChainConfig {
