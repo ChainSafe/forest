@@ -65,6 +65,19 @@ pub enum ArchiveCommands {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
     },
+    /// Merge snapshot archives into a single file
+    Merge {
+        /// Snapshot input path. Supports '.car', '.car.zst', and '.forest.car.zst'.
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+        /// Snapshot output filename or directory. Defaults to
+        /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
+        #[arg(short, long, default_value = ".", verbatim_doc_comment)]
+        output_path: PathBuf,
+        /// Overwrite output file without prompting.
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    }
 }
 
 impl ArchiveCommands {
