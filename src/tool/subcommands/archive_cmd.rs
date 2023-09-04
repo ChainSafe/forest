@@ -49,11 +49,11 @@ pub enum ArchiveCommands {
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
         /// Do not include any values reachable from this epoch.
-        #[arg(short, long)]
+        #[arg(long)]
         diff: Option<ChainEpoch>,
         /// How many state-roots to include when computing the diff set. All
         /// state-roots are included if this flag is not set.
-        #[arg(short, long)]
+        #[arg(long)]
         diff_depth: Option<ChainEpochDelta>,
         /// Overwrite output file without prompting.
         #[arg(long, default_value_t = false)]

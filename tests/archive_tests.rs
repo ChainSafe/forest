@@ -21,6 +21,6 @@ fn export_empty_archive() {
         .failure();
     assert_eq!(
         std::str::from_utf8(&output.get_output().stderr).unwrap(),
-        "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)"
+        "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)\n"
     )
 }
