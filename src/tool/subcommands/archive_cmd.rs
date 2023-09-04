@@ -12,7 +12,7 @@ use crate::db::car::{AnyCar, RandomAccessFileReader};
 use crate::ipld::{stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
-use anyhow::{bail, Context as _};
+use anyhow::{bail, Context as _, Result};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -77,11 +77,11 @@ pub enum ArchiveCommands {
         /// Overwrite output file without prompting.
         #[arg(long, default_value_t = false)]
         force: bool,
-    }
+    },
 }
 
 impl ArchiveCommands {
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self) -> Result<()> {
         match self {
             Self::Info { snapshot } => {
                 println!(
@@ -116,6 +116,11 @@ impl ArchiveCommands {
             Self::Checkpoints {
                 snapshot_files: snapshot,
             } => print_checkpoints(snapshot),
+            Self::Merge {
+                snapshot_files,
+                output_path,
+                force,
+            } => merge_snapshots(snapshot_files, output_path, force).await,
         }
     }
 }
@@ -143,7 +148,7 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
+    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> Result<Self> {
         Self::from_store_with(store, true)
     }
 
@@ -153,7 +158,7 @@ impl ArchiveInfo {
     fn from_store_with(
         store: AnyCar<impl RandomAccessFileReader>,
         progress: bool,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self> {
         let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
@@ -228,7 +233,7 @@ impl ArchiveInfo {
 
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
-fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> Result<()> {
     let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
 
@@ -299,7 +304,7 @@ async fn do_export(
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
     force: bool,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let ts = Arc::new(root);
 
     let genesis = ts.genesis(&store)?;
@@ -383,6 +388,14 @@ async fn do_export(
 
     crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
 
+    Ok(())
+}
+
+async fn merge_snapshots(
+    snapshot_files: Vec<PathBuf>,
+    output_path: PathBuf,
+    force: bool,
+) -> Result<()> {
     Ok(())
 }
 
