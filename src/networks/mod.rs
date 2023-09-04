@@ -35,6 +35,7 @@ const DEFAULT_REQUEST_WINDOW: usize = 8;
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
     Mainnet,
@@ -76,6 +77,7 @@ impl NetworkChain {
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Height {
     Breeze,
     Smoke,
@@ -135,6 +137,7 @@ impl From<Height> for NetworkVersion {
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
     pub height: Height,
     pub epoch: ChainEpoch,
@@ -154,22 +157,31 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
+    #[cfg_attr(test, arbitrary(gen(
+        |g: &mut quickcheck::Gen| {
+            let addr = std::net::Ipv4Addr::arbitrary(&mut *g);
+            let n = u8::arbitrary(g) as usize;
+            vec![addr.into(); n]
+        }
+    )))]
     pub bootstrap_peers: Vec<Multiaddr>,
-    pub block_delay_secs: u64,
-    pub propagation_delay_secs: u64,
+    pub block_delay_secs: u32,
+    pub propagation_delay_secs: u32,
     pub height_infos: Vec<HeightInfo>,
+    #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
     #[serde(default = "default_policy")]
     pub policy: Policy,
-    pub eth_chain_id: u64,
+    pub eth_chain_id: u32,
     /// Number of default recent state roots to keep in memory and include in
     /// the exported snapshot.
     pub recent_state_roots: i64,
-    pub request_window: usize,
+    pub request_window: u32,
 }
 
 impl ChainConfig {
@@ -179,13 +191,13 @@ impl ChainConfig {
             network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -195,13 +207,13 @@ impl ChainConfig {
             network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -233,9 +245,9 @@ impl ChainConfig {
             propagation_delay_secs: 1,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy,
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -274,7 +286,7 @@ impl ChainConfig {
                     height: dc.height,
                     beacon: Box::new(DrandBeacon::new(
                         genesis_ts,
-                        self.block_delay_secs,
+                        self.block_delay_secs as u64,
                         dc.config,
                     )),
                 })
