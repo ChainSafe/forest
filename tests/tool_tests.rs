@@ -10,7 +10,7 @@ use crate::common::tool;
 // Exporting an empty archive should fail but not panic
 #[test]
 fn export_empty_archive() {
-    let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+    let mut temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
     temp_file.write_all(&[]).unwrap();
     let output = tool()
         .unwrap()
