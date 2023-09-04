@@ -53,7 +53,10 @@ impl Store {
                     required_snapshot.epoch_range.end()
                 );
                 let tmp_forest_file = PathBuf::from(&compressed_name);
-                super::forest::compress(&PathBuf::from(required_snapshot.url()), &tmp_forest_file)?;
+                let tmp_download_path = PathBuf::from("tmp.car.zst");
+                required_snapshot.download(&tmp_download_path)?;
+                super::forest::compress(&tmp_download_path, &tmp_forest_file)?;
+                std::fs::remove_file(&tmp_download_path)?;
                 self.local
                     .insert(required_snapshot.epoch_range.clone(), tmp_forest_file);
             }
