@@ -25,7 +25,7 @@ fn export_empty_archive() {
     )
 }
 
-// Exporting an empty archive should fail but not panic
+// Running `forest-tool state-migration actor-bundle` may not fail.
 #[test]
 fn state_migration_actor_bundle_runs() {
     tool()
