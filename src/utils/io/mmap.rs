@@ -113,14 +113,11 @@ mod tests {
 
     #[test]
     fn test_out_of_band_mmap_read() {
-        let tmp = tempfile::Builder::new()
-            .tempfile()
-            .unwrap()
-            .into_temp_path();
-        fs::write(&tmp, []).unwrap();
-        let mmap = Mmap::map(&fs::File::open(&tmp).unwrap()).unwrap();
+        let temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
+        let mmap = Mmap::map(&fs::File::open(&temp_file).unwrap()).unwrap();
 
         let mut buffer = [];
+        // Make sure we do not panic.
         assert_eq!(mmap.read_at(u64::MAX, &mut buffer).unwrap(), 0);
     }
 }

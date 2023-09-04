@@ -3,33 +3,29 @@
 
 pub mod common;
 
-use std::io::Write;
+use predicates::prelude::*;
 
 use crate::common::tool;
 
 // Exporting an empty archive should fail but not panic
 #[test]
 fn export_empty_archive() {
-    let mut temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
-    temp_file.write_all(&[]).unwrap();
-    let output = tool()
-        .unwrap()
+    let temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
+    tool()
         .arg("archive")
         .arg("export")
         .arg(temp_file.path())
         .assert()
-        .failure();
-    assert_eq!(
-        std::str::from_utf8(&output.get_output().stderr).unwrap(),
-        "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)\n"
-    )
+        .failure()
+        .stderr(predicate::eq(
+            "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)\n",
+        ));
 }
 
 // Running `forest-tool state-migration actor-bundle` may not fail.
 #[test]
 fn state_migration_actor_bundle_runs() {
     tool()
-        .unwrap()
         .arg("state-migration")
         .arg("actor-bundle")
         .assert()

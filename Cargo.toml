@@ -196,6 +196,7 @@ fvm3 = { package = "fvm", default-features = false, version = "~3.5", features =
 fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["arb"] }
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
+predicates = "3.0"
 quickcheck = "1"
 quickcheck_macros = "1"
 tokio-test = "0.4.2"
