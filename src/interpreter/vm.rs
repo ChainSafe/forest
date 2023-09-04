@@ -164,9 +164,7 @@ where
         if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
-            config.chain_id(fvm_shared3::chainid::ChainID::from(
-                chain_config.eth_chain_id as u64,
-            ));
+            config.chain_id((chain_config.eth_chain_id as u64).into());
             if let NetworkChain::Devnet(_) = chain_config.network {
                 config.enable_actor_debugging();
             }
