@@ -88,7 +88,6 @@ is-terminal = "0.4"
 itertools = "0.11.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 jsonwebtoken = "8.1"
-lazy_static = "1.4"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
