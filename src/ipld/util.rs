@@ -452,9 +452,7 @@ pin_project! {
     pub struct UnorderedChainStream<DB, T> {
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
-        #[pin]
         block_receiver: flume::Receiver<anyhow::Result<Block>>,
-        block_sender: flume::Sender<anyhow::Result<Block>>,
         fail_on_dead_links: bool,
         marker: PhantomData<(DB, T)>,
     }
@@ -494,7 +492,7 @@ pub fn unordered_stream_chain<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = flume::bounded(1024);
+    let (sender, receiver) = flume::bounded(2048);
 
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
     let handle = UnorderedChainStream::start_workers(
@@ -511,7 +509,6 @@ pub fn unordered_stream_chain<
         worker_handle: handle,
         fail_on_dead_links: true,
         block_receiver: receiver,
-        block_sender: sender,
         marker: Default::default(),
     }
 }
@@ -532,20 +529,34 @@ impl<
     ) -> JoinHandle<anyhow::Result<()>> {
         let handle = task::spawn(async move {
             let mut handles = JoinSet::new();
-            let (filter_sender, filter_receiver) = flume::unbounded();
             let (extract_sender, extract_receiver) = flume::unbounded();
             let (emit_sender, emit_receiver) = flume::unbounded();
 
-            {
+            for _ in 0..num_cpus::get() * 3 {
                 let seen = seen.clone();
+                let extract_receiver: flume::Receiver<Vec<Cid>> = extract_receiver.clone();
                 let extract_sender = extract_sender.clone();
-
+                let db = db.clone();
+                let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(cid_vec) = filter_receiver.recv_async().await {
-                        let mut seen = seen.lock();
-                        for cid in cid_vec {
-                            if should_save_block_to_snapshot(cid) && seen.insert(cid) {
-                                extract_sender.send(cid).expect("unreachable");
+                    while let Ok(mut cid_vec) = extract_receiver.recv_async().await {
+                        while let Some(cid) = cid_vec.pop() {
+                            if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
+                                if let Some(data) = db.get(&cid)? {
+                                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                        let mut new_values = extract_cids(&data)?;
+                                        cid_vec.reserve(new_values.len());
+                                        cid_vec.append(&mut new_values);
+                                    }
+                                    block_sender
+                                        .send(Ok(Block { cid, data }))
+                                        .expect("unreachable");
+                                } else if fail_on_dead_links {
+                                    block_sender
+                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)))
+                                        .expect("unreachable");
+                                    break;
+                                }
                             }
                         }
                     }
@@ -554,53 +565,27 @@ impl<
             }
 
             // TODO: bench to see what works best.
-            for _ in 0..num_cpus::get() {
-                let block_sender = block_sender.clone();
-                let filter_sender = filter_sender.clone();
-                let extract_receiver = extract_receiver.clone();
-                let db = db.clone();
-                handles.spawn(async move {
-                    while let Ok(cid) = extract_receiver.recv_async().await {
-                        if let Some(data) = db.get(&cid)? {
-                            if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                                let cid_vec = extract_cids(&data)?;
-                                filter_sender.send(cid_vec).expect("unreachable");
+            for _ in 0..2 {
+                {
+                    let block_sender = block_sender.clone();
+                    let emit_receiver = emit_receiver.clone();
+                    let db = db.clone();
+                    let handle = handles.spawn(async move {
+                        while let Ok(cid) = emit_receiver.recv_async().await {
+                            if let Some(data) = db.get(&cid)? {
+                                block_sender
+                                    .send(Ok(Block { cid, data }))
+                                    .expect("unreachable");
+                            } else if fail_on_dead_links {
+                                block_sender
+                                    .send(Err(anyhow::anyhow!("missing key: {}", cid)))
+                                    .expect("unreachable");
+                                return Ok(());
                             }
-                            // emit the block since we have already got it
-                            block_sender
-                                .send(Ok(Block { cid, data }))
-                                .expect("unreachable");
-                        } else if fail_on_dead_links {
-                            block_sender
-                                .send(Err(anyhow::anyhow!("missing key: {}", cid)))
-                                .expect("unreachable");
-                            return Ok(());
                         }
-                    }
-                    Ok(())
-                });
-            }
-
-            // TODO: bench to see what works best.
-            {
-                let block_sender = block_sender.clone();
-                let emit_receiver = emit_receiver.clone();
-                let db = db.clone();
-                let handle = handles.spawn(async move {
-                    while let Ok(cid) = emit_receiver.recv_async().await {
-                        if let Some(data) = db.get(&cid)? {
-                            block_sender
-                                .send(Ok(Block { cid, data }))
-                                .expect("unreachable");
-                        } else if fail_on_dead_links {
-                            block_sender
-                                .send(Err(anyhow::anyhow!("missing key: {}", cid)))
-                                .expect("unreachable");
-                            return Ok(());
-                        }
-                    }
-                    Ok(())
-                });
+                        Ok(())
+                    });
+                }
             }
 
             // This consumes a [`Tipset`] from the iterator one at a time. Workers are then
@@ -610,9 +595,9 @@ impl<
                 // println!("reading tipset");
                 for block in tipset.into_blocks().into_iter() {
                     // println!("block epoch {}", block.epoch());
-                    let mut seen = seen.lock();
+
                     // println!("seen locked");
-                    if seen.insert(*block.cid()) {
+                    if seen.lock().insert(*block.cid()) {
                         // println!("emit begin");
                         // Make sure we always yield a block otherwise.
                         emit_sender.send(*block.cid()).expect("unreachable");
@@ -627,7 +612,9 @@ impl<
                         // Process block messages.
                         if block.epoch() > stateroot_limit {
                             // println!("extract begin");
-                            extract_sender.send(*block.messages()).expect("unreachable");
+                            extract_sender
+                                .send(vec![*block.messages()])
+                                .expect("unreachable");
                             // println!("extract end");
                         }
 
@@ -637,7 +624,7 @@ impl<
                             // NOTE: In the original `walk_snapshot` implementation we walk the dag
                             // immediately. Which is what we do here as well, but using a queue.
                             extract_sender
-                                .send(*block.state_root())
+                                .send(vec![*block.state_root()])
                                 .expect("unreachable");
                         }
                     }
@@ -648,8 +635,7 @@ impl<
 
             // Wait till all the channels are empty, then initiate the shutdown procedure.
             // TODO: See if we can improve the control flow here.
-            while !(extract_sender.is_empty() && filter_sender.is_empty() && emit_sender.is_empty())
-            {
+            while !(extract_sender.is_empty() && emit_sender.is_empty()) {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
 
