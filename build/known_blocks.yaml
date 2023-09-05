@@ -7,6 +7,7 @@
 #
 # This file was generated with `forest-cli archive checkpoints`
 calibnet:
+  864000: bafy2bzaced5fi2ubnxbqjvklmyogbccrcqmikrl2roki7cteysxmmy7xzkfxm
   777600: bafy2bzacebsptf37bw45wuqcao2xddtxe2w5hpzypc7rkeqo7zinpjx7p4keo
   691200: bafy2bzacedhkkz76zdekpexha55b42eop42e24ajmajm26wws4nbvtq7louvu
   604800: bafy2bzacec7prcdtac2blaeblzsorwpndtbjsz3k7tiyvwmellajinaaavpyo
@@ -17,6 +18,7 @@ calibnet:
   172800: bafy2bzacebluce5la2lbyjlgmup6mx4xytnnilsf4oy6v4omon2ivyduqwlsq
   86400: bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 mainnet:
+  3110400: bafy2bzacecwhsfx3h2akomyitj5eeghejguzi2fnqkwsqhydacth5ruzpydbq
   3024000: bafy2bzaceavcpsm7faklkyjwyuyetmwb6yn6uq7a2pqyqkbynb2iykud6bfau
   2937600: bafy2bzacec3jsm2p6v4vtyim6cehl33bbf3qa4whdptjmbkm4bcmsrkow2ddk
   2851200: bafy2bzacecs64y3uj6r7ikajjiahkgzrdqb246dprus2jipgsnck5amq2ekpa
