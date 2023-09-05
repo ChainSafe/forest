@@ -249,7 +249,7 @@ where
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        callback: Option<impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     ) -> anyhow::Result<()> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
@@ -273,7 +273,7 @@ where
         }
 
         if let Some(mut callback) = callback {
-            callback(MessageCallbackCtx {
+            callback(&MessageCallbackCtx {
                 cid: cron_msg.cid()?,
                 message: &ChainMessage::Unsigned(cron_msg),
                 apply_ret: &ret,
@@ -293,7 +293,7 @@ where
         // - why is this optional?
         // - why does it allow breaking out of this function?
         //   is it an observer or pluggable logic?
-        mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        mut callback: Option<impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -311,7 +311,7 @@ where
                 let ret = self.apply_message(message)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(MessageCallbackCtx {
+                    cb(&MessageCallbackCtx {
                         cid,
                         message,
                         apply_ret: &ret,
@@ -356,7 +356,7 @@ where
                 }
 
                 if let Some(callback) = &mut callback {
-                    callback(MessageCallbackCtx {
+                    callback(&MessageCallbackCtx {
                         cid: rew_msg.cid()?,
                         message: &ChainMessage::Unsigned(rew_msg),
                         apply_ret: &ret,

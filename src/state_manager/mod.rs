@@ -208,7 +208,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-pub const NO_CALLBACK: Option<fn(MessageCallbackCtx) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(&MessageCallbackCtx<'_>) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -500,12 +500,12 @@ where
         // thread to avoid starving executor
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
-        let callback = move |ctx: MessageCallbackCtx<'_>| {
+        let callback = move |ctx: &MessageCallbackCtx<'_>| {
             match ctx.at {
                 CalledAt::Applied | CalledAt::Reward => {
                     if ctx.cid == mcid {
-                        (&m_tx).send(ctx.message.message().clone())?;
-                        (&r_tx).send(ctx.apply_ret.clone())?;
+                        m_tx.send(ctx.message.message().clone())?;
+                        r_tx.send(ctx.apply_ret.clone())?;
                         anyhow::bail!(ERROR_MSG);
                     }
                     Ok(())
@@ -618,7 +618,7 @@ where
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error>
     where
-        CB: FnMut(MessageCallbackCtx<'_>) -> Result<(), anyhow::Error> + Send,
+        CB: FnMut(&MessageCallbackCtx<'_>) -> Result<(), anyhow::Error> + Send,
     {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
@@ -636,7 +636,7 @@ where
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error>
     where
-        CB: FnMut(MessageCallbackCtx<'_>) -> Result<(), anyhow::Error> + Send,
+        CB: FnMut(&MessageCallbackCtx<'_>) -> Result<(), anyhow::Error> + Send,
     {
         Ok(apply_block_messages(
             self.chain_store().genesis().timestamp(),
@@ -1234,7 +1234,7 @@ pub fn apply_block_messages<DB, CB>(
 ) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
-    CB: FnMut(MessageCallbackCtx<'_>) -> Result<(), anyhow::Error>,
+    CB: FnMut(&MessageCallbackCtx<'_>) -> Result<(), anyhow::Error>,
 {
     // This function will:
     // 1. handle the genesis block as a special case

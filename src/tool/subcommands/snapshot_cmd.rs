@@ -434,17 +434,10 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         beacon,
         &MultiEngine::default(),
         tipset,
-        Some(
-            |MessageCallbackCtx {
-                 cid,
-                 message,
-                 apply_ret,
-                 at,
-             }| {
-                contexts.push((message.clone(), apply_ret.clone(), at));
-                anyhow::Ok(())
-            },
-        ),
+        Some(|ctx: &MessageCallbackCtx<'_>| {
+            contexts.push((ctx.message.clone(), ctx.apply_ret.clone(), ctx.at));
+            anyhow::Ok(())
+        }),
         match json {
             true => VMTrace::Traced,
             false => VMTrace::NotTraced,
