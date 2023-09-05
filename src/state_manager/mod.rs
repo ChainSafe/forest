@@ -611,15 +611,14 @@ where
     /// For details, see the documentation for [`apply_block_messages`].
     ///
     #[instrument(skip_all)]
-    pub async fn compute_tipset_state<CB: 'static>(
+    pub async fn compute_tipset_state(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<CB>,
+        callback: Option<
+            impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static,
+        >,
         enable_tracing: VMTrace,
-    ) -> Result<CidPair, Error>
-    where
-        CB: FnMut(&MessageCallbackCtx<'_>) -> Result<(), anyhow::Error> + Send,
-    {
+    ) -> Result<CidPair, Error> {
         let this = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
@@ -629,15 +628,14 @@ where
 
     /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
-    pub fn compute_tipset_state_blocking<CB: 'static>(
+    pub fn compute_tipset_state_blocking(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<CB>,
+        callback: Option<
+            impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static,
+        >,
         enable_tracing: VMTrace,
-    ) -> Result<CidPair, Error>
-    where
-        CB: FnMut(&MessageCallbackCtx<'_>) -> Result<(), anyhow::Error> + Send,
-    {
+    ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis().timestamp(),
             Arc::clone(&self.chain_store().chain_index),
@@ -1222,19 +1220,18 @@ where
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
 #[allow(clippy::too_many_arguments)]
-pub fn apply_block_messages<DB, CB>(
+pub fn apply_block_messages<DB>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-    mut callback: Option<CB>,
+    mut callback: Option<impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
 ) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
-    CB: FnMut(&MessageCallbackCtx<'_>) -> Result<(), anyhow::Error>,
 {
     // This function will:
     // 1. handle the genesis block as a special case
