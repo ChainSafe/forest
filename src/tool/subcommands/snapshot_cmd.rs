@@ -497,8 +497,9 @@ mod structured {
             "MsgCid": LotusJson(chain_message_cid),
             "Msg": LotusJson(chain_message.message().clone()),
             "MsgRct": LotusJson(apply_ret.msg_receipt()),
-            // TODO(aatifsyed): ^ this should include the "EventsRoot": null
-            //                  but LotusJson<Receipt> currently ignores that field
+            // BUG: ^ this should include the "EventsRoot": null
+            //      but LotusJson<Receipt> currently ignores that field
+            //      https://github.com/ChainSafe/forest/issues/3459
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": is_explicit.then_some(LotusJson(unsiged_message_cid)),
@@ -508,7 +509,7 @@ mod structured {
                 "MinerPenalty": LotusJson(apply_ret.penalty()),
                 "MinerTip": LotusJson(apply_ret.miner_tip()),
                 "Refund": LotusJson(apply_ret.refund()),
-                "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund()) // JANK(aatifsyed): shouldn't need to borrow &TokenAmount for Sub
+                "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
             },
             "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json)
             // "Duration": unimplemented!(),
@@ -590,9 +591,12 @@ mod structured {
         }
 
         if !front_load_me.is_empty() {
-            // FIXME(aatifsyed): tracing should go to stderr, but it doesn't.
-            //                   this screws up `make_output.bash`, so comment out
-            //                   for now.
+            // FIXME: https://github.com/ChainSafe/forest/issues/2946
+            // stdout of a `--json` command should be (only) JSON, but we don't
+            // also send `tracing` events there.
+            //
+            // this branch is basically always hit, so keep our stdout json
+            // until logging is fixed up
             eprintln!(
                 "vm tracing: ignoring {} trailing gas charges",
                 front_load_me.len()
@@ -603,7 +607,7 @@ mod structured {
             0 => Ok(None),
             1 => Ok(Some(call_trees.remove(0))),
             many => {
-                // FIXME(aatifsyed): as above
+                // FIXME: https://github.com/ChainSafe/forest/issues/2946
                 eprintln!(
                     "vm tracing: ignoring {} call trees at the root level",
                     many - 1

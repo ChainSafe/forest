@@ -518,7 +518,6 @@ where
             .await;
 
         if let Err(error_message) = result {
-            // JANK(aatifsyed): wth?
             if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {error_message:}"

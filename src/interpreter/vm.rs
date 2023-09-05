@@ -289,10 +289,6 @@ where
         &mut self,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        // JANK(aatifsyed):
-        // - why is this optional?
-        // - why does it allow breaking out of this function?
-        //   is it an observer or pluggable logic?
         // note: we take &MessageCallbackCtx rather than MessageCallbackCtx<'_>
         //       because I'm not smart enough to make the second one work
         mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
@@ -333,7 +329,6 @@ where
             };
 
             for msg in block.messages.iter() {
-                // JANK(aatifsyed): why not inline the callback?
                 process_msg(msg)?;
             }
 
@@ -369,7 +364,6 @@ where
         }
 
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
-            // BUG(aatifsyed): why are we ignoring this error?
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
 

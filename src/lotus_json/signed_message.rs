@@ -54,7 +54,7 @@ impl HasLotusJson for SignedMessage {
         Self::LotusJson {
             message: message.into(),
             signature: signature.into(),
-            cid: None.into(), // BUG?(aatifsyed)
+            cid: None.into(), // See notes on Message
         }
     }
 
@@ -62,7 +62,7 @@ impl HasLotusJson for SignedMessage {
         let Self::LotusJson {
             message,
             signature,
-            cid: _ignored, // BUG?(aatifsyed)
+            cid: _ignored, // See notes on Message
         } = lotus_json;
         Self {
             message: message.into_inner(),
