@@ -2881,7 +2881,7 @@ dependencies = [
  "scopeguard",
  "semver",
  "serde",
- "serde_ipld_dagcbor 0.4.0",
+ "serde_ipld_dagcbor 0.4.1",
  "serde_json",
  "serde_tuple",
  "serde_with",
@@ -3317,7 +3317,7 @@ dependencies = [
  "fvm_ipld_blockstore 0.2.0",
  "multihash 0.18.1",
  "serde",
- "serde_ipld_dagcbor 0.4.0",
+ "serde_ipld_dagcbor 0.4.1",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -6854,9 +6854,9 @@ dependencies = [
 
 [[package]]
 name = "serde_ipld_dagcbor"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ace39c1b7526be78c755a4c698313f699cf44e62408c0029bf9ab9450fe836da"
+checksum = "74e4c1e1617be5feb2f03f629f8097f76b51373785a83a875453c2b04c880f4e"
 dependencies = [
  "cbor4ii",
  "cid 0.10.1",
