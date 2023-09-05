@@ -1,20 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
+use async_compression::tokio::write::ZstdEncoder;
 use bytes::{Buf, Bytes};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use futures::{Stream, StreamExt};
+use futures::{sink::Sink, Stream, StreamExt};
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
-use tokio_util::codec::FramedRead;
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
+use tokio_util::codec::{FramedRead, FramedWrite};
 use tokio_util::either::Either;
 
 use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
@@ -134,6 +135,32 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
                 })
             })
         }))
+    }
+}
+
+pin_project! {
+    pub struct CarStreamWriter<WriterT> {
+        #[pin]
+        writer: FramedWrite<WriterT, ZstdEncoder<WriterT>>,
+        pub header: CarHeader,
+    }
+}
+
+impl<WriterT: AsyncWriteExt> Sink<Block> for CarStreamWriter<WriterT> {
+    type Error = io::Error;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        todo!()
+    }
+    fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
+        todo!()
+    }
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        //self.project().writer.poll_flush(self, cx)
+        todo!()
+    }
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        todo!()
     }
 }
 
