@@ -591,13 +591,7 @@ mod structured {
         }
 
         if !front_load_me.is_empty() {
-            // FIXME: https://github.com/ChainSafe/forest/issues/2946
-            // stdout of a `--json` command should be (only) JSON, but we don't
-            // also send `tracing` events there.
-            //
-            // this branch is basically always hit, so keep our stdout json
-            // until logging is fixed up
-            eprintln!(
+            tracing::warn!(
                 "vm tracing: ignoring {} trailing gas charges",
                 front_load_me.len()
             );
@@ -607,8 +601,7 @@ mod structured {
             0 => Ok(None),
             1 => Ok(Some(call_trees.remove(0))),
             many => {
-                // FIXME: https://github.com/ChainSafe/forest/issues/2946
-                eprintln!(
+                tracing::warn!(
                     "vm tracing: ignoring {} call trees at the root level",
                     many - 1
                 );
