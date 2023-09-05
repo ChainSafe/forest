@@ -14,6 +14,7 @@ use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use anyhow::{bail, Context as _, Result};
 use chrono::NaiveDateTime;
+use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
@@ -23,6 +24,7 @@ use itertools::Itertools;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
 #[derive(Debug, Subcommand)]
@@ -65,9 +67,10 @@ pub enum ArchiveCommands {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
     },
-    /// Merge snapshot archives into a single file
+    /// Merge snapshot archives into a single file. The output snapshot refers
+    /// to the heaviest tipset in the input set.
     Merge {
-        /// Snapshot input path. Supports '.car', '.car.zst', and '.forest.car.zst'.
+        /// Snapshot input paths. Supports '.car', '.car.zst', and '.forest.car.zst'.
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
         /// Snapshot output filename or directory. Defaults to
@@ -155,10 +158,7 @@ impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_store_with(
-        store: AnyCar<impl RandomAccessFileReader>,
-        progress: bool,
-    ) -> Result<Self> {
+    fn from_store_with(store: AnyCar<impl RandomAccessFileReader>, progress: bool) -> Result<Self> {
         let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
@@ -391,11 +391,55 @@ async fn do_export(
     Ok(())
 }
 
+// FIXME: Testing with diff snapshots can be significantly improved. Tracking
+// issue: https://github.com/ChainSafe/forest/issues/3347
+/// Merge a set of snapshots (diff snapshots or lite snapshots). The output
+/// snapshot links to the heaviest tipset in the input set.
 async fn merge_snapshots(
     snapshot_files: Vec<PathBuf>,
     output_path: PathBuf,
     force: bool,
 ) -> Result<()> {
+    use crate::db::car::forest;
+
+    let store = ManyCar::try_from(snapshot_files)?;
+    let heaviest_tipset = store.heaviest_tipset()?;
+    let roots = Vec::<Cid>::from(&heaviest_tipset.key().cids);
+
+    if !force && output_path.exists() {
+        let have_permission = Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(format!(
+                "{} will be overwritten. Continue?",
+                output_path.to_string_lossy()
+            ))
+            .default(false)
+            .interact()
+            // e.g not a tty (or some other error), so haven't got permission.
+            .unwrap_or(false);
+        if !have_permission {
+            return Ok(());
+        }
+    }
+
+    let mut writer = BufWriter::new(tokio::fs::File::create(&output_path).await.context(
+        format!(
+            "unable to create a snapshot - is the output path '{}' correct?",
+            output_path.to_str().unwrap_or_default()
+        ),
+    )?);
+
+    // Stream all available blocks from heaviest_tipset to genesis.
+    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+
+    // Encode Ipld key-value pairs in zstd frames
+    let frames = forest::Encoder::compress_stream_default(blocks);
+
+    // Write zstd frames and include a skippable index
+    forest::Encoder::write(&mut writer, roots, frames).await?;
+
+    // Flush to ensure everything has been successfully written
+    writer.flush().await.context("failed to flush")?;
+
     Ok(())
 }
 
