@@ -434,7 +434,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         beacon,
         &MultiEngine::default(),
         tipset,
-        Some(|ctx: &MessageCallbackCtx<'_>| {
+        Some(|ctx: &MessageCallbackCtx| {
             contexts.push((ctx.message.clone(), ctx.apply_ret.clone(), ctx.at));
             anyhow::Ok(())
         }),
@@ -488,11 +488,7 @@ mod structured {
     ) -> anyhow::Result<serde_json::Value> {
         use crate::lotus_json::Stringify;
 
-        // TODO(aatifsyed): what does this even mean
-        let is_explicit = match called_at {
-            CalledAt::Applied => true,
-            CalledAt::Reward | CalledAt::Cron => false,
-        };
+        let is_explicit = matches!(called_at.apply_kind(), fvm3::executor::ApplyKind::Explicit);
 
         let chain_message_cid = chain_message.cid()?;
         let unsiged_message_cid = chain_message.message().cid()?;

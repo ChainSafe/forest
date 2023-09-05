@@ -249,7 +249,7 @@ where
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
     ) -> anyhow::Result<()> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
@@ -293,7 +293,9 @@ where
         // - why is this optional?
         // - why does it allow breaking out of this function?
         //   is it an observer or pluggable logic?
-        mut callback: Option<impl FnMut(&MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
+        // note: we take &MessageCallbackCtx rather than MessageCallbackCtx<'_>
+        //       because I'm not smart enough to make the second one work
+        mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
     ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -375,7 +377,7 @@ where
     }
 
     /// Applies single message through VM and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
+    pub fn apply_implicit_message(&mut self, msg: &Message) -> anyhow::Result<ApplyRet> {
         // raw_length is not used for Implicit messages.
         let raw_length = to_vec(msg).expect("encoding error").len();
 
@@ -402,7 +404,7 @@ where
     /// Applies the state transition for a single message.
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
-    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
+    pub fn apply_message(&mut self, msg: &ChainMessage) -> anyhow::Result<ApplyRet> {
         // Basic validity check
         msg.message().check()?;
 
@@ -493,18 +495,18 @@ pub enum CalledAt {
 }
 
 impl CalledAt {
-    pub fn apply_kind(&self) -> Option<fvm3::executor::ApplyKind> {
+    /// Was [`VM::apply_message`] or [`VM::apply_implicit_message`] called?
+    pub fn apply_kind(&self) -> fvm3::executor::ApplyKind {
         use fvm3::executor::ApplyKind;
         match self {
-            CalledAt::Applied => Some(ApplyKind::Explicit),
-            CalledAt::Reward => Some(ApplyKind::Implicit),
-            CalledAt::Cron => None, // TODO(aatifsyed): is this correct?
+            CalledAt::Applied => ApplyKind::Explicit,
+            CalledAt::Reward | CalledAt::Cron => ApplyKind::Implicit,
         }
     }
 }
 
 /// Tracing a Filecoin VM has a performance penalty.
-/// This enum controls whether a VM should be traced or not
+/// This controls whether a VM should be traced or not when it is created.
 #[derive(Default, Clone, Copy)]
 pub enum VMTrace {
     /// Collect trace for the given operation
