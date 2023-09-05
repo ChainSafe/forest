@@ -70,7 +70,7 @@ pub enum ArchiveCommands {
     /// Merge snapshot archives into a single file. The output snapshot refers
     /// to the heaviest tipset in the input set.
     Merge {
-        /// Snapshot input paths. Supports '.car', '.car.zst', and '.forest.car.zst'.
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
         /// Snapshot output filename or directory. Defaults to
