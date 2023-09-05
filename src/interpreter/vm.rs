@@ -252,7 +252,7 @@ where
         callback: Option<
             &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
         >,
-    ) -> Result<(Message, ApplyRet), anyhow::Error> {
+    ) -> anyhow::Result<()> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
             to: Address::CRON_ACTOR.into(),
@@ -282,7 +282,7 @@ where
                 CalledAt::Cron,
             )?;
         }
-        Ok((cron_msg, ret))
+        Ok(())
     }
 
     /// Apply block messages from a Tipset.
