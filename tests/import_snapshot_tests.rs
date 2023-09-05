@@ -7,6 +7,7 @@ use anyhow::Result;
 
 use crate::common::{create_tmp_config, daemon, CommonEnv};
 
+// Ignored because it's flaky.
 #[test]
 #[ignore]
 fn importing_bad_snapshot_should_fail() -> Result<()> {
