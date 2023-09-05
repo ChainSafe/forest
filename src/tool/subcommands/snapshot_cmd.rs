@@ -8,13 +8,11 @@ use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
-use crate::interpreter::{CalledAt, VMTrace};
+use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::{recurse_links_hash, CidHashSet};
-use crate::message::ChainMessage;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::executor::ApplyRet;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::apply_block_messages;
 use crate::utils::db::car_stream::CarStream;
@@ -437,8 +435,13 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         &MultiEngine::default(),
         tipset,
         Some(
-            |_: &Cid, message: &ChainMessage, ret: &ApplyRet, at: CalledAt| {
-                contexts.push((message.clone(), ret.clone(), at));
+            |MessageCallbackCtx {
+                 cid,
+                 message,
+                 apply_ret,
+                 at,
+             }| {
+                contexts.push((message.clone(), apply_ret.clone(), at));
                 anyhow::Ok(())
             },
         ),
