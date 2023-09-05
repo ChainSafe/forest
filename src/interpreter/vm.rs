@@ -249,9 +249,7 @@ where
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<
-            &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
-        >,
+        mut callback: Option<impl FnMut(MessageCallbackCtx) -> anyhow::Result<()>>,
     ) -> anyhow::Result<()> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
@@ -275,12 +273,12 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(
-                &(cron_msg.cid()?),
-                &ChainMessage::Unsigned(cron_msg.clone()),
-                &ret,
-                CalledAt::Cron,
-            )?;
+            callback(MessageCallbackCtx {
+                cid: cron_msg.cid()?,
+                message: &ChainMessage::Unsigned(cron_msg),
+                apply_ret: &ret,
+                at: CalledAt::Cron,
+            })?;
         }
         Ok(())
     }
@@ -295,9 +293,7 @@ where
         // - why is this optional?
         // - why does it allow breaking out of this function?
         //   is it an observer or pluggable logic?
-        mut callback: Option<
-            impl FnMut(&Cid, &ChainMessage, &ApplyRet, CalledAt) -> Result<(), anyhow::Error>,
-        >,
+        mut callback: Option<impl FnMut(MessageCallbackCtx) -> anyhow::Result<()>>,
     ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -306,16 +302,21 @@ where
             let mut penalty = TokenAmount::zero();
             let mut gas_reward = TokenAmount::zero();
 
-            let mut process_msg = |msg: &ChainMessage| -> Result<(), anyhow::Error> {
-                let cid = msg.cid()?;
+            let mut process_msg = |message: &ChainMessage| -> Result<(), anyhow::Error> {
+                let cid = message.cid()?;
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
                     return Ok(());
                 }
-                let ret = self.apply_message(msg)?;
+                let ret = self.apply_message(message)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(&cid, msg, &ret, CalledAt::Applied)?;
+                    cb(MessageCallbackCtx {
+                        cid,
+                        message,
+                        apply_ret: &ret,
+                        at: CalledAt::Applied,
+                    })?;
                 }
 
                 // Update totals
@@ -355,12 +356,12 @@ where
                 }
 
                 if let Some(callback) = &mut callback {
-                    callback(
-                        &(rew_msg.cid()?),
-                        &ChainMessage::Unsigned(rew_msg),
-                        &ret,
-                        CalledAt::Reward,
-                    )?;
+                    callback(MessageCallbackCtx {
+                        cid: rew_msg.cid()?,
+                        message: &ChainMessage::Unsigned(rew_msg),
+                        apply_ret: &ret,
+                        at: CalledAt::Reward,
+                    })?
                 }
             }
         }
@@ -476,11 +477,28 @@ where
     }
 }
 
-// TODO(aatifsyed): struct CallbackCtx<'a> { cid: &'a Cid, at: CalledAt, .. }
+pub struct MessageCallbackCtx<'a> {
+    cid: Cid,
+    message: &'a ChainMessage,
+    apply_ret: &'a ApplyRet,
+    at: CalledAt,
+}
+
 pub enum CalledAt {
     Applied,
     Reward,
     Cron,
+}
+
+impl CalledAt {
+    pub fn apply_kind(&self) -> Option<fvm3::executor::ApplyKind> {
+        use fvm3::executor::ApplyKind;
+        match self {
+            CalledAt::Applied => Some(ApplyKind::Explicit),
+            CalledAt::Reward => Some(ApplyKind::Implicit),
+            CalledAt::Cron => None, // TODO(aatifsyed): is this correct?
+        }
+    }
 }
 
 /// Tracing a Filecoin VM has a performance penalty.
