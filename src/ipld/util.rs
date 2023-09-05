@@ -22,8 +22,8 @@ use crate::{
 };
 use anyhow::Context as AnyhowContext;
 use cid::Cid;
-use flume::Sender;
-use futures::Stream;
+use flume::{SendError, Sender};
+use futures::{FutureExt, Stream};
 use fvm_ipld_blockstore::Blockstore;
 use lazy_static::lazy_static;
 use parking_lot::{Mutex, RwLock};
@@ -31,6 +31,7 @@ use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
+use tokio::runtime::Handle;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::{join, task};
 
@@ -451,7 +452,9 @@ pin_project! {
     pub struct UnorderedChainStream<DB, T> {
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
+        #[pin]
         block_receiver: flume::Receiver<anyhow::Result<Block>>,
+        block_sender: flume::Sender<anyhow::Result<Block>>,
         fail_on_dead_links: bool,
         marker: PhantomData<(DB, T)>,
     }
@@ -497,10 +500,10 @@ pub fn unordered_stream_chain<
     let handle = UnorderedChainStream::start_workers(
         db,
         tipset_iter,
-        sender,
+        sender.clone(),
         seen.clone(),
         stateroot_limit,
-        true,
+        false,
     );
 
     UnorderedChainStream {
@@ -508,6 +511,7 @@ pub fn unordered_stream_chain<
         worker_handle: handle,
         fail_on_dead_links: true,
         block_receiver: receiver,
+        block_sender: sender,
         marker: Default::default(),
     }
 }
@@ -528,9 +532,9 @@ impl<
     ) -> JoinHandle<anyhow::Result<()>> {
         let handle = task::spawn(async move {
             let mut handles = JoinSet::new();
-            let (filter_sender, filter_receiver) = flume::bounded(1024);
-            let (extract_sender, extract_receiver) = flume::bounded(1024);
-            let (emit_sender, emit_receiver) = flume::bounded(1024);
+            let (filter_sender, filter_receiver) = flume::unbounded();
+            let (extract_sender, extract_receiver) = flume::unbounded();
+            let (emit_sender, emit_receiver) = flume::unbounded();
 
             {
                 let seen = seen.clone();
@@ -570,6 +574,7 @@ impl<
                             block_sender
                                 .send(Err(anyhow::anyhow!("missing key: {}", cid)))
                                 .expect("unreachable");
+                            return Ok(());
                         }
                     }
                     Ok(())
@@ -577,7 +582,7 @@ impl<
             }
 
             // TODO: bench to see what works best.
-            for _ in 0..num_cpus::get() / 2 {
+            {
                 let block_sender = block_sender.clone();
                 let emit_receiver = emit_receiver.clone();
                 let db = db.clone();
@@ -591,6 +596,7 @@ impl<
                             block_sender
                                 .send(Err(anyhow::anyhow!("missing key: {}", cid)))
                                 .expect("unreachable");
+                            return Ok(());
                         }
                     }
                     Ok(())
@@ -601,13 +607,16 @@ impl<
             // processing the queue . Once the desired depth has been reached yield a block without
             // walking the graph it represents.
             while let Some(tipset) = tipset_iter.next() {
-                println!("reading tipset: {:?}", tipset);
+                // println!("reading tipset");
                 for block in tipset.into_blocks().into_iter() {
+                    // println!("block epoch {}", block.epoch());
                     let mut seen = seen.lock();
+                    // println!("seen locked");
                     if seen.insert(*block.cid()) {
+                        // println!("emit begin");
                         // Make sure we always yield a block otherwise.
                         emit_sender.send(*block.cid()).expect("unreachable");
-
+                        // println!("emit end");
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
                             for p in &block.parents().cids {
@@ -617,7 +626,9 @@ impl<
 
                         // Process block messages.
                         if block.epoch() > stateroot_limit {
+                            // println!("extract begin");
                             extract_sender.send(*block.messages()).expect("unreachable");
+                            // println!("extract end");
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`
@@ -632,6 +643,8 @@ impl<
                     }
                 }
             }
+
+            // println!("exit tipset loop");
 
             // Wait till all the channels are empty, then initiate the shutdown procedure.
             // TODO: See if we can improve the control flow here.
@@ -660,7 +673,17 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset>> Stream
     type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if let Ok(item) = self.block_receiver.recv() {
+        let this = self.project();
+        if let Ok(item) = this.block_receiver.recv() {
+            match item {
+                Ok(_) => {}
+                Err(_) => {
+                    this.worker_handle.abort();
+                    task::block_in_place(move || {
+                        let _ = Handle::current().block_on(async move { this.worker_handle.await });
+                    });
+                }
+            }
             return Poll::Ready(Some(item));
         }
 

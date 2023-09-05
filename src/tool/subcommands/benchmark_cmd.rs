@@ -176,23 +176,6 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
 // Open a set of CAR files as a block store and do an unordered traversal of all
 // reachable nodes.
 async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(10));
-        let deadlocks = parking_lot::deadlock::check_deadlock();
-        if deadlocks.is_empty() {
-            continue;
-        }
-
-        println!("{} deadlocks detected", deadlocks.len());
-        for (i, threads) in deadlocks.iter().enumerate() {
-            println!("Deadlock #{}", i);
-            for t in threads {
-                println!("Thread Id {:#?}", t.thread_id());
-                println!("{:#?}", t.backtrace());
-            }
-        }
-    });
-
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
 
@@ -200,7 +183,6 @@ async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> Result<()> 
 
     let mut s = unordered_stream_chain(store.clone(), heaviest.chain(store), 0);
     while let Some(block) = s.try_next().await? {
-        println!("{}", block.cid);
         sink.write_all(&block.data).await?
     }
     Ok(())
