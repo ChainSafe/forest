@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{buf::Writer, Buf, BufMut as _, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -14,13 +14,11 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::fs::File;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
-use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
-use tokio_util::codec::{Decoder, Encoder as _};
-use tokio_util::compat::TokioAsyncReadCompatExt;
+use tokio::io::{AsyncWrite, BufWriter};
+use tokio_util::codec::Encoder;
+use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
-use tokio_util::{codec::FramedRead, compat::TokioAsyncWriteCompatExt};
 
 use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
 
@@ -159,12 +157,15 @@ impl CarWriter {
 
         let mut header_uvi_frame = BytesMut::new();
         // TODO: return a result instead
-        UviBytes::default().encode(Bytes::from(to_vec(&car_header).unwrap()), &mut header_uvi_frame).unwrap();
+        UviBytes::default()
+            .encode(
+                Bytes::from(to_vec(&car_header).unwrap()),
+                &mut header_uvi_frame,
+            )
+            .unwrap();
         Self {
             inner: writer,
-            buffer: {
-                header_uvi_frame.to_vec()
-            },
+            buffer: { header_uvi_frame.to_vec() },
         }
     }
 }
