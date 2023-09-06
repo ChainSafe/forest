@@ -106,7 +106,7 @@ where
 pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
 pub static WALK_SNAPSHOT_PROGRESS_DB_GC: Lazy<ProgressBarCurrentTotalPair> =
-    Lazy::new(|| Default::default());
+    Lazy::new(Default::default);
 
 /// Walks over tipset and state data and loads all blocks not yet seen.
 /// This is tracked based on the callback function loading blocks.
