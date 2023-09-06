@@ -187,7 +187,7 @@ impl Sink<Block> for CarWriter {
     }
     fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
         self.sender
-            .try_send((item.cid, item.data))
+            .send((item.cid, item.data))
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
