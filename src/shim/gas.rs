@@ -80,7 +80,7 @@ impl From<GasV3> for Gas {
 }
 
 #[derive(Debug)]
-pub struct GasCharge(pub GasChargeV3);
+pub struct GasCharge(GasChargeV3);
 
 impl GasCharge {
     /// Calculates total gas charge (in `milligas`) by summing compute and
