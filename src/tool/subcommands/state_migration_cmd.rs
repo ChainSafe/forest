@@ -24,6 +24,7 @@ use tokio_util::compat::TokioAsyncWriteCompatExt;
 const DEFAULT_BUNDLE_FILE_NAME: &str = "actor_bundles.car.zst";
 
 const DEFAULT_BUNDLE_UNCOMPRESSED: &str = "actor_bundles.car";
+const DEFAULT_BUNDLE_UNCOMPRESSED_REF: &str = "actor_bundles.ref.car";
 
 static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> =
     Lazy::new(|| env::temp_dir().join(".forest_actor_bundles/"));
@@ -89,20 +90,36 @@ async fn generate_actor_bundle() -> Result<()> {
     //     )
     //     .await?;
 
-    // TODO: handle compression later
-    let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED)).await?;
+    // This is temporary and for getting a reference result
+    use tokio_util::compat::TokioAsyncReadCompatExt;
+    let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED_REF)).await?;
+    let mut writer = BufWriter::new(file.compat());
+    let car_writer = CarHeader::from(all_roots);
+    car_writer
+        .write_stream_async(
+            &mut writer,
+            &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
+                let b = b.expect("There should be no invalid blocks");
+                (b.cid, b.data)
+            })),
+        )
+        .await?;
+    Ok(())
 
-    let stream = merge_car_streams(car_streams).map(|b| {
-        let b = b.expect("There should be no invalid blocks");
-        (b.cid, b.data)
-    });
+    // // TODO: handle compression later
+    // let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED)).await?;
 
-    let result = stream
-        .map(Ok)
-        .forward(CarWriter::new_carv1(all_roots, file))
-        .await;
+    // let stream = merge_car_streams(car_streams).map(|b| {
+    //     let b = b.expect("There should be no invalid blocks");
+    //     (b.cid, b.data)
+    // });
 
-    result.map_err(|e| e.into())
+    // let result = stream
+    //     .map(Ok)
+    //     .forward(CarWriter::new_carv1(all_roots, file))
+    //     .await;
+
+    // result.map_err(|e| e.into())
 }
 
 async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<PathBuf> {
