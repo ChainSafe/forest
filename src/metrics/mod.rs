@@ -14,8 +14,9 @@ use std::{net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
 use tracing::warn;
 
-lazy_static::lazy_static! {
-    static ref REGISTRIES_EXT: RwLock<HashMap<String,prometheus_client::registry::Registry>> = RwLock::new(HashMap::new());
+lazy_static! {
+    static ref REGISTRIES_EXT: RwLock<HashMap<String, prometheus_client::registry::Registry>> =
+        RwLock::new(HashMap::new());
 }
 
 pub async fn add_metrics_registry(name: String, registry: prometheus_client::registry::Registry) {

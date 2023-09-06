@@ -19,6 +19,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use lazy_static::lazy_static;
 use sha2::Sha256;
 use tokio::sync::Mutex;
 
@@ -52,7 +53,7 @@ pub(in crate::rpc) async fn chain_export<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    lazy_static::lazy_static! {
+    lazy_static! {
         static ref LOCK: Mutex<()> = Mutex::new(());
     }
 
