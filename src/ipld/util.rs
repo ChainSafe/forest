@@ -22,7 +22,7 @@ use crate::{
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -105,9 +105,8 @@ where
 
 pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
-lazy_static! {
-    pub static ref WALK_SNAPSHOT_PROGRESS_DB_GC: ProgressBarCurrentTotalPair = Default::default();
-}
+pub static WALK_SNAPSHOT_PROGRESS_DB_GC: Lazy<ProgressBarCurrentTotalPair> =
+    Lazy::new(Default::default);
 
 /// Walks over tipset and state data and loads all blocks not yet seen.
 /// This is tracked based on the callback function loading blocks.

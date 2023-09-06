@@ -2835,7 +2835,6 @@ dependencies = [
  "itertools 0.11.0",
  "jsonrpc-v2",
  "jsonwebtoken",
- "lazy_static",
  "libc",
  "libipld",
  "libipld-core",
