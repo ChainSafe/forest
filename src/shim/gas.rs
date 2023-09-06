@@ -79,7 +79,7 @@ impl From<GasV3> for Gas {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GasCharge(GasChargeV3);
 
 impl GasCharge {
