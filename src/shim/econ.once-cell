@@ -1,4 +1,0 @@
-/// Total Filecoin available to the network.
-pub static TOTAL_FILECOIN: Lazy<TokenAmount> = Lazy::new(|| TokenAmount::from_whole(
-    TOTAL_FILECOIN_BASE,
-));

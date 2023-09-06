@@ -1,2 +1,0 @@
-pub static WALK_SNAPSHOT_PROGRESS_DB_GC: Lazy<ProgressBarCurrentTotalPair> = Lazy::new(||
-Default::default());

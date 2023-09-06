@@ -6,7 +6,7 @@ pub mod db;
 use crate::db::DBStatistics;
 use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use prometheus::core::{AtomicU64, GenericCounterVec, Opts};
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
@@ -14,10 +14,34 @@ use std::{net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
 use tracing::warn;
 
-lazy_static! {
-    static ref REGISTRIES_EXT: RwLock<HashMap<String, prometheus_client::registry::Registry>> =
-        RwLock::new(HashMap::new());
-}
+static REGISTRIES_EXT: Lazy<RwLock<HashMap<String, prometheus_client::registry::Registry>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
+pub static LRU_CACHE_HIT: Lazy<Box<GenericCounterVec<AtomicU64>>> = Lazy::new(|| {
+    let lru_cache_hit = Box::new(
+        GenericCounterVec::<AtomicU64>::new(
+            Opts::new("lru_cache_hit", "Stats of lru cache hit"),
+            &[labels::KIND],
+        )
+        .expect("Defining the lru_cache_hit metric must succeed"),
+    );
+    prometheus::default_registry()
+        .register(lru_cache_hit.clone())
+        .expect("Registering the lru_cache_hit metric with the metrics registry must succeed");
+    lru_cache_hit
+});
+pub static LRU_CACHE_MISS: Lazy<Box<GenericCounterVec<AtomicU64>>> = Lazy::new(|| {
+    let lru_cache_miss = Box::new(
+        GenericCounterVec::<AtomicU64>::new(
+            Opts::new("lru_cache_miss", "Stats of lru cache miss"),
+            &[labels::KIND],
+        )
+        .expect("Defining the lru_cache_miss metric must succeed"),
+    );
+    prometheus::default_registry()
+        .register(lru_cache_miss.clone())
+        .expect("Registering the lru_cache_miss metric with the metrics registry must succeed");
+    lru_cache_miss
+});
 
 pub async fn add_metrics_registry(name: String, registry: prometheus_client::registry::Registry) {
     REGISTRIES_EXT.write().await.insert(name, registry);
@@ -91,35 +115,6 @@ where
         [("content-type", "text/plain; charset=utf-8")],
         metrics,
     )
-}
-
-lazy_static! {
-    pub static ref LRU_CACHE_HIT: Box<GenericCounterVec<AtomicU64>> = {
-        let lru_cache_hit = Box::new(
-            GenericCounterVec::<AtomicU64>::new(
-                Opts::new("lru_cache_hit", "Stats of lru cache hit"),
-                &[labels::KIND],
-            )
-            .expect("Defining the lru_cache_hit metric must succeed"),
-        );
-        prometheus::default_registry()
-            .register(lru_cache_hit.clone())
-            .expect("Registering the lru_cache_hit metric with the metrics registry must succeed");
-        lru_cache_hit
-    };
-    pub static ref LRU_CACHE_MISS: Box<GenericCounterVec<AtomicU64>> = {
-        let lru_cache_miss = Box::new(
-            GenericCounterVec::<AtomicU64>::new(
-                Opts::new("lru_cache_miss", "Stats of lru cache miss"),
-                &[labels::KIND],
-            )
-            .expect("Defining the lru_cache_miss metric must succeed"),
-        );
-        prometheus::default_registry()
-            .register(lru_cache_miss.clone())
-            .expect("Registering the lru_cache_miss metric with the metrics registry must succeed");
-        lru_cache_miss
-    };
 }
 
 pub mod labels {

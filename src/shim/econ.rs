@@ -6,19 +6,18 @@ use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 use fvm_shared2::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
-use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_traits::Zero;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
 
 const_assert_eq!(BLOCK_GAS_LIMIT, fvm_shared2::BLOCK_GAS_LIMIT as u64);
 const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
 
-lazy_static! {
-    /// Total Filecoin available to the network.
-    pub static ref TOTAL_FILECOIN: TokenAmount = TokenAmount::from_whole(TOTAL_FILECOIN_BASE);
-}
+/// Total Filecoin available to the network.
+pub static TOTAL_FILECOIN: Lazy<TokenAmount> =
+    Lazy::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
 
 // FIXME: Transparent Debug trait impl
 // FIXME: Consider 'type TokenAmount = TokenAmount_v3'
