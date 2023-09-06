@@ -154,7 +154,7 @@ impl CarWriter {
         let (sender, receiver): (
             flume::Sender<(Cid, Vec<u8>)>,
             flume::Receiver<(Cid, Vec<u8>)>,
-        ) = flume::bounded(5);
+        ) = flume::unbounded();
         let car_writer = FvmCarHeader::from(roots);
 
         Self {
