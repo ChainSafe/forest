@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -175,7 +175,7 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
-        this.inner.poll_write(cx, &this.buffer).map_ok(|s| ())
+        this.inner.poll_write(cx, &this.buffer).map_ok(|_s| ())
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
         let mut this = self.project();
@@ -185,6 +185,7 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
         let _len = payload.len().encode_var(&mut var_bytes);
 
         this.buffer.clear();
+        this.buffer.extend_from_slice(&var_bytes);
         this.buffer.extend_from_slice(&payload);
 
         Ok(())
