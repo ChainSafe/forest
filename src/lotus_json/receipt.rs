@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 
 use super::*;
@@ -12,25 +13,46 @@ pub struct ReceiptLotusJson {
     exit_code: LotusJson<u32>,
     r#return: LotusJson<RawBytes>,
     gas_used: LotusJson<u64>,
+    #[serde(default)] // Lotus still does `"EventsRoot": null`
+    events_root: LotusJson<Option<Cid>>,
 }
 
 impl HasLotusJson for Receipt {
     type LotusJson = ReceiptLotusJson;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(
-            json!({
-                "ExitCode": 0,
-                "Return": "aGVsbG8gd29ybGQh",
-                "GasUsed": 0,
-            }),
-            Self::V3(fvm_shared3::receipt::Receipt {
-                exit_code: fvm_shared3::error::ExitCode::new(0),
-                return_data: RawBytes::new(Vec::from_iter(*b"hello world!")),
-                gas_used: 0,
-                events_root: None,
-            }),
-        )]
+        vec![
+            (
+                json!({
+                    "ExitCode": 0,
+                    "Return": "aGVsbG8gd29ybGQh",
+                    "GasUsed": 0,
+                    "EventsRoot": null,
+                }),
+                Self::V3(fvm_shared3::receipt::Receipt {
+                    exit_code: fvm_shared3::error::ExitCode::new(0),
+                    return_data: RawBytes::new(Vec::from_iter(*b"hello world!")),
+                    gas_used: 0,
+                    events_root: None,
+                }),
+            ),
+            (
+                json!({
+                    "ExitCode": 0,
+                    "Return": "aGVsbG8gd29ybGQh",
+                    "GasUsed": 0,
+                    "EventsRoot": {
+                        "/": "baeaaaaa"
+                    }
+                }),
+                Self::V3(fvm_shared3::receipt::Receipt {
+                    exit_code: fvm_shared3::error::ExitCode::new(0),
+                    return_data: RawBytes::new(Vec::from_iter(*b"hello world!")),
+                    gas_used: 0,
+                    events_root: Some(Cid::default()),
+                }),
+            ),
+        ]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
@@ -38,6 +60,7 @@ impl HasLotusJson for Receipt {
             exit_code: self.exit_code().value().into(),
             r#return: self.return_data().into(),
             gas_used: self.gas_used().into(),
+            events_root: self.events_root().into(),
         }
     }
 
@@ -46,12 +69,13 @@ impl HasLotusJson for Receipt {
             exit_code,
             r#return,
             gas_used,
+            events_root,
         } = lotus_json;
         Self::V3(fvm_shared3::receipt::Receipt {
             exit_code: fvm_shared3::error::ExitCode::new(exit_code.into_inner()),
             return_data: r#return.into_inner(),
             gas_used: gas_used.into_inner(),
-            events_root: None,
+            events_root: events_root.into_inner(),
         })
     }
 }
@@ -66,6 +90,8 @@ fn shapshots() {
 /// so [`assert_unchanged_via_json`] tests with arbitrary input will fail.
 ///
 /// This can only be fixed by rewriting [Receipt].
+///
+/// See https://github.com/ChainSafe/forest/issues/3459.
 #[test]
 #[should_panic = "cannot serialize to v2 AND v3 from the same input"]
 fn cannot_call_arbitrary_tests_on_receipt() {
@@ -86,6 +112,7 @@ fn cannot_call_arbitrary_tests_on_receipt() {
         "ExitCode": 0,
         "Return": "aGVsbG8gd29ybGQh",
         "GasUsed": 0,
+        "EventsRoot": null,
     });
 
     // they serialize to the same thing...
