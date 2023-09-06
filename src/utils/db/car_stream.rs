@@ -145,8 +145,6 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 pin_project! {
     pub struct CarWriter {
         #[pin]
-        pub header: CarHeader,
-        #[pin]
         pub inner: BufWriter<tokio::fs::File>,
         #[pin]
         buffer: Vec<u8>,
@@ -159,10 +157,14 @@ impl CarWriter {
         let car_header = CarHeader { roots, version: 1 };
         let writer = BufWriter::new(file);
 
+        let mut header_uvi_frame = BytesMut::new();
+        // TODO: return a result instead
+        UviBytes::default().encode(Bytes::from(to_vec(&car_header).unwrap()), &mut header_uvi_frame).unwrap();
         Self {
-            header: car_header,
             inner: writer,
-            buffer: vec![],
+            buffer: {
+                header_uvi_frame.to_vec()
+            },
         }
     }
 }
@@ -175,15 +177,11 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
         this.inner.poll_write(cx, &this.buffer).map_ok(|s| ())
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
-        // Should we write header first, or not care of header at all?
-        //let mut header_uvi_frame = BytesMut::new();
-        //UviBytes::default().encode(Bytes::from(to_vec(&self.header)?), &mut header_uvi_frame)?;
-
         let mut this = self.project();
 
         let payload = [item.0.to_bytes(), item.1].concat();
         let mut var_bytes = [0; 16];
-        let len = payload.len().encode_var(&mut var_bytes);
+        let _len = payload.len().encode_var(&mut var_bytes);
 
         this.buffer.clear();
         this.buffer.extend_from_slice(&payload);
