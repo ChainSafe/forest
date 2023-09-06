@@ -1,21 +1,23 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use async_compression::tokio::write::ZstdEncoder;
 use bytes::{Buf, Bytes};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
+use flume::r#async::RecvStream;
 use futures::{sink::Sink, Stream, StreamExt};
+use fvm_ipld_car::CarHeader as FvmCarHeader;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
-use tokio_util::codec::{FramedRead, FramedWrite};
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
+use tokio_util::codec::FramedRead;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 use tokio_util::either::Either;
 
 use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
@@ -139,21 +141,54 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 }
 
 pin_project! {
-    pub struct CarStreamWriter<WriterT> {
+    pub struct CarWriter {
         #[pin]
-        writer: FramedWrite<WriterT, ZstdEncoder<WriterT>>,
-        pub header: CarHeader,
+        sender: flume::Sender<(Cid, Vec<u8>)>,
+        pub inner: std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<()>>>>,
+    }
+
+}
+
+impl CarWriter {
+    pub fn new_carv1(roots: Vec<Cid>, dst: tokio::fs::File) -> Self {
+        let (sender, receiver): (
+            flume::Sender<(Cid, Vec<u8>)>,
+            flume::Receiver<(Cid, Vec<u8>)>,
+        ) = flume::bounded(5);
+        let car_writer = FvmCarHeader::from(roots);
+
+        Self {
+            sender,
+            inner: Box::pin(async move {
+                let mut file = dst.compat();
+                let mut stream: RecvStream<'_, (Cid, Vec<u8>)> = receiver.stream();
+                car_writer
+                    .write_stream_async(&mut file, &mut stream)
+                    .await
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+            }),
+        }
     }
 }
 
-impl<WriterT: AsyncWriteExt> Sink<Block> for CarStreamWriter<WriterT> {
+impl Sink<Block> for CarWriter {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+        if !self.sender.is_full() {
+            return Poll::Ready(Ok(()));
+        } else {
+            if self.sender.is_disconnected() {
+                return Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "channel dropped")));
+            } else {
+                return Poll::Pending;
+            }
+        }
     }
     fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
-        todo!()
+        self.sender
+            .try_send((item.cid, item.data))
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         //self.project().writer.poll_flush(self, cx)
