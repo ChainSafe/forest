@@ -505,7 +505,7 @@ pub fn unordered_stream_chain<
     );
 
     UnorderedChainStream {
-        seen: Arc::new(Mutex::new(CidHashSet::default())),
+        seen,
         worker_handle: handle,
         fail_on_dead_links: true,
         block_receiver: receiver,
@@ -518,7 +518,6 @@ impl<
         T: Iterator<Item = Tipset> + Unpin + Send + 'static,
     > UnorderedChainStream<DB, T>
 {
-    // TODO: sort out the DB to be able to pass it on to the workers.
     fn start_workers(
         db: Arc<DB>,
         mut tipset_iter: T,
@@ -535,7 +534,6 @@ impl<
             for _ in 0..num_cpus::get() * 3 {
                 let seen = seen.clone();
                 let extract_receiver: flume::Receiver<Vec<Cid>> = extract_receiver.clone();
-                let extract_sender = extract_sender.clone();
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
@@ -545,7 +543,6 @@ impl<
                                 if let Some(data) = db.get(&cid)? {
                                     if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                                         let mut new_values = extract_cids(&data)?;
-                                        cid_vec.reserve(new_values.len());
                                         cid_vec.append(&mut new_values);
                                     }
                                     block_sender
@@ -600,7 +597,13 @@ impl<
                     if seen.lock().insert(*block.cid()) {
                         // println!("emit begin");
                         // Make sure we always yield a block otherwise.
-                        emit_sender.send(*block.cid()).expect("unreachable");
+
+                        block_sender
+                            .send(Ok(Block {
+                                cid: *block.cid(),
+                                data: block.to_signing_bytes(),
+                            }))
+                            .expect("unreachable");
                         // println!("emit end");
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
