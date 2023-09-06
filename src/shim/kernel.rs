@@ -41,7 +41,7 @@ macro_rules! error_number {
         impl ErrorNumber {
             fn as_unshimmed(&self) -> Either<N2, N3> {
                 match self {
-                    $($variant => Either::Right(N3::$variant),)*
+                    $(Self::$variant => Either::Right(N3::$variant),)*
                     Self::Unknown(UnknownErrorNumber(u)) => *u,
                 }
             }
@@ -65,14 +65,6 @@ error_number! {
     Serialization,
     Forbidden,
     BufferTooSmall,
-}
-
-impl ErrorNumber {
-    pub fn as_u32(&self) -> u32 {
-        self.as_unshimmed()
-            .map_either(|n| n as u32, |n| n as u32)
-            .into_inner()
-    }
 }
 
 impl fmt::Display for ErrorNumber {

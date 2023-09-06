@@ -425,7 +425,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
         .context(format!("couldn't get a tipset at height {}", epoch))?;
 
-    let mut contexts = vec![];
+    let mut message_calls = vec![];
 
     let (state_root, _) = apply_block_messages(
         timestamp,
@@ -435,7 +435,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         &MultiEngine::default(),
         tipset,
         Some(|ctx: &MessageCallbackCtx| {
-            contexts.push((ctx.message.clone(), ctx.apply_ret.clone(), ctx.at));
+            message_calls.push((ctx.message.clone(), ctx.apply_ret.clone(), ctx.at));
             anyhow::Ok(())
         }),
         match json {
@@ -445,7 +445,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     )?;
 
     if json {
-        println!("{:#}", structured::json(state_root, contexts)?);
+        println!("{:#}", structured::json(state_root, message_calls)?);
     } else {
         println!("computed state cid: {}", state_root);
     }
@@ -463,18 +463,18 @@ mod structured {
     use crate::{
         interpreter::CalledAt,
         lotus_json::LotusJson,
-        message::{ChainMessage, Message as _}, // JANK(aatifsyed): Message is overloaded
+        message::{ChainMessage, Message as _},
         shim::{
             address::Address,
-            econ::TokenAmount,
             error::ExitCode,
             executor::ApplyRet,
             gas::GasCharge,
-            kernel::SyscallError,
+            kernel::{ErrorNumber, SyscallError},
             trace::{Call, CallReturn, ExecutionEvent},
         },
     };
-    use fvm_ipld_encoding::ipld_block::IpldBlock;
+    use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
+    use itertools::Either;
 
     pub fn json(
         state_root: Cid,
@@ -484,12 +484,12 @@ mod structured {
         "Root": LotusJson(state_root),
         "Trace": contexts
             .into_iter()
-            .map(|(message, apply_ret, called_at)| context_json(message, apply_ret, called_at))
+            .map(|(message, apply_ret, called_at)| call_json(message, apply_ret, called_at))
             .collect::<Result<Vec<_>, _>>()?
         }))
     }
 
-    fn context_json(
+    fn call_json(
         chain_message: ChainMessage,
         apply_ret: ApplyRet,
         called_at: CalledAt,
@@ -516,8 +516,9 @@ mod structured {
                 "Refund": LotusJson(apply_ret.refund()),
                 "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
             },
-            "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json)
-            // "Duration": unimplemented!(),
+            "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json),
+            // Only include timing fields for an easier diff with lotus
+            "Duration": null,
         }))
     }
 
@@ -623,29 +624,48 @@ mod structured {
                 r#return,
             } = self;
 
-            let IpldBlock { codec, data } = params.unwrap_or_default();
+            fn params_to_codec_and_data(
+                params: Either<RawBytes, Option<IpldBlock>>,
+            ) -> (u64, Vec<u8>) {
+                params
+                    .map_either(
+                        // This is more of a guess than anything
+                        |raw_bytes| (fvm_ipld_encoding::IPLD_RAW, Vec::from(raw_bytes)),
+                        |maybe_ipld| {
+                            let IpldBlock { codec, data } = maybe_ipld.unwrap_or_default();
+                            (codec, data)
+                        },
+                    )
+                    .into_inner()
+            }
+
+            let (codec, data) = params_to_codec_and_data(params);
             let (return_code, return_data, return_codec) = match r#return {
-                // Ported from: https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L440
-                CallTreeReturn::Return(code, data) => {
-                    let IpldBlock { codec, data } = data.unwrap_or_default();
-                    (code, data, codec)
+                CallTreeReturn::Return(CallReturn { exit_code, data }) => {
+                    let (codec, data) = params_to_codec_and_data(data);
+                    (
+                        exit_code.map(|it| it.value()).unwrap_or_default(),
+                        data,
+                        codec,
+                    )
                 }
-                CallTreeReturn::SyscallError(fvm3::kernel::SyscallError(_, n)) => {
-                    let code = match n {
-                        fvm_shared3::error::ErrorNumber::InsufficientFunds => {
-                            ExitCode::SYS_INSUFFICIENT_FUNDS
-                        }
-                        fvm_shared3::error::ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER,
-                        _ => ExitCode::SYS_ASSERTION_FAILED,
+                CallTreeReturn::Abort(exit_code) => (exit_code.value(), vec![], 0),
+                CallTreeReturn::Error(SyscallError { message: _, number }) => {
+                    // Ported from: https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L440
+                    let code = match number {
+                        ErrorNumber::InsufficientFunds => ExitCode::SYS_INSUFFICIENT_FUNDS.value(),
+                        ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER.value(),
+                        _ => ExitCode::SYS_ASSERTION_FAILED.value(),
                     };
                     (code, vec![], 0)
                 }
             };
+
             json!({
                 "Msg": {
                     "From": LotusJson(Address::new_id(from)),
-                    "To": LotusJson(Address::from(to)),
-                    "Value": LotusJson(TokenAmount::from(value)),
+                    "To": LotusJson(to),
+                    "Value": LotusJson(value),
                     "Method": LotusJson(method_num),
                     "Params": LotusJson(data),
                     "ParamsCodec": LotusJson(codec)
@@ -726,8 +746,7 @@ mod structured {
             "tg": gc.total().round_up(),
             "cg": gc.compute_gas().round_up(),
             "sg": gc.other_gas().round_up(),
-            // See note on "Duration" above
-            // "tt": unimplemented!(),
+            "tt": null,
         })
     }
 

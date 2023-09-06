@@ -381,5 +381,4 @@ lotus_json_with_self!(
     String,
     chrono::DateTime<chrono::Utc>,
     serde_json::Value,
-    fvm_shared3::error::ExitCode
 );
