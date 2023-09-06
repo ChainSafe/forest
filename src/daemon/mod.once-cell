@@ -1,0 +1,7 @@
+static IPC_PATH: Lazy<TempPath> = Lazy::new(|| {
+    Builder::new()
+        .prefix("forest-ipc")
+        .tempfile()
+        .expect("tempfile must succeed")
+        .into_temp_path()
+});
