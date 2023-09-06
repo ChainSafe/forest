@@ -453,7 +453,6 @@ pin_project! {
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
         block_receiver: kanal::Receiver<anyhow::Result<Block>>,
-        fail_on_dead_links: bool,
         marker: PhantomData<(DB, T)>,
     }
 }
@@ -501,13 +500,12 @@ pub fn unordered_stream_chain<
         sender.clone(),
         seen.clone(),
         stateroot_limit,
-        false,
+        true,
     );
 
     UnorderedChainStream {
         seen,
         worker_handle: handle,
-        fail_on_dead_links: true,
         block_receiver: receiver,
         marker: Default::default(),
     }
@@ -531,7 +529,7 @@ impl<
             let (extract_sender, extract_receiver) = kanal::unbounded();
             let (emit_sender, emit_receiver) = kanal::unbounded();
 
-            for _ in 0..num_cpus::get() * 3 {
+            for _ in 0..num_cpus::get() {
                 let seen = seen.clone();
                 let extract_receiver: kanal::AsyncReceiver<Vec<Cid>> =
                     extract_receiver.clone().to_async();
@@ -590,22 +588,16 @@ impl<
             // processing the queue . Once the desired depth has been reached yield a block without
             // walking the graph it represents.
             while let Some(tipset) = tipset_iter.next() {
-                // println!("reading tipset");
                 for block in tipset.into_blocks().into_iter() {
-                    // println!("block epoch {}", block.epoch());
-
-                    // println!("seen locked");
                     if seen.lock().insert(*block.cid()) {
-                        // println!("emit begin");
                         // Make sure we always yield a block otherwise.
-
                         block_sender
                             .send(Ok(Block {
                                 cid: *block.cid(),
                                 data: block.to_signing_bytes(),
                             }))
                             .expect("unreachable");
-                        // println!("emit end");
+
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
                             for p in &block.parents().cids {
@@ -635,15 +627,14 @@ impl<
                 }
             }
 
-            // println!("exit tipset loop");
-
             // Wait till all the channels are empty, then initiate the shutdown procedure.
-            // TODO: See if we can improve the control flow here.
             while !(extract_sender.is_empty() && emit_sender.is_empty()) {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
-
+            // Shutdown and drop all the channels.
             handles.abort_all();
+
+            // Make sure we report any unexpected errors.
             while let Some(res) = handles.join_next().await {
                 match res {
                     Ok(_) => continue,
