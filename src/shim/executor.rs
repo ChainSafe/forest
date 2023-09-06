@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::trace::ExecutionEvent;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 pub use fvm3::gas::GasCharge as GasChargeV3;
-pub use fvm3::trace::ExecutionEvent as ExecutionEvent_v3;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
@@ -81,12 +81,10 @@ impl ApplyRet {
         }
     }
 
-    pub fn exec_trace(&self) -> Vec<ExecutionEvent_v3> {
+    pub fn exec_trace(&self) -> Vec<ExecutionEvent> {
         match self {
-            // We don't support fvm2 execution trace at the moment
-            // Tracking issue: https://github.com/ChainSafe/forest/issues/3285
-            ApplyRet::V2(_v2) => vec![],
-            ApplyRet::V3(v3) => v3.exec_trace.clone(),
+            ApplyRet::V2(v2) => v2.exec_trace.iter().cloned().map(Into::into).collect(),
+            ApplyRet::V3(v3) => v3.exec_trace.iter().cloned().map(Into::into).collect(),
         }
     }
 }

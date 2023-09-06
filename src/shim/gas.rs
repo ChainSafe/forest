@@ -88,6 +88,15 @@ impl GasCharge {
     pub fn total(&self) -> Gas {
         self.0.total().into()
     }
+    pub fn name(&self) -> &str {
+        &self.0.name
+    }
+    pub fn compute_gas(&self) -> Gas {
+        self.0.compute_gas.into()
+    }
+    pub fn other_gas(&self) -> Gas {
+        self.0.other_gas.into()
+    }
 }
 
 impl From<GasChargeV2> for GasCharge {
