@@ -22,9 +22,9 @@ use crate::{
 };
 use anyhow::Context as AnyhowContext;
 use cid::Cid;
-use flume::{SendError, Sender};
 use futures::{FutureExt, Stream};
 use fvm_ipld_blockstore::Blockstore;
+use kanal::Sender;
 use lazy_static::lazy_static;
 use parking_lot::{Mutex, RwLock};
 use pin_project_lite::pin_project;
@@ -452,7 +452,7 @@ pin_project! {
     pub struct UnorderedChainStream<DB, T> {
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
-        block_receiver: flume::Receiver<anyhow::Result<Block>>,
+        block_receiver: kanal::Receiver<anyhow::Result<Block>>,
         fail_on_dead_links: bool,
         marker: PhantomData<(DB, T)>,
     }
@@ -492,7 +492,7 @@ pub fn unordered_stream_chain<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = flume::bounded(2048);
+    let (sender, receiver) = kanal::bounded(2048);
 
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
     let handle = UnorderedChainStream::start_workers(
@@ -528,16 +528,17 @@ impl<
     ) -> JoinHandle<anyhow::Result<()>> {
         let handle = task::spawn(async move {
             let mut handles = JoinSet::new();
-            let (extract_sender, extract_receiver) = flume::unbounded();
-            let (emit_sender, emit_receiver) = flume::unbounded();
+            let (extract_sender, extract_receiver) = kanal::unbounded();
+            let (emit_sender, emit_receiver) = kanal::unbounded();
 
             for _ in 0..num_cpus::get() * 3 {
                 let seen = seen.clone();
-                let extract_receiver: flume::Receiver<Vec<Cid>> = extract_receiver.clone();
+                let extract_receiver: kanal::AsyncReceiver<Vec<Cid>> =
+                    extract_receiver.clone().to_async();
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(mut cid_vec) = extract_receiver.recv_async().await {
+                    while let Ok(mut cid_vec) = extract_receiver.recv().await {
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
                                 if let Some(data) = db.get(&cid)? {
@@ -565,10 +566,10 @@ impl<
             for _ in 0..2 {
                 {
                     let block_sender = block_sender.clone();
-                    let emit_receiver = emit_receiver.clone();
+                    let emit_receiver = emit_receiver.clone().to_async();
                     let db = db.clone();
                     let handle = handles.spawn(async move {
-                        while let Ok(cid) = emit_receiver.recv_async().await {
+                        while let Ok(cid) = emit_receiver.recv().await {
                             if let Some(data) = db.get(&cid)? {
                                 block_sender
                                     .send(Ok(Block { cid, data }))
