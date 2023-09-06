@@ -163,9 +163,12 @@ impl CarWriter {
                 &mut header_uvi_frame,
             )
             .unwrap();
+        let mut var_bytes = [0; 16];
+        let _len = header_uvi_frame.len().encode_var(&mut var_bytes);
+
         Self {
             inner: writer,
-            buffer: { header_uvi_frame.to_vec() },
+            buffer: { [var_bytes.to_vec(), header_uvi_frame.to_vec()].concat() },
         }
     }
 }
