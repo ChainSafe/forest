@@ -1,24 +1,26 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{Buf, Bytes};
+use bytes::{buf::Writer, Buf, BufMut as _, Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use flume::r#async::RecvStream;
 use futures::{sink::Sink, Stream, StreamExt};
-use fvm_ipld_car::CarHeader as FvmCarHeader;
+use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::fs::File;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
-use tokio_util::codec::FramedRead;
+use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio_util::codec::{Decoder, Encoder as _};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use tokio_util::either::Either;
+use tokio_util::{codec::FramedRead, compat::TokioAsyncWriteCompatExt};
 
 use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
 
@@ -143,30 +145,21 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 pin_project! {
     pub struct CarWriter {
         #[pin]
-        sender: flume::Sender<(Cid, Vec<u8>)>,
-        pub inner: std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<()>>>>,
+        pub header: CarHeader,
+        #[pin]
+        pub inner: BufWriter<tokio::fs::File>,
     }
 
 }
 
 impl CarWriter {
-    pub fn new_carv1(roots: Vec<Cid>, dst: tokio::fs::File) -> Self {
-        let (sender, receiver): (
-            flume::Sender<(Cid, Vec<u8>)>,
-            flume::Receiver<(Cid, Vec<u8>)>,
-        ) = flume::unbounded();
-        let car_writer = FvmCarHeader::from(roots);
+    pub fn new_carv1(roots: Vec<Cid>, file: tokio::fs::File) -> Self {
+        let car_header = CarHeader { roots, version: 1 };
+        let writer = BufWriter::new(file);
 
         Self {
-            sender,
-            inner: Box::pin(async move {
-                let mut file = dst.compat();
-                let mut stream: RecvStream<'_, (Cid, Vec<u8>)> = receiver.stream();
-                car_writer
-                    .write_stream_async(&mut file, &mut stream)
-                    .await
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-            }),
+            header: car_header,
+            inner: writer,
         }
     }
 }
@@ -175,27 +168,27 @@ impl Sink<Block> for CarWriter {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if !self.sender.is_full() {
-            return Poll::Ready(Ok(()));
-        } else {
-            if self.sender.is_disconnected() {
-                return Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "channel dropped")));
-            } else {
-                return Poll::Pending;
-            }
-        }
+        let mut buffer = [0; 16];
+
+        // Should we use poll_write here? But with what data?
+        let this = self.project();
+        this.inner.poll_write(cx, &buffer).map_ok(|s| ())
     }
     fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
-        self.sender
-            .send((item.cid, item.data))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        // Should we write header first, or not care of header at all?
+        //let mut header_uvi_frame = BytesMut::new();
+        //UviBytes::default().encode(Bytes::from(to_vec(&self.header)?), &mut header_uvi_frame)?;
+
+        let mut buffer = [0; 16];
+        let len = item.data.len().encode_var(&mut buffer);
+
+        Ok(())
     }
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        //self.project().writer.poll_flush(self, cx)
-        todo!()
+        self.project().inner.poll_flush(cx)
     }
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+        self.project().inner.poll_shutdown(cx)
     }
 }
 
