@@ -511,6 +511,36 @@ pub fn unordered_stream_chain<
     }
 }
 
+// Stream available graph in unordered search. All reachable nodes are touched and dead-links
+// are ignored.
+pub fn unordered_stream_graph<
+    DB: Blockstore + Sync + Send + 'static,
+    T: Iterator<Item = Tipset> + Unpin + Send + 'static,
+>(
+    db: Arc<DB>,
+    tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+) -> UnorderedChainStream<DB, T> {
+    let (sender, receiver) = kanal::bounded(2048);
+
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle = UnorderedChainStream::start_workers(
+        db,
+        tipset_iter,
+        sender.clone(),
+        seen.clone(),
+        stateroot_limit,
+        false,
+    );
+
+    UnorderedChainStream {
+        seen,
+        worker_handle: handle,
+        block_receiver: receiver,
+        marker: Default::default(),
+    }
+}
+
 impl<
         DB: Blockstore + Send + Sync + 'static,
         T: Iterator<Item = Tipset> + Unpin + Send + 'static,
@@ -590,11 +620,13 @@ impl<
             while let Some(tipset) = tipset_iter.next() {
                 for block in tipset.into_blocks().into_iter() {
                     if seen.lock().insert(*block.cid()) {
-                        // Make sure we always yield a block otherwise.
+                        // Make sure we always yield a block, directly to the stream to avoid extra
+                        // work.
+                        let data = fvm_ipld_encoding::to_vec(&block).expect("should not fail");
                         block_sender
                             .send(Ok(Block {
                                 cid: *block.cid(),
-                                data: block.to_signing_bytes(),
+                                data,
                             }))
                             .expect("unreachable");
 

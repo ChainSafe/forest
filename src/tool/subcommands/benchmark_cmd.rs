@@ -7,7 +7,7 @@ use crate::chain::{
 };
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
-use crate::ipld::{stream_chain, stream_graph, unordered_stream_chain};
+use crate::ipld::{stream_chain, stream_graph, unordered_stream_chain, unordered_stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{Block, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -181,7 +181,7 @@ async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> Result<()> 
 
     let mut sink = indicatif_sink("traversed");
 
-    let mut s = unordered_stream_chain(store.clone(), heaviest.chain(store), 0);
+    let mut s = unordered_stream_graph(store.clone(), heaviest.chain(store), 0);
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
