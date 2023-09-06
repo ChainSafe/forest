@@ -164,7 +164,7 @@ impl CarWriter {
     }
 }
 
-impl Sink<Block> for CarWriter {
+impl Sink<(Cid, Vec<u8>)> for CarWriter {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -174,13 +174,13 @@ impl Sink<Block> for CarWriter {
         let this = self.project();
         this.inner.poll_write(cx, &buffer).map_ok(|s| ())
     }
-    fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
+    fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
         // Should we write header first, or not care of header at all?
         //let mut header_uvi_frame = BytesMut::new();
         //UviBytes::default().encode(Bytes::from(to_vec(&self.header)?), &mut header_uvi_frame)?;
 
         let mut buffer = [0; 16];
-        let len = item.data.len().encode_var(&mut buffer);
+        let len = item.1.len().encode_var(&mut buffer);
 
         Ok(())
     }
