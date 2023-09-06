@@ -90,36 +90,36 @@ async fn generate_actor_bundle() -> Result<()> {
     //     )
     //     .await?;
 
-    // This is temporary and for getting a reference result
-    use tokio_util::compat::TokioAsyncReadCompatExt;
-    let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED_REF)).await?;
-    let mut writer = BufWriter::new(file.compat());
-    let car_writer = CarHeader::from(all_roots);
-    car_writer
-        .write_stream_async(
-            &mut writer,
-            &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
-                let b = b.expect("There should be no invalid blocks");
-                (b.cid, b.data)
-            })),
-        )
-        .await?;
-    Ok(())
+    // // This is temporary and for getting a reference result
+    // use tokio_util::compat::TokioAsyncReadCompatExt;
+    // let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED_REF)).await?;
+    // let mut writer = BufWriter::new(file.compat());
+    // let car_writer = CarHeader::from(all_roots);
+    // car_writer
+    //     .write_stream_async(
+    //         &mut writer,
+    //         &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
+    //             let b = b.expect("There should be no invalid blocks");
+    //             (b.cid, b.data)
+    //         })),
+    //     )
+    //     .await?;
+    // Ok(())
 
-    // // TODO: handle compression later
-    // let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED)).await?;
+    // TODO: handle compression later
+    let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED)).await?;
 
-    // let stream = merge_car_streams(car_streams).map(|b| {
-    //     let b = b.expect("There should be no invalid blocks");
-    //     (b.cid, b.data)
-    // });
+    let stream = merge_car_streams(car_streams).map(|b| {
+        let b = b.expect("There should be no invalid blocks");
+        (b.cid, b.data)
+    });
 
-    // let result = stream
-    //     .map(Ok)
-    //     .forward(CarWriter::new_carv1(all_roots, file))
-    //     .await;
+    let result = stream
+        .map(Ok)
+        .forward(CarWriter::new_carv1(all_roots, file))
+        .await;
 
-    // result.map_err(|e| e.into())
+    result.map_err(|e| e.into())
 }
 
 async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<PathBuf> {

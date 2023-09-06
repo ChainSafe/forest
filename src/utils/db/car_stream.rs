@@ -164,11 +164,11 @@ impl CarWriter {
             )
             .unwrap();
         let mut var_bytes = [0; 16];
-        let _len = header_uvi_frame.len().encode_var(&mut var_bytes);
+        let len = header_uvi_frame.len().encode_var(&mut var_bytes);
 
         Self {
             inner: writer,
-            buffer: { [var_bytes.to_vec(), header_uvi_frame.to_vec()].concat() },
+            buffer: { [var_bytes[0..len].to_vec(), header_uvi_frame.to_vec()].concat() },
         }
     }
 }
@@ -185,10 +185,10 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
 
         let payload = [item.0.to_bytes(), item.1].concat();
         let mut var_bytes = [0; 16];
-        let _len = payload.len().encode_var(&mut var_bytes);
+        let len = payload.len().encode_var(&mut var_bytes);
 
         this.buffer.clear();
-        this.buffer.extend_from_slice(&var_bytes);
+        this.buffer.extend_from_slice(&var_bytes[0..len]);
         this.buffer.extend_from_slice(&payload);
 
         Ok(())
