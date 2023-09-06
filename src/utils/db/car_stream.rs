@@ -148,6 +148,8 @@ pin_project! {
         pub header: CarHeader,
         #[pin]
         pub inner: BufWriter<tokio::fs::File>,
+        #[pin]
+        buffer: Vec<u8>,
     }
 
 }
@@ -160,6 +162,7 @@ impl CarWriter {
         Self {
             header: car_header,
             inner: writer,
+            buffer: vec![],
         }
     }
 }
@@ -168,19 +171,22 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let mut buffer = [0; 16];
-
-        // Should we use poll_write here? But with what data?
         let this = self.project();
-        this.inner.poll_write(cx, &buffer).map_ok(|s| ())
+        this.inner.poll_write(cx, &this.buffer).map_ok(|s| ())
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
         // Should we write header first, or not care of header at all?
         //let mut header_uvi_frame = BytesMut::new();
         //UviBytes::default().encode(Bytes::from(to_vec(&self.header)?), &mut header_uvi_frame)?;
 
-        let mut buffer = [0; 16];
-        let len = item.1.len().encode_var(&mut buffer);
+        let mut this = self.project();
+
+        let payload = [item.0.to_bytes(), item.1].concat();
+        let mut var_bytes = [0; 16];
+        let len = payload.len().encode_var(&mut var_bytes);
+
+        this.buffer.clear();
+        this.buffer.extend_from_slice(&payload);
 
         Ok(())
     }
