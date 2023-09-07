@@ -6,7 +6,6 @@ use crate::shim::econ::TokenAmount;
 use cid::Cid;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
-pub use fvm3::gas::GasCharge as GasChargeV3;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
