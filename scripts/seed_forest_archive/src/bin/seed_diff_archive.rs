@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rand::prelude::Rng;
+use rand::{prelude::{SliceRandom,Rng}, thread_rng};
 use std::ops::RangeInclusive;
 use which::which;
 
@@ -21,7 +21,7 @@ fn main() -> Result<()> {
         .unwrap_or(0);
     let max_round = highest_epoch / EPOCH_STEP;
     println!("Highest epoch: {highest_epoch}");
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     let mut store = Store::new(snapshots.clone());
     loop {
         let round = rng.gen::<ChainEpoch>() % max_round;
@@ -33,7 +33,10 @@ fn main() -> Result<()> {
             continue;
         }
 
-        for n in 0..EPOCH_STEP / DIFF_STEP {
+        let mut diffs: Vec<u64> = (0..EPOCH_STEP / DIFF_STEP).collect();
+        diffs.shuffle(&mut rng);
+
+        for n in diffs.into_iter() {
             let diff_epoch = epoch + DIFF_STEP * n;
             let diff_range =
                 RangeInclusive::new(diff_epoch.saturating_sub(900), diff_epoch + DIFF_STEP);
@@ -45,6 +48,7 @@ fn main() -> Result<()> {
                     forest::export_diff(diff_epoch, DIFF_STEP, depth, store.files())?;
                 upload_diff_snapshot(&diff_snapshot)?;
                 std::fs::remove_file(&diff_snapshot)?;
+                return Ok(());
             } else {
                 println!("Diff snapshot already uploaded - skipping");
             }
