@@ -16,13 +16,15 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::BytesKey;
 use num_traits::Zero;
+use once_cell::sync::Lazy;
 
 use super::util::hamt_addr_key_to_key;
 
 const DATA_CAP_GRANULARITY: u64 = TokenAmount::PRECISION;
-lazy_static::lazy_static! {
-    static ref INFINITE_ALLOWANCE: StoragePower = StoragePower::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TokenAmount::PRECISION;
-}
+static INFINITE_ALLOWANCE: Lazy<StoragePower> = Lazy::new(|| {
+    StoragePower::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE")
+        * TokenAmount::PRECISION
+});
 
 pub(super) struct DataCapPostMigrator {
     pub(super) new_code_cid: Cid,

@@ -4,11 +4,11 @@
 use crate::blocks::VRFProof;
 use crate::shim::clock::BLOCKS_PER_EPOCH;
 use crate::utils::encoding::blake2b_256;
-use lazy_static::lazy_static;
 use num::{
     bigint::{ParseBigIntError, Sign},
     BigInt, Integer,
 };
+use once_cell::sync::Lazy;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 const PRECISION: u64 = 256;
@@ -25,8 +25,8 @@ fn parse(strings: &[&str]) -> Result<Vec<BigInt>, ParseBigIntError> {
         .collect()
 }
 
-lazy_static! {
-    static ref EXP_NUM_COEF: Vec<BigInt> = parse(&[
+static EXP_NUM_COEF: Lazy<Vec<BigInt>> = Lazy::new(|| {
+    parse(&[
         "-648770010757830093818553637600",
         "67469480939593786226847644286976",
         "-3197587544499098424029388939001856",
@@ -36,8 +36,10 @@ lazy_static! {
         "-115682590513835356866803355398940131328",
         "340282366920938463463374607431768211456",
     ])
-    .unwrap();
-    static ref EXP_DENO_COEF: Vec<BigInt> = parse(&[
+    .unwrap()
+});
+static EXP_DENO_COEF: Lazy<Vec<BigInt>> = Lazy::new(|| {
+    parse(&[
         "1225524182432722209606361",
         "114095592300906098243859450",
         "5665570424063336070530214243",
@@ -53,8 +55,8 @@ lazy_static! {
         "224599776407103106596571252037123047424",
         "340282366920938463463374607431768211456",
     ])
-    .unwrap();
-}
+    .unwrap()
+});
 
 /// `expneg` accepts x in Q.256 format and computes e^-x.
 /// It is most precise within [0, 1.725) range, where error is less than

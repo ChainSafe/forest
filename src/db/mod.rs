@@ -3,7 +3,6 @@
 
 pub mod car;
 mod memory;
-mod metrics;
 pub mod parity_db;
 pub mod parity_db_config;
 pub mod rolling;

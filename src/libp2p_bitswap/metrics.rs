@@ -1,35 +1,42 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use prometheus::{core::*, *};
 
-lazy_static! {
-    static ref MESSAGE_SIZE: IntCounterVec = IntCounterVec::new(
-        Opts::new("bitswap_message_size", "Size of bitswap messages",),
+static MESSAGE_SIZE: Lazy<IntCounterVec> = Lazy::new(|| {
+    IntCounterVec::new(
+        Opts::new("bitswap_message_size", "Size of bitswap messages"),
         &["type"],
     )
-    .expect("Infallible");
-    static ref MESSAGE_COUNTER: IntCounterVec = IntCounterVec::new(
-        Opts::new("bitswap_message_count", "Number of bitswap messages",),
+    .expect("Infallible")
+});
+static MESSAGE_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| {
+    IntCounterVec::new(
+        Opts::new("bitswap_message_count", "Number of bitswap messages"),
         &["type"],
     )
-    .expect("Infallible");
-    static ref CONTAINER_CAPACITIES: GenericGaugeVec<AtomicU64> = GenericGaugeVec::new(
+    .expect("Infallible")
+});
+static CONTAINER_CAPACITIES: Lazy<GenericGaugeVec<AtomicU64>> = Lazy::new(|| {
+    GenericGaugeVec::new(
         Opts::new(
             "bitswap_container_capacities",
             "Capacity for each bitswap container",
         ),
         &["type"],
     )
-    .expect("Infallible");
-    pub(in crate::libp2p_bitswap) static ref GET_BLOCK_TIME: Histogram =
-        Histogram::with_opts(HistogramOpts {
-            common_opts: Opts::new("bitswap_get_block_time", "Duration of get_block"),
-            buckets: vec![0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
-        })
-        .expect("Infallible");
-}
+    .expect("Infallible")
+});
+pub(in crate::libp2p_bitswap) static GET_BLOCK_TIME: Lazy<Histogram> = Lazy::new(|| {
+    Histogram::with_opts(HistogramOpts {
+        common_opts: Opts::new("bitswap_get_block_time", "Duration of get_block"),
+        buckets: vec![
+            0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
+        ],
+    })
+    .expect("Infallible")
+});
 
 /// Register bitswap metrics
 pub fn register_metrics(registry: &Registry) -> anyhow::Result<()> {

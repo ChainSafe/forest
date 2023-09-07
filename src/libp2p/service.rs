@@ -49,10 +49,10 @@ use crate::libp2p::{
 };
 
 pub(in crate::libp2p) mod metrics {
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
-    lazy_static! {
-        pub static ref NETWORK_CONTAINER_CAPACITIES: Box<GenericGaugeVec<AtomicU64>> = {
+    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Box<GenericGaugeVec<AtomicU64>>> = {
+        Lazy::new(|| {
             let network_container_capacities = Box::new(
                 GenericGaugeVec::<AtomicU64>::new(
                     Opts::new(
@@ -64,11 +64,11 @@ pub(in crate::libp2p) mod metrics {
                 .expect("Defining the network_container_capacities metric must succeed"),
             );
             prometheus::default_registry().register(network_container_capacities.clone()).expect(
-                "Registering the network_container_capacities metric with the metrics registry must succeed"
-            );
+            "Registering the network_container_capacities metric with the metrics registry must succeed"
+        );
             network_container_capacities
-        };
-    }
+        })
+    };
 
     pub mod values {
         pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";

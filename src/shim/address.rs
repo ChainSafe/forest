@@ -13,18 +13,23 @@ use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use integer_encoding::VarInt;
-use lazy_static::lazy_static;
 use num_traits::FromPrimitive;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU8, Ordering};
 
 // XXX: Copied from ref-fvm due to a bug in their definition.
-lazy_static! {
-    /// Zero address used to avoid allowing it to be used for verification.
-    /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
-    /// signature verification.
-    pub static ref ZERO_ADDRESS: Address = Network::Mainnet.parse_address("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a").unwrap().into();
-}
+/// Zero address used to avoid allowing it to be used for verification.
+/// This is intentionally disallowed because it is an edge case with Filecoin's BLS
+/// signature verification.
+pub static ZERO_ADDRESS: Lazy<Address> = Lazy::new(|| {
+    Network::Mainnet
+        .parse_address(
+            "f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a",
+        )
+        .unwrap()
+        .into()
+});
 
 static GLOBAL_NETWORK: AtomicU8 = AtomicU8::new(Network::Mainnet as u8);
 
