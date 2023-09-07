@@ -183,7 +183,6 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
             if s < this.buffer.len() {
                 tracing::debug!("Less bytes than in the input buffer were written");
             }
-            ()
         })
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
