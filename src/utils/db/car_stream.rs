@@ -202,13 +202,8 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.project().inner.poll_flush(cx)
     }
-    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let x = self.as_mut().project().inner.poll_flush(cx);
-        if let Poll::Ready(_) = x {
-            self.as_mut().project().inner.poll_shutdown(cx)
-        } else {
-            x
-        }
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.project().inner.poll_shutdown(cx)
     }
 }
 
