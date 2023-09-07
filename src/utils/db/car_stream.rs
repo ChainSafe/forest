@@ -176,7 +176,11 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         println!("poll_ready");
-        Poll::Ready(Ok(()))
+        let this = self.project();
+        println!("poll_flush");
+        let y = this.inner.poll_flush(cx);
+        println!("poll_flush {:?}", y);
+        y
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
         let mut this = self.project();
@@ -196,29 +200,15 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
         // self.project().inner.poll_flush(cx)
         
         let this = self.as_mut().project();
-        if this.buffer.is_empty() {
-            println!("buffer is empty");
-            println!("poll_flush");
-            let y = this.inner.poll_flush(cx);
-            println!("poll_flush {:?}", y);
-            y
+        println!("poll_write");
+        let x = this.inner.poll_write(cx, &this.buffer);
+        println!("poll_write {:?}", x);
+        if let Poll::Ready(_s) = x {
+            let mut this = self.as_mut().project();
+            this.buffer.clear();
+            Poll::Ready(Ok(()))
         } else {
-            println!("buffer is not empty");
-
-            println!("poll_write");
-            let x = this.inner.poll_write(cx, &this.buffer);
-            println!("poll_write {:?}", x);
-            if let Poll::Ready(_s) = x {
-                let mut this = self.as_mut().project();
-                this.buffer.clear();
-
-                println!("poll_flush");
-                let y = this.inner.poll_flush(cx);
-                println!("poll_flush {:?}", y);
-                y
-            } else {
-                x.map_ok(|_s| ())
-            }
+            x.map_ok(|_s| ())
         }
     }
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
