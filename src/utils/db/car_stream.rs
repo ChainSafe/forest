@@ -176,7 +176,15 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
-        this.inner.poll_write(cx, &this.buffer).map_ok(|_s| ())
+        this.inner.poll_write(cx, &this.buffer).map_ok(|s| {
+            if s == 0 {
+                tracing::debug!("No bytes were written");
+            }
+            if s < this.buffer.len() {
+                tracing::debug!("Less bytes than in the input buffer were written");
+            }
+            ()
+        })
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
         let mut this = self.project();
