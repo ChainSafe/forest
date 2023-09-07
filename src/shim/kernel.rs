@@ -1,3 +1,5 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use self::ErrorNumber as NShim;
 use self::SyscallError as EShim;
 use fvm2::kernel::SyscallError as E2;

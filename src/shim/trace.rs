@@ -1,3 +1,5 @@
+// Copyright 2019-2023 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use self::ExecutionEvent as EShim;
 use crate::shim::{
     address::Address as ShimAddress, econ::TokenAmount as ShimTokenAmount,
