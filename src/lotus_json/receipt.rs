@@ -91,7 +91,7 @@ fn shapshots() {
 ///
 /// This can only be fixed by rewriting [Receipt].
 ///
-/// See https://github.com/ChainSafe/forest/issues/3459.
+/// See <https://github.com/ChainSafe/forest/issues/3459>.
 #[test]
 #[should_panic = "cannot serialize to v2 AND v3 from the same input"]
 fn cannot_call_arbitrary_tests_on_receipt() {

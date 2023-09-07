@@ -30,7 +30,7 @@ pub struct CallReturn {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Call {
-    /// ActorID
+    /// `ActorID`
     pub from: u64,
     pub to: ShimAddress,
     pub method_num: u64,
