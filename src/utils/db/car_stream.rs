@@ -144,7 +144,7 @@ pin_project! {
     pub struct CarWriter<W> {
         #[pin]
         inner: W,
-        buffer: Vec<u8>,
+        buffer: BytesMut,
     }
 }
 
@@ -157,7 +157,7 @@ impl<W: AsyncWrite> CarWriter<W> {
 
         Ok(Self {
             inner: writer,
-            buffer: header_uvi_frame.to_vec(),
+            buffer: header_uvi_frame.into(),
         })
     }
 }
@@ -169,7 +169,7 @@ impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
         let this = self.project();
         if !this.buffer.is_empty() {
             let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
-            *this.buffer = this.buffer[bytes_written..].to_vec();
+            this.buffer.advance(bytes_written);
             if !this.buffer.is_empty() {
                 return Poll::Pending;
             }
