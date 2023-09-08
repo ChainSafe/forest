@@ -80,7 +80,7 @@ async fn generate_actor_bundle() -> Result<()> {
 
     let result = stream
         .map(Ok)
-        .forward(CarWriter::new_carv1(all_roots, zstd_encoder))
+        .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
         .await;
 
     result.map_err(|e| e.into())

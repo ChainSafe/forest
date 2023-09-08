@@ -150,22 +150,16 @@ pin_project! {
 }
 
 impl<W: AsyncWrite> CarWriter<W> {
-    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> Self {
+    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self> {
         let car_header = CarHeader { roots, version: 1 };
 
         let mut header_uvi_frame = BytesMut::new();
-        // TODO: return a result instead
-        UviBytes::default()
-            .encode(
-                Bytes::from(to_vec(&car_header).unwrap()),
-                &mut header_uvi_frame,
-            )
-            .unwrap();
+        UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
 
-        Self {
+        Ok(Self {
             inner: writer,
             buffer: header_uvi_frame.to_vec(),
-        }
+        })
     }
 }
 
@@ -175,7 +169,7 @@ impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
         if !this.buffer.is_empty() {
-            let bytes_written = ready!(this.inner.poll_write(cx, &this.buffer)).unwrap();
+            let bytes_written = ready!(this.inner.poll_write(cx, &this.buffer))?;
             *this.buffer = this.buffer[bytes_written..].to_vec();
             if !this.buffer.is_empty() {
                 return Poll::Pending;
@@ -197,11 +191,11 @@ impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // TODO: find out if we really need to call poll_ready here?
-        let _ = ready!(self.as_mut().poll_ready(cx));
+        ready!(self.as_mut().poll_ready(cx))?;
         self.project().inner.poll_flush(cx)
     }
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let _ = ready!(self.as_mut().poll_ready(cx));
+        ready!(self.as_mut().poll_ready(cx))?;
 
         let this = self.project();
         assert!(this.buffer.is_empty());
