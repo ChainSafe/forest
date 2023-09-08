@@ -15,8 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
-use tokio::io::{AsyncWrite, BufWriter};
+use tokio::io::{AsyncWrite, AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
 use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
@@ -142,18 +141,17 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 }
 
 pin_project! {
-    pub struct CarWriter {
+    pub struct CarWriter<W> {
         #[pin]
-        pub inner: BufWriter<tokio::fs::File>,
+        inner: W,
         buffer: Vec<u8>,
     }
 
 }
 
-impl CarWriter {
-    pub fn new_carv1(roots: Vec<Cid>, file: tokio::fs::File) -> Self {
+impl<W: AsyncWrite> CarWriter<W> {
+    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> Self {
         let car_header = CarHeader { roots, version: 1 };
-        let writer = BufWriter::new(file);
 
         let mut header_uvi_frame = BytesMut::new();
         // TODO: return a result instead
@@ -171,7 +169,7 @@ impl CarWriter {
     }
 }
 
-impl Sink<(Cid, Vec<u8>)> for CarWriter {
+impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
