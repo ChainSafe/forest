@@ -162,7 +162,7 @@ impl<W: AsyncWrite> CarWriter<W> {
     }
 }
 
-impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
+impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
