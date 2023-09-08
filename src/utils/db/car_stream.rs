@@ -177,14 +177,11 @@ impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
         if !this.buffer.is_empty() {
             let bytes_written = ready!(this.inner.poll_write(cx, &this.buffer)).unwrap();
             *this.buffer = this.buffer[bytes_written..].to_vec();
-            if this.buffer.is_empty() {
-                Poll::Ready(Ok(()))
-            } else {
-                Poll::Pending
+            if !this.buffer.is_empty() {
+                return Poll::Pending;
             }
-        } else {
-            Poll::Ready(Ok(()))
         }
+        Poll::Ready(Ok(()))
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
         let this = self.project();
