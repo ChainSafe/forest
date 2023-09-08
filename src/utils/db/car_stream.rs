@@ -157,7 +157,7 @@ impl<W: AsyncWrite> CarWriter<W> {
 
         Ok(Self {
             inner: writer,
-            buffer: header_uvi_frame.into(),
+            buffer: header_uvi_frame,
         })
     }
 }
