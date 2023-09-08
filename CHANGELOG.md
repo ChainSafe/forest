@@ -53,6 +53,8 @@
 
 ### Added
 
+- [#3470](https://github.com/ChainSafe/forest/pull/3470): Add
+  `forest-tool snapshot heaviest-tipset ...` subcommand.
 - [#3430](https://github.com/ChainSafe/forest/pull/3430): Add
   `forest-tool snapshot compute-state ...` subcommand.
 - [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
