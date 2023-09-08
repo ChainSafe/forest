@@ -27,6 +27,18 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.13.0 "Holocron"
+
+### Breaking
+
 - [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
   internal settings from files to the database.
 - [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
