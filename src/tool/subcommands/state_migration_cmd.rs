@@ -76,10 +76,11 @@ async fn generate_actor_bundle() -> Result<()> {
     let stream =
         merge_car_streams(car_streams).map(|b| b.expect("There should be no invalid blocks"));
 
-    let result = stream
+    stream
         .map(Ok)
         .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
-        .await;
+        .await?;
+    Ok(())
 
     result.map_err(|e| e.into())
 }
