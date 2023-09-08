@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -179,14 +179,7 @@ impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
     fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
         let this = self.project();
 
-        let payload = [item.cid.to_bytes(), item.data].concat();
-        let mut var_bytes = [0; 10];
-        let len = payload.len().encode_var(&mut var_bytes);
-
-        this.buffer.extend_from_slice(&var_bytes[0..len]);
-        this.buffer.extend_from_slice(&payload);
-
-        Ok(())
+        item.write(&mut this.buffer.writer())
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // TODO: find out if we really need to call poll_ready here?
