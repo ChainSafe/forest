@@ -155,7 +155,7 @@ mod tests {
 
     impl<V> Arbitrary for CidHashMap<V>
     where
-        V: Clone + Arbitrary,
+        V: Arbitrary,
     {
         fn arbitrary(g: &mut Gen) -> Self {
             let cid_vector = Vec::<(Cid, u64)>::arbitrary(g);
