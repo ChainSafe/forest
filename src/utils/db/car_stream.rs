@@ -201,6 +201,7 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
         Ok(())
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // TODO: find out if we really need to call poll_ready here?
         let _ = ready!(self.as_mut().poll_ready(cx));
         self.project().inner.poll_flush(cx)
     }
