@@ -633,15 +633,12 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
         let receive_block = || {
-            if let Some(item) = this.block_receiver.try_recv()? {
-                return anyhow::Ok(Some(item));
+            if let Ok(item) = this.block_receiver.try_recv() {
+                return anyhow::Ok(item);
             }
             return anyhow::Ok(None);
         };
         loop {
-            if let Some(block) = receive_block()? {
-                return Poll::Ready(Some(block));
-            }
             while let Some(task) = this.queue.pop() {
                 match task {
                     UnorderedTask::Cid(cid) => {
@@ -655,6 +652,10 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         return Poll::Ready(Some(block));
                     }
                 }
+            }
+
+            if let Some(block) = receive_block()? {
+                return Poll::Ready(Some(block));
             }
 
             let stateroot_limit = *this.stateroot_limit;
@@ -681,13 +682,17 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
                         // Process block messages.
                         if block.epoch() > stateroot_limit {
-                            this.extract_sender.send(*block.messages())?;
+                            if should_save_block_to_snapshot(*block.state_root()) {
+                                this.extract_sender.send(*block.messages())?;
+                            }
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`
                         // epoch to match Lotus' implementation.
                         if block.epoch() == 0 || block.epoch() > stateroot_limit {
-                            this.extract_sender.send(*block.state_root())?;
+                            if should_save_block_to_snapshot(*block.state_root()) {
+                                this.extract_sender.send(*block.state_root())?;
+                            }
                         }
                     }
                 }
@@ -696,7 +701,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                     if let Some(item) = item {
                         return Poll::Ready(Some(item));
                     }
-                    if this.extract_sender.is_empty() {
+                    // Close the sender when it's empty, then we can exit in the next iteration.
+                    if this.extract_sender.is_empty() && this.block_receiver.is_empty() {
                         this.extract_sender.close();
                     }
                 } else {
