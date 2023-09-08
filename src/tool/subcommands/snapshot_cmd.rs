@@ -10,6 +10,7 @@ use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::{recurse_links_hash, CidHashSet};
+use crate::lotus_json::LotusJson;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
@@ -107,6 +108,10 @@ pub enum SnapshotCommands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Print the heaviest tipset in the snapshot
+    /// (output JSON)
+    HeaviestTipset { source: PathBuf },
 }
 
 impl SnapshotCommands {
@@ -123,6 +128,15 @@ impl SnapshotCommands {
                 }
                 Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
             },
+            Self::HeaviestTipset { source } => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&LotusJson(
+                        AnyCar::new(std::fs::File::open(source)?)?.heaviest_tipset()?,
+                    ))?
+                );
+                Ok(())
+            }
             Self::Validate {
                 check_links,
                 check_network,
