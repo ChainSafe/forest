@@ -11,6 +11,7 @@ use std::{
     },
 };
 
+use crate::chain::block_messages;
 use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::Block;
@@ -24,7 +25,7 @@ use anyhow::Context as AnyhowContext;
 use cid::Cid;
 use futures::{FutureExt, Stream};
 use fvm_ipld_blockstore::Blockstore;
-use kanal::Sender;
+use kanal::{Receiver, SendError, Sender};
 use lazy_static::lazy_static;
 use parking_lot::{Mutex, RwLock};
 use pin_project_lite::pin_project;
@@ -448,12 +449,24 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
     }
 }
 
+enum UnorderedTask {
+    Cid(Cid),
+    Block(anyhow::Result<Block>),
+    // Extract(Cid),
+}
+
 pin_project! {
     pub struct UnorderedChainStream<DB, T> {
+        #[pin]
+        tipset_iter: T,
+        db: Arc<DB>,
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
         block_receiver: kanal::Receiver<anyhow::Result<Block>>,
-        marker: PhantomData<(DB, T)>,
+        extract_sender: kanal::Sender<Cid>,
+        stateroot_limit: ChainEpoch,
+        queue: Vec<UnorderedTask>,
+        fail_on_dead_links: bool,
     }
 }
 
@@ -492,22 +505,27 @@ pub fn unordered_stream_chain<
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
     let (sender, receiver) = kanal::bounded(2048);
-
+    let (extract_sender, extract_receiver) = kanal::unbounded();
+    let fail_on_dead_links = true;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::start_workers(
-        db,
-        tipset_iter,
+    let handle = UnorderedChainStream::<DB, T>::start_workers(
+        db.clone(),
         sender.clone(),
+        extract_receiver,
         seen.clone(),
-        stateroot_limit,
-        true,
+        fail_on_dead_links,
     );
 
     UnorderedChainStream {
         seen,
+        db,
         worker_handle: handle,
         block_receiver: receiver,
-        marker: Default::default(),
+        queue: Vec::new(),
+        extract_sender,
+        tipset_iter,
+        stateroot_limit,
+        fail_on_dead_links,
     }
 }
 
@@ -522,22 +540,27 @@ pub fn unordered_stream_graph<
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
     let (sender, receiver) = kanal::bounded(2048);
-
+    let (extract_sender, extract_receiver) = kanal::unbounded();
+    let fail_on_dead_links = false;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
-    let handle = UnorderedChainStream::start_workers(
-        db,
-        tipset_iter,
+    let handle = UnorderedChainStream::<DB, T>::start_workers(
+        db.clone(),
         sender.clone(),
+        extract_receiver,
         seen.clone(),
-        stateroot_limit,
-        false,
+        fail_on_dead_links,
     );
 
     UnorderedChainStream {
         seen,
+        db,
         worker_handle: handle,
         block_receiver: receiver,
-        marker: Default::default(),
+        queue: Vec::new(),
+        tipset_iter,
+        extract_sender,
+        stateroot_limit,
+        fail_on_dead_links,
     }
 }
 
@@ -548,25 +571,23 @@ impl<
 {
     fn start_workers(
         db: Arc<DB>,
-        mut tipset_iter: T,
         block_sender: Sender<anyhow::Result<Block>>,
+        extract_receiver: Receiver<Cid>,
         seen: Arc<Mutex<CidHashSet>>,
-        stateroot_limit: ChainEpoch,
         fail_on_dead_links: bool,
     ) -> JoinHandle<anyhow::Result<()>> {
         let handle = task::spawn(async move {
             let mut handles = JoinSet::new();
-            let (extract_sender, extract_receiver) = kanal::unbounded();
-            let (emit_sender, emit_receiver) = kanal::unbounded();
 
             for _ in 0..num_cpus::get() {
                 let seen = seen.clone();
-                let extract_receiver: kanal::AsyncReceiver<Vec<Cid>> =
+                let extract_receiver: kanal::AsyncReceiver<Cid> =
                     extract_receiver.clone().to_async();
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(mut cid_vec) = extract_receiver.recv().await {
+                    while let Ok(cid) = extract_receiver.recv().await {
+                        let mut cid_vec = vec![cid];
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
                                 if let Some(data) = db.get(&cid)? {
@@ -590,82 +611,6 @@ impl<
                 });
             }
 
-            // TODO: bench to see what works best.
-            for _ in 0..2 {
-                {
-                    let block_sender = block_sender.clone();
-                    let emit_receiver = emit_receiver.clone().to_async();
-                    let db = db.clone();
-                    let handle = handles.spawn(async move {
-                        while let Ok(cid) = emit_receiver.recv().await {
-                            if let Some(data) = db.get(&cid)? {
-                                block_sender
-                                    .send(Ok(Block { cid, data }))
-                                    .expect("unreachable");
-                            } else if fail_on_dead_links {
-                                block_sender
-                                    .send(Err(anyhow::anyhow!("missing key: {}", cid)))
-                                    .expect("unreachable");
-                                return Ok(());
-                            }
-                        }
-                        Ok(())
-                    });
-                }
-            }
-
-            // This consumes a [`Tipset`] from the iterator one at a time. Workers are then
-            // processing the queue . Once the desired depth has been reached yield a block without
-            // walking the graph it represents.
-            while let Some(tipset) = tipset_iter.next() {
-                for block in tipset.into_blocks().into_iter() {
-                    if seen.lock().insert(*block.cid()) {
-                        // Make sure we always yield a block, directly to the stream to avoid extra
-                        // work.
-                        let data = fvm_ipld_encoding::to_vec(&block).expect("should not fail");
-                        block_sender
-                            .send(Ok(Block {
-                                cid: *block.cid(),
-                                data,
-                            }))
-                            .expect("unreachable");
-
-                        if block.epoch() == 0 {
-                            // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in &block.parents().cids {
-                                emit_sender.send(p).expect("unreachable");
-                            }
-                        }
-
-                        // Process block messages.
-                        if block.epoch() > stateroot_limit {
-                            // println!("extract begin");
-                            extract_sender
-                                .send(vec![*block.messages()])
-                                .expect("unreachable");
-                            // println!("extract end");
-                        }
-
-                        // Visit the block if it's within required depth. And a special case for `0`
-                        // epoch to match Lotus' implementation.
-                        if block.epoch() == 0 || block.epoch() > stateroot_limit {
-                            // NOTE: In the original `walk_snapshot` implementation we walk the dag
-                            // immediately. Which is what we do here as well, but using a queue.
-                            extract_sender
-                                .send(vec![*block.state_root()])
-                                .expect("unreachable");
-                        }
-                    }
-                }
-            }
-
-            // Wait till all the channels are empty, then initiate the shutdown procedure.
-            while !(extract_sender.is_empty() && emit_sender.is_empty()) {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-            // Shutdown and drop all the channels.
-            handles.abort_all();
-
             // Make sure we report any unexpected errors.
             while let Some(res) = handles.join_next().await {
                 match res {
@@ -680,27 +625,85 @@ impl<
     }
 }
 
-impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset>> Stream
+impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
     for UnorderedChainStream<DB, T>
 {
     type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-        if let Ok(item) = this.block_receiver.recv() {
-            match item {
-                Ok(_) => {}
-                Err(_) => {
-                    this.worker_handle.abort();
-                    task::block_in_place(move || {
-                        let _ = Handle::current().block_on(async move { this.worker_handle.await });
-                    });
+        let mut this = self.project();
+        let receive_block = || {
+            if let Some(item) = this.block_receiver.try_recv()? {
+                return anyhow::Ok(Some(item));
+            }
+            return anyhow::Ok(None);
+        };
+        loop {
+            if let Some(block) = receive_block()? {
+                return Poll::Ready(Some(block));
+            }
+            while let Some(task) = this.queue.pop() {
+                match task {
+                    UnorderedTask::Cid(cid) => {
+                        if let Some(data) = this.db.get(&cid)? {
+                            return Poll::Ready(Some(Ok(Block { cid, data })));
+                        } else if *this.fail_on_dead_links {
+                            return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
+                        }
+                    }
+                    UnorderedTask::Block(block) => {
+                        return Poll::Ready(Some(block));
+                    }
                 }
             }
-            return Poll::Ready(Some(item));
-        }
 
-        // That's it, nothing else to do. End of stream.
-        return Poll::Ready(None);
+            let stateroot_limit = *this.stateroot_limit;
+            // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
+            // the extract queue. The emit queue is processed in the loop above. Once the desired depth
+            // has been reached yield a block without walking the graph it represents.
+            if let Some(tipset) = this.tipset_iter.as_mut().next() {
+                for block in tipset.into_blocks().into_iter() {
+                    if this.seen.lock().insert(*block.cid()) {
+                        // Make sure we always yield a block, directly to the stream to avoid extra
+                        // work.
+                        let data = fvm_ipld_encoding::to_vec(&block).expect("should not fail");
+                        this.queue.push(UnorderedTask::Block(Ok(Block {
+                            data,
+                            cid: *block.cid(),
+                        })));
+
+                        if block.epoch() == 0 {
+                            // The genesis block has some kind of dummy parent that needs to be emitted.
+                            for p in &block.parents().cids {
+                                this.queue.push(UnorderedTask::Cid(p));
+                            }
+                        }
+
+                        // Process block messages.
+                        if block.epoch() > stateroot_limit {
+                            this.extract_sender.send(*block.messages())?;
+                        }
+
+                        // Visit the block if it's within required depth. And a special case for `0`
+                        // epoch to match Lotus' implementation.
+                        if block.epoch() == 0 || block.epoch() > stateroot_limit {
+                            this.extract_sender.send(*block.state_root())?;
+                        }
+                    }
+                }
+            } else {
+                if let Ok(item) = this.block_receiver.try_recv() {
+                    if let Some(item) = item {
+                        return Poll::Ready(Some(item));
+                    }
+                    if this.extract_sender.is_empty() {
+                        this.extract_sender.close();
+                    }
+                } else {
+                    // That's it, nothing else to do. End of stream.
+                    return Poll::Ready(None);
+                };
+            }
+        }
     }
 }
