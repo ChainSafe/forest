@@ -146,7 +146,6 @@ pin_project! {
         inner: W,
         buffer: Vec<u8>,
     }
-
 }
 
 impl<W: AsyncWrite> CarWriter<W> {
