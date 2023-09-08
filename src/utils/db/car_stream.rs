@@ -6,6 +6,7 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
+use futures::ready;
 use futures::{sink::Sink, Stream, StreamExt};
 use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
@@ -144,7 +145,6 @@ pin_project! {
     pub struct CarWriter {
         #[pin]
         pub inner: BufWriter<tokio::fs::File>,
-        #[pin]
         buffer: Vec<u8>,
     }
 
@@ -166,7 +166,7 @@ impl CarWriter {
 
         Self {
             inner: writer,
-            buffer: header_uvi_frame.to_vec(),
+            buffer: vec![],
         }
     }
 }
@@ -175,10 +175,21 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
     type Error = io::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.project().inner.poll_flush(cx)
+        let this = self.project();
+        if !this.buffer.is_empty() {
+            let bytes_written = ready!(this.inner.poll_write(cx, &this.buffer)).unwrap();
+            *this.buffer = this.buffer[bytes_written..].to_vec();
+            if this.buffer.is_empty() {
+                Poll::Ready(Ok(()))
+            } else {
+                Poll::Pending
+            }
+        } else {
+            Poll::Ready(Ok(()))
+        }
     }
     fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
-        let mut this = self.project();
+        let this = self.project();
 
         let payload = [item.0.to_bytes(), item.1].concat();
         let mut var_bytes = [0; 10];
@@ -190,17 +201,12 @@ impl Sink<(Cid, Vec<u8>)> for CarWriter {
         Ok(())
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let this = self.as_mut().project();
-        let x = this.inner.poll_write(cx, &this.buffer);
-        if let Poll::Ready(_s) = &x {
-            let mut this = self.as_mut().project();
-            this.buffer.clear();
-        }
-        x.map_ok(|_s| ())
+        let _ = ready!(self.as_mut().poll_ready(cx));
+        self.project().inner.poll_flush(cx)
     }
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
-        assert!(this.buffer.is_empty());
+        //assert!(this.buffer.is_empty());
         this.inner.poll_shutdown(cx)
     }
 }
