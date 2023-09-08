@@ -166,7 +166,7 @@ impl CarWriter {
 
         Self {
             inner: writer,
-            buffer: vec![],
+            buffer: header_uvi_frame.to_vec(),
         }
     }
 }
