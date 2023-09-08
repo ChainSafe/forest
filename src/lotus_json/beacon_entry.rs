@@ -16,7 +16,7 @@ impl HasLotusJson for BeaconEntry {
     type LotusJson = BeaconEntryLotusJson;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(json!({"Round": 0, "Data": ""}), BeaconEntry::default())]
+        vec![(json!({"Round": 0, "Data": null}), BeaconEntry::default())]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {

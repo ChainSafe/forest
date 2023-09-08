@@ -220,13 +220,8 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let root = store.heaviest_tipset()?;
 
     let genesis = root.genesis(&store)?;
-    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        bail!("Unrecognizable genesis block");
-    };
+    let chain_name =
+        NetworkChain::from_genesis(genesis.cid()).context("Unrecognizable genesis block")?;
 
     println!("{}:", chain_name);
     for (epoch, cid) in list_checkpoints(store, root) {
@@ -290,13 +285,7 @@ async fn do_export(
     let ts = Arc::new(root);
 
     let genesis = ts.genesis(&store)?;
-    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        NetworkChain::Devnet("devnet".to_string())
-    };
+    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
 

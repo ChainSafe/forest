@@ -25,6 +25,10 @@ pub struct ExitCode(ExitCodeV3);
 impl ExitCode {
     /// The lowest exit code that an actor may abort with.
     pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV3::FIRST_USER_EXIT_CODE;
+
+    pub fn value(&self) -> u32 {
+        self.0.value()
+    }
 }
 
 impl From<u32> for ExitCode {

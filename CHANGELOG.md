@@ -53,6 +53,8 @@
 
 ### Added
 
+- [#3430](https://github.com/ChainSafe/forest/pull/3430): Add
+  `forest-tool snapshot compute-state ...` subcommand.
 - [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
   multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
