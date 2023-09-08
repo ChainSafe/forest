@@ -168,7 +168,7 @@ impl<W: AsyncWrite> Sink<(Cid, Vec<u8>)> for CarWriter<W> {
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
         if !this.buffer.is_empty() {
-            let bytes_written = ready!(this.inner.poll_write(cx, &this.buffer))?;
+            let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
             *this.buffer = this.buffer[bytes_written..].to_vec();
             if !this.buffer.is_empty() {
                 return Poll::Pending;
