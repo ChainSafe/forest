@@ -195,10 +195,7 @@ impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
     }
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         ready!(self.as_mut().poll_ready(cx))?;
-
-        let this = self.project();
-        assert!(this.buffer.is_empty());
-        this.inner.poll_shutdown(cx)
+        self.project().inner.poll_shutdown(cx)
     }
 }
 
