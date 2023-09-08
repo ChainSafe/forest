@@ -72,6 +72,8 @@
   `--output-path` already exists and a `--force` flag to suppress the prompt.
 - [#3439](https://github.com/ChainSafe/forest/pull/3439): Add
   `--consume-snapshot` option to `forest` command.
+- [#3462](https://github.com/ChainSafe/forest/pull/3462): Add
+  `forest-tool archive merge` command.
 
 ### Changed
 
