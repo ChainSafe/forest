@@ -102,7 +102,10 @@
 //! - Use destructuring to ensure exhaustiveness
 //!
 //! ### Optional fields
-//! Optional fields must have the following annotations:
+//! It's not clear if optional fields should be serialized as `null` or not.
+//! See e.g `LotusJson<Receipt>`.
+//!
+//! For now, fields are recommended to have the following annotations:
 //! ```rust,ignore
 //! # struct Foo {
 //! #[serde(skip_serializing_if = "LotusJson::is_none", default)]
@@ -371,4 +374,11 @@ macro_rules! lotus_json_with_self {
     }
 }
 
-lotus_json_with_self!(u32, u64, i64, String, chrono::DateTime<chrono::Utc>);
+lotus_json_with_self!(
+    u32,
+    u64,
+    i64,
+    String,
+    chrono::DateTime<chrono::Utc>,
+    serde_json::Value,
+);

@@ -29,10 +29,13 @@ impl HasLotusJson for SignedMessage {
                     "GasPremium": "0",
                     "Method": 0,
                     "Nonce": 0,
-                    "Params": "",
+                    "Params": null,
                     "To": "f00",
                     "Value": "0",
-                    "Version": 0
+                    "Version": 0,
+                    "CID": {
+                        "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
+                    },
                 },
                 "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
             }),
@@ -51,7 +54,7 @@ impl HasLotusJson for SignedMessage {
         Self::LotusJson {
             message: message.into(),
             signature: signature.into(),
-            cid: None.into(), // BUG?(aatifsyed)
+            cid: None.into(), // See notes on Message
         }
     }
 
@@ -59,7 +62,7 @@ impl HasLotusJson for SignedMessage {
         let Self::LotusJson {
             message,
             signature,
-            cid: _ignored, // BUG?(aatifsyed)
+            cid: _ignored, // See notes on Message
         } = lotus_json;
         Self {
             message: message.into_inner(),

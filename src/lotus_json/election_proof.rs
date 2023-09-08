@@ -19,7 +19,7 @@ impl HasLotusJson for ElectionProof {
         vec![(
             json!({
                 "WinCount": 0,
-                "VRFProof": ""
+                "VRFProof": null
             }),
             ElectionProof::default(),
         )]

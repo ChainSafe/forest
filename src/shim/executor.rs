@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::trace::ExecutionEvent;
+use crate::shim::econ::TokenAmount;
+use cid::Cid;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm_ipld_encoding::RawBytes;
@@ -8,8 +11,6 @@ use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::shim::econ::TokenAmount;
 
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
@@ -55,6 +56,34 @@ impl ApplyRet {
         match self {
             ApplyRet::V2(v2) => Receipt::V2(v2.msg_receipt.clone()),
             ApplyRet::V3(v3) => Receipt::V3(v3.msg_receipt.clone()),
+        }
+    }
+
+    pub fn refund(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => (&v2.refund).into(),
+            ApplyRet::V3(v3) => (&v3.refund).into(),
+        }
+    }
+
+    pub fn base_fee_burn(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => (&v2.base_fee_burn).into(),
+            ApplyRet::V3(v3) => (&v3.base_fee_burn).into(),
+        }
+    }
+
+    pub fn over_estimation_burn(&self) -> TokenAmount {
+        match self {
+            ApplyRet::V2(v2) => (&v2.over_estimation_burn).into(),
+            ApplyRet::V3(v3) => (&v3.over_estimation_burn).into(),
+        }
+    }
+
+    pub fn exec_trace(&self) -> Vec<ExecutionEvent> {
+        match self {
+            ApplyRet::V2(v2) => v2.exec_trace.iter().cloned().map(Into::into).collect(),
+            ApplyRet::V3(v3) => v3.exec_trace.iter().cloned().map(Into::into).collect(),
         }
     }
 }
@@ -105,6 +134,12 @@ impl Receipt {
         match self {
             Receipt::V2(v2) => v2.gas_used as u64,
             Receipt::V3(v3) => v3.gas_used,
+        }
+    }
+    pub fn events_root(&self) -> Option<Cid> {
+        match self {
+            Receipt::V2(_) => None,
+            Receipt::V3(v3) => v3.events_root,
         }
     }
 }
