@@ -176,10 +176,10 @@ impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
         }
         Poll::Ready(Ok(()))
     }
-    fn start_send(self: Pin<&mut Self>, item: (Cid, Vec<u8>)) -> Result<(), Self::Error> {
+    fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
         let this = self.project();
 
-        let payload = [item.0.to_bytes(), item.1].concat();
+        let payload = [item.cid.to_bytes(), item.data].concat();
         let mut var_bytes = [0; 10];
         let len = payload.len().encode_var(&mut var_bytes);
 
