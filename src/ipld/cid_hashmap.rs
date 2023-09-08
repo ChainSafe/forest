@@ -154,7 +154,9 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     impl<V> Arbitrary for CidHashMap<V>
-    where V: Clone + Arbitrary, {
+    where
+        V: Clone + Arbitrary,
+    {
         fn arbitrary(g: &mut Gen) -> Self {
             let cid_vector = Vec::<(Cid, u64)>::arbitrary(g);
             let mut cid_hash_map = CidHashMap::new();
