@@ -12,19 +12,15 @@ use cid::Cid;
 use clap::Subcommand;
 use futures::io::{BufReader, BufWriter};
 use futures::{AsyncRead, AsyncWriteExt, StreamExt, TryStreamExt};
-use fvm_ipld_car::{CarHeader, CarReader};
+use fvm_ipld_car::CarReader;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const DEFAULT_BUNDLE_FILE_NAME: &str = "actor_bundles.car.zst";
-
-const DEFAULT_BUNDLE_UNCOMPRESSED: &str = "actor_bundles.car";
-const DEFAULT_BUNDLE_UNCOMPRESSED_REF: &str = "actor_bundles.ref.car";
 
 static ACTOR_BUNDLE_CACHE_DIR: Lazy<PathBuf> =
     Lazy::new(|| env::temp_dir().join(".forest_actor_bundles/"));
@@ -72,42 +68,10 @@ async fn generate_actor_bundle() -> Result<()> {
         .cloned()
         .collect::<Vec<_>>();
 
-    // let car_writer = CarHeader::from(all_roots);
-
-    // let mut zstd_encoder = ZstdEncoder::with_quality(
-    //     tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
-    //     async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
-    // )
-    // .compat_write();
-
-    // car_writer
-    //     .write_stream_async(
-    //         &mut zstd_encoder,
-    //         &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
-    //             let b = b.expect("There should be no invalid blocks");
-    //             (b.cid, b.data)
-    //         })),
-    //     )
-    //     .await?;
-
-    // // This is temporary and for getting a reference result
-    // use tokio_util::compat::TokioAsyncReadCompatExt;
-    // let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED_REF)).await?;
-    // let mut writer = BufWriter::new(file.compat());
-    // let car_writer = CarHeader::from(all_roots);
-    // car_writer
-    //     .write_stream_async(
-    //         &mut writer,
-    //         &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
-    //             let b = b.expect("There should be no invalid blocks");
-    //             (b.cid, b.data)
-    //         })),
-    //     )
-    //     .await?;
-    // Ok(())
-
-    // TODO: handle compression later
-    let file = tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_UNCOMPRESSED)).await?;
+    let zstd_encoder = ZstdEncoder::with_quality(
+        tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
+        async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
+    );
 
     let stream = merge_car_streams(car_streams).map(|b| {
         let b = b.expect("There should be no invalid blocks");
@@ -116,7 +80,7 @@ async fn generate_actor_bundle() -> Result<()> {
 
     let result = stream
         .map(Ok)
-        .forward(CarWriter::new_carv1(all_roots, file))
+        .forward(CarWriter::new_carv1(all_roots, zstd_encoder))
         .await;
 
     result.map_err(|e| e.into())
