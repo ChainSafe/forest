@@ -7,7 +7,7 @@ use crate::chain::{
 };
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
-use crate::ipld::{stream_chain, stream_graph, unordered_stream_chain, unordered_stream_graph};
+use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{Block, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -22,8 +22,6 @@ use itertools::Itertools;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 use tokio::{
     fs::File,
     io::{AsyncWrite, AsyncWriteExt, BufReader},

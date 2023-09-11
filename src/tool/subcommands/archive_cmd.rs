@@ -9,7 +9,7 @@ use crate::chain::{
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
-use crate::ipld::{stream_graph, CidHashSet};
+use crate::ipld::{unordered_stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use anyhow::{bail, Context as _};
@@ -288,6 +288,7 @@ async fn do_export(
     force: bool,
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
+    let store = Arc::new(store);
 
     let genesis = ts.genesis(&store)?;
     let network = if genesis.cid() == &*calibnet::GENESIS_CID {
@@ -322,7 +323,11 @@ async fn do_export(
             .context("diff epoch must be smaller than target epoch")?;
         let diff_ts: &Tipset = &diff_ts;
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let mut stream = stream_graph(&store, diff_ts.clone().chain(&store), diff_limit);
+        let mut stream = unordered_stream_graph(
+            store.clone(),
+            diff_ts.clone().chain(store.clone()),
+            diff_limit,
+        );
         while stream.try_next().await?.is_some() {}
         stream.into_seen()
     } else {
@@ -368,7 +373,7 @@ async fn do_export(
     pb.enable_steady_tick(std::time::Duration::from_secs_f32(0.1));
     let writer = pb.wrap_async_write(writer);
 
-    crate::chain::export::<Sha256>(store, &ts, depth, writer, seen, true).await?;
+    crate::chain::export::<Sha256>(store.clone(), &ts, depth, writer, seen, true).await?;
 
     Ok(())
 }
