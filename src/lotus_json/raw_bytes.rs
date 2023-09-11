@@ -1,12 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
+use super::{vec_u8::VecU8LotusJson, *};
 use fvm_ipld_encoding::RawBytes;
-
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct RawBytesLotusJson(#[serde(with = "base64_standard")] Vec<u8>);
 
 #[test]
 fn snapshots() {
@@ -21,7 +17,7 @@ quickcheck! {
 }
 
 impl HasLotusJson for RawBytes {
-    type LotusJson = RawBytesLotusJson;
+    type LotusJson = VecU8LotusJson;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
@@ -31,10 +27,10 @@ impl HasLotusJson for RawBytes {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        RawBytesLotusJson(Vec::from(self))
+        Vec::from(self).into_lotus_json()
     }
 
-    fn from_lotus_json(RawBytesLotusJson(vec): Self::LotusJson) -> Self {
-        Self::from(vec)
+    fn from_lotus_json(value: Self::LotusJson) -> Self {
+        Self::from(Vec::from_lotus_json(value))
     }
 }

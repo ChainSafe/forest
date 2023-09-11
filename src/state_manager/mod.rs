@@ -5,6 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
 use fil_actor_interface::init::{self, State};
@@ -18,8 +19,8 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::interpreter::BlockMessages;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
+use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -207,7 +208,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-pub const NO_CALLBACK: Option<fn(&Cid, &ChainMessage, &ApplyRet) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(&MessageCallbackCtx) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -352,7 +353,7 @@ where
         self.cache
             .get_or_else(key, || async move {
                 let ts_state = self
-                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK)
+                    .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 debug!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
@@ -387,6 +388,7 @@ where
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
+            VMTrace::NotTraced,
         )?;
 
         if msg.gas_limit == 0 {
@@ -463,6 +465,7 @@ where
                 timestamp: ts.min_timestamp(),
             },
             &self.engine,
+            VMTrace::NotTraced,
         )?;
 
         for msg in prior_messages {
@@ -497,16 +500,21 @@ where
         // thread to avoid starving executor
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
-        let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
-            if *cid == mcid {
-                m_tx.send(unsigned.message().clone())?;
-                r_tx.send(apply_ret.clone())?;
-                anyhow::bail!(ERROR_MSG);
+        let callback = move |ctx: &MessageCallbackCtx| {
+            match ctx.at {
+                CalledAt::Applied | CalledAt::Reward => {
+                    if ctx.cid == mcid {
+                        m_tx.send(ctx.message.message().clone())?;
+                        r_tx.send(ctx.apply_ret.clone())?;
+                        anyhow::bail!(ERROR_MSG);
+                    }
+                    Ok(())
+                }
+                CalledAt::Cron => Ok(()), // ignored
             }
-            Ok(())
         };
         let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback))
+            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::NotTraced)
             .await;
 
         if let Err(error_message) = result {
@@ -601,30 +609,28 @@ where
     ///
     /// For details, see the documentation for [`apply_block_messages`].
     ///
-    #[instrument(skip(self, tipset, callback))]
-    pub async fn compute_tipset_state<CB: 'static>(
+    #[instrument(skip_all)]
+    pub async fn compute_tipset_state(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<CB>,
-    ) -> Result<CidPair, Error>
-    where
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
-    {
+        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        enable_tracing: VMTrace,
+    ) -> Result<CidPair, Error> {
         let this = Arc::clone(self);
-        tokio::task::spawn_blocking(move || this.compute_tipset_state_blocking(tipset, callback))
-            .await?
+        tokio::task::spawn_blocking(move || {
+            this.compute_tipset_state_blocking(tipset, callback, enable_tracing)
+        })
+        .await?
     }
 
     /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
-    pub fn compute_tipset_state_blocking<CB: 'static>(
+    pub fn compute_tipset_state_blocking(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<CB>,
-    ) -> Result<CidPair, Error>
-    where
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
-    {
+        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        enable_tracing: VMTrace,
+    ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
             self.chain_store().genesis().timestamp(),
             Arc::clone(&self.chain_store().chain_index),
@@ -633,6 +639,7 @@ where
             &self.engine,
             tipset,
             callback,
+            enable_tracing,
         )?)
     }
 
@@ -1109,6 +1116,7 @@ where
                 engine,
                 parent,
                 NO_CALLBACK,
+                VMTrace::NotTraced,
             )
             .context("couldn't compute tipset state")?;
             let expected_receipt = child.min_ticket_block().message_receipts();
@@ -1206,18 +1214,19 @@ where
 ///
 /// Scanning the blockchain to find past tipsets and state-trees may be slow.
 /// The `ChainStore` caches recent tipsets to make these scans faster.
-pub fn apply_block_messages<DB, CB>(
+#[allow(clippy::too_many_arguments)]
+pub fn apply_block_messages<DB>(
     genesis_timestamp: u64,
     chain_index: Arc<ChainIndex<Arc<DB>>>,
     chain_config: Arc<ChainConfig>,
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-    mut callback: Option<CB>,
+    mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+    enable_tracing: VMTrace,
 ) -> Result<CidPair, anyhow::Error>
 where
     DB: Blockstore + Send + Sync + 'static,
-    CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
 {
     // This function will:
     // 1. handle the genesis block as a special case
@@ -1262,6 +1271,7 @@ where
                 timestamp,
             },
             engine,
+            enable_tracing,
         )
     };
 

@@ -40,7 +40,7 @@ use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use raw_sync::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
@@ -56,13 +56,13 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
-lazy_static! {
-    static ref IPC_PATH: TempPath = Builder::new()
+static IPC_PATH: Lazy<TempPath> = Lazy::new(|| {
+    Builder::new()
         .prefix("forest-ipc")
         .tempfile()
         .expect("tempfile must succeed")
-        .into_temp_path();
-}
+        .into_temp_path()
+});
 
 // The parent process and the daemonized child communicate through an Event in
 // shared memory. The identity of the shared memory object is written to a

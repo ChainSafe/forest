@@ -6,10 +6,12 @@ use fvm2::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
 };
+pub use fvm3::gas::Gas as GasV3;
+pub use fvm3::gas::GasCharge as GasChargeV3;
 pub use fvm3::gas::GasTracker;
 use fvm3::gas::{
-    price_list_by_network_version as price_list_by_network_version_v3, Gas as GasV3,
-    GasCharge as GasChargeV3, PriceList as PriceListV3, MILLIGAS_PRECISION,
+    price_list_by_network_version as price_list_by_network_version_v3, PriceList as PriceListV3,
+    MILLIGAS_PRECISION,
 };
 
 use crate::shim::version::NetworkVersion;
@@ -77,6 +79,7 @@ impl From<GasV3> for Gas {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct GasCharge(GasChargeV3);
 
 impl GasCharge {
@@ -84,6 +87,15 @@ impl GasCharge {
     /// storage gas associated with this charge.
     pub fn total(&self) -> Gas {
         self.0.total().into()
+    }
+    pub fn name(&self) -> &str {
+        &self.0.name
+    }
+    pub fn compute_gas(&self) -> Gas {
+        self.0.compute_gas.into()
+    }
+    pub fn other_gas(&self) -> Gas {
+        self.0.other_gas.into()
     }
 }
 
