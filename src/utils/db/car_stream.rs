@@ -19,8 +19,9 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite};
 use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
+use unsigned_varint::codec::UviBytes;
 
-use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
+use crate::utils::encoding::from_slice_with_fallback;
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
@@ -46,7 +47,8 @@ impl Block {
         Ok(())
     }
 
-    pub fn from_bytes(bytes: Bytes) -> Option<Block> {
+    pub fn from_bytes(bytes: impl Into<Bytes>) -> Option<Block> {
+        let bytes: Bytes = bytes.into();
         let mut cursor = Cursor::new(bytes);
         let cid = Cid::read_bytes(&mut cursor).ok()?;
         let data_offset = cursor.position();
@@ -189,7 +191,7 @@ impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
 }
 
 async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option<CarHeader> {
-    let mut framed_reader = FramedRead::new(reader, UviBytes::default());
+    let mut framed_reader = FramedRead::new(reader, UviBytes::<Bytes>::default());
     let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
     if header.version != 1 {
         return None;
