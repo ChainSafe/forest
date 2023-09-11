@@ -452,7 +452,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 enum UnorderedTask {
     Cid(Cid),
     Block(anyhow::Result<Block>),
-    // Extract(Cid),
 }
 
 pin_project! {
@@ -564,10 +563,8 @@ pub fn unordered_stream_graph<
     }
 }
 
-impl<
-        DB: Blockstore + Send + Sync + 'static,
-        T: Iterator<Item = Tipset> + Unpin + Send + 'static,
-    > UnorderedChainStream<DB, T>
+impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
+    UnorderedChainStream<DB, T>
 {
     fn start_workers(
         db: Arc<DB>,
@@ -667,11 +664,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                     if this.seen.lock().insert(*block.cid()) {
                         // Make sure we always yield a block, directly to the stream to avoid extra
                         // work.
-                        let data = fvm_ipld_encoding::to_vec(&block).expect("should not fail");
-                        this.queue.push(UnorderedTask::Block(Ok(Block {
-                            data,
-                            cid: *block.cid(),
-                        })));
+                        this.queue.push(UnorderedTask::Cid(*block.cid()));
 
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
@@ -680,10 +673,16 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                             }
                         }
 
-                        // Process block messages.
+                        // // Process block messages.
                         if block.epoch() > stateroot_limit {
-                            if should_save_block_to_snapshot(*block.state_root()) {
-                                this.extract_sender.send(*block.messages())?;
+                            if should_save_block_to_snapshot(*block.messages()) {
+                                if this.db.has(block.messages())? {
+                                    this.extract_sender.send(*block.messages())?;
+                                    // This will simply return an error once we reach that item in
+                                    // the queue.
+                                } else if *this.fail_on_dead_links {
+                                    this.queue.push(UnorderedTask::Cid(*block.messages()));
+                                }
                             }
                         }
 
@@ -691,7 +690,13 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         // epoch to match Lotus' implementation.
                         if block.epoch() == 0 || block.epoch() > stateroot_limit {
                             if should_save_block_to_snapshot(*block.state_root()) {
-                                this.extract_sender.send(*block.state_root())?;
+                                if this.db.has(block.state_root())? {
+                                    this.extract_sender.send(*block.state_root())?;
+                                    // This will simply return an error once we reach that item in
+                                    // the queue.
+                                } else if *this.fail_on_dead_links {
+                                    this.queue.push(UnorderedTask::Cid(*block.state_root()));
+                                }
                             }
                         }
                     }
