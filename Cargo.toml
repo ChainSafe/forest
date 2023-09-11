@@ -86,10 +86,9 @@ indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.11.0"
-jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
+jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "8.1"
 kanal = "0.1.0-pre8"
-lazy_static = "1.4"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
@@ -150,7 +149,7 @@ rustyline = "12"
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_ipld_dagcbor = "0.4"
+serde_ipld_dagcbor = "0.4.1"
 serde_json = "1.0"
 serde_tuple = "0.5"
 serde_with = { version = "3.0.0", features = ["chrono_0_4"] }

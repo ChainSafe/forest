@@ -27,6 +27,18 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.13.0 "Holocron"
+
+### Breaking
+
 - [#3231](https://github.com/ChainSafe/forest/issues/3231) Moved some Forest
   internal settings from files to the database.
 - [#3333](https://github.com/ChainSafe/forest/pull/3333) Changed default rpc
@@ -53,6 +65,8 @@
 
 ### Added
 
+- [#3430](https://github.com/ChainSafe/forest/pull/3430): Add
+  `forest-tool snapshot compute-state ...` subcommand.
 - [#3321](https://github.com/ChainSafe/forest/issues/3321): Support for
   multi-threaded car-backed block stores.
 - [#3316](https://github.com/ChainSafe/forest/pull/3316): Add
@@ -70,6 +84,8 @@
   `--output-path` already exists and a `--force` flag to suppress the prompt.
 - [#3439](https://github.com/ChainSafe/forest/pull/3439): Add
   `--consume-snapshot` option to `forest` command.
+- [#3462](https://github.com/ChainSafe/forest/pull/3462): Add
+  `forest-tool archive merge` command.
 
 ### Changed
 

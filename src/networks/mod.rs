@@ -66,8 +66,26 @@ impl Display for NetworkChain {
 }
 
 impl NetworkChain {
-    pub fn is_devnet(&self) -> bool {
-        matches!(self, NetworkChain::Devnet(_))
+    /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
+    /// is the hard-coded genesis CID for either of those networks.
+    pub fn from_genesis(cid: &Cid) -> Option<Self> {
+        match (
+            *calibnet::GENESIS_CID == *cid,
+            *mainnet::GENESIS_CID == *cid,
+        ) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(Self::Calibnet),
+            (false, true) => Some(Self::Mainnet),
+            (false, false) => None,
+        }
+    }
+
+    /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
+    /// is the hard-coded genesis CID for either of those networks.
+    ///
+    /// Else returns a [`NetworkChain::Devnet`] with a placeholder name.
+    pub fn from_genesis_or_devnet_placeholder(cid: &Cid) -> Self {
+        Self::from_genesis(cid).unwrap_or(Self::Devnet(String::from("devnet")))
     }
 
     pub fn is_testnet(&self) -> bool {

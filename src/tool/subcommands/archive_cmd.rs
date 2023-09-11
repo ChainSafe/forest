@@ -12,8 +12,9 @@ use crate::db::car::{AnyCar, RandomAccessFileReader};
 use crate::ipld::{unordered_stream_graph, CidHashSet};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
-use anyhow::{bail, Context as _};
+use anyhow::{bail, Context as _, Result};
 use chrono::NaiveDateTime;
+use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
@@ -23,6 +24,7 @@ use itertools::Itertools;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
 #[derive(Debug, Subcommand)]
@@ -65,10 +67,24 @@ pub enum ArchiveCommands {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
     },
+    /// Merge snapshot archives into a single file. The output snapshot refers
+    /// to the heaviest tipset in the input set.
+    Merge {
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+        /// Snapshot output filename or directory. Defaults to
+        /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
+        #[arg(short, long, default_value = ".", verbatim_doc_comment)]
+        output_path: PathBuf,
+        /// Overwrite output file without prompting.
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
 }
 
 impl ArchiveCommands {
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self) -> Result<()> {
         match self {
             Self::Info { snapshot } => {
                 println!(
@@ -103,6 +119,11 @@ impl ArchiveCommands {
             Self::Checkpoints {
                 snapshot_files: snapshot,
             } => print_checkpoints(snapshot),
+            Self::Merge {
+                snapshot_files,
+                output_path,
+                force,
+            } => merge_snapshots(snapshot_files, output_path, force).await,
         }
     }
 }
@@ -130,17 +151,14 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
+    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> Result<Self> {
         Self::from_store_with(store, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_store_with(
-        store: AnyCar<impl RandomAccessFileReader>,
-        progress: bool,
-    ) -> anyhow::Result<Self> {
+    fn from_store_with(store: AnyCar<impl RandomAccessFileReader>, progress: bool) -> Result<Self> {
         let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
@@ -215,18 +233,13 @@ impl ArchiveInfo {
 
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
-fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
+fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> Result<()> {
     let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
 
     let genesis = root.genesis(&store)?;
-    let chain_name = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        bail!("Unrecognizable genesis block");
-    };
+    let chain_name =
+        NetworkChain::from_genesis(genesis.cid()).context("Unrecognizable genesis block")?;
 
     println!("{}:", chain_name);
     for (epoch, cid) in list_checkpoints(store, root) {
@@ -286,18 +299,12 @@ async fn do_export(
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
     force: bool,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let ts = Arc::new(root);
     let store = Arc::new(store);
 
     let genesis = ts.genesis(&store)?;
-    let network = if genesis.cid() == &*calibnet::GENESIS_CID {
-        NetworkChain::Calibnet
-    } else if genesis.cid() == &*mainnet::GENESIS_CID {
-        NetworkChain::Mainnet
-    } else {
-        NetworkChain::Devnet("devnet".to_string())
-    };
+    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
     let epoch = epoch_option.unwrap_or(ts.epoch());
 
@@ -374,6 +381,58 @@ async fn do_export(
     let writer = pb.wrap_async_write(writer);
 
     crate::chain::export::<Sha256>(store.clone(), &ts, depth, writer, seen, true).await?;
+
+    Ok(())
+}
+
+// FIXME: Testing with diff snapshots can be significantly improved. Tracking
+// issue: https://github.com/ChainSafe/forest/issues/3347
+/// Merge a set of snapshots (diff snapshots or lite snapshots). The output
+/// snapshot links to the heaviest tipset in the input set.
+async fn merge_snapshots(
+    snapshot_files: Vec<PathBuf>,
+    output_path: PathBuf,
+    force: bool,
+) -> Result<()> {
+    use crate::db::car::forest;
+
+    let store = ManyCar::try_from(snapshot_files)?;
+    let heaviest_tipset = store.heaviest_tipset()?;
+    let roots = Vec::<Cid>::from(&heaviest_tipset.key().cids);
+
+    if !force && output_path.exists() {
+        let have_permission = Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(format!(
+                "{} will be overwritten. Continue?",
+                output_path.to_string_lossy()
+            ))
+            .default(false)
+            .interact()
+            // e.g not a tty (or some other error), so haven't got permission.
+            .unwrap_or(false);
+        if !have_permission {
+            return Ok(());
+        }
+    }
+
+    let mut writer = BufWriter::new(tokio::fs::File::create(&output_path).await.context(
+        format!(
+            "unable to create a snapshot - is the output path '{}' correct?",
+            output_path.to_str().unwrap_or_default()
+        ),
+    )?);
+
+    // Stream all available blocks from heaviest_tipset to genesis.
+    let blocks = stream_graph(&store, heaviest_tipset.chain(&store), 0);
+
+    // Encode Ipld key-value pairs in zstd frames
+    let frames = forest::Encoder::compress_stream_default(blocks);
+
+    // Write zstd frames and include a skippable index
+    forest::Encoder::write(&mut writer, roots, frames).await?;
+
+    // Flush to ensure everything has been successfully written
+    writer.flush().await.context("failed to flush")?;
 
     Ok(())
 }
