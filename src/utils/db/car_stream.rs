@@ -167,7 +167,7 @@ impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let mut this = self.as_mut().project();
-        
+
         while !this.buffer.is_empty() {
             this = self.as_mut().project();
             let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
