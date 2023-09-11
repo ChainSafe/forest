@@ -73,11 +73,9 @@ async fn generate_actor_bundle() -> Result<()> {
         async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
     );
 
-    let stream =
-        merge_car_streams(car_streams).map(|b| b.expect("There should be no invalid blocks"));
+    let stream = merge_car_streams(car_streams);
 
     stream
-        .map(Ok)
         .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
         .await?;
     Ok(())
