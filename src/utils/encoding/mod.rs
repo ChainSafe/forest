@@ -29,7 +29,6 @@ pub fn from_slice_with_fallback<'a, T: serde::de::Deserialize<'a>>(
 }
 
 mod cid_de_cbor;
-pub mod uvibytes;
 pub use cid_de_cbor::extract_cids;
 
 /// `serde_bytes` with max length check
