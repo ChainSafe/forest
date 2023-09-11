@@ -165,24 +165,20 @@ impl<W: AsyncWrite> CarWriter<W> {
 impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
     type Error = io::Error;
 
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let this = self.project();
-        if !this.buffer.is_empty() {
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let mut this = self.as_mut().project();
+        
+        while !this.buffer.is_empty() {
+            this = self.as_mut().project();
             let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
             this.buffer.advance(bytes_written);
-            if !this.buffer.is_empty() {
-                return Poll::Pending;
-            }
         }
         Poll::Ready(Ok(()))
     }
     fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
-        let this = self.project();
-
-        item.write(&mut this.buffer.writer())
+        item.write(&mut self.project().buffer.writer())
     }
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // TODO: find out if we really need to call poll_ready here?
         ready!(self.as_mut().poll_ready(cx))?;
         self.project().inner.poll_flush(cx)
     }
