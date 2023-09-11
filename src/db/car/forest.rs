@@ -52,7 +52,6 @@ use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
 use crate::utils::db::car_stream::{Block, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::encoding::uvibytes::UviBytes;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::{HashMap, HashMapExt};
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
@@ -72,6 +71,7 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
+use unsigned_varint::codec::UviBytes;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
@@ -123,7 +123,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?;
-        let block_frame = UviBytes::default()
+        let block_frame = UviBytes::<Bytes>::default()
             .decode(&mut header_zstd_frame)?
             .ok_or(invalid_data("malformed uvibytes"))?;
         let header = from_slice_with_fallback::<CarHeader>(&block_frame)
@@ -198,7 +198,9 @@ where
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = HashMap::new();
-                    while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
+                    while let Some(block_frame) =
+                        UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
+                    {
                         if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
                             block_map.insert(cid, data);
                         } else {
