@@ -670,7 +670,7 @@ mod structured {
                     "Value": LotusJson(value),
                     "Method": LotusJson(method_num),
                     "Params": LotusJson(data),
-                    "ParamsCodec": LotusJson(codec),
+                    "ParamsCodec": LotusJson(codec)
                 },
                 // "MsgRct" might suggest that this is the right place to use LotusJson<crate::shim::executor::Receipt>
                 // But this is actually different information - e.g "GasUsed" isn't shown by Lotus

@@ -198,7 +198,7 @@ pub fn draw_randomness(
     Ok(ret)
 }
 
-/// Computes a 128-bit digest.
+/// Computes a 256-bit digest.
 /// See <https://github.com/filecoin-project/ref-fvm/blob/master/fvm/CHANGELOG.md#360-2023-08-18>
 pub fn digest(rbase: &[u8]) -> [u8; 32] {
     blake2b_256(rbase)
