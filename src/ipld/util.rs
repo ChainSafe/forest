@@ -277,7 +277,6 @@ enum Task {
 
 pin_project! {
     pub struct ChainStream<DB, T> {
-        #[pin]
         tipset_iter: T,
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
@@ -341,7 +340,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
-        let mut this = self.project();
+        let this = self.project();
 
         let ipld_to_cid = |ipld| {
             if let Ipld::Link(cid) = ipld {
@@ -397,7 +396,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // This consumes a [`Tipset`] from the iterator one at a time. The next iteration of the
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
-            if let Some(tipset) = this.tipset_iter.as_mut().next() {
+            if let Some(tipset) = this.tipset_iter.next() {
                 for block in tipset.into_blocks().into_iter() {
                     if this.seen.insert(*block.cid()) {
                         // Make sure we always yield a block otherwise.
@@ -446,7 +445,6 @@ enum UnorderedTask {
 
 pin_project! {
     pub struct UnorderedChainStream<DB, T> {
-        #[pin]
         tipset_iter: T,
         db: Arc<DB>,
         seen: Arc<Mutex<CidHashSet>>,
@@ -611,7 +609,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
     type Item = anyhow::Result<Block>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
+        let this = self.project();
         let receive_block = || {
             if let Ok(item) = this.block_receiver.try_recv() {
                 return anyhow::Ok(item);
@@ -639,7 +637,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
             // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
             // the extract queue. The emit queue is processed in the loop above. Once the desired depth
             // has been reached yield a block without walking the graph it represents.
-            if let Some(tipset) = this.tipset_iter.as_mut().next() {
+            if let Some(tipset) = this.tipset_iter.next() {
                 for block in tipset.into_blocks().into_iter() {
                     if this.seen.lock().insert(*block.cid()) {
                         // Make sure we always yield a block, directly to the stream to avoid extra
