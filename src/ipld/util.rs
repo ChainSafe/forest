@@ -300,9 +300,9 @@ impl<DB, T> ChainStream<DB, T> {
 ///
 /// * `db` - A database that implements [`Blockstore`] interface.
 /// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
-/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
-/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
-/// `$depth` is the number of `[`Tipset`]` that needs inspection.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets,
+/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth`
+/// is the number of `[`Tipset`]` that needs inspection.
 pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
@@ -473,9 +473,9 @@ impl<DB, T> UnorderedChainStream<DB, T> {
 ///
 /// * `db` - A database that implements [`Blockstore`] interface.
 /// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
-/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
-/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
-/// `$depth` is the number of `[`Tipset`]` that needs inspection.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets, in-depth.
+/// This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth` is the
+/// number of `[`Tipset`]` that needs inspection.
 #[allow(dead_code)]
 pub fn unordered_stream_chain<
     DB: Blockstore + Sync + Send + 'static,
