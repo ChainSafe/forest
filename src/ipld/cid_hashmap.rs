@@ -158,18 +158,7 @@ mod tests {
         V: Arbitrary,
     {
         fn arbitrary(g: &mut Gen) -> Self {
-            let cid_vector = Vec::<(Cid, u64)>::arbitrary(g);
-            let mut cid_hash_map = CidHashMap::new();
-            for item in cid_vector.iter() {
-                cid_hash_map.insert(item.0, V::arbitrary(g));
-                // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs; need to ensure we have enough samples of this variant in the map for testing, so generate this variant from the values in the key-value pairs.
-                let cid_v1 = Cid::new_v1(
-                    DAG_CBOR,
-                    multihash::Code::Blake2b256.digest(&item.1.to_be_bytes()),
-                );
-                cid_hash_map.insert(cid_v1, V::arbitrary(g));
-            }
-            cid_hash_map
+            Self(HashMap::arbitrary(g))
         }
     }
 
