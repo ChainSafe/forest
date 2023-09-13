@@ -206,7 +206,10 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
         let car_handle = tokio::spawn(async move {
             car_rx
                 .stream()
-                .forward(CarWriter::new_carv1(roots, file).unwrap())
+                .forward(
+                    CarWriter::new_carv1(roots, file)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
+                )
                 .await
         });
 
