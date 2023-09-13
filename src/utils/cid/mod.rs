@@ -75,9 +75,9 @@ impl SmallCidInner {
     }
 }
 
-/// No guarantees are made about canonicalisation with this struct
-/// That is, you may have a [`Self::Other`] variant which could be representated as a [`Self::V1DagCborBlake2b`]
-/// (typically as a result of calling [`Arbitrary::arbitrary`]
+/// No guarantees are made about canonicalization with this struct
+/// That is, you may have a [`Self::Other`] variant which could be represented as a [`Self::V1DagCborBlake2b`]
+/// (typically as a result of calling `quickcheck::Arbitrary::arbitrary`)
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum SmallCidInner {
