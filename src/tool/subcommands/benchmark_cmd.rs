@@ -168,6 +168,7 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
+
     Ok(())
 }
 

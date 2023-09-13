@@ -292,6 +292,11 @@ impl<DB, T> ChainStream<DB, T> {
     pub fn with_seen(self, seen: CidHashSet) -> Self {
         ChainStream { seen, ..self }
     }
+
+    #[allow(dead_code)]
+    pub fn into_seen(self) -> CidHashSet {
+        self.seen
+    }
 }
 
 /// Stream all blocks that are reachable before the `stateroot_limit` epoch in a depth-first
@@ -655,6 +660,10 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 // the queue.
                             } else if *this.fail_on_dead_links {
                                 this.queue.push(*block.messages());
+                            } else {
+                                // Make sure we update seen here as we don't send the block for
+                                // inspection.
+                                this.seen.lock().insert(*block.messages());
                             }
                         }
 
@@ -669,6 +678,10 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 // the queue.
                             } else if *this.fail_on_dead_links {
                                 this.queue.push(*block.state_root());
+                            } else {
+                                // Make sure we update seen here as we don't send the block for
+                                // inspection.
+                                this.seen.lock().insert(*block.state_root());
                             }
                         }
                     }
