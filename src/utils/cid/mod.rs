@@ -58,7 +58,8 @@ impl SmallCid {
     }
 
     // We always want to represent a CID with the minimal size of `SmallCidInner` if possible, so we can convert the `SmallCid` to its minimal form by checking if the `SmallCidInner` is already in minimal form and converting if necessary.
-    pub fn minimal_cid(small_cid: SmallCid) -> SmallCid {
+    /// [`SmallCid::Other`] should not contain a CID which could be represented by more specialised variants.
+    fn canonical_small(cid: Cid) -> SmallCid {
         if small_cid.cid().version() == Version::V1 && small_cid.cid().codec() == DAG_CBOR {
             if let Ok(small_hash) = small_cid.cid().hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
