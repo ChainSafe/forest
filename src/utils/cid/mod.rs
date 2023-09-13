@@ -58,18 +58,20 @@ impl SmallCid {
             ),
         }
     }
+}
 
+impl SmallCidInner {
     /// [`SmallCidInner::Other`] should not contain a CID which could be represented by more specialized variants.
     fn canonical_small(cid: Cid) -> SmallCidInner {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
             if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
                 if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
-                    return SmallCid(SmallCidInner::V1DagCborBlake2b(bytes));
+                    return SmallCidInner::V1DagCborBlake2b(bytes);
                 }
             }
         }
-        SmallCid(SmallCidInner::Other(Box::new(cid)))
+        SmallCidInner::Other(Box::new(cid))
     }
 }
 
@@ -106,7 +108,7 @@ impl<'de> Deserialize<'de> for SmallCid {
 
 impl From<Cid> for SmallCid {
     fn from(cid: Cid) -> Self {
-        SmallCid::canonical_small(cid)
+        SmallCid(SmallCidInner::canonical_small(cid))
     }
 }
 
@@ -139,7 +141,7 @@ mod tests {
 
     impl Arbitrary for SmallCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            SmallCid(SmallCidInner::canonical(Cid::arbitrary(g)))
+            SmallCid(SmallCidInner::canonical_small(Cid::arbitrary(g)))
         }
     }
 
