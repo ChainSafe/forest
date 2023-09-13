@@ -11,6 +11,7 @@ blockchain/M
 blockstore/SM
 BLS
 callee
+canonicalization
 CAR/SM
 CARv1/SM
 CARv2/SM
