@@ -1897,9 +1897,9 @@ dependencies = [
 
 [[package]]
 name = "derive-quickcheck-arbitrary"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f35c2490d52708fdc25efd66239f38c13911dcaeb34fff9d1c5319ecd7dc4546"
+checksum = "697d85c38ac8f4dad3129d38d0d40060a98fd2557bfaf0bc8c071ecfce884ce5"
 dependencies = [
  "proc-macro2",
  "quote",

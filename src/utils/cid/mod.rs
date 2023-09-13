@@ -48,7 +48,7 @@ pub struct SmallCid(SmallCidInner);
 impl SmallCid {
     pub fn cid(&self) -> Cid {
         match &self.0 {
-            SmallCidInner::Generic(cid) => **cid,
+            SmallCidInner::Other(cid) => **cid,
             SmallCidInner::V1DagCborBlake2b(digest) => Cid::new_v1(
                 DAG_CBOR,
                 multihash::Multihash::wrap(Blake2b256.into(), digest)
@@ -60,22 +60,22 @@ impl SmallCid {
     // We always want to represent a CID with the minimal size of `SmallCidInner` if possible, so we can convert the `SmallCid` to its minimal form by checking if the `SmallCidInner` is already in minimal form and converting if necessary.
     /// [`SmallCid::Other`] should not contain a CID which could be represented by more specialised variants.
     fn canonical_small(cid: Cid) -> SmallCid {
-        if small_cid.cid().version() == Version::V1 && small_cid.cid().codec() == DAG_CBOR {
-            if let Ok(small_hash) = small_cid.cid().hash().resize() {
+        if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
+            if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
                 if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
                     return SmallCid(SmallCidInner::V1DagCborBlake2b(bytes));
                 }
             }
         }
-        small_cid
+        SmallCid(SmallCidInner::Other(Box::new(cid)))
     }
 }
 
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum SmallCidInner {
-    Generic(Box<Cid>),
+    Other(Box<Cid>),
     V1DagCborBlake2b(
         #[cfg_attr(test, arbitrary(gen(|g: &mut quickcheck::Gen| std::array::from_fn(|_ix| Arbitrary::arbitrary(g)))))]
          [u8; BLAKE2B256_SIZE],
@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for SmallCid {
 
 impl From<Cid> for SmallCid {
     fn from(cid: Cid) -> Self {
-        SmallCid::minimal_cid(SmallCid(SmallCidInner::Generic(Box::new(cid))))
+        SmallCid::canonical_small(cid)
     }
 }
 
@@ -135,7 +135,7 @@ mod tests {
 
     impl Arbitrary for SmallCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            SmallCid::minimal_cid(SmallCid(SmallCidInner::arbitrary(g)))
+            SmallCid::canonical_small(Cid::from(SmallCid(SmallCidInner::arbitrary(g))))
         }
     }
 
