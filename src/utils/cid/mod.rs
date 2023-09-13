@@ -108,7 +108,7 @@ impl<'de> Deserialize<'de> for SmallCid {
 
 impl From<Cid> for SmallCid {
     fn from(cid: Cid) -> Self {
-        SmallCid(SmallCidInner::canonical_small(cid))
+        SmallCid(SmallCidInner::canonical(cid))
     }
 }
 
@@ -141,7 +141,7 @@ mod tests {
 
     impl Arbitrary for SmallCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            SmallCid(SmallCidInner::canonical_small(Cid::arbitrary(g)))
+            SmallCid(SmallCidInner::canonical(Cid::arbitrary(g)))
         }
     }
 

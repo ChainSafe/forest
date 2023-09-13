@@ -188,7 +188,7 @@ mod tests {
 
     #[quickcheck]
     fn remove_key(mut cid_hash_map: CidHashMap<u64>, cid: Cid, insert: bool) {
-        let mut hash_map = HashMap::from(cid_hash_map.clone().into_iter().collect());
+        let mut hash_map = HashMap::from_iter(cid_hash_map.clone());
         // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `remove` with an equal distribution of results.
         if insert {
             cid_hash_map.insert(cid, 0);
