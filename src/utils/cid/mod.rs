@@ -62,7 +62,7 @@ impl SmallCid {
 
 impl SmallCidInner {
     /// [`SmallCidInner::Other`] should not contain a CID which could be represented by more specialized variants.
-    fn canonical_small(cid: Cid) -> SmallCidInner {
+    fn canonical(cid: Cid) -> SmallCidInner {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
             if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
