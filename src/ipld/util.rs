@@ -32,6 +32,8 @@ use std::task::{Context, Poll};
 use tokio::task;
 use tokio::task::{JoinHandle, JoinSet};
 
+const BLOCK_CHANNEL_LIMIT: usize = 2048;
+
 /// Traverses all Cid links, hashing and loading all unique values and using the
 /// callback function to interact with the data.
 #[async_recursion::async_recursion]
@@ -439,10 +441,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
     }
 }
 
-enum UnorderedTask {
-    Cid(Cid),
-}
-
 pin_project! {
     pub struct UnorderedChainStream<DB, T> {
         tipset_iter: T,
@@ -452,7 +450,7 @@ pin_project! {
         block_receiver: kanal::Receiver<anyhow::Result<Block>>,
         extract_sender: kanal::Sender<Cid>,
         stateroot_limit: ChainEpoch,
-        queue: Vec<UnorderedTask>,
+        queue: Vec<Cid>,
         fail_on_dead_links: bool,
     }
 }
@@ -485,7 +483,7 @@ pub fn unordered_stream_chain<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = kanal::bounded(2048);
+    let (sender, receiver) = kanal::bounded(BLOCK_CHANNEL_LIMIT);
     let (extract_sender, extract_receiver) = kanal::unbounded();
     let fail_on_dead_links = true;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
@@ -617,15 +615,11 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
             anyhow::Ok(None)
         };
         loop {
-            while let Some(task) = this.queue.pop() {
-                match task {
-                    UnorderedTask::Cid(cid) => {
-                        if let Some(data) = this.db.get(&cid)? {
-                            return Poll::Ready(Some(Ok(Block { cid, data })));
-                        } else if *this.fail_on_dead_links {
-                            return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
-                        }
-                    }
+            while let Some(cid) = this.queue.pop() {
+                if let Some(data) = this.db.get(&cid)? {
+                    return Poll::Ready(Some(Ok(Block { cid, data })));
+                } else if *this.fail_on_dead_links {
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                 }
             }
 
@@ -642,16 +636,16 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                     if this.seen.lock().insert(*block.cid()) {
                         // Make sure we always yield a block, directly to the stream to avoid extra
                         // work.
-                        this.queue.push(UnorderedTask::Cid(*block.cid()));
+                        this.queue.push(*block.cid());
 
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
                             for p in &block.parents().cids {
-                                this.queue.push(UnorderedTask::Cid(p));
+                                this.queue.push(p);
                             }
                         }
 
-                        // // Process block messages.
+                        // Process block messages.
                         if block.epoch() > stateroot_limit
                             && should_save_block_to_snapshot(*block.messages())
                         {
@@ -660,7 +654,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 // This will simply return an error once we reach that item in
                                 // the queue.
                             } else if *this.fail_on_dead_links {
-                                this.queue.push(UnorderedTask::Cid(*block.messages()));
+                                this.queue.push(*block.messages());
                             }
                         }
 
@@ -674,7 +668,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                 // This will simply return an error once we reach that item in
                                 // the queue.
                             } else if *this.fail_on_dead_links {
-                                this.queue.push(UnorderedTask::Cid(*block.state_root()));
+                                this.queue.push(*block.state_root());
                             }
                         }
                     }
