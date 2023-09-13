@@ -276,7 +276,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                                 data: db.get(&new_cid)?.with_context(|| {
                                     format!("Failed to get cid {new_cid} from block store")
                                 })?,
-                            }))?
+                            }))?;
                         }
                     } else {
                         to_be_fetched.push(new_cid);
