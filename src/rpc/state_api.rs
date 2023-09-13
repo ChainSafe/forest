@@ -271,15 +271,11 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                     if let Some(next_ipld) = db.get_cbor(&new_cid)? {
                         dfs_guard.push(next_ipld);
                         if let Some(car_tx) = &car_tx {
-                            let tu = (
-                                new_cid,
-                                db.get(&new_cid)?.with_context(|| {
+                            car_tx.send(Ok(Block {
+                                cid: new_cid,
+                                data: db.get(&new_cid)?.with_context(|| {
                                     format!("Failed to get cid {new_cid} from block store")
                                 })?,
-                            );
-                            car_tx.send(Ok(Block {
-                                cid: tu.0,
-                                data: tu.1,
                             }))?
                         }
                     } else {
@@ -315,15 +311,11 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                             .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
                         dfs_vec.lock().push(new_ipld);
                         if let Some(car_tx) = &car_tx {
-                            let tu = (
+                            car_tx.send(Ok(Block {
                                 cid,
-                                db.get(&cid)?.with_context(|| {
+                                data: db.get(&cid)?.with_context(|| {
                                     format!("Failed to get cid {cid} from block store")
                                 })?,
-                            );
-                            car_tx.send(Ok(Block {
-                                cid: tu.0,
-                                data: tu.1,
                             }))?;
                         }
 
