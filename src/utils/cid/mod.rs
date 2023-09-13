@@ -42,6 +42,8 @@ pub const BLAKE2B256_SIZE: usize = 32;
 ///
 /// The `Generic` variant is used for CIDs that do not fit into the other variants.
 /// These variants are used for optimizing storage of CIDs in the `FrozenCids` structure.
+///
+/// The contained [`SmallCidInner`] is guaranteed to be canonical.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SmallCid(SmallCidInner);
 
@@ -57,9 +59,8 @@ impl SmallCid {
         }
     }
 
-    // We always want to represent a CID with the minimal size of `SmallCidInner` if possible, so we can convert the `SmallCid` to its minimal form by checking if the `SmallCidInner` is already in minimal form and converting if necessary.
     /// [`SmallCidInner::Other`] should not contain a CID which could be represented by more specialized variants.
-    fn canonical_small(cid: Cid) -> SmallCid {
+    fn canonical_small(cid: Cid) -> SmallCidInner {
         if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
             if let Ok(small_hash) = cid.hash().resize() {
                 let (code, bytes, size) = small_hash.into_inner();
@@ -72,6 +73,9 @@ impl SmallCid {
     }
 }
 
+/// No guarantees are made about canonicalisation with this struct
+/// That is, you may have a [`Self::Other`] variant which could be representated as a [`Self::V1DagCborBlake2b`]
+/// (typically as a result of calling [`Arbitrary::arbitrary`]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum SmallCidInner {
@@ -135,7 +139,7 @@ mod tests {
 
     impl Arbitrary for SmallCid {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            SmallCid::canonical_small(Cid::from(SmallCid(SmallCidInner::arbitrary(g))))
+            SmallCid(SmallCidInner::canonical(Cid::arbitrary(g)))
         }
     }
 
