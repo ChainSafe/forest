@@ -42,7 +42,6 @@ pub const BLAKE2B256_SIZE: usize = 32;
 ///
 /// The `Generic` variant is used for CIDs that do not fit into the other variants.
 /// These variants are used for optimizing storage of CIDs in the `FrozenCids` structure.
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SmallCid(SmallCidInner);
 
@@ -56,6 +55,19 @@ impl SmallCid {
                     .expect("failed to convert Blake2b digest to Multihash for creation of V1 DAG-CBOR Blake2b CID"),
             ),
         }
+    }
+
+    // We always want to represent a CID with the minimal size of `SmallCidInner` if possible, so we can convert the `SmallCid` to its minimal form by checking if the `SmallCidInner` is already in minimal form and converting if necessary.
+    pub fn minimal_cid(small_cid: SmallCid) -> SmallCid {
+        if small_cid.cid().version() == Version::V1 && small_cid.cid().codec() == DAG_CBOR {
+            if let Ok(small_hash) = small_cid.cid().hash().resize() {
+                let (code, bytes, size) = small_hash.into_inner();
+                if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
+                    return SmallCid(SmallCidInner::V1DagCborBlake2b(bytes));
+                }
+            }
+        }
+        small_cid
     }
 }
 
@@ -89,15 +101,7 @@ impl<'de> Deserialize<'de> for SmallCid {
 
 impl From<Cid> for SmallCid {
     fn from(cid: Cid) -> Self {
-        if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
-            if let Ok(small_hash) = cid.hash().resize() {
-                let (code, bytes, size) = small_hash.into_inner();
-                if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
-                    return SmallCid(SmallCidInner::V1DagCborBlake2b(bytes));
-                }
-            }
-        }
-        SmallCid(SmallCidInner::Generic(Box::new(cid)))
+        SmallCid::minimal_cid(SmallCid(SmallCidInner::Generic(Box::new(cid))))
     }
 }
 
@@ -109,14 +113,7 @@ impl From<SmallCid> for Cid {
 
 impl From<&SmallCid> for Cid {
     fn from(variant: &SmallCid) -> Self {
-        match variant {
-            SmallCid(SmallCidInner::Generic(cid)) => **cid,
-            SmallCid(SmallCidInner::V1DagCborBlake2b(digest)) => Cid::new_v1(
-                DAG_CBOR,
-                multihash::Multihash::wrap(Blake2b256.into(), digest)
-                    .expect("failed to convert Blake2b digest to Multihash for creation of V1 DAG-CBOR Blake2b CID"),
-            ),
-        }
+        variant.cid()
     }
 }
 
@@ -134,6 +131,12 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck_macros::quickcheck;
     use std::mem::size_of;
+
+    impl Arbitrary for SmallCid {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            SmallCid::minimal_cid(SmallCid(SmallCidInner::arbitrary(g)))
+        }
+    }
 
     #[quickcheck]
     fn test_cid_cbor_ext(s: String) -> Result<()> {

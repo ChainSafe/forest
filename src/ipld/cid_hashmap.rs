@@ -147,8 +147,6 @@ impl<V> CidHashMap<V> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::{self, MultihashDigest};
-    use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck::Arbitrary;
     use quickcheck::Gen;
     use quickcheck_macros::quickcheck;
