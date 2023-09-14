@@ -136,7 +136,7 @@ prometheus-client = "0.21"
 protobuf = "3.2"
 rand = "0.8"
 rand_distr = "0.4"
-raw_sync = "0.1"
+raw_sync_2 = "0.1"
 rayon = "1.5"
 reqwest = { version = "0.11.18", default-features = false, features = [
   "stream",
