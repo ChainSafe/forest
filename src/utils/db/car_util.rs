@@ -38,7 +38,7 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     #[derive(Debug, Clone)]
-    struct Blocks(Vec<Block>);
+    struct Blocks(Vec<CarBlock>);
 
     impl From<&Blocks> for HashSet<Cid> {
         fn from(blocks: &Blocks) -> Self {
@@ -61,12 +61,12 @@ mod tests {
             writer
         }
 
-        fn into_stream(self) -> impl Stream<Item = std::io::Result<Block>> {
+        fn into_stream(self) -> impl Stream<Item = std::io::Result<CarBlock>> {
             futures::stream::iter(self.0).map(Ok)
         }
 
         /// Implicit clone is performed inside to simplify caller code
-        fn to_stream(&self) -> impl Stream<Item = std::io::Result<Block>> {
+        fn to_stream(&self) -> impl Stream<Item = std::io::Result<CarBlock>> {
             self.clone().into_stream()
         }
     }
@@ -80,7 +80,7 @@ mod tests {
                 // use small len here to increase the chance of duplication
                 let data = [u8::arbitrary(g), u8::arbitrary(g)];
                 let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&data));
-                let block = Block {
+                let block = CarBlock {
                     cid,
                     data: data.to_vec(),
                 };

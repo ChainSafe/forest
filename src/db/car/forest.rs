@@ -427,7 +427,7 @@ mod tests {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         roots: Vec<Cid>,
-        block: Vec<Block>,
+        block: Vec<CarBlock>,
     ) -> Vec<u8> {
         block_on(async {
             let frame_stream = Encoder::compress_stream(
@@ -444,7 +444,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn forest_car_create_basic(head: Block, mut tail: Vec<Block>, roots: Vec<Cid>) {
+    fn forest_car_create_basic(head: CarBlock, mut tail: Vec<CarBlock>, roots: Vec<Cid>) {
         tail.push(head);
         let forest_car =
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone())).unwrap();
@@ -456,8 +456,8 @@ mod tests {
 
     #[quickcheck]
     fn forest_car_create_options(
-        head: Block,
-        mut tail: Vec<Block>,
+        head: CarBlock,
+        mut tail: Vec<CarBlock>,
         roots: Vec<Cid>,
         frame_size: usize,
         mut compression_level: u16,
