@@ -80,7 +80,7 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
         .forward(CarWriter::new_carv1(roots.into_iter().collect(), &mut car)?)
         .await?;
 
-    let car_zst = zstd::encode_all(car.as_slice(), 3)?;
+    let car_zst = zstd::encode_all(car.as_slice(), 17)?;
 
     tokio::fs::write(output, car_zst).await?;
     Ok(())
