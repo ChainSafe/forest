@@ -119,6 +119,9 @@ pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result
     ))
 }
 
+// Extract file paths from content-disposition values:
+//   "attachment; filename=\"911520_2023_09_14T06_13_00Z.car.zst\""
+// => "911520_2023_09_14T06_13_00Z.car.zst"
 fn parse_content_disposition(value: &reqwest::header::HeaderValue) -> Option<String> {
     use regex::Regex;
     let re = Regex::new("filename=\"([^\"]+)\"").ok()?;
