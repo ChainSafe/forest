@@ -27,12 +27,12 @@ pub struct CarHeader {
 }
 
 #[derive(Debug, Clone)]
-pub struct Block {
+pub struct CarBlock {
     pub cid: Cid,
     pub data: Vec<u8>,
 }
 
-impl Block {
+impl CarBlock {
     // Write a varint frame containing the cid and the data
     pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
         let frame_length = self.cid.encoded_len() + self.data.len();
@@ -44,14 +44,14 @@ impl Block {
         Ok(())
     }
 
-    pub fn from_bytes(bytes: impl Into<Bytes>) -> Option<Block> {
+    pub fn from_bytes(bytes: impl Into<Bytes>) -> Option<CarBlock> {
         let bytes: Bytes = bytes.into();
         let mut cursor = Cursor::new(bytes);
         let cid = Cid::read_bytes(&mut cursor).ok()?;
         let data_offset = cursor.position();
         let mut bytes = cursor.into_inner();
         bytes.advance(data_offset as usize);
-        Some(Block {
+        Some(CarBlock {
             cid,
             data: bytes.to_vec(),
         })
@@ -117,7 +117,7 @@ impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
 }
 
 impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
-    type Item = io::Result<Block>;
+    type Item = io::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
@@ -130,7 +130,7 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
                 let data_offset = cursor.position();
                 let mut bytes = cursor.into_inner();
                 bytes.advance(data_offset as usize);
-                Ok(Block {
+                Ok(CarBlock {
                     cid,
                     data: bytes.to_vec(),
                 })
@@ -145,7 +145,7 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option
     if header.version != 1 {
         return None;
     }
-    let first_block = Block::from_bytes(framed_reader.next().await?.ok()?)?;
+    let first_block = CarBlock::from_bytes(framed_reader.next().await?.ok()?)?;
     if !first_block.valid() {
         return None;
     }
@@ -171,8 +171,8 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
     // use quickcheck_macros::quickcheck;
 
-    impl Arbitrary for Block {
-        fn arbitrary(g: &mut Gen) -> Block {
+    impl Arbitrary for CarBlock {
+        fn arbitrary(g: &mut Gen) -> CarBlock {
             let data = Vec::<u8>::arbitrary(g);
             let encoding = g
                 .choose(&[
@@ -183,7 +183,7 @@ mod tests {
                 .unwrap();
             let code = g.choose(&[Code::Blake2b256, Code::Sha2_256]).unwrap();
             let cid = Cid::new_v1(*encoding, code.digest(&data));
-            Block { cid, data }
+            CarBlock { cid, data }
         }
     }
 }
