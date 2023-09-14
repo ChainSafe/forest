@@ -78,6 +78,7 @@ pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Op
     (loki_task, flush_guard)
 }
 
+// Log warnings to stderr
 pub fn setup_minimal_logger() {
     tracing_subscriber::registry()
         .with(
@@ -90,7 +91,7 @@ pub fn setup_minimal_logger() {
 }
 
 /// Returns an [`EnvFilter`] according to the `RUST_LOG` environment variable, or a default
-/// - see [`default_env_filter`]
+/// - see [`default_env_filter`] and [`default_tool_filter`]
 ///
 /// Note that [`tracing_subscriber::filter::Builder`] only allows a single default directive,
 /// whereas we want to provide multiple.
@@ -128,14 +129,7 @@ fn default_tool_filter() -> EnvFilter {
         "warn",
         "forest::snapshot=info",
         "forest::progress=info",
-        "bellperson::groth16::aggregate::verify=warn",
-        "axum=warn",
-        "filecoin_proofs=warn",
         "libp2p_bitswap=off",
-        "libp2p_gossipsub=error",
-        "libp2p_kad=error",
-        "rpc=error",
-        "storage_proofs_core=warn",
         "tracing_loki=off",
     ];
     EnvFilter::try_new(default_directives.join(",")).unwrap()
