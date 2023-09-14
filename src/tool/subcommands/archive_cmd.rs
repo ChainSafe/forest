@@ -436,11 +436,9 @@ async fn merge_snapshots(
 mod tests {
     use super::*;
     use crate::db::car::AnyCar;
-    use async_compression::tokio::bufread::ZstdDecoder;
-    use fvm_ipld_car::CarReader;
+    use crate::utils::db::car_stream::CarStream;
     use tempfile::TempDir;
     use tokio::io::BufReader;
-    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
@@ -474,9 +472,7 @@ mod tests {
         .await
         .unwrap();
         let file = BufReader::new(file);
-        CarReader::new(ZstdDecoder::new(file).compat())
-            .await
-            .unwrap();
+        CarStream::new(file).await.unwrap();
     }
 
     #[test]
