@@ -154,9 +154,7 @@ mod tests {
     use crate::genesis::EXPORT_SR_40;
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
-    use fvm_ipld_car::load_car;
-    use tokio::io::BufReader;
-    use tokio_util::compat::TokioAsyncReadCompatExt;
+    use crate::utils::db::car_util::load_car;
 
     use super::{
         super::{HEADERS, MESSAGES},
@@ -165,9 +163,9 @@ mod tests {
 
     async fn populate_db() -> (Vec<Cid>, Arc<MemoryDB>) {
         let db = Arc::new(MemoryDB::default());
-        let reader = BufReader::<&[u8]>::new(EXPORT_SR_40);
+        let reader = std::io::Cursor::new(EXPORT_SR_40);
         // The cids are the tipset cids of the most recent tipset (39th)
-        let cids: Vec<Cid> = load_car(&db, reader.compat()).await.unwrap();
+        let cids: Vec<Cid> = load_car(&db, reader).await.unwrap();
         (cids, db)
     }
 
