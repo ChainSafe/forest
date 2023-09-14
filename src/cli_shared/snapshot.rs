@@ -3,7 +3,6 @@
 
 use std::{
     fmt::Display,
-    io,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -12,9 +11,9 @@ use crate::{
     networks::NetworkChain,
     utils::{retry, RetryArgs},
 };
-use anyhow::{anyhow, bail, Context as _};
+use anyhow::{bail, Context as _};
 use chrono::NaiveDate;
-use tracing::{info, warn};
+use tracing::event;
 use url::Url;
 
 use crate::cli_shared::snapshot::parse::ParsedFilename;
@@ -69,10 +68,11 @@ pub async fn fetch(
     chain: &NetworkChain,
     vendor: TrustedVendor,
 ) -> anyhow::Result<PathBuf> {
-    let (_len, url) = peek(vendor, chain).await?;
-    let (date, height, forest_format) = ParsedFilename::parse_url(&url)
-        .context("unexpected url format")?
+    let (_len, path) = peek(vendor, chain).await?;
+    let (date, height, forest_format) = ParsedFilename::parse_str(&path)
+        .context("unexpected path format")?
         .date_and_height_and_forest();
+    let url = stable_url(vendor, chain)?;
     let filename = filename(vendor, chain, date, height, forest_format);
 
     download_file_with_retry(&url, directory, &filename).await
@@ -88,26 +88,15 @@ pub async fn download_file_with_retry(
             timeout: None,
             ..Default::default()
         },
-        || download_file(url.clone(), directory, filename),
+        || download_http(url, directory, filename),
     )
     .await?)
 }
 
-pub async fn download_file(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
-    match download_aria2c(&url, directory, filename).await {
-        Ok(path) => Ok(path),
-        Err(AriaErr::CouldNotExec(reason)) => {
-            warn!(%reason, "couldn't run aria2c. Falling back to conventional download, which will be much slower - consider installing aria2c.");
-            download_http(url, directory, filename).await
-        }
-        Err(AriaErr::Other(o)) => Err(o),
-    }
-}
-
 /// Returns
 /// - The size of the snapshot from this vendor on this chain
-/// - The final URL of the snapshot
-pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<(u64, Url)> {
+/// - The filename of the snapshot
+pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<(u64, String)> {
     let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
@@ -118,58 +107,30 @@ pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result
         .await?
         .error_for_status()
         .context("server returned an error response")?;
-
+    let cd_path = response
+        .headers()
+        .get(reqwest::header::CONTENT_DISPOSITION)
+        .and_then(parse_content_disposition);
     Ok((
         response
             .content_length()
             .context("no content-length header")?,
-        response.url().clone(),
+        cd_path.context("no content-disposition filepath")?,
     ))
 }
 
-enum AriaErr {
-    CouldNotExec(io::Error),
-    Other(anyhow::Error),
-}
-
-/// Run `aria2c`, with inherited stdout and stderr (so output will be printed).
-async fn download_aria2c(url: &Url, directory: &Path, filename: &str) -> Result<PathBuf, AriaErr> {
-    let exit_status = tokio::process::Command::new("aria2c")
-        .args([
-            "--continue=true",
-            "--max-tries=0",
-            // Download chunks concurrently, resulting in dramatically faster downloads
-            "--split=5",
-            "--max-connection-per-server=5",
-            format!("--out={filename}").as_str(),
-            "--dir",
-        ])
-        .arg(directory)
-        .arg(url.as_str())
-        .kill_on_drop(true) // allow cancellation
-        .spawn() // defaults to inherited stdio
-        .map_err(AriaErr::CouldNotExec)?
-        .wait()
-        .await
-        .map_err(|it| AriaErr::Other(it.into()))?;
-
-    match exit_status.success() {
-        true => Ok(directory.join(filename)),
-        false => {
-            let msg = exit_status
-                .code()
-                .map(|it| it.to_string())
-                .unwrap_or_else(|| String::from("<killed>"));
-            Err(AriaErr::Other(anyhow!("running aria2c failed: {msg}")))
-        }
-    }
+fn parse_content_disposition(value: &reqwest::header::HeaderValue) -> Option<String> {
+    use regex::Regex;
+    let re = Regex::new("filename=\"([^\"]+)\"").ok()?;
+    let cap = re.captures(value.to_str().ok()?)?;
+    Some(cap.get(1)?.as_str().to_owned())
 }
 
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
-async fn download_http(url: Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
+async fn download_http(url: &Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
     let dst_path = directory.join(filename);
 
-    info!(%url, "downloading snapshot");
+    event!(target: "forest::snapshot", tracing::Level::INFO, %url, "downloading snapshot");
     let mut reader = crate::utils::net::reader(url.as_str()).await?;
 
     let mut dst = tokio::fs::File::create(&dst_path)
@@ -195,10 +156,9 @@ macro_rules! define_urls {
 }
 
 define_urls!(
-    const FOREST_MAINNET_COMPRESSED: &str =
-        "https://forest.chainsafe.io/mainnet/snapshot-latest.car.zst";
+    const FOREST_MAINNET_COMPRESSED: &str = "https://forest-archive.chainsafe.dev/latest/mainnet/";
     const FOREST_CALIBNET_COMPRESSED: &str =
-        "https://forest.chainsafe.io/calibnet/snapshot-latest.car.zst";
+        "https://forest-archive.chainsafe.dev/latest/calibnet/";
     const FILOPS_MAINNET_COMPRESSED: &str =
         "https://snapshots.mainnet.filops.net/minimal/latest.zst";
     const FILOPS_CALIBNET_COMPRESSED: &str =
@@ -234,7 +194,7 @@ mod parse {
 
     use std::{fmt::Display, str::FromStr};
 
-    use anyhow::{anyhow, bail, Context};
+    use anyhow::{anyhow, bail};
     use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use nom::{
         branch::alt,
@@ -247,7 +207,6 @@ mod parse {
         sequence::tuple,
         Err,
     };
-    use url::Url;
 
     use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 
@@ -304,15 +263,6 @@ mod parse {
 
         pub fn parse_str(input: &'a str) -> anyhow::Result<Self> {
             enter_nom(alt((short, full)), input)
-        }
-
-        pub fn parse_url(url: &'a Url) -> anyhow::Result<Self> {
-            let filename = url
-                .path_segments()
-                .context("url cannot be a base")?
-                .last()
-                .context("url has no path")?;
-            Self::parse_str(filename)
         }
     }
 
@@ -490,5 +440,33 @@ mod parse {
             );
             assert_eq!(value.to_string(), text, "mismatch in serialize");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_content_disposition;
+    use reqwest::header::HeaderValue;
+
+    #[test]
+    fn content_disposition_forest() {
+        assert_eq!(
+            parse_content_disposition(&HeaderValue::from_static(
+                "attachment; filename*=UTF-8''forest_snapshot_calibnet_2023-09-14_height_911888.forest.car.zst; \
+                 filename=\"forest_snapshot_calibnet_2023-09-14_height_911888.forest.car.zst\""
+            )).unwrap(),
+            "forest_snapshot_calibnet_2023-09-14_height_911888.forest.car.zst"
+        );
+    }
+
+    #[test]
+    fn content_disposition_filops() {
+        assert_eq!(
+            parse_content_disposition(&HeaderValue::from_static(
+                "attachment; filename=\"911520_2023_09_14T06_13_00Z.car.zst\""
+            ))
+            .unwrap(),
+            "911520_2023_09_14T06_13_00Z.car.zst"
+        );
     }
 }
