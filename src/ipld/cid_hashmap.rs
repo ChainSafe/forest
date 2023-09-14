@@ -147,31 +147,21 @@ impl<V> CidHashMap<V> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::{self, MultihashDigest};
-    use fvm_ipld_encoding::DAG_CBOR;
+    use quickcheck::Arbitrary;
+    use quickcheck::Gen;
     use quickcheck_macros::quickcheck;
 
-    fn generate_hash_maps(cid_vector: Vec<(Cid, u64)>) -> (CidHashMap<u64>, HashMap<Cid, u64>) {
-        let mut cid_hash_map = CidHashMap::new();
-        let mut hash_map = HashMap::new();
-        for item in cid_vector.iter() {
-            cid_hash_map.insert(item.0, item.1);
-            hash_map.insert(item.0, item.1);
-
-            // Quickcheck does not reliably generate the DAG_CBOR/Blake2b variant of V1 CIDs; need to ensure we have enough samples of this variant in the map for testing, so generate this variant from the values in the key-value pairs.
-            let cid_v1 = Cid::new_v1(
-                DAG_CBOR,
-                multihash::Code::Blake2b256.digest(&item.1.to_be_bytes()),
-            );
-            cid_hash_map.insert(cid_v1, item.1);
-            hash_map.insert(cid_v1, item.1);
+    impl<V> Arbitrary for CidHashMap<V>
+    where
+        V: Arbitrary,
+    {
+        fn arbitrary(g: &mut Gen) -> Self {
+            Self(HashMap::arbitrary(g))
         }
-        (cid_hash_map, hash_map)
     }
 
     #[quickcheck]
-    fn insert_new_key_is_none(cid_vector: Vec<(Cid, u64)>, cid: Cid, payload: u64) {
-        let (mut cid_hash_map, _) = generate_hash_maps(cid_vector);
+    fn insert_new_key_is_none(mut cid_hash_map: CidHashMap<u64>, cid: Cid, payload: u64) {
         // Quickcheck occasionally generates a key that is already present in the map, so remove it if it is present.
         if cid_hash_map.contains_key(cid) {
             cid_hash_map.remove(cid);
@@ -180,15 +170,14 @@ mod tests {
     }
 
     #[quickcheck]
-    fn insert_existing_key_is_some(cid_vector: Vec<(Cid, u64)>, cid: Cid, payload: u64) {
-        let (mut cid_hash_map, _) = generate_hash_maps(cid_vector);
+    fn insert_existing_key_is_some(mut cid_hash_map: CidHashMap<u64>, cid: Cid, payload: u64) {
         cid_hash_map.insert(cid, payload);
         assert!(cid_hash_map.insert(cid, payload).is_some());
     }
 
     #[quickcheck]
-    fn contains_key(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
-        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+    fn contains_key(mut cid_hash_map: CidHashMap<u64>, cid: Cid, insert: bool) {
+        let mut hash_map = HashMap::from(cid_hash_map.clone().into_iter().collect());
         // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `contains_key` with an equal distribution of results.
         if insert {
             cid_hash_map.insert(cid, 0);
@@ -198,8 +187,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn remove_key(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
-        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+    fn remove_key(mut cid_hash_map: CidHashMap<u64>, cid: Cid, insert: bool) {
+        let mut hash_map = HashMap::from_iter(cid_hash_map.clone());
         // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `remove` with an equal distribution of results.
         if insert {
             cid_hash_map.insert(cid, 0);
@@ -209,8 +198,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn get_value_at_key(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
-        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+    fn get_value_at_key(mut cid_hash_map: CidHashMap<u64>, cid: Cid, insert: bool) {
+        let mut hash_map = HashMap::from(cid_hash_map.clone().into_iter().collect());
         // Quickcheck rarely generates a key that is already present in the maps, so insert it with 50% probability to test `get` with an equal distribution of results.
         if insert {
             cid_hash_map.insert(cid, 0);
@@ -220,14 +209,14 @@ mod tests {
     }
 
     #[quickcheck]
-    fn len(cid_vector: Vec<(Cid, u64)>) {
-        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+    fn len(cid_hash_map: CidHashMap<u64>) {
+        let hash_map = HashMap::from(cid_hash_map.clone().into_iter().collect());
         assert_eq!(cid_hash_map.len(), hash_map.len());
     }
 
     #[quickcheck]
-    fn check_entry(cid_vector: Vec<(Cid, u64)>, cid: Cid, insert: bool) {
-        let (mut cid_hash_map, mut hash_map) = generate_hash_maps(cid_vector);
+    fn check_entry(mut cid_hash_map: CidHashMap<u64>, cid: Cid, insert: bool) {
+        let mut hash_map = HashMap::from(cid_hash_map.clone().into_iter().collect());
         // Insert key half of the time to ensure equal probability of entry being occupied or vacant; occasionally the key will already be present when quickcheck generates the maps, so we also remove the key with 50% probability.
         if insert {
             cid_hash_map.insert(cid, 0);
@@ -247,8 +236,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn keys(cid_vector: Vec<(Cid, u64)>) {
-        let (cid_hash_map, hash_map) = generate_hash_maps(cid_vector);
+    fn keys(cid_hash_map: CidHashMap<u64>) {
+        let hash_map = HashMap::from(cid_hash_map.clone().into_iter().collect());
         // Hash maps are not required to be ordered, but it is important for vectors, so sort the vectors of keys before comparing.
         let mut cid_hash_map = cid_hash_map.keys().collect::<Vec<Cid>>();
         cid_hash_map.sort();
@@ -258,8 +247,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn cidhashmap_to_hashmap_to_cidhashmap(cid_vector: Vec<(Cid, u64)>) {
-        let (cid_hash_map, _) = generate_hash_maps(cid_vector);
+    fn cidhashmap_to_hashmap_to_cidhashmap(cid_hash_map: CidHashMap<u64>) {
         let hash_map: HashMap<Cid, u64> = cid_hash_map.clone().into_iter().collect();
         let cid_hash_map_2: CidHashMap<u64> = hash_map.into_iter().collect();
         assert_eq!(cid_hash_map, cid_hash_map_2);

@@ -62,7 +62,7 @@ fil_actor_system_state = "6"
 fil_actor_verifreg_state = "6"
 fil_actors_shared = "6"
 filecoin-proofs-api = { version = "14.0", default-features = false }
-flume = "0.11"
+flume = "0.11.0"
 fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.5", default-features = false }
@@ -88,6 +88,7 @@ is-terminal = "0.4"
 itertools = "0.11.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "8.1"
+kanal = "0.1.0-pre8"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
@@ -124,7 +125,7 @@ num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
 parity-db = { version = "0.4.6", default-features = false }
-parking_lot = "0.12"
+parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4.3.1"
 pbr = "1.1"
 pin-project-lite = "0.2"
