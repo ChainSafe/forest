@@ -1,23 +1,18 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::db::car_util::load_car;
 use anyhow::Context;
-use async_compression::tokio::bufread::ZstdDecoder;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>> {
     const ERROR_MESSAGE: &str = "Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>";
 
     const ACTOR_BUNDLES_CAR_ZST: &[u8] = include_bytes!("../../assets/actor_bundles.car.zst");
 
-    fvm_ipld_car::load_car(
-        db,
-        ZstdDecoder::new(tokio::io::BufReader::new(ACTOR_BUNDLES_CAR_ZST)).compat(),
-    )
-    .await
-    .context(ERROR_MESSAGE)
+    let cursor = std::io::Cursor::new(ACTOR_BUNDLES_CAR_ZST);
+    load_car(db, cursor).await.context(ERROR_MESSAGE)
 }
 
 #[cfg(test)]

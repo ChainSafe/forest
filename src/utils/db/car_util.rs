@@ -1,11 +1,27 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
 use futures::{Stream, StreamExt, TryStreamExt};
+use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncBufRead, AsyncSeek};
 
 use crate::ipld::CidHashSet;
 use crate::utils::db::car_stream::{Block, CarStream};
+
+pub async fn load_car<R, B>(db: &B, reader: R) -> Result<Vec<Cid>, anyhow::Error>
+where
+    B: Blockstore,
+    R: tokio::io::AsyncSeek + tokio::io::AsyncBufRead + Send + Unpin,
+{
+    let mut stream = CarStream::new(tokio::io::BufReader::new(reader)).await?;
+    let roots = stream.header.roots.clone();
+    while let Some(block) = stream.try_next().await? {
+        // TODO: add some kind of buffering
+        db.put_keyed(&block.cid, &block.data)?;
+    }
+    Ok(roots)
+}
 
 pub fn merge_car_streams<R>(
     car_streams: Vec<CarStream<R>>,
