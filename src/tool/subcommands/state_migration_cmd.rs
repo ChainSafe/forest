@@ -42,7 +42,7 @@ impl StateMigrationCommands {
 }
 
 async fn generate_actor_bundle() -> Result<()> {
-    let mut tasks = Vec::with_capacity(ACTOR_BUNDLES.len());
+    /*let mut tasks = Vec::with_capacity(ACTOR_BUNDLES.len());
     for ActorBundleInfo { manifest, url } in ACTOR_BUNDLES.iter() {
         tasks.push(tokio::spawn(async move {
             download_bundle_if_needed(manifest, url)
@@ -67,15 +67,31 @@ async fn generate_actor_bundle() -> Result<()> {
         .unique()
         .cloned()
         .collect::<Vec<_>>();
+    */
 
+    // Just for testing the new Sink implementation
     let zstd_encoder = ZstdEncoder::with_quality(
         tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
         async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
     );
 
-    merge_car_streams(car_streams)
-        .forward(CarWriter::new_carv1(all_roots, zstd_encoder).await?)
+    let car_stream = CarStream::new(tokio::io::BufReader::new(
+        tokio::fs::File::open("actor_bundles.truth.car.zst").await?,
+    ))
+    .await?;
+    let roots = car_stream.header.roots.clone();
+
+    // Workaround using a buffer works (no panics at the end), and I get ground truth size: 12119443
+    // let mut buff = vec![];
+    // car_stream
+    //     .forward(CarWriter::new_carv1(roots, ZstdEncoder::new(&mut buff)).await?)
+    //     .await?;
+    // tokio::fs::write(DEFAULT_BUNDLE_FILE_NAME, buff).await.unwrap();
+
+    car_stream
+        .forward(CarWriter::new_carv1(roots, zstd_encoder).await?)
         .await?;
+
     Ok(())
 }
 
