@@ -1,13 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cid_collections::CidHashSet;
 use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
 use crate::utils::db::car_stream::{CarBlock, CarStream, CarWriter};
 use crate::utils::net::global_http_client;
 use anyhow::{bail, ensure};
-use cid::Cid;
 use futures::{stream, StreamExt as _, TryStreamExt as _};
+use itertools::Itertools as _;
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -31,7 +30,7 @@ impl StateMigrationCommands {
 }
 
 async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
-    let (roots, blocks) = stream::iter(ACTOR_BUNDLES.iter())
+    let (mut roots, blocks) = stream::iter(ACTOR_BUNDLES.iter())
         .then(
             |ActorBundleInfo {
                  manifest: root,
@@ -48,17 +47,19 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
                 ensure!(car.header.version == 1);
                 ensure!(car.header.roots.len() == 1);
                 ensure!(&car.header.roots[0] == root);
-                anyhow::Ok((root, car.try_collect::<Vec<_>>().await?))
+                anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
             },
         )
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .unzip::<_, _, Vec<&Cid>, Vec<_>>();
+        .unzip::<_, _, Vec<_>, Vec<_>>();
 
-    let roots = roots.into_iter().cloned().collect::<CidHashSet>();
+    ensure!(roots.iter().all_unique());
+
+    roots.sort(); // deterministic
     let blocks = blocks.into_iter().flatten().try_fold(
-        BTreeMap::new(),
+        BTreeMap::new(), // deterministic
         |mut acc, CarBlock { cid, data }| {
             match acc.entry(cid) {
                 Entry::Vacant(v) => {
