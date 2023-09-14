@@ -1,13 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cid_collections::{hash_map::Entry, CidHashMap, CidHashSet};
+use crate::cid_collections::CidHashSet;
 use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
 use crate::utils::db::car_stream::{CarBlock, CarStream, CarWriter};
 use crate::utils::net::global_http_client;
 use anyhow::{bail, ensure};
 use cid::Cid;
 use futures::{stream, StreamExt as _, TryStreamExt as _};
+use std::collections::{btree_map::Entry, BTreeMap};
 use std::io::Cursor;
 use std::path::PathBuf;
 use tracing::info;
@@ -57,9 +58,8 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
 
     let roots = roots.into_iter().cloned().collect::<CidHashSet>();
     let blocks = blocks.into_iter().flatten().try_fold(
-        CidHashMap::new(),
+        BTreeMap::new(),
         |mut acc, CarBlock { cid, data }| {
-            // TODO(aatifsyed): check cid matches data?
             match acc.entry(cid) {
                 Entry::Vacant(v) => {
                     v.insert(data);
