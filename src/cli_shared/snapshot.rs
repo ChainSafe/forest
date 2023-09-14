@@ -168,7 +168,7 @@ define_urls!(
         "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
 );
 
-fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<Url> {
+pub fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<Url> {
     let s = match (vendor, chain) {
         (TrustedVendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
         (TrustedVendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
