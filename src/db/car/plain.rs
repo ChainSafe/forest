@@ -291,7 +291,7 @@ fn get_roots_from_v1_header(reader: impl Read) -> io::Result<Vec<Cid>> {
     }
 }
 
-fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
+pub fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
     match cid_error {
         cid::Error::Io(io_error) => io_error,
         other => io::Error::new(InvalidData, other),

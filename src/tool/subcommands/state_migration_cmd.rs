@@ -74,7 +74,7 @@ async fn generate_actor_bundle() -> Result<()> {
     );
 
     merge_car_streams(car_streams)
-        .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
+        .forward(CarWriter::new_carv1(all_roots, zstd_encoder).await?)
         .await?;
     Ok(())
 }

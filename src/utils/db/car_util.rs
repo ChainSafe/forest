@@ -120,7 +120,7 @@ mod tests {
             let mut buff: Vec<u8> = vec![];
             let zstd_encoder = ZstdEncoder::new(&mut buff);
             reader
-                .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
+                .forward(CarWriter::new_carv1(all_roots, zstd_encoder).await?)
                 .await?;
 
             let stream = CarStream::new(std::io::Cursor::new(buff)).await?;

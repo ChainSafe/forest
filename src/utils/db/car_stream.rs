@@ -6,8 +6,7 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use futures::ready;
-use futures::{sink::Sink, Stream, StreamExt};
+use futures::{sink::Sink, SinkExt as _, Stream, StreamExt};
 use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
@@ -20,6 +19,14 @@ use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
 use unsigned_varint::codec::UviBytes;
+
+use tokio_util::codec::FramedWrite;
+use unsigned_varint::codec::UviBytes as VarintCodec;
+
+use crate::db::car::plain::cid_error_to_io_error;
+
+// TODO(aatifsyed): `car_stream` should not be a submodule of `db`
+//use super::db::car_stream::{Block, CarHeader};
 
 use crate::utils::encoding::from_slice_with_fallback;
 
@@ -145,48 +152,55 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 pin_project! {
     pub struct CarWriter<W> {
         #[pin]
-        inner: W,
-        buffer: BytesMut,
+        inner: FramedWrite<W, VarintCodec>,
     }
 }
 
-impl<W: AsyncWrite> CarWriter<W> {
-    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self> {
-        let car_header = CarHeader { roots, version: 1 };
-
-        let mut header_uvi_frame = BytesMut::new();
-        UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
-
-        Ok(Self {
-            inner: writer,
-            buffer: header_uvi_frame,
-        })
+impl<W> CarWriter<W>
+where
+    // TODO(aatifsyed): remove Unpin bound
+    W: AsyncWrite + Unpin,
+{
+    pub async fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self> {
+        let mut inner = FramedWrite::new(writer, VarintCodec::default());
+        inner
+            .send(Bytes::from(fvm_ipld_encoding::to_vec(&CarHeader {
+                roots,
+                version: 1,
+            })?))
+            .await?;
+        Ok(Self { inner })
     }
 }
 
-impl<W: AsyncWrite> Sink<Block> for CarWriter<W> {
+impl<W> Sink<Block> for CarWriter<W>
+where
+    W: AsyncWrite,
+{
     type Error = io::Error;
 
-    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        let mut this = self.as_mut().project();
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.project().inner.poll_ready(cx)
+    }
 
-        while !this.buffer.is_empty() {
-            this = self.as_mut().project();
-            let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
-            this.buffer.advance(bytes_written);
-        }
-        Poll::Ready(Ok(()))
+    fn start_send(self: Pin<&mut Self>, item: Block) -> io::Result<()> {
+        // TODO(aatifsyed): Should `Block::write` exist at all?
+        let mut encoded = BytesMut::new();
+        let Block { cid, data } = item;
+        cid.write_bytes((&mut encoded).writer())
+            .map_err(cid_error_to_io_error)?;
+        encoded.extend(data);
+
+        self.project().inner.start_send(encoded.freeze())
     }
-    fn start_send(self: Pin<&mut Self>, item: Block) -> Result<(), Self::Error> {
-        item.write(&mut self.project().buffer.writer())
-    }
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        ready!(self.as_mut().poll_ready(cx))?;
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.project().inner.poll_flush(cx)
     }
-    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        ready!(self.as_mut().poll_ready(cx))?;
-        self.project().inner.poll_shutdown(cx)
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        // TODO: investigate the 'Flush after shutdown' error
+        self.project().inner.poll_close(cx)
     }
 }
 
