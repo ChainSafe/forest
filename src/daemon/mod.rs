@@ -41,7 +41,7 @@ use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use once_cell::sync::Lazy;
-use raw_sync::events::{Event, EventInit as _, EventState};
+use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};

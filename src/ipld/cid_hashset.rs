@@ -4,7 +4,7 @@
 use crate::ipld::CidHashMap;
 use cid::Cid;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CidHashSet(CidHashMap<()>);
 
 impl CidHashSet {

@@ -42,14 +42,15 @@ pub const BLAKE2B256_SIZE: usize = 32;
 ///
 /// The `Generic` variant is used for CIDs that do not fit into the other variants.
 /// These variants are used for optimizing storage of CIDs in the `FrozenCids` structure.
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+///
+/// The contained [`SmallCidInner`] is guaranteed to be canonical.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SmallCid(SmallCidInner);
 
 impl SmallCid {
     pub fn cid(&self) -> Cid {
         match &self.0 {
-            SmallCidInner::Generic(cid) => **cid,
+            SmallCidInner::Other(cid) => **cid,
             SmallCidInner::V1DagCborBlake2b(digest) => Cid::new_v1(
                 DAG_CBOR,
                 multihash::Multihash::wrap(Blake2b256.into(), digest)
@@ -59,10 +60,28 @@ impl SmallCid {
     }
 }
 
+impl SmallCidInner {
+    /// [`SmallCidInner::Other`] should not contain a CID which could be represented by more specialized variants.
+    fn canonical(cid: Cid) -> SmallCidInner {
+        if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
+            if let Ok(small_hash) = cid.hash().resize() {
+                let (code, bytes, size) = small_hash.into_inner();
+                if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
+                    return SmallCidInner::V1DagCborBlake2b(bytes);
+                }
+            }
+        }
+        SmallCidInner::Other(Box::new(cid))
+    }
+}
+
+/// No guarantees are made about canonicalization with this struct
+/// That is, you may have a [`Self::Other`] variant which could be represented as a [`Self::V1DagCborBlake2b`]
+/// (typically as a result of calling `quickcheck::Arbitrary::arbitrary`)
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum SmallCidInner {
-    Generic(Box<Cid>),
+    Other(Box<Cid>),
     V1DagCborBlake2b(
         #[cfg_attr(test, arbitrary(gen(|g: &mut quickcheck::Gen| std::array::from_fn(|_ix| Arbitrary::arbitrary(g)))))]
          [u8; BLAKE2B256_SIZE],
@@ -89,15 +108,7 @@ impl<'de> Deserialize<'de> for SmallCid {
 
 impl From<Cid> for SmallCid {
     fn from(cid: Cid) -> Self {
-        if cid.version() == Version::V1 && cid.codec() == DAG_CBOR {
-            if let Ok(small_hash) = cid.hash().resize() {
-                let (code, bytes, size) = small_hash.into_inner();
-                if code == u64::from(Code::Blake2b256) && size as usize == BLAKE2B256_SIZE {
-                    return SmallCid(SmallCidInner::V1DagCborBlake2b(bytes));
-                }
-            }
-        }
-        SmallCid(SmallCidInner::Generic(Box::new(cid)))
+        SmallCid(SmallCidInner::canonical(cid))
     }
 }
 
@@ -109,14 +120,7 @@ impl From<SmallCid> for Cid {
 
 impl From<&SmallCid> for Cid {
     fn from(variant: &SmallCid) -> Self {
-        match variant {
-            SmallCid(SmallCidInner::Generic(cid)) => **cid,
-            SmallCid(SmallCidInner::V1DagCborBlake2b(digest)) => Cid::new_v1(
-                DAG_CBOR,
-                multihash::Multihash::wrap(Blake2b256.into(), digest)
-                    .expect("failed to convert Blake2b digest to Multihash for creation of V1 DAG-CBOR Blake2b CID"),
-            ),
-        }
+        variant.cid()
     }
 }
 
@@ -134,6 +138,12 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use quickcheck_macros::quickcheck;
     use std::mem::size_of;
+
+    impl Arbitrary for SmallCid {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            SmallCid(SmallCidInner::canonical(Cid::arbitrary(g)))
+        }
+    }
 
     #[quickcheck]
     fn test_cid_cbor_ext(s: String) -> Result<()> {
