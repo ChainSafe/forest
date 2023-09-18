@@ -4,6 +4,7 @@
 use std::ffi::OsString;
 
 use super::subcommands::Cli;
+use crate::cli_shared::logger::setup_minimal_logger;
 use clap::Parser;
 
 use super::subcommands::Subcommand;
@@ -14,6 +15,7 @@ where
 {
     // Capture Cli inputs
     let Cli { cmd } = Cli::parse_from(args);
+    setup_minimal_logger();
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
