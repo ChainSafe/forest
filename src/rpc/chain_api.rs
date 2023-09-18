@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
-use crate::ipld::CidHashSet;
+use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,

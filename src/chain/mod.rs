@@ -3,8 +3,9 @@
 pub mod store;
 mod weight;
 use crate::blocks::Tipset;
+use crate::cid_collections::CidHashSet;
 use crate::db::car::forest;
-use crate::ipld::{stream_chain, CidHashSet};
+use crate::ipld::stream_chain;
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::stream::par_buffer;
 use anyhow::{Context, Result};

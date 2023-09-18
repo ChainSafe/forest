@@ -10,7 +10,8 @@ use std::{
     },
 };
 
-use crate::ipld::{CidHashSet, Ipld};
+use crate::cid_collections::CidHashSet;
+use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
