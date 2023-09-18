@@ -8,7 +8,8 @@ use std::collections::hash_map::{
     VacantEntry as StdVacantEntry,
 };
 
-#[derive(Debug)]
+/// A space-optimised hashmap of [`Cid`]s
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CidHashMap<V> {
     compact: ahash::HashMap<CidV1DagCborBlake2b256, V>,
     uncompact: ahash::HashMap<Uncompactable, V>,
@@ -23,6 +24,7 @@ impl<V> CidHashMap<V> {
         compact.len() + uncompact.len()
     }
     /// How many values this map could hold without reallocating
+    #[allow(dead_code)] // mirror of `total_capacity`, below
     pub fn capacity_min(&self) -> usize {
         let Self { compact, uncompact } = self;
         std::cmp::min(compact.capacity(), uncompact.capacity())
@@ -48,6 +50,12 @@ impl<V> CidHashMap<V> {
         match MaybeCompactedCid::from(key) {
             MaybeCompactedCid::Compact(c) => self.compact.insert(c, value),
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.insert(u, value),
+        }
+    }
+    pub fn remove(&mut self, key: &Cid) -> Option<V> {
+        match MaybeCompactedCid::from(*key) {
+            MaybeCompactedCid::Compact(c) => self.compact.remove(&c),
+            MaybeCompactedCid::Uncompactable(u) => self.uncompact.remove(&u),
         }
     }
 }
@@ -194,6 +202,50 @@ impl<V> IntoIterator for CidHashMap<V> {
             compact: compact.into_iter(),
             uncompact: uncompact.into_iter(),
         }
+    }
+}
+
+//////////
+// Keys //
+//////////
+
+#[cfg(test)]
+use std::collections::hash_map::Keys as StdKeys;
+
+#[cfg(test)]
+impl<V> CidHashMap<V> {
+    pub fn keys(&self) -> Keys<'_, V> {
+        let Self { compact, uncompact } = self;
+        Keys {
+            compact: compact.keys(),
+            uncompact: uncompact.keys(),
+        }
+    }
+}
+
+#[cfg(test)]
+pub struct Keys<'a, V> {
+    compact: StdKeys<'a, CidV1DagCborBlake2b256, V>,
+    uncompact: StdKeys<'a, Uncompactable, V>,
+}
+
+#[cfg(test)]
+impl<'a, V> Iterator for Keys<'a, V> {
+    type Item = Cid;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.compact
+            .next()
+            .copied()
+            .map(MaybeCompactedCid::Compact)
+            .map(Into::into)
+            .or_else(|| {
+                self.uncompact
+                    .next()
+                    .copied()
+                    .map(MaybeCompactedCid::Uncompactable)
+                    .map(Into::into)
+            })
     }
 }
 
