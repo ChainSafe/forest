@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+pub mod hash_map;
+pub use hash_map::CidHashMap;
 use imp::{CidV1DagCborBlake2b256, Uncompactable};
 
 /// The core primitive for saving space in this module.
@@ -39,7 +40,9 @@ mod imp {
         Cid,
     };
     #[cfg(test)]
-    use {crate::utils::db::CborStoreExt as _, multihash::MultihashDigest as _};
+    use {
+        crate::utils::db::CborStoreExt as _, multihash::MultihashDigest as _, quickcheck::Arbitrary,
+    };
 
     #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
     #[repr(transparent)]
@@ -49,6 +52,15 @@ mod imp {
 
     impl CidV1DagCborBlake2b256 {
         const WIDTH: usize = 32;
+    }
+
+    #[cfg(test)]
+    impl Arbitrary for CidV1DagCborBlake2b256 {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self {
+                digest: std::array::from_fn(|_ix| u8::arbitrary(g)),
+            }
+        }
     }
 
     #[test]
@@ -141,5 +153,29 @@ mod imp {
             "the default encoding is no longer v1+dagcbor+blake2b.
             consider adding the new default CID type to [`MaybeCompactCid`]"
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cid::Cid;
+    use quickcheck::{quickcheck, Arbitrary};
+
+    impl Arbitrary for MaybeCompactedCid {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            // bump the odds of a CID being compact
+            let compact = MaybeCompactedCid::Compact(CidV1DagCborBlake2b256::arbitrary(g));
+            let maybe_compact = Self::from(Cid::arbitrary(g));
+            *g.choose(&[compact, maybe_compact]).unwrap()
+        }
+    }
+
+    quickcheck! {
+        fn cid_via_maybe_compacted_cid(before: Cid) -> () {
+            let via = MaybeCompactedCid::from(before);
+            let after = Cid::from(via);
+            assert_eq!(before, after);
+        }
     }
 }
