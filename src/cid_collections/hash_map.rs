@@ -8,7 +8,10 @@ use std::collections::hash_map::{
     VacantEntry as StdVacantEntry,
 };
 
-/// A space-optimised hashmap of [`Cid`]s
+/// A space-optimised hashmap of [`Cid`]s.
+///
+/// We accept the implementation complexity of per-compaction-method HashMaps for
+/// the space savings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CidHashMap<V> {
     compact: ahash::HashMap<CidV1DagCborBlake2b256, V>,

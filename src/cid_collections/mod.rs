@@ -1,7 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+mod frozen_vec;
 pub mod hash_map;
 pub mod hash_set;
+pub use frozen_vec::FrozenCidVec;
 pub use hash_map::CidHashMap;
 pub use hash_set::CidHashSet;
 use imp::{CidV1DagCborBlake2b256, Uncompactable};
