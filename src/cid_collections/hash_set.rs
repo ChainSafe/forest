@@ -51,6 +51,10 @@ impl Iterator for IntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(it, ())| it)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 impl IntoIterator for CidHashSet {

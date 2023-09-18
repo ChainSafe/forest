@@ -192,6 +192,23 @@ impl<V> Iterator for IntoIter<V> {
                     .map(|(k, v)| (MaybeCompactedCid::Uncompactable(k).into(), v))
             })
     }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        join_size_hints(self.compact.size_hint(), self.uncompact.size_hint())
+    }
+}
+
+fn join_size_hints(
+    left: (usize, Option<usize>),
+    right: (usize, Option<usize>),
+) -> (usize, Option<usize>) {
+    let (l_lower, l_upper) = left;
+    let (r_lower, r_upper) = right;
+    let lower = l_lower.saturating_add(r_lower);
+    let upper = match (l_upper, r_upper) {
+        (Some(l), Some(r)) => l.checked_add(r),
+        _ => None,
+    };
+    (lower, upper)
 }
 
 impl<V> IntoIterator for CidHashMap<V> {
@@ -249,6 +266,10 @@ impl<'a, V> Iterator for Keys<'a, V> {
                     .map(MaybeCompactedCid::Uncompactable)
                     .map(Into::into)
             })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        join_size_hints(self.compact.size_hint(), self.uncompact.size_hint())
     }
 }
 
