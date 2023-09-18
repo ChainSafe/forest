@@ -1,0 +1,66 @@
+use super::*;
+use cid::Cid;
+
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
+pub struct CidHashSet {
+    inner: CidHashMap<()>,
+}
+
+impl CidHashSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds a value to the set.
+    /// Returns whether the value was newly inserted.
+    pub fn insert(&mut self, cid: Cid) -> bool {
+        self.inner.insert(cid, ()).is_none()
+    }
+
+    /// Returns the number of elements in the set.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+////////////////////
+// Collection Ops //
+////////////////////
+
+impl Extend<Cid> for CidHashSet {
+    fn extend<T: IntoIterator<Item = Cid>>(&mut self, iter: T) {
+        self.inner.extend(iter.into_iter().map(|it| (it, ())))
+    }
+}
+
+impl FromIterator<Cid> for CidHashSet {
+    fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
+        let mut this = Self::new();
+        this.extend(iter);
+        this
+    }
+}
+
+pub struct IntoIter {
+    inner: hash_map::IntoIter<()>,
+}
+
+impl Iterator for IntoIter {
+    type Item = Cid;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|(it, ())| it)
+    }
+}
+
+impl IntoIterator for CidHashSet {
+    type Item = Cid;
+
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            inner: self.inner.into_iter(),
+        }
+    }
+}
