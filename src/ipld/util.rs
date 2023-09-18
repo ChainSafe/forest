@@ -12,20 +12,27 @@ use std::{
 
 use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
-use crate::utils::db::car_stream::Block;
+use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::io::progress_log::WithProgressRaw;
 use crate::{
     blocks::{BlockHeader, Tipset},
     utils::encoding::from_slice_with_fallback,
 };
+use anyhow::Context as AnyhowContext;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
+use kanal::{Receiver, Sender};
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::task;
+use tokio::task::{JoinHandle, JoinSet};
+
+const BLOCK_CHANNEL_LIMIT: usize = 2048;
 
 /// Traverses all Cid links, hashing and loading all unique values and using the
 /// callback function to interact with the data.
@@ -272,7 +279,6 @@ enum Task {
 
 pin_project! {
     pub struct ChainStream<DB, T> {
-        #[pin]
         tipset_iter: T,
         db: DB,
         dfs: VecDeque<Task>, // Depth-first work queue.
@@ -287,21 +293,23 @@ impl<DB, T> ChainStream<DB, T> {
         ChainStream { seen, ..self }
     }
 
+    #[allow(dead_code)]
     pub fn into_seen(self) -> CidHashSet {
         self.seen
     }
 }
 
-/// Stream all blocks that are reachable before the `stateroot_limit` epoch. After this limit, only
-/// block headers are streamed. Any dead links are reported as errors.
+/// Stream all blocks that are reachable before the `stateroot_limit` epoch in a depth-first
+/// fashion.
+/// After this limit, only block headers are streamed. Any dead links are reported as errors.
 ///
 /// # Arguments
 ///
 /// * `db` - A database that implements [`Blockstore`] interface.
 /// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
-/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets.
-/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where
-/// `$depth` is the number of `[`Tipset`]` that needs inspection.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets,
+/// in-depth. This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth`
+/// is the number of `[`Tipset`]` that needs inspection.
 pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
@@ -335,11 +343,11 @@ pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 }
 
 impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
-    type Item = anyhow::Result<Block>;
+    type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
-        let mut this = self.project();
+        let this = self.project();
 
         let ipld_to_cid = |ipld| {
             if let Ipld::Link(cid) = ipld {
@@ -356,7 +364,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         let cid = *cid;
                         this.dfs.pop_front();
                         if let Some(data) = this.db.get(&cid)? {
-                            return Poll::Ready(Some(Ok(Block { cid, data })));
+                            return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                         } else if *this.fail_on_dead_links {
                             return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
@@ -378,7 +386,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                             cid_vec.push_front(v)
                                         }
                                     }
-                                    return Poll::Ready(Some(Ok(Block { cid, data })));
+                                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                                 } else if *this.fail_on_dead_links {
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
                                         "missing key: {}",
@@ -395,7 +403,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // This consumes a [`Tipset`] from the iterator one at a time. The next iteration of the
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
-            if let Some(tipset) = this.tipset_iter.as_mut().next() {
+            if let Some(tipset) = this.tipset_iter.next() {
                 for block in tipset.into_blocks().into_iter() {
                     if this.seen.insert(*block.cid()) {
                         // Make sure we always yield a block otherwise.
@@ -434,6 +442,262 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                 // That's it, nothing else to do. End of stream.
                 return Poll::Ready(None);
             }
+        }
+    }
+}
+
+pin_project! {
+    pub struct UnorderedChainStream<DB, T> {
+        tipset_iter: T,
+        db: Arc<DB>,
+        seen: Arc<Mutex<CidHashSet>>,
+        worker_handle: JoinHandle<anyhow::Result<()>>,
+        block_receiver: kanal::Receiver<anyhow::Result<CarBlock>>,
+        extract_sender: kanal::Sender<Cid>,
+        stateroot_limit: ChainEpoch,
+        queue: Vec<Cid>,
+        fail_on_dead_links: bool,
+    }
+}
+
+impl<DB, T> UnorderedChainStream<DB, T> {
+    pub fn into_seen(self) -> CidHashSet {
+        match Arc::try_unwrap(self.seen) {
+            Ok(v) => v.into_inner(),
+            Err(v) => v.lock().clone(),
+        }
+    }
+}
+
+/// Stream all blocks that are reachable before the `stateroot_limit` epoch in an unordered fashion.
+/// After this limit, only block headers are streamed. Any dead links are reported as errors.
+///
+/// # Arguments
+///
+/// * `db` - A database that implements [`Blockstore`] interface.
+/// * `tipset_iter` - An iterator of [`Tipset`], descending order `$child -> $parent`.
+/// * `stateroot_limit` - An epoch that signifies how far back we need to inspect tipsets, in-depth.
+/// This has to be pre-calculated using this formula: `$cur_epoch - $depth`, where `$depth` is the
+/// number of `[`Tipset`]` that needs inspection.
+#[allow(dead_code)]
+pub fn unordered_stream_chain<
+    DB: Blockstore + Sync + Send + 'static,
+    T: Iterator<Item = Tipset> + Unpin + Send + 'static,
+>(
+    db: Arc<DB>,
+    tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+) -> UnorderedChainStream<DB, T> {
+    let (sender, receiver) = kanal::bounded(BLOCK_CHANNEL_LIMIT);
+    let (extract_sender, extract_receiver) = kanal::unbounded();
+    let fail_on_dead_links = true;
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle = UnorderedChainStream::<DB, T>::start_workers(
+        db.clone(),
+        sender.clone(),
+        extract_receiver,
+        seen.clone(),
+        fail_on_dead_links,
+    );
+
+    UnorderedChainStream {
+        seen,
+        db,
+        worker_handle: handle,
+        block_receiver: receiver,
+        queue: Vec::new(),
+        extract_sender,
+        tipset_iter,
+        stateroot_limit,
+        fail_on_dead_links,
+    }
+}
+
+// Stream available graph in unordered search. All reachable nodes are touched and dead-links
+// are ignored.
+pub fn unordered_stream_graph<
+    DB: Blockstore + Sync + Send + 'static,
+    T: Iterator<Item = Tipset> + Unpin + Send + 'static,
+>(
+    db: Arc<DB>,
+    tipset_iter: T,
+    stateroot_limit: ChainEpoch,
+) -> UnorderedChainStream<DB, T> {
+    let (sender, receiver) = kanal::bounded(2048);
+    let (extract_sender, extract_receiver) = kanal::unbounded();
+    let fail_on_dead_links = false;
+    let seen = Arc::new(Mutex::new(CidHashSet::default()));
+    let handle = UnorderedChainStream::<DB, T>::start_workers(
+        db.clone(),
+        sender.clone(),
+        extract_receiver,
+        seen.clone(),
+        fail_on_dead_links,
+    );
+
+    UnorderedChainStream {
+        seen,
+        db,
+        worker_handle: handle,
+        block_receiver: receiver,
+        queue: Vec::new(),
+        tipset_iter,
+        extract_sender,
+        stateroot_limit,
+        fail_on_dead_links,
+    }
+}
+
+impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
+    UnorderedChainStream<DB, T>
+{
+    fn start_workers(
+        db: Arc<DB>,
+        block_sender: Sender<anyhow::Result<CarBlock>>,
+        extract_receiver: Receiver<Cid>,
+        seen: Arc<Mutex<CidHashSet>>,
+        fail_on_dead_links: bool,
+    ) -> JoinHandle<anyhow::Result<()>> {
+        task::spawn(async move {
+            let mut handles = JoinSet::new();
+
+            for _ in 0..num_cpus::get() {
+                let seen = seen.clone();
+                let extract_receiver: kanal::AsyncReceiver<Cid> =
+                    extract_receiver.clone().to_async();
+                let db = db.clone();
+                let block_sender = block_sender.clone();
+                handles.spawn(async move {
+                    while let Ok(cid) = extract_receiver.recv().await {
+                        let mut cid_vec = vec![cid];
+                        while let Some(cid) = cid_vec.pop() {
+                            if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
+                                if let Some(data) = db.get(&cid)? {
+                                    if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
+                                        let mut new_values = extract_cids(&data)?;
+                                        cid_vec.append(&mut new_values);
+                                    }
+                                    block_sender
+                                        .send(Ok(CarBlock { cid, data }))
+                                        .expect("unreachable");
+                                } else if fail_on_dead_links {
+                                    block_sender
+                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)))
+                                        .expect("unreachable");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    anyhow::Ok(())
+                });
+            }
+
+            // Make sure we report any unexpected errors.
+            while let Some(res) = handles.join_next().await {
+                match res {
+                    Ok(_) => continue,
+                    Err(err) if err.is_cancelled() => continue,
+                    Err(err) => return Err(err).context("worker error"),
+                }
+            }
+            Ok(())
+        })
+    }
+}
+
+impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
+    for UnorderedChainStream<DB, T>
+{
+    type Item = anyhow::Result<CarBlock>;
+
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        let receive_block = || {
+            if let Ok(item) = this.block_receiver.try_recv() {
+                return anyhow::Ok(item);
+            }
+            anyhow::Ok(None)
+        };
+        loop {
+            while let Some(cid) = this.queue.pop() {
+                if let Some(data) = this.db.get(&cid)? {
+                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
+                } else if *this.fail_on_dead_links {
+                    return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
+                }
+            }
+
+            if let Some(block) = receive_block()? {
+                return Poll::Ready(Some(block));
+            }
+
+            let stateroot_limit = *this.stateroot_limit;
+            // This consumes a [`Tipset`] from the iterator one at a time. Workers are then processing
+            // the extract queue. The emit queue is processed in the loop above. Once the desired depth
+            // has been reached yield a block without walking the graph it represents.
+            if let Some(tipset) = this.tipset_iter.next() {
+                for block in tipset.into_blocks().into_iter() {
+                    if this.seen.lock().insert(*block.cid()) {
+                        // Make sure we always yield a block, directly to the stream to avoid extra
+                        // work.
+                        this.queue.push(*block.cid());
+
+                        if block.epoch() == 0 {
+                            // The genesis block has some kind of dummy parent that needs to be emitted.
+                            for p in &block.parents().cids {
+                                this.queue.push(p);
+                            }
+                        }
+
+                        // Process block messages.
+                        if block.epoch() > stateroot_limit
+                            && should_save_block_to_snapshot(*block.messages())
+                        {
+                            if this.db.has(block.messages())? {
+                                this.extract_sender.send(*block.messages())?;
+                                // This will simply return an error once we reach that item in
+                                // the queue.
+                            } else if *this.fail_on_dead_links {
+                                this.queue.push(*block.messages());
+                            } else {
+                                // Make sure we update seen here as we don't send the block for
+                                // inspection.
+                                this.seen.lock().insert(*block.messages());
+                            }
+                        }
+
+                        // Visit the block if it's within required depth. And a special case for `0`
+                        // epoch to match Lotus' implementation.
+                        if (block.epoch() == 0 || block.epoch() > stateroot_limit)
+                            && should_save_block_to_snapshot(*block.state_root())
+                        {
+                            if this.db.has(block.state_root())? {
+                                this.extract_sender.send(*block.state_root())?;
+                                // This will simply return an error once we reach that item in
+                                // the queue.
+                            } else if *this.fail_on_dead_links {
+                                this.queue.push(*block.state_root());
+                            } else {
+                                // Make sure we update seen here as we don't send the block for
+                                // inspection.
+                                this.seen.lock().insert(*block.state_root());
+                            }
+                        }
+                    }
+                }
+            } else if let Ok(item) = this.block_receiver.try_recv() {
+                if let Some(item) = item {
+                    return Poll::Ready(Some(item));
+                }
+                // Close the sender when it's empty, then we can exit in the next iteration.
+                if this.extract_sender.is_empty() && this.block_receiver.is_empty() {
+                    this.extract_sender.close();
+                }
+            } else {
+                // That's it, nothing else to do. End of stream.
+                return Poll::Ready(None);
+            };
         }
     }
 }

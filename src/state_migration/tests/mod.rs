@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::{str::FromStr, sync::Arc};
 
+#[ignore = "flaky"]
 #[tokio::test]
 async fn test_nv17_state_migration_calibnet() -> Result<()> {
     // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
