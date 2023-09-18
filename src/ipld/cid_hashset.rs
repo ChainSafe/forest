@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::ipld::CidHashMap;
+use crate::cid_collections::CidHashMap;
 use cid::Cid;
 
 #[derive(Default, Clone)]
@@ -16,11 +16,5 @@ impl CidHashSet {
     /// Returns the number of items in the set.
     pub fn len(&self) -> usize {
         self.0.len()
-    }
-
-    /// Checks whether or not the set contains a given [`Cid`].
-    #[allow(dead_code)]
-    pub fn contains(&self, cid: Cid) -> bool {
-        self.0.contains_key(cid)
     }
 }

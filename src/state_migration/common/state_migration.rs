@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::ipld::CidHashMap;
+use crate::cid_collections::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -92,7 +92,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             s.spawn(move |scope| {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
-                    let migrator = self.migrations.get(state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
+                    let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
                     scope.spawn(move |_| {
                         let job = MigrationJob {
                             address,
