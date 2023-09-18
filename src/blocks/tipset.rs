@@ -3,8 +3,8 @@
 
 use std::{fmt, sync::OnceLock};
 
+use crate::cid_collections::FrozenCidVec;
 use crate::db::{SettingsStore, SettingsStoreExt};
-use crate::ipld::FrozenCids;
 use crate::networks::{calibnet, mainnet};
 use crate::shim::{address::Address, clock::ChainEpoch};
 use crate::utils::cid::CidCborExt;
@@ -28,28 +28,26 @@ use super::{Block, BlockHeader, Error, Ticket};
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
 pub struct TipsetKeys {
-    pub cids: FrozenCids,
+    pub cids: FrozenCidVec,
 }
 
 impl TipsetKeys {
-    pub fn new(cids: FrozenCids) -> Self {
-        Self { cids }
-    }
-
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
         let mut bytes = Vec::new();
-        for cid in &self.cids {
+        for cid in self.cids.clone() {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
 }
 
-impl From<Vec<Cid>> for TipsetKeys {
-    fn from(cids: Vec<Cid>) -> Self {
-        Self::new(FrozenCids::from(cids))
+impl FromIterator<Cid> for TipsetKeys {
+    fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
+        Self {
+            cids: iter.into_iter().collect(),
+        }
     }
 }
 
@@ -57,6 +55,7 @@ impl fmt::Display for TipsetKeys {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
             .cids
+            .clone()
             .into_iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
@@ -145,6 +144,7 @@ impl Tipset {
     pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids
+            .clone()
             .into_iter()
             .map(|key| BlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<_>>>()?
@@ -238,12 +238,12 @@ impl Tipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKeys {
         self.key.get_or_init(|| {
-            TipsetKeys::new(self.headers.iter().map(BlockHeader::cid).cloned().collect())
+            TipsetKeys::from_iter(self.headers.iter().map(BlockHeader::cid).copied())
         })
     }
     /// Returns slice of `CIDs` for the current tipset
     pub fn cids(&self) -> Vec<Cid> {
-        Vec::<Cid>::from(&self.key().cids)
+        self.key().cids.clone().into_iter().collect()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKeys {
@@ -387,7 +387,7 @@ impl FullTipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKeys {
         self.key
-            .get_or_init(|| TipsetKeys::new(self.blocks.iter().map(Block::cid).cloned().collect()))
+            .get_or_init(|| TipsetKeys::from_iter(self.blocks.iter().map(Block::cid).copied()))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -552,7 +552,6 @@ pub mod lotus_json {
 #[cfg(test)]
 mod test {
     use crate::blocks::VRFProof;
-    use crate::ipld::FrozenCids;
     use crate::shim::address::Address;
     use cid::{
         multihash::{Code::Identity, MultihashDigest},
@@ -702,10 +701,10 @@ mod test {
             .unwrap();
         let h1 = BlockHeader::builder()
             .miner_address(Address::new_id(1))
-            .parents(TipsetKeys::new(FrozenCids::from_iter([Cid::new_v1(
+            .parents(TipsetKeys::from_iter([Cid::new_v1(
                 DAG_CBOR,
                 Identity.digest(&[]),
-            )])))
+            )]))
             .build()
             .unwrap();
         assert_eq!(

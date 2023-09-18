@@ -179,11 +179,11 @@ where
         }
 
         if h.epoch() > 0 {
-            for p in &h.parents().cids {
+            for p in h.parents().cids.clone() {
                 blocks_to_walk.push_back(p);
             }
         } else {
-            for p in &h.parents().cids {
+            for p in h.parents().cids.clone() {
                 load_block(p).await?;
             }
         }
@@ -412,7 +412,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in &block.parents().cids {
+                            for p in block.parents().cids.clone() {
                                 this.dfs.push_back(Emit(p));
                             }
                         }
@@ -646,7 +646,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
                         if block.epoch() == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in &block.parents().cids {
+                            for p in block.parents().cids.clone() {
                                 this.queue.push(p);
                             }
                         }

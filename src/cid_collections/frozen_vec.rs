@@ -79,6 +79,25 @@ impl<'de> Deserialize<'de> for SmallCid {
     }
 }
 
+/////////////////////
+// Arbitrary impls //
+/////////////////////
+// Note these go through MaybeCompactedCid, artificially bumping the probability of compact CIDs
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SmallCid {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Self::from(Cid::from(MaybeCompactedCid::arbitrary(g)))
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for FrozenCidVec {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Vec::<Cid>::arbitrary(g).into_iter().collect()
+    }
+}
+
 /////////////////////////////////
 // FrozenCidVec collection Ops //
 /////////////////////////////////
