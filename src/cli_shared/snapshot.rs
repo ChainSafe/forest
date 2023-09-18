@@ -61,8 +61,7 @@ pub fn filename(
     .to_string()
 }
 
-/// Fetch a compressed snapshot with `aria2c`, falling back to our own HTTP client.
-/// Returns the path to the downloaded file, which matches the format in .
+/// Returns the path to the downloaded file.
 pub async fn fetch(
     directory: &Path,
     chain: &NetworkChain,
