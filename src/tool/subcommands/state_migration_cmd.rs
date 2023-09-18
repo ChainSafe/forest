@@ -87,6 +87,7 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// If this test fails locally, check you've got `git-lfs` installed and working
 #[test]
 fn asset_integrity() {
     futures::executor::block_on(async {
