@@ -1,19 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use futures::{Stream, StreamExt};
+use futures::ready;
+use futures::{sink::Sink, Stream, StreamExt};
+use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite};
+use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
 use unsigned_varint::codec::UviBytes;
@@ -26,7 +29,7 @@ pub struct CarHeader {
     pub version: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CarBlock {
     pub cid: Cid,
     pub data: Vec<u8>,
@@ -136,6 +139,54 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
                 })
             })
         }))
+    }
+}
+
+pin_project! {
+    pub struct CarWriter<W> {
+        #[pin]
+        inner: W,
+        buffer: BytesMut,
+    }
+}
+
+impl<W: AsyncWrite> CarWriter<W> {
+    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self> {
+        let car_header = CarHeader { roots, version: 1 };
+
+        let mut header_uvi_frame = BytesMut::new();
+        UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
+
+        Ok(Self {
+            inner: writer,
+            buffer: header_uvi_frame,
+        })
+    }
+}
+
+impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
+    type Error = io::Error;
+
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let mut this = self.as_mut().project();
+
+        while !this.buffer.is_empty() {
+            this = self.as_mut().project();
+            let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
+            this.buffer.advance(bytes_written);
+        }
+        Poll::Ready(Ok(()))
+    }
+    fn start_send(self: Pin<&mut Self>, item: CarBlock) -> Result<(), Self::Error> {
+        item.write(&mut self.project().buffer.writer())
+    }
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_ready(cx))?;
+        self.project().inner.poll_flush(cx)
+    }
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_ready(cx))?;
+        self.project().inner.poll_shutdown(cx)
     }
 }
 

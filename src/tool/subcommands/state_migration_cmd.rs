@@ -3,6 +3,7 @@
 
 use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
 use crate::utils::db::car_stream::CarStream;
+use crate::utils::db::car_stream::CarWriter;
 use crate::utils::db::car_util::merge_car_streams;
 use crate::utils::net::global_http_client;
 use anyhow::{Context as _, Result};
@@ -11,14 +12,13 @@ use cid::Cid;
 use clap::Subcommand;
 use futures::io::{BufReader, BufWriter};
 use futures::{AsyncRead, AsyncWriteExt, StreamExt, TryStreamExt};
-use fvm_ipld_car::{CarHeader, CarReader};
+use fvm_ipld_car::CarReader;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const DEFAULT_BUNDLE_FILE_NAME: &str = "actor_bundles.car.zst";
 
@@ -68,24 +68,14 @@ async fn generate_actor_bundle() -> Result<()> {
         .cloned()
         .collect::<Vec<_>>();
 
-    let car_writer = CarHeader::from(all_roots);
-
-    let mut zstd_encoder = ZstdEncoder::with_quality(
+    let zstd_encoder = ZstdEncoder::with_quality(
         tokio::fs::File::create(Path::new(DEFAULT_BUNDLE_FILE_NAME)).await?,
         async_compression::Level::Precise(zstd::zstd_safe::max_c_level()),
-    )
-    .compat_write();
+    );
 
-    car_writer
-        .write_stream_async(
-            &mut zstd_encoder,
-            &mut std::pin::pin!(merge_car_streams(car_streams).map(|b| {
-                let b = b.expect("There should be no invalid blocks");
-                (b.cid, b.data)
-            })),
-        )
+    merge_car_streams(car_streams)
+        .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
         .await?;
-
     Ok(())
 }
 
