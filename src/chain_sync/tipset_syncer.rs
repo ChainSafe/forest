@@ -32,8 +32,7 @@ use futures::stream::TryStreamExt as _;
 use futures::{stream, stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nonempty::NonEmpty;
-use num::BigInt;
+use nonempty::{nonempty, NonEmpty};
 use thiserror::Error;
 use tracing::{debug, error, info, trace, warn};
 
@@ -135,7 +134,7 @@ impl TipsetRangeSyncerError {
 }
 
 struct TipsetGroup {
-    tipsets: Vec<Arc<Tipset>>,
+    tipsets: NonEmpty<Arc<Tipset>>,
     epoch: ChainEpoch,
     parents: TipsetKeys,
 }
@@ -145,7 +144,7 @@ impl TipsetGroup {
         let epoch = tipset.epoch();
         let parents = tipset.parents().clone();
         Self {
-            tipsets: vec![tipset],
+            tipsets: nonempty![tipset],
             epoch,
             parents,
         }
@@ -158,6 +157,7 @@ impl TipsetGroup {
     fn parents(&self) -> TipsetKeys {
         self.parents.clone()
     }
+
     // Attempts to add a tipset to the group
     // If the tipset is added, the method returns `None`
     // If the tipset is discarded, the method return `Some(tipset)`
@@ -175,32 +175,21 @@ impl TipsetGroup {
         None
     }
 
-    fn take_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        let (index, _) = self.heaviest_weight();
-        Some(self.tipsets.swap_remove(index))
-    }
+    fn heaviest_tipset(&self) -> Arc<Tipset> {
+        let max = self.tipsets.maximum_by_key(|ts| ts.weight()).weight();
 
-    fn heaviest_weight(&self) -> (usize, &BigInt) {
-        // Unwrapping is safe because we initialize the struct with at least one tipset
-        let max = self.tipsets.iter().map(|ts| ts.weight()).max().unwrap();
+        let ties = self.tipsets.iter().filter(|ts| ts.weight() == max);
 
-        let ties = self
-            .tipsets
-            .iter()
-            .enumerate()
-            .filter(|(_, ts)| ts.weight() == max);
-
-        let (index, ts) = ties
-            .reduce(|(i, ts), (j, other)| {
-                // break the tie
-                if ts.break_weight_tie(other) {
-                    (i, ts)
-                } else {
-                    (j, other)
-                }
-            })
-            .unwrap();
-        (index, ts.weight())
+        ties.reduce(|ts, other| {
+            // break the tie
+            if ts.break_weight_tie(other) {
+                ts
+            } else {
+                other
+            }
+        })
+        .unwrap_or_else(|| self.tipsets.first())
+        .clone()
     }
 
     fn merge(&mut self, other: Self) {
@@ -218,11 +207,11 @@ impl TipsetGroup {
     }
 
     fn weight_cmp(&self, other: &Self) -> Ordering {
-        let (i, weight) = self.heaviest_weight();
-        let (j, otherw) = other.heaviest_weight();
-        match weight.cmp(otherw) {
+        let self_ts = self.heaviest_tipset();
+        let other_ts = other.heaviest_tipset();
+        match self_ts.weight().cmp(other_ts.weight()) {
             Ordering::Equal => {
-                if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
+                if self_ts.break_weight_tie(&other_ts) {
                     Ordering::Greater
                 } else {
                     Ordering::Equal
@@ -233,7 +222,7 @@ impl TipsetGroup {
     }
 
     fn tipsets(self) -> Vec<Arc<Tipset>> {
-        self.tipsets
+        self.tipsets.into()
     }
 }
 
@@ -282,7 +271,7 @@ where
 
     fn find_range(
         &self,
-        mut tipset_group: TipsetGroup,
+        tipset_group: TipsetGroup,
     ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError> {
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
@@ -292,11 +281,8 @@ where
         let genesis = self.genesis.clone();
         Box::pin(async move {
             // Define the low end of the range
-            // Unwrapping is safe here because the store always has at least one tipset
             let current_head = chain_store.heaviest_tipset();
-            // Unwrapping is safe here because we assume that the
-            // tipset group contains at least one tipset
-            let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
+            let proposed_head = tipset_group.heaviest_tipset();
 
             if current_head.key().eq(proposed_head.key()) {
                 return Err(TipsetProcessorError::AlreadySynced);
@@ -1617,14 +1603,14 @@ mod test {
         let ts2 = Tipset::from(b2);
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::from(b3);
+        let ts3 = Arc::new(Tipset::from(b3));
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
-        assert!(tsg.try_add_tipset(Arc::new(ts3)).is_none());
+        assert!(tsg.try_add_tipset(ts3.clone()).is_none());
 
-        let (index, weight) = tsg.heaviest_weight();
-        assert_eq!(index, 2);
-        assert_eq!(weight, &BigInt::from(10));
+        let ts = tsg.heaviest_tipset();
+        assert_eq!(ts, ts3);
+        assert_eq!(ts.weight(), &BigInt::from(10));
     }
 }

@@ -21,15 +21,6 @@ For Ubuntu, you can install the dependencies (excluding Rust) with:
 sudo apt install build-essential clang
 ```
 
-### Optional runtime dependencies
-
-[aria2](https://aria2.github.io/) is an alternate backend for downloading the
-snapshots. It is significantly faster than the in-built Forest downloader.
-
-```shell
-sudo apt install aria2
-```
-
 ### Compilation & installation
 
 #### From crates.io (latest release)

@@ -2855,6 +2855,7 @@ dependencies = [
  "rand_distr",
  "raw_sync_2",
  "rayon",
+ "regex",
  "reqwest",
  "rlimit",
  "rs-car-ipfs",
