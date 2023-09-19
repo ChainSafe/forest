@@ -27,13 +27,13 @@ pub struct FrozenCidVec {
 impl FrozenCidVec {
     /// Returns true if the slice has a length of 0.
     ///
-    /// See [`core::slice::is_empty`].
+    /// See also [`is_empty`](https://doc.rust-lang.org/std/primitive.slice.html#method.is_empty).
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
     /// Returns `true` if the slice contains an element with the given value.
     ///
-    /// See [`core::slice::contains`].
+    /// See also [`contains`](https://doc.rust-lang.org/std/primitive.slice.html#method.contains).
     pub fn contains(&self, cid: Cid) -> bool {
         self.inner.contains(&SmallCid::from(cid))
     }
