@@ -8,7 +8,7 @@ use std::collections::hash_map::{
     VacantEntry as StdVacantEntry,
 };
 
-/// A space-optimised hashmap of [`Cid`]s.
+/// A space-optimised hashmap of [`Cid`]s, matching the API for [`std::collections::HashMap`]
 ///
 /// We accept the implementation complexity of per-compaction-method HashMaps for
 /// the space savings.

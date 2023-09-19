@@ -8,7 +8,7 @@ use crate::blocks::TipsetKeys;
 /// There are typically MANY small, immutable collections of CIDs in, e.g [`TipsetKeys`].
 ///
 /// Save space on those by:
-/// - Using a boxed slice to save on vector allocations.
+/// - Using a boxed slice to save on vector overallocation.
 /// - Using [`SmallCid`]s
 ///
 /// This may be expanded to have [`smallvec`](https://docs.rs/smallvec/1.11.0/smallvec/index.html)-style indirection
@@ -27,12 +27,10 @@ impl FrozenCidVec {
     }
 }
 
-/// A [`MaybeCompactedCid`], with indirection to save space.
+/// A [`MaybeCompactedCid`], with indirection to save space on the most common CID variant.
 ///
 /// This is NOT a general purpose type - other collections should use the variants
 /// of [`MaybeCompactedCid`], so that the discriminant is not repeated.
-///
-/// (This saves ~20% in the [typical case](https://github.com/ChainSafe/forest/issues/3498#issuecomment-1723528854))
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum SmallCid {
     Inline(CidV1DagCborBlake2b256),
@@ -94,7 +92,10 @@ impl quickcheck::Arbitrary for SmallCid {
 #[cfg(test)]
 impl quickcheck::Arbitrary for FrozenCidVec {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Vec::<Cid>::arbitrary(g).into_iter().collect()
+        Vec::<MaybeCompactedCid>::arbitrary(g)
+            .into_iter()
+            .map(Cid::from)
+            .collect()
     }
 }
 

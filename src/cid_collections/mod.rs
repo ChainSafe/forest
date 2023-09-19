@@ -14,7 +14,8 @@ use imp::{CidV1DagCborBlake2b256, Uncompactable};
 /// length).
 ///
 /// Nearly all Filecoin CIDs are `V1`,`DagCbor` encoded, and hashed with `Blake2b256` (which has a hash
-/// length of 256 bits). Naively representing such a CID requires 96 bytes but the non-static portion is only
+/// length of 256 bits (32 bytes)).
+/// Naively representing such a CID requires 96 bytes but the non-static portion is only
 /// 32 bytes, represented as [`CidV1DagCborBlake2b256`].
 ///
 /// In collections, choose to store only 32 bytes where possible.
