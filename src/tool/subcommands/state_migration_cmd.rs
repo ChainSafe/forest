@@ -18,6 +18,8 @@ use reqwest::Url;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+use tokio::fs::File;
+use tokio::io::{AsyncBufRead, BufReader};
 
 const DEFAULT_BUNDLE_FILE_NAME: &str = "actor_bundles.car.zst";
 
@@ -106,12 +108,7 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
         writer.flush().await?;
         writer.close().await?;
     }
-    if is_bundle_valid(
-        root,
-        BufReader::new(File::open(&tmp).await?),
-    )
-    .await?
-    {
+    if is_bundle_valid(root, BufReader::new(File::open(&tmp).await?)).await? {
         tmp.persist(&cached_car_path)?;
         Ok(cached_car_path)
     } else {

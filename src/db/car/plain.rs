@@ -431,9 +431,7 @@ mod tests {
         }
     }
 
-    fn reference(
-        reader: impl AsyncBufRead + Unpin,
-    ) -> MemoryBlockstore {
+    fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
         block_on(async {
             let blockstore = MemoryBlockstore::new();
             let _ = load_car(&blockstore, reader).await;

@@ -4,10 +4,10 @@
 use cid::Cid;
 use futures::{Stream, StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
-use tokio::io::{AsyncBufRead, AsyncSeek};
+use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::ipld::CidHashSet;
-use crate::utils::db::car_stream::{CarBlock, CarStream};
+use crate::utils::db::car_stream::{CarBlock, CarHeader, CarStream};
 
 pub async fn load_car<R, B>(db: &B, reader: R) -> anyhow::Result<CarHeader>
 where
@@ -19,7 +19,7 @@ where
     while let Some(block) = stream.try_next().await? {
         db.put_keyed(&block.cid, &block.data)?;
     }
-    Ok(roots)
+    Ok(CarHeader { roots, version: 1 })
 }
 
 pub fn merge_car_streams<R>(
