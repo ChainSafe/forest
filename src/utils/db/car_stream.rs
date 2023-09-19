@@ -201,6 +201,8 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::networks::{calibnet, mainnet};
+    use futures::TryStreamExt;
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for CarBlock {
@@ -216,6 +218,26 @@ mod tests {
             let code = g.choose(&[Code::Blake2b256, Code::Sha2_256]).unwrap();
             let cid = Cid::new_v1(*encoding, code.digest(&data));
             CarBlock { cid, data }
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_calibnet_genesis() {
+        let stream = CarStream::new(calibnet::DEFAULT_GENESIS).await.unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1207);
+        for block in blocks {
+            assert!(block.valid());
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_mainnet_genesis() {
+        let stream = CarStream::new(mainnet::DEFAULT_GENESIS).await.unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1222);
+        for block in blocks {
+            assert!(block.valid());
         }
     }
 }
