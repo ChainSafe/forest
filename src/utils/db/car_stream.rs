@@ -195,11 +195,6 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(
     if header.version != 1 {
         return None;
     }
-    // let first_block = Block::from_bytes(framed_reader.next().await?.ok()?)?;
-    // if !first_block.valid() {
-    //     return None;
-    // }
-
     Some(header)
 }
 
