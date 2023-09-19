@@ -206,6 +206,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
         let car_handle = tokio::spawn(async move {
             car_rx
                 .stream()
+                .map(Ok)
                 .forward(
                     CarWriter::new_carv1(roots, file)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
@@ -271,12 +272,12 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                     if let Some(next_ipld) = db.get_cbor(&new_cid)? {
                         dfs_guard.push(next_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send(Ok(CarBlock {
+                            car_tx.send(CarBlock {
                                 cid: new_cid,
                                 data: db.get(&new_cid)?.with_context(|| {
                                     format!("Failed to get cid {new_cid} from block store")
                                 })?,
-                            }))?;
+                            })?;
                         }
                     } else {
                         to_be_fetched.push(new_cid);
@@ -311,12 +312,12 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                             .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
                         dfs_vec.lock().push(new_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send(Ok(CarBlock {
+                            car_tx.send(CarBlock {
                                 cid,
                                 data: db.get(&cid)?.with_context(|| {
                                     format!("Failed to get cid {cid} from block store")
                                 })?,
-                            }))?;
+                            })?;
                         }
 
                         Ok(())
