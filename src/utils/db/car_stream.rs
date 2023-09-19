@@ -99,7 +99,7 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
             io::ErrorKind::InvalidData,
             "invalid header block",
         ))?;
-        // TODO: Parse the first block and check if it is valid.
+        // Possible improvement: Parse the first block and check if it is valid.
         Ok(CarStream { reader, header })
     }
 }
@@ -192,7 +192,6 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(
 mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen};
-    // use quickcheck_macros::quickcheck;
 
     impl Arbitrary for CarBlock {
         fn arbitrary(g: &mut Gen) -> CarBlock {
