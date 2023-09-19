@@ -17,7 +17,6 @@ where
     let mut stream = CarStream::new(tokio::io::BufReader::new(reader)).await?;
     let roots = stream.header.roots.clone();
     while let Some(block) = stream.try_next().await? {
-        // TODO: add some kind of buffering
         db.put_keyed(&block.cid, &block.data)?;
     }
     Ok(roots)
