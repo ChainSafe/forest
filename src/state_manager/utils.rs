@@ -11,8 +11,8 @@ use crate::shim::{
 use crate::utils::encoding::prover_id_from_u64;
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use filecoin_proofs_api::post;
-use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::bytes_32;
 

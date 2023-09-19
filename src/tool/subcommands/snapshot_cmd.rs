@@ -618,6 +618,8 @@ mod structured {
                         method_num,
                         params,
                         value,
+                        gas_limit: _,
+                        read_only: _,
                     },
                 gas_charges,
                 sub_calls,

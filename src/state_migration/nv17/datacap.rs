@@ -13,8 +13,8 @@ use crate::shim::{econ::TokenAmount, sector::StoragePower};
 use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_hamt::BytesKey;
 use num_traits::Zero;
 use once_cell::sync::Lazy;
 

@@ -20,7 +20,7 @@ use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
 use cid::Cid;
-use fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use parking_lot::Mutex;

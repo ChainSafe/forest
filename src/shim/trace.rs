@@ -36,6 +36,8 @@ pub struct Call {
     pub method_num: u64,
     pub params: Either<RawBytes, Option<IpldBlock>>,
     pub value: ShimTokenAmount,
+    pub gas_limit: Option<u64>,
+    pub read_only: Option<bool>,
 }
 
 impl From<E2> for ExecutionEvent {
@@ -54,6 +56,8 @@ impl From<E2> for ExecutionEvent {
                 method_num: method,
                 params: Either::Left(params),
                 value: value.into(),
+                gas_limit: None,
+                read_only: None,
             }),
             E2::CallReturn(data) => EShim::CallReturn(CallReturn {
                 exit_code: None,
@@ -77,12 +81,16 @@ impl From<E3> for ExecutionEvent {
                 method,
                 params,
                 value,
+                gas_limit,
+                read_only,
             } => EShim::Call(Call {
                 from,
                 to: to.into(),
                 method_num: method,
                 params: Either::Right(params),
                 value: value.into(),
+                gas_limit: Some(gas_limit),
+                read_only: Some(read_only),
             }),
             E3::CallReturn(exit_code, data) => EShim::CallReturn(CallReturn {
                 exit_code: Some(exit_code.into()),

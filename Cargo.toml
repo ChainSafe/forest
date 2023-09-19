@@ -21,7 +21,7 @@ backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
 bigdecimal = "0.4.0"
 blake2b_simd = "1.0"
-bls-signatures = { version = "0.13", default-features = false, features = [
+bls-signatures = { version = "0.15", default-features = false, features = [
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
 boa_engine = "0.17.0"
@@ -49,32 +49,29 @@ derive_more = "0.99.17"
 dialoguer = "0.10.2"
 digest = "0.10.5"
 directories = "5"
-fil_actor_account_state = "6"
-fil_actor_cron_state = "6"
-fil_actor_datacap_state = "6"
-fil_actor_init_state = "6"
-fil_actor_interface = "6"
-fil_actor_market_state = "6"
-fil_actor_miner_state = "6"
-fil_actor_power_state = "6"
-fil_actor_reward_state = "6"
-fil_actor_system_state = "6"
-fil_actor_verifreg_state = "6"
-fil_actors_shared = "6"
-filecoin-proofs-api = { version = "14.0", default-features = false }
-flume = "0.11.0"
+fil_actor_account_state = "6.1"
+fil_actor_cron_state = "6.1"
+fil_actor_datacap_state = "6.1"
+fil_actor_init_state = "6.1"
+fil_actor_interface = "6.1"
+fil_actor_market_state = "6.1"
+fil_actor_miner_state = "6.1"
+fil_actor_power_state = "6.1"
+fil_actor_reward_state = "6.1"
+fil_actor_system_state = "6.1"
+fil_actor_verifreg_state = "6.1"
+fil_actors_shared = "6.1"
+filecoin-proofs-api = { version = "16.0", default-features = false }
+flume = "0.11"
 fs_extra = "1.2"
 futures = "0.3"
-fvm2 = { package = "fvm", version = "~2.5", default-features = false }
-fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
-fvm_ipld_amt = "0.6"
-fvm_ipld_bitfield = "0.5"
+fvm2 = { package = "fvm", version = "~2.7", default-features = false }
+fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_car = "0.7"
 fvm_ipld_encoding = "0.4"
-fvm_ipld_hamt = "0.8"
-fvm_shared2 = { package = "fvm_shared", version = "~2.5" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.4", features = ["testing", "proofs"] }
+fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = { version = "0.4", features = ["serde"] }
@@ -193,8 +190,8 @@ assert_cmd = "2"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
-fvm3 = { package = "fvm", default-features = false, version = "~3.5", features = ["arb"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.4", default-features = false, features = ["arb"] }
+fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 quickcheck = "1"

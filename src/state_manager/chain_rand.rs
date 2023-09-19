@@ -56,9 +56,7 @@ where
     /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
     pub fn get_chain_randomness(
         &self,
-        pers: i64,
         round: ChainEpoch,
-        entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
         let ts = Arc::clone(&self.tipset);
@@ -78,51 +76,33 @@ where
             .chain_index
             .tipset_by_height(search_height, ts, resolve)?;
 
-        draw_randomness(
+        Ok(digest(
             rand_ts
                 .min_ticket()
                 .context("No ticket exists for block")?
                 .vrfproof
                 .as_bytes(),
-            pers,
-            round,
-            entropy,
-        )
+        ))
     }
 
     /// network version 13 onward
-    pub fn get_chain_randomness_v2(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness(pers, round, entropy, false)
+    pub fn get_chain_randomness_v2(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        self.get_chain_randomness(round, false)
     }
 
     /// network version 13; without look-back
-    pub fn get_beacon_randomness_v2(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness(pers, round, entropy, false)
+    pub fn get_beacon_randomness_v2(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        self.get_beacon_randomness(round, false)
     }
 
     /// network version 14 onward
-    pub fn get_beacon_randomness_v3(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
+    pub fn get_beacon_randomness_v3(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         if round < 0 {
-            return self.get_beacon_randomness_v2(pers, round, entropy);
+            return self.get_beacon_randomness_v2(round);
         }
 
         let beacon_entry = self.extract_beacon_entry_for_epoch(round)?;
-        draw_randomness(beacon_entry.data(), pers, round, entropy)
+        Ok(digest(beacon_entry.data()))
     }
 
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
@@ -130,14 +110,12 @@ where
     /// entry.
     pub fn get_beacon_randomness(
         &self,
-        pers: i64,
         round: ChainEpoch,
-        entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
         let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(round, lookback)?;
         let be = self.chain_index.latest_beacon_entry(&rand_ts)?;
-        draw_randomness(be.data(), pers, round, entropy)
+        Ok(digest(be.data()))
     }
 
     pub fn extract_beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
@@ -193,22 +171,12 @@ impl<DB> Rand for ChainRand<DB>
 where
     DB: Blockstore,
 {
-    fn get_chain_randomness(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness_v2(pers, round, entropy)
+    fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        self.get_chain_randomness_v2(round)
     }
 
-    fn get_beacon_randomness(
-        &self,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness_v3(pers, round, entropy)
+    fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        self.get_beacon_randomness_v3(round)
     }
 }
 
@@ -221,11 +189,17 @@ pub fn draw_randomness(
 ) -> anyhow::Result<[u8; 32]> {
     let mut state = Params::new().hash_length(32).to_state();
     state.write_i64::<BigEndian>(pers)?;
-    let vrf_digest = blake2b_256(rbase);
+    let vrf_digest = digest(rbase);
     state.write_all(&vrf_digest)?;
     state.write_i64::<BigEndian>(round)?;
     state.write_all(entropy)?;
     let mut ret = [0u8; 32];
     ret.clone_from_slice(state.finalize().as_bytes());
     Ok(ret)
+}
+
+/// Computes a 256-bit digest.
+/// See <https://github.com/filecoin-project/ref-fvm/blob/master/fvm/CHANGELOG.md#360-2023-08-18>
+pub fn digest(rbase: &[u8]) -> [u8; 32] {
+    blake2b_256(rbase)
 }

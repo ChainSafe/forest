@@ -6,8 +6,8 @@ use crate::{
     utils::cid::CidCborExt,
 };
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_hamt::BytesKey;
 
 /// Translated from <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v9/migration/util.go#L72>
 pub(super) fn get_pending_verified_deals_and_total_size(
