@@ -128,7 +128,7 @@ where
 
 fn is_bundle_car_valid<R>(root: &Cid, car_reader: CarStream<R>) -> anyhow::Result<bool>
 where
-    R: tokio::io::AsyncBufRead + Send + Unpin,
+    R: AsyncBufRead + Unpin,
 {
     Ok(car_reader.header.roots.len() == 1 && &car_reader.header.roots[0] == root)
 }
