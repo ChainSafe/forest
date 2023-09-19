@@ -108,7 +108,7 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
     }
     if is_bundle_valid(
         root,
-        tokio::io::BufReader::new(tokio::fs::File::open(&tmp).await?),
+        BufReader::new(File::open(&tmp).await?),
     )
     .await?
     {
