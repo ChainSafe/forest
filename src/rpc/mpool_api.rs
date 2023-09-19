@@ -24,7 +24,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let (LotusJson(cid_vec),) = params;
-    let tsk = TipsetKeys::new(cid_vec.into());
+    let tsk = TipsetKeys::from_iter(cid_vec);
     let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending()?;

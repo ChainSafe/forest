@@ -4,7 +4,7 @@
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncBufRead, AsyncSeek};
 
-use crate::ipld::CidHashSet;
+use crate::cid_collections::CidHashSet;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 
 pub fn merge_car_streams<R>(

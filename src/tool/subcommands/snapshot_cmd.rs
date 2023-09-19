@@ -4,12 +4,13 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::ipld::{recurse_links_hash, CidHashSet};
+use crate::ipld::recurse_links_hash;
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;

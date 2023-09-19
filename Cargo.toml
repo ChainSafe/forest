@@ -32,6 +32,7 @@ byteorder = "1.4.3"
 bytes = "1.2"
 cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }
 cfg-if = "1"
+cfg-vis = "0.3.0"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4.0", features = ["derive"] }

@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::ipld::CidHashMap;
+use crate::cid_collections::CidHashMap;
 use ahash::{HashSet, HashSetExt};
 use flume::TryRecvError;
 use libipld::{Block, Cid};
@@ -122,7 +122,7 @@ impl BitswapRequestManager {
         deadline: Instant,
     ) -> bool {
         // Fail fast here when the given `cid` is being processed by other tasks
-        if self.response_channels.read().contains_key(cid) {
+        if self.response_channels.read().contains_key(&cid) {
             return false;
         }
 
@@ -196,8 +196,9 @@ impl BitswapRequestManager {
         // Cleanup
         {
             let mut response_channels = self.response_channels.write();
-            response_channels.remove(cid);
-            metrics::response_channel_container_capacity().set(response_channels.capacity() as _);
+            response_channels.remove(&cid);
+            metrics::response_channel_container_capacity()
+                .set(response_channels.total_capacity() as _);
         }
 
         success
@@ -212,12 +213,12 @@ impl BitswapRequestManager {
 
         match response {
             HaveBlock(peer, cid) => {
-                if let Some(chans) = self.response_channels.read().get(cid) {
+                if let Some(chans) = self.response_channels.read().get(&cid) {
                     _ = chans.block_have.send(peer);
                 }
             }
             DataBlock(_peer, cid, data) => {
-                if let Some(chans) = self.response_channels.read().get(cid) {
+                if let Some(chans) = self.response_channels.read().get(&cid) {
                     if let Ok(true) = store.contains(&cid) {
                         // Avoid duplicate writes, still notify the receiver
                         metrics::message_counter_inbound_response_block_already_exists_in_db()
