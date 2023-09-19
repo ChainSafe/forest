@@ -14,7 +14,7 @@ where
     B: Blockstore,
     R: AsyncBufRead + Unpin,
 {
-    let mut stream = CarStream::new(tokio::io::BufReader::new(reader)).await?;
+    let mut stream = CarStream::new(BufReader::new(reader)).await?;
     let roots = stream.header.roots.clone();
     while let Some(block) = stream.try_next().await? {
         db.put_keyed(&block.cid, &block.data)?;
