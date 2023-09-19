@@ -12,7 +12,7 @@ use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use crate::utils::{cid::CidCborExt, db::CborStoreExt};
 use cid::Cid;
-use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
+use fil_actors_shared::fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as EncodingError;
 use thiserror::Error;

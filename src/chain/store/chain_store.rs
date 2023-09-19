@@ -7,7 +7,6 @@ use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
-use crate::ipld::FrozenCids;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
@@ -20,7 +19,7 @@ use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Result;
 use cid::Cid;
-use fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use parking_lot::Mutex;
@@ -116,7 +115,7 @@ where
             .read_obj::<TipsetKeys>(HEAD_KEY)?
             .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
         {
-            let tipset_keys = TipsetKeys::new(FrozenCids::from_iter([*genesis_block_header.cid()]));
+            let tipset_keys = TipsetKeys::from_iter([*genesis_block_header.cid()]);
             settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 

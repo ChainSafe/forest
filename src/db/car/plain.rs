@@ -60,7 +60,7 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
-use crate::ipld::{CidHashMap, CidHashMapEntry};
+use crate::cid_collections::{hash_map::Entry as CidHashMapEntry, CidHashMap};
 use crate::{
     blocks::{Tipset, TipsetKeys},
     utils::encoding::from_slice_with_fallback,
@@ -156,7 +156,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::from(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::from_iter(self.roots()))
     }
 
     /// In an arbitrary order
@@ -196,10 +196,10 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match (self.index.read().get(*k), self.write_cache.read().get(*k)) {
+        match (self.index.read().get(k), self.write_cache.read().get(k)) {
             (Some(_location), Some(_cached)) => {
                 trace!("evicting from write cache");
-                Ok(self.write_cache.write().remove(*k))
+                Ok(self.write_cache.write().remove(k))
             }
             (Some(UncompressedBlockDataLocation { offset, length }), None) => {
                 trace!("fetching from disk");
@@ -258,7 +258,7 @@ fn handle_write_cache(
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
-    match (index.get(*k), write_cache.entry(*k)) {
+    match (index.get(k), write_cache.entry(*k)) {
         (None, Occupied(already)) => match already.get() == block {
             true => {
                 trace!("already in cache");
@@ -408,12 +408,11 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use super::PlainCar;
-
     use crate::utils::db::car_util::load_car;
     use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
+    use tokio::io::AsyncBufRead;
 
     #[test]
     fn test_uncompressed() {

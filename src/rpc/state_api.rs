@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
-use crate::ipld::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{

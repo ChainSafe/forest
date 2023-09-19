@@ -62,12 +62,12 @@ where
     BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(db, reader).await?;
-    if genesis_cids.len() != 1 {
+    let header = load_car(db, reader).await?;
+    if header.roots.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block = BlockHeader::load(db, genesis_cids[0])?.ok_or_else(|| {
+    let genesis_block = BlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 

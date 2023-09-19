@@ -8,7 +8,7 @@ use std::{convert::TryFrom, sync::Arc};
 use crate::blocks::VRFProof;
 use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
-use crate::ipld::CidHashMap;
+use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;
@@ -136,7 +136,7 @@ impl Provider for TestApi {
         let inner = self.inner.lock();
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for b in ts.blocks() {
-            if let Some(ms) = inner.bmsgs.get(*b.cid()) {
+            if let Some(ms) = inner.bmsgs.get(b.cid()) {
                 for m in ms {
                     if &m.from() == addr {
                         msgs.push(m.clone());
@@ -176,7 +176,7 @@ impl Provider for TestApi {
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         let inner = self.inner.lock();
         let v: Vec<Message> = Vec::new();
-        let thing = inner.bmsgs.get(*h.cid());
+        let thing = inner.bmsgs.get(h.cid());
 
         match thing {
             Some(s) => Ok((v, s.clone())),

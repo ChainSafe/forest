@@ -21,6 +21,7 @@ mod beacon;
 mod blocks;
 mod chain;
 mod chain_sync;
+mod cid_collections;
 mod cli;
 mod cli_shared;
 mod daemon;

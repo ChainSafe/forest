@@ -6,7 +6,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
-use crate::ipld::CidHashSet;
+use crate::cid_collections::CidHashSet;
 use crate::utils::db::car_stream::{CarBlock, CarHeader, CarStream};
 
 pub async fn load_car<R, B>(db: &B, reader: R) -> anyhow::Result<CarHeader>
