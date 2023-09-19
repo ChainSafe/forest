@@ -432,7 +432,7 @@ mod tests {
     }
 
     fn reference(
-        reader: impl tokio::io::AsyncBufRead + tokio::io::AsyncSeek + Send + Unpin,
+        reader: impl AsyncBufRead + Unpin,
     ) -> MemoryBlockstore {
         block_on(async {
             let blockstore = MemoryBlockstore::new();
