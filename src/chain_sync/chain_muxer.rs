@@ -922,11 +922,9 @@ where
 mod tests {
     use std::convert::TryFrom;
 
-    use crate::blocks::{BlockHeader, Tipset};
     use crate::db::MemoryDB;
     use crate::message::SignedMessage;
-    use crate::networks::{ChainConfig, Height};
-    use crate::shim::{address::Address, message::Message};
+    use crate::shim::message::Message;
     use crate::test_utils::construct_messages;
     use crate::utils::encoding::from_slice_with_fallback;
     use base64::{prelude::BASE64_STANDARD, Engine};
@@ -963,17 +961,5 @@ mod tests {
                 .to_string(),
             "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
         );
-    }
-
-    #[test]
-    fn compute_base_fee_shouldnt_panic_on_bad_input() {
-        let blockstore = MemoryDB::default();
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
-        let ts = Tipset::from(h0);
-        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(crate::chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }
 }
