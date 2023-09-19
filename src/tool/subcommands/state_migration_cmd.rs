@@ -121,7 +121,7 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
 
 async fn is_bundle_valid<R>(root: &Cid, reader: R) -> anyhow::Result<bool>
 where
-    R: tokio::io::AsyncBufRead + tokio::io::AsyncSeek + Send + Unpin,
+    R: AsyncBufRead + Unpin,
 {
     is_bundle_car_valid(root, CarStream::new(reader).await?)
 }
