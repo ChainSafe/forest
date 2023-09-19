@@ -7,11 +7,17 @@ use std::collections::hash_map::{
     Entry as StdEntry, IntoIter as StdIntoIter, OccupiedEntry as StdOccupiedEntry,
     VacantEntry as StdVacantEntry,
 };
+#[cfg(doc)]
+use std::collections::HashMap;
 
-/// A space-optimised hashmap of [`Cid`]s, matching the API for [`std::collections::HashMap`]
+/// A space-optimised hash map of [`Cid`]s, matching the API for [`std::collections::HashMap`].
 ///
-/// We accept the implementation complexity of per-compaction-method HashMaps for
-/// the space savings.
+/// We accept the implementation complexity of per-compaction-method `HashMap`s for
+/// the space savings, which are constant per-variant, rather than constant per-item.
+///
+/// This is dramatic for large maps!
+/// Using, e.g [`frozen_vec::SmallCid`](super::frozen_vec::SmallCid) will cost
+/// 25% more per-CID in the median case (32 B vs 40 B)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CidHashMap<V> {
     compact: ahash::HashMap<CidV1DagCborBlake2b256, V>,
@@ -19,42 +25,66 @@ pub struct CidHashMap<V> {
 }
 
 impl<V> CidHashMap<V> {
+    /// Creates an empty `HashMap`.
+    ///
+    /// See also [`HashMap::new`].
     pub fn new() -> Self {
         Self::default()
     }
+    /// Returns the number of elements in the map.
+    ///
+    /// See also [`HashMap::len`].
     pub fn len(&self) -> usize {
         let Self { compact, uncompact } = self;
         compact.len() + uncompact.len()
     }
-    /// How many values this map could hold without reallocating
+    /// How many values this map is guaranteed to hold without reallocating.
     #[allow(dead_code)] // mirror of `total_capacity`, below
     pub fn capacity_min(&self) -> usize {
         let Self { compact, uncompact } = self;
         std::cmp::min(compact.capacity(), uncompact.capacity())
     }
-    /// Reflective of memory usage of this map
+    /// Reflective of reserved capacity of this map.
     pub fn total_capacity(&self) -> usize {
         let Self { compact, uncompact } = self;
         compact.capacity() + uncompact.capacity()
     }
+    /// Returns `true` if the map contains a value for the specified key.
+    ///
+    /// See also [`HashMap::contains_key`].
     pub fn contains_key(&self, key: &Cid) -> bool {
         match MaybeCompactedCid::from(*key) {
             MaybeCompactedCid::Compact(c) => self.compact.contains_key(&c),
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.contains_key(&u),
         }
     }
+    /// Returns a reference to the value corresponding to the key.
+    ///
+    /// See also [`HashMap::get`].
     pub fn get(&self, key: &Cid) -> Option<&V> {
         match MaybeCompactedCid::from(*key) {
             MaybeCompactedCid::Compact(c) => self.compact.get(&c),
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.get(&u),
         }
     }
+    /// Inserts a key-value pair into the map.
+    ///
+    /// If the map did not have this key present, [`None`] is returned.
+    ///
+    /// If the map did have this key present, the value is updated, and the old
+    /// value is returned.
+    ///
+    /// See also [`HashMap::insert`].
     pub fn insert(&mut self, key: Cid, value: V) -> Option<V> {
         match MaybeCompactedCid::from(key) {
             MaybeCompactedCid::Compact(c) => self.compact.insert(c, value),
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.insert(u, value),
         }
     }
+    /// Removes a key from the map, returning the value at the key if the key
+    /// was previously in the map.
+    ///
+    /// See also [`HashMap::remove`].
     pub fn remove(&mut self, key: &Cid) -> Option<V> {
         match MaybeCompactedCid::from(*key) {
             MaybeCompactedCid::Compact(c) => self.compact.remove(&c),
@@ -68,6 +98,9 @@ impl<V> CidHashMap<V> {
 ///////////////
 
 impl<V> CidHashMap<V> {
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    ///
+    /// See also [`HashMap::entry`].
     pub fn entry(&mut self, key: Cid) -> Entry<V> {
         match MaybeCompactedCid::from(key) {
             MaybeCompactedCid::Compact(c) => match self.compact.entry(c) {
@@ -90,6 +123,9 @@ impl<V> CidHashMap<V> {
     }
 }
 
+/// A view into a single entry in a map, which may either be vacant or occupied.
+///
+/// This `enum` is constructed using [`CidHashMap::entry`].
 #[derive(Debug)]
 pub enum Entry<'a, V: 'a> {
     /// An occupied entry.
@@ -98,12 +134,19 @@ pub enum Entry<'a, V: 'a> {
     Vacant(VacantEntry<'a, V>),
 }
 
+/// A view into an occupied entry in a `HashMap`.
+/// It is part of the [`Entry`] enum.
+///
+/// See also [`std::collections::hash_map::OccupiedEntry`].
 #[derive(Debug)]
 pub struct OccupiedEntry<'a, V> {
     inner: OccupiedEntryInner<'a, V>,
 }
 
 impl<'a, V> OccupiedEntry<'a, V> {
+    /// Gets a reference to the value in the entry.
+    ///
+    /// See also [`std::collections::hash_map::OccupiedEntry::get`].
     pub fn get(&self) -> &V {
         match &self.inner {
             OccupiedEntryInner::Compact(c) => c.get(),
@@ -112,18 +155,27 @@ impl<'a, V> OccupiedEntry<'a, V> {
     }
 }
 
+/// Hides compaction from users.
 #[derive(Debug)]
 enum OccupiedEntryInner<'a, V> {
     Compact(StdOccupiedEntry<'a, CidV1DagCborBlake2b256, V>),
     Uncompact(StdOccupiedEntry<'a, Uncompactable, V>),
 }
 
+/// A view into a vacant entry in a `HashMap`.
+/// It is part of the [`Entry`] enum.
+///
+/// See also [`std::collections::hash_map::VacantEntry`].
 #[derive(Debug)]
 pub struct VacantEntry<'a, V> {
     inner: VacantEntryInner<'a, V>,
 }
 
 impl<'a, V> VacantEntry<'a, V> {
+    /// Sets the value of the entry with the `VacantEntry`'s key,
+    /// and returns a mutable reference to it.
+    ///
+    /// See also [`std::collections::hash_map::VacantEntry::insert`].
     pub fn insert(self, value: V) -> &'a mut V {
         match self.inner {
             VacantEntryInner::Compact(c) => c.insert(value),
@@ -132,6 +184,7 @@ impl<'a, V> VacantEntry<'a, V> {
     }
 }
 
+/// Hides compaction from users.
 #[derive(Debug)]
 enum VacantEntryInner<'a, V> {
     Compact(StdVacantEntry<'a, CidV1DagCborBlake2b256, V>),
@@ -234,6 +287,10 @@ use std::collections::hash_map::Keys as StdKeys;
 
 #[cfg(test)]
 impl<V> CidHashMap<V> {
+    /// An iterator visiting all keys in arbitrary order.
+    ///
+    /// In a notable departure from [`HashMap::keys`], the element type is [`Cid`], not [`&Cid`].
+    ///
     pub fn keys(&self) -> Keys<'_, V> {
         let Self { compact, uncompact } = self;
         Keys {
@@ -243,6 +300,9 @@ impl<V> CidHashMap<V> {
     }
 }
 
+/// An iterator over the keys of a `HashMap`.
+///
+/// See [`CidHashMap::keys`].
 #[cfg(test)]
 pub struct Keys<'a, V> {
     compact: StdKeys<'a, CidV1DagCborBlake2b256, V>,

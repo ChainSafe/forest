@@ -1,23 +1,37 @@
 use super::*;
 use cid::Cid;
 
+#[cfg(doc)]
+use std::collections::HashSet;
+
+/// A hash set implemented as a `HashMap` where the value is `()`.
+///
+/// See also [`HashSet`].
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct CidHashSet {
     inner: CidHashMap<()>,
 }
 
 impl CidHashSet {
+    /// Creates an empty `HashSet`.
+    ///
+    /// See also [`HashSet::new`].
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds a value to the set.
+    ///
     /// Returns whether the value was newly inserted.
+    ///
+    /// See also [`HashSet::insert`].
     pub fn insert(&mut self, cid: Cid) -> bool {
         self.inner.insert(cid, ()).is_none()
     }
 
     /// Returns the number of elements in the set.
+    ///
+    /// See also [`HashSet::len`].
     pub fn len(&self) -> usize {
         self.inner.len()
     }

@@ -9,7 +9,9 @@ use crate::blocks::TipsetKeys;
 ///
 /// Save space on those by:
 /// - Using a boxed slice to save on vector overallocation.
+///   (In the worst case, this uses half the memory)
 /// - Using [`SmallCid`]s
+///   (In the median case, this uses 40 B over 96 B per CID)
 ///
 /// This may be expanded to have [`smallvec`](https://docs.rs/smallvec/1.11.0/smallvec/index.html)-style indirection
 /// to save more on heap allocations.
@@ -19,18 +21,26 @@ pub struct FrozenCidVec {
 }
 
 impl FrozenCidVec {
+    /// Returns true if the slice has a length of 0.
+    ///
+    /// See [`core::slice::is_empty`].
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+    /// Returns `true` if the slice contains an element with the given value.
+    ///
+    /// See [`core::slice::contains`].
     pub fn contains(&self, cid: Cid) -> bool {
         self.inner.contains(&SmallCid::from(cid))
     }
 }
 
-/// A [`MaybeCompactedCid`], with indirection to save space on the most common CID variant.
+/// A [`MaybeCompactedCid`], with indirection to save space on the most common CID variant, at the cost
+/// of an extra allocation on rare variants.
 ///
-/// This is NOT a general purpose type - other collections should use the variants
+/// This is NOT intended as a general purpose type - other collections should use the variants
 /// of [`MaybeCompactedCid`], so that the discriminant is not repeated.
+#[cfg_vis::cfg_vis(doc, pub)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum SmallCid {
     Inline(CidV1DagCborBlake2b256),

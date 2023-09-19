@@ -20,15 +20,15 @@ use imp::{CidV1DagCborBlake2b256, Uncompactable};
 ///
 /// In collections, choose to store only 32 bytes where possible.
 ///
-/// Note that construction of Cids should always go through this type, to ensure
-/// - canonicalisation
+/// Note that construction of CIDs should always go through this type, to ensure
+/// - canonicalization
 /// - the contract of [`Uncompactable`]
 ///
 /// ```
 /// assert_eq!(std::mem::size_of::<cid::Cid>(), 96);
 /// ```
 ///
-/// If other types of CID become popular, they should be added to this enum
+/// If other types of CID become popular, they should be added to this `enum`.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
 enum MaybeCompactedCid {
     Compact(CidV1DagCborBlake2b256),
