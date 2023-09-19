@@ -10,9 +10,8 @@ use anyhow::{Context as _, Result};
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use clap::Subcommand;
-use futures::io::{BufReader, BufWriter};
-use futures::{AsyncRead, AsyncWriteExt, StreamExt, TryStreamExt};
-use fvm_ipld_car::CarReader;
+use futures::io::BufWriter;
+use futures::{AsyncWriteExt, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use reqwest::Url;
@@ -85,8 +84,8 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
     }
     let cached_car_path = ACTOR_BUNDLE_CACHE_DIR.join(format!("{root}.car"));
     if cached_car_path.is_file() {
-        if let Ok(file) = async_fs::File::open(&cached_car_path).await {
-            if let Ok(true) = is_bundle_valid(root, BufReader::new(file)).await {
+        if let Ok(file) = tokio::fs::File::open(&cached_car_path).await {
+            if let Ok(true) = is_bundle_valid(root, tokio::io::BufReader::new(file)).await {
                 return Ok(cached_car_path);
             }
         }
@@ -107,7 +106,12 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
         writer.flush().await?;
         writer.close().await?;
     }
-    if is_bundle_valid(root, BufReader::new(async_fs::File::open(&tmp).await?)).await? {
+    if is_bundle_valid(
+        root,
+        tokio::io::BufReader::new(tokio::fs::File::open(&tmp).await?),
+    )
+    .await?
+    {
         tmp.persist(&cached_car_path)?;
         Ok(cached_car_path)
     } else {
@@ -117,14 +121,14 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
 
 async fn is_bundle_valid<R>(root: &Cid, reader: R) -> anyhow::Result<bool>
 where
-    R: AsyncRead + Send + Unpin,
+    R: tokio::io::AsyncBufRead + tokio::io::AsyncSeek + Send + Unpin,
 {
-    is_bundle_car_valid(root, CarReader::new(reader).await?)
+    is_bundle_car_valid(root, CarStream::new(reader).await?)
 }
 
-fn is_bundle_car_valid<R>(root: &Cid, car_reader: CarReader<R>) -> anyhow::Result<bool>
+fn is_bundle_car_valid<R>(root: &Cid, car_reader: CarStream<R>) -> anyhow::Result<bool>
 where
-    R: AsyncRead + Send + Unpin,
+    R: tokio::io::AsyncBufRead + Send + Unpin,
 {
     Ok(car_reader.header.roots.len() == 1 && &car_reader.header.roots[0] == root)
 }
