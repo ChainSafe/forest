@@ -19,6 +19,7 @@ use crate::blocks::TipsetKeys;
 /// This may be expanded to have [`smallvec`](https://docs.rs/smallvec/1.11.0/smallvec/index.html)-style indirection
 /// to save more on heap allocations.
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)] // treat the named field as anonymous, so we serialize equivalent to Vec<Cid>
 pub struct FrozenCidVec {
     inner: Box<[SmallCid]>,
 }
