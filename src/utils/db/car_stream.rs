@@ -12,7 +12,7 @@ use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use std::io::{self};
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite};
@@ -37,7 +37,7 @@ pub struct CarBlock {
 
 impl CarBlock {
     // Write a varint frame containing the cid and the data
-    pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
+    pub fn write(&self, mut writer: &mut impl io::Write) -> io::Result<()> {
         let frame_length = self.cid.encoded_len() + self.data.len();
         writer.write_all(&frame_length.encode_var_vec())?;
         self.cid
