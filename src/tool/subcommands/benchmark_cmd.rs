@@ -9,7 +9,7 @@ use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
 use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
 use crate::shim::clock::ChainEpoch;
-use crate::utils::db::car_stream::{Block, CarStream};
+use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
 use crate::utils::stream::par_buffer;
 use anyhow::{Context as _, Result};
@@ -146,7 +146,7 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
             .try_flatten(),
     );
     while let Some(block) = s.try_next().await? {
-        let block: Block = block;
+        let block: CarBlock = block;
         if block.cid.codec() == DAG_CBOR {
             let cid_vec: Vec<Cid> = extract_cids(&block.data)?;
             let _ = cid_vec.iter().unique().count();

@@ -12,7 +12,7 @@ use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
-use raw_sync::{
+use raw_sync_2::{
     events::{Event, EventInit},
     Timeout,
 };

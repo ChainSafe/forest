@@ -1,19 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use futures::{Stream, StreamExt};
+use futures::ready;
+use futures::{sink::Sink, Stream, StreamExt};
+use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, SeekFrom};
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt, AsyncWrite};
+use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
 use unsigned_varint::codec::UviBytes;
@@ -26,13 +29,13 @@ pub struct CarHeader {
     pub version: u64,
 }
 
-#[derive(Debug, Clone)]
-pub struct Block {
+#[derive(Debug, Clone, PartialEq)]
+pub struct CarBlock {
     pub cid: Cid,
     pub data: Vec<u8>,
 }
 
-impl Block {
+impl CarBlock {
     // Write a varint frame containing the cid and the data
     pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
         let frame_length = self.cid.encoded_len() + self.data.len();
@@ -44,14 +47,14 @@ impl Block {
         Ok(())
     }
 
-    pub fn from_bytes(bytes: impl Into<Bytes>) -> Option<Block> {
+    pub fn from_bytes(bytes: impl Into<Bytes>) -> Option<CarBlock> {
         let bytes: Bytes = bytes.into();
         let mut cursor = Cursor::new(bytes);
         let cid = Cid::read_bytes(&mut cursor).ok()?;
         let data_offset = cursor.position();
         let mut bytes = cursor.into_inner();
         bytes.advance(data_offset as usize);
-        Some(Block {
+        Some(CarBlock {
             cid,
             data: bytes.to_vec(),
         })
@@ -117,7 +120,7 @@ impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
 }
 
 impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
-    type Item = io::Result<Block>;
+    type Item = io::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
@@ -130,12 +133,60 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
                 let data_offset = cursor.position();
                 let mut bytes = cursor.into_inner();
                 bytes.advance(data_offset as usize);
-                Ok(Block {
+                Ok(CarBlock {
                     cid,
                     data: bytes.to_vec(),
                 })
             })
         }))
+    }
+}
+
+pin_project! {
+    pub struct CarWriter<W> {
+        #[pin]
+        inner: W,
+        buffer: BytesMut,
+    }
+}
+
+impl<W: AsyncWrite> CarWriter<W> {
+    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self> {
+        let car_header = CarHeader { roots, version: 1 };
+
+        let mut header_uvi_frame = BytesMut::new();
+        UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
+
+        Ok(Self {
+            inner: writer,
+            buffer: header_uvi_frame,
+        })
+    }
+}
+
+impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
+    type Error = io::Error;
+
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let mut this = self.as_mut().project();
+
+        while !this.buffer.is_empty() {
+            this = self.as_mut().project();
+            let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
+            this.buffer.advance(bytes_written);
+        }
+        Poll::Ready(Ok(()))
+    }
+    fn start_send(self: Pin<&mut Self>, item: CarBlock) -> Result<(), Self::Error> {
+        item.write(&mut self.project().buffer.writer())
+    }
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_ready(cx))?;
+        self.project().inner.poll_flush(cx)
+    }
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_ready(cx))?;
+        self.project().inner.poll_shutdown(cx)
     }
 }
 
@@ -145,7 +196,7 @@ async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option
     if header.version != 1 {
         return None;
     }
-    let first_block = Block::from_bytes(framed_reader.next().await?.ok()?)?;
+    let first_block = CarBlock::from_bytes(framed_reader.next().await?.ok()?)?;
     if !first_block.valid() {
         return None;
     }
@@ -171,8 +222,8 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
     // use quickcheck_macros::quickcheck;
 
-    impl Arbitrary for Block {
-        fn arbitrary(g: &mut Gen) -> Block {
+    impl Arbitrary for CarBlock {
+        fn arbitrary(g: &mut Gen) -> CarBlock {
             let data = Vec::<u8>::arbitrary(g);
             let encoding = g
                 .choose(&[
@@ -183,7 +234,7 @@ mod tests {
                 .unwrap();
             let code = g.choose(&[Code::Blake2b256, Code::Sha2_256]).unwrap();
             let cid = Cid::new_v1(*encoding, code.digest(&data));
-            Block { cid, data }
+            CarBlock { cid, data }
         }
     }
 }

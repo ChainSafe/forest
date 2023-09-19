@@ -5,11 +5,11 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncBufRead, AsyncSeek};
 
 use crate::ipld::CidHashSet;
-use crate::utils::db::car_stream::{Block, CarStream};
+use crate::utils::db::car_stream::{CarBlock, CarStream};
 
 pub fn merge_car_streams<R>(
     car_streams: Vec<CarStream<R>>,
-) -> impl Stream<Item = std::io::Result<Block>>
+) -> impl Stream<Item = std::io::Result<CarBlock>>
 where
     R: AsyncSeek + AsyncBufRead + Unpin,
 {
@@ -17,20 +17,23 @@ where
 }
 
 pub fn dedup_block_stream(
-    stream: impl Stream<Item = std::io::Result<Block>>,
-) -> impl Stream<Item = std::io::Result<Block>> {
+    stream: impl Stream<Item = std::io::Result<CarBlock>>,
+) -> impl Stream<Item = std::io::Result<CarBlock>> {
     let mut seen = CidHashSet::default();
-    stream.try_filter(move |Block { cid, data: _ }| futures::future::ready(seen.insert(*cid)))
+    stream.try_filter(move |CarBlock { cid, data: _ }| futures::future::ready(seen.insert(*cid)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::db::car_stream::CarWriter;
     use ahash::HashSet;
+    use async_compression::tokio::write::ZstdEncoder;
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
     use futures::executor::{block_on, block_on_stream};
+    use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
     use itertools::Itertools;
     use pretty_assertions::assert_eq;
@@ -38,7 +41,7 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     #[derive(Debug, Clone)]
-    struct Blocks(Vec<Block>);
+    struct Blocks(Vec<CarBlock>);
 
     impl From<&Blocks> for HashSet<Cid> {
         fn from(blocks: &Blocks) -> Self {
@@ -48,6 +51,10 @@ mod tests {
 
     impl Blocks {
         async fn into_forest_car_zst_bytes(self) -> Vec<u8> {
+            self.into_forest_car_zst_bytes_with_roots().await.1
+        }
+
+        async fn into_forest_car_zst_bytes_with_roots(self) -> (Vec<Cid>, Vec<u8>) {
             let roots = vec![self.0[0].cid];
             let frames = crate::db::car::forest::Encoder::compress_stream(
                 8000_usize.next_power_of_two(),
@@ -55,18 +62,18 @@ mod tests {
                 self.into_stream().map_err(anyhow::Error::from),
             );
             let mut writer = vec![];
-            crate::db::car::forest::Encoder::write(&mut writer, roots, frames)
+            crate::db::car::forest::Encoder::write(&mut writer, roots.clone(), frames)
                 .await
                 .unwrap();
-            writer
+            (roots, writer)
         }
 
-        fn into_stream(self) -> impl Stream<Item = std::io::Result<Block>> {
+        fn into_stream(self) -> impl Stream<Item = std::io::Result<CarBlock>> {
             futures::stream::iter(self.0).map(Ok)
         }
 
         /// Implicit clone is performed inside to simplify caller code
-        fn to_stream(&self) -> impl Stream<Item = std::io::Result<Block>> {
+        fn to_stream(&self) -> impl Stream<Item = std::io::Result<CarBlock>> {
             self.clone().into_stream()
         }
     }
@@ -80,7 +87,7 @@ mod tests {
                 // use small len here to increase the chance of duplication
                 let data = [u8::arbitrary(g), u8::arbitrary(g)];
                 let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&data));
-                let block = Block {
+                let block = CarBlock {
                     cid,
                     data: data.to_vec(),
                 };
@@ -99,6 +106,27 @@ mod tests {
             let car2 = blocks2.into_forest_car_zst_bytes().await;
 
             assert_eq!(car, car2);
+
+            Ok::<_, anyhow::Error>(())
+        })
+    }
+
+    #[quickcheck]
+    fn car_writer_roundtrip(blocks1: Blocks) -> anyhow::Result<()> {
+        block_on(async move {
+            let (all_roots, car) = blocks1.clone().into_forest_car_zst_bytes_with_roots().await;
+            let reader = CarStream::new(std::io::Cursor::new(&car)).await?;
+
+            let mut buff: Vec<u8> = vec![];
+            let zstd_encoder = ZstdEncoder::new(&mut buff);
+            reader
+                .forward(CarWriter::new_carv1(all_roots, zstd_encoder)?)
+                .await?;
+
+            let stream = CarStream::new(std::io::Cursor::new(buff)).await?;
+            let blocks2 = Blocks(stream.try_collect().await?);
+
+            assert_eq!(blocks1.0, blocks2.0);
 
             Ok::<_, anyhow::Error>(())
         })

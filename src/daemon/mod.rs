@@ -41,7 +41,7 @@ use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use once_cell::sync::Lazy;
-use raw_sync::events::{Event, EventInit as _, EventState};
+use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
@@ -488,15 +488,17 @@ async fn set_snapshot_path_if_needed(
         (false, _, _) => {}   // noop - don't need a snapshot
         (true, true, _) => {} // noop - we need a snapshot, and we have one
         (true, false, true) => {
-            let (_len, url) = crate::cli_shared::snapshot::peek(vendor, chain).await?;
+            let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
             config.client.snapshot_path = Some(url.to_string().into());
             config.client.snapshot = true;
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let (num_bytes, url) = crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
-                .await
-                .context("couldn't get snapshot size")?;
+            let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
+            let (num_bytes, _path) =
+                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
+                    .await
+                    .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
