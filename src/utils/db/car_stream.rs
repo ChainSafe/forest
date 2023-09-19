@@ -84,7 +84,7 @@ pin_project! {
 // archive. The zstd header has a maximum size of 18 bytes:
 // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
 fn is_zstd(buf: &[u8]) -> bool {
-    zstd_safe::get_frame_content_size(buf).is_ok()
+    zstd::zstd_safe::get_frame_content_size(buf).is_ok()
 }
 
 impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {

@@ -2899,7 +2899,6 @@ dependencies = [
  "uuid",
  "walkdir",
  "zstd",
- "zstd-safe",
 ]
 
 [[package]]
