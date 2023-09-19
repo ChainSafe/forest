@@ -3,7 +3,6 @@
 
 use crate::utils::db::{car_stream::CarHeader, car_util::load_car};
 use anyhow::Context;
-use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use std::io::Cursor;
 
@@ -22,6 +21,7 @@ mod tests {
     use super::*;
     use crate::networks::ACTOR_BUNDLES;
     use ahash::HashSet;
+    use cid::Cid;
     use pretty_assertions::assert_eq;
 
     #[tokio::test]

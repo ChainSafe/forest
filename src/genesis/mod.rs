@@ -4,7 +4,6 @@
 use crate::blocks::BlockHeader;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
-use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
 use tokio::{fs::File, io::BufReader};
