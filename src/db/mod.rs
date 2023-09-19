@@ -5,11 +5,15 @@ pub mod car;
 mod memory;
 pub mod parity_db;
 pub mod parity_db_config;
+
+mod gc;
 pub mod rolling;
 pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;
 
+use ahash::HashSet;
+use cid::multihash;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
@@ -100,6 +104,31 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
     fn get_statistics(&self) -> Option<String> {
         self.as_ref().get_statistics()
     }
+}
+
+/// A trait to facilitate mark-and-sweep garbage collection.
+///
+/// NOTE: Since there is no real need for generics here right now - the 'key' type is specified to
+/// avoid wrapping it.
+pub(crate) trait GarbageCollectable {
+    /// Gets all the keys currently in the database.
+    ///
+    /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too
+    /// much time and memory.
+    fn get_keys(&self) -> anyhow::Result<HashSet<u32>>;
+
+    /// Removes all the keys marked for deletion.
+    ///
+    /// # Arguments
+    ///
+    /// * `keys` - A set of keys to be removed from the database.
+    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()>;
+}
+
+/// A function that allows
+pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<S>) -> u32 {
+    let digest = hash.digest();
+    u32::from_le_bytes(digest[0..4].try_into().expect("shouldn't fail"))
 }
 
 pub mod db_engine {

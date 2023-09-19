@@ -1,17 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use std::mem;
 use std::path::PathBuf;
 
 use super::SettingsStore;
 
-use crate::db::{parity_db_config::ParityDbConfig, DBStatistics};
+use crate::db::{
+    parity_db_config::ParityDbConfig, truncated_hash, DBStatistics, GarbageCollectable,
+};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
 use anyhow::{anyhow, Context};
 use cid::multihash::Code::Blake2b256;
 
-use cid::Cid;
+use cid::multihash::MultihashDigest;
+use cid::{multihash, Cid};
 
 use fvm_ipld_blockstore::Blockstore;
 
@@ -20,6 +25,7 @@ use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use crate::ipld::CidHashSet;
 use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
@@ -251,6 +257,81 @@ impl DBStatistics for ParityDb {
                 None
             }
         }
+    }
+}
+
+// Make sure we don't keep too many operations in memory.
+// NOTE: Might need some tuning based on the performance benchmarks.
+const TX_BATCH_SIZE: usize = 10_000;
+
+type Op = (u8, Operation<Vec<u8>, Vec<u8>>);
+
+impl ParityDb {
+    fn dereference_operation(key: &Cid) -> Op {
+        let column = Self::choose_column(key);
+        (column as u8, Operation::Dereference(key.to_bytes()))
+    }
+
+    fn commit_changes(&self, txn: &mut Vec<Op>) -> anyhow::Result<()> {
+        let mut txn_new = Vec::with_capacity(TX_BATCH_SIZE);
+        mem::swap(&mut txn_new, txn);
+        self.db.commit_changes(txn_new).context("commit error")
+    }
+}
+
+impl GarbageCollectable for ParityDb {
+    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
+        let mut set = HashSet::new();
+
+        // First iterate over all of the indexed entries.
+        let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
+        while let Some((key, _)) = iter.next()? {
+            let cid = Cid::try_from(key)?;
+            set.insert(truncated_hash(&cid.hash()));
+        }
+
+        self.db
+            .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
+                let hash = Blake2b256.digest(&val.value);
+                set.insert(truncated_hash(&hash));
+                true
+            })?;
+
+        Ok(set)
+    }
+
+    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+        let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
+        let mut txn = Vec::with_capacity(TX_BATCH_SIZE);
+        while let Some((key, _)) = iter.next()? {
+            let cid = Cid::try_from(key)?;
+
+            if keys.contains(&truncated_hash(&cid.hash())) {
+                if txn.len() == TX_BATCH_SIZE {
+                    self.commit_changes(&mut txn).context("error bulk remove")?
+                }
+            }
+        }
+
+        self.db
+            .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
+                let hash = Blake2b256.digest(&val.value);
+                if keys.contains(&truncated_hash(&hash)) {
+                    let cid = Cid::new_v1(DAG_CBOR, hash);
+                    txn.push(Self::dereference_operation(&cid));
+
+                    if txn.len() == TX_BATCH_SIZE {
+                        let res = self.commit_changes(&mut txn).context("error bulk remove");
+                        if res.is_err() {
+                            // TODO: Log error here.
+                            return false;
+                        }
+                    }
+                }
+                true
+            })?;
+
+        self.db.commit_changes(txn).context("error bulk remove")
     }
 }
 

@@ -1,0 +1,84 @@
+use crate::blocks::Tipset;
+use crate::chain::ChainEpochDelta;
+use crate::db::db_engine::Db;
+use crate::db::parity_db::ParityDb;
+use crate::db::{truncated_hash, GarbageCollectable};
+use crate::ipld::{
+    stream_chain, unordered_stream_chain, unordered_stream_graph, ChainStream, CidHashSet,
+};
+use crate::shim::clock::ChainEpoch;
+use ahash::{HashSet, HashSetExt};
+use futures::StreamExt;
+use std::mem;
+use std::sync::Arc;
+
+/// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
+/// keys writing them to a [`CidHashSet`], then filters out those that need to be kept and schedules
+/// the rest for removal.
+pub struct MarkAndSweep {
+    db: Arc<Db>,
+    marked: HashSet<u32>,
+    epoch_marked: ChainEpoch,
+}
+
+impl MarkAndSweep {
+    // Populate the initial set with all the available database keys.
+    fn populate(&mut self) -> anyhow::Result<()> {
+        self.marked = self.db.get_keys()?;
+        Ok(())
+    }
+
+    // Filter out the initial set, leaving only the entries that need to be removed.
+    // NOTE: One concern here is that this is going to consume a lot of CPU.
+    fn filter(&mut self, tipset: Tipset, depth: ChainEpochDelta) -> anyhow::Result<()> {
+        let mut stream =
+            unordered_stream_graph(self.db.clone(), tipset.chain(self.db.clone()), depth);
+
+        while let Some(block) = futures::executor::block_on(stream.next()) {
+            let block = block?;
+            self.marked.remove(&truncated_hash(&block.cid.hash()));
+        }
+
+        anyhow::Ok(())
+    }
+
+    fn sweep(&mut self) -> anyhow::Result<()> {
+        let mut marked = HashSet::new();
+        mem::swap(&mut marked, &mut self.marked);
+        self.db.remove_keys(marked)
+    }
+}
+
+mod test {
+    use cid::multihash::Code::{Blake2b256, Sha2_256};
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use nom::AsBytes;
+    use uuid::Version::Md5;
+
+    #[test]
+    fn test_u32() {
+        let bytes = Blake2b256.digest(&"pewsdfuhisdfjhsaiud".as_bytes());
+        let bytes = bytes.digest();
+
+        let bytes2 = Blake2b256.digest(&"pew".as_bytes());
+        let bytes2 = bytes2.digest();
+
+        let bytes3 = Blake2b256.digest(&"test".as_bytes());
+        let bytes3 = bytes3.digest();
+
+        println!(
+            "{}",
+            u32::from_le_bytes(bytes[0..4].try_into().expect("should not fail"))
+        );
+        println!(
+            "{}",
+            u32::from_le_bytes(bytes2[0..4].try_into().expect("should not fail"))
+        );
+        println!(
+            "{}",
+            u32::from_le_bytes(bytes3[0..4].try_into().expect("should not fail"))
+        );
+    }
+}
