@@ -125,7 +125,8 @@ pub(crate) trait GarbageCollectable {
     fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()>;
 }
 
-/// A function that allows
+/// A function that converts a [`multihash::MultihashGeneric`] digest into a `u32` representation.
+/// We don't care about collisions here as main use-case is garbage collection.
 pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<S>) -> u32 {
     let digest = hash.digest();
     u32::from_le_bytes(digest[0..4].try_into().expect("shouldn't fail"))
