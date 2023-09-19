@@ -5,7 +5,6 @@ use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, errors::Result as JWTResult, DecodingKey, EncodingKey, Header};
-use once_cell::sync::Lazy;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -13,21 +12,13 @@ use thiserror::Error;
 /// constant string that is used to identify the JWT secret key in `KeyStore`
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
 /// Admin permissions
-pub static ADMIN: Lazy<Vec<String>> = Lazy::new(|| {
-    vec![
-        "read".to_string(),
-        "write".to_string(),
-        "sign".to_string(),
-        "admin".to_string(),
-    ]
-});
+pub static ADMIN: &[&str] = &["read", "write", "sign", "admin"];
 /// Signing permissions
-pub static SIGN: Lazy<Vec<String>> =
-    Lazy::new(|| vec!["read".to_string(), "write".to_string(), "sign".to_string()]);
+pub static SIGN: &[&str] = &["read", "write", "sign"];
 /// Writing permissions
-pub static WRITE: Lazy<Vec<String>> = Lazy::new(|| vec!["read".to_string(), "write".to_string()]);
+pub static WRITE: &[&str] = &["read", "write"];
 /// Reading permissions
-pub static READ: Lazy<Vec<String>> = Lazy::new(|| vec!["read".to_string()]);
+pub static READ: &[&str] = &["read"];
 
 /// Error enumeration for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]
