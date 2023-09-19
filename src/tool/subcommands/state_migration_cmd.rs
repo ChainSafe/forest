@@ -84,8 +84,8 @@ async fn download_bundle_if_needed(root: &Cid, url: &Url) -> anyhow::Result<Path
     }
     let cached_car_path = ACTOR_BUNDLE_CACHE_DIR.join(format!("{root}.car"));
     if cached_car_path.is_file() {
-        if let Ok(file) = tokio::fs::File::open(&cached_car_path).await {
-            if let Ok(true) = is_bundle_valid(root, tokio::io::BufReader::new(file)).await {
+        if let Ok(file) = File::open(&cached_car_path).await {
+            if let Ok(true) = is_bundle_valid(root, BufReader::new(file)).await {
                 return Ok(cached_car_path);
             }
         }
