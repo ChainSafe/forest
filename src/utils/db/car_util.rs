@@ -9,7 +9,7 @@ use tokio::io::{AsyncBufRead, AsyncSeek};
 use crate::ipld::CidHashSet;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 
-pub async fn load_car<R, B>(db: &B, reader: R) -> Result<Vec<Cid>, anyhow::Error>
+pub async fn load_car<R, B>(db: &B, reader: R) -> anyhow::Result<CarHeader>
 where
     B: Blockstore,
     R: tokio::io::AsyncSeek + tokio::io::AsyncBufRead + Send + Unpin,
