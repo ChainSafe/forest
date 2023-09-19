@@ -201,11 +201,8 @@ where
                     while let Some(block_frame) =
                         UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
                     {
-                        if let Some(CarBlock { cid, data }) = CarBlock::from_bytes(block_frame) {
-                            block_map.insert(cid, data);
-                        } else {
-                            return Err(invalid_data("corrupted key-value block"))?;
-                        }
+                        let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
+                        block_map.insert(cid, data);
                     }
                     let get_result = block_map.get(k).cloned();
                     self.frame_cache

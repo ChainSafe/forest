@@ -47,12 +47,13 @@ impl CarBlock {
         Ok(())
     }
 
-    pub fn from_bytes(bytes: impl Into<Bytes>) -> Option<CarBlock> {
+    pub fn from_bytes(bytes: impl Into<Bytes>) -> io::Result<CarBlock> {
         let bytes: Bytes = bytes.into();
         let mut cursor = bytes.reader();
-        let cid = Cid::read_bytes(&mut cursor).ok()?;
+        let cid = Cid::read_bytes(&mut cursor)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let bytes = cursor.into_inner();
-        Some(CarBlock {
+        Ok(CarBlock {
             cid,
             data: bytes.to_vec(),
         })
@@ -110,18 +111,7 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
         let item = futures::ready!(this.reader.poll_next(cx));
-        Poll::Ready(item.map(|ret| {
-            ret.and_then(|bytes| {
-                let mut cursor = bytes.reader();
-                let cid = Cid::read_bytes(&mut cursor)
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-                let bytes = cursor.into_inner();
-                Ok(CarBlock {
-                    cid,
-                    data: bytes.to_vec(),
-                })
-            })
-        }))
+        Poll::Ready(item.map(|ret| ret.and_then(CarBlock::from_bytes)))
     }
 }
 
