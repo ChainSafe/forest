@@ -11,8 +11,7 @@ pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<Vec<Cid>
 
     const ACTOR_BUNDLES_CAR_ZST: &[u8] = include_bytes!("../../assets/actor_bundles.car.zst");
 
-    let cursor = std::io::Cursor::new(ACTOR_BUNDLES_CAR_ZST);
-    load_car(db, cursor).await.context(ERROR_MESSAGE)
+    load_car(db, Cursor::new(ACTOR_BUNDLES_CAR_ZST)).await.context(ERROR_MESSAGE)
 }
 
 #[cfg(test)]
