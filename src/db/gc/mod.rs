@@ -48,37 +48,3 @@ impl MarkAndSweep {
         self.db.remove_keys(marked)
     }
 }
-
-mod test {
-    use cid::multihash::Code::{Blake2b256, Sha2_256};
-    use cid::multihash::MultihashDigest;
-    use cid::Cid;
-    use fvm_ipld_encoding::DAG_CBOR;
-    use nom::AsBytes;
-    use uuid::Version::Md5;
-
-    #[test]
-    fn test_u32() {
-        let bytes = Blake2b256.digest(&"pewsdfuhisdfjhsaiud".as_bytes());
-        let bytes = bytes.digest();
-
-        let bytes2 = Blake2b256.digest(&"pew".as_bytes());
-        let bytes2 = bytes2.digest();
-
-        let bytes3 = Blake2b256.digest(&"test".as_bytes());
-        let bytes3 = bytes3.digest();
-
-        println!(
-            "{}",
-            u32::from_le_bytes(bytes[0..4].try_into().expect("should not fail"))
-        );
-        println!(
-            "{}",
-            u32::from_le_bytes(bytes2[0..4].try_into().expect("should not fail"))
-        );
-        println!(
-            "{}",
-            u32::from_le_bytes(bytes3[0..4].try_into().expect("should not fail"))
-        );
-    }
-}
