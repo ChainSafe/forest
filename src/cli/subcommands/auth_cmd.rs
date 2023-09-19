@@ -27,13 +27,16 @@ pub enum AuthCommands {
 }
 
 fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
-    match perm.as_str() {
-        "admin" => Ok(ADMIN.to_owned()),
-        "sign" => Ok(SIGN.to_owned()),
-        "write" => Ok(WRITE.to_owned()),
-        "read" => Ok(READ.to_owned()),
-        _ => Err(JsonRpcError::INVALID_PARAMS),
+    Ok(match perm.as_str() {
+        "admin" => ADMIN,
+        "sign" => SIGN,
+        "write" => WRITE,
+        "read" => READ,
+        _ => return Err(JsonRpcError::INVALID_PARAMS),
     }
+    .iter()
+    .map(ToString::to_string)
+    .collect())
 }
 
 impl AuthCommands {
