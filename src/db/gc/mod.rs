@@ -15,6 +15,9 @@ use std::sync::Arc;
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
 /// keys writing them to a [`CidHashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
+///
+/// TODO: This likely has to take into account the new design that combines CAR-backed store and
+/// ParityDB.
 pub struct MarkAndSweep {
     db: Arc<Db>,
     marked: HashSet<u32>,
