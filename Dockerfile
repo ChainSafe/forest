@@ -68,7 +68,7 @@ ARG DATA_DIR=/home/forest/.local/share/forest
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y aria2 ca-certificates && \
+    apt-get install --no-install-recommends -y ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 RUN update-ca-certificates
 

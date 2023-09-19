@@ -12,7 +12,7 @@ use crate::rpc_api::{
 };
 use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
-use crate::utils::db::car_stream::{Block, CarWriter};
+use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context;
 use fil_actor_interface::market;
@@ -271,7 +271,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                     if let Some(next_ipld) = db.get_cbor(&new_cid)? {
                         dfs_guard.push(next_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send(Ok(Block {
+                            car_tx.send(Ok(CarBlock {
                                 cid: new_cid,
                                 data: db.get(&new_cid)?.with_context(|| {
                                     format!("Failed to get cid {new_cid} from block store")
@@ -311,7 +311,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                             .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
                         dfs_vec.lock().push(new_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send(Ok(Block {
+                            car_tx.send(Ok(CarBlock {
                                 cid,
                                 data: db.get(&cid)?.with_context(|| {
                                     format!("Failed to get cid {cid} from block store")

@@ -12,7 +12,7 @@ use std::{
 
 use crate::ipld::{CidHashSet, Ipld};
 use crate::shim::clock::ChainEpoch;
-use crate::utils::db::car_stream::Block;
+use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::io::progress_log::WithProgressRaw;
 use crate::{
@@ -343,7 +343,7 @@ pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
 }
 
 impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<DB, T> {
-    type Item = anyhow::Result<Block>;
+    type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use Task::*;
@@ -364,7 +364,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         let cid = *cid;
                         this.dfs.pop_front();
                         if let Some(data) = this.db.get(&cid)? {
-                            return Poll::Ready(Some(Ok(Block { cid, data })));
+                            return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                         } else if *this.fail_on_dead_links {
                             return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                         }
@@ -386,7 +386,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                                             cid_vec.push_front(v)
                                         }
                                     }
-                                    return Poll::Ready(Some(Ok(Block { cid, data })));
+                                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                                 } else if *this.fail_on_dead_links {
                                     return Poll::Ready(Some(Err(anyhow::anyhow!(
                                         "missing key: {}",
@@ -452,7 +452,7 @@ pin_project! {
         db: Arc<DB>,
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
-        block_receiver: kanal::Receiver<anyhow::Result<Block>>,
+        block_receiver: kanal::Receiver<anyhow::Result<CarBlock>>,
         extract_sender: kanal::Sender<Cid>,
         stateroot_limit: ChainEpoch,
         queue: Vec<Cid>,
@@ -553,7 +553,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 {
     fn start_workers(
         db: Arc<DB>,
-        block_sender: Sender<anyhow::Result<Block>>,
+        block_sender: Sender<anyhow::Result<CarBlock>>,
         extract_receiver: Receiver<Cid>,
         seen: Arc<Mutex<CidHashSet>>,
         fail_on_dead_links: bool,
@@ -578,7 +578,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                         cid_vec.append(&mut new_values);
                                     }
                                     block_sender
-                                        .send(Ok(Block { cid, data }))
+                                        .send(Ok(CarBlock { cid, data }))
                                         .expect("unreachable");
                                 } else if fail_on_dead_links {
                                     block_sender
@@ -609,7 +609,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin> Stream
     for UnorderedChainStream<DB, T>
 {
-    type Item = anyhow::Result<Block>;
+    type Item = anyhow::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
@@ -622,7 +622,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
         loop {
             while let Some(cid) = this.queue.pop() {
                 if let Some(data) = this.db.get(&cid)? {
-                    return Poll::Ready(Some(Ok(Block { cid, data })));
+                    return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else if *this.fail_on_dead_links {
                     return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                 }

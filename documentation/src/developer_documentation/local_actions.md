@@ -227,5 +227,5 @@ need to explicitly put it before other Docker steps:
 
 ```yaml
 - name: Set up Docker Buildx
-  uses: docker/setup-buildx-action@v2
+  uses: docker/setup-buildx-action@v3
 ```
