@@ -76,6 +76,7 @@ pin_project! {
         #[pin]
         reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
         pub header: CarHeader,
+        first_block: Option<CarBlock>,
     }
 }
 
@@ -100,8 +101,29 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
             io::ErrorKind::InvalidData,
             "invalid header block",
         ))?;
-        // Possible improvement: Parse the first block and check if it is valid.
-        Ok(CarStream { reader, header })
+
+        // Read the first block and check if it is valid. This check helps to
+        // catch invalid CAR files as soon as we open.
+        if let Some(first_entry) = reader.next().await.transpose()? {
+            let block = CarBlock::from_bytes(first_entry)?;
+            if !block.valid() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid first block",
+                ));
+            }
+            Ok(CarStream {
+                reader,
+                header,
+                first_block: Some(block),
+            })
+        } else {
+            Ok(CarStream {
+                reader,
+                header,
+                first_block: None,
+            })
+        }
     }
 }
 
@@ -110,6 +132,9 @@ impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
+        if let Some(block) = this.first_block.take() {
+            return Poll::Ready(Some(Ok(block)));
+        }
         let item = futures::ready!(this.reader.poll_next(cx));
         Poll::Ready(item.map(|ret| ret.and_then(CarBlock::from_bytes)))
     }
