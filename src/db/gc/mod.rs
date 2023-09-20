@@ -34,9 +34,7 @@ impl MarkAndSweep {
     // Filter out the initial set, leaving only the entries that need to be removed.
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     fn filter(&mut self, tipset: Tipset, depth: ChainEpochDelta) -> anyhow::Result<()> {
-        // TODO: Figure out if we need a special case here in order to avoid emitting blocks
-        // discovered from tipset iteration, where tipset.epoch() <= stateroot_limit. Right now
-        // we emit every block of each discovered tipset.
+        // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
         let mut stream =
             unordered_stream_graph(self.db.clone(), tipset.chain(self.db.clone()), depth);
 
