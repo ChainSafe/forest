@@ -165,8 +165,8 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let reader = std::io::Cursor::new(EXPORT_SR_40);
         // The cids are the tipset cids of the most recent tipset (39th)
-        let cids: Vec<Cid> = load_car(&db, reader).await.unwrap();
-        (cids, db)
+        let header = load_car(&db, reader).await.unwrap();
+        (header.roots, db)
     }
 
     #[tokio::test]
