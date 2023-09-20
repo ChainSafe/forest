@@ -476,8 +476,7 @@ mod tests {
         ))
         .await
         .unwrap();
-        let file = BufReader::new(file);
-        CarStream::new(file).await.unwrap();
+        CarStream::new(BufReader::new(file)).await.unwrap();
     }
 
     #[test]
