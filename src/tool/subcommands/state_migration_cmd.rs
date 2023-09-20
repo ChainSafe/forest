@@ -5,10 +5,12 @@ use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
 use crate::utils::db::car_stream::{CarStream, CarWriter};
 use crate::utils::net::global_http_client;
 use anyhow::ensure;
+use async_compression::tokio::write::ZstdEncoder;
 use futures::{stream, StreamExt as _, TryStreamExt as _};
 use itertools::Itertools as _;
-use std::io::Cursor;
+use std::io::{self, Cursor};
 use std::path::PathBuf;
+use tokio::fs::File;
 use tracing::info;
 
 #[derive(Debug, clap::Subcommand)]
@@ -69,16 +71,18 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
             block.cid
         )
     }
-    let mut car = vec![];
 
     stream::iter(blocks)
-        .map(std::io::Result::Ok)
-        .forward(CarWriter::new_carv1(roots.into_iter().collect(), &mut car)?)
+        .map(io::Result::Ok)
+        .forward(CarWriter::new_carv1(
+            roots.into_iter().collect(),
+            ZstdEncoder::with_quality(
+                File::create(output).await?,
+                async_compression::Level::Precise(17),
+            ),
+        )?)
         .await?;
 
-    let car_zst = zstd::encode_all(car.as_slice(), 17)?;
-
-    tokio::fs::write(output, car_zst).await?;
     Ok(())
 }
 
