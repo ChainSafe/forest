@@ -5,9 +5,9 @@ use crate::blocks::BlockHeader;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
 use fvm_ipld_blockstore::Blockstore;
-use tokio::{fs::File, io::BufReader};
-use tracing::{debug, info};
 use std::io::Cursor;
+use tokio::{fs::File, io::AsyncBufRead, io::BufReader};
+use tracing::{debug, info};
 
 #[cfg(test)]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
@@ -56,7 +56,7 @@ where
 
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
-    R: tokio::io::AsyncBufRead + tokio::io::AsyncSeek + Send + Unpin,
+    R: AsyncBufRead + Send + Unpin,
     BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
