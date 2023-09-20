@@ -149,7 +149,7 @@ pin_project! {
 }
 
 impl<W: AsyncWrite> CarWriter<W> {
-    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self> {
+    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> anyhow::Result<Self, io::Error> {
         let car_header = CarHeader { roots, version: 1 };
 
         let mut header_uvi_frame = BytesMut::new();
