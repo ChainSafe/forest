@@ -29,7 +29,7 @@ pub struct CarHeader {
     pub version: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CarBlock {
     pub cid: Cid,
     pub data: Vec<u8>,

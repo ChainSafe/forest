@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::networks::{ActorBundleInfo, ACTOR_BUNDLES};
-use crate::utils::db::car_stream::{CarBlock, CarStream, CarWriter};
+use crate::utils::db::car_stream::{CarStream, CarWriter};
 use crate::utils::net::global_http_client;
-use anyhow::{bail, ensure};
+use anyhow::ensure;
 use futures::{stream, StreamExt as _, TryStreamExt as _};
 use itertools::Itertools as _;
-use std::collections::{btree_map::Entry, BTreeMap};
 use std::io::Cursor;
 use std::path::PathBuf;
 use tracing::info;
@@ -58,26 +57,22 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
     ensure!(roots.iter().all_unique());
 
     roots.sort(); // deterministic
-    let blocks = blocks.into_iter().flatten().try_fold(
-        BTreeMap::new(), // deterministic
-        |mut acc, CarBlock { cid, data }| {
-            match acc.entry(cid) {
-                Entry::Vacant(v) => {
-                    v.insert(data);
-                }
-                Entry::Occupied(o) if o.get() == &data => {}
-                Entry::Occupied(_) => {
-                    bail!("clobbered data for block with cid {cid}")
-                }
-            };
-            anyhow::Ok(acc)
-        },
-    )?;
 
+    let mut blocks = blocks.into_iter().flatten().collect::<Vec<_>>();
+    blocks.sort();
+    blocks.dedup();
+
+    for block in blocks.iter() {
+        ensure!(
+            block.valid(),
+            "sources contain an invalid block, cid {}",
+            block.cid
+        )
+    }
     let mut car = vec![];
 
     stream::iter(blocks)
-        .map(|(cid, data)| std::io::Result::Ok(CarBlock { cid, data }))
+        .map(std::io::Result::Ok)
         .forward(CarWriter::new_carv1(roots.into_iter().collect(), &mut car)?)
         .await?;
 
