@@ -27,7 +27,6 @@ Once the `ChainMuxer` is in `follow` mode, it passes control to the
    state.
 4. `follow` state: Pass control to the `TipsetProcessor` state machine.
 
-
 `TipsetProcessor` state transitions:
 
 ```mermaid
