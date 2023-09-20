@@ -207,9 +207,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
             car_rx
                 .stream()
                 .map(Ok)
-                .forward(
-                    CarWriter::new_carv1(roots, file)
-                )
+                .forward(CarWriter::new_carv1(roots, file)?)
                 .await
         });
 
