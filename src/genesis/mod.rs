@@ -56,7 +56,7 @@ where
 
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
-    R: AsyncBufRead + Send + Unpin,
+    R: AsyncBufRead + Unpin,
     BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
