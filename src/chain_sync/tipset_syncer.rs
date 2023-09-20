@@ -267,10 +267,7 @@ where
         }
     }
 
-    fn find_range(
-        &self,
-        tipset_group: TipsetGroup,
-    ) -> Option<TipsetRangeSyncer<DB>> {
+    fn find_range(&self, tipset_group: TipsetGroup) -> Option<TipsetRangeSyncer<DB>> {
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
         let network = self.network.clone();
@@ -295,7 +292,8 @@ where
             chain_store,
             bad_block_cache,
             genesis,
-        ).ok()?;
+        )
+        .ok()?;
         for tipset in tipset_group.tipsets() {
             tipset_range_syncer.add_tipset(tipset).ok()?;
         }
