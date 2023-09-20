@@ -313,6 +313,9 @@ impl GarbageCollectable for ParityDb {
             }
         }
 
+        // An unfortunate consequence of having to use `iter_column_while`.
+        let mut result = Ok(());
+
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
@@ -323,13 +326,15 @@ impl GarbageCollectable for ParityDb {
                     if txn.len() == TX_BATCH_SIZE {
                         let res = self.commit_changes(&mut txn).context("error bulk remove");
                         if res.is_err() {
-                            // TODO: Log error here.
+                            result = res;
                             return false;
                         }
                     }
                 }
                 true
             })?;
+
+        result?;
 
         self.db.commit_changes(txn).context("error bulk remove")
     }
