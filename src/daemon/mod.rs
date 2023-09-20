@@ -317,7 +317,6 @@ pub(super) async fn start(
     let mpool = Arc::new(mpool);
 
     // Initialize ChainMuxer
-    let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
         Arc::clone(&state_manager),
         peer_manager,
@@ -325,7 +324,7 @@ pub(super) async fn start(
         network_send.clone(),
         network_rx,
         Arc::new(Tipset::from(genesis_header)),
-        chain_muxer_tipset_sink,
+        tipset_sink,
         tipset_stream,
         config.sync.clone(),
     )?;
@@ -367,7 +366,6 @@ pub(super) async fn start(
                     // TODO: the RPCState can fetch this itself from the StateManager
                     beacon,
                     chain_store: rpc_chain_store,
-                    new_mined_block_tx: tipset_sink,
                     gc_event_tx,
                 }),
                 rpc_listen,
