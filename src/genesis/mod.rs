@@ -5,9 +5,9 @@ use crate::blocks::BlockHeader;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
 use fvm_ipld_blockstore::Blockstore;
-
 use tokio::{fs::File, io::BufReader};
 use tracing::{debug, info};
+use std::io::Cursor;
 
 #[cfg(test)]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
@@ -32,8 +32,7 @@ where
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
-            let reader = std::io::Cursor::new(genesis_bytes);
-            process_car(reader, db).await?
+            process_car(Cursor::new(genesis_bytes), db).await?
         }
     };
 
