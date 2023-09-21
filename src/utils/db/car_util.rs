@@ -8,9 +8,8 @@ use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 use crate::cid_collections::CidHashSet;
 use crate::utils::db::car_stream::{CarBlock, CarHeader, CarStream};
 
-pub async fn load_car<R, B>(db: &B, reader: R) -> anyhow::Result<CarHeader>
+pub async fn load_car<R>(db: &impl Blockstore, reader: R) -> anyhow::Result<CarHeader>
 where
-    B: Blockstore,
     R: AsyncBufRead + Unpin,
 {
     let mut stream = CarStream::new(BufReader::new(reader)).await?;
