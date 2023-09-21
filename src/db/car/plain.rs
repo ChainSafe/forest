@@ -431,11 +431,9 @@ mod tests {
     }
 
     fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
-        block_on(async {
-            let blockstore = MemoryBlockstore::new();
-            let _ = load_car(&blockstore, reader).await;
-            blockstore
-        })
+        let blockstore = MemoryBlockstore::new();
+        block_on(load_car(&blockstore, reader)).unwrap();
+        blockstore
     }
 
     fn chain4_car() -> &'static [u8] {
