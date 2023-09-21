@@ -22,15 +22,15 @@ jobs:
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
     name: Build images and push to GHCR
-    runs-on: buildjet-8vcpu-ubuntu-2204
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: List cached docker images
         run: docker image ls
 
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - run: ./assets/ci_download.sh
 
       - name: Set up QEMU
@@ -77,5 +77,12 @@ jobs:
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
           # Compile Docker image only for ARM64 for a regular PR to save some CI time.
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
+          build-args: |
+            SCCACHE_ENABLED=true
+            SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT }}
+            SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET }}
+            SCCACHE_REGION=${{ vars.SCCACHE_REGION }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: List docker images
         run: docker image ls

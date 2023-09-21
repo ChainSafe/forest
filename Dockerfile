@@ -33,6 +33,28 @@ RUN update-ca-certificates
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+ARG SCCACHE_ENABLED
+ARG SCCACHE_ENDPOINT
+ENV SCCACHE_ENDPOINT=${SCCACHE_ENDPOINT:+$SCCACHE_ENDPOINT}
+ARG SCCACHE_BUCKET
+ENV SCCACHE_BUCKET=${SCCACHE_BUCKET:+$SCCACHE_BUCKET}
+ARG SCCACHE_REGION
+ENV SCCACHE_REGION=${SCCACHE_REGION:+$SCCACHE_REGION}
+ARG AWS_ACCESS_KEY_ID
+ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:+$AWS_ACCESS_KEY_ID}
+ARG AWS_SECRET_ACCESS_KEY
+ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:+$AWS_SECRET_ACCESS_KEY}
+
+ENV SCCACHE_VERSION=0.5.4
+RUN curl -sOL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" && \
+    tar xzf "sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" && \
+    cp "sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl/sccache" /usr/local/bin/sccache
+
+# https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
+ENV RUSTC_WRAPPER=${SCCACHE_ENABLED:+sccache}
+ENV CC=${SCCACHE_ENABLED:+"sccache gcc"}
+ENV CXX=${SCCACHE_ENABLED:+"sccache g++"}
+
 # Copy the cross-compilation scripts 
 COPY --from=xx / /
 
