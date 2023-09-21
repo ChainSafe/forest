@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn test_uncompressed() {
         let car = chain4_car();
-        let reference = reference(std::io::Cursor::new(car));
+        let reference = reference(car);
         let car_backed = PlainCar::new(car).unwrap();
 
         assert_eq!(car_backed.cids().len(), 1222);

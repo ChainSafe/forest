@@ -4,14 +4,13 @@
 use crate::utils::db::{car_stream::CarHeader, car_util::load_car};
 use anyhow::Context;
 use fvm_ipld_blockstore::Blockstore;
-use std::io::Cursor;
 
 pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<CarHeader> {
     const ERROR_MESSAGE: &str = "Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>";
 
     const ACTOR_BUNDLES_CAR_ZST: &[u8] = include_bytes!("../../assets/actor_bundles.car.zst");
 
-    load_car(db, Cursor::new(ACTOR_BUNDLES_CAR_ZST))
+    load_car(db, ACTOR_BUNDLES_CAR_ZST)
         .await
         .context(ERROR_MESSAGE)
 }

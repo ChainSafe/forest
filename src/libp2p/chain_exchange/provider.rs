@@ -163,9 +163,8 @@ mod tests {
 
     async fn populate_db() -> (Vec<Cid>, Arc<MemoryDB>) {
         let db = Arc::new(MemoryDB::default());
-        let reader = std::io::Cursor::new(EXPORT_SR_40);
         // The cids are the tipset cids of the most recent tipset (39th)
-        let header = load_car(&db, reader).await.unwrap();
+        let header = load_car(&db, EXPORT_SR_40).await.unwrap();
         (header.roots, db)
     }
 
