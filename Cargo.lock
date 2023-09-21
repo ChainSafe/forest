@@ -2819,7 +2819,6 @@ dependencies = [
  "fvm 2.7.0",
  "fvm 3.8.0",
  "fvm_ipld_blockstore",
- "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
@@ -3264,21 +3263,6 @@ dependencies = [
  "anyhow",
  "cid",
  "multihash 0.18.1",
-]
-
-[[package]]
-name = "fvm_ipld_car"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6190f03442b67b21a3d4e115c4d4dd3468aed24e27ebb074218822c1b3df41ba"
-dependencies = [
- "cid",
- "futures",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "serde",
- "thiserror",
- "unsigned-varint",
 ]
 
 [[package]]
@@ -8150,8 +8134,6 @@ checksum = "6889a77d49f1f013504cec6bf97a2c730394adedaeb1deb5ea08949a50541105"
 dependencies = [
  "asynchronous-codec",
  "bytes",
- "futures-io",
- "futures-util",
  "tokio-util",
 ]
 
