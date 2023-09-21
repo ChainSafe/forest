@@ -46,9 +46,9 @@ ARG AWS_SECRET_ACCESS_KEY
 ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
 ENV SCCACHE_VERSION=0.5.4
-RUN curl -sOL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" && \
+RUN if [ -n "${SCCACHE_ENABLED}" ]; then curl -sOL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" && \
     tar xzf "sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" && \
-    cp "sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl/sccache" /usr/local/bin/sccache
+    cp "sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl/sccache" /usr/local/bin/sccache; fi
 
 # https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
 ENV RUSTC_WRAPPER=${SCCACHE_ENABLED:+sccache}
