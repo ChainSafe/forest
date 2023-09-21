@@ -42,10 +42,6 @@ jobs:
     if: github.event.pull_request.draft == true
     timeout-minutes: 30
     steps:
-      # find the nearest S3 space for storing cache files
-      - name: Show IP
-        run: curl ifconfig.me
-        continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v4
         with:
@@ -68,10 +64,11 @@ jobs:
         uses: taiki-e/install-action@nextest
       - run: make test
   tests-release:
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
+    runs-on: fuzzy
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == true
     timeout-minutes: 30
     steps:
       # find the nearest S3 space for storing cache files
