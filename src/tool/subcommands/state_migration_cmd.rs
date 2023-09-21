@@ -6,7 +6,7 @@ use crate::utils::db::car_stream::{CarStream, CarWriter};
 use crate::utils::net::global_http_client;
 use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::{stream, StreamExt as _, TryStreamExt as _};
 use itertools::Itertools as _;
 use std::io::{self, Cursor};
 use std::path::PathBuf;
