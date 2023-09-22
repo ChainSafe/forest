@@ -231,6 +231,8 @@ pub(super) async fn start(
         genesis_header.clone(),
     )?);
 
+    let (gc_sender, gc_receiver) = flume::bounded(1);
+
     let mut db_garbage_collector = {
         let db = db.clone();
         let chain_store = chain_store.clone();
@@ -239,17 +241,11 @@ pub(super) async fn start(
             config.chain.recent_state_roots,
         );
 
-        MarkAndSweep::new(db_writer, chain_store, depth)
+        MarkAndSweep::new(db_writer, chain_store, depth, gc_receiver)
     };
 
-    // if !opts.no_gc {
-    //     services.spawn({
-    //         let db_garbage_collector = db_garbage_collector.clone();
-    //         async move { db_garbage_collector.collect_loop_passive().await }
-    //     });
-    // }
-    // TODO: Incorporate manual GC within the same loop for simplicity.
-    services.spawn({ async move { db_garbage_collector.gc_loop(GC_INTERVAL).await } });
+    // The current approach is either to allow manual GC or automatic, not both.
+    services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL, opts.no_gc).await });
 
     let publisher = chain_store.publisher();
 
@@ -345,9 +341,6 @@ pub(super) async fn start(
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
-        // TODO: Implement manual GC trigger.
-        // let gc_event_tx = db_garbage_collector.get_tx();
-        let (sender, receiver) = flume::bounded(1);
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
@@ -370,7 +363,7 @@ pub(super) async fn start(
                     beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
-                    gc_event_tx: sender,
+                    gc_event_tx: gc_sender,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),

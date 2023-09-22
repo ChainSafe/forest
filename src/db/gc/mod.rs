@@ -29,7 +29,9 @@ pub struct MarkAndSweep<BS> {
     chain_store: Arc<ChainStore<BS>>,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
+    epoch_sweeped: ChainEpoch,
     depth: ChainEpochDelta,
+    gc_receiver: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
 }
 
 impl<BS: Blockstore> MarkAndSweep<BS> {
@@ -40,13 +42,21 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// * `db` - A reference to the database instance.
     /// * `chain_store` - A reference to chain store to fetch heaviest tipset.
     /// * `depth` - The number of state-roots to retain.
-    pub fn new(db: Arc<Db>, chain_store: Arc<ChainStore<BS>>, depth: ChainEpochDelta) -> Self {
+    /// * `gc_receiver` - A channel for manually triggering the GC and sending the result back.
+    pub fn new(
+        db: Arc<Db>,
+        chain_store: Arc<ChainStore<BS>>,
+        depth: ChainEpochDelta,
+        gc_receiver: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
+    ) -> Self {
         Self {
             db,
             chain_store,
             depth,
             marked: HashSet::new(),
             epoch_marked: 0,
+            epoch_sweeped: 0,
+            gc_receiver,
         }
     }
     // Populate the initial set with all the available database keys.
@@ -87,44 +97,59 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// * `depth` - Specifies how far back the full history should be maintained. Cannot be less
     /// than chain finality.
     /// * `interval` - GC Interval to avoid constantly consuming node's resources.
+    /// * `manual` - Whether or not the GC has to be triggered manually or automatically.
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
-    pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
-        let mut last_sweeped: ChainEpoch = 0;
-        let depth = self.depth;
+    pub async fn gc_loop(&mut self, interval: Duration, manual: bool) -> anyhow::Result<()> {
         loop {
-            let tipset = self.chain_store.heaviest_tipset();
-            let current_epoch = tipset.epoch();
-            // Don't run the GC if there aren't enough state-roots yet.
-            if depth > current_epoch {
-                time::sleep(AVERAGE_BLOCK_TIME * (depth - current_epoch) as u32).await;
-                continue;
-            }
+            match manual {
+                true => {
+                    let msg = self.gc_receiver.recv_async().await?;
+                    let res = self.gc_workflow(interval).await;
+                    msg.send(res)?
+                }
+                false => {
+                    self.gc_workflow(interval).await?;
 
-            // Make sure we don't GC if we haven't advanced at least `depth` number of epochs since
-            // the last sweep.
-            let epochs_since_gc = current_epoch - last_sweeped;
-            if self.marked.is_empty() && epochs_since_gc < depth {
-                time::sleep(AVERAGE_BLOCK_TIME * epochs_since_gc as u32).await;
-                continue;
-            } else {
-                self.populate()?;
+                    // Make sure we don't run the GC too often.
+                    time::sleep(interval).await;
+                }
             }
-
-            // Don't filter and sweep before we advance at least `depth`.
-            let epoch_since_marked = current_epoch - self.epoch_marked;
-            if !self.marked.is_empty() && epoch_since_marked < depth {
-                time::sleep(AVERAGE_BLOCK_TIME * epoch_since_marked as u32).await;
-                continue;
-            } else {
-                self.filter(tipset, depth)?;
-                self.sweep()?;
-                last_sweeped = current_epoch;
-            }
-
-            // Make sure we don't run the GC too often.
-            time::sleep(interval).await;
         }
+    }
+
+    async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
+        let depth = self.depth;
+        let tipset = self.chain_store.heaviest_tipset();
+        let current_epoch = tipset.epoch();
+        // Don't run the GC if there aren't enough state-roots yet.
+        if depth > current_epoch {
+            time::sleep(AVERAGE_BLOCK_TIME * (depth - current_epoch) as u32).await;
+            return anyhow::Ok(());
+        }
+
+        // Make sure we don't GC if we haven't advanced at least `depth` number of epochs since
+        // the last sweep.
+        let epochs_since_gc = current_epoch - self.epoch_sweeped;
+        if self.marked.is_empty() && epochs_since_gc < depth {
+            time::sleep(AVERAGE_BLOCK_TIME * epochs_since_gc as u32).await;
+            return anyhow::Ok(());
+        } else {
+            self.populate()?;
+        }
+
+        // Don't filter and sweep before we advance at least `depth`.
+        let epoch_since_marked = current_epoch - self.epoch_marked;
+        if !self.marked.is_empty() && epoch_since_marked < depth {
+            time::sleep(AVERAGE_BLOCK_TIME * epoch_since_marked as u32).await;
+            return anyhow::Ok(());
+        } else {
+            self.filter(tipset, depth)?;
+            self.sweep()?;
+            self.epoch_sweeped = current_epoch;
+        }
+
+        return anyhow::Ok(());
     }
 }
