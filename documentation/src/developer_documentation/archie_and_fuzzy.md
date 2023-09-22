@@ -16,8 +16,9 @@ Host fuzzy-forest.chainsafe.dev
   User fuzzy
 ```
 
-You should be able to directly ssh into `archie.chainsafe.dev` and
-`fuzzy-forest.chainsafe.dev`.
+If your SSH key has been added to list of authorized keys, you should be able to
+directly ssh into `archie.chainsafe.dev` and `fuzzy-forest.chainsafe.dev`. If
+you key hasn't been added, complain loudly in the #forest slack channel.
 
 # Archie
 
