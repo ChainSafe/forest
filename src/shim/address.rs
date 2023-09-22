@@ -12,6 +12,7 @@ use data_encoding_macro::new_encoding;
 use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use fvm_shared4::address::Address as Address_v4;
 use integer_encoding::VarInt;
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
@@ -296,6 +297,18 @@ impl From<StrictAddress> for Address_v3 {
     }
 }
 
+impl From<StrictAddress> for Address_v4 {
+    fn from(other: StrictAddress) -> Self {
+        other.0.into()
+    }
+}
+
+impl From<Address_v4> for Address {
+    fn from(other: Address_v4) -> Self {
+        (&other).into()
+    }
+}
+
 impl From<Address_v3> for Address {
     fn from(other: Address_v3) -> Self {
         Address(other)
@@ -318,6 +331,22 @@ impl From<&Address_v2> for Address {
     }
 }
 
+impl From<&Address_v4> for Address {
+    fn from(other: &Address_v4) -> Self {
+        Address::from(
+            Address_v3::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+                panic!("Couldn't convert from FVM4 address to FVM3 address: {other}, {e}")
+            }),
+        )
+    }
+}
+
+impl From<Address> for Address_v4 {
+    fn from(other: Address) -> Address_v4 {
+        (&other).into()
+    }
+}
+
 impl From<&Address_v3> for Address {
     fn from(other: &Address_v3) -> Self {
         Address(*other)
@@ -334,6 +363,14 @@ impl From<&Address> for Address_v2 {
     fn from(other: &Address) -> Self {
         Address_v2::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
             panic!("Couldn't convert from FVM3 address to FVM2 address: {other}, {e}")
+        })
+    }
+}
+
+impl From<&Address> for Address_v4 {
+    fn from(other: &Address) -> Self {
+        Address_v4::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+            panic!("Couldn't convert from FVM3 address to FVM4 address: {other}, {e}")
         })
     }
 }

@@ -13,6 +13,11 @@ use fvm3::gas::{
     price_list_by_network_version as price_list_by_network_version_v3, PriceList as PriceListV3,
     MILLIGAS_PRECISION,
 };
+pub use fvm4::gas::Gas as GasV4;
+pub use fvm4::gas::GasCharge as GasChargeV4;
+use fvm4::gas::{
+    price_list_by_network_version as price_list_by_network_version_v4, PriceList as PriceListV4,
+};
 
 use crate::shim::version::NetworkVersion;
 
@@ -70,6 +75,12 @@ impl From<Gas> for GasV2 {
 impl From<Gas> for GasV3 {
     fn from(value: Gas) -> Self {
         GasV3::from_milligas(value.0.as_milligas())
+    }
+}
+
+impl From<Gas> for GasV4 {
+    fn from(value: Gas) -> Self {
+        GasV4::from_milligas(value.0.as_milligas())
     }
 }
 

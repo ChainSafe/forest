@@ -68,11 +68,14 @@ fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, features = ["arb", "nv21-dev"], git = "https://github.com/filecoin-project/ref-fvm.git", sha = "5603bcf" }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_car = "0.7"
 fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", features = ["testing", "proofs"], git = "https://github.com/filecoin-project/ref-fvm.git", sha = "5603bcf" }
+
 gethostname = "0.4"
 git-version = "0.3"
 hex = { version = "0.4", features = ["serde"] }

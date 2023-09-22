@@ -7,7 +7,10 @@ use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
-use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
+use crate::interpreter::{
+    fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3,
+    fvm4::ForestExterns as ForestExternsV4,
+};
 use crate::message::ChainMessage;
 use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
