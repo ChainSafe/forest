@@ -49,7 +49,8 @@ Fuzzy is meant to run a variety of long-running tasks.
 
 ## Github Action Runner
 
-Fuzzy is running this runner: https://github.com/actions/runner
+Fuzzy is using the standard runner with a default configuration. See
+https://github.com/actions/runner for details.
 
 The instance can be inspected by running `zellij attach runner` on the server.
 The command to start the runner is `cd ~/gc_runner; ./run.sh`.
