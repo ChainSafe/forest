@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use crate::chain::ChainEpochDelta;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
@@ -26,7 +27,7 @@ pub mod mainnet;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
-const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+const DEFAULT_RECENT_STATE_ROOTS: ChainEpochDelta = 2000;
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56

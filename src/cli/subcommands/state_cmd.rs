@@ -4,8 +4,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::db::db_engine::db_root;
-use crate::db::db_engine::open_proxy_db;
+use crate::db::db_engine::{db_root, open_db};
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
@@ -64,8 +63,7 @@ impl StateCommands {
                     .client
                     .data_dir
                     .join(config.chain.network.to_string());
-                let blockstore =
-                    Arc::new(open_proxy_db(db_root(&chain_path)?, Default::default())?);
+                let blockstore = Arc::new(open_db(db_root(&chain_path)?, Default::default())?);
 
                 if let Err(err) = print_state_diff(&blockstore, &pre, &post, depth) {
                     eprintln!("Failed to print state diff: {err}");

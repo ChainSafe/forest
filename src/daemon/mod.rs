@@ -17,8 +17,8 @@ use crate::cli_shared::{
 
 use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
 use crate::db::car::ManyCar;
-use crate::db::db_engine::{db_root, open_proxy_db};
-use crate::db::rolling::DbGarbageCollector;
+use crate::db::db_engine::{db_root, open_db};
+use crate::db::MarkAndSweep;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -41,10 +41,12 @@ use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
-use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
+use std::time::Duration;
+use std::{cell::RefCell, cmp, net::TcpListener, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
     signal::{
@@ -130,6 +132,9 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
     result
 }
 
+// Garbage collection interval, currently set at 10 hours.
+const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
+
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
@@ -175,10 +180,8 @@ pub(super) async fn start(
     }
 
     let db_root_dir = db_root(&chain_data_path)?;
-    let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
-        db_root_dir.clone(),
-        config.db_config().clone(),
-    )?)));
+    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
+    let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
@@ -228,28 +231,25 @@ pub(super) async fn start(
         genesis_header.clone(),
     )?);
 
-    let db_garbage_collector = {
+    let mut db_garbage_collector = {
         let db = db.clone();
         let chain_store = chain_store.clone();
-        let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
-        Arc::new(DbGarbageCollector::new(
-            db,
+        let depth = cmp::max(
             config.chain.policy.chain_finality,
             config.chain.recent_state_roots,
-            get_tipset,
-        ))
+        );
+
+        MarkAndSweep::new(db_writer, chain_store, depth)
     };
 
-    if !opts.no_gc {
-        services.spawn({
-            let db_garbage_collector = db_garbage_collector.clone();
-            async move { db_garbage_collector.collect_loop_passive().await }
-        });
-    }
-    services.spawn({
-        let db_garbage_collector = db_garbage_collector.clone();
-        async move { db_garbage_collector.collect_loop_event().await }
-    });
+    // if !opts.no_gc {
+    //     services.spawn({
+    //         let db_garbage_collector = db_garbage_collector.clone();
+    //         async move { db_garbage_collector.collect_loop_passive().await }
+    //     });
+    // }
+    // TODO: Incorporate manual GC within the same loop for simplicity.
+    services.spawn({ async move { db_garbage_collector.gc_loop(GC_INTERVAL).await } });
 
     let publisher = chain_store.publisher();
 
@@ -345,7 +345,9 @@ pub(super) async fn start(
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
-        let gc_event_tx = db_garbage_collector.get_tx();
+        // TODO: Implement manual GC trigger.
+        // let gc_event_tx = db_garbage_collector.get_tx();
+        let (sender, receiver) = flume::bounded(1);
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
@@ -368,7 +370,7 @@ pub(super) async fn start(
                     beacon,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
-                    gc_event_tx,
+                    gc_event_tx: sender,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),

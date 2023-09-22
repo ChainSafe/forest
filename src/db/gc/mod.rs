@@ -9,6 +9,7 @@ use crate::ipld::{
 use crate::shim::clock::ChainEpoch;
 use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
+use fvm_ipld_blockstore::Blockstore;
 use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,18 +24,27 @@ const AVERAGE_BLOCK_TIME: Duration = Duration::from_secs(35);
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed + ParityDB approach, only taking
 /// care of the latter.
-pub struct MarkAndSweep {
+pub struct MarkAndSweep<BS> {
     db: Arc<Db>,
-    chain_store: Arc<ChainStore<Db>>,
+    chain_store: Arc<ChainStore<BS>>,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
+    depth: ChainEpochDelta,
 }
 
-impl MarkAndSweep {
-    pub fn new(db: Arc<Db>, chain_store: Arc<ChainStore<Db>>) -> Self {
+impl<BS: Blockstore> MarkAndSweep<BS> {
+    /// Creates a new MarkAndSweep garbage collector.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database instance.
+    /// * `chain_store` - A reference to chain store to fetch heaviest tipset.
+    /// * `depth` - The number of state-roots to retain.
+    pub fn new(db: Arc<Db>, chain_store: Arc<ChainStore<BS>>, depth: ChainEpochDelta) -> Self {
         Self {
             db,
             chain_store,
+            depth,
             marked: HashSet::new(),
             epoch_marked: 0,
         }
@@ -80,12 +90,9 @@ impl MarkAndSweep {
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
-    pub async fn gc_loop(
-        &mut self,
-        depth: ChainEpochDelta,
-        interval: Duration,
-    ) -> anyhow::Result<()> {
+    pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         let mut last_sweeped: ChainEpoch = 0;
+        let depth = self.depth;
         loop {
             let tipset = self.chain_store.heaviest_tipset();
             let current_epoch = tipset.epoch();

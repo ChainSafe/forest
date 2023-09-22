@@ -7,7 +7,7 @@ pub mod parity_db;
 pub mod parity_db_config;
 
 mod gc;
-pub mod rolling;
+pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;
@@ -135,8 +135,6 @@ pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
-    use crate::db::rolling::*;
-
     use super::db_mode::choose_db;
 
     pub type Db = crate::db::parity_db::ParityDb;
@@ -147,14 +145,11 @@ pub mod db_engine {
         choose_db(chain_data_root)
     }
 
-    pub(in crate::db) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, config).map_err(Into::into)
-    }
-
-    pub fn open_proxy_db(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<RollingDB> {
-        RollingDB::load_or_create(db_root, db_config)
+    pub fn open_db(path: PathBuf, config: DbConfig) -> anyhow::Result<Db> {
+        Db::open(path, &config).map_err(Into::into)
     }
 }
+
 #[cfg(test)]
 mod tests {
     pub mod db_utils;
