@@ -1,8 +1,10 @@
 # What and How?
 
-Fuzzy and Archie are two servers hosted in the ChainSafe office. Both belong to the Forest team.
+Fuzzy and Archie are two servers hosted in the ChainSafe office. Both belong to
+the Forest team.
 
-Archie and Fuzzy are accessible through a CloudFlare tunnel. Add this to your SSH config (`~/.ssh/config`):
+Archie and Fuzzy are accessible through a CloudFlare tunnel. Add this to your
+SSH config (`~/.ssh/config`):
 
 ```
 Host archie.chainsafe.dev
@@ -14,7 +16,8 @@ Host fuzzy-forest.chainsafe.dev
   User fuzzy
 ```
 
-You should be able to directly ssh into `archie.chainsafe.dev` and `fuzzy-forest.chainsafe.dev`.
+You should be able to directly ssh into `archie.chainsafe.dev` and
+`fuzzy-forest.chainsafe.dev`.
 
 # Archie
 
@@ -27,7 +30,8 @@ SSD:          4x SAMSUNG 870 QVO 8 TB
 RAM:          G.Skill DIMM 32 GB DDR4-3200
 ```
 
-Archie is currently storing the entire Filecoin graph. In the future, this data will be served into the Filecoin p2p network.
+Archie is currently storing the entire Filecoin graph. In the future, this data
+will be served into the Filecoin p2p network.
 
 # Fuzzy
 
@@ -46,4 +50,5 @@ Fuzzy is meant to run a variety of long-running tasks.
 
 Fuzzy is running this runner: https://github.com/actions/runner
 
-The instance can be inspected by running `zellij attach runner` on the server. The command to start the runner is `cd ~/gc_runner; ./run.sh`.
+The instance can be inspected by running `zellij attach runner` on the server.
+The command to start the runner is `cd ~/gc_runner; ./run.sh`.
