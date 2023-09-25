@@ -1,9 +1,9 @@
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::db::db_engine::Db;
-use crate::db::parity_db::ParityDb;
+
 use crate::db::{truncated_hash, GarbageCollectable};
-use crate::ipld::{stream_chain, unordered_stream_chain, unordered_stream_graph, ChainStream};
+use crate::ipld::unordered_stream_graph;
 use crate::shim::clock::ChainEpoch;
 use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
@@ -117,7 +117,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         }
     }
 
-    async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
+    async fn gc_workflow(&mut self, _interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = self.chain_store.heaviest_tipset();
         let current_epoch = tipset.epoch();

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashSet, HashSetExt};
 use std::mem;
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ use anyhow::{anyhow, Context};
 use cid::multihash::Code::Blake2b256;
 
 use cid::multihash::MultihashDigest;
-use cid::{multihash, Cid};
+use cid::Cid;
 
 use fvm_ipld_blockstore::Blockstore;
 
