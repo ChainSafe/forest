@@ -12,7 +12,7 @@ use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use crate::utils::{cid::CidCborExt, db::CborStoreExt};
 use cid::Cid;
-use fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
+use fil_actors_shared::fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as EncodingError;
 use thiserror::Error;
@@ -146,5 +146,51 @@ impl<'a> TipsetValidator<'a> {
         blockstore
             .put_cbor_default(&meta)
             .map_err(|e| Box::new(TipsetValidationError::Blockstore(e.to_string())))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryFrom;
+
+    use crate::db::MemoryDB;
+    use crate::message::SignedMessage;
+    use crate::shim::message::Message;
+    use crate::test_utils::construct_messages;
+    use crate::utils::encoding::from_slice_with_fallback;
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use cid::Cid;
+
+    use super::TipsetValidator;
+
+    #[test]
+    fn compute_msg_meta_given_msgs_test() {
+        let blockstore = MemoryDB::default();
+
+        let (bls, secp) = construct_messages();
+
+        let expected_root =
+            Cid::try_from("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
+                .unwrap();
+
+        let root = TipsetValidator::compute_msg_root(&blockstore, &[bls], &[secp])
+            .expect("Computing message root should succeed");
+        assert_eq!(root, expected_root);
+    }
+
+    #[test]
+    fn empty_msg_meta_vector() {
+        let blockstore = MemoryDB::default();
+        let usm: Vec<Message> =
+            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
+        let sm: Vec<SignedMessage> =
+            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
+
+        assert_eq!(
+            TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
+                .expect("Computing message root should succeed")
+                .to_string(),
+            "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
+        );
     }
 }

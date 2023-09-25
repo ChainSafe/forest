@@ -17,6 +17,7 @@ use fil_actor_miner_state::{
     v9::{util::sector_key, State as MinerStateNew},
 };
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
+use fil_actors_shared::fvm_ipld_amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
@@ -375,8 +376,8 @@ mod tests {
     use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
+    use fil_actors_shared::fvm_ipld_hamt::BytesKey;
     use fvm_ipld_encoding::IPLD_RAW;
-    use fvm_ipld_hamt::BytesKey;
     use fvm_shared2::{
         bigint::Zero,
         commcid::{

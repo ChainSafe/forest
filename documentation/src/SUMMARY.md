@@ -29,3 +29,5 @@
   - [Test plan](./developer_documentation/test_plan.md)
   - [Devnet Notes](./developer_documentation/devnet_notes.md)
   - [Filecoin Archive](./developer_documentation/filecoin_archive.md)
+  - [Notes and sketches](./developer_documentation/notes_and_sketches.md)
+    - [ChainMuxer/TipsetProcessor state machine](./developer_documentation/chain_muxer_state_machine.md)

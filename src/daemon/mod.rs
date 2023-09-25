@@ -313,7 +313,6 @@ pub(super) async fn start(
     let mpool = Arc::new(mpool);
 
     // Initialize ChainMuxer
-    let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
         Arc::clone(&state_manager),
         peer_manager,
@@ -321,7 +320,7 @@ pub(super) async fn start(
         network_send.clone(),
         network_rx,
         Arc::new(Tipset::from(genesis_header)),
-        chain_muxer_tipset_sink,
+        tipset_sink,
         tipset_stream,
         config.sync.clone(),
     )?;
@@ -362,7 +361,6 @@ pub(super) async fn start(
                     // TODO: the RPCState can fetch this itself from the StateManager
                     beacon,
                     chain_store: rpc_chain_store,
-                    new_mined_block_tx: tipset_sink,
                     gc_event_tx: gc_sender,
                 }),
                 rpc_listen,
@@ -526,7 +524,11 @@ async fn set_snapshot_path_if_needed(
 fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> anyhow::Result<()> {
     let ki = keystore.get(JWT_IDENTIFIER)?;
     let token_exp = config.client.token_exp;
-    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
+    let token = create_token(
+        ADMIN.iter().map(ToString::to_string).collect(),
+        ki.private_key(),
+        token_exp,
+    )?;
     info!("Admin token: {token}");
     if let Some(path) = opts.save_token.as_ref() {
         std::fs::write(path, token)?;

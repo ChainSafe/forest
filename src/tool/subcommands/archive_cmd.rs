@@ -6,15 +6,15 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainEpochDelta,
 };
+use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
-use crate::ipld::{stream_graph, unordered_stream_graph, CidHashSet};
+use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use anyhow::{bail, Context as _, Result};
 use chrono::NaiveDateTime;
-use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
@@ -398,7 +398,7 @@ async fn merge_snapshots(
 
     let store = ManyCar::try_from(snapshot_files)?;
     let heaviest_tipset = store.heaviest_tipset()?;
-    let roots = Vec::<Cid>::from(&heaviest_tipset.key().cids);
+    let roots = heaviest_tipset.key().cids.clone().into_iter().collect();
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())
@@ -441,11 +441,9 @@ async fn merge_snapshots(
 mod tests {
     use super::*;
     use crate::db::car::AnyCar;
-    use async_compression::tokio::bufread::ZstdDecoder;
-    use fvm_ipld_car::CarReader;
+    use crate::utils::db::car_stream::CarStream;
     use tempfile::TempDir;
     use tokio::io::BufReader;
-    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
@@ -478,10 +476,7 @@ mod tests {
         ))
         .await
         .unwrap();
-        let file = BufReader::new(file);
-        CarReader::new(ZstdDecoder::new(file).compat())
-            .await
-            .unwrap();
+        CarStream::new(BufReader::new(file)).await.unwrap();
     }
 
     #[test]

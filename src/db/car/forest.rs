@@ -137,7 +137,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::from(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::from_iter(self.roots()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
@@ -201,11 +201,8 @@ where
                     while let Some(block_frame) =
                         UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
                     {
-                        if let Some(CarBlock { cid, data }) = CarBlock::from_bytes(block_frame) {
-                            block_map.insert(cid, data);
-                        } else {
-                            return Err(invalid_data("corrupted key-value block"))?;
-                        }
+                        let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
+                        block_map.insert(cid, data);
                     }
                     let get_result = block_map.get(k).cloned();
                     self.frame_cache

@@ -49,8 +49,6 @@ pub enum TipsetProcessorError {
     RangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset stream closed")]
     StreamClosed,
-    #[error("Tipset has already been synced")]
-    AlreadySynced,
 }
 
 #[derive(Debug, Error)]
@@ -269,49 +267,44 @@ where
         }
     }
 
-    fn find_range(
-        &self,
-        tipset_group: TipsetGroup,
-    ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError> {
+    fn find_range(&self, tipset_group: TipsetGroup) -> Option<TipsetRangeSyncer<DB>> {
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
         let network = self.network.clone();
         let bad_block_cache = self.bad_block_cache.clone();
         let tracker = self.tracker.clone();
         let genesis = self.genesis.clone();
-        Box::pin(async move {
-            // Define the low end of the range
-            let current_head = chain_store.heaviest_tipset();
-            let proposed_head = tipset_group.heaviest_tipset();
 
-            if current_head.key().eq(proposed_head.key()) {
-                return Err(TipsetProcessorError::AlreadySynced);
-            }
+        // Define the low end of the range
+        let current_head = chain_store.heaviest_tipset();
+        let proposed_head = tipset_group.heaviest_tipset();
 
-            let mut tipset_range_syncer = TipsetRangeSyncer::new(
-                tracker,
-                proposed_head,
-                current_head,
-                state_manager,
-                network,
-                chain_store,
-                bad_block_cache,
-                genesis,
-            )?;
-            for tipset in tipset_group.tipsets() {
-                tipset_range_syncer.add_tipset(tipset)?;
-            }
-            Ok(tipset_range_syncer)
-        })
+        if current_head.key().eq(proposed_head.key()) {
+            return None;
+        }
+
+        let mut tipset_range_syncer = TipsetRangeSyncer::new(
+            tracker,
+            proposed_head,
+            current_head,
+            state_manager,
+            network,
+            chain_store,
+            bad_block_cache,
+            genesis,
+        )
+        .ok()?;
+        for tipset in tipset_group.tipsets() {
+            tipset_range_syncer.add_tipset(tipset).ok()?;
+        }
+        Some(tipset_range_syncer)
     }
 }
-
-type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 enum TipsetProcessorState<DB> {
     Idle,
     FindRange {
-        range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError>,
+        range_finder: Option<TipsetRangeSyncer<DB>>,
         epoch: i64,
         parents: TipsetKeys,
         current_sync: Option<TipsetGroup>,
@@ -504,8 +497,8 @@ where
                     ref mut current_sync,
                     ref mut next_sync,
                     ..
-                } => match range_finder.as_mut().poll(cx) {
-                    Poll::Ready(Ok(mut range_syncer)) => {
+                } => match range_finder.take() {
+                    Some(mut range_syncer) => {
                         debug!(
                             "Determined epoch range for next sync: [{}, {}]",
                             range_syncer.current_head.epoch(),
@@ -525,21 +518,9 @@ where
                             next_sync: next_sync.take(),
                         };
                     }
-                    Poll::Ready(Err(why)) => {
-                        match why {
-                            // Do not log for these errors since they are expected to occur
-                            // throughout the syncing process
-                            TipsetProcessorError::AlreadySynced
-                            | TipsetProcessorError::RangeSyncer(
-                                TipsetRangeSyncerError::InvalidTipsetRangeLength,
-                            ) => (),
-                            why => {
-                                error!("Finding tipset range for sync failed: {}", why);
-                            }
-                        };
+                    None => {
                         self.state = TipsetProcessorState::Idle;
                     }
-                    Poll::Pending => return Poll::Pending,
                 },
                 TipsetProcessorState::SyncRange {
                     ref mut range_syncer,
@@ -1547,7 +1528,7 @@ fn validate_tipset_against_cache(
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError> {
-    for cid in &tipset.cids {
+    for cid in tipset.cids.clone() {
         if let Some(reason) = bad_block_cache.get(&cid) {
             for block_cid in descendant_blocks {
                 bad_block_cache.put(*block_cid, format!("chain contained {cid}"));

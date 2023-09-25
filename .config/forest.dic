@@ -29,6 +29,7 @@ daemonize
 DB/S
 destructuring
 DNS
+enum
 Enum
 EOF
 Ethereum
@@ -59,11 +60,11 @@ multisig
 mutex
 overallocation
 P2P
-parsable
 ParityDb
+parsable
+PoC
 pointer/SM
 PoSt
-PoC
 RPC
 SECP
 SECP256k1

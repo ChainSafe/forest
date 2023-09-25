@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::TipsetKeys;
-use crate::ipld::FrozenCids;
+use crate::cid_collections::FrozenCidVec;
 use ::cid::Cid;
 
 impl HasLotusJson for TipsetKeys {
@@ -13,7 +13,7 @@ impl HasLotusJson for TipsetKeys {
         vec![(
             json!([{"/": "baeaaaaa"}]),
             TipsetKeys {
-                cids: FrozenCids::from(vec![::cid::Cid::default()]),
+                cids: FrozenCidVec::from_iter([::cid::Cid::default()]),
             },
         )]
     }
@@ -23,6 +23,6 @@ impl HasLotusJson for TipsetKeys {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self::from(lotus_json.into_inner())
+        Self::from_iter(lotus_json.into_inner())
     }
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
-use crate::ipld::CidHashSet;
+use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,
@@ -241,7 +241,7 @@ where
     let new_head = data.state_manager.chain_store().tipset_from_keys(&params)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
-        for cid in &current.key().cids {
+        for cid in current.key().cids.clone() {
             data.state_manager
                 .chain_store()
                 .unmark_block_as_validated(&cid);
