@@ -234,7 +234,6 @@ pub(super) async fn start(
     let (gc_sender, gc_receiver) = flume::bounded(1);
 
     let mut db_garbage_collector = {
-        let db = db.clone();
         let chain_store = chain_store.clone();
         let depth = cmp::max(
             config.chain.policy.chain_finality,
