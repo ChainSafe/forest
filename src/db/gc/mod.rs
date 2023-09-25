@@ -3,9 +3,7 @@ use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::db::db_engine::Db;
 use crate::db::parity_db::ParityDb;
 use crate::db::{truncated_hash, GarbageCollectable};
-use crate::ipld::{
-    stream_chain, unordered_stream_chain, unordered_stream_graph, ChainStream, CidHashSet,
-};
+use crate::ipld::{stream_chain, unordered_stream_chain, unordered_stream_graph, ChainStream};
 use crate::shim::clock::ChainEpoch;
 use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
