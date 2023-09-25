@@ -22,8 +22,8 @@ const AVERAGE_BLOCK_TIME: Duration = Duration::from_secs(35);
 /// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
 ///
-/// Note: The GC does not know anything about the hybrid CAR-backed + ParityDB approach, only taking
-/// care of the latter.
+/// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
+/// taking care of the latter.
 pub struct MarkAndSweep<BS> {
     db: Arc<Db>,
     chain_store: Arc<ChainStore<BS>>,
@@ -35,7 +35,7 @@ pub struct MarkAndSweep<BS> {
 }
 
 impl<BS: Blockstore> MarkAndSweep<BS> {
-    /// Creates a new MarkAndSweep garbage collector.
+    /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
     ///
