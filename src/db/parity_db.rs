@@ -25,7 +25,6 @@ use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
-use crate::ipld::CidHashSet;
 use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
