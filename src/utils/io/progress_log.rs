@@ -117,6 +117,7 @@ impl Progress {
         self.emit_log_if_required();
     }
 
+    #[allow(unused)]
     fn set_total(&mut self, value: u64) {
         self.total_items = value;
 
@@ -157,9 +158,5 @@ impl WithProgressRaw {
 
     pub fn set(&self, value: u64) {
         self.sync.lock().progress.set(value);
-    }
-
-    pub fn set_total(&self, value: u64) {
-        self.sync.lock().progress.set_total(value);
     }
 }

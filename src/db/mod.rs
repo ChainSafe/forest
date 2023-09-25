@@ -21,8 +21,6 @@ use std::sync::Arc;
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKeys`]
     pub const HEAD_KEY: &str = "head";
-    /// Estimated number of IPLD records in the database. This is expected to be a `usize`
-    pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
 }

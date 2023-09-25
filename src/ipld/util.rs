@@ -4,10 +4,7 @@
 use std::{
     collections::VecDeque,
     future::Future,
-    sync::{
-        atomic::{self, AtomicU64},
-        Arc,
-    },
+    sync::{atomic::AtomicU64, Arc},
 };
 
 use crate::cid_collections::CidHashSet;
@@ -15,11 +12,7 @@ use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
-use crate::utils::io::progress_log::WithProgressRaw;
-use crate::{
-    blocks::{BlockHeader, Tipset},
-    utils::encoding::from_slice_with_fallback,
-};
+use crate::{blocks::Tipset, utils::encoding::from_slice_with_fallback};
 use anyhow::Context as AnyhowContext;
 use cid::Cid;
 use futures::Stream;
@@ -115,86 +108,6 @@ pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
 
 pub static WALK_SNAPSHOT_PROGRESS_DB_GC: Lazy<ProgressBarCurrentTotalPair> =
     Lazy::new(Default::default);
-
-/// Walks over tipset and state data and loads all blocks not yet seen.
-/// This is tracked based on the callback function loading blocks.
-pub async fn walk_snapshot<F, T>(
-    tipset: &Tipset,
-    recent_roots: i64,
-    mut load_block: F,
-    progress_bar_message: Option<&str>,
-    progress_tracker: Option<ProgressBarCurrentTotalPair>,
-    estimated_total_records: Option<u64>,
-) -> anyhow::Result<usize>
-where
-    F: FnMut(Cid) -> T + Send,
-    T: Future<Output = anyhow::Result<Vec<u8>>> + Send,
-{
-    let estimated_total_records = estimated_total_records.unwrap_or_default();
-    let message = progress_bar_message.unwrap_or("Walking snapshot");
-    #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
-    let wp = WithProgressRaw::new(message, estimated_total_records);
-
-    let mut seen = CidHashSet::default();
-    let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().into();
-    let mut current_min_height = tipset.epoch();
-    let incl_roots_epoch = tipset.epoch() - recent_roots;
-
-    let on_inserted = {
-        let wp = wp.clone();
-        let progress_tracker = progress_tracker.clone();
-        move |len: usize| {
-            let progress = len as u64;
-            let total = progress.max(estimated_total_records);
-            wp.set(progress);
-            wp.set_total(total);
-            if let Some(progress_tracker) = &progress_tracker {
-                progress_tracker
-                    .0
-                    .store(progress, atomic::Ordering::Relaxed);
-                progress_tracker.1.store(total, atomic::Ordering::Relaxed);
-            }
-        }
-    };
-
-    while let Some(next) = blocks_to_walk.pop_front() {
-        if !seen.insert(next) {
-            continue;
-        };
-        on_inserted(seen.len());
-
-        if !should_save_block_to_snapshot(next) {
-            continue;
-        }
-
-        let data = load_block(next).await?;
-        let h = from_slice_with_fallback::<BlockHeader>(&data)?;
-
-        if current_min_height > h.epoch() {
-            current_min_height = h.epoch();
-        }
-
-        if h.epoch() > incl_roots_epoch {
-            recurse_links_hash(&mut seen, *h.messages(), &mut load_block, &on_inserted).await?;
-        }
-
-        if h.epoch() > 0 {
-            for p in h.parents().cids.clone() {
-                blocks_to_walk.push_back(p);
-            }
-        } else {
-            for p in h.parents().cids.clone() {
-                load_block(p).await?;
-            }
-        }
-
-        if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-            recurse_links_hash(&mut seen, *h.state_root(), &mut load_block, &on_inserted).await?;
-        }
-    }
-
-    Ok(seen.len())
-}
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.

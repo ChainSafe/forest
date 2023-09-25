@@ -286,7 +286,7 @@ impl GarbageCollectable for ParityDb {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
-            set.insert(truncated_hash(&cid.hash()));
+            set.insert(truncated_hash(cid.hash()));
         }
 
         self.db
@@ -305,10 +305,8 @@ impl GarbageCollectable for ParityDb {
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
 
-            if keys.contains(&truncated_hash(&cid.hash())) {
-                if txn.len() == TX_BATCH_SIZE {
-                    self.commit_changes(&mut txn).context("error bulk remove")?
-                }
+            if keys.contains(&truncated_hash(cid.hash())) && txn.len() == TX_BATCH_SIZE {
+                self.commit_changes(&mut txn).context("error bulk remove")?
             }
         }
 

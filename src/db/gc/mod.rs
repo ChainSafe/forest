@@ -77,7 +77,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
 
         while let Some(block) = futures::executor::block_on(stream.next()) {
             let block = block?;
-            self.marked.remove(&truncated_hash(&block.cid.hash()));
+            self.marked.remove(&truncated_hash(block.cid.hash()));
         }
 
         anyhow::Ok(())
@@ -150,6 +150,6 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             self.epoch_sweeped = current_epoch;
         }
 
-        return anyhow::Ok(());
+        anyhow::Ok(())
     }
 }
