@@ -22,6 +22,9 @@ use tracing::info;
 /// for simplicity. The actual value for other underlying DB might be slightly
 /// different but that is negligible for calculating the total reachable data
 /// size
+/// NOTE: For some reason clippy detects this as unused, even though it is used
+/// below. Perhaps async-trait has something to do with it.
+#[allow(unused)]
 pub const DB_KEY_BYTES: usize = 32;
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
