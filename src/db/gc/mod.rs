@@ -106,12 +106,11 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             match manual {
                 true => {
                     let msg = self.gc_receiver.recv_async().await?;
-                    let res = self.gc_workflow(interval).await;
+                    let res = self.gc_workflow(manual).await;
                     msg.send(res)?
                 }
                 false => {
-                    self.gc_workflow(interval).await?;
-
+                    self.gc_workflow(manual).await?;
                     // Make sure we don't run the GC too often.
                     time::sleep(interval).await;
                 }
@@ -119,29 +118,34 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         }
     }
 
-    async fn gc_workflow(&mut self, _interval: Duration) -> anyhow::Result<()> {
+    async fn gc_workflow(&mut self, manual: bool) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = self.chain_store.heaviest_tipset();
         let current_epoch = tipset.epoch();
-        // Don't run the GC if there aren't enough state-roots yet.
-        if depth > current_epoch {
+        // Don't run the GC if there aren't enough state-roots yet. Manual GC overrides that.
+        if !manual || depth > current_epoch {
             time::sleep(AVERAGE_BLOCK_TIME * (depth - current_epoch) as u32).await;
             return anyhow::Ok(());
         }
 
         // Make sure we don't GC if we haven't advanced at least `depth` number of epochs since
-        // the last sweep.
+        // the last sweep. Manual GC overrides that.
         let epochs_since_gc = current_epoch - self.epoch_sweeped;
-        if self.marked.is_empty() && epochs_since_gc < depth {
+        if self.marked.is_empty() && !manual && epochs_since_gc < depth {
             time::sleep(AVERAGE_BLOCK_TIME * epochs_since_gc as u32).await;
             return anyhow::Ok(());
         } else {
             self.populate()?;
         }
 
-        // Don't filter and sweep before we advance at least `depth`.
+        // Nothing to do.
+        if self.marked.is_empty() {
+            return anyhow::Ok(());
+        }
+
+        // Don't filter and sweep before we advance at least `depth`. Manual GC overrides that.
         let epoch_since_marked = current_epoch - self.epoch_marked;
-        if !self.marked.is_empty() && epoch_since_marked < depth {
+        if !manual && epoch_since_marked < depth {
             time::sleep(AVERAGE_BLOCK_TIME * epoch_since_marked as u32).await;
             return anyhow::Ok(());
         } else {
