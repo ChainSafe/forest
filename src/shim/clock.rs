@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use fvm_shared2::ALLOWABLE_CLOCK_DRIFT;
-pub use fvm_shared2::BLOCKS_PER_EPOCH;
+pub use fvm_shared4::ALLOWABLE_CLOCK_DRIFT;
+pub use fvm_shared4::BLOCKS_PER_EPOCH;
 
 pub const SECONDS_IN_DAY: i64 = 86400;
 pub const EPOCHS_IN_DAY: i64 = SECONDS_IN_DAY / EPOCH_DURATION_SECONDS;
@@ -25,6 +25,14 @@ mod tests {
         assert_eq!(
             super::EPOCH_DURATION_SECONDS,
             fvm_shared3::clock::EPOCH_DURATION_SECONDS
+        )
+    }
+
+    #[test]
+    fn fvm4_shim_of_const_epoch_duration_seconds() {
+        assert_eq!(
+            super::EPOCH_DURATION_SECONDS,
+            fvm_shared4::clock::EPOCH_DURATION_SECONDS
         )
     }
 }

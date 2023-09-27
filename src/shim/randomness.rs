@@ -3,8 +3,10 @@
 
 use std::ops::{Deref, DerefMut};
 
+use super::fvm_shared_latest::randomness::Randomness as Randomness_latest;
 use fvm_shared2::randomness::Randomness as Randomness_v2;
 use fvm_shared3::randomness::Randomness as Randomness_v3;
+use fvm_shared4::randomness::Randomness as Randomness_v4;
 use serde::{Deserialize, Serialize};
 
 /// Represents a shim over `Randomness` from `fvm_shared` with convenience
@@ -27,16 +29,16 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(PartialEq, Eq, Default, Clone, Debug, Deserialize, Serialize)]
 #[serde(transparent)]
-pub struct Randomness(Randomness_v3);
+pub struct Randomness(Randomness_latest);
 
 impl Randomness {
     pub fn new(rand: Vec<u8>) -> Self {
-        Randomness(Randomness_v3(rand))
+        Randomness(Randomness_latest(rand))
     }
 }
 
 impl Deref for Randomness {
-    type Target = Randomness_v3;
+    type Target = Randomness_latest;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -48,26 +50,38 @@ impl DerefMut for Randomness {
     }
 }
 
+impl From<Randomness_v4> for Randomness {
+    fn from(other: Randomness_v4) -> Self {
+        Randomness(other)
+    }
+}
+
 impl From<Randomness_v3> for Randomness {
     fn from(other: Randomness_v3) -> Self {
-        Randomness(other)
+        Randomness(Randomness_latest(other.0))
     }
 }
 
 impl From<Randomness_v2> for Randomness {
     fn from(other: Randomness_v2) -> Self {
-        Randomness(Randomness_v3(other.0))
+        Randomness(Randomness_latest(other.0))
     }
 }
 
-impl From<Randomness> for Randomness_v3 {
+impl From<Randomness> for Randomness_v4 {
     fn from(other: Randomness) -> Self {
         other.0
     }
 }
 
+impl From<Randomness> for Randomness_v3 {
+    fn from(other: Randomness) -> Self {
+        Self(other.0 .0)
+    }
+}
+
 impl From<Randomness> for Randomness_v2 {
-    fn from(other: Randomness) -> Randomness_v2 {
-        Randomness_v2(other.0 .0)
+    fn from(other: Randomness) -> Self {
+        Self(other.0 .0)
     }
 }

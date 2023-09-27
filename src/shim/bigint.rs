@@ -3,22 +3,22 @@
 
 use std::ops::{Deref, DerefMut};
 
-pub use fvm_shared3::bigint::bigint_ser::{BigIntDe, BigIntSer};
-use fvm_shared3::bigint::{bigint_ser, BigInt as BigInt_v3};
+pub use fvm_shared4::bigint::bigint_ser::{BigIntDe, BigIntSer};
+use fvm_shared4::bigint::{bigint_ser, BigInt as BigInt_latest};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct BigInt(#[serde(with = "bigint_ser")] BigInt_v3);
+pub struct BigInt(#[serde(with = "bigint_ser")] BigInt_latest);
 
 impl BigInt {
-    pub fn inner(&self) -> &BigInt_v3 {
+    pub fn inner(&self) -> &BigInt_latest {
         &self.0
     }
 }
 
 impl Deref for BigInt {
-    type Target = BigInt_v3;
+    type Target = BigInt_latest;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -30,8 +30,8 @@ impl DerefMut for BigInt {
     }
 }
 
-impl From<BigInt_v3> for BigInt {
-    fn from(other: BigInt_v3) -> Self {
+impl From<BigInt_latest> for BigInt {
+    fn from(other: BigInt_latest) -> Self {
         BigInt(other)
     }
 }

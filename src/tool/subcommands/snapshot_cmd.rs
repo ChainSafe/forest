@@ -24,7 +24,7 @@ use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared3::address::Network;
+use fvm_shared4::address::Network;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::sync::Arc;

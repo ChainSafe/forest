@@ -21,3 +21,10 @@ pub mod state_tree;
 pub mod state_tree_v0;
 pub mod trace;
 pub mod version;
+
+mod fvm_shared_latest {
+    pub use fvm_shared4::*;
+}
+mod fvm_latest {
+    pub use fvm4::*;
+}

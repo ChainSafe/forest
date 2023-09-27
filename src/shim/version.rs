@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
+use super::fvm_shared_latest::version::NetworkVersion as NetworkVersion_latest;
 pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
 use fvm_shared4::version::NetworkVersion as NetworkVersion_v4;
@@ -23,35 +24,35 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]
 #[serde(transparent)]
-pub struct NetworkVersion(pub NetworkVersion_v4);
+pub struct NetworkVersion(pub NetworkVersion_latest);
 
 impl NetworkVersion {
-    pub const V0: Self = Self(NetworkVersion_v4::new(0));
-    pub const V1: Self = Self(NetworkVersion_v4::new(1));
-    pub const V2: Self = Self(NetworkVersion_v4::new(2));
-    pub const V3: Self = Self(NetworkVersion_v4::new(3));
-    pub const V4: Self = Self(NetworkVersion_v4::new(4));
-    pub const V5: Self = Self(NetworkVersion_v4::new(5));
-    pub const V6: Self = Self(NetworkVersion_v4::new(6));
-    pub const V7: Self = Self(NetworkVersion_v4::new(7));
-    pub const V8: Self = Self(NetworkVersion_v4::new(8));
-    pub const V9: Self = Self(NetworkVersion_v4::new(9));
-    pub const V10: Self = Self(NetworkVersion_v4::new(10));
-    pub const V11: Self = Self(NetworkVersion_v4::new(11));
-    pub const V12: Self = Self(NetworkVersion_v4::new(12));
-    pub const V13: Self = Self(NetworkVersion_v4::new(13));
-    pub const V14: Self = Self(NetworkVersion_v4::new(14));
-    pub const V15: Self = Self(NetworkVersion_v4::new(15));
-    pub const V16: Self = Self(NetworkVersion_v4::new(16));
-    pub const V17: Self = Self(NetworkVersion_v4::new(17));
-    pub const V18: Self = Self(NetworkVersion_v4::new(18));
-    pub const V19: Self = Self(NetworkVersion_v4::new(19));
-    pub const V20: Self = Self(NetworkVersion_v4::new(20));
-    pub const V21: Self = Self(NetworkVersion_v4::new(21));
+    pub const V0: Self = Self(NetworkVersion_latest::new(0));
+    pub const V1: Self = Self(NetworkVersion_latest::new(1));
+    pub const V2: Self = Self(NetworkVersion_latest::new(2));
+    pub const V3: Self = Self(NetworkVersion_latest::new(3));
+    pub const V4: Self = Self(NetworkVersion_latest::new(4));
+    pub const V5: Self = Self(NetworkVersion_latest::new(5));
+    pub const V6: Self = Self(NetworkVersion_latest::new(6));
+    pub const V7: Self = Self(NetworkVersion_latest::new(7));
+    pub const V8: Self = Self(NetworkVersion_latest::new(8));
+    pub const V9: Self = Self(NetworkVersion_latest::new(9));
+    pub const V10: Self = Self(NetworkVersion_latest::new(10));
+    pub const V11: Self = Self(NetworkVersion_latest::new(11));
+    pub const V12: Self = Self(NetworkVersion_latest::new(12));
+    pub const V13: Self = Self(NetworkVersion_latest::new(13));
+    pub const V14: Self = Self(NetworkVersion_latest::new(14));
+    pub const V15: Self = Self(NetworkVersion_latest::new(15));
+    pub const V16: Self = Self(NetworkVersion_latest::new(16));
+    pub const V17: Self = Self(NetworkVersion_latest::new(17));
+    pub const V18: Self = Self(NetworkVersion_latest::new(18));
+    pub const V19: Self = Self(NetworkVersion_latest::new(19));
+    pub const V20: Self = Self(NetworkVersion_latest::new(20));
+    pub const V21: Self = Self(NetworkVersion_latest::new(21));
 }
 
 impl Deref for NetworkVersion {
-    type Target = NetworkVersion_v4;
+    type Target = NetworkVersion_latest;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
