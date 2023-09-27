@@ -9,6 +9,7 @@ use anyhow::{anyhow, bail, Context};
 use cid::Cid;
 pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
+pub use fvm4::state_tree::{ActorState as ActorStateV4, StateTree as StateTreeV4};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
@@ -293,18 +294,6 @@ impl DerefMut for ActorState {
     }
 }
 
-impl From<ActorStateV3> for ActorState {
-    fn from(value: ActorStateV3) -> Self {
-        ActorState(value)
-    }
-}
-
-impl From<&ActorStateV3> for ActorState {
-    fn from(value: &ActorStateV3) -> Self {
-        ActorState(value.clone())
-    }
-}
-
 impl From<ActorStateV2> for ActorState {
     fn from(value: ActorStateV2) -> Self {
         ActorState(ActorStateV3 {
@@ -329,9 +318,35 @@ impl From<&ActorStateV2> for ActorState {
     }
 }
 
-impl From<ActorState> for ActorStateV3 {
-    fn from(other: ActorState) -> Self {
-        other.0
+impl From<ActorStateV3> for ActorState {
+    fn from(value: ActorStateV3) -> Self {
+        ActorState(value)
+    }
+}
+
+impl From<&ActorStateV3> for ActorState {
+    fn from(value: &ActorStateV3) -> Self {
+        value.clone().into()
+    }
+}
+
+impl From<ActorStateV4> for ActorState {
+    fn from(value: ActorStateV4) -> Self {
+        ActorState(ActorStateV3 {
+            code: value.code,
+            state: value.state,
+            sequence: value.sequence,
+            balance: TokenAmount::from(value.balance).into(),
+            delegated_address: value
+                .delegated_address
+                .map(|addr| Address::from(addr).into()),
+        })
+    }
+}
+
+impl From<&ActorStateV4> for ActorState {
+    fn from(value: &ActorStateV4) -> Self {
+        value.clone().into()
     }
 }
 
@@ -354,6 +369,12 @@ impl From<&ActorState> for ActorStateV2 {
             sequence: other.sequence,
             balance: TokenAmount::from(&other.balance).into(),
         }
+    }
+}
+
+impl From<ActorState> for ActorStateV3 {
+    fn from(other: ActorState) -> Self {
+        other.0
     }
 }
 

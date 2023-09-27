@@ -6,18 +6,13 @@ use fvm2::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
 };
-pub use fvm3::gas::Gas as GasV3;
-pub use fvm3::gas::GasCharge as GasChargeV3;
-pub use fvm3::gas::GasTracker;
 use fvm3::gas::{
-    price_list_by_network_version as price_list_by_network_version_v3, PriceList as PriceListV3,
+    price_list_by_network_version as price_list_by_network_version_v3, Gas as GasV3,
     MILLIGAS_PRECISION,
 };
-pub use fvm4::gas::Gas as GasV4;
-pub use fvm4::gas::GasCharge as GasChargeV4;
-use fvm4::gas::{
-    price_list_by_network_version as price_list_by_network_version_v4, PriceList as PriceListV4,
-};
+pub use fvm3::gas::{GasCharge as GasChargeV3, GasTracker, PriceList as PriceListV3};
+use fvm4::gas::price_list_by_network_version as price_list_by_network_version_v4;
+pub use fvm4::gas::{Gas as GasV4, GasCharge as GasChargeV4, PriceList as PriceListV4};
 
 use crate::shim::version::NetworkVersion;
 
@@ -128,18 +123,43 @@ impl From<GasChargeV3> for GasCharge {
     }
 }
 
+impl From<GasChargeV4> for GasCharge {
+    fn from(value: GasChargeV4) -> Self {
+        GasChargeV3 {
+            name: value.name,
+            compute_gas: GasV3::from_milligas(value.compute_gas.as_milligas()),
+            other_gas: GasV3::from_milligas(value.other_gas.as_milligas()),
+            //  FIXME: elapsed: value.elapsed.into(),
+            elapsed: Default::default(),
+        }
+        .into()
+    }
+}
+
+impl From<GasCharge> for GasChargeV2 {
+    fn from(value: GasCharge) -> Self {
+        Self {
+            name: value.0.name,
+            compute_gas: GasV2::from_milligas(value.0.compute_gas.as_milligas() as _),
+            storage_gas: GasV2::from_milligas(value.0.other_gas.as_milligas() as _),
+        }
+    }
+}
+
 impl From<GasCharge> for GasChargeV3 {
     fn from(value: GasCharge) -> Self {
         value.0
     }
 }
 
-impl From<GasCharge> for GasChargeV2 {
+impl From<GasCharge> for GasChargeV4 {
     fn from(value: GasCharge) -> Self {
-        GasChargeV2 {
+        Self {
             name: value.0.name,
-            compute_gas: GasV2::from_milligas(value.0.compute_gas.as_milligas() as i64),
-            storage_gas: GasV2::from_milligas(value.0.other_gas.as_milligas() as i64),
+            compute_gas: GasV4::from_milligas(value.0.compute_gas.as_milligas() as _),
+            other_gas: GasV4::from_milligas(value.0.other_gas.as_milligas() as _),
+            //  FIXME: elapsed: value.elapsed.into(),
+            elapsed: Default::default(),
         }
     }
 }
@@ -147,6 +167,7 @@ impl From<GasCharge> for GasChargeV2 {
 pub enum PriceList {
     V2(&'static PriceListV2),
     V3(&'static PriceListV3),
+    V4(&'static PriceListV4),
 }
 
 impl PriceList {
@@ -154,6 +175,7 @@ impl PriceList {
         match self {
             PriceList::V2(list) => list.on_block_open_base().into(),
             PriceList::V3(list) => list.on_block_open_base().into(),
+            PriceList::V4(list) => list.on_block_open_base().into(),
         }
     }
 
@@ -163,6 +185,9 @@ impl PriceList {
             PriceList::V3(list) => list
                 .on_block_link(fvm3::kernel::SupportedHashes::Blake2b256, data_size)
                 .into(),
+            PriceList::V4(list) => list
+                .on_block_link(fvm4::kernel::SupportedHashes::Blake2b256, data_size)
+                .into(),
         }
     }
 
@@ -170,6 +195,7 @@ impl PriceList {
         match self {
             PriceList::V2(list) => list.on_chain_message(msg_size).into(),
             PriceList::V3(list) => list.on_chain_message(msg_size).into(),
+            PriceList::V4(list) => list.on_chain_message(msg_size).into(),
         }
     }
 }
@@ -179,16 +205,25 @@ impl From<&'static PriceListV2> for PriceList {
         PriceList::V2(value)
     }
 }
+
 impl From<&'static PriceListV3> for PriceList {
     fn from(value: &'static PriceListV3) -> Self {
         PriceList::V3(value)
     }
 }
 
+impl From<&'static PriceListV4> for PriceList {
+    fn from(value: &'static PriceListV4) -> Self {
+        PriceList::V4(value)
+    }
+}
+
 pub fn price_list_by_network_version(network_version: NetworkVersion) -> PriceList {
     if network_version < NetworkVersion::V18 {
         price_list_by_network_version_v2(network_version.into()).into()
-    } else {
+    } else if network_version < NetworkVersion::V21 {
         price_list_by_network_version_v3(network_version.into()).into()
+    } else {
+        price_list_by_network_version_v4(network_version.into()).into()
     }
 }

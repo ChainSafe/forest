@@ -6,6 +6,7 @@ use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 use fvm_shared2::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
+use fvm_shared4::econ::TokenAmount as TokenAmount_v4;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use once_cell::sync::Lazy;
@@ -115,15 +116,9 @@ impl TokenAmount {
     }
 }
 
-impl From<TokenAmount_v3> for TokenAmount {
-    fn from(other: TokenAmount_v3) -> Self {
-        TokenAmount(other)
-    }
-}
-
 impl From<TokenAmount_v2> for TokenAmount {
     fn from(other: TokenAmount_v2) -> Self {
-        TokenAmount::from(TokenAmount_v3::from_atto(other.atto().clone()))
+        (&other).into()
     }
 }
 
@@ -133,9 +128,27 @@ impl From<&TokenAmount_v2> for TokenAmount {
     }
 }
 
+impl From<TokenAmount_v3> for TokenAmount {
+    fn from(other: TokenAmount_v3) -> Self {
+        TokenAmount(other)
+    }
+}
+
 impl From<&TokenAmount_v3> for TokenAmount {
     fn from(other: &TokenAmount_v3) -> Self {
-        TokenAmount(other.clone())
+        other.clone().into()
+    }
+}
+
+impl From<TokenAmount_v4> for TokenAmount {
+    fn from(other: TokenAmount_v4) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&TokenAmount_v4> for TokenAmount {
+    fn from(other: &TokenAmount_v4) -> Self {
+        TokenAmount(TokenAmount_v3::from_atto(other.atto().clone()))
     }
 }
 
@@ -145,21 +158,33 @@ impl From<TokenAmount> for TokenAmount_v3 {
     }
 }
 
-impl From<&TokenAmount> for TokenAmount_v3 {
-    fn from(other: &TokenAmount) -> TokenAmount_v3 {
-        other.0.clone()
-    }
-}
-
 impl From<TokenAmount> for TokenAmount_v2 {
     fn from(other: TokenAmount) -> TokenAmount_v2 {
-        TokenAmount_v2::from_atto(other.atto().clone())
+        (&other).into()
     }
 }
 
 impl From<&TokenAmount> for TokenAmount_v2 {
     fn from(other: &TokenAmount) -> TokenAmount_v2 {
         TokenAmount_v2::from_atto(other.atto().clone())
+    }
+}
+
+impl From<&TokenAmount> for TokenAmount_v3 {
+    fn from(other: &TokenAmount) -> TokenAmount_v3 {
+        other.0.clone()
+    }
+}
+
+impl From<TokenAmount> for TokenAmount_v4 {
+    fn from(other: TokenAmount) -> TokenAmount_v4 {
+        (&other).into()
+    }
+}
+
+impl From<&TokenAmount> for TokenAmount_v4 {
+    fn from(other: &TokenAmount) -> TokenAmount_v4 {
+        TokenAmount_v4::from_atto(other.atto().clone())
     }
 }
 

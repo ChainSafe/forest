@@ -4,8 +4,10 @@ use self::ErrorNumber as NShim;
 use self::SyscallError as EShim;
 use fvm2::kernel::SyscallError as E2;
 use fvm3::kernel::SyscallError as E3;
+use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
+use fvm_shared4::error::ErrorNumber as N4;
 use itertools::Either;
 use std::fmt;
 
@@ -26,7 +28,7 @@ macro_rules! error_number {
             fn from(value: N2) -> Self {
                 match value {
                     $(N2::$variant => Self::$variant,)*
-                    u => Self::Unknown(UnknownErrorNumber(Either::Left(u))),
+                    u => Self::Unknown(UnknownErrorNumber::N2(u)),
                 }
             }
         }
@@ -35,16 +37,25 @@ macro_rules! error_number {
             fn from(value: N3) -> Self {
                 match value {
                     $(N3::$variant => Self::$variant,)*
-                    u => Self::Unknown(UnknownErrorNumber(Either::Right(u))),
+                    u => Self::Unknown(UnknownErrorNumber::N3(u)),
+                }
+            }
+        }
+
+        impl From<N4> for ErrorNumber {
+            fn from(value: N4) -> Self {
+                match value {
+                    $(N4::$variant => Self::$variant,)*
+                    u => Self::Unknown(UnknownErrorNumber::N4(u)),
                 }
             }
         }
 
         impl ErrorNumber {
-            fn as_unshimmed(&self) -> Either<N2, N3> {
+            fn as_unshimmed(&self) -> Either<N3, Either<N4, N2>> {
                 match self {
-                    $(Self::$variant => Either::Right(N3::$variant),)*
-                    Self::Unknown(UnknownErrorNumber(u)) => *u,
+                    $(Self::$variant => Either::Left(N3::$variant),)*
+                    Self::Unknown(u) => u.as_unshimmed(),
                 }
             }
         }
@@ -52,7 +63,21 @@ macro_rules! error_number {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnknownErrorNumber(Either<N2, N3>);
+pub enum UnknownErrorNumber {
+    N2(N2),
+    N3(N3),
+    N4(N4),
+}
+
+impl UnknownErrorNumber {
+    fn as_unshimmed(&self) -> Either<N3, Either<N4, N2>> {
+        match self {
+            Self::N2(n) => Either::Right(Either::Right(*n)),
+            Self::N3(n) => Either::Left(*n),
+            Self::N4(n) => Either::Right(Either::Left(*n)),
+        }
+    }
+}
 
 error_number! {
     IllegalArgument,
@@ -95,6 +120,16 @@ impl From<E2> for EShim {
 impl From<E3> for EShim {
     fn from(value: E3) -> Self {
         let E3(message, number) = value;
+        Self {
+            message,
+            number: number.into(),
+        }
+    }
+}
+
+impl From<E4> for EShim {
+    fn from(value: E4) -> Self {
+        let E4(message, number) = value;
         Self {
             message,
             number: number.into(),

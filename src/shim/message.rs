@@ -8,6 +8,7 @@ use fvm_ipld_encoding::{Error as EncError, RawBytes};
 use fvm_shared2::message::Message as Message_v2;
 pub use fvm_shared3::message::Message as Message_v3;
 pub use fvm_shared3::METHOD_SEND;
+use fvm_shared4::message::Message as Message_v4;
 use serde::{Deserialize, Serialize};
 
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -33,9 +34,50 @@ pub struct Message {
     pub gas_premium: TokenAmount,
 }
 
+impl From<Message_v4> for Message {
+    fn from(other: Message_v4) -> Self {
+        Self {
+            version: other.version,
+            from: other.from.into(),
+            to: other.to.into(),
+            sequence: other.sequence,
+            value: other.value.into(),
+            method_num: other.method_num,
+            params: other.params,
+            gas_limit: other.gas_limit,
+            gas_fee_cap: other.gas_fee_cap.into(),
+            gas_premium: other.gas_premium.into(),
+        }
+    }
+}
+
+impl From<Message> for Message_v4 {
+    fn from(other: Message) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&Message> for Message_v4 {
+    fn from(other: &Message) -> Self {
+        let other: Message = other.clone();
+        Self {
+            version: other.version,
+            from: other.from.into(),
+            to: other.to.into(),
+            sequence: other.sequence,
+            value: other.value.into(),
+            method_num: other.method_num,
+            params: other.params,
+            gas_limit: other.gas_limit,
+            gas_fee_cap: other.gas_fee_cap.into(),
+            gas_premium: other.gas_premium.into(),
+        }
+    }
+}
+
 impl From<Message_v3> for Message {
     fn from(other: Message_v3) -> Self {
-        Message {
+        Self {
             version: other.version,
             from: other.from.into(),
             to: other.to.into(),
@@ -52,25 +94,14 @@ impl From<Message_v3> for Message {
 
 impl From<Message> for Message_v3 {
     fn from(other: Message) -> Self {
-        Message_v3 {
-            version: other.version,
-            from: other.from.into(),
-            to: other.to.into(),
-            sequence: other.sequence,
-            value: other.value.into(),
-            method_num: other.method_num,
-            params: other.params,
-            gas_limit: other.gas_limit,
-            gas_fee_cap: other.gas_fee_cap.into(),
-            gas_premium: other.gas_premium.into(),
-        }
+        (&other).into()
     }
 }
 
 impl From<&Message> for Message_v3 {
     fn from(other: &Message) -> Self {
         let other: Message = other.clone();
-        Message_v3 {
+        Self {
             version: other.version,
             from: other.from.into(),
             to: other.to.into(),
@@ -87,7 +118,7 @@ impl From<&Message> for Message_v3 {
 
 impl From<Message_v2> for Message {
     fn from(other: Message_v2) -> Self {
-        Message {
+        Self {
             version: other.version as u64,
             from: other.from.into(),
             to: other.to.into(),
@@ -104,7 +135,7 @@ impl From<Message_v2> for Message {
 
 impl From<Message> for Message_v2 {
     fn from(other: Message) -> Self {
-        Message_v2 {
+        Self {
             version: other.version as i64,
             from: other.from.into(),
             to: other.to.into(),
@@ -121,19 +152,7 @@ impl From<Message> for Message_v2 {
 
 impl From<&Message> for Message_v2 {
     fn from(other: &Message) -> Self {
-        let other: Message = other.clone();
-        Message_v2 {
-            version: other.version as i64,
-            from: other.from.into(),
-            to: other.to.into(),
-            sequence: other.sequence,
-            value: other.value.into(),
-            method_num: other.method_num,
-            params: other.params,
-            gas_limit: other.gas_limit as i64,
-            gas_fee_cap: other.gas_fee_cap.into(),
-            gas_premium: other.gas_premium.into(),
-        }
+        other.clone().into()
     }
 }
 
