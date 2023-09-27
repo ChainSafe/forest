@@ -133,9 +133,7 @@ pub enum StateTree<S> {
     FvmV2(StateTreeV2<Arc<S>>),
     // fvm-3 support state tree versions 5.
     FvmV3(StateTreeV3<Arc<S>>),
-    // FIXME: https://github.com/ChainSafe/forest/issues/3523
     // fvm-4 support state tree versions *.
-    #[allow(dead_code)]
     FvmV4(StateTreeV4<Arc<S>>),
 }
 
@@ -145,7 +143,9 @@ where
 {
     /// Constructor for a HAMT state tree given an IPLD store
     pub fn new(store: Arc<S>, version: StateTreeVersion) -> anyhow::Result<Self> {
-        if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
+        if let Ok(st) = StateTreeV4::new(store.clone(), version.try_into()?) {
+            Ok(StateTree::FvmV4(st))
+        } else if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
             Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
             Ok(StateTree::FvmV2(st))
@@ -155,7 +155,9 @@ where
     }
 
     pub fn new_from_root(store: Arc<S>, c: &Cid) -> anyhow::Result<Self> {
-        if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
+        if let Ok(st) = StateTreeV4::new_from_root(store.clone(), c) {
+            Ok(StateTree::FvmV4(st))
+        } else if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
             Ok(StateTree::FvmV2(st))
@@ -224,7 +226,8 @@ where
         match self {
             StateTree::FvmV2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
             StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
-            _ => bail!("StateTree::lookup_id not supported on old state trees"),
+            StateTree::FvmV4(st) => Ok(st.lookup_id(&addr.into())?),
+            StateTree::V0(_) => bail!("StateTree::lookup_id not supported on old state trees"),
         }
     }
 
@@ -245,7 +248,13 @@ where
                 };
                 st.for_each(inner)
             }
-            _ => bail!("StateTree::for_each not supported on old state trees"),
+            StateTree::FvmV4(st) => {
+                let inner = |address: fvm_shared4::address::Address, actor_state: &ActorStateV4| {
+                    f(address.into(), &actor_state.into())
+                };
+                st.for_each(inner)
+            }
+            StateTree::V0(_) => bail!("StateTree::for_each not supported on old state trees"),
         }
     }
 
@@ -254,7 +263,8 @@ where
         match self {
             StateTree::FvmV2(st) => st.flush().map_err(|e| anyhow!("{e}")),
             StateTree::FvmV3(st) => Ok(st.flush()?),
-            _ => bail!("StateTree::flush not supported on old state trees"),
+            StateTree::FvmV4(st) => Ok(st.flush()?),
+            StateTree::V0(_) => bail!("StateTree::flush not supported on old state trees"),
         }
     }
 
@@ -271,7 +281,14 @@ where
                 st.set_actor(id, actor.into());
                 Ok(())
             }
-            _ => bail!("StateTree::set_actor not supported on old state trees"),
+            StateTree::FvmV4(st) => {
+                let id = st
+                    .lookup_id(&addr.into())?
+                    .context("couldn't find actor id")?;
+                st.set_actor(id, actor.into());
+                Ok(())
+            }
+            StateTree::V0(_) => bail!("StateTree::set_actor not supported on old state trees"),
         }
     }
 }
