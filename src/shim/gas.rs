@@ -129,7 +129,8 @@ impl From<GasChargeV4> for GasCharge {
             name: value.name,
             compute_gas: GasV3::from_milligas(value.compute_gas.as_milligas()),
             other_gas: GasV3::from_milligas(value.other_gas.as_milligas()),
-            //  FIXME: elapsed: value.elapsed.into(),
+            // FIXME: https://github.com/filecoin-project/ref-fvm/pull/1897
+            // elapsed: value.elapsed.into(),
             elapsed: Default::default(),
         }
         .into()
@@ -158,7 +159,8 @@ impl From<GasCharge> for GasChargeV4 {
             name: value.0.name,
             compute_gas: GasV4::from_milligas(value.0.compute_gas.as_milligas() as _),
             other_gas: GasV4::from_milligas(value.0.other_gas.as_milligas() as _),
-            //  FIXME: elapsed: value.elapsed.into(),
+            // FIXME: https://github.com/filecoin-project/ref-fvm/pull/1897
+            // elapsed: value.elapsed.into(),
             elapsed: Default::default(),
         }
     }
