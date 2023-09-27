@@ -12,12 +12,15 @@ mkdir -p "${DATA_DIR}"
 chmod -R 777 "${DATA_DIR}"
 
 # Run Forest 0.12.1 with mounted db so that we can re-use it later.
+# NOTE: We aren't using '--auto-download-snapshot', because of a bug in
+# forest-0.12.1 that's related to `Content-Disposition` parsing.
 docker run --init --rm --name forest-0.12.1 \
   --volume "${DATA_DIR}":/home/forest/.local/share/forest \
   ghcr.io/chainsafe/forest:v0.12.1 \
   --chain calibnet \
   --encrypt-keystore false \
-  --auto-download-snapshot --halt-after-import
+  --import-snapshot=https://forest-archive.chainsafe.dev/latest/calibnet/ \
+  --halt-after-import
 
 # Assert the database is looking as expected.
 if [ ! -d "${DATA_DIR}/calibnet/paritydb" ]; then

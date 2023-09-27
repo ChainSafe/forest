@@ -12,18 +12,18 @@ use crate::rpc_api::{
 };
 use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
+use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context;
 use fil_actor_interface::market;
+use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 use parking_lot::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 // TODO handle using configurable verification implementation in RPC (all
 // defaulting to Full).
@@ -200,13 +200,15 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
 
     let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
         let (car_tx, car_rx) = flume::bounded(100);
-        let header = CarHeader::from(vec![root_cid]);
+        let roots = vec![root_cid];
         let file = tokio::fs::File::create(save_to_file).await?;
 
         let car_handle = tokio::spawn(async move {
-            let mut file = file.compat();
-            let mut stream = car_rx.stream();
-            header.write_stream_async(&mut file, &mut stream).await
+            car_rx
+                .stream()
+                .map(Ok)
+                .forward(CarWriter::new_carv1(roots, file)?)
+                .await
         });
 
         (Some(car_tx), Some(car_handle))
@@ -267,12 +269,12 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                     if let Some(next_ipld) = db.get_cbor(&new_cid)? {
                         dfs_guard.push(next_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send((
-                                new_cid,
-                                db.get(&new_cid)?.with_context(|| {
+                            car_tx.send(CarBlock {
+                                cid: new_cid,
+                                data: db.get(&new_cid)?.with_context(|| {
                                     format!("Failed to get cid {new_cid} from block store")
                                 })?,
-                            ))?;
+                            })?;
                         }
                     } else {
                         to_be_fetched.push(new_cid);
@@ -307,12 +309,12 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                             .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
                         dfs_vec.lock().push(new_ipld);
                         if let Some(car_tx) = &car_tx {
-                            car_tx.send((
+                            car_tx.send(CarBlock {
                                 cid,
-                                db.get(&cid)?.with_context(|| {
+                                data: db.get(&cid)?.with_context(|| {
                                     format!("Failed to get cid {cid} from block store")
                                 })?,
-                            ))?;
+                            })?;
                         }
 
                         Ok(())

@@ -2,10 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use futures::{Stream, StreamExt, TryStreamExt};
-use tokio::io::{AsyncBufRead, AsyncSeek};
+use fvm_ipld_blockstore::Blockstore;
+use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::cid_collections::CidHashSet;
-use crate::utils::db::car_stream::{CarBlock, CarStream};
+use crate::utils::db::car_stream::{CarBlock, CarHeader, CarStream};
+
+/// Stream key-value pairs from a CAR archive into a block store.
+/// The block store is not restored to its original state in case of errors.
+pub async fn load_car<R>(db: &impl Blockstore, reader: R) -> anyhow::Result<CarHeader>
+where
+    R: AsyncBufRead + Unpin,
+{
+    let mut stream = CarStream::new(BufReader::new(reader)).await?;
+    while let Some(block) = stream.try_next().await? {
+        db.put_keyed(&block.cid, &block.data)?;
+    }
+    Ok(stream.header)
+}
 
 pub fn merge_car_streams<R>(
     car_streams: Vec<CarStream<R>>,

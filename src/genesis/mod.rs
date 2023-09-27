@@ -3,13 +3,9 @@
 
 use crate::blocks::BlockHeader;
 use crate::state_manager::StateManager;
-use cid::Cid;
-use futures::AsyncRead;
+use crate::utils::db::car_util::load_car;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::load_car;
-
-use tokio::{fs::File, io::BufReader};
-use tokio_util::compat::TokioAsyncReadCompatExt;
+use tokio::{fs::File, io::AsyncBufRead, io::BufReader};
 use tracing::{debug, info};
 
 #[cfg(test)]
@@ -29,14 +25,13 @@ where
         Some(path) => {
             let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader.compat(), db).await?
+            process_car(reader, db).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
-            let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader.compat(), db).await?
+            process_car(genesis_bytes, db).await?
         }
     };
 
@@ -60,16 +55,16 @@ where
 
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
-    R: AsyncRead + Send + Unpin,
+    R: AsyncBufRead + Unpin,
     BS: Blockstore,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(db, reader).await?;
-    if genesis_cids.len() != 1 {
+    let header = load_car(db, reader).await?;
+    if header.roots.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block = BlockHeader::load(db, genesis_cids[0])?.ok_or_else(|| {
+    let genesis_block = BlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 
