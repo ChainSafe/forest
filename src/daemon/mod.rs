@@ -642,7 +642,7 @@ where
 /// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
 ///
 /// This code makes blocking syscalls.
-fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Result<KeyStore> {
+fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Result<KeyStore> {
     let keystore = RefCell::new(None);
     let term = Term::stderr();
 
@@ -653,7 +653,8 @@ fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Resu
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotConnected,
             "cannot read password from non-terminal",
-        ));
+        )
+        .into());
     }
 
     dialoguer::Password::new()
@@ -676,7 +677,7 @@ fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Resu
 /// Loops until the user provides two matching passwords.
 ///
 /// This code makes blocking syscalls
-fn create_password(prompt: &str) -> std::io::Result<String> {
+fn create_password(prompt: &str) -> dialoguer::Result<String> {
     let term = Term::stderr();
 
     // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
@@ -686,7 +687,8 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotConnected,
             "cannot read password from non-terminal",
-        ));
+        )
+        .into());
     }
     dialoguer::Password::new()
         .with_prompt(prompt)
