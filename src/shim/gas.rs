@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::fmt::{Debug, Display};
 
+pub use super::fvm_latest::gas::{Gas as Gas_latest, GasCharge as GasCharge_latest};
 use fvm2::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
@@ -12,12 +13,14 @@ use fvm3::gas::{
 };
 pub use fvm3::gas::{GasCharge as GasChargeV3, GasTracker, PriceList as PriceListV3};
 use fvm4::gas::price_list_by_network_version as price_list_by_network_version_v4;
-pub use fvm4::gas::{Gas as GasV4, GasCharge as GasChargeV4, PriceList as PriceListV4};
+pub use fvm4::gas::{
+    Gas as GasV4, GasCharge as GasChargeV4, GasDuration as GasDurationV4, PriceList as PriceListV4,
+};
 
 use crate::shim::version::NetworkVersion;
 
 #[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Default)]
-pub struct Gas(GasV3);
+pub struct Gas(Gas_latest);
 
 impl Debug for Gas {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -47,7 +50,7 @@ impl Display for Gas {
 
 impl Gas {
     pub fn new(gas: u64) -> Self {
-        Self(GasV3::new(gas))
+        Self(Gas_latest::new(gas))
     }
 
     pub fn round_up(&self) -> u64 {
@@ -57,13 +60,13 @@ impl Gas {
 
 impl From<GasV2> for Gas {
     fn from(value: GasV2) -> Self {
-        Gas(GasV3::from_milligas(value.as_milligas() as u64))
+        Gas(Gas_latest::from_milligas(value.as_milligas() as _))
     }
 }
 
 impl From<Gas> for GasV2 {
     fn from(value: Gas) -> Self {
-        GasV2::from_milligas(value.0.as_milligas() as i64)
+        GasV2::from_milligas(value.0.as_milligas() as _)
     }
 }
 
@@ -73,20 +76,26 @@ impl From<Gas> for GasV3 {
     }
 }
 
+impl From<GasV3> for Gas {
+    fn from(value: GasV3) -> Self {
+        Gas(Gas_latest::from_milligas(value.as_milligas() as _))
+    }
+}
+
 impl From<Gas> for GasV4 {
     fn from(value: Gas) -> Self {
         GasV4::from_milligas(value.0.as_milligas())
     }
 }
 
-impl From<GasV3> for Gas {
-    fn from(value: GasV3) -> Self {
+impl From<GasV4> for Gas {
+    fn from(value: GasV4) -> Self {
         Gas(value)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct GasCharge(GasChargeV3);
+pub struct GasCharge(GasCharge_latest);
 
 impl GasCharge {
     /// Calculates total gas charge (in `milligas`) by summing compute and
@@ -119,21 +128,19 @@ impl From<GasChargeV2> for GasCharge {
 
 impl From<GasChargeV3> for GasCharge {
     fn from(value: GasChargeV3) -> Self {
-        GasCharge(value)
+        GasChargeV4 {
+            name: value.name,
+            compute_gas: GasV4::from_milligas(value.compute_gas.as_milligas()),
+            other_gas: GasV4::from_milligas(value.other_gas.as_milligas()),
+            elapsed: value.elapsed.get().map(|&d| d.into()).unwrap_or_default(),
+        }
+        .into()
     }
 }
 
 impl From<GasChargeV4> for GasCharge {
     fn from(value: GasChargeV4) -> Self {
-        GasChargeV3 {
-            name: value.name,
-            compute_gas: GasV3::from_milligas(value.compute_gas.as_milligas()),
-            other_gas: GasV3::from_milligas(value.other_gas.as_milligas()),
-            // FIXME: https://github.com/ChainSafe/forest/issues/3524
-            // elapsed: value.elapsed.into(),
-            elapsed: Default::default(),
-        }
-        .into()
+        GasCharge(value)
     }
 }
 
@@ -149,20 +156,19 @@ impl From<GasCharge> for GasChargeV2 {
 
 impl From<GasCharge> for GasChargeV3 {
     fn from(value: GasCharge) -> Self {
-        value.0
+        Self {
+            name: value.0.name,
+            compute_gas: GasV3::from_milligas(value.0.compute_gas.as_milligas() as _),
+            other_gas: GasV3::from_milligas(value.0.other_gas.as_milligas() as _),
+            // FIXME: https://github.com/ChainSafe/forest/issues/3524
+            elapsed: Default::default(),
+        }
     }
 }
 
 impl From<GasCharge> for GasChargeV4 {
     fn from(value: GasCharge) -> Self {
-        Self {
-            name: value.0.name,
-            compute_gas: GasV4::from_milligas(value.0.compute_gas.as_milligas() as _),
-            other_gas: GasV4::from_milligas(value.0.other_gas.as_milligas() as _),
-            // FIXME: https://github.com/ChainSafe/forest/issues/3524
-            // elapsed: value.elapsed.into(),
-            elapsed: Default::default(),
-        }
+        value.0
     }
 }
 
